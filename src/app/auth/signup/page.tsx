@@ -1,0 +1,224 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Home, User, Building2, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Suspense } from 'react'
+
+function SignupForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const supabase = createClient()
+
+  const defaultRole = searchParams.get('role') === 'broker' ? 'broker' : 'user'
+  const [role, setRole] = useState<'user' | 'broker'>(defaultRole)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [phone, setPhone] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+
+  const pwMatch = password === passwordConfirm
+  const pwStrong = password.length >= 8
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pwMatch) { setError('비밀번호가 일치하지 않습니다.'); return }
+    if (!pwStrong) { setError('비밀번호는 8자 이상이어야 합니다.'); return }
+    if (!agreeTerms) { setError('이용약관에 동의해주세요.'); return }
+
+    setLoading(true)
+    setError('')
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, phone, role } },
+    })
+
+    if (signUpError) {
+      setError(signUpError.message === 'User already registered'
+        ? '이미 가입된 이메일입니다.'
+        : signUpError.message)
+      setLoading(false)
+      return
+    }
+
+    if (data.user) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        email,
+        name,
+        phone,
+        role,
+      })
+    }
+
+    if (role === 'broker') {
+      router.push('/broker/register')
+    } else {
+      setSuccess(true)
+    }
+    setLoading(false)
+  }
+
+  if (success) {
+    return (
+      <div className="rounded-2xl bg-white p-10 shadow-sm border border-gray-100 text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+          <CheckCircle className="h-8 w-8 text-green-600" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">가입 완료! 🎉</h2>
+        <p className="text-gray-500 text-sm mb-6">
+          입력하신 이메일로 인증 메일을 보냈어요.<br />
+          이메일을 확인하고 인증을 완료해주세요.
+        </p>
+        <Link href="/auth/login">
+          <Button variant="primary" size="lg" className="w-full">로그인하러 가기</Button>
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="mb-8 text-center">
+        <Link href="/" className="inline-flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
+            <Home className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-2xl font-bold text-gray-900">빠방</span>
+        </Link>
+        <h1 className="mt-6 text-2xl font-bold text-gray-900">빠방에 오신 걸 환영해요 🏠</h1>
+        <p className="mt-2 text-sm text-gray-500">무료로 시작하세요</p>
+      </div>
+
+      <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
+        {/* 역할 선택 */}
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          {[
+            { value: 'user', label: '집 구하는 분', icon: User, desc: '매물 요청 · 무료' },
+            { value: 'broker', label: '공인중개사', icon: Building2, desc: '매물 제안 · 인증 필요' },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setRole(option.value as 'user' | 'broker')}
+              className={cn(
+                'rounded-xl border-2 p-4 text-left transition-all',
+                role === option.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              )}
+            >
+              <option.icon className={cn('mb-2 h-5 w-5', role === option.value ? 'text-blue-600' : 'text-gray-400')} />
+              <div className={cn('font-semibold text-sm', role === option.value ? 'text-blue-700' : 'text-gray-700')}>
+                {option.label}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">{option.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleSignup} className="space-y-4">
+          <Input label="이름" placeholder="홍길동" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input label="이메일" type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+
+          {/* 비밀번호 */}
+          <div className="relative">
+            <Input
+              label="비밀번호"
+              type={showPw ? 'text' : 'password'}
+              placeholder="8자 이상"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="pr-11"
+              hint={password && !pwStrong ? '8자 이상 입력해주세요' : undefined}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(v => !v)}
+              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+              tabIndex={-1}
+            >
+              {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
+
+          {/* 비밀번호 확인 */}
+          <div className="relative">
+            <Input
+              label="비밀번호 확인"
+              type={showPw ? 'text' : 'password'}
+              placeholder="비밀번호 재입력"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              required
+              className="pr-11"
+              error={passwordConfirm && !pwMatch ? '비밀번호가 일치하지 않습니다' : undefined}
+            />
+            {passwordConfirm && pwMatch && (
+              <CheckCircle className="absolute right-3 top-[38px] h-5 w-5 text-green-500" />
+            )}
+          </div>
+
+          <Input label="휴대폰 번호" placeholder="010-1234-5678" value={phone} onChange={(e) => setPhone(e.target.value)} />
+
+          {/* 약관 동의 */}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={agreeTerms}
+              onChange={(e) => setAgreeTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-blue-600"
+            />
+            <span className="text-sm text-gray-600">
+              <Link href="/terms" className="text-blue-600 hover:underline">이용약관</Link>과{' '}
+              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의합니다 <span className="text-red-500">*</span>
+            </span>
+          </label>
+
+          {error && (
+            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">⚠️ {error}</div>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full"
+            size="lg"
+            loading={loading}
+            disabled={!agreeTerms}
+          >
+            {role === 'broker' ? '중개사로 가입하기' : '회원가입'}
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-gray-500">
+          이미 계정이 있으신가요?{' '}
+          <Link href="/auth/login" className="font-semibold text-blue-600 hover:underline">로그인</Link>
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+      <div className="w-full max-w-md">
+        <Suspense fallback={<div className="text-center text-gray-400">로딩 중...</div>}>
+          <SignupForm />
+        </Suspense>
+      </div>
+    </div>
+  )
+}
