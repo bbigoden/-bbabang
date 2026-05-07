@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { MapPin, Clock, Star, MessageCircle, ChevronRight, Home, CheckCircle, Pencil } from 'lucide-react'
 import { ProposalActions } from '@/components/proposal-actions'
+import { CloseRequestButton } from '@/components/close-request-button'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -55,8 +56,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                   {request.room_type?.split(',').map((t: string) => (
                     <Badge key={t} variant="default">{t.trim()}</Badge>
                   ))}
-                  <Badge variant={request.status === 'active' ? 'success' : 'default'}>
-                    {request.status === 'active' ? '모집 중' : request.status === 'matched' ? '매칭 완료' : '종료'}
+                  <Badge variant={request.status === 'active' ? 'success' : request.status === 'matched' ? 'info' : 'default'}>
+                    {request.status === 'active' ? '모집 중' : request.status === 'matched' ? '매칭 완료' : request.status === 'closed' ? '마감' : '종료'}
                   </Badge>
                 </div>
                 <h1 className="text-xl font-bold text-gray-900">
@@ -95,9 +96,12 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           </CardBody>
         </Card>
 
-        {/* 요청자용: 수정 버튼 */}
+        {/* 요청자용: 수정 + 마감 버튼 */}
         {isOwner && (
-          <div className="mb-4 flex justify-end">
+          <div className="mb-4 flex justify-end gap-2">
+            {request.status === 'active' && (
+              <CloseRequestButton requestId={id} />
+            )}
             <Link href={`/request/${id}/edit`}>
               <Button variant="outline" size="sm">
                 <Pencil className="mr-1.5 h-4 w-4" />
@@ -144,9 +148,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                     <CardBody>
                       <div className="flex items-start gap-4">
                         {/* 중개사 아바타 */}
-                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-lg">
-                          {brokerProfile?.name?.[0] ?? 'B'}
-                        </div>
+                        <Link href={`/broker/${broker?.id}`}>
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-lg hover:ring-2 hover:ring-blue-300 transition-all cursor-pointer">
+                            {brokerProfile?.name?.[0] ?? 'B'}
+                          </div>
+                        </Link>
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
@@ -187,6 +193,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                                 proposalId={proposal.id}
                                 requestId={id}
                                 currentStatus={proposal.status}
+                                brokerId={broker?.user_id}
+                                requestOwnerId={request.user_id}
                               />
                             )}
                           </div>

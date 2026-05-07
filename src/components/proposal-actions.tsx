@@ -11,9 +11,11 @@ interface ProposalActionsProps {
   proposalId: string
   requestId: string
   currentStatus: string
+  brokerId?: string   // 알림 전송용
+  requestOwnerId?: string  // 알림 전송용
 }
 
-export function ProposalActions({ proposalId, requestId, currentStatus }: ProposalActionsProps) {
+export function ProposalActions({ proposalId, requestId, currentStatus, brokerId, requestOwnerId }: ProposalActionsProps) {
   const router = useRouter()
   const supabase = createClient()
   const [status, setStatus] = useState(currentStatus)
@@ -22,8 +24,19 @@ export function ProposalActions({ proposalId, requestId, currentStatus }: Propos
   const handleAccept = async () => {
     setLoading('accept')
     await supabase.from('proposals').update({ status: 'accepted' }).eq('id', proposalId)
-    // 요청 상태도 matched로 변경
     await supabase.from('request_posts').update({ status: 'matched' }).eq('id', requestId)
+
+    // 중개사에게 수락 알림
+    if (brokerId) {
+      await supabase.from('notifications').insert({
+        user_id: brokerId,
+        type: 'proposal_accepted',
+        title: '제안이 수락되었습니다! 🎉',
+        body: '고객이 제안을 수락했어요. 채팅으로 이동해 상담을 시작하세요.',
+        link: `/chat/${proposalId}`,
+      })
+    }
+
     setStatus('accepted')
     setLoading(null)
     router.refresh()
@@ -32,6 +45,18 @@ export function ProposalActions({ proposalId, requestId, currentStatus }: Propos
   const handleReject = async () => {
     setLoading('reject')
     await supabase.from('proposals').update({ status: 'rejected' }).eq('id', proposalId)
+
+    // 중개사에게 거절 알림
+    if (brokerId) {
+      await supabase.from('notifications').insert({
+        user_id: brokerId,
+        type: 'proposal_rejected',
+        title: '제안이 거절되었습니다',
+        body: '고객이 제안을 거절했어요.',
+        link: `/dashboard/broker`,
+      })
+    }
+
     setStatus('rejected')
     setLoading(null)
     router.refresh()

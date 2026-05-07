@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Home, MessageCircle, Bell, User, Menu, X } from 'lucide-react'
+import { Home, MessageCircle, User, Menu, X } from 'lucide-react'
 import { useState } from 'react'
+import { NotificationBell } from '@/components/notification-bell'
 
 interface HeaderProps {
   user?: { id: string; email?: string } | null
@@ -50,19 +51,20 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
           {user ? (
             <>
               <Link href="/chat">
-                <Button variant="ghost" size="sm" className="relative">
-                  <MessageCircle className="h-4 w-4" />
+                <button className="relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+                  <MessageCircle className="h-5 w-5 text-gray-600" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
-                </Button>
+                </button>
               </Link>
+              <NotificationBell userId={user.id} />
               <Link href="/dashboard/user">
-                <Button variant="ghost" size="sm">
-                  <User className="h-4 w-4" />
-                </Button>
+                <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+                  <User className="h-5 w-5 text-gray-600" />
+                </button>
               </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>로그아웃</Button>
             </>
@@ -79,9 +81,12 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
         </nav>
 
         {/* 모바일 메뉴 버튼 */}
-        <button className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
-          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          {user && <NotificationBell userId={user.id} />}
+          <button onClick={() => setMobileOpen(!mobileOpen)}>
+            {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </div>
 
       {/* 모바일 메뉴 */}
@@ -91,10 +96,22 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
             <Link href="/request/new" onClick={() => setMobileOpen(false)}>
               <Button variant="ghost" size="md" className="w-full justify-start">매물 요청하기</Button>
             </Link>
+            {role === 'broker' && (
+              <Link href="/dashboard/broker" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" size="md" className="w-full justify-start">중개사 대시보드</Button>
+              </Link>
+            )}
             {user ? (
               <>
                 <Link href="/chat" onClick={() => setMobileOpen(false)}>
-                  <Button variant="ghost" size="md" className="w-full justify-start">채팅</Button>
+                  <Button variant="ghost" size="md" className="w-full justify-start">
+                    채팅
+                    {unreadCount > 0 && (
+                      <span className="ml-2 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </Button>
                 </Link>
                 <Link href="/dashboard/user" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">내 요청 관리</Button>

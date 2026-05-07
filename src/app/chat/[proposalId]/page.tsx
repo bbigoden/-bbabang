@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, Star } from 'lucide-react'
+import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, Star, ImagePlus } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +31,7 @@ interface Message {
   room_id: string
   sender_id: string
   content: string
-  message_type: 'text' | 'property'
+  message_type: 'text' | 'property' | 'image'
   property_id: string | null
   created_at: string
 }
@@ -242,6 +242,26 @@ export default function ChatPage() {
     })
     setSending(false)
     inputRef.current?.focus()
+  }
+
+  // 이미지 전송
+  const sendImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !room) return
+    e.target.value = ''
+
+    const ext = file.name.split('.').pop()
+    const path = `chat/${room.id}/${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
+    if (error) return
+
+    const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
+    await supabase.from('chat_messages').insert({
+      room_id: room.id,
+      sender_id: user.id,
+      content: publicUrl,
+      message_type: 'image',
+    })
   }
 
   // 매물 피커 열기 (중개사만)
@@ -459,6 +479,16 @@ export default function ChatPage() {
                         {/* 매물 카드 */}
                         {isPropertyMsg && propertySnapshot ? (
                           <PropertyCard snapshot={propertySnapshot} isMine={isMine} />
+                        ) : msg.message_type === 'image' ? (
+                          /* 이미지 메시지 */
+                          <a href={msg.content} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={msg.content}
+                              alt="사진"
+                              className="max-w-xs rounded-2xl border border-gray-100 shadow-sm object-cover"
+                              style={{ maxHeight: '300px' }}
+                            />
+                          </a>
                         ) : (
                           /* 일반 텍스트 말풍선 */
                           <div className={cn(
@@ -571,6 +601,15 @@ export default function ChatPage() {
               <Building2 className="h-4 w-4" />
             </button>
           )}
+
+          {/* 이미지 전송 버튼 (누구나) */}
+          <label
+            className="flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 text-gray-500 transition-all hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200"
+            title="사진 보내기"
+          >
+            <ImagePlus className="h-4 w-4" />
+            <input type="file" accept="image/*" className="hidden" onChange={sendImage} />
+          </label>
 
           <textarea
             ref={inputRef}

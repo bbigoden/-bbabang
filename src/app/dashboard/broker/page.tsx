@@ -4,9 +4,11 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { MapPin, Star, TrendingUp, MessageCircle, Clock, CheckCircle, Building2 } from 'lucide-react'
+import { Star, TrendingUp, MessageCircle, MapPin, CheckCircle, Building2 } from 'lucide-react'
+// formatDate, Badge, formatPrice used in proposals section
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -118,51 +120,8 @@ export default async function BrokerDashboardPage() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-2">
-          {/* 주변 신규 요청 */}
-          <div>
-            <h2 className="mb-4 font-bold text-gray-900 flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              내 담당 지역 신규 요청
-            </h2>
-            <div className="space-y-3">
-              {(!activeRequests || activeRequests.length === 0) ? (
-                <Card>
-                  <CardBody className="py-8 text-center text-sm text-gray-400">
-                    현재 신규 요청이 없습니다
-                  </CardBody>
-                </Card>
-              ) : (
-                activeRequests.map((req: any) => (
-                  <Card key={req.id} hover>
-                    <CardBody className="py-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex flex-wrap gap-1.5 mb-1">
-                            {req.deal_type?.split(',').map((t: string) => (
-                              <Badge key={t} variant="info">{t.trim()}</Badge>
-                            ))}
-                            {req.room_type?.split(',').slice(0, 2).map((t: string) => (
-                              <Badge key={t} variant="default">{t.trim()}</Badge>
-                            ))}
-                          </div>
-                          <div className="font-bold text-blue-600">
-                            {formatPrice(req.min_price)}~{formatPrice(req.max_price)}
-                          </div>
-                          <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-                            <Clock className="h-3.5 w-3.5" />
-                            {formatDate(req.created_at)}
-                          </div>
-                        </div>
-                        <Link href={`/request/${req.id}/propose`}>
-                          <Button size="sm" variant="primary">제안</Button>
-                        </Link>
-                      </div>
-                    </CardBody>
-                  </Card>
-                ))
-              )}
-            </div>
-          </div>
+          {/* 주변 신규 요청 (필터/검색 포함) */}
+          <BrokerRequestsFilter brokerDistricts={brokerDistricts} />
 
           {/* 내 제안 현황 */}
           <div>

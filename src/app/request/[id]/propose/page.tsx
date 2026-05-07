@@ -58,10 +58,10 @@ export default function ProposePage() {
       return
     }
 
-    // 제안 수 업데이트 (현재 카운트 가져와서 +1)
+    // 제안 수 업데이트 + 요청자에게 알림 전송
     const { data: reqData } = await supabase
       .from('request_posts')
-      .select('proposal_count')
+      .select('proposal_count, user_id')
       .eq('id', requestId)
       .single()
     if (reqData) {
@@ -69,6 +69,17 @@ export default function ProposePage() {
         .from('request_posts')
         .update({ proposal_count: (reqData.proposal_count ?? 0) + 1 })
         .eq('id', requestId)
+
+      // 요청자에게 알림
+      if (reqData.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: reqData.user_id,
+          type: 'new_proposal',
+          title: '새 제안이 도착했어요! 📨',
+          body: `중개사가 새로운 매물을 제안했습니다. 지금 확인해보세요.`,
+          link: `/request/${requestId}`,
+        })
+      }
     }
 
     router.push(`/request/${requestId}`)
