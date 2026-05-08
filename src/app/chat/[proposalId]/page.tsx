@@ -161,9 +161,19 @@ export default function ChatPage() {
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
 
   useEffect(() => {
-    let cleanup: (() => void) | undefined
-    initChat().then(fn => { cleanup = fn })
-    return () => { cleanup?.() }
+    let destroyed = false
+    let channelCleanup: (() => void) | undefined
+    initChat().then(fn => {
+      if (destroyed) {
+        fn?.()
+      } else {
+        channelCleanup = fn
+      }
+    })
+    return () => {
+      destroyed = true
+      channelCleanup?.()
+    }
   }, [proposalId])
 
   const initChat = async () => {
@@ -214,7 +224,7 @@ export default function ChatPage() {
     setLoading(false)
 
     const channel = supabase
-      .channel(`chat:${chatRoom.id}`)
+      .channel(`chat:${chatRoom.id}:${Date.now()}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',

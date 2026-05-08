@@ -70,16 +70,18 @@ export default function BrokerPropertiesPage() {
 
   const toggleStatus = async (property: Property) => {
     const next = property.status === 'available' ? 'contracted' : 'available'
-    await supabase
+    const { error } = await supabase
       .from('broker_properties')
       .update({ status: next })
       .eq('id', property.id)
+    if (error) { alert('상태 변경에 실패했어요. 다시 시도해주세요.'); return }
     setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: next } : p))
   }
 
   const deleteProperty = async (id: string) => {
     if (!confirm('이 매물을 삭제하시겠어요?')) return
-    await supabase.from('broker_properties').delete().eq('id', id)
+    const { error } = await supabase.from('broker_properties').delete().eq('id', id)
+    if (error) { alert('삭제에 실패했어요. 다시 시도해주세요.'); return }
     setProperties(prev => prev.filter(p => p.id !== id))
   }
 

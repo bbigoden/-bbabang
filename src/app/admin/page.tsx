@@ -37,8 +37,13 @@ export default function AdminPage() {
 
     if (profile?.role !== 'admin') { router.push('/'); return }
 
-    await Promise.all([loadStats(), loadBrokers(), loadRecentUsers(), loadRecentRequests(), loadBrokerProperties()])
-    setLoading(false)
+    try {
+      await Promise.all([loadStats(), loadBrokers(), loadRecentUsers(), loadRecentRequests(), loadBrokerProperties()])
+    } catch (e) {
+      console.error('관리자 페이지 데이터 로드 오류:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const loadStats = async () => {
@@ -93,13 +98,17 @@ export default function AdminPage() {
 
   const toggleVerify = async (brokerId: string, current: boolean) => {
     setVerifying(brokerId)
-    await supabase
+    const { error } = await supabase
       .from('broker_profiles')
       .update({ is_verified: !current })
       .eq('id', brokerId)
-    setBrokers(prev => prev.map(b =>
-      b.id === brokerId ? { ...b, is_verified: !current } : b
-    ))
+    if (!error) {
+      setBrokers(prev => prev.map(b =>
+        b.id === brokerId ? { ...b, is_verified: !current } : b
+      ))
+    } else {
+      alert('처리에 실패했어요. 다시 시도해주세요.')
+    }
     setVerifying(null)
   }
 
