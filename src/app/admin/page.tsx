@@ -70,7 +70,8 @@ export default function AdminPage() {
   const [propertyModal, setPropertyModal] = useState<any>(null)
 
   // 통계 카드 전체 목록 모달
-  const [statModal, setStatModal] = useState<'users' | 'brokers' | 'requests' | 'proposals' | null>(null)
+  const [statModal, setStatModal] = useState<'users' | 'requests' | 'proposals' | null>(null)
+  const [userFilter, setUserFilter] = useState<'all' | 'broker' | 'user'>('all')
   const [allProposals, setAllProposals] = useState<any[]>([])
   const [allUsersAll, setAllUsersAll] = useState<any[]>([])
   const [allRequestsAll, setAllRequestsAll] = useState<any[]>([])
@@ -170,8 +171,9 @@ export default function AdminPage() {
     router.push('/')
   }
 
-  const openStatModal = async (type: 'users' | 'brokers' | 'requests' | 'proposals') => {
+  const openStatModal = async (type: 'users' | 'requests' | 'proposals') => {
     setStatModal(type)
+    if (type === 'users') setUserFilter('all')
     setLoadingModal(true)
     if (type === 'users' && allUsersAll.length === 0) {
       const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
@@ -239,10 +241,9 @@ export default function AdminPage() {
       <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
 
         {/* ── 통계 ── */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           {[
             { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => openStatModal('users') },
-            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => openStatModal('brokers') },
             { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400', action: () => openStatModal('requests') },
             { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400', action: () => openStatModal('proposals') },
           ].map(stat => (
@@ -818,7 +819,6 @@ export default function AdminPage() {
         <Modal
           title={
             statModal === 'users' ? `전체 회원 (${stats.users}명)` :
-            statModal === 'brokers' ? `중개사 (${stats.brokers}명)` :
             statModal === 'requests' ? `매물 요청 (${stats.requests}건)` :
             `제안 (${stats.proposals}건)`
           }
@@ -830,61 +830,67 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
-              {/* 전체 회원 */}
-              {statModal === 'users' && (
-                <div className="space-y-2">
-                  {allUsersAll.length === 0 ? <p className="py-8 text-center text-gray-500">회원이 없습니다</p> :
-                    allUsersAll.map(u => (
-                      <button key={u.id} onClick={() => { setStatModal(null); setUserModal(u) }}
-                        className="w-full flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left hover:bg-gray-800 transition-colors">
-                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-700 font-bold text-gray-300">
-                          {u.name?.[0] ?? '?'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-white">{u.name || '(이름 없음)'}</div>
-                          <div className="text-xs text-gray-400 truncate">{u.email}</div>
-                        </div>
-                        <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
-                          u.role === 'admin' ? 'bg-red-500/20 text-red-400' :
-                          u.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
-                          'bg-blue-500/20 text-blue-400'
-                        }`}>
-                          {u.role === 'admin' ? '관리자' : u.role === 'broker' ? '중개사' : '일반'}
-                        </span>
-                        <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(u.created_at)}</span>
-                      </button>
-                    ))
-                  }
-                </div>
-              )}
-
-              {/* 중개사 */}
-              {statModal === 'brokers' && (
-                <div className="space-y-2">
-                  {brokers.length === 0 ? <p className="py-8 text-center text-gray-500">중개사가 없습니다</p> :
-                    brokers.map(b => (
-                      <button key={b.id} onClick={() => { setStatModal(null); setBrokerModal(b) }}
-                        className="w-full flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left hover:bg-gray-800 transition-colors">
-                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-500/20 font-bold text-blue-400">
-                          {b.profiles?.name?.[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-white">{b.profiles?.name}</span>
-                            {b.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-400" />}
-                          </div>
-                          <div className="text-xs text-gray-400">{b.office_name}</div>
-                        </div>
-                        {b.is_verified
-                          ? <span className="flex-shrink-0 text-xs font-semibold text-green-400">인증됨</span>
-                          : <span className="flex-shrink-0 text-xs font-semibold text-yellow-400">미인증</span>
-                        }
-                        <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(b.created_at)}</span>
-                      </button>
-                    ))
-                  }
-                </div>
-              )}
+              {/* 전체 회원 (탭: 전체 / 중개사 / 고객) */}
+              {statModal === 'users' && (() => {
+                const filtered = allUsersAll.filter(u =>
+                  userFilter === 'all' ? true :
+                  userFilter === 'broker' ? u.role === 'broker' :
+                  u.role === 'user'
+                )
+                const brokerCount = allUsersAll.filter(u => u.role === 'broker').length
+                const userCount = allUsersAll.filter(u => u.role === 'user').length
+                return (
+                  <>
+                    {/* 탭 */}
+                    <div className="mb-4 flex gap-2">
+                      {[
+                        { key: 'all', label: `전체 ${allUsersAll.length}명` },
+                        { key: 'broker', label: `중개사 ${brokerCount}명` },
+                        { key: 'user', label: `고객 ${userCount}명` },
+                      ].map(tab => (
+                        <button
+                          key={tab.key}
+                          onClick={() => setUserFilter(tab.key as any)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                            userFilter === tab.key
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      {filtered.length === 0
+                        ? <p className="py-8 text-center text-gray-500">회원이 없습니다</p>
+                        : filtered.map(u => (
+                          <button key={u.id} onClick={() => { setStatModal(null); setUserModal(u) }}
+                            className="w-full flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left hover:bg-gray-800 transition-colors">
+                            <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full font-bold ${
+                              u.role === 'broker' ? 'bg-purple-500/20 text-purple-400' : 'bg-gray-700 text-gray-300'
+                            }`}>
+                              {u.name?.[0] ?? '?'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-white">{u.name || '(이름 없음)'}</div>
+                              <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                            </div>
+                            <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
+                              u.role === 'admin' ? 'bg-red-500/20 text-red-400' :
+                              u.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
+                              'bg-blue-500/20 text-blue-400'
+                            }`}>
+                              {u.role === 'admin' ? '관리자' : u.role === 'broker' ? '중개사' : '고객'}
+                            </span>
+                            <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(u.created_at)}</span>
+                          </button>
+                        ))
+                      }
+                    </div>
+                  </>
+                )
+              })()}
 
               {/* 매물 요청 */}
               {statModal === 'requests' && (
