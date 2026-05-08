@@ -1,0 +1,38 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 배경 -->
+  <rect width="1200" height="630" fill="#F8FAFF"/>
+
+  <!-- 왼쪽 그라디언트 블록 -->
+  <rect width="600" height="630" fill="url(#grad)"/>
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="600" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 왼쪽 아이콘 + 로고 -->
+  <rect x="80" y="220" width="80" height="80" rx="20" fill="white" fill-opacity="0.2"/>
+  <text x="120" y="276" font-family="Arial" font-size="40" text-anchor="middle" fill="white">🏠</text>
+
+  <text x="80" y="360" font-family="Arial Black, Arial" font-weight="900" font-size="72" fill="white">빠방</text>
+  <text x="80" y="420" font-family="Arial" font-size="26" fill="white" fill-opacity="0.85">부동산 역경매 매칭 플랫폼</text>
+
+  <!-- 오른쪽 설명 -->
+  <text x="660" y="240" font-family="Arial" font-weight="700" font-size="38" fill="#1E3A8A">조건만 올리면</text>
+  <text x="660" y="295" font-family="Arial" font-weight="700" font-size="38" fill="#1E3A8A">공인중개사가</text>
+  <text x="660" y="350" font-family="Arial" font-weight="700" font-size="38" fill="#2563EB">먼저 제안해드립니다</text>
+
+  <!-- 태그들 -->
+  <rect x="660" y="390" width="100" height="36" rx="18" fill="#DBEAFE"/>
+  <text x="710" y="413" font-family="Arial" font-size="16" text-anchor="middle" fill="#1D4ED8">전세</text>
+
+  <rect x="775" y="390" width="100" height="36" rx="18" fill="#DBEAFE"/>
+  <text x="825" y="413" font-family="Arial" font-size="16" text-anchor="middle" fill="#1D4ED8">월세</text>
+
+  <rect x="890" y="390" width="100" height="36" rx="18" fill="#DBEAFE"/>
+  <text x="940" y="413" font-family="Arial" font-size="16" text-anchor="middle" fill="#1D4ED8">매매</text>
+
+  <!-- URL -->
+  <text x="660" y="490" font-family="Arial" font-size="20" fill="#6B7280">bbabang.vercel.app</text>
+</svg>
