@@ -63,14 +63,18 @@ export default function AdminPage() {
   const [brokerProperties, setBrokerProperties] = useState<any[]>([])
   const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null)
 
-  // 모달 상태
+  // 행 클릭 상세 모달
   const [brokerModal, setBrokerModal] = useState<any>(null)
   const [userModal, setUserModal] = useState<any>(null)
   const [requestModal, setRequestModal] = useState<any>(null)
   const [propertyModal, setPropertyModal] = useState<any>(null)
-  const [proposalsModal, setProposalsModal] = useState(false)
+
+  // 통계 카드 전체 목록 모달
+  const [statModal, setStatModal] = useState<'users' | 'brokers' | 'requests' | 'proposals' | null>(null)
   const [allProposals, setAllProposals] = useState<any[]>([])
-  const [loadingProposals, setLoadingProposals] = useState(false)
+  const [allUsersAll, setAllUsersAll] = useState<any[]>([])
+  const [allRequestsAll, setAllRequestsAll] = useState<any[]>([])
+  const [loadingModal, setLoadingModal] = useState(false)
 
   useEffect(() => { init() }, [])
 
@@ -166,21 +170,27 @@ export default function AdminPage() {
     router.push('/')
   }
 
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  const openProposalsModal = async () => {
-    setProposalsModal(true)
-    if (allProposals.length > 0) return
-    setLoadingProposals(true)
-    const { data } = await supabase
-      .from('proposals')
-      .select('*, broker_profiles(office_name, profiles(name)), request_posts(city, district, deal_type, profiles(name))')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setAllProposals(data ?? [])
-    setLoadingProposals(false)
+  const openStatModal = async (type: 'users' | 'brokers' | 'requests' | 'proposals') => {
+    setStatModal(type)
+    setLoadingModal(true)
+    if (type === 'users' && allUsersAll.length === 0) {
+      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+      setAllUsersAll(data ?? [])
+    } else if (type === 'requests' && allRequestsAll.length === 0) {
+      const { data } = await supabase
+        .from('request_posts')
+        .select('*, profiles(name, phone)')
+        .order('created_at', { ascending: false })
+      setAllRequestsAll(data ?? [])
+    } else if (type === 'proposals' && allProposals.length === 0) {
+      const { data } = await supabase
+        .from('proposals')
+        .select('*, broker_profiles(office_name, profiles(name)), request_posts(city, district, deal_type, profiles(name))')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      setAllProposals(data ?? [])
+    }
+    setLoadingModal(false)
   }
 
   if (loading) {
@@ -231,10 +241,10 @@ export default function AdminPage() {
         {/* ── 통계 ── */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => scrollTo('section-users') },
-            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => scrollTo('section-brokers') },
-            { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400', action: () => scrollTo('section-requests') },
-            { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400', action: openProposalsModal },
+            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => openStatModal('users') },
+            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => openStatModal('brokers') },
+            { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400', action: () => openStatModal('requests') },
+            { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400', action: () => openStatModal('proposals') },
           ].map(stat => (
             <button
               key={stat.label}
@@ -803,55 +813,147 @@ export default function AdminPage() {
         </Modal>
       )}
 
-      {/* 제안 전체 목록 모달 */}
-      {proposalsModal && (
-        <Modal title={`제안 전체 목록 (${stats.proposals}건)`} onClose={() => setProposalsModal(false)}>
-          {loadingProposals ? (
+      {/* 통계 카드 전체 목록 모달 */}
+      {statModal && (
+        <Modal
+          title={
+            statModal === 'users' ? `전체 회원 (${stats.users}명)` :
+            statModal === 'brokers' ? `중개사 (${stats.brokers}명)` :
+            statModal === 'requests' ? `매물 요청 (${stats.requests}건)` :
+            `제안 (${stats.proposals}건)`
+          }
+          onClose={() => setStatModal(null)}
+        >
+          {loadingModal ? (
             <div className="flex items-center justify-center py-12">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             </div>
-          ) : allProposals.length === 0 ? (
-            <div className="py-12 text-center text-gray-500">제안이 없습니다</div>
           ) : (
-            <div className="space-y-3">
-              {allProposals.map(p => {
-                const req = p.request_posts
-                const broker = p.broker_profiles
-                return (
-                  <div key={p.id} className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                        p.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                        p.status === 'accepted' ? 'bg-green-500/20 text-green-400' :
-                        'bg-red-500/20 text-red-400'
-                      }`}>
-                        {p.status === 'pending' ? '대기 중' : p.status === 'accepted' ? '수락됨' : '거절됨'}
-                      </span>
-                      <span className="text-xs text-gray-500">{formatDate(p.created_at)}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Building2 className="h-3.5 w-3.5 text-purple-400 flex-shrink-0" />
-                      <span className="text-sm font-semibold text-white">{broker?.profiles?.name}</span>
-                      <span className="text-xs text-gray-500">({broker?.office_name})</span>
-                    </div>
-                    {req && (
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                        <span className="text-xs text-gray-400">
-                          {req.city} {req.district} · {req.deal_type?.split(',')[0]} · 요청자: {req.profiles?.name}
+            <>
+              {/* 전체 회원 */}
+              {statModal === 'users' && (
+                <div className="space-y-2">
+                  {allUsersAll.length === 0 ? <p className="py-8 text-center text-gray-500">회원이 없습니다</p> :
+                    allUsersAll.map(u => (
+                      <button key={u.id} onClick={() => { setStatModal(null); setUserModal(u) }}
+                        className="w-full flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left hover:bg-gray-800 transition-colors">
+                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-700 font-bold text-gray-300">
+                          {u.name?.[0] ?? '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-white">{u.name || '(이름 없음)'}</div>
+                          <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                        </div>
+                        <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
+                          u.role === 'admin' ? 'bg-red-500/20 text-red-400' :
+                          u.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
+                          'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {u.role === 'admin' ? '관리자' : u.role === 'broker' ? '중개사' : '일반'}
                         </span>
-                      </div>
-                    )}
-                    {p.price && (
-                      <div className="mt-2 text-sm font-bold text-blue-400">{formatPrice(p.price)}</div>
-                    )}
-                    {p.message && (
-                      <p className="mt-2 text-xs text-gray-400 line-clamp-2">{p.message}</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                        <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(u.created_at)}</span>
+                      </button>
+                    ))
+                  }
+                </div>
+              )}
+
+              {/* 중개사 */}
+              {statModal === 'brokers' && (
+                <div className="space-y-2">
+                  {brokers.length === 0 ? <p className="py-8 text-center text-gray-500">중개사가 없습니다</p> :
+                    brokers.map(b => (
+                      <button key={b.id} onClick={() => { setStatModal(null); setBrokerModal(b) }}
+                        className="w-full flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left hover:bg-gray-800 transition-colors">
+                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-500/20 font-bold text-blue-400">
+                          {b.profiles?.name?.[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-white">{b.profiles?.name}</span>
+                            {b.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-400" />}
+                          </div>
+                          <div className="text-xs text-gray-400">{b.office_name}</div>
+                        </div>
+                        {b.is_verified
+                          ? <span className="flex-shrink-0 text-xs font-semibold text-green-400">인증됨</span>
+                          : <span className="flex-shrink-0 text-xs font-semibold text-yellow-400">미인증</span>
+                        }
+                        <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(b.created_at)}</span>
+                      </button>
+                    ))
+                  }
+                </div>
+              )}
+
+              {/* 매물 요청 */}
+              {statModal === 'requests' && (
+                <div className="space-y-2">
+                  {allRequestsAll.length === 0 ? <p className="py-8 text-center text-gray-500">요청이 없습니다</p> :
+                    allRequestsAll.map(req => (
+                      <button key={req.id} onClick={() => { setStatModal(null); setRequestModal(req) }}
+                        className="w-full flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 text-left hover:bg-gray-800 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-semibold text-white">{req.profiles?.name || '(알 수 없음)'}</span>
+                            <span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${
+                              req.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                              req.status === 'matched' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-gray-500/20 text-gray-400'
+                            }`}>
+                              {req.status === 'active' ? '모집 중' : req.status === 'matched' ? '매칭 완료' : '종료'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-400">{req.city} {req.district} · {req.deal_type?.split(',')[0]}</div>
+                        </div>
+                        <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(req.created_at)}</span>
+                      </button>
+                    ))
+                  }
+                </div>
+              )}
+
+              {/* 제안 */}
+              {statModal === 'proposals' && (
+                <div className="space-y-3">
+                  {allProposals.length === 0 ? <p className="py-8 text-center text-gray-500">제안이 없습니다</p> :
+                    allProposals.map(p => {
+                      const req = p.request_posts
+                      const broker = p.broker_profiles
+                      return (
+                        <div key={p.id} className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
+                              p.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                              p.status === 'accepted' ? 'bg-green-500/20 text-green-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {p.status === 'pending' ? '대기 중' : p.status === 'accepted' ? '수락됨' : '거절됨'}
+                            </span>
+                            <span className="text-xs text-gray-500">{formatDate(p.created_at)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Building2 className="h-3.5 w-3.5 text-purple-400 flex-shrink-0" />
+                            <span className="text-sm font-semibold text-white">{broker?.profiles?.name}</span>
+                            <span className="text-xs text-gray-500">({broker?.office_name})</span>
+                          </div>
+                          {req && (
+                            <div className="flex items-center gap-1.5">
+                              <MapPin className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                              <span className="text-xs text-gray-400">
+                                {req.city} {req.district} · {req.deal_type?.split(',')[0]} · 요청자: {req.profiles?.name}
+                              </span>
+                            </div>
+                          )}
+                          {p.price && <div className="mt-2 text-sm font-bold text-blue-400">{formatPrice(p.price)}</div>}
+                          {p.message && <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.message}</p>}
+                        </div>
+                      )
+                    })
+                  }
+                </div>
+              )}
+            </>
           )}
         </Modal>
       )}
