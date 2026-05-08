@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
-import { Home, SendHorizonal, ArrowLeft } from 'lucide-react'
+import { Home, SendHorizonal, ArrowLeft, CheckCircle } from 'lucide-react'
 
 export default function ProposePage() {
   const router = useRouter()
@@ -20,6 +20,34 @@ export default function ProposePage() {
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [alreadyProposed, setAlreadyProposed] = useState(false)
+
+  // 페이지 진입 시 이미 제안했는지 확인
+  useEffect(() => {
+    const checkExisting = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: broker } = await supabase
+        .from('broker_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single()
+      if (!broker) return
+
+      const { data: existing } = await supabase
+        .from('proposals')
+        .select('id')
+        .eq('request_id', requestId)
+        .eq('broker_id', broker.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (existing) setAlreadyProposed(true)
+    }
+    checkExisting()
+  }, [requestId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,6 +62,7 @@ export default function ProposePage() {
       .from('broker_profiles')
       .select('id')
       .eq('user_id', user.id)
+      .limit(1)
       .single()
 
     if (!broker) {
@@ -53,7 +82,12 @@ export default function ProposePage() {
     })
 
     if (insertError) {
-      setError('제안 등록 중 오류가 발생했습니다.')
+      // 중복 제안 (UNIQUE 제약)
+      if (insertError.code === '23505') {
+        setError('이미 이 요청에 제안을 보내셨습니다. 요청 페이지에서 확인하세요.')
+      } else {
+        setError('제안 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+      }
       setLoading(false)
       return
     }
@@ -102,6 +136,21 @@ export default function ProposePage() {
           <p className="mt-1 text-sm text-gray-500">고객의 조건에 맞는 매물을 제안해보세요</p>
         </div>
 
+        {alreadyProposed ? (
+          <Card>
+            <CardBody className="py-12 text-center">
+              <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
+              <h2 className="text-lg font-bold text-gray-900">이미 제안을 보내셨어요</h2>
+              <p className="mt-2 text-sm text-gray-500">이 요청에는 제안을 한 번만 보낼 수 있습니다.</p>
+              <button
+                onClick={() => router.push(`/request/${requestId}`)}
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+              >
+                요청 페이지에서 확인하기
+              </button>
+            </CardBody>
+          </Card>
+        ) : (
         <Card>
           <CardBody>
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -145,6 +194,7 @@ export default function ProposePage() {
             </form>
           </CardBody>
         </Card>
+        )}
       </div>
     </div>
   )
