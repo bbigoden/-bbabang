@@ -3,15 +3,52 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Users, Building2, FileText, MessageCircle,
-  CheckCircle, XCircle, Shield, LogOut, ExternalLink, StickyNote, MapPin
+  CheckCircle, XCircle, Shield, LogOut, ExternalLink,
+  StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
+  Award, Hash, ChevronRight, ImageIcon
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
+
+// ── 모달 래퍼 ──────────────────────────────────────────
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
+          <h3 className="font-bold text-white">{title}</h3>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── 정보 행 ──────────────────────────────────────────
+function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
+  if (!value) return null
+  return (
+    <div className="flex items-start gap-3 py-2.5 border-b border-gray-800 last:border-0">
+      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-500" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+        <div className="text-sm text-gray-200">{value}</div>
+      </div>
+    </div>
+  )
+}
 
 export default function AdminPage() {
   const router = useRouter()
@@ -25,6 +62,12 @@ export default function AdminPage() {
   const [verifying, setVerifying] = useState<string | null>(null)
   const [brokerProperties, setBrokerProperties] = useState<any[]>([])
   const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null)
+
+  // 모달 상태
+  const [brokerModal, setBrokerModal] = useState<any>(null)
+  const [userModal, setUserModal] = useState<any>(null)
+  const [requestModal, setRequestModal] = useState<any>(null)
+  const [propertyModal, setPropertyModal] = useState<any>(null)
 
   useEffect(() => { init() }, [])
 
@@ -64,7 +107,7 @@ export default function AdminPage() {
   const loadBrokers = async () => {
     const { data } = await supabase
       .from('broker_profiles')
-      .select('*, profiles(name, email)')
+      .select('*, profiles(name, email, phone)')
       .order('created_at', { ascending: false })
     setBrokers(data ?? [])
   }
@@ -74,7 +117,7 @@ export default function AdminPage() {
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(20)
     setRecentUsers(data ?? [])
   }
 
@@ -83,16 +126,16 @@ export default function AdminPage() {
       .from('broker_properties')
       .select('*, broker_profiles(office_name, profiles(name))')
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(100)
     setBrokerProperties(data ?? [])
   }
 
   const loadRecentRequests = async () => {
     const { data } = await supabase
       .from('request_posts')
-      .select('*, profiles(name)')
+      .select('*, profiles(name, phone)')
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(20)
     setRecentRequests(data ?? [])
   }
 
@@ -106,6 +149,9 @@ export default function AdminPage() {
       setBrokers(prev => prev.map(b =>
         b.id === brokerId ? { ...b, is_verified: !current } : b
       ))
+      if (brokerModal?.id === brokerId) {
+        setBrokerModal((prev: any) => ({ ...prev, is_verified: !current }))
+      }
     } else {
       alert('처리에 실패했어요. 다시 시도해주세요.')
     }
@@ -126,12 +172,11 @@ export default function AdminPage() {
   }
 
   const unverifiedBrokers = brokers.filter(b => !b.is_verified)
-  const verifiedBrokers = brokers.filter(b => b.is_verified)
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
 
-      {/* 헤더 */}
+      {/* ── 헤더 ── */}
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
@@ -163,7 +208,7 @@ export default function AdminPage() {
 
       <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
 
-        {/* 통계 */}
+        {/* ── 통계 ── */}
         <div className="grid grid-cols-4 gap-4">
           {[
             { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400' },
@@ -181,7 +226,7 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* 중개사 인증 관리 */}
+        {/* ── 중개사 인증 관리 ── */}
         <div>
           <div className="mb-4 flex items-center gap-3">
             <h2 className="text-lg font-bold text-white">중개사 인증 관리</h2>
@@ -190,6 +235,7 @@ export default function AdminPage() {
                 미인증 {unverifiedBrokers.length}명
               </span>
             )}
+            <span className="ml-auto text-xs text-gray-500">행을 클릭하면 상세 정보를 볼 수 있어요</span>
           </div>
 
           <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
@@ -212,9 +258,16 @@ export default function AdminPage() {
                   </tr>
                 ) : (
                   brokers.map(broker => (
-                    <tr key={broker.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                    <tr
+                      key={broker.id}
+                      onClick={() => setBrokerModal(broker)}
+                      className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                    >
                       <td className="px-5 py-4">
-                        <div className="font-semibold text-white">{broker.profiles?.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold text-white">{broker.profiles?.name}</div>
+                          {broker.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-400" />}
+                        </div>
                         <div className="text-xs text-gray-400">{broker.profiles?.email}</div>
                       </td>
                       <td className="px-5 py-4 text-gray-300">{broker.office_name}</td>
@@ -224,6 +277,9 @@ export default function AdminPage() {
                           {broker.district?.split(',').slice(0, 2).map((d: string) => (
                             <span key={d} className="rounded-md bg-gray-700 px-2 py-0.5 text-xs text-gray-300">{d.trim()}</span>
                           ))}
+                          {broker.district?.split(',').length > 2 && (
+                            <span className="text-xs text-gray-500">+{broker.district.split(',').length - 2}</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-5 py-4 text-sm text-gray-400">{formatDate(broker.created_at)}</td>
@@ -238,7 +294,7 @@ export default function AdminPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                         <button
                           onClick={() => toggleVerify(broker.id, broker.is_verified)}
                           disabled={verifying === broker.id}
@@ -261,9 +317,12 @@ export default function AdminPage() {
 
         <div className="grid gap-8 lg:grid-cols-2">
 
-          {/* 최근 가입 회원 */}
+          {/* ── 최근 가입 회원 ── */}
           <div>
-            <h2 className="mb-4 text-lg font-bold text-white">최근 가입 회원</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">최근 가입 회원</h2>
+              <span className="text-xs text-gray-500">클릭하면 상세 정보</span>
+            </div>
             <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
               <table className="w-full">
                 <thead>
@@ -278,7 +337,11 @@ export default function AdminPage() {
                     <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-500">회원이 없습니다</td></tr>
                   ) : (
                     recentUsers.map(u => (
-                      <tr key={u.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                      <tr
+                        key={u.id}
+                        onClick={() => setUserModal(u)}
+                        className="border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
+                      >
                         <td className="px-5 py-3.5">
                           <div className="font-medium text-white">{u.name || '(이름 없음)'}</div>
                           <div className="text-xs text-gray-400">{u.email}</div>
@@ -301,9 +364,12 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* 최근 매물 요청 */}
+          {/* ── 최근 매물 요청 ── */}
           <div>
-            <h2 className="mb-4 text-lg font-bold text-white">최근 매물 요청</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">최근 매물 요청</h2>
+              <span className="text-xs text-gray-500">클릭하면 상세 정보</span>
+            </div>
             <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
               <table className="w-full">
                 <thead>
@@ -318,7 +384,11 @@ export default function AdminPage() {
                     <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-500">요청이 없습니다</td></tr>
                   ) : (
                     recentRequests.map(req => (
-                      <tr key={req.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                      <tr
+                        key={req.id}
+                        onClick={() => setRequestModal(req)}
+                        className="border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
+                      >
                         <td className="px-5 py-3.5">
                           <div className="font-medium text-white">{req.profiles?.name || '(알 수 없음)'}</div>
                           <div className="text-xs text-gray-400">{formatDate(req.created_at)}</div>
@@ -346,14 +416,14 @@ export default function AdminPage() {
 
         </div>
 
-        {/* 중개사 매물장 (메모 포함) */}
+        {/* ── 중개사 매물장 ── */}
         <div>
           <div className="mb-4 flex items-center gap-3">
             <h2 className="text-lg font-bold text-white">중개사 매물장</h2>
             <span className="rounded-full bg-gray-700 px-2.5 py-0.5 text-xs text-gray-300">{brokerProperties.length}건</span>
+            <span className="ml-auto text-xs text-gray-500">클릭하면 상세 정보</span>
           </div>
 
-          {/* 브로커 필터 */}
           <div className="mb-3 flex flex-wrap gap-2">
             <button
               onClick={() => setSelectedBrokerId(null)}
@@ -395,7 +465,11 @@ export default function AdminPage() {
                     ? brokerProperties.filter(p => p.broker_id === selectedBrokerId)
                     : brokerProperties
                   ).map(property => (
-                    <tr key={property.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                    <tr
+                      key={property.id}
+                      onClick={() => setPropertyModal(property)}
+                      className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
+                    >
                       <td className="px-5 py-4">
                         <div className="font-medium text-white">{property.broker_profiles?.profiles?.name}</div>
                         <div className="text-xs text-gray-400">{property.broker_profiles?.office_name}</div>
@@ -423,7 +497,7 @@ export default function AdminPage() {
                         {property.memo ? (
                           <div className="flex items-start gap-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 px-3 py-2 max-w-xs">
                             <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
-                            <p className="text-xs text-orange-300 line-clamp-3">{property.memo}</p>
+                            <p className="text-xs text-orange-300 line-clamp-2">{property.memo}</p>
                           </div>
                         ) : (
                           <span className="text-xs text-gray-600">—</span>
@@ -437,7 +511,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Supabase 바로가기 */}
+        {/* ── Supabase 바로가기 ── */}
         <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
           <h3 className="mb-3 font-bold text-white">🔗 Supabase 직접 관리</h3>
           <p className="mb-4 text-sm text-gray-400">데이터 직접 수정, 삭제 등 세부 작업은 Supabase Table Editor를 사용하세요</p>
@@ -458,6 +532,250 @@ export default function AdminPage() {
         </div>
 
       </div>
+
+      {/* ══════════════════════════════════════════════
+          모달들
+      ══════════════════════════════════════════════ */}
+
+      {/* 중개사 상세 모달 */}
+      {brokerModal && (
+        <Modal title="중개사 상세 정보" onClose={() => setBrokerModal(null)}>
+          {/* 헤더 */}
+          <div className="mb-5 flex items-center gap-4">
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/20 text-2xl font-black text-blue-400">
+              {brokerModal.profiles?.name?.[0]}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-white">{brokerModal.profiles?.name}</span>
+                {brokerModal.is_verified
+                  ? <span className="flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-semibold text-blue-400"><CheckCircle className="h-3 w-3" />인증됨</span>
+                  : <span className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-400"><XCircle className="h-3 w-3" />미인증</span>
+                }
+              </div>
+              <p className="text-sm text-gray-400">{brokerModal.office_name}</p>
+            </div>
+          </div>
+
+          <div className="space-y-0 rounded-xl border border-gray-800 bg-gray-800/40 px-4 py-1 mb-5">
+            <InfoRow icon={Mail} label="이메일" value={brokerModal.profiles?.email} />
+            <InfoRow icon={Phone} label="연락처" value={brokerModal.profiles?.phone} />
+            <InfoRow icon={Hash} label="자격증 번호" value={<span className="font-mono">{brokerModal.license_number}</span>} />
+            <InfoRow icon={MapPin} label="담당 지역" value={
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {brokerModal.district?.split(',').map((d: string) => (
+                  <span key={d} className="rounded-md bg-gray-700 px-2 py-0.5 text-xs text-gray-300">{d.trim()}</span>
+                ))}
+              </div>
+            } />
+            <InfoRow icon={Star} label="평점" value={
+              brokerModal.rating
+                ? `${brokerModal.rating.toFixed(1)} (리뷰 ${brokerModal.review_count}개)`
+                : '리뷰 없음'
+            } />
+            <InfoRow icon={MessageCircle} label="성사 건수" value={`${brokerModal.deal_count ?? 0}건`} />
+            <InfoRow icon={Building2} label="등록 매물" value={`${brokerProperties.filter(p => p.broker_id === brokerModal.id).length}건`} />
+            <InfoRow icon={Calendar} label="가입일" value={formatDate(brokerModal.created_at)} />
+            {brokerModal.description && (
+              <InfoRow icon={FileText} label="소개글" value={brokerModal.description} />
+            )}
+          </div>
+
+          {/* 인증 버튼 */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => toggleVerify(brokerModal.id, brokerModal.is_verified)}
+              disabled={verifying === brokerModal.id}
+              className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
+                brokerModal.is_verified
+                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+              }`}
+            >
+              {verifying === brokerModal.id ? '처리 중...' : brokerModal.is_verified ? '인증 취소' : '인증 승인'}
+            </button>
+            <Link href={`/broker/${brokerModal.id}`} target="_blank" className="flex-1">
+              <button className="w-full rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                공개 프로필 보기
+              </button>
+            </Link>
+          </div>
+        </Modal>
+      )}
+
+      {/* 회원 상세 모달 */}
+      {userModal && (
+        <Modal title="회원 상세 정보" onClose={() => setUserModal(null)}>
+          <div className="mb-5 flex items-center gap-4">
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-700 text-2xl font-black text-gray-300">
+              {userModal.name?.[0] ?? '?'}
+            </div>
+            <div>
+              <span className="text-lg font-bold text-white">{userModal.name || '(이름 없음)'}</span>
+              <div className="mt-1">
+                <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
+                  userModal.role === 'admin' ? 'bg-red-500/20 text-red-400' :
+                  userModal.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
+                  'bg-blue-500/20 text-blue-400'
+                }`}>
+                  {userModal.role === 'admin' ? '관리자' : userModal.role === 'broker' ? '중개사' : '일반 회원'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-0 rounded-xl border border-gray-800 bg-gray-800/40 px-4 py-1">
+            <InfoRow icon={Mail} label="이메일" value={userModal.email} />
+            <InfoRow icon={Phone} label="연락처" value={userModal.phone || '미등록'} />
+            <InfoRow icon={Calendar} label="가입일" value={formatDate(userModal.created_at)} />
+            {userModal.role === 'user' && (
+              <InfoRow icon={FileText} label="매물 요청" value={`${recentRequests.filter(r => r.user_id === userModal.id).length}건 (최근 20개 기준)`} />
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* 매물 요청 상세 모달 */}
+      {requestModal && (
+        <Modal title="매물 요청 상세" onClose={() => setRequestModal(null)}>
+          {/* 요청자 */}
+          <div className="mb-4 flex items-center gap-3 rounded-xl bg-gray-800/60 px-4 py-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-700 text-sm font-bold text-gray-300">
+              {requestModal.profiles?.name?.[0] ?? '?'}
+            </div>
+            <div>
+              <p className="font-semibold text-white">{requestModal.profiles?.name || '(알 수 없음)'}</p>
+              {requestModal.profiles?.phone && <p className="text-xs text-gray-400">{requestModal.profiles.phone}</p>}
+            </div>
+            <span className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
+              requestModal.status === 'active' ? 'bg-green-500/20 text-green-400' :
+              requestModal.status === 'matched' ? 'bg-blue-500/20 text-blue-400' :
+              'bg-gray-500/20 text-gray-400'
+            }`}>
+              {requestModal.status === 'active' ? '모집 중' : requestModal.status === 'matched' ? '매칭 완료' : '종료'}
+            </span>
+          </div>
+
+          <div className="space-y-0 rounded-xl border border-gray-800 bg-gray-800/40 px-4 py-1 mb-4">
+            <InfoRow icon={MapPin} label="지역" value={`${requestModal.city} ${requestModal.district}`} />
+            <InfoRow icon={Home} label="거래 유형" value={requestModal.deal_type} />
+            <InfoRow icon={Building2} label="매물 유형" value={requestModal.room_type} />
+            <InfoRow icon={FileText} label="가격 범위" value={
+              requestModal.max_price
+                ? `${formatPrice(requestModal.min_price)} ~ ${formatPrice(requestModal.max_price)}`
+                : `${formatPrice(requestModal.min_price)} 이하`
+            } />
+            {(requestModal.min_size || requestModal.max_size) && (
+              <InfoRow icon={Hash} label="평수" value={
+                requestModal.min_size && requestModal.max_size
+                  ? `${requestModal.min_size}평 ~ ${requestModal.max_size}평`
+                  : requestModal.min_size
+                    ? `${requestModal.min_size}평 이상`
+                    : `${requestModal.max_size}평 이하`
+              } />
+            )}
+            {requestModal.move_in_date && (
+              <InfoRow icon={Calendar} label="입주 희망일" value={requestModal.move_in_date} />
+            )}
+            <InfoRow icon={MessageCircle} label="제안 수" value={`${requestModal.proposal_count ?? 0}건`} />
+            <InfoRow icon={Calendar} label="등록일" value={formatDate(requestModal.created_at)} />
+          </div>
+
+          {requestModal.description && (
+            <div className="rounded-xl border border-gray-700 bg-gray-800/40 p-4">
+              <p className="mb-1.5 text-xs font-semibold text-gray-400">요청 내용</p>
+              <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{requestModal.description}</p>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <Link href={`/request/${requestModal.id}`} target="_blank">
+              <button className="w-full rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                요청 페이지 열기
+              </button>
+            </Link>
+          </div>
+        </Modal>
+      )}
+
+      {/* 매물 상세 모달 */}
+      {propertyModal && (
+        <Modal title="매물 상세 정보" onClose={() => setPropertyModal(null)}>
+          {/* 사진 */}
+          {propertyModal.images && propertyModal.images.length > 0 && (
+            <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+              {propertyModal.images.map((url: string, i: number) => (
+                <div key={i} className="relative h-32 w-40 flex-shrink-0 overflow-hidden rounded-xl">
+                  <Image src={url} alt="" fill className="object-cover" sizes="160px" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 중개사 */}
+          <div className="mb-4 flex items-center gap-3 rounded-xl bg-gray-800/60 px-4 py-3">
+            <Building2 className="h-5 w-5 text-blue-400" />
+            <div>
+              <p className="font-semibold text-white">{propertyModal.broker_profiles?.profiles?.name}</p>
+              <p className="text-xs text-gray-400">{propertyModal.broker_profiles?.office_name}</p>
+            </div>
+            <span className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
+              propertyModal.status === 'available' ? 'bg-green-500/20 text-green-400' :
+              propertyModal.status === 'contracted' ? 'bg-blue-500/20 text-blue-400' :
+              'bg-yellow-500/20 text-yellow-400'
+            }`}>
+              {propertyModal.status === 'available' ? '매물 있음' : propertyModal.status === 'contracted' ? '계약 완료' : '숨김'}
+            </span>
+          </div>
+
+          <div className="space-y-0 rounded-xl border border-gray-800 bg-gray-800/40 px-4 py-1 mb-4">
+            <InfoRow icon={MapPin} label="주소" value={propertyModal.address} />
+            <InfoRow icon={Home} label="거래/매물 유형" value={`${propertyModal.deal_type} · ${propertyModal.room_type}`} />
+            <InfoRow icon={FileText} label="가격" value={
+              propertyModal.deal_type === '월세'
+                ? `보증금 ${formatPrice(propertyModal.price)} / 월 ${formatPrice(propertyModal.monthly_rent ?? 0)}`
+                : formatPrice(propertyModal.price)
+            } />
+            {propertyModal.size_pyeong && (
+              <InfoRow icon={Hash} label="면적" value={`${propertyModal.size_pyeong}평`} />
+            )}
+            {propertyModal.floor && (
+              <InfoRow icon={Building2} label="층수" value={`${propertyModal.floor}층${propertyModal.total_floors ? ` / 총 ${propertyModal.total_floors}층` : ''}`} />
+            )}
+            <InfoRow icon={Calendar} label="등록일" value={formatDate(propertyModal.created_at)} />
+          </div>
+
+          {propertyModal.options && propertyModal.options.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 text-xs font-semibold text-gray-400">옵션</p>
+              <div className="flex flex-wrap gap-1.5">
+                {propertyModal.options.map((opt: string) => (
+                  <span key={opt} className="rounded-full bg-gray-700 px-3 py-1 text-xs text-gray-300">{opt}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {propertyModal.description && (
+            <div className="mb-4 rounded-xl border border-gray-700 bg-gray-800/40 p-4">
+              <p className="mb-1.5 text-xs font-semibold text-gray-400">매물 설명</p>
+              <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{propertyModal.description}</p>
+            </div>
+          )}
+
+          {propertyModal.memo && (
+            <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4">
+              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-orange-400">
+                <StickyNote className="h-3.5 w-3.5" />🔒 중개사 메모 (관리자만 열람)
+              </p>
+              <p className="text-sm text-orange-200 leading-relaxed whitespace-pre-line">{propertyModal.memo}</p>
+            </div>
+          )}
+        </Modal>
+      )}
+
     </div>
   )
 }
