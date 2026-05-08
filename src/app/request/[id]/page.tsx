@@ -7,6 +7,7 @@ import { formatDate, formatPrice } from '@/lib/utils'
 import { MapPin, Clock, Star, MessageCircle, ChevronRight, Home, CheckCircle, Pencil } from 'lucide-react'
 import { ProposalActions } from '@/components/proposal-actions'
 import { CloseRequestButton } from '@/components/close-request-button'
+import { ShareButton } from '@/components/share-button'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -92,6 +93,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               {request.min_size && <span>최소 {request.min_size}평</span>}
               {request.max_size && <span>최대 {request.max_size}평</span>}
               {request.move_in_date && <span>입주 희망: {request.move_in_date}</span>}
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <ShareButton
+                title={`${request.city} ${request.district} · ${request.deal_type?.split(',')[0]} 구합니다`}
+                text={`빠방에서 ${request.city} ${request.district} 매물을 찾고 있어요. 제안해주세요!`}
+                url={`https://bbabang.vercel.app/request/${id}`}
+              />
             </div>
           </CardBody>
         </Card>
