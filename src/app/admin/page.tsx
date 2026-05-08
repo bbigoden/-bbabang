@@ -68,6 +68,9 @@ export default function AdminPage() {
   const [userModal, setUserModal] = useState<any>(null)
   const [requestModal, setRequestModal] = useState<any>(null)
   const [propertyModal, setPropertyModal] = useState<any>(null)
+  const [proposalsModal, setProposalsModal] = useState(false)
+  const [allProposals, setAllProposals] = useState<any[]>([])
+  const [loadingProposals, setLoadingProposals] = useState(false)
 
   useEffect(() => { init() }, [])
 
@@ -163,6 +166,23 @@ export default function AdminPage() {
     router.push('/')
   }
 
+  const scrollTo = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const openProposalsModal = async () => {
+    setProposalsModal(true)
+    if (allProposals.length > 0) return
+    setLoadingProposals(true)
+    const { data } = await supabase
+      .from('proposals')
+      .select('*, broker_profiles(office_name, profiles(name)), request_posts(city, district, deal_type, profiles(name))')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setAllProposals(data ?? [])
+    setLoadingProposals(false)
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
@@ -211,23 +231,30 @@ export default function AdminPage() {
         {/* ── 통계 ── */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400' },
-            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400' },
-            { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400' },
-            { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400' },
+            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => scrollTo('section-users') },
+            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => scrollTo('section-brokers') },
+            { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400', action: () => scrollTo('section-requests') },
+            { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400', action: openProposalsModal },
           ].map(stat => (
-            <div key={stat.label} className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
+            <button
+              key={stat.label}
+              onClick={stat.action}
+              className="rounded-2xl border border-gray-800 bg-gray-900 p-5 text-left hover:border-gray-600 hover:bg-gray-800/80 transition-all group"
+            >
               <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl ${stat.color}`}>
                 <stat.icon className="h-5 w-5" />
               </div>
               <div className="text-3xl font-black text-white">{stat.value}</div>
-              <div className="mt-1 text-sm text-gray-400">{stat.label}</div>
-            </div>
+              <div className="mt-1 flex items-center gap-1 text-sm text-gray-400">
+                {stat.label}
+                <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </button>
           ))}
         </div>
 
         {/* ── 중개사 인증 관리 ── */}
-        <div>
+        <div id="section-brokers">
           <div className="mb-4 flex items-center gap-3">
             <h2 className="text-lg font-bold text-white">중개사 인증 관리</h2>
             {unverifiedBrokers.length > 0 && (
@@ -318,7 +345,7 @@ export default function AdminPage() {
         <div className="grid gap-8 lg:grid-cols-2">
 
           {/* ── 최근 가입 회원 ── */}
-          <div>
+          <div id="section-users">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">최근 가입 회원</h2>
               <span className="text-xs text-gray-500">클릭하면 상세 정보</span>
@@ -365,7 +392,7 @@ export default function AdminPage() {
           </div>
 
           {/* ── 최근 매물 요청 ── */}
-          <div>
+          <div id="section-requests">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-white">최근 매물 요청</h2>
               <span className="text-xs text-gray-500">클릭하면 상세 정보</span>
@@ -771,6 +798,59 @@ export default function AdminPage() {
                 <StickyNote className="h-3.5 w-3.5" />🔒 중개사 메모 (관리자만 열람)
               </p>
               <p className="text-sm text-orange-200 leading-relaxed whitespace-pre-line">{propertyModal.memo}</p>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* 제안 전체 목록 모달 */}
+      {proposalsModal && (
+        <Modal title={`제안 전체 목록 (${stats.proposals}건)`} onClose={() => setProposalsModal(false)}>
+          {loadingProposals ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            </div>
+          ) : allProposals.length === 0 ? (
+            <div className="py-12 text-center text-gray-500">제안이 없습니다</div>
+          ) : (
+            <div className="space-y-3">
+              {allProposals.map(p => {
+                const req = p.request_posts
+                const broker = p.broker_profiles
+                return (
+                  <div key={p.id} className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
+                        p.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                        p.status === 'accepted' ? 'bg-green-500/20 text-green-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {p.status === 'pending' ? '대기 중' : p.status === 'accepted' ? '수락됨' : '거절됨'}
+                      </span>
+                      <span className="text-xs text-gray-500">{formatDate(p.created_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Building2 className="h-3.5 w-3.5 text-purple-400 flex-shrink-0" />
+                      <span className="text-sm font-semibold text-white">{broker?.profiles?.name}</span>
+                      <span className="text-xs text-gray-500">({broker?.office_name})</span>
+                    </div>
+                    {req && (
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                        <span className="text-xs text-gray-400">
+                          {req.city} {req.district} · {req.deal_type?.split(',')[0]} · 요청자: {req.profiles?.name}
+                        </span>
+                      </div>
+                    )}
+                    {p.price && (
+                      <div className="mt-2 text-sm font-bold text-blue-400">{formatPrice(p.price)}</div>
+                    )}
+                    {p.message && (
+                      <p className="mt-2 text-xs text-gray-400 line-clamp-2">{p.message}</p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </Modal>
