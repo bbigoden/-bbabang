@@ -113,9 +113,9 @@ function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine
         <p className={cn('text-base font-black', isMine ? 'text-blue-800' : 'text-blue-600')}>
           {priceText}
         </p>
-        {snapshot.options.length > 0 && (
+        {(snapshot.options ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1 pt-0.5">
-            {snapshot.options.slice(0, 3).map(opt => (
+            {(snapshot.options ?? []).slice(0, 3).map(opt => (
               <span key={opt} className={cn(
                 'text-xs rounded-full px-2 py-0.5',
                 isMine ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 text-gray-600'
@@ -123,9 +123,9 @@ function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine
                 {opt}
               </span>
             ))}
-            {snapshot.options.length > 3 && (
+            {(snapshot.options ?? []).length > 3 && (
               <span className={cn('text-xs', isMine ? 'text-blue-600' : 'text-gray-400')}>
-                +{snapshot.options.length - 3}
+                +{(snapshot.options ?? []).length - 3}
               </span>
             )}
           </div>
@@ -198,27 +198,32 @@ export default function ChatPage() {
     if (!proposal) { router.push('/'); return }
 
     let chatRoom: any = null
-    const { data: existing } = await supabase
+    // .limit(1)로 중복 채팅방이 있어도 안전하게 처리
+    const { data: existingRooms } = await supabase
       .from('chat_rooms')
       .select('*')
       .eq('proposal_id', proposalId)
-      .single()
+      .order('created_at', { ascending: true })
+      .limit(1)
 
-    if (existing) {
-      chatRoom = existing
+    if (existingRooms && existingRooms.length > 0) {
+      chatRoom = existingRooms[0]
     } else {
       const { data: newRoom } = await supabase
         .from('chat_rooms')
         .insert({
           request_id: proposal.request_id,
-          user_id: proposal.request_posts.user_id,
-          broker_id: proposal.broker_profiles.user_id,
+          user_id: proposal.request_posts?.user_id,
+          broker_id: proposal.broker_profiles?.user_id,
           proposal_id: proposalId,
         })
         .select()
         .single()
       chatRoom = newRoom
     }
+
+    // chatRoom이 null이면 방 생성 실패 → 홈으로
+    if (!chatRoom) { router.push('/'); return }
 
     setRoom({ ...chatRoom, proposal })
 
@@ -633,7 +638,7 @@ export default function ChatPage() {
                     )}
                     <div className="mt-1.5 flex items-center justify-between">
                       <div className="flex gap-1">
-                        {prop.options.slice(0, 2).map(o => (
+                        {(prop.options ?? []).slice(0, 2).map(o => (
                           <span key={o} className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{o}</span>
                         ))}
                       </div>
