@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, Star, ImagePlus } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -83,7 +84,13 @@ function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine
       {/* 사진 */}
       {snapshot.images && snapshot.images.length > 0 && (
         <div className="relative h-36 overflow-hidden">
-          <img src={snapshot.images[0]} alt="" className="h-full w-full object-cover" />
+          <Image
+            src={snapshot.images[0]}
+            alt={snapshot.address}
+            fill
+            className="object-cover"
+            sizes="256px"
+          />
           {snapshot.images.length > 1 && (
             <span className="absolute bottom-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">
               +{snapshot.images.length - 1}
@@ -492,12 +499,15 @@ export default function ChatPage() {
                         ) : msg.message_type === 'image' ? (
                           /* 이미지 메시지 */
                           <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                            <img
-                              src={msg.content}
-                              alt="사진"
-                              className="max-w-xs rounded-2xl border border-gray-100 shadow-sm object-cover"
-                              style={{ maxHeight: '300px' }}
-                            />
+                            <div className="relative max-w-xs overflow-hidden rounded-2xl border border-gray-100 shadow-sm" style={{ width: '240px', height: '200px' }}>
+                              <Image
+                                src={msg.content}
+                                alt="사진"
+                                fill
+                                className="object-cover"
+                                sizes="240px"
+                              />
+                            </div>
                           </a>
                         ) : (
                           /* 일반 텍스트 말풍선 */
