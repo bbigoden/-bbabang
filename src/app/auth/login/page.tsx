@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Home, Eye, EyeOff } from 'lucide-react'
+import { Home, Eye, EyeOff, Check } from 'lucide-react'
+
+const STORAGE_KEY = 'bbabang_saved_email'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -16,11 +18,26 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [rememberEmail, setRememberEmail] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      setEmail(saved)
+      setRememberEmail(true)
+    }
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    if (rememberEmail) {
+      localStorage.setItem(STORAGE_KEY, email)
+    } else {
+      localStorage.removeItem(STORAGE_KEY)
+    }
 
     const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
 
@@ -95,8 +112,22 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* 비밀번호 찾기 */}
-            <div className="text-right">
+            {/* 아이디 저장 + 비밀번호 찾기 */}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setRememberEmail(v => !v)}
+                className="flex items-center gap-2 group"
+              >
+                <span className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all ${
+                  rememberEmail
+                    ? 'border-blue-500 bg-blue-500'
+                    : 'border-gray-300 bg-white group-hover:border-blue-400'
+                }`}>
+                  {rememberEmail && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                </span>
+                <span className="text-xs text-gray-500 select-none group-hover:text-gray-700">아이디 저장</span>
+              </button>
               <Link href="/auth/reset-password" className="text-xs text-gray-400 hover:text-blue-600">
                 비밀번호를 잊으셨나요?
               </Link>
