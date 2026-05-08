@@ -35,6 +35,7 @@ interface Message {
   message_type: 'text' | 'property' | 'image'
   property_id: string | null
   created_at: string
+  is_read: boolean
 }
 
 interface BrokerProperty {
@@ -227,18 +228,51 @@ export default function ChatPage() {
       .eq('room_id', chatRoom.id)
       .order('created_at', { ascending: true })
 
-    setMessages((msgs ?? []) as Message[])
+    const loadedMessages = (msgs ?? []) as Message[]
+    setMessages(loadedMessages)
     setLoading(false)
+
+    // 상대방이 보낸 읽지 않은 메시지 → 모두 읽음 처리
+    const markAsRead = async (senderId: string) => {
+      await supabase
+        .from('chat_messages')
+        .update({ is_read: true })
+        .eq('room_id', chatRoom.id)
+        .neq('sender_id', senderId)
+        .eq('is_read', false)
+    }
+    await markAsRead(currentUser.id)
 
     const channel = supabase
       .channel(`chat:${chatRoom.id}:${Date.now()}`)
+      // 새 메시지 도착
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'chat_messages',
         filter: `room_id=eq.${chatRoom.id}`,
+      }, async (payload) => {
+        const newMsg = payload.new as Message
+        setMessages(prev => [...prev, newMsg])
+        // 상대방이 보낸 메시지라면 즉시 읽음 처리
+        if (newMsg.sender_id !== currentUser.id) {
+          await supabase
+            .from('chat_messages')
+            .update({ is_read: true })
+            .eq('id', newMsg.id)
+        }
+      })
+      // 메시지 읽음 상태 변경 → 내 메시지가 읽혔을 때 UI 업데이트
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `room_id=eq.${chatRoom.id}`,
       }, (payload) => {
-        setMessages(prev => [...prev, payload.new as Message])
+        const updated = payload.new as Message
+        setMessages(prev =>
+          prev.map(m => m.id === updated.id ? { ...m, is_read: updated.is_read } : m)
+        )
       })
       .subscribe()
 
@@ -522,11 +556,21 @@ export default function ChatPage() {
                         )}
 
                         {(showTime || isLast) && (
-                          <span className="mt-1 px-1 text-xs text-gray-400">
-                            {new Date(msg.created_at).toLocaleTimeString('ko-KR', {
-                              hour: '2-digit', minute: '2-digit',
-                            })}
-                          </span>
+                          <div className="mt-1 px-1 flex items-center gap-1.5">
+                            {isMine && (
+                              <span className={cn(
+                                'text-xs font-medium',
+                                msg.is_read ? 'text-blue-400' : 'text-gray-300'
+                              )}>
+                                {msg.is_read ? '읽음' : ''}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-400">
+                              {new Date(msg.created_at).toLocaleTimeString('ko-KR', {
+                                hour: '2-digit', minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>

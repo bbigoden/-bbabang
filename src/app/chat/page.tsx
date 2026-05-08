@@ -58,6 +58,33 @@ export default async function ChatListPage() {
     chatRooms = data ?? []
   }
 
+  // ── 읽지 않은 메시지 수 계산 ──────────────────────────────
+  const proposalIds = chatRooms.map((p: any) => p.id)
+  let unreadMap: Record<string, number> = {}
+
+  if (proposalIds.length > 0) {
+    const { data: rooms } = await supabase
+      .from('chat_rooms')
+      .select('id, proposal_id')
+      .in('proposal_id', proposalIds)
+
+    if (rooms && rooms.length > 0) {
+      const roomIds = rooms.map(r => r.id)
+      const { data: unreadMsgs } = await supabase
+        .from('chat_messages')
+        .select('room_id')
+        .in('room_id', roomIds)
+        .neq('sender_id', user.id)
+        .eq('is_read', false)
+
+      const roomToProposal = Object.fromEntries(rooms.map(r => [r.id, r.proposal_id]))
+      for (const msg of unreadMsgs ?? []) {
+        const pid = roomToProposal[msg.room_id]
+        if (pid) unreadMap[pid] = (unreadMap[pid] ?? 0) + 1
+      }
+    }
+  }
+
   const statusLabel: Record<string, string> = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
   const statusVariant: Record<string, 'warning' | 'success' | 'danger'> = {
     pending: 'warning', accepted: 'success', rejected: 'danger'
@@ -133,7 +160,13 @@ export default async function ChatListPage() {
                             <Clock className="h-3 w-3" />
                             {formatDate(proposal.created_at)}
                           </span>
-                          <span className="text-xs text-blue-500 font-medium">채팅 열기 →</span>
+                          {unreadMap[proposal.id] > 0 ? (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-bold text-white">
+                              {unreadMap[proposal.id]}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-blue-500 font-medium">채팅 열기 →</span>
+                          )}
                         </div>
                       </div>
                     </CardBody>
