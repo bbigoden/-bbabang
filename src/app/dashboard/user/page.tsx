@@ -10,27 +10,41 @@ import { redirect } from 'next/navigation'
 
 export default async function UserDashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
+  let user: any = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    redirect('/auth/login')
+  }
   if (!user) redirect('/auth/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  const { data: requests } = await supabase
-    .from('request_posts')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-
-  // 미읽은 제안 수 (pending 상태인 제안들)
-  const requestIds = requests?.map(r => r.id) ?? []
+  let profile: any = null
+  let requests: any[] = []
   let unreadCount = 0
-  if (requestIds.length > 0) {
-    const { count } = await supabase
-      .from('proposals')
-      .select('*', { count: 'exact', head: true })
-      .in('request_id', requestIds)
-      .eq('status', 'pending')
-    unreadCount = count ?? 0
+  try {
+    const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    profile = p
+
+    const { data: r } = await supabase
+      .from('request_posts')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+    requests = r ?? []
+
+    const requestIds = requests.map((req: any) => req.id)
+    if (requestIds.length > 0) {
+      const { count } = await supabase
+        .from('proposals')
+        .select('*', { count: 'exact', head: true })
+        .in('request_id', requestIds)
+        .eq('status', 'pending')
+      unreadCount = count ?? 0
+    }
+  } catch {
+    // 데이터 로드 실패 시 빈 상태로 표시
   }
 
   const activeRequests = requests?.filter(r => r.status !== 'closed') ?? []

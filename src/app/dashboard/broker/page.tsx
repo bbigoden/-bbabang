@@ -12,39 +12,61 @@ import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
+  let user: any = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    redirect('/auth/login')
+  }
   if (!user) redirect('/auth/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  if (profile?.role !== 'broker') redirect('/dashboard/user')
+  let profile: any = null
+  let broker: any = null
+  let proposals: any[] = []
+  let activeRequests: any[] = []
+  let brokerDistricts: string[] = []
 
-  const { data: broker } = await supabase
-    .from('broker_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
+  try {
+    const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    profile = p
+    if (profile?.role !== 'broker') redirect('/dashboard/user')
+
+    const { data: b } = await supabase
+      .from('broker_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+    broker = b
+    if (!broker) redirect('/broker/register')
+
+    brokerDistricts = broker.district
+      ? broker.district.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : []
+
+    const { data: pr } = await supabase
+      .from('proposals')
+      .select('*, request_posts(*, profiles(*))')
+      .eq('broker_id', broker.id)
+      .order('created_at', { ascending: false })
+    proposals = pr ?? []
+
+    const { data: ar } = await supabase
+      .from('request_posts')
+      .select('*, profiles(*)')
+      .in('district', brokerDistricts.length > 0 ? brokerDistricts : [''])
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(10)
+    activeRequests = ar ?? []
+  } catch (e: any) {
+    // Next.js redirect는 다시 throw
+    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+    // 데이터 로드 실패 시 빈 상태로 표시
+  }
 
   if (!broker) redirect('/broker/register')
-
-  // 내 제안 목록
-  const { data: proposals } = await supabase
-    .from('proposals')
-    .select('*, request_posts(*, profiles(*))')
-    .eq('broker_id', broker.id)
-    .order('created_at', { ascending: false })
-
-  // 지역 내 활성 요청 (중개사가 담당하는 복수 지역 모두 포함)
-  const brokerDistricts = broker.district
-    ? broker.district.split(',').map((s: string) => s.trim()).filter(Boolean)
-    : []
-  const { data: activeRequests } = await supabase
-    .from('request_posts')
-    .select('*, profiles(*)')
-    .in('district', brokerDistricts.length > 0 ? brokerDistricts : [''])
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(10)
 
   const statusLabel = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
   const statusVariant = { pending: 'warning', accepted: 'success', rejected: 'danger' } as const
