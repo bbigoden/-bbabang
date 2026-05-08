@@ -4,7 +4,7 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Plus, Home, MessageCircle, Clock } from 'lucide-react'
+import { Plus, Home, MessageCircle, Clock, Archive } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -33,7 +33,10 @@ export default async function UserDashboardPage() {
     unreadCount = count ?? 0
   }
 
-  const statusLabel = { active: '모집 중', matched: '매칭 완료', closed: '종료' }
+  const activeRequests = requests?.filter(r => r.status !== 'closed') ?? []
+  const closedRequests = requests?.filter(r => r.status === 'closed') ?? []
+
+  const statusLabel = { active: '모집 중', matched: '매칭 완료', closed: '마감' }
   const statusVariant = { active: 'success', matched: 'info', closed: 'default' } as const
 
   return (
@@ -78,14 +81,14 @@ export default async function UserDashboardPage() {
           ))}
         </div>
 
-        {/* 요청 목록 */}
-        <h2 className="mb-4 font-bold text-gray-900">내 요청 목록</h2>
+        {/* 활성 요청 목록 */}
+        <h2 className="mb-4 font-bold text-gray-900">활성 요청</h2>
 
-        {(!requests || requests.length === 0) ? (
+        {activeRequests.length === 0 ? (
           <Card>
             <CardBody className="py-16 text-center">
               <Home className="mx-auto mb-4 h-12 w-12 text-gray-200" />
-              <p className="font-semibold text-gray-500">아직 등록한 요청이 없습니다</p>
+              <p className="font-semibold text-gray-500">활성 요청이 없습니다</p>
               <p className="mt-1 text-sm text-gray-400">조건을 등록하면 중개사들이 매물을 제안합니다</p>
               <Link href="/request/new" className="mt-6 inline-block">
                 <Button variant="primary">
@@ -96,7 +99,7 @@ export default async function UserDashboardPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {requests.map((req) => (
+            {activeRequests.map((req) => (
               <Link key={req.id} href={`/request/${req.id}`}>
                 <Card hover>
                   <CardBody>
@@ -133,6 +136,50 @@ export default async function UserDashboardPage() {
                 </Card>
               </Link>
             ))}
+          </div>
+        )}
+
+        {/* 마감된 요청 */}
+        {closedRequests.length > 0 && (
+          <div className="mt-8">
+            <div className="mb-4 flex items-center gap-2">
+              <Archive className="h-4 w-4 text-gray-400" />
+              <h2 className="font-bold text-gray-500">마감된 요청 ({closedRequests.length})</h2>
+            </div>
+            <div className="space-y-3">
+              {closedRequests.map((req) => (
+                <Link key={req.id} href={`/request/${req.id}`}>
+                  <Card>
+                    <CardBody className="opacity-60">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            <Badge variant="default">마감</Badge>
+                            {req.deal_type?.split(',').map((t: string) => (
+                              <Badge key={t} variant="default">{t.trim()}</Badge>
+                            ))}
+                          </div>
+                          <h3 className="font-semibold text-gray-700">
+                            {req.city} {req.district}
+                          </h3>
+                          <div className="mt-1 text-sm text-gray-500">
+                            {formatPrice(req.min_price)} ~ {formatPrice(req.max_price)}
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              제안 {req.proposal_count ?? 0}건
+                            </span>
+                            <span>마감: {formatDate(req.closed_at ?? req.created_at)}</span>
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-400">기록 보기 →</span>
+                      </div>
+                    </CardBody>
+                  </Card>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
       </div>

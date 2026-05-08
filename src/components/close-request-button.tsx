@@ -3,32 +3,78 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { XCircle } from 'lucide-react'
+import { XCircle, AlertTriangle } from 'lucide-react'
 
 export function CloseRequestButton({ requestId }: { requestId: string }) {
   const supabase = createClient()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   const handleClose = async () => {
-    if (!confirm('이 요청을 마감하시겠어요? 더 이상 제안을 받지 않습니다.')) return
     setLoading(true)
-    await supabase
+    const { error } = await supabase
       .from('request_posts')
       .update({ status: 'closed', closed_at: new Date().toISOString() })
       .eq('id', requestId)
+    if (error) {
+      alert('마감 처리에 실패했어요. 다시 시도해주세요.')
+      setLoading(false)
+      return
+    }
+    setShowModal(false)
     router.refresh()
     setLoading(false)
   }
 
   return (
-    <button
-      onClick={handleClose}
-      disabled={loading}
-      className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-100 transition-colors disabled:opacity-50"
-    >
-      <XCircle className="h-4 w-4" />
-      {loading ? '처리 중...' : '요청 마감'}
-    </button>
+    <>
+      <button
+        onClick={() => setShowModal(true)}
+        className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-100 transition-colors"
+      >
+        <XCircle className="h-4 w-4" />
+        요청 마감
+      </button>
+
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => !loading && setShowModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+                <AlertTriangle className="h-7 w-7 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">요청을 마감할까요?</h3>
+              <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+                마감하면 새로운 제안을 받을 수 없어요.<br />
+                이미 받은 제안들은 계속 확인할 수 있습니다.
+              </p>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                disabled={loading}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleClose}
+                disabled={loading}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {loading ? '처리 중...' : '마감하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

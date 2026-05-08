@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardBody } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { MapPin, Clock, Star, MessageCircle, ChevronRight, Home, CheckCircle, Pencil } from 'lucide-react'
+import { MapPin, Clock, Star, MessageCircle, ChevronRight, Home, CheckCircle, Pencil, Archive } from 'lucide-react'
 import { ProposalActions } from '@/components/proposal-actions'
 import { CloseRequestButton } from '@/components/close-request-button'
 import { ShareButton } from '@/components/share-button'
@@ -104,6 +104,17 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             </div>
           </CardBody>
         </Card>
+
+        {/* 마감된 요청 배너 */}
+        {request.status === 'closed' && (
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <Archive className="h-5 w-5 text-amber-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800">마감된 요청입니다</p>
+              <p className="text-xs text-amber-600">더 이상 새로운 제안을 받지 않으며, 이미 받은 제안들만 확인할 수 있습니다.</p>
+            </div>
+          </div>
+        )}
 
         {/* 요청자용: 수정 + 마감 버튼 */}
         {isOwner && (
