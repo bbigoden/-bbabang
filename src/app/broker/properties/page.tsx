@@ -187,11 +187,11 @@ export default function BrokerPropertiesPage() {
                           {property.floor && (
                             <span>{property.floor}층{property.total_floors ? `/${property.total_floors}층` : ''}</span>
                           )}
-                          {property.options.slice(0, 3).map(opt => (
+                          {(property.options ?? []).slice(0, 3).map(opt => (
                             <span key={opt} className="rounded-full bg-gray-100 px-2 py-0.5">{opt}</span>
                           ))}
-                          {property.options.length > 3 && (
-                            <span className="text-gray-400">+{property.options.length - 3}</span>
+                          {(property.options ?? []).length > 3 && (
+                            <span className="text-gray-400">+{(property.options ?? []).length - 3}</span>
                           )}
                         </div>
 

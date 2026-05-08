@@ -83,6 +83,10 @@ export default function BrokerRegisterPage() {
       setLoading(false)
       return
     }
+
+    // profiles.role을 'broker'로 업데이트
+    await supabase.from('profiles').update({ role: 'broker' }).eq('id', user.id)
+
     router.push('/dashboard/broker')
   }
 
