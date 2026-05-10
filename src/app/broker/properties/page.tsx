@@ -13,6 +13,7 @@ import {
   Link as LinkIcon, Check,
 } from 'lucide-react'
 import Link from 'next/link'
+import { ImageLightbox } from '@/components/image-lightbox'
 
 interface Property {
   id: string
@@ -57,6 +58,7 @@ export default function BrokerPropertiesPage() {
   const [searchField, setSearchField] = useState<'all' | 'address' | 'assignee' | 'room_type'>('all')
   const [sortKey, setSortKey] = useState<SortKey>('newest')
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
 
   useEffect(() => { init() }, [])
 
@@ -184,6 +186,18 @@ export default function BrokerPropertiesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} role="broker" />
+
+      {/* 사진 라이트박스 */}
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onNext={() => setLightbox(lb => lb && lb.index < lb.images.length - 1 ? { ...lb, index: lb.index + 1 } : lb)}
+          onPrev={() => setLightbox(lb => lb && lb.index > 0 ? { ...lb, index: lb.index - 1 } : lb)}
+          onGoTo={(i) => setLightbox(lb => lb ? { ...lb, index: i } : lb)}
+        />
+      )}
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         {/* 타이틀 */}
@@ -335,15 +349,20 @@ export default function BrokerPropertiesPage() {
                         {/* 사진 썸네일 */}
                         {property.images?.length > 0 && (
                           <div className="mt-2 flex gap-1.5">
-                            {(property.images).slice(0, 4).map((src, i, arr) => (
-                              <div key={i} className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200">
+                            {property.images.slice(0, 4).map((src, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => setLightbox({ images: property.images, index: i })}
+                                className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"
+                              >
                                 <img src={src} alt="" className="h-full w-full object-cover" />
-                                {i === 3 && arr.length < (property.images).length && (
+                                {i === 3 && property.images.length > 4 && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-bold text-white">
-                                    +{(property.images).length - 4}
+                                    +{property.images.length - 4}
                                   </div>
                                 )}
-                              </div>
+                              </button>
                             ))}
                           </div>
                         )}
