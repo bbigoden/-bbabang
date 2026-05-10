@@ -8,7 +8,6 @@ import { formatPrice } from '@/lib/utils'
 import {
   Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X,
 } from 'lucide-react'
-import Link from 'next/link'
 import { ImageLightbox } from '@/components/image-lightbox'
 
 interface Property {
@@ -263,6 +262,7 @@ export default function BrokerPropertiesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
+  const [addingId, setAddingId] = useState<string | null>(null)
 
   useEffect(() => { init() }, [])
   useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery])
@@ -285,6 +285,25 @@ export default function BrokerPropertiesPage() {
     await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
     setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
   }, [supabase])
+
+  const addNewRow = async () => {
+    if (!broker) return
+    const { data, error } = await supabase.from('broker_properties').insert({
+      broker_id: broker.id,
+      deal_type: '매매',
+      room_type: '아파트',
+      address: '',
+      price: 0,
+      status: 'available',
+      options: [],
+      images: [],
+    }).select().single()
+    if (error || !data) return
+    setProperties(prev => [data, ...prev])
+    setAddingId(data.id)
+    setPage(1)
+    setTimeout(() => setAddingId(null), 2000)
+  }
 
   const deleteProperty = async (id: string) => {
     if (!confirm('삭제하시겠어요?')) return
@@ -338,11 +357,11 @@ export default function BrokerPropertiesPage() {
             <h1 className="text-2xl font-bold text-gray-900">내 매물장</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
           </div>
-          <Link href="/broker/properties/new"
+          <button onClick={addNewRow}
             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" />매물 등록
-          </Link>
+          </button>
         </div>
 
         {/* 통계 탭 */}
@@ -408,7 +427,7 @@ export default function BrokerPropertiesPage() {
                 </tr>
               ) : paginated.map((p, idx) => (
                 <tr key={p.id}
-                  className={`border-b border-gray-50 hover:bg-gray-50/60 transition-colors ${p.status === 'hidden' ? 'opacity-50' : ''}`}
+                  className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-50 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
                   {/* # */}
                   <td className="px-3 py-1.5 text-center text-xs text-gray-300 select-none">
