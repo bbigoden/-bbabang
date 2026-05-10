@@ -15,9 +15,9 @@ export default async function ChatListPage() {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch {
-    redirect('/auth/login')
+    redirect('/auth/login?redirect=/chat')
   }
-  if (!user) redirect('/auth/login')
+  if (!user) redirect('/auth/login?redirect=/chat')
 
   let profile: any = null
   let chatRooms: any[] = []

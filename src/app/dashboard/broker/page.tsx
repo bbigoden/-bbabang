@@ -18,9 +18,9 @@ export default async function BrokerDashboardPage() {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch {
-    redirect('/auth/login')
+    redirect('/auth/login?redirect=/dashboard/broker')
   }
-  if (!user) redirect('/auth/login')
+  if (!user) redirect('/auth/login?redirect=/dashboard/broker')
 
   let profile: any = null
   let broker: any = null

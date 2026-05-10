@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,8 +10,10 @@ import { Home, Eye, EyeOff, Check } from 'lucide-react'
 
 const STORAGE_KEY = 'bbabang_saved_email'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect')
   const supabase = createClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -54,7 +56,9 @@ export default function LoginPage() {
       .eq('id', authData.user.id)
       .single()
 
-    if (profile?.role === 'admin') {
+    if (redirectTo) {
+      router.push(redirectTo)
+    } else if (profile?.role === 'admin') {
       router.push('/admin')
     } else if (profile?.role === 'broker') {
       router.push('/dashboard/broker')
@@ -166,5 +170,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

@@ -16,9 +16,9 @@ export default async function UserDashboardPage() {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch {
-    redirect('/auth/login')
+    redirect('/auth/login?redirect=/dashboard/user')
   }
-  if (!user) redirect('/auth/login')
+  if (!user) redirect('/auth/login?redirect=/dashboard/user')
 
   let profile: any = null
   let requests: any[] = []
