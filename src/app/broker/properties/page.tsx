@@ -101,7 +101,8 @@ function TextCell({ value, onSave, placeholder = '—', className = '' }: {
   }
   return (
     <div onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-      className={`cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] ${value ? 'text-gray-800' : 'text-gray-300'} ${className}`}
+      className={`cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] truncate ${value ? 'text-gray-800' : 'text-gray-300'} ${className}`}
+      title={value ?? ''}
     >
       {value || placeholder}
     </div>
@@ -461,7 +462,7 @@ export default function BrokerPropertiesPage() {
 
         {/* 테이블 */}
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse table-fixed">
             <thead>
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide">
                 <th className="w-8 px-2 py-2.5 text-center">#</th>
@@ -469,13 +470,13 @@ export default function BrokerPropertiesPage() {
                 {show('assignee') && <th className="px-2 py-2.5 text-left w-16">담당자</th>}
                 {show('deal_type') && <th className="px-2 py-2.5 text-left w-14">거래</th>}
                 {show('room_type') && <th className="px-2 py-2.5 text-left w-16">유형</th>}
-                <th className="px-2 py-2.5 text-left">주소</th>
+                <th className="px-2 py-2.5 text-left w-48">주소</th>
                 {show('price') && <th className="px-2 py-2.5 text-right w-24">가격</th>}
                 {show('monthly_rent') && <th className="px-2 py-2.5 text-right w-16">월세</th>}
                 {show('management_fee') && <th className="px-2 py-2.5 text-right w-16">관리비</th>}
                 {show('premium') && <th className="px-2 py-2.5 text-right w-16">권리금</th>}
-                {show('brief_memo') && <th className="px-2 py-2.5 text-left w-36">간단메모</th>}
-                {show('memo') && <th className="px-2 py-2.5 text-left w-36">중개사메모</th>}
+                {show('brief_memo') && <th className="px-2 py-2.5 text-left w-32">간단메모</th>}
+                {show('memo') && <th className="px-2 py-2.5 text-left w-32">중개사메모</th>}
                 {show('images') && <th className="px-2 py-2.5 text-center w-12">사진</th>}
                 <th className="px-2 py-2.5 text-center w-8">삭제</th>
               </tr>
