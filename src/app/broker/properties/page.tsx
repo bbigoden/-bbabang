@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { ImageLightbox } from '@/components/image-lightbox'
+import { PropertyEditDrawer } from '@/components/property-edit-drawer'
 
 interface Property {
   id: string
@@ -65,6 +66,7 @@ export default function BrokerPropertiesPage() {
   const [page, setPage] = useState(1)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
+  const [editingProperty, setEditingProperty] = useState<Property | null>(null)
 
   useEffect(() => { init() }, [])
 
@@ -173,6 +175,15 @@ export default function BrokerPropertiesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} role="broker" />
+
+      <PropertyEditDrawer
+        property={editingProperty}
+        onClose={() => setEditingProperty(null)}
+        onSaved={(updated) => {
+          setProperties(prev => prev.map(p => p.id === updated.id ? updated : p))
+          setEditingProperty(null)
+        }}
+      />
 
       {lightbox && (
         <ImageLightbox
@@ -363,12 +374,12 @@ export default function BrokerPropertiesPage() {
                     {/* 액션 */}
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-1 justify-center">
-                        <Link href={`/broker/properties/${property.id}/edit`}
+                        <button onClick={() => setEditingProperty(property)}
                           className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
                           title="수정"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                        </Link>
+                        </button>
                         <button onClick={() => duplicateProperty(property)}
                           className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
                           title="복사"
@@ -460,11 +471,11 @@ export default function BrokerPropertiesPage() {
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
-                      <Link href={`/broker/properties/${property.id}/edit`}
+                      <button onClick={() => setEditingProperty(property)}
                         className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                       >
                         <Pencil className="h-3.5 w-3.5" />수정
-                      </Link>
+                      </button>
                       <button onClick={() => duplicateProperty(property)}
                         className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
                       >
