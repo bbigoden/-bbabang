@@ -65,10 +65,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {request.deal_type?.split(',').map((t: string) => (
+                  {(request.deal_type?.split(',') ?? []).map((t: string) => (
                     <Badge key={t} variant="info">{t.trim()}</Badge>
                   ))}
-                  {request.room_type?.split(',').map((t: string) => (
+                  {(request.room_type?.split(',') ?? []).map((t: string) => (
                     <Badge key={t} variant="default">{t.trim()}</Badge>
                   ))}
                   <Badge variant={request.status === 'active' ? 'success' : request.status === 'matched' ? 'info' : 'default'}>
@@ -76,7 +76,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                   </Badge>
                 </div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  {request.city} {request.district} · {request.deal_type?.split(',')[0]}
+                  {request.city} {request.district} · {request.deal_type?.split(',')?.[0]}
                 </h1>
                 <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-500">
                   <span className="flex items-center gap-1">
@@ -111,7 +111,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
             <div className="mt-4 flex justify-end">
               <ShareButton
-                title={`${request.city} ${request.district} · ${request.deal_type?.split(',')[0]} 구합니다`}
+                title={`${request.city} ${request.district} · ${request.deal_type?.split(',')?.[0]} 구합니다`}
                 text={`빠방에서 ${request.city} ${request.district} 매물을 찾고 있어요. 제안해주세요!`}
                 url={`https://bbabang.vercel.app/request/${id}`}
               />
