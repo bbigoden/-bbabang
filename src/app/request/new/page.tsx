@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -105,8 +105,10 @@ const REGIONS: Record<string, string[]> = {
 const CITIES = Object.keys(REGIONS)
 const STEPS = ['거래·매물 유형', '위치', '예산', '상세 조건']
 
-export default function RequestNewPage() {
+function RequestNewPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isCoBroker = searchParams.get('co_broker') === 'true'
   const supabase = createClient()
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -193,6 +195,7 @@ export default function RequestNewPage() {
           description: form.description || null,
           status: 'active',
           proposal_count: 0,
+          is_co_broker: isCoBroker,
         })
         .select()
         .single()
@@ -215,6 +218,14 @@ export default function RequestNewPage() {
       <Header />
 
       <div className="mx-auto max-w-xl px-4 py-10">
+        {/* 공동중개 배너 */}
+        {isCoBroker && (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
+            <span className="rounded-full bg-purple-600 px-2.5 py-0.5 text-xs font-bold text-white">공동중개</span>
+            <p className="text-sm text-purple-800">다른 중개사에게 발송되는 공동중개 요청입니다. 고객 요청과 동일한 방식으로 등록하세요.</p>
+          </div>
+        )}
+
         {/* 스텝 인디케이터 */}
         <div className="mb-8">
           <div className="flex items-center">
@@ -561,5 +572,13 @@ export default function RequestNewPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RequestNewPage() {
+  return (
+    <Suspense>
+      <RequestNewPageInner />
+    </Suspense>
   )
 }

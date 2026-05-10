@@ -186,6 +186,9 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap gap-1.5 mb-1">
+                      {req.is_co_broker && (
+                        <Badge variant="default" className="bg-purple-100 text-purple-700 border-purple-200">공동중개</Badge>
+                      )}
                       {(req.deal_type?.split(',') ?? []).map((t: string) => (
                         <Badge key={t} variant="info">{t.trim()}</Badge>
                       ))}

@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardBody } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddress } from '@/lib/utils'
 import { MapPin, Clock, Star, MessageCircle, ChevronRight, Home, CheckCircle, Pencil, Archive } from 'lucide-react'
 import { ProposalActions } from '@/components/proposal-actions'
 import { CloseRequestButton } from '@/components/close-request-button'
@@ -65,6 +65,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex flex-wrap gap-2 mb-3">
+                  {request.is_co_broker && (
+                    <Badge variant="default" className="bg-purple-100 text-purple-700 border-purple-200">공동중개</Badge>
+                  )}
                   {(request.deal_type?.split(',') ?? []).map((t: string) => (
                     <Badge key={t} variant="info">{t.trim()}</Badge>
                   ))}
@@ -216,7 +219,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                           {proposal.property_address && (
                             <div className="mt-1 flex items-center gap-1 text-sm text-gray-500">
                               <MapPin className="h-3.5 w-3.5" />
-                              {proposal.property_address}
+                              {maskAddress(proposal.property_address)}
                             </div>
                           )}
 

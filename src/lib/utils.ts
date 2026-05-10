@@ -15,6 +15,16 @@ export function formatPrice(price: number): string {
   return `${price.toLocaleString()}만`
 }
 
+// 주소를 읍/면/동/리 수준까지만 표시 (지번 숨김)
+export function maskAddress(address: string | null | undefined): string {
+  if (!address) return ''
+  const tokens = address.trim().split(/\s+/)
+  // 읍·면·동·리·가 로 끝나는 토큰까지만 포함
+  const stopIdx = tokens.findIndex(t => /[읍면동리가]$/.test(t))
+  if (stopIdx === -1) return tokens[0] ?? address // 못 찾으면 첫 토큰만
+  return tokens.slice(0, stopIdx + 1).join(' ')
+}
+
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()
