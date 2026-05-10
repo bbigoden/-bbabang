@@ -136,7 +136,7 @@ export default async function ChatListPage() {
                             </Badge>
                             {req && (
                               <span className="text-sm font-semibold text-gray-900 truncate">
-                                {req.district} · {req.deal_type?.split(',')[0]}
+                                {req.district} · {req.deal_type?.split(',')?.[0]}
                               </span>
                             )}
                           </div>

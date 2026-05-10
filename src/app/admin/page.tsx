@@ -312,11 +312,11 @@ export default function AdminPage() {
                       <td className="px-5 py-4 text-gray-300 font-mono text-sm">{broker.license_number}</td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap gap-1">
-                          {broker.district?.split(',').slice(0, 2).map((d: string) => (
+                          {(broker.district?.split(',') ?? []).slice(0, 2).map((d: string) => (
                             <span key={d} className="rounded-md bg-gray-700 px-2 py-0.5 text-xs text-gray-300">{d.trim()}</span>
                           ))}
-                          {broker.district?.split(',').length > 2 && (
-                            <span className="text-xs text-gray-500">+{broker.district.split(',').length - 2}</span>
+                          {(broker.district?.split(',') ?? []).length > 2 && (
+                            <span className="text-xs text-gray-500">+{(broker.district?.split(',') ?? []).length - 2}</span>
                           )}
                         </div>
                       </td>
@@ -433,7 +433,7 @@ export default function AdminPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="text-sm text-white">{req.city} {req.district}</div>
-                          <div className="text-xs text-gray-400">{req.deal_type?.split(',')[0]}</div>
+                          <div className="text-xs text-gray-400">{req.deal_type?.split(',')?.[0]}</div>
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
@@ -601,7 +601,7 @@ export default function AdminPage() {
             <InfoRow icon={Hash} label="자격증 번호" value={<span className="font-mono">{brokerModal.license_number}</span>} />
             <InfoRow icon={MapPin} label="담당 지역" value={
               <div className="flex flex-wrap gap-1 mt-0.5">
-                {brokerModal.district?.split(',').map((d: string) => (
+                {(brokerModal.district?.split(',') ?? []).map((d: string) => (
                   <span key={d} className="rounded-md bg-gray-700 px-2 py-0.5 text-xs text-gray-300">{d.trim()}</span>
                 ))}
               </div>
@@ -910,7 +910,7 @@ export default function AdminPage() {
                               {req.status === 'active' ? '모집 중' : req.status === 'matched' ? '매칭 완료' : '종료'}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-400">{req.city} {req.district} · {req.deal_type?.split(',')[0]}</div>
+                          <div className="text-xs text-gray-400">{req.city} {req.district} · {req.deal_type?.split(',')?.[0]}</div>
                         </div>
                         <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(req.created_at)}</span>
                       </button>
@@ -947,7 +947,7 @@ export default function AdminPage() {
                             <div className="flex items-center gap-1.5">
                               <MapPin className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
                               <span className="text-xs text-gray-400">
-                                {req.city} {req.district} · {req.deal_type?.split(',')[0]} · 요청자: {req.profiles?.name}
+                                {req.city} {req.district} · {req.deal_type?.split(',')?.[0]} · 요청자: {req.profiles?.name}
                               </span>
                             </div>
                           )}
