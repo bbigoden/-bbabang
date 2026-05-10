@@ -150,18 +150,29 @@ function SelectCell({ value, options, onSave, colorMap }: {
   value: string, options: string[], onSave: (v: string) => void, colorMap?: Record<string, string>
 }) {
   const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      // 아래 공간이 200px 미만이면 위로 열기
+      setOpenUp(window.innerHeight - rect.bottom < 200)
+    }
+    setOpen(v => !v)
+  }
 
   return (
     <div ref={ref} className="relative">
-      <div onClick={() => setOpen(v => !v)}
+      <div ref={btnRef} onClick={handleOpen}
         className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1 hover:opacity-80 ${colorMap?.[value] ?? 'bg-gray-100 text-gray-600'}`}
       >
         {value}
       </div>
       {open && (
-        <div className={`absolute left-0 bottom-full z-50 mb-1 rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'}`}>
+        <div className={`absolute left-0 z-50 rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} ${options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'}`}>
           {options.map(opt => (
             <button key={opt} onClick={() => { onSave(opt); setOpen(false) }}
               className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}
