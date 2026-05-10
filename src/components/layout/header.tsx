@@ -41,15 +41,20 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
 
         {/* 데스크탑 네비 */}
         <nav className="hidden items-center gap-1 md:flex">
-          {pathname !== '/request/new' && (
+          {role !== 'broker' && role !== 'admin' && pathname !== '/request/new' && (
             <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
               매물 요청하기
             </Link>
           )}
           {role === 'broker' && (
-            <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-              중개사 대시보드
-            </Link>
+            <>
+              <Link href="/broker/properties" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                내 매물장
+              </Link>
+              <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                중개사 대시보드
+              </Link>
+            </>
           )}
           {user ? (
             <>
@@ -92,13 +97,20 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
       {mobileOpen && (
         <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden">
           <div className="flex flex-col gap-2">
-            <Link href="/request/new" onClick={() => setMobileOpen(false)}>
-              <Button variant="ghost" size="md" className="w-full justify-start">매물 요청하기</Button>
-            </Link>
-            {role === 'broker' && (
-              <Link href="/dashboard/broker" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" size="md" className="w-full justify-start">중개사 대시보드</Button>
+            {role !== 'broker' && role !== 'admin' && (
+              <Link href="/request/new" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" size="md" className="w-full justify-start">매물 요청하기</Button>
               </Link>
+            )}
+            {role === 'broker' && (
+              <>
+                <Link href="/broker/properties" onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" size="md" className="w-full justify-start">내 매물장</Button>
+                </Link>
+                <Link href="/dashboard/broker" onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" size="md" className="w-full justify-start">중개사 대시보드</Button>
+                </Link>
+              </>
             )}
             {user ? (
               <>
