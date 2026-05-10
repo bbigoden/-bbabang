@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -30,6 +30,12 @@ interface Property {
   assignee: string | null
   status: 'available' | 'contracted' | 'hidden'
   created_at: string
+  custom_fields: Record<string, string> | null
+}
+
+interface CustomColumn {
+  id: string
+  name: string
 }
 
 const STATUS_OPTS = ['available', 'contracted', 'hidden'] as const
@@ -46,24 +52,24 @@ const DEAL_FILTERS = ['전체', '매매', '전세', '월세'] as const
 type DealFilter = typeof DEAL_FILTERS[number]
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
+// 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
-  { key: 'deal_type',      label: '거래' },
-  { key: 'room_type',      label: '유형' },
-  { key: 'price',          label: '가격/보증금' },
-  { key: 'monthly_rent',   label: '임차료' },
-  { key: 'brief_memo',     label: '메모' },
-  { key: 'memo',           label: '중개사메모' },
-  { key: 'images',         label: '사진' },
-  // 선택 칼럼
-  { key: 'assignee',       label: '담당자' },
-  { key: 'management_fee', label: '관리비' },
-  { key: 'premium',        label: '권리금' },
+  { key: 'deal_type',    label: '거래' },
+  { key: 'room_type',    label: '유형' },
+  { key: 'price',        label: '가격/보증금' },
+  { key: 'monthly_rent', label: '임차료' },
+  { key: 'brief_memo',   label: '메모' },
+  { key: 'memo',         label: '중개사메모' },
+  { key: 'images',       label: '사진' },
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
+const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
+const DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
 
-// 지울 수 없는 고정 칼럼
-const FIXED_COLS: ColKey[] = ['deal_type', 'room_type', 'price', 'monthly_rent', 'brief_memo', 'memo', 'images']
-const DEFAULT_VISIBLE: ColKey[] = ['deal_type', 'room_type', 'price', 'monthly_rent', 'assignee', 'brief_memo', 'memo', 'images']
+// 초기 커스텀 칼럼 (새 중개사용 기본값)
+const DEFAULT_CUSTOM_COLS: CustomColumn[] = [
+  { id: 'assignee', name: '담당자' },
+]
 
 // 팝오버를 닫기 위한 훅
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -304,21 +310,32 @@ export default function BrokerPropertiesPage() {
     try { const s = localStorage.getItem('broker_col_widths'); if (s) return { ...def, ...JSON.parse(s) } } catch {}
     return def
   })
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
+  const [visibleCustomCols, setVisibleCustomCols] = useState<string[]>(() => {
+    try { const s = localStorage.getItem('broker_visible_custom'); if (s) return JSON.parse(s) } catch {}
+    return ['assignee']
+  })
+  const [editingColId, setEditingColId] = useState<string | null>(null)
+  const [editingColName, setEditingColName] = useState('')
+  const [newColName, setNewColName] = useState('')
+  const [addingCol, setAddingCol] = useState(false)
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
-  useClickOutside(colMenuRef, () => setColMenuOpen(false))
+  useClickOutside(colMenuRef, () => { setColMenuOpen(false); setAddingCol(false); setEditingColId(null) })
 
-  const toggleCol = (key: ColKey) => {
-    if (FIXED_COLS.includes(key)) return  // 고정 칼럼은 제거 불가
+  const toggleCol = (key: ColKey) =>
     setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
-  }
   const show = (key: ColKey) => visibleCols.includes(key)
+  const showCustom = (id: string) => visibleCustomCols.includes(id)
+  const toggleCustomCol = (id: string) =>
+    setVisibleCustomCols(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id])
 
   // localStorage 저장
   useEffect(() => { try { localStorage.setItem('broker_col_order', JSON.stringify(visibleCols)) } catch {} }, [visibleCols])
   useEffect(() => { try { localStorage.setItem('broker_col_widths', JSON.stringify(colWidths)) } catch {} }, [colWidths])
+  useEffect(() => { try { localStorage.setItem('broker_visible_custom', JSON.stringify(visibleCustomCols)) } catch {} }, [visibleCustomCols])
 
   // 칼럼 너비 드래그 조절
   const startResize = (key: string, e: React.MouseEvent) => {
@@ -352,9 +369,12 @@ export default function BrokerPropertiesPage() {
     try { const { data } = await supabase.auth.getUser(); u = data.user } catch { router.push('/auth/login'); return }
     if (!u) { router.push('/auth/login'); return }
     setUser(u)
-    const { data: b } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
+    const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns').eq('user_id', u.id).single()
     if (!b) { router.push('/broker/register'); return }
     setBroker(b)
+    // 커스텀 칼럼 로드 (없으면 기본값)
+    const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
+    setCustomColumns(cols)
     const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
     setProperties(data ?? [])
     setLoading(false)
@@ -365,6 +385,44 @@ export default function BrokerPropertiesPage() {
     await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
     setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
   }, [supabase])
+
+  // 커스텀 필드 값 저장
+  const saveCustomField = useCallback(async (propertyId: string, colId: string, value: string) => {
+    const prop = properties.find(p => p.id === propertyId)
+    const updated = { ...(prop?.custom_fields ?? {}), [colId]: value }
+    await supabase.from('broker_properties').update({ custom_fields: updated }).eq('id', propertyId)
+    setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, custom_fields: updated } : p))
+  }, [supabase, properties])
+
+  // 커스텀 칼럼 추가
+  const addCustomColumn = async (name: string) => {
+    if (!name.trim() || !broker) return
+    const newCol: CustomColumn = { id: `col_${Date.now()}`, name: name.trim() }
+    const updated = [...customColumns, newCol]
+    await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
+    setCustomColumns(updated)
+    setVisibleCustomCols(prev => [...prev, newCol.id])
+    setNewColName('')
+    setAddingCol(false)
+  }
+
+  // 커스텀 칼럼 이름 수정
+  const renameCustomColumn = async (id: string, name: string) => {
+    if (!name.trim() || !broker) return
+    const updated = customColumns.map(c => c.id === id ? { ...c, name: name.trim() } : c)
+    await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
+    setCustomColumns(updated)
+    setEditingColId(null)
+  }
+
+  // 커스텀 칼럼 삭제
+  const deleteCustomColumn = async (id: string) => {
+    if (!broker) return
+    const updated = customColumns.filter(c => c.id !== id)
+    await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
+    setCustomColumns(updated)
+    setVisibleCustomCols(prev => prev.filter(k => k !== id))
+  }
 
   const addNewRow = async () => {
     if (!broker) return
@@ -446,31 +504,64 @@ export default function BrokerPropertiesPage() {
                 <Settings2 className="h-4 w-4" />컬럼
               </button>
               {colMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-gray-200 bg-white shadow-lg py-2">
+                <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-xl border border-gray-200 bg-white shadow-lg py-2">
                   {/* 고정 칼럼 */}
-                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">고정 칼럼</p>
-                  {ALL_COLUMNS.filter(c => FIXED_COLS.includes(c.key)).map(col => (
-                    <div key={col.key} className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-gray-400 cursor-not-allowed">
-                      <span className="flex h-4 w-4 items-center justify-center rounded border-2 border-blue-300 bg-blue-300">
-                        <span className="text-[9px] font-black text-white">✓</span>
-                      </span>
-                      <span>{col.label}</span>
-                      <span className="ml-auto text-[10px] text-gray-300">🔒</span>
-                    </div>
-                  ))}
-                  {/* 선택 칼럼 */}
-                  <div className="my-1.5 border-t border-gray-100" />
-                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">선택 칼럼</p>
-                  {ALL_COLUMNS.filter(c => !FIXED_COLS.includes(c.key)).map(col => (
+                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1"><Lock className="h-3 w-3" /> 고정 칼럼</p>
+                  {ALL_COLUMNS.map(col => (
                     <button key={col.key} onClick={() => toggleCol(col.key)}
                       className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                     >
                       <span className={`flex h-4 w-4 items-center justify-center rounded border-2 transition-all ${visibleCols.includes(col.key) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`}>
                         {visibleCols.includes(col.key) && <span className="text-[9px] font-black text-white">✓</span>}
                       </span>
-                      {col.label}
+                      <span className="flex-1 text-left">{col.label}</span>
+                      <Lock className="h-3 w-3 text-gray-300" />
                     </button>
                   ))}
+                  {/* 사용자 정의 칼럼 */}
+                  <div className="my-1.5 border-t border-gray-100" />
+                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">내 칼럼</p>
+                  {customColumns.map(col => (
+                    <div key={col.id} className="flex items-center gap-1 px-2 py-1 hover:bg-gray-50 group">
+                      <button onClick={() => toggleCustomCol(col.id)}
+                        className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-all ${visibleCustomCols.includes(col.id) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`}>
+                        {visibleCustomCols.includes(col.id) && <span className="text-[9px] font-black text-white">✓</span>}
+                      </button>
+                      {editingColId === col.id ? (
+                        <input autoFocus value={editingColName} onChange={e => setEditingColName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') renameCustomColumn(col.id, editingColName); if (e.key === 'Escape') setEditingColId(null) }}
+                          onBlur={() => renameCustomColumn(col.id, editingColName)}
+                          className="flex-1 rounded border border-blue-400 px-1.5 py-0.5 text-xs outline-none" />
+                      ) : (
+                        <span className="flex-1 px-1 text-sm text-gray-700 truncate">{col.name}</span>
+                      )}
+                      <button onClick={() => { setEditingColId(col.id); setEditingColName(col.name) }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-blue-500 transition-all">
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button onClick={() => deleteCustomColumn(col.id)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-all">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {/* 칼럼 추가 */}
+                  {addingCol ? (
+                    <div className="flex items-center gap-1 px-2 py-1">
+                      <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') addCustomColumn(newColName); if (e.key === 'Escape') { setAddingCol(false); setNewColName('') } }}
+                        placeholder="칼럼 이름 입력"
+                        className="flex-1 rounded border border-blue-400 px-1.5 py-0.5 text-xs outline-none placeholder-gray-300" />
+                      <button onClick={() => addCustomColumn(newColName)} className="p-0.5 text-blue-500 hover:text-blue-700">
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAddingCol(true)}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 transition-colors">
+                      <Plus className="h-3.5 w-3.5" /> 칼럼 추가
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -547,6 +638,20 @@ export default function BrokerPropertiesPage() {
                   주소
                   <div onMouseDown={e => startResize('address', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
                 </th>
+                {customColumns.filter(c => showCustom(c.id)).map(col => (
+                  <th key={col.id}
+                    className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === col.id ? 'bg-blue-50' : ''}`}
+                    style={{ width: colWidths[col.id] ?? 120 }}
+                    draggable
+                    onDragStart={e => onColDragStart(col.id, e)}
+                    onDragOver={e => onColDragOver(col.id, e)}
+                    onDrop={() => onColDrop(col.id)}
+                    onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
+                  >
+                    <span className="truncate block pr-2">{col.name}</span>
+                    <div onMouseDown={e => startResize(col.id, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                  </th>
+                ))}
                 <th className="px-2 py-2.5 text-center" style={{ width: 36 }}>삭제</th>
               </tr>
             </thead>
@@ -579,13 +684,10 @@ export default function BrokerPropertiesPage() {
                   </td>
                   {visibleCols.map(key => (
                     <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100 }}>
-                      {key === 'assignee' && <TextCell value={p.assignee} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />}
                       {key === 'deal_type' && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
                       {key === 'room_type' && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                       {key === 'price' && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                       {key === 'monthly_rent' && <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />}
-                      {key === 'management_fee' && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
-                      {key === 'premium' && <NumberCell value={p.premium} onSave={v => saveField(p.id, 'premium', v)} />}
                       {key === 'brief_memo' && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
                       {key === 'memo' && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
                       {key === 'images' && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
@@ -595,6 +697,16 @@ export default function BrokerPropertiesPage() {
                   <td className="px-2 py-1.5" style={{ width: colWidths['address'] ?? 192 }}>
                     <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
                   </td>
+                  {/* 커스텀 칼럼 */}
+                  {customColumns.filter(c => showCustom(c.id)).map(col => (
+                    <td key={col.id} className="px-2 py-1.5" style={{ width: colWidths[col.id] ?? 120 }}>
+                      <TextCell
+                        value={(p.custom_fields ?? {})[col.id] ?? null}
+                        onSave={v => saveCustomField(p.id, col.id, v)}
+                        placeholder={col.name}
+                      />
+                    </td>
+                  ))}
                   {/* 삭제 - 항상 표시 */}
                   <td className="px-2 py-1.5 text-center">
                     <button onClick={() => deleteProperty(p.id)}
