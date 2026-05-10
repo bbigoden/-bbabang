@@ -1,20 +1,15 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
-import { Badge } from '@/components/ui/badge'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Pencil, Search, Copy, EyeOff,
-  ToggleLeft, ToggleRight, Link as LinkIcon, Check,
-  LayoutGrid, Table2, ChevronLeft, ChevronRight,
-  StickyNote, Building2,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X,
 } from 'lucide-react'
 import Link from 'next/link'
 import { ImageLightbox } from '@/components/image-lightbox'
-import { PropertyEditDrawer } from '@/components/property-edit-drawer'
 
 interface Property {
   id: string
@@ -38,16 +33,223 @@ interface Property {
   created_at: string
 }
 
-const STATUS_LABEL = { available: '매물 있음', contracted: '계약 완료', hidden: '숨김' }
-const STATUS_BADGE = { available: 'success', contracted: 'default', hidden: 'warning' } as const
-const STATUS_COLOR = { available: 'bg-green-500', contracted: 'bg-gray-300', hidden: 'bg-yellow-400' }
+const STATUS_OPTS = ['available', 'contracted', 'hidden'] as const
+const STATUS_LABEL: Record<string, string> = { available: '매물있음', contracted: '계약완료', hidden: '숨김' }
+const STATUS_COLOR: Record<string, string> = {
+  available: 'bg-green-100 text-green-700',
+  contracted: 'bg-gray-100 text-gray-600',
+  hidden: 'bg-yellow-100 text-yellow-700',
+}
+const DEAL_TYPES = ['매매', '전세', '월세']
+const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '기타']
+const OPTIONS_LIST = ['풀옵션', '에어컨', '세탁기', '냉장고', '전자레인지', '인터넷', '주차 가능', '엘리베이터', '반려동물 허용', 'CCTV', '도시가스', '관리비 포함']
 const DEAL_FILTERS = ['전체', '매매', '전세', '월세'] as const
 type DealFilter = typeof DEAL_FILTERS[number]
-type SortKey = 'newest' | 'oldest' | 'price_asc' | 'price_desc'
-type ViewMode = 'table' | 'card'
-
 const PAGE_SIZE = 50
 
+// 팝오버를 닫기 위한 훅
+function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) cb()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ref, cb])
+}
+
+// ── 인라인 텍스트 셀 ──────────────────────────────────────────
+function TextCell({ value, onSave, placeholder = '—', className = '' }: {
+  value: string | null, onSave: (v: string) => void, placeholder?: string, className?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    if (draft !== (value ?? '')) onSave(draft)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
+        className={`w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 ${className}`}
+      />
+    )
+  }
+  return (
+    <div onClick={() => { setDraft(value ?? ''); setEditing(true) }}
+      className={`cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] ${value ? 'text-gray-800' : 'text-gray-300'} ${className}`}
+    >
+      {value || placeholder}
+    </div>
+  )
+}
+
+// ── 인라인 숫자 셀 ──────────────────────────────────────────
+function NumberCell({ value, onSave, suffix = '만' }: {
+  value: number | null, onSave: (v: number | null) => void, suffix?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value != null ? String(value) : '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    const num = draft.trim() === '' ? null : Number(draft)
+    if (num !== value) onSave(isNaN(num as number) ? null : num)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="number"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value != null ? String(value) : ''); setEditing(false) } }}
+        className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs text-right outline-none focus:ring-2 focus:ring-blue-300"
+      />
+    )
+  }
+  return (
+    <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
+      className={`cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
+    >
+      {value != null ? `${value.toLocaleString()}${suffix}` : '—'}
+    </div>
+  )
+}
+
+// ── 팝오버 선택 셀 ──────────────────────────────────────────
+function SelectCell({ value, options, onSave, colorMap }: {
+  value: string, options: string[], onSave: (v: string) => void, colorMap?: Record<string, string>
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useClickOutside(ref, () => setOpen(false))
+
+  return (
+    <div ref={ref} className="relative">
+      <div onClick={() => setOpen(v => !v)}
+        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1 hover:opacity-80 ${colorMap?.[value] ?? 'bg-gray-100 text-gray-600'}`}
+      >
+        {value}
+      </div>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[120px] rounded-xl border border-gray-200 bg-white shadow-lg py-1">
+          {options.map(opt => (
+            <button key={opt} onClick={() => { onSave(opt); setOpen(false) }}
+              className={`w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}
+            >{opt}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 사진 셀 ──────────────────────────────────────────
+function ImageCell({ images, onSave, onView }: {
+  images: string[], onSave: (imgs: string[]) => void, onView: (idx: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [newPreviews, setNewPreviews] = useState<string[]>([])
+  const [newFiles, setNewFiles] = useState<File[]>([])
+  const [localImgs, setLocalImgs] = useState<string[]>(images)
+  const ref = useRef<HTMLDivElement>(null)
+  const supabase = createClient()
+
+  useEffect(() => { setLocalImgs(images) }, [images])
+  useClickOutside(ref, () => { if (open) { saveAndClose() } })
+
+  const handleAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (localImgs.length + newFiles.length + files.length > 5) return
+    setNewFiles(p => [...p, ...files])
+    files.forEach(f => { const r = new FileReader(); r.onload = ev => setNewPreviews(p => [...p, ev.target?.result as string]); r.readAsDataURL(f) })
+  }
+
+  const saveAndClose = async () => {
+    let uploaded: string[] = []
+    if (newFiles.length > 0) {
+      const { data } = await supabase.auth.getUser()
+      const uid = data.user?.id ?? 'unknown'
+      for (const file of newFiles) {
+        const ext = file.name.split('.').pop()
+        const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
+        if (!error) {
+          const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
+          uploaded.push(publicUrl)
+        }
+      }
+    }
+    const all = [...localImgs, ...uploaded]
+    setNewFiles([]); setNewPreviews([]); setOpen(false)
+    onSave(all)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <div onClick={() => setOpen(v => !v)} className="cursor-pointer flex gap-1 items-center hover:bg-blue-50 rounded px-1 py-0.5 min-h-[22px]">
+        {localImgs.length === 0
+          ? <span className="text-xs text-gray-300">—</span>
+          : <>
+              <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 flex-shrink-0">
+                <img src={localImgs[0]} alt="" className="h-full w-full object-cover" />
+              </div>
+              {localImgs.length > 1 && <span className="text-[10px] text-gray-400">+{localImgs.length - 1}</span>}
+            </>
+        }
+      </div>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {localImgs.map((src, i) => (
+              <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 group">
+                <img src={src} alt="" className="h-full w-full object-cover cursor-pointer" onClick={() => { setOpen(false); onView(i) }} />
+                <button onClick={() => { const next = localImgs.filter((_, idx) => idx !== i); setLocalImgs(next) }}
+                  className="absolute top-0.5 right-0.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white text-[9px]"
+                >✕</button>
+              </div>
+            ))}
+            {newPreviews.map((src, i) => (
+              <div key={`n-${i}`} className="relative h-14 w-14 overflow-hidden rounded-lg border border-blue-200">
+                <img src={src} alt="" className="h-full w-full object-cover" />
+                <button onClick={() => { setNewFiles(p => p.filter((_, idx) => idx !== i)); setNewPreviews(p => p.filter((_, idx) => idx !== i)) }}
+                  className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white text-[9px]"
+                >✕</button>
+              </div>
+            ))}
+            {localImgs.length + newFiles.length < 5 && (
+              <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-blue-400 transition-colors">
+                <ImagePlus className="h-4 w-4" />
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handleAdd} />
+              </label>
+            )}
+          </div>
+          <button onClick={saveAndClose} className="w-full rounded-lg bg-blue-600 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors">
+            저장
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 메인 페이지 ──────────────────────────────────────────
 export default function BrokerPropertiesPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -56,210 +258,117 @@ export default function BrokerPropertiesPage() {
   const [broker, setBroker] = useState<any>(null)
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<ViewMode>('table')
-
   const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'contracted' | 'hidden'>('all')
   const [dealFilter, setDealFilter] = useState<DealFilter>('전체')
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchField, setSearchField] = useState<'all' | 'address' | 'assignee' | 'room_type'>('all')
-  const [sortKey, setSortKey] = useState<SortKey>('newest')
   const [page, setPage] = useState(1)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
-  const [editingProperty, setEditingProperty] = useState<Property | null>(null)
 
   useEffect(() => { init() }, [])
+  useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery])
 
   const init = async () => {
     let u: any = null
-    try {
-      const { data } = await supabase.auth.getUser()
-      u = data.user
-    } catch { router.push('/auth/login'); return }
+    try { const { data } = await supabase.auth.getUser(); u = data.user } catch { router.push('/auth/login'); return }
     if (!u) { router.push('/auth/login'); return }
     setUser(u)
-
     const { data: b } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
     if (!b) { router.push('/broker/register'); return }
     setBroker(b)
-
-    const { data } = await supabase
-      .from('broker_properties')
-      .select('*')
-      .eq('broker_id', b.id)
-      .order('created_at', { ascending: false })
-
+    const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
     setProperties(data ?? [])
     setLoading(false)
   }
 
-  const cycleStatus = async (property: Property) => {
-    const next: Property['status'] =
-      property.status === 'available' ? 'contracted'
-      : property.status === 'contracted' ? 'hidden'
-      : 'available'
-    await supabase.from('broker_properties').update({ status: next }).eq('id', property.id)
-    setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: next } : p))
-  }
+  // 단일 필드 저장
+  const saveField = useCallback(async (id: string, field: string, value: any) => {
+    await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
+  }, [supabase])
 
   const deleteProperty = async (id: string) => {
-    if (!confirm('이 매물을 삭제하시겠어요?')) return
+    if (!confirm('삭제하시겠어요?')) return
     await supabase.from('broker_properties').delete().eq('id', id)
     setProperties(prev => prev.filter(p => p.id !== id))
   }
 
-  const duplicateProperty = async (property: Property) => {
-    if (!broker) return
-    const { id, created_at, ...rest } = property
-    const { data } = await supabase.from('broker_properties')
-      .insert({ ...rest, broker_id: broker.id, status: 'available' }).select().single()
-    if (data) setProperties(prev => [data, ...prev])
-  }
-
-  const copyInfo = (property: Property) => {
-    navigator.clipboard.writeText(
-      `[${property.deal_type}] ${property.room_type} · ${property.address} · ${formatPropertyPrice(property)}`
-    )
-    setCopiedId(property.id)
-    setTimeout(() => setCopiedId(null), 2000)
-  }
-
-  const formatPropertyPrice = (p: Property) => {
-    if (p.deal_type === '월세') return `${formatPrice(p.price)}/${formatPrice(p.monthly_rent ?? 0)}`
-    return formatPrice(p.price)
-  }
-
-  // 필터 + 검색 + 정렬
   const filtered = useMemo(() => {
     let list = properties
     if (statusFilter !== 'all') list = list.filter(p => p.status === statusFilter)
     if (dealFilter !== '전체') list = list.filter(p => p.deal_type === dealFilter)
     if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase()
-      list = list.filter(p => {
-        if (searchField === 'address') return p.address.toLowerCase().includes(q)
-        if (searchField === 'assignee') return (p.assignee ?? '').toLowerCase().includes(q)
-        if (searchField === 'room_type') return p.room_type.toLowerCase().includes(q)
-        return (
-          p.address.toLowerCase().includes(q) ||
-          (p.assignee ?? '').toLowerCase().includes(q) ||
-          p.room_type.toLowerCase().includes(q) ||
-          (p.brief_memo ?? '').toLowerCase().includes(q) ||
-          (p.description ?? '').toLowerCase().includes(q)
-        )
-      })
-    }
-    switch (sortKey) {
-      case 'newest': list = [...list].sort((a, b) => b.created_at.localeCompare(a.created_at)); break
-      case 'oldest': list = [...list].sort((a, b) => a.created_at.localeCompare(b.created_at)); break
-      case 'price_asc': list = [...list].sort((a, b) => a.price - b.price); break
-      case 'price_desc': list = [...list].sort((a, b) => b.price - a.price); break
+      const q = searchQuery.toLowerCase()
+      list = list.filter(p =>
+        p.address.toLowerCase().includes(q) ||
+        (p.assignee ?? '').toLowerCase().includes(q) ||
+        p.room_type.toLowerCase().includes(q) ||
+        (p.brief_memo ?? '').toLowerCase().includes(q)
+      )
     }
     return list
-  }, [properties, statusFilter, dealFilter, searchQuery, searchField, sortKey])
+  }, [properties, statusFilter, dealFilter, searchQuery])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  // 필터 바뀌면 1페이지로
-  useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery, sortKey])
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-      </div>
-    )
-  }
+  if (loading) return (
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} role="broker" />
 
-      <PropertyEditDrawer
-        property={editingProperty}
-        onClose={() => setEditingProperty(null)}
-        onSaved={(updated) => {
-          setProperties(prev => prev.map(p => p.id === updated.id ? updated : p))
-          setEditingProperty(null)
-        }}
-      />
-
       {lightbox && (
         <ImageLightbox
-          images={lightbox.images}
-          index={lightbox.index}
+          images={lightbox.images} index={lightbox.index}
           onClose={() => setLightbox(null)}
           onNext={() => setLightbox(lb => lb && lb.index < lb.images.length - 1 ? { ...lb, index: lb.index + 1 } : lb)}
           onPrev={() => setLightbox(lb => lb && lb.index > 0 ? { ...lb, index: lb.index - 1 } : lb)}
-          onGoTo={(i) => setLightbox(lb => lb ? { ...lb, index: i } : lb)}
+          onGoTo={i => setLightbox(lb => lb ? { ...lb, index: i } : lb)}
         />
       )}
 
       <div className="mx-auto max-w-[1400px] px-4 py-6">
-        {/* 헤더 */}
-        <div className="mb-5 flex items-center justify-between">
+        {/* 상단 */}
+        <div className="mb-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">내 매물장</h1>
-            <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색결과 {filtered.length}건</p>
+            <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
           </div>
-          <div className="flex items-center gap-2">
-            {/* 뷰 토글 */}
-            <div className="flex rounded-xl border border-gray-200 bg-white p-1">
-              <button
-                onClick={() => setViewMode('table')}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <Table2 className="h-3.5 w-3.5" />목록
-              </button>
-              <button
-                onClick={() => setViewMode('card')}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${viewMode === 'card' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />카드
-              </button>
-            </div>
-            <Link href="/broker/properties/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-              <Plus className="h-4 w-4" />매물 등록
-            </Link>
-          </div>
+          <Link href="/broker/properties/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />매물 등록
+          </Link>
         </div>
 
-        {/* 통계 */}
-        <div className="mb-4 grid grid-cols-4 gap-3">
+        {/* 통계 탭 */}
+        <div className="mb-4 flex gap-2">
           {[
-            { label: '전체', value: properties.length, key: 'all' as const, color: 'text-gray-600 bg-gray-100' },
-            { label: '매물 있음', value: properties.filter(p => p.status === 'available').length, key: 'available' as const, color: 'text-green-600 bg-green-50' },
-            { label: '계약 완료', value: properties.filter(p => p.status === 'contracted').length, key: 'contracted' as const, color: 'text-blue-600 bg-blue-50' },
-            { label: '숨김', value: properties.filter(p => p.status === 'hidden').length, key: 'hidden' as const, color: 'text-yellow-600 bg-yellow-50' },
-          ].map(stat => (
-            <button key={stat.key} onClick={() => setStatusFilter(stat.key)}
-              className={`rounded-xl p-3 text-left transition-all border-2 bg-white ${statusFilter === stat.key ? 'border-blue-500 shadow-sm' : 'border-transparent'}`}
+            { key: 'all' as const, label: '전체', count: properties.length },
+            { key: 'available' as const, label: '매물있음', count: properties.filter(p => p.status === 'available').length },
+            { key: 'contracted' as const, label: '계약완료', count: properties.filter(p => p.status === 'contracted').length },
+            { key: 'hidden' as const, label: '숨김', count: properties.filter(p => p.status === 'hidden').length },
+          ].map(s => (
+            <button key={s.key} onClick={() => setStatusFilter(s.key)}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all border ${statusFilter === s.key ? 'bg-white border-blue-500 text-blue-600 shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
             >
-              <div className={`mb-1 inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${stat.color}`}>{stat.label}</div>
-              <div className="text-2xl font-black text-gray-900">{stat.value}</div>
+              {s.label} <span className="ml-1 text-xs font-bold">{s.count}</span>
             </button>
           ))}
         </div>
 
-        {/* 검색 + 필터 */}
-        <div className="mb-3 flex flex-wrap gap-2">
-          <div className="flex flex-1 min-w-64 overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
-            <select value={searchField} onChange={e => setSearchField(e.target.value as any)}
-              className="border-r border-gray-200 bg-gray-50 px-3 py-2.5 text-xs font-medium text-gray-600 focus:outline-none"
-            >
-              <option value="all">전체</option>
-              <option value="address">주소</option>
-              <option value="assignee">담당자</option>
-              <option value="room_type">매물유형</option>
-            </select>
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="검색어 입력..." value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-transparent py-2.5 pl-9 pr-4 text-sm focus:outline-none"
-              />
-            </div>
+        {/* 검색 + 거래유형 */}
+        <div className="mb-3 flex gap-2">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="주소, 담당자, 메모 검색..." value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
           </div>
           <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
             {DEAL_FILTERS.map(f => (
@@ -268,266 +377,142 @@ export default function BrokerPropertiesPage() {
               >{f}</button>
             ))}
           </div>
-          <select value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-600 focus:border-blue-500 focus:outline-none"
-          >
-            <option value="newest">최신순</option>
-            <option value="oldest">오래된순</option>
-            <option value="price_desc">가격 높은순</option>
-            <option value="price_asc">가격 낮은순</option>
-          </select>
         </div>
 
-        {/* ===== 테이블 뷰 ===== */}
-        {viewMode === 'table' && (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500">
-                  <th className="px-3 py-3 text-center w-10">No.</th>
-                  <th className="px-3 py-3 text-left">상태</th>
-                  <th className="px-3 py-3 text-left">담당자</th>
-                  <th className="px-3 py-3 text-left">거래</th>
-                  <th className="px-3 py-3 text-left">유형</th>
-                  <th className="px-3 py-3 text-left min-w-[180px]">주소</th>
-                  <th className="px-3 py-3 text-right">매매/전세/보증금</th>
-                  <th className="px-3 py-3 text-right">월세</th>
-                  <th className="px-3 py-3 text-right">관리비</th>
-                  <th className="px-3 py-3 text-right">권리금</th>
-                  <th className="px-3 py-3 text-left min-w-[120px]">간단메모</th>
-                  <th className="px-3 py-3 text-center">사진</th>
-                  <th className="px-3 py-3 text-center">액션</th>
+        {/* 테이블 */}
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                <th className="w-8 px-3 py-3 text-center">#</th>
+                <th className="px-2 py-3 text-left w-24">상태</th>
+                <th className="px-2 py-3 text-left w-20">담당자</th>
+                <th className="px-2 py-3 text-left w-16">거래</th>
+                <th className="px-2 py-3 text-left w-20">유형</th>
+                <th className="px-2 py-3 text-left min-w-[200px]">주소</th>
+                <th className="px-2 py-3 text-right w-28">매매/전세/보증금</th>
+                <th className="px-2 py-3 text-right w-20">월세</th>
+                <th className="px-2 py-3 text-right w-20">관리비</th>
+                <th className="px-2 py-3 text-right w-20">권리금</th>
+                <th className="px-2 py-3 text-left min-w-[140px]">간단메모</th>
+                <th className="px-2 py-3 text-center w-16">사진</th>
+                <th className="px-2 py-3 text-center w-12">삭제</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={13} className="py-20 text-center text-sm text-gray-400">
+                    {searchQuery || dealFilter !== '전체' ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {paginated.length === 0 ? (
-                  <tr>
-                    <td colSpan={13} className="py-16 text-center text-sm text-gray-400">
-                      {searchQuery || dealFilter !== '전체' ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
-                    </td>
-                  </tr>
-                ) : paginated.map((property, idx) => (
-                  <tr key={property.id} className={`hover:bg-blue-50/30 transition-colors ${property.status === 'hidden' ? 'opacity-50' : ''}`}>
-                    {/* No. */}
-                    <td className="px-3 py-2.5 text-center text-xs text-gray-400">
-                      {(page - 1) * PAGE_SIZE + idx + 1}
-                    </td>
-                    {/* 상태 */}
-                    <td className="px-3 py-2.5">
-                      <button onClick={() => cycleStatus(property)} title="클릭하면 상태 변경">
-                        <Badge variant={STATUS_BADGE[property.status]} className="whitespace-nowrap text-xs cursor-pointer">
-                          {STATUS_LABEL[property.status]}
-                        </Badge>
-                      </button>
-                    </td>
-                    {/* 담당자 */}
-                    <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">
-                      {property.assignee ?? <span className="text-gray-300">—</span>}
-                    </td>
-                    {/* 거래유형 */}
-                    <td className="px-3 py-2.5">
-                      <span className="inline-flex rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                        {property.deal_type}
-                      </span>
-                    </td>
-                    {/* 매물유형 */}
-                    <td className="px-3 py-2.5 text-xs text-gray-600 whitespace-nowrap">{property.room_type}</td>
-                    {/* 주소 */}
-                    <td className="px-3 py-2.5 text-xs text-gray-800 max-w-[220px] truncate" title={property.address}>
-                      {property.address}
-                    </td>
-                    {/* 가격 */}
-                    <td className="px-3 py-2.5 text-right text-xs font-bold text-blue-700 whitespace-nowrap">
-                      {formatPrice(property.price)}
-                    </td>
-                    {/* 월세 */}
-                    <td className="px-3 py-2.5 text-right text-xs text-gray-600 whitespace-nowrap">
-                      {property.monthly_rent ? formatPrice(property.monthly_rent) : <span className="text-gray-300">—</span>}
-                    </td>
-                    {/* 관리비 */}
-                    <td className="px-3 py-2.5 text-right text-xs text-gray-600 whitespace-nowrap">
-                      {property.management_fee ? formatPrice(property.management_fee) : <span className="text-gray-300">—</span>}
-                    </td>
-                    {/* 권리금 */}
-                    <td className="px-3 py-2.5 text-right text-xs text-gray-600 whitespace-nowrap">
-                      {property.premium ? formatPrice(property.premium) : <span className="text-gray-300">—</span>}
-                    </td>
-                    {/* 간단메모 */}
-                    <td className="px-3 py-2.5 text-xs text-gray-500 max-w-[160px] truncate" title={property.brief_memo ?? ''}>
-                      {property.brief_memo ?? <span className="text-gray-300">—</span>}
-                    </td>
-                    {/* 사진 */}
-                    <td className="px-3 py-2.5 text-center">
-                      {property.images?.length > 0 ? (
-                        <button onClick={() => setLightbox({ images: property.images, index: 0 })}
-                          className="relative h-9 w-9 overflow-hidden rounded-lg border border-gray-200 hover:opacity-80 transition-opacity mx-auto block"
-                        >
-                          <img src={property.images[0]} alt="" className="h-full w-full object-cover" />
-                          {property.images.length > 1 && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[9px] font-bold text-white">
-                              +{property.images.length}
-                            </div>
-                          )}
-                        </button>
-                      ) : <span className="text-gray-300 text-xs">—</span>}
-                    </td>
-                    {/* 액션 */}
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1 justify-center">
-                        <button onClick={() => setEditingProperty(property)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-                          title="수정"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => duplicateProperty(property)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
-                          title="복사"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => copyInfo(property)}
-                          className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-colors ${copiedId === property.id ? 'border-blue-300 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-                          title="정보 복사"
-                        >
-                          {copiedId === property.id ? <Check className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
-                        </button>
-                        <button onClick={() => deleteProperty(property.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-red-100 text-red-400 hover:bg-red-50 transition-colors"
-                          title="삭제"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ===== 카드 뷰 ===== */}
-        {viewMode === 'card' && (
-          <div className="space-y-3">
-            {paginated.length === 0 ? (
-              <div className="rounded-xl border border-gray-200 bg-white py-16 text-center text-sm text-gray-400">
-                {searchQuery || dealFilter !== '전체' ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
-              </div>
-            ) : paginated.map(property => (
-              <div key={property.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="flex items-stretch">
-                  <div className={`w-1 flex-shrink-0 ${STATUS_COLOR[property.status]}`} />
-                  <div className="flex flex-1 items-start gap-4 p-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <button onClick={() => cycleStatus(property)}>
-                          <Badge variant={STATUS_BADGE[property.status]} className="cursor-pointer">{STATUS_LABEL[property.status]}</Badge>
-                        </button>
-                        <Badge variant="info">{property.deal_type}</Badge>
-                        <Badge variant="default">{property.room_type}</Badge>
-                        {property.assignee && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                            👤 {property.assignee}
-                          </span>
-                        )}
-                      </div>
-                      <p className="font-semibold text-gray-900 truncate">{property.address}</p>
-                      <div className="mt-1 flex flex-wrap gap-4 text-sm">
-                        <span className="font-black text-blue-600">{formatPropertyPrice(property)}</span>
-                        {property.management_fee && <span className="text-gray-500">관리비 {formatPrice(property.management_fee)}</span>}
-                        {property.premium && <span className="text-gray-500">권리금 {formatPrice(property.premium)}</span>}
-                      </div>
-                      {property.brief_memo && (
-                        <p className="mt-2 text-xs text-gray-500 line-clamp-1">{property.brief_memo}</p>
-                      )}
-                      {property.description && (
-                        <div className="mt-1.5 flex items-start gap-1 rounded-lg bg-gray-50 border border-gray-100 px-3 py-1.5">
-                          <Building2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-                          <p className="text-xs text-gray-600 line-clamp-1">{property.description}</p>
-                        </div>
-                      )}
-                      {property.memo && (
-                        <div className="mt-1.5 flex items-start gap-1 rounded-lg bg-orange-50 border border-orange-100 px-3 py-1.5">
-                          <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
-                          <p className="text-xs text-orange-700 line-clamp-1">{property.memo}</p>
-                        </div>
-                      )}
-                      {property.images?.length > 0 && (
-                        <div className="mt-2 flex gap-1.5">
-                          {property.images.slice(0, 4).map((src, i) => (
-                            <button key={i} onClick={() => setLightbox({ images: property.images, index: i })}
-                              className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"
-                            >
-                              <img src={src} alt="" className="h-full w-full object-cover" />
-                              {i === 3 && property.images.length > 4 && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-bold text-white">
-                                  +{property.images.length - 4}
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <button onClick={() => setEditingProperty(property)}
-                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />수정
-                      </button>
-                      <button onClick={() => duplicateProperty(property)}
-                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-                      >
-                        <Copy className="h-3.5 w-3.5" />복사
-                      </button>
-                      <button onClick={() => copyInfo(property)}
-                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${copiedId === property.id ? 'border-blue-300 bg-blue-50 text-blue-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        {copiedId === property.id ? <><Check className="h-3.5 w-3.5" />복사됨</> : <><LinkIcon className="h-3.5 w-3.5" />공유</>}
-                      </button>
-                      <button onClick={() => deleteProperty(property.id)}
-                        className="flex items-center gap-1.5 rounded-lg border border-red-100 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />삭제
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ) : paginated.map((p, idx) => (
+                <tr key={p.id}
+                  className={`border-b border-gray-50 hover:bg-gray-50/60 transition-colors ${p.status === 'hidden' ? 'opacity-50' : ''}`}
+                >
+                  {/* # */}
+                  <td className="px-3 py-1.5 text-center text-xs text-gray-300 select-none">
+                    {(page - 1) * PAGE_SIZE + idx + 1}
+                  </td>
+                  {/* 상태 */}
+                  <td className="px-2 py-1.5">
+                    <SelectCell
+                      value={STATUS_LABEL[p.status]}
+                      options={STATUS_OPTS.map(s => STATUS_LABEL[s])}
+                      onSave={v => {
+                        const key = Object.entries(STATUS_LABEL).find(([, label]) => label === v)?.[0] as Property['status']
+                        if (key) saveField(p.id, 'status', key)
+                      }}
+                      colorMap={Object.fromEntries(STATUS_OPTS.map(s => [STATUS_LABEL[s], STATUS_COLOR[s]]))}
+                    />
+                  </td>
+                  {/* 담당자 */}
+                  <td className="px-2 py-1.5">
+                    <TextCell value={p.assignee} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />
+                  </td>
+                  {/* 거래유형 */}
+                  <td className="px-2 py-1.5">
+                    <SelectCell
+                      value={p.deal_type}
+                      options={DEAL_TYPES}
+                      onSave={v => saveField(p.id, 'deal_type', v)}
+                      colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }}
+                    />
+                  </td>
+                  {/* 매물유형 */}
+                  <td className="px-2 py-1.5">
+                    <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />
+                  </td>
+                  {/* 주소 */}
+                  <td className="px-2 py-1.5 max-w-[240px]">
+                    <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
+                  </td>
+                  {/* 가격 */}
+                  <td className="px-2 py-1.5">
+                    <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />
+                  </td>
+                  {/* 월세 */}
+                  <td className="px-2 py-1.5">
+                    <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />
+                  </td>
+                  {/* 관리비 */}
+                  <td className="px-2 py-1.5">
+                    <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />
+                  </td>
+                  {/* 권리금 */}
+                  <td className="px-2 py-1.5">
+                    <NumberCell value={p.premium} onSave={v => saveField(p.id, 'premium', v)} />
+                  </td>
+                  {/* 간단메모 */}
+                  <td className="px-2 py-1.5">
+                    <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />
+                  </td>
+                  {/* 사진 */}
+                  <td className="px-2 py-1.5">
+                    <ImageCell
+                      images={p.images ?? []}
+                      onSave={imgs => saveField(p.id, 'images', imgs)}
+                      onView={i => setLightbox({ images: p.images, index: i })}
+                    />
+                  </td>
+                  {/* 삭제 */}
+                  <td className="px-2 py-1.5 text-center">
+                    <button onClick={() => deleteProperty(p.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors"
+                      title="삭제"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {/* 페이지네이션 */}
         {totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-center gap-2">
+          <div className="mt-5 flex items-center justify-center gap-2">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+            ><ChevronLeft className="h-4 w-4" /></button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
-              .reduce<(number | '...')[]>((acc, p, i, arr) => {
-                if (i > 0 && (p as number) - (arr[i - 1] as number) > 1) acc.push('...')
-                acc.push(p)
-                return acc
+              .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+              .reduce<(number | '...')[]>((acc, n, i, arr) => {
+                if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('...')
+                acc.push(n); return acc
               }, [])
-              .map((p, i) =>
-                p === '...'
-                  ? <span key={`ellipsis-${i}`} className="px-1 text-gray-400">…</span>
-                  : <button key={p} onClick={() => setPage(p as number)}
-                      className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === p ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
-                    >{p}</button>
+              .map((n, i) => n === '...'
+                ? <span key={`e${i}`} className="px-1 text-gray-400">…</span>
+                : <button key={n} onClick={() => setPage(n as number)}
+                    className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >{n}</button>
               )
             }
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <span className="ml-2 text-sm text-gray-400">{page} / {totalPages} 페이지 (50개씩)</span>
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+            ><ChevronRight className="h-4 w-4" /></button>
+            <span className="ml-2 text-sm text-gray-400">{page} / {totalPages} (50개씩)</span>
           </div>
         )}
       </div>
