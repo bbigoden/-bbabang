@@ -28,7 +28,7 @@ export function NotificationBell({ userId }: { userId: string }) {
   }, [])
 
   const handleClick = async (n: typeof notifications[0]) => {
-    await markRead(n.id)
+    try { await markRead(n.id) } catch { /* 읽음 처리 실패해도 이동은 진행 */ }
     setOpen(false)
     if (n.link) router.push(n.link)
   }
