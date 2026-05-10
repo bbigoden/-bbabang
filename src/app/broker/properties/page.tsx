@@ -55,10 +55,11 @@ const ALL_COLUMNS = [
   { key: 'management_fee', label: '관리비' },
   { key: 'premium', label: '권리금' },
   { key: 'brief_memo', label: '간단메모' },
+  { key: 'memo', label: '중개사메모' },
   { key: 'images', label: '사진' },
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
-const DEFAULT_VISIBLE: ColKey[] = ['assignee', 'deal_type', 'room_type', 'price', 'monthly_rent', 'brief_memo', 'images']
+const DEFAULT_VISIBLE: ColKey[] = ['assignee', 'deal_type', 'room_type', 'price', 'monthly_rent', 'brief_memo', 'memo', 'images']
 
 // 팝오버를 닫기 위한 훅
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -474,6 +475,7 @@ export default function BrokerPropertiesPage() {
                 {show('management_fee') && <th className="px-2 py-2.5 text-right w-16">관리비</th>}
                 {show('premium') && <th className="px-2 py-2.5 text-right w-16">권리금</th>}
                 {show('brief_memo') && <th className="px-2 py-2.5 text-left w-36">간단메모</th>}
+                {show('memo') && <th className="px-2 py-2.5 text-left w-36">중개사메모</th>}
                 {show('images') && <th className="px-2 py-2.5 text-center w-12">사진</th>}
                 <th className="px-2 py-2.5 text-center w-8">삭제</th>
               </tr>
@@ -540,6 +542,9 @@ export default function BrokerPropertiesPage() {
                   </td>}
                   {show('brief_memo') && <td className="px-2 py-1.5">
                     <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />
+                  </td>}
+                  {show('memo') && <td className="px-2 py-1.5">
+                    <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
                   </td>}
                   {show('images') && <td className="px-2 py-1.5">
                     <ImageCell
