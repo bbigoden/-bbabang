@@ -47,19 +47,23 @@ type DealFilter = typeof DEAL_FILTERS[number]
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 const ALL_COLUMNS = [
-  { key: 'assignee', label: '담당자' },
-  { key: 'deal_type', label: '거래' },
-  { key: 'room_type', label: '유형' },
-  { key: 'price', label: '가격' },
-  { key: 'monthly_rent', label: '월세' },
+  { key: 'deal_type',      label: '거래' },
+  { key: 'room_type',      label: '유형' },
+  { key: 'price',          label: '가격/보증금' },
+  { key: 'monthly_rent',   label: '임차료' },
+  { key: 'brief_memo',     label: '메모' },
+  { key: 'memo',           label: '중개사메모' },
+  { key: 'images',         label: '사진' },
+  // 선택 칼럼
+  { key: 'assignee',       label: '담당자' },
   { key: 'management_fee', label: '관리비' },
-  { key: 'premium', label: '권리금' },
-  { key: 'brief_memo', label: '간단메모' },
-  { key: 'memo', label: '중개사메모' },
-  { key: 'images', label: '사진' },
+  { key: 'premium',        label: '권리금' },
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
-const DEFAULT_VISIBLE: ColKey[] = ['assignee', 'deal_type', 'room_type', 'price', 'monthly_rent', 'brief_memo', 'memo', 'images']
+
+// 지울 수 없는 고정 칼럼
+const FIXED_COLS: ColKey[] = ['deal_type', 'room_type', 'price', 'monthly_rent', 'brief_memo', 'memo', 'images']
+const DEFAULT_VISIBLE: ColKey[] = ['deal_type', 'room_type', 'price', 'monthly_rent', 'assignee', 'brief_memo', 'memo', 'images']
 
 // 팝오버를 닫기 위한 훅
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -306,9 +310,10 @@ export default function BrokerPropertiesPage() {
   const colMenuRef = useRef<HTMLDivElement>(null)
   useClickOutside(colMenuRef, () => setColMenuOpen(false))
 
-  const toggleCol = (key: ColKey) => setVisibleCols(prev =>
-    prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-  )
+  const toggleCol = (key: ColKey) => {
+    if (FIXED_COLS.includes(key)) return  // 고정 칼럼은 제거 불가
+    setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  }
   const show = (key: ColKey) => visibleCols.includes(key)
 
   // localStorage 저장
@@ -441,9 +446,22 @@ export default function BrokerPropertiesPage() {
                 <Settings2 className="h-4 w-4" />컬럼
               </button>
               {colMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-gray-200 bg-white shadow-lg py-2">
-                  <p className="px-3 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide">표시할 컬럼</p>
-                  {ALL_COLUMNS.map(col => (
+                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-gray-200 bg-white shadow-lg py-2">
+                  {/* 고정 칼럼 */}
+                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">고정 칼럼</p>
+                  {ALL_COLUMNS.filter(c => FIXED_COLS.includes(c.key)).map(col => (
+                    <div key={col.key} className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-gray-400 cursor-not-allowed">
+                      <span className="flex h-4 w-4 items-center justify-center rounded border-2 border-blue-300 bg-blue-300">
+                        <span className="text-[9px] font-black text-white">✓</span>
+                      </span>
+                      <span>{col.label}</span>
+                      <span className="ml-auto text-[10px] text-gray-300">🔒</span>
+                    </div>
+                  ))}
+                  {/* 선택 칼럼 */}
+                  <div className="my-1.5 border-t border-gray-100" />
+                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">선택 칼럼</p>
+                  {ALL_COLUMNS.filter(c => !FIXED_COLS.includes(c.key)).map(col => (
                     <button key={col.key} onClick={() => toggleCol(col.key)}
                       className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                     >
