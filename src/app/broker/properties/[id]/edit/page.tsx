@@ -29,12 +29,15 @@ export default function EditPropertyPage() {
   const [address, setAddress] = useState('')
   const [price, setPrice] = useState('')
   const [monthlyRent, setMonthlyRent] = useState('')
+  const [managementFee, setManagementFee] = useState('')
+  const [premium, setPremium] = useState('')
   const [sizePyeong, setSizePyeong] = useState('')
   const [floor, setFloor] = useState('')
   const [totalFloors, setTotalFloors] = useState('')
   const [description, setDescription] = useState('')
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [assignee, setAssignee] = useState('')
+  const [briefMemo, setBriefMemo] = useState('')
   const [memo, setMemo] = useState('')
   const [existingImages, setExistingImages] = useState<string[]>([])
   const [newImages, setNewImages] = useState<File[]>([])
@@ -82,12 +85,15 @@ export default function EditPropertyPage() {
     setAddress(property.address ?? '')
     setPrice(property.price ? String(property.price) : '')
     setMonthlyRent(property.monthly_rent ? String(property.monthly_rent) : '')
+    setManagementFee(property.management_fee ? String(property.management_fee) : '')
+    setPremium(property.premium ? String(property.premium) : '')
     setSizePyeong(property.size_pyeong ? String(property.size_pyeong) : '')
     setFloor(property.floor ? String(property.floor) : '')
     setTotalFloors(property.total_floors ? String(property.total_floors) : '')
     setDescription(property.description ?? '')
     setSelectedOptions(property.options ?? [])
     setAssignee(property.assignee ?? '')
+    setBriefMemo(property.brief_memo ?? '')
     setMemo(property.memo ?? '')
     setExistingImages(property.images ?? [])
     setLoading(false)
@@ -168,6 +174,8 @@ export default function EditPropertyPage() {
         address,
         price: Number(price),
         monthly_rent: monthlyRent ? Number(monthlyRent) : null,
+        management_fee: managementFee ? Number(managementFee) : null,
+        premium: premium ? Number(premium) : null,
         size_pyeong: sizePyeong ? Number(sizePyeong) : null,
         floor: floor ? Number(floor) : null,
         total_floors: totalFloors ? Number(totalFloors) : null,
@@ -175,6 +183,7 @@ export default function EditPropertyPage() {
         options: selectedOptions,
         images: allImages,
         assignee: assignee || null,
+        brief_memo: briefMemo || null,
         memo: memo || null,
       })
       .eq('id', propertyId)
@@ -298,6 +307,22 @@ export default function EditPropertyPage() {
                     onChange={e => setMonthlyRent(e.target.value)}
                   />
                 )}
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="관리비 (만원, 선택)"
+                    type="number"
+                    placeholder="10"
+                    value={managementFee}
+                    onChange={e => setManagementFee(e.target.value)}
+                  />
+                  <Input
+                    label="권리금 (만원, 선택)"
+                    type="number"
+                    placeholder="500"
+                    value={premium}
+                    onChange={e => setPremium(e.target.value)}
+                  />
+                </div>
               </CardBody>
             </Card>
 
@@ -418,16 +443,26 @@ export default function EditPropertyPage() {
               </CardBody>
             </Card>
 
-            {/* 담당자 */}
+            {/* 담당자 + 간단메모 */}
             <Card>
-              <CardBody>
+              <CardBody className="space-y-3">
                 <Input
                   label="담당자"
                   placeholder="홍길동"
                   value={assignee}
                   onChange={e => setAssignee(e.target.value)}
                 />
-                <p className="mt-1.5 text-xs text-gray-400">🔒 고객에게 노출되지 않습니다</p>
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-gray-700">간단메모</label>
+                  <input
+                    type="text"
+                    placeholder="목록에서 바로 보이는 짧은 메모"
+                    value={briefMemo}
+                    onChange={e => setBriefMemo(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <p className="text-xs text-gray-400">🔒 고객에게 노출되지 않습니다</p>
               </CardBody>
             </Card>
 
