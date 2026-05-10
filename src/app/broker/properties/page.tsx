@@ -505,7 +505,7 @@ export default function BrokerPropertiesPage() {
                       onSave={v => saveField(p.id, 'deal_type', v)}
                       colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }}
                     />
-                  </td>
+                  </td>}
                   {/* 매물유형 */}
                   {show('room_type') && <td className="px-2 py-1.5">
                     <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />
