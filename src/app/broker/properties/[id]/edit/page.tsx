@@ -34,6 +34,7 @@ export default function EditPropertyPage() {
   const [totalFloors, setTotalFloors] = useState('')
   const [description, setDescription] = useState('')
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
+  const [assignee, setAssignee] = useState('')
   const [memo, setMemo] = useState('')
   const [existingImages, setExistingImages] = useState<string[]>([])
   const [newImages, setNewImages] = useState<File[]>([])
@@ -86,6 +87,7 @@ export default function EditPropertyPage() {
     setTotalFloors(property.total_floors ? String(property.total_floors) : '')
     setDescription(property.description ?? '')
     setSelectedOptions(property.options ?? [])
+    setAssignee(property.assignee ?? '')
     setMemo(property.memo ?? '')
     setExistingImages(property.images ?? [])
     setLoading(false)
@@ -172,6 +174,7 @@ export default function EditPropertyPage() {
         description: description || null,
         options: selectedOptions,
         images: allImages,
+        assignee: assignee || null,
         memo: memo || null,
       })
       .eq('id', propertyId)
@@ -412,6 +415,19 @@ export default function EditPropertyPage() {
                   rows={4}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                 />
+              </CardBody>
+            </Card>
+
+            {/* 담당자 */}
+            <Card>
+              <CardBody>
+                <Input
+                  label="담당자"
+                  placeholder="홍길동"
+                  value={assignee}
+                  onChange={e => setAssignee(e.target.value)}
+                />
+                <p className="mt-1.5 text-xs text-gray-400">🔒 고객에게 노출되지 않습니다</p>
               </CardBody>
             </Card>
 

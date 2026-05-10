@@ -28,6 +28,7 @@ interface Property {
   images: string[]
   description: string | null
   memo: string | null
+  assignee: string | null
   status: 'available' | 'contracted' | 'hidden'
   created_at: string
 }
@@ -53,6 +54,7 @@ export default function BrokerPropertiesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'contracted' | 'hidden'>('all')
   const [dealFilter, setDealFilter] = useState<DealFilter>('전체')
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchField, setSearchField] = useState<'all' | 'address' | 'assignee' | 'room_type'>('all')
   const [sortKey, setSortKey] = useState<SortKey>('newest')
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
@@ -147,7 +149,18 @@ export default function BrokerPropertiesPage() {
     if (dealFilter !== '전체') list = list.filter(p => p.deal_type === dealFilter)
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase()
-      list = list.filter(p => p.address.toLowerCase().includes(q))
+      list = list.filter(p => {
+        if (searchField === 'address') return p.address.toLowerCase().includes(q)
+        if (searchField === 'assignee') return (p.assignee ?? '').toLowerCase().includes(q)
+        if (searchField === 'room_type') return p.room_type.toLowerCase().includes(q)
+        // 전체: 주소 + 담당자 + 매물유형 + 설명
+        return (
+          p.address.toLowerCase().includes(q) ||
+          (p.assignee ?? '').toLowerCase().includes(q) ||
+          p.room_type.toLowerCase().includes(q) ||
+          (p.description ?? '').toLowerCase().includes(q)
+        )
+      })
     }
 
     switch (sortKey) {
@@ -207,15 +220,27 @@ export default function BrokerPropertiesPage() {
         {/* 검색 + 거래유형 필터 + 정렬 */}
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           {/* 검색 */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="주소로 검색..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
+          <div className="relative flex flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+            <select
+              value={searchField}
+              onChange={e => setSearchField(e.target.value as any)}
+              className="border-r border-gray-200 bg-gray-50 px-3 py-2.5 text-xs font-medium text-gray-600 focus:outline-none"
+            >
+              <option value="all">전체</option>
+              <option value="address">주소</option>
+              <option value="assignee">담당자</option>
+              <option value="room_type">매물유형</option>
+            </select>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="검색어 입력..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent py-2.5 pl-9 pr-4 text-sm focus:outline-none"
+              />
+            </div>
           </div>
 
           {/* 거래유형 탭 */}
@@ -331,11 +356,20 @@ export default function BrokerPropertiesPage() {
                           </div>
                         )}
 
-                        {/* 중개사 메모 */}
-                        {property.memo && (
-                          <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-orange-50 border border-orange-100 px-3 py-2">
-                            <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
-                            <p className="text-xs text-orange-700 line-clamp-1">{property.memo}</p>
+                        {/* 담당자 + 중개사 메모 */}
+                        {(property.assignee || property.memo) && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {property.assignee && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700">
+                                👤 {property.assignee}
+                              </span>
+                            )}
+                            {property.memo && (
+                              <div className="flex w-full items-start gap-1.5 rounded-lg bg-orange-50 border border-orange-100 px-3 py-2">
+                                <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
+                                <p className="text-xs text-orange-700 line-clamp-1">{property.memo}</p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
