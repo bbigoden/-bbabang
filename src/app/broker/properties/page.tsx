@@ -302,8 +302,13 @@ export default function BrokerPropertiesPage() {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => {
-    try { const s = localStorage.getItem('broker_col_order'); if (s) { const p = JSON.parse(s) as ColKey[]; return p.filter(k => ALL_COLUMNS.some(c => c.key === k)) } } catch {}
+    try { const s = localStorage.getItem('broker_col_visible'); if (s) { const p = JSON.parse(s) as ColKey[]; return p.filter(k => ALL_COLUMNS.some(c => c.key === k)) } } catch {}
     return DEFAULT_VISIBLE
+  })
+  // 통합 칼럼 순서 (status + fixed + address + custom 모두 포함)
+  const [colOrder, setColOrder] = useState<string[]>(() => {
+    try { const s = localStorage.getItem('broker_col_full_order'); if (s) { const p = JSON.parse(s) as string[]; if (p.includes('status') && p.includes('address')) return p } } catch {}
+    return ['status', ...FIXED_COLS, 'address']
   })
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     const def: Record<string, number> = { assignee: 72, deal_type: 60, room_type: 72, price: 96, monthly_rent: 64, management_fee: 64, premium: 64, brief_memo: 128, memo: 128, images: 56 }
@@ -333,9 +338,10 @@ export default function BrokerPropertiesPage() {
     setVisibleCustomCols(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id])
 
   // localStorage 저장
-  useEffect(() => { try { localStorage.setItem('broker_col_order', JSON.stringify(visibleCols)) } catch {} }, [visibleCols])
+  useEffect(() => { try { localStorage.setItem('broker_col_visible', JSON.stringify(visibleCols)) } catch {} }, [visibleCols])
   useEffect(() => { try { localStorage.setItem('broker_col_widths', JSON.stringify(colWidths)) } catch {} }, [colWidths])
   useEffect(() => { try { localStorage.setItem('broker_visible_custom', JSON.stringify(visibleCustomCols)) } catch {} }, [visibleCustomCols])
+  useEffect(() => { try { localStorage.setItem('broker_col_full_order', JSON.stringify(colOrder)) } catch {} }, [colOrder])
 
   // 칼럼 너비 드래그 조절
   const startResize = (key: string, e: React.MouseEvent) => {
@@ -349,14 +355,14 @@ export default function BrokerPropertiesPage() {
     document.addEventListener('mouseup', onUp)
   }
 
-  // 칼럼 순서 드래그
+  // 칼럼 순서 드래그 (colOrder 기준 통합)
   const onColDragStart = (key: string, e: React.DragEvent) => { setDragCol(key); e.dataTransfer.effectAllowed = 'move' }
   const onColDragOver = (key: string, e: React.DragEvent) => { e.preventDefault(); setDragOverCol(key) }
   const onColDrop = (key: string) => {
     if (!dragCol || dragCol === key) return
-    setVisibleCols(prev => {
-      const arr = [...prev]; const fi = arr.indexOf(dragCol as ColKey); const ti = arr.indexOf(key as ColKey)
-      if (fi < 0 || ti < 0) return arr; arr.splice(fi, 1); arr.splice(ti, 0, dragCol as ColKey); return arr
+    setColOrder(prev => {
+      const arr = [...prev]; const fi = arr.indexOf(dragCol); const ti = arr.indexOf(key)
+      if (fi < 0 || ti < 0) return arr; arr.splice(fi, 1); arr.splice(ti, 0, dragCol); return arr
     })
     setDragCol(null); setDragOverCol(null)
   }
@@ -402,6 +408,7 @@ export default function BrokerPropertiesPage() {
     await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
     setCustomColumns(updated)
     setVisibleCustomCols(prev => [...prev, newCol.id])
+    setColOrder(prev => [...prev, newCol.id])
     setNewColName('')
     setAddingCol(false)
   }
@@ -422,6 +429,7 @@ export default function BrokerPropertiesPage() {
     await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
     setCustomColumns(updated)
     setVisibleCustomCols(prev => prev.filter(k => k !== id))
+    setColOrder(prev => prev.filter(k => k !== id))
   }
 
   const addNewRow = async () => {
@@ -609,56 +617,77 @@ export default function BrokerPropertiesPage() {
 
         {/* 테이블 */}
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-          <table className="w-full border-collapse table-fixed">
+          <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                 <th className="px-2 py-2.5 text-center" style={{ width: 32 }}>#</th>
-                <th className="px-2 py-2.5 text-left relative" style={{ width: 80 }}>
-                  상태
-                  <div onMouseDown={e => startResize('status', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
-                </th>
-                {visibleCols.map(key => {
-                  const col = ALL_COLUMNS.find(c => c.key === key)!
-                  return (
-                    <th key={key}
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths[key] ?? 100 }}
-                      draggable
-                      onDragStart={e => onColDragStart(key, e)}
-                      onDragOver={e => onColDragOver(key, e)}
-                      onDrop={() => onColDrop(key)}
+                {colOrder.map(key => {
+                  // 상태
+                  if (key === 'status') return (
+                    <th key="status"
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'status' ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths['status'] ?? 88 }}
+                      draggable onDragStart={e => onColDragStart('status', e)}
+                      onDragOver={e => onColDragOver('status', e)} onDrop={() => onColDrop('status')}
                       onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
                     >
-                      <span className="truncate block pr-2">{col.label}</span>
+                      <span className="truncate block pr-2">상태</span>
+                      <div onMouseDown={e => startResize('status', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                    </th>
+                  )
+                  // 주소
+                  if (key === 'address') return (
+                    <th key="address"
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'address' ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths['address'] ?? 192 }}
+                      draggable onDragStart={e => onColDragStart('address', e)}
+                      onDragOver={e => onColDragOver('address', e)} onDrop={() => onColDrop('address')}
+                      onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
+                    >
+                      <span className="truncate block pr-2">주소</span>
+                      <div onMouseDown={e => startResize('address', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                    </th>
+                  )
+                  // 고정 칼럼
+                  const fixedCol = ALL_COLUMNS.find(c => c.key === key)
+                  if (fixedCol) {
+                    if (!visibleCols.includes(key as ColKey)) return null
+                    return (
+                      <th key={key}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        style={{ width: colWidths[key] ?? 100 }}
+                        draggable onDragStart={e => onColDragStart(key, e)}
+                        onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
+                        onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
+                      >
+                        <span className="truncate block pr-2">{fixedCol.label}</span>
+                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                      </th>
+                    )
+                  }
+                  // 커스텀 칼럼
+                  const customCol = customColumns.find(c => c.id === key)
+                  if (customCol && showCustom(key)) return (
+                    <th key={key}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths[key] ?? 120 }}
+                      draggable onDragStart={e => onColDragStart(key, e)}
+                      onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
+                      onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
+                    >
+                      <span className="truncate block pr-2">{customCol.name}</span>
                       <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
                     </th>
                   )
+                  return null
                 })}
-                <th className="px-2 py-2.5 text-left relative" style={{ width: 192 }}>
-                  주소
-                  <div onMouseDown={e => startResize('address', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
-                </th>
-                {customColumns.filter(c => showCustom(c.id)).map(col => (
-                  <th key={col.id}
-                    className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === col.id ? 'bg-blue-50' : ''}`}
-                    style={{ width: colWidths[col.id] ?? 120 }}
-                    draggable
-                    onDragStart={e => onColDragStart(col.id, e)}
-                    onDragOver={e => onColDragOver(col.id, e)}
-                    onDrop={() => onColDrop(col.id)}
-                    onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
-                  >
-                    <span className="truncate block pr-2">{col.name}</span>
-                    <div onMouseDown={e => startResize(col.id, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
-                  </th>
-                ))}
                 <th className="px-2 py-2.5 text-center" style={{ width: 36 }}>삭제</th>
               </tr>
             </thead>
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={3 + visibleCols.length} className="py-20 text-center text-sm text-gray-400">
+                  <td colSpan={colOrder.length + 2} className="py-20 text-center text-sm text-gray-400">
                     {searchQuery || dealFilter !== '전체' ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
@@ -666,53 +695,47 @@ export default function BrokerPropertiesPage() {
                 <tr key={p.id}
                   className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-50 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
-                  {/* # */}
                   <td className="px-2 py-1.5 text-center text-xs text-gray-300 select-none">
                     {(page - 1) * pageSize + idx + 1}
                   </td>
-                  {/* 상태 */}
-                  <td className="px-2 py-1.5">
-                    <SelectCell
-                      value={STATUS_LABEL[p.status]}
-                      options={STATUS_OPTS.map(s => STATUS_LABEL[s])}
-                      onSave={v => {
-                        const key = Object.entries(STATUS_LABEL).find(([, label]) => label === v)?.[0] as Property['status']
-                        if (key) saveField(p.id, 'status', key)
-                      }}
-                      colorMap={Object.fromEntries(STATUS_OPTS.map(s => [STATUS_LABEL[s], STATUS_COLOR[s]]))}
-                    />
-                  </td>
-                  {visibleCols.map(key => (
-                    <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100 }}>
-                      {key === 'deal_type' && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
-                      {key === 'room_type' && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
-                      {key === 'price' && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
-                      {key === 'monthly_rent' && <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />}
-                      {key === 'brief_memo' && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
-                      {key === 'memo' && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
-                      {key === 'images' && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-                    </td>
-                  ))}
-                  {/* 주소 - 항상 표시 */}
-                  <td className="px-2 py-1.5" style={{ width: colWidths['address'] ?? 192 }}>
-                    <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
-                  </td>
-                  {/* 커스텀 칼럼 */}
-                  {customColumns.filter(c => showCustom(c.id)).map(col => (
-                    <td key={col.id} className="px-2 py-1.5" style={{ width: colWidths[col.id] ?? 120 }}>
-                      <TextCell
-                        value={(p.custom_fields ?? {})[col.id] ?? null}
-                        onSave={v => saveCustomField(p.id, col.id, v)}
-                        placeholder={col.name}
-                      />
-                    </td>
-                  ))}
-                  {/* 삭제 - 항상 표시 */}
+                  {colOrder.map(key => {
+                    if (key === 'status') return (
+                      <td key="status" className="px-2 py-1.5" style={{ width: colWidths['status'] ?? 88 }}>
+                        <SelectCell value={STATUS_LABEL[p.status]} options={STATUS_OPTS.map(s => STATUS_LABEL[s])}
+                          onSave={v => { const k = Object.entries(STATUS_LABEL).find(([, l]) => l === v)?.[0] as Property['status']; if (k) saveField(p.id, 'status', k) }}
+                          colorMap={Object.fromEntries(STATUS_OPTS.map(s => [STATUS_LABEL[s], STATUS_COLOR[s]]))} />
+                      </td>
+                    )
+                    if (key === 'address') return (
+                      <td key="address" className="px-2 py-1.5" style={{ width: colWidths['address'] ?? 192 }}>
+                        <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
+                      </td>
+                    )
+                    const fixedCol = ALL_COLUMNS.find(c => c.key === key)
+                    if (fixedCol) {
+                      if (!visibleCols.includes(key as ColKey)) return null
+                      return (
+                        <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100 }}>
+                          {key === 'deal_type' && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
+                          {key === 'room_type' && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
+                          {key === 'price' && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
+                          {key === 'monthly_rent' && <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />}
+                          {key === 'brief_memo' && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
+                          {key === 'memo' && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
+                          {key === 'images' && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
+                        </td>
+                      )
+                    }
+                    const customCol = customColumns.find(c => c.id === key)
+                    if (customCol && showCustom(key)) return (
+                      <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 120 }}>
+                        <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
+                      </td>
+                    )
+                    return null
+                  })}
                   <td className="px-2 py-1.5 text-center">
-                    <button onClick={() => deleteProperty(p.id)}
-                      className="text-gray-300 hover:text-red-400 transition-colors"
-                      title="삭제"
-                    >
+                    <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
                       <X className="h-4 w-4" />
                     </button>
                   </td>
