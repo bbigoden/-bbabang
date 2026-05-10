@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -45,6 +45,20 @@ const OPTIONS_LIST = ['풀옵션', '에어컨', '세탁기', '냉장고', '전�
 const DEAL_FILTERS = ['전체', '매매', '전세', '월세'] as const
 type DealFilter = typeof DEAL_FILTERS[number]
 const PAGE_SIZE = 50
+
+const ALL_COLUMNS = [
+  { key: 'assignee', label: '담당자' },
+  { key: 'deal_type', label: '거래' },
+  { key: 'room_type', label: '유형' },
+  { key: 'price', label: '가격' },
+  { key: 'monthly_rent', label: '월세' },
+  { key: 'management_fee', label: '관리비' },
+  { key: 'premium', label: '권리금' },
+  { key: 'brief_memo', label: '간단메모' },
+  { key: 'images', label: '사진' },
+] as const
+type ColKey = typeof ALL_COLUMNS[number]['key']
+const DEFAULT_VISIBLE: ColKey[] = ['assignee', 'deal_type', 'room_type', 'price', 'monthly_rent', 'brief_memo', 'images']
 
 // 팝오버를 닫기 위한 훅
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -263,6 +277,15 @@ export default function BrokerPropertiesPage() {
   const [page, setPage] = useState(1)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
+  const [visibleCols, setVisibleCols] = useState<ColKey[]>(DEFAULT_VISIBLE)
+  const [colMenuOpen, setColMenuOpen] = useState(false)
+  const colMenuRef = useRef<HTMLDivElement>(null)
+  useClickOutside(colMenuRef, () => setColMenuOpen(false))
+
+  const toggleCol = (key: ColKey) => setVisibleCols(prev =>
+    prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+  )
+  const show = (key: ColKey) => visibleCols.includes(key)
 
   useEffect(() => { init() }, [])
   useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery])
@@ -350,18 +373,43 @@ export default function BrokerPropertiesPage() {
         />
       )}
 
-      <div className="mx-auto max-w-[1400px] px-4 py-6">
+      <div className="px-4 py-6">
         {/* 상단 */}
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">내 매물장</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
           </div>
-          <button onClick={addNewRow}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />매물 등록
-          </button>
+          <div className="flex items-center gap-2">
+            {/* 컬럼 설정 */}
+            <div ref={colMenuRef} className="relative">
+              <button onClick={() => setColMenuOpen(v => !v)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <Settings2 className="h-4 w-4" />컬럼
+              </button>
+              {colMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-xl border border-gray-200 bg-white shadow-lg py-2">
+                  <p className="px-3 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide">표시할 컬럼</p>
+                  {ALL_COLUMNS.map(col => (
+                    <button key={col.key} onClick={() => toggleCol(col.key)}
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className={`flex h-4 w-4 items-center justify-center rounded border-2 transition-all ${visibleCols.includes(col.key) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`}>
+                        {visibleCols.includes(col.key) && <span className="text-[9px] font-black text-white">✓</span>}
+                      </span>
+                      {col.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button onClick={addNewRow}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />매물 등록
+            </button>
+          </div>
         </div>
 
         {/* 통계 탭 */}
@@ -403,25 +451,25 @@ export default function BrokerPropertiesPage() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                <th className="w-8 px-3 py-3 text-center">#</th>
-                <th className="px-2 py-3 text-left w-24">상태</th>
-                <th className="px-2 py-3 text-left w-20">담당자</th>
-                <th className="px-2 py-3 text-left w-16">거래</th>
-                <th className="px-2 py-3 text-left w-20">유형</th>
-                <th className="px-2 py-3 text-left min-w-[200px]">주소</th>
-                <th className="px-2 py-3 text-right w-28">매매/전세/보증금</th>
-                <th className="px-2 py-3 text-right w-20">월세</th>
-                <th className="px-2 py-3 text-right w-20">관리비</th>
-                <th className="px-2 py-3 text-right w-20">권리금</th>
-                <th className="px-2 py-3 text-left min-w-[140px]">간단메모</th>
-                <th className="px-2 py-3 text-center w-16">사진</th>
-                <th className="px-2 py-3 text-center w-12">삭제</th>
+                <th className="w-8 px-2 py-2.5 text-center">#</th>
+                <th className="px-2 py-2.5 text-left w-20">상태</th>
+                {show('assignee') && <th className="px-2 py-2.5 text-left w-16">담당자</th>}
+                {show('deal_type') && <th className="px-2 py-2.5 text-left w-14">거래</th>}
+                {show('room_type') && <th className="px-2 py-2.5 text-left w-16">유형</th>}
+                <th className="px-2 py-2.5 text-left">주소</th>
+                {show('price') && <th className="px-2 py-2.5 text-right w-24">가격</th>}
+                {show('monthly_rent') && <th className="px-2 py-2.5 text-right w-16">월세</th>}
+                {show('management_fee') && <th className="px-2 py-2.5 text-right w-16">관리비</th>}
+                {show('premium') && <th className="px-2 py-2.5 text-right w-16">권리금</th>}
+                {show('brief_memo') && <th className="px-2 py-2.5 text-left w-36">간단메모</th>}
+                {show('images') && <th className="px-2 py-2.5 text-center w-12">사진</th>}
+                <th className="px-2 py-2.5 text-center w-8">삭제</th>
               </tr>
             </thead>
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="py-20 text-center text-sm text-gray-400">
+                  <td colSpan={3 + visibleCols.length} className="py-20 text-center text-sm text-gray-400">
                     {searchQuery || dealFilter !== '전체' ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
@@ -430,7 +478,7 @@ export default function BrokerPropertiesPage() {
                   className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-50 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
                   {/* # */}
-                  <td className="px-3 py-1.5 text-center text-xs text-gray-300 select-none">
+                  <td className="px-2 py-1.5 text-center text-xs text-gray-300 select-none">
                     {(page - 1) * PAGE_SIZE + idx + 1}
                   </td>
                   {/* 상태 */}
@@ -446,11 +494,11 @@ export default function BrokerPropertiesPage() {
                     />
                   </td>
                   {/* 담당자 */}
-                  <td className="px-2 py-1.5">
+                  {show('assignee') && <td className="px-2 py-1.5">
                     <TextCell value={p.assignee} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />
-                  </td>
+                  </td>}
                   {/* 거래유형 */}
-                  <td className="px-2 py-1.5">
+                  {show('deal_type') && <td className="px-2 py-1.5">
                     <SelectCell
                       value={p.deal_type}
                       options={DEAL_TYPES}
@@ -459,42 +507,36 @@ export default function BrokerPropertiesPage() {
                     />
                   </td>
                   {/* 매물유형 */}
-                  <td className="px-2 py-1.5">
+                  {show('room_type') && <td className="px-2 py-1.5">
                     <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />
-                  </td>
-                  {/* 주소 */}
-                  <td className="px-2 py-1.5 max-w-[240px]">
+                  </td>}
+                  {/* 주소 - 항상 표시 */}
+                  <td className="px-2 py-1.5">
                     <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
                   </td>
-                  {/* 가격 */}
-                  <td className="px-2 py-1.5">
+                  {show('price') && <td className="px-2 py-1.5">
                     <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />
-                  </td>
-                  {/* 월세 */}
-                  <td className="px-2 py-1.5">
+                  </td>}
+                  {show('monthly_rent') && <td className="px-2 py-1.5">
                     <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />
-                  </td>
-                  {/* 관리비 */}
-                  <td className="px-2 py-1.5">
+                  </td>}
+                  {show('management_fee') && <td className="px-2 py-1.5">
                     <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />
-                  </td>
-                  {/* 권리금 */}
-                  <td className="px-2 py-1.5">
+                  </td>}
+                  {show('premium') && <td className="px-2 py-1.5">
                     <NumberCell value={p.premium} onSave={v => saveField(p.id, 'premium', v)} />
-                  </td>
-                  {/* 간단메모 */}
-                  <td className="px-2 py-1.5">
+                  </td>}
+                  {show('brief_memo') && <td className="px-2 py-1.5">
                     <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />
-                  </td>
-                  {/* 사진 */}
-                  <td className="px-2 py-1.5">
+                  </td>}
+                  {show('images') && <td className="px-2 py-1.5">
                     <ImageCell
                       images={p.images ?? []}
                       onSave={imgs => saveField(p.id, 'images', imgs)}
                       onView={i => setLightbox({ images: p.images, index: i })}
                     />
-                  </td>
-                  {/* 삭제 */}
+                  </td>}
+                  {/* 삭제 - 항상 표시 */}
                   <td className="px-2 py-1.5 text-center">
                     <button onClick={() => deleteProperty(p.id)}
                       className="text-gray-300 hover:text-red-400 transition-colors"
