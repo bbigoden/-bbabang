@@ -91,6 +91,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 <div className="text-2xl font-black text-blue-600">
                   {formatPrice(request.min_price)}~{formatPrice(request.max_price)}
                 </div>
+                {request.min_monthly && (
+                  <div className="text-sm font-semibold text-gray-500 mt-0.5">
+                    월세 {formatPrice(request.min_monthly)}~{formatPrice(request.max_monthly)}
+                  </div>
+                )}
                 <div className="text-xs text-gray-400 mt-1">
                   제안 {proposals?.length ?? 0}개
                 </div>

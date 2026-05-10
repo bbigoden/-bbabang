@@ -161,39 +161,53 @@ export default function RequestNewPage() {
     setLoading(true)
     setError('')
 
-    const { data: { user } } = await supabase.auth.getUser()
+    let user: any = null
+    try {
+      const { data } = await supabase.auth.getUser()
+      user = data.user
+    } catch {
+      router.push('/auth/login?redirect=/request/new')
+      return
+    }
     if (!user) {
-      router.push('/auth/login')
+      router.push('/auth/login?redirect=/request/new')
       return
     }
 
-    const { data, error: insertError } = await supabase
-      .from('request_posts')
-      .insert({
-        user_id: user.id,
-        deal_type: dealTypes.join(', '),
-        room_type: propertyTypes.join(', '),
-        city: form.city,
-        district: form.district,
-        min_price: Number(form.min_price),
-        max_price: Number(form.max_price),
-        min_size: form.min_size ? Number(form.min_size) : null,
-        max_size: form.max_size ? Number(form.max_size) : null,
-        move_in_date: form.move_in_date || null,
-        description: form.description || null,
-        status: 'active',
-        proposal_count: 0,
-      })
-      .select()
-      .single()
+    try {
+      const { data, error: insertError } = await supabase
+        .from('request_posts')
+        .insert({
+          user_id: user.id,
+          deal_type: dealTypes.join(', '),
+          room_type: propertyTypes.join(', '),
+          city: form.city,
+          district: form.district,
+          min_price: Number(form.min_price),
+          max_price: Number(form.max_price),
+          min_monthly: dealTypes.includes('월세') && form.min_monthly ? Number(form.min_monthly) : null,
+          max_monthly: dealTypes.includes('월세') && form.max_monthly ? Number(form.max_monthly) : null,
+          min_size: form.min_size ? Number(form.min_size) : null,
+          max_size: form.max_size ? Number(form.max_size) : null,
+          move_in_date: form.move_in_date || null,
+          description: form.description || null,
+          status: 'active',
+          proposal_count: 0,
+        })
+        .select()
+        .single()
 
-    if (insertError) {
+      if (insertError) {
+        setError('등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+        setLoading(false)
+        return
+      }
+
+      router.push(`/request/${data.id}`)
+    } catch {
       setError('등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       setLoading(false)
-      return
     }
-
-    router.push(`/request/${data.id}`)
   }
 
   return (
