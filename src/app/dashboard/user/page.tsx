@@ -125,10 +125,10 @@ export default async function UserDashboardPage() {
                           <Badge variant={statusVariant[req.status as keyof typeof statusVariant]}>
                             {statusLabel[req.status as keyof typeof statusLabel]}
                           </Badge>
-                          {req.deal_type?.split(',').map((t: string) => (
+                          {(req.deal_type?.split(',') ?? []).map((t: string) => (
                             <Badge key={t} variant="info">{t.trim()}</Badge>
                           ))}
-                          {req.room_type?.split(',').slice(0, 2).map((t: string) => (
+                          {(req.room_type?.split(',') ?? []).slice(0, 2).map((t: string) => (
                             <Badge key={t} variant="default">{t.trim()}</Badge>
                           ))}
                         </div>
@@ -171,7 +171,7 @@ export default async function UserDashboardPage() {
                         <div className="flex-1">
                           <div className="flex flex-wrap gap-2 mb-2">
                             <Badge variant="default">마감</Badge>
-                            {req.deal_type?.split(',').map((t: string) => (
+                            {(req.deal_type?.split(',') ?? []).map((t: string) => (
                               <Badge key={t} variant="default">{t.trim()}</Badge>
                             ))}
                           </div>
