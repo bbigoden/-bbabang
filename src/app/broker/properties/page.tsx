@@ -25,6 +25,7 @@ interface Property {
   floor: number | null
   total_floors: number | null
   options: string[]
+  images: string[]
   memo: string | null
   status: 'available' | 'contracted' | 'hidden'
   created_at: string
@@ -304,6 +305,22 @@ export default function BrokerPropertiesPage() {
                             <span className="text-gray-400">+{(property.options ?? []).length - 3}</span>
                           )}
                         </div>
+
+                        {/* 사진 썸네일 */}
+                        {property.images?.length > 0 && (
+                          <div className="mt-2 flex gap-1.5">
+                            {(property.images).slice(0, 4).map((src, i, arr) => (
+                              <div key={i} className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border border-gray-200">
+                                <img src={src} alt="" className="h-full w-full object-cover" />
+                                {i === 3 && arr.length < (property.images).length && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-bold text-white">
+                                    +{(property.images).length - 4}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                         {/* 중개사 메모 */}
                         {property.memo && (
