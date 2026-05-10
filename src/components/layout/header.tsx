@@ -50,21 +50,17 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
           )}
           {user ? (
             <>
-              <Link href="/chat">
-                <button className="relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-                  <MessageCircle className="h-5 w-5 text-gray-600" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
+              <Link href="/chat" className="relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+                <MessageCircle className="h-5 w-5 text-gray-600" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </Link>
               <NotificationBell userId={user.id} />
-              <Link href="/dashboard/user">
-                <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-                  <User className="h-5 w-5 text-gray-600" />
-                </button>
+              <Link href="/dashboard/user" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+                <User className="h-5 w-5 text-gray-600" />
               </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>로그아웃</Button>
             </>
