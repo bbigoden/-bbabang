@@ -26,6 +26,7 @@ interface Property {
   total_floors: number | null
   options: string[]
   images: string[]
+  description: string | null
   memo: string | null
   status: 'available' | 'contracted' | 'hidden'
   created_at: string
@@ -322,11 +323,19 @@ export default function BrokerPropertiesPage() {
                           </div>
                         )}
 
+                        {/* 매물 설명 */}
+                        {property.description && (
+                          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+                            <Building2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                            <p className="text-xs text-gray-600 line-clamp-1">{property.description}</p>
+                          </div>
+                        )}
+
                         {/* 중개사 메모 */}
                         {property.memo && (
-                          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-orange-50 border border-orange-100 px-3 py-2">
+                          <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-orange-50 border border-orange-100 px-3 py-2">
                             <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
-                            <p className="text-xs text-orange-700 line-clamp-2">{property.memo}</p>
+                            <p className="text-xs text-orange-700 line-clamp-1">{property.memo}</p>
                           </div>
                         )}
                       </div>
