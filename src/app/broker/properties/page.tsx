@@ -291,7 +291,17 @@ export default function BrokerPropertiesPage() {
   const [pageSize, setPageSize] = useState(20)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
-  const [visibleCols, setVisibleCols] = useState<ColKey[]>(DEFAULT_VISIBLE)
+  const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => {
+    try { const s = localStorage.getItem('broker_col_order'); if (s) { const p = JSON.parse(s) as ColKey[]; return p.filter(k => ALL_COLUMNS.some(c => c.key === k)) } } catch {}
+    return DEFAULT_VISIBLE
+  })
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
+    const def: Record<string, number> = { assignee: 72, deal_type: 60, room_type: 72, price: 96, monthly_rent: 64, management_fee: 64, premium: 64, brief_memo: 128, memo: 128, images: 56 }
+    try { const s = localStorage.getItem('broker_col_widths'); if (s) return { ...def, ...JSON.parse(s) } } catch {}
+    return def
+  })
+  const [dragCol, setDragCol] = useState<string | null>(null)
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const colMenuRef = useRef<HTMLDivElement>(null)
   useClickOutside(colMenuRef, () => setColMenuOpen(false))
@@ -300,6 +310,34 @@ export default function BrokerPropertiesPage() {
     prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
   )
   const show = (key: ColKey) => visibleCols.includes(key)
+
+  // localStorage 저장
+  useEffect(() => { try { localStorage.setItem('broker_col_order', JSON.stringify(visibleCols)) } catch {} }, [visibleCols])
+  useEffect(() => { try { localStorage.setItem('broker_col_widths', JSON.stringify(colWidths)) } catch {} }, [colWidths])
+
+  // 칼럼 너비 드래그 조절
+  const startResize = (key: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startW = colWidths[key] ?? 100
+    const onMove = (ev: MouseEvent) => setColWidths(prev => ({ ...prev, [key]: Math.max(40, startW + ev.clientX - startX) }))
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  // 칼럼 순서 드래그
+  const onColDragStart = (key: string, e: React.DragEvent) => { setDragCol(key); e.dataTransfer.effectAllowed = 'move' }
+  const onColDragOver = (key: string, e: React.DragEvent) => { e.preventDefault(); setDragOverCol(key) }
+  const onColDrop = (key: string) => {
+    if (!dragCol || dragCol === key) return
+    setVisibleCols(prev => {
+      const arr = [...prev]; const fi = arr.indexOf(dragCol as ColKey); const ti = arr.indexOf(key as ColKey)
+      if (fi < 0 || ti < 0) return arr; arr.splice(fi, 1); arr.splice(ti, 0, dragCol as ColKey); return arr
+    })
+    setDragCol(null); setDragOverCol(null)
+  }
 
   useEffect(() => { init() }, [])
   useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery, pageSize])
@@ -464,21 +502,34 @@ export default function BrokerPropertiesPage() {
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           <table className="w-full border-collapse table-fixed">
             <thead>
-              <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                <th className="w-8 px-2 py-2.5 text-center">#</th>
-                <th className="px-2 py-2.5 text-left w-20">상태</th>
-                {show('assignee') && <th className="px-2 py-2.5 text-left w-16">담당자</th>}
-                {show('deal_type') && <th className="px-2 py-2.5 text-left w-14">거래</th>}
-                {show('room_type') && <th className="px-2 py-2.5 text-left w-16">유형</th>}
-                <th className="px-2 py-2.5 text-left w-48">주소</th>
-                {show('price') && <th className="px-2 py-2.5 text-right w-24">가격</th>}
-                {show('monthly_rent') && <th className="px-2 py-2.5 text-right w-16">월세</th>}
-                {show('management_fee') && <th className="px-2 py-2.5 text-right w-16">관리비</th>}
-                {show('premium') && <th className="px-2 py-2.5 text-right w-16">권리금</th>}
-                {show('brief_memo') && <th className="px-2 py-2.5 text-left w-32">간단메모</th>}
-                {show('memo') && <th className="px-2 py-2.5 text-left w-32">중개사메모</th>}
-                {show('images') && <th className="px-2 py-2.5 text-center w-12">사진</th>}
-                <th className="px-2 py-2.5 text-center w-8">삭제</th>
+              <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
+                <th className="px-2 py-2.5 text-center" style={{ width: 32 }}>#</th>
+                <th className="px-2 py-2.5 text-left relative" style={{ width: 80 }}>
+                  상태
+                  <div onMouseDown={e => startResize('status', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                </th>
+                {visibleCols.map(key => {
+                  const col = ALL_COLUMNS.find(c => c.key === key)!
+                  return (
+                    <th key={key}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths[key] ?? 100 }}
+                      draggable
+                      onDragStart={e => onColDragStart(key, e)}
+                      onDragOver={e => onColDragOver(key, e)}
+                      onDrop={() => onColDrop(key)}
+                      onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
+                    >
+                      <span className="truncate block pr-2">{col.label}</span>
+                      <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                    </th>
+                  )
+                })}
+                <th className="px-2 py-2.5 text-left relative" style={{ width: 192 }}>
+                  주소
+                  <div onMouseDown={e => startResize('address', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                </th>
+                <th className="px-2 py-2.5 text-center" style={{ width: 36 }}>삭제</th>
               </tr>
             </thead>
             <tbody>
@@ -508,52 +559,24 @@ export default function BrokerPropertiesPage() {
                       colorMap={Object.fromEntries(STATUS_OPTS.map(s => [STATUS_LABEL[s], STATUS_COLOR[s]]))}
                     />
                   </td>
-                  {/* 담당자 */}
-                  {show('assignee') && <td className="px-2 py-1.5">
-                    <TextCell value={p.assignee} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />
-                  </td>}
-                  {/* 거래유형 */}
-                  {show('deal_type') && <td className="px-2 py-1.5">
-                    <SelectCell
-                      value={p.deal_type}
-                      options={DEAL_TYPES}
-                      onSave={v => saveField(p.id, 'deal_type', v)}
-                      colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }}
-                    />
-                  </td>}
-                  {/* 매물유형 */}
-                  {show('room_type') && <td className="px-2 py-1.5">
-                    <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />
-                  </td>}
+                  {visibleCols.map(key => (
+                    <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100 }}>
+                      {key === 'assignee' && <TextCell value={p.assignee} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />}
+                      {key === 'deal_type' && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
+                      {key === 'room_type' && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
+                      {key === 'price' && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
+                      {key === 'monthly_rent' && <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />}
+                      {key === 'management_fee' && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
+                      {key === 'premium' && <NumberCell value={p.premium} onSave={v => saveField(p.id, 'premium', v)} />}
+                      {key === 'brief_memo' && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
+                      {key === 'memo' && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
+                      {key === 'images' && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
+                    </td>
+                  ))}
                   {/* 주소 - 항상 표시 */}
-                  <td className="px-2 py-1.5">
+                  <td className="px-2 py-1.5" style={{ width: colWidths['address'] ?? 192 }}>
                     <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
                   </td>
-                  {show('price') && <td className="px-2 py-1.5">
-                    <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />
-                  </td>}
-                  {show('monthly_rent') && <td className="px-2 py-1.5">
-                    <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />
-                  </td>}
-                  {show('management_fee') && <td className="px-2 py-1.5">
-                    <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />
-                  </td>}
-                  {show('premium') && <td className="px-2 py-1.5">
-                    <NumberCell value={p.premium} onSave={v => saveField(p.id, 'premium', v)} />
-                  </td>}
-                  {show('brief_memo') && <td className="px-2 py-1.5">
-                    <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />
-                  </td>}
-                  {show('memo') && <td className="px-2 py-1.5">
-                    <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
-                  </td>}
-                  {show('images') && <td className="px-2 py-1.5">
-                    <ImageCell
-                      images={p.images ?? []}
-                      onSave={imgs => saveField(p.id, 'images', imgs)}
-                      onView={i => setLightbox({ images: p.images, index: i })}
-                    />
-                  </td>}
                   {/* 삭제 - 항상 표시 */}
                   <td className="px-2 py-1.5 text-center">
                     <button onClick={() => deleteProperty(p.id)}
