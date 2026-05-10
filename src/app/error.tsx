@@ -1,17 +1,38 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  const [countdown, setCountdown] = useState(2)
+
   useEffect(() => {
     console.error(error)
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          window.location.reload()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(timer)
   }, [error])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 text-center">
       <div className="mb-6 text-6xl">😵</div>
       <h1 className="mb-2 text-2xl font-bold text-gray-900">오류가 발생했어요</h1>
-      <p className="mb-8 text-gray-500">잠시 후 다시 시도해주세요.</p>
+      <p className="mb-6 text-gray-500">{countdown}초 후 자동으로 다시 시도합니다...</p>
+      <div className="mb-6 flex items-center justify-center gap-1.5">
+        {[0, 1].map(i => (
+          <div
+            key={i}
+            className={`h-2.5 w-2.5 rounded-full transition-colors duration-500 ${countdown <= i ? 'bg-blue-200' : 'bg-blue-500'}`}
+          />
+        ))}
+      </div>
       <div className="flex gap-3">
         <button
           onClick={() => window.location.reload()}
@@ -20,7 +41,7 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
           <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          다시 시도
+          지금 다시 시도
         </button>
         <button
           onClick={() => { window.location.href = '/' }}
