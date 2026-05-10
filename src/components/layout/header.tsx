@@ -51,6 +51,11 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
               <Link href="/broker/properties" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
                 내 매물장
               </Link>
+              {pathname !== '/request/new' && (
+                <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                  공동중개 요청
+                </Link>
+              )}
               <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
                 중개사 대시보드
               </Link>
@@ -106,6 +111,9 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
               <>
                 <Link href="/broker/properties" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">내 매물장</Button>
+                </Link>
+                <Link href="/request/new" onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" size="md" className="w-full justify-start">공동중개 요청</Button>
                 </Link>
                 <Link href="/dashboard/broker" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">중개사 대시보드</Button>
