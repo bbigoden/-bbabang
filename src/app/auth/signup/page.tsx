@@ -40,16 +40,23 @@ function SignupForm() {
     setLoading(true)
     setError('')
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name, phone, role } },
-    })
-
-    if (signUpError) {
-      setError(signUpError.message === 'User already registered'
-        ? '이미 가입된 이메일입니다.'
-        : signUpError.message)
+    let data: any = null
+    try {
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name, phone, role } },
+      })
+      if (result.error) {
+        setError(result.error.message === 'User already registered'
+          ? '이미 가입된 이메일입니다.'
+          : result.error.message)
+        setLoading(false)
+        return
+      }
+      data = result.data
+    } catch {
+      setError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       setLoading(false)
       return
     }

@@ -60,7 +60,11 @@ export default function RequestEditPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      let user: any = null
+      try {
+        const { data } = await supabase.auth.getUser()
+        user = data.user
+      } catch { router.push('/auth/login'); return }
       if (!user) { router.push('/auth/login'); return }
 
       const { data, error } = await supabase

@@ -68,11 +68,9 @@ export default async function UserDashboardPage() {
             </h1>
             <p className="mt-1 text-sm text-gray-500">내 방 찾기 현황을 확인하세요</p>
           </div>
-          <Link href="/request/new">
-            <Button variant="primary">
-              <Plus className="mr-2 h-4 w-4" />
-              새 요청 등록
-            </Button>
+          <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+            <Plus className="h-4 w-4" />
+            새 요청 등록
           </Link>
         </div>
 
@@ -106,10 +104,8 @@ export default async function UserDashboardPage() {
               <Home className="mx-auto mb-4 h-12 w-12 text-gray-200" />
               <p className="font-semibold text-gray-500">활성 요청이 없습니다</p>
               <p className="mt-1 text-sm text-gray-400">조건을 등록하면 중개사들이 매물을 제안합니다</p>
-              <Link href="/request/new" className="mt-6 inline-block">
-                <Button variant="primary">
-                  <Plus className="mr-2 h-4 w-4" />첫 요청 등록하기
-                </Button>
+              <Link href="/request/new" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+                <Plus className="h-4 w-4" />첫 요청 등록하기
               </Link>
             </CardBody>
           </Card>
@@ -146,7 +142,7 @@ export default async function UserDashboardPage() {
                           <span>{formatDate(req.created_at)}</span>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">제안 보기</Button>
+                      <span className="flex-shrink-0 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">제안 보기</span>
                     </div>
                   </CardBody>
                 </Card>

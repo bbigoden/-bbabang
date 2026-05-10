@@ -45,7 +45,11 @@ export default function BrokerPropertiesPage() {
   }, [])
 
   const init = async () => {
-    const { data: { user: u } } = await supabase.auth.getUser()
+    let u: any = null
+    try {
+      const { data } = await supabase.auth.getUser()
+      u = data.user
+    } catch { router.push('/auth/login'); return }
     if (!u) { router.push('/auth/login'); return }
     setUser(u)
 
@@ -113,11 +117,9 @@ export default function BrokerPropertiesPage() {
             <h1 className="text-2xl font-bold text-gray-900">내 매물장</h1>
             <p className="mt-1 text-sm text-gray-500">등록한 매물 {properties.length}건</p>
           </div>
-          <Link href="/broker/properties/new">
-            <Button variant="primary">
-              <Plus className="mr-2 h-4 w-4" />
-              매물 등록
-            </Button>
+          <Link href="/broker/properties/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+            <Plus className="h-4 w-4" />
+            매물 등록
           </Link>
         </div>
 
@@ -146,10 +148,8 @@ export default function BrokerPropertiesPage() {
               <Building2 className="mx-auto mb-4 h-12 w-12 text-gray-200" />
               <p className="font-semibold text-gray-500">등록된 매물이 없습니다</p>
               <p className="mt-1 text-sm text-gray-400">매물을 등록하면 채팅에서 바로 공유할 수 있어요</p>
-              <Link href="/broker/properties/new" className="mt-6 inline-block">
-                <Button variant="primary">
-                  <Plus className="mr-2 h-4 w-4" />첫 매물 등록하기
-                </Button>
+              <Link href="/broker/properties/new" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+                <Plus className="h-4 w-4" />첫 매물 등록하기
               </Link>
             </CardBody>
           </Card>

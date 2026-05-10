@@ -75,7 +75,11 @@ export default function NewPropertyPage() {
     setLoading(true)
     setError('')
 
-    const { data: { user } } = await supabase.auth.getUser()
+    let user: any = null
+    try {
+      const { data } = await supabase.auth.getUser()
+      user = data.user
+    } catch { setError('오류가 발생했습니다. 다시 시도해주세요.'); setLoading(false); return }
     if (!user) { router.push('/auth/login'); return }
 
     const { data: broker } = await supabase
@@ -138,10 +142,8 @@ export default function NewPropertyPage() {
 
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">
-          <Link href="/broker/properties">
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
-            </button>
+          <Link href="/broker/properties" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">매물 등록</h1>

@@ -54,7 +54,11 @@ export default function ProposePage() {
     setLoading(true)
     setError('')
 
-    const { data: { user } } = await supabase.auth.getUser()
+    let user: any = null
+    try {
+      const { data } = await supabase.auth.getUser()
+      user = data.user
+    } catch { setError('오류가 발생했습니다. 다시 시도해주세요.'); setLoading(false); return }
     if (!user) { router.push('/auth/login'); return }
 
     // 중개사 프로필 확인

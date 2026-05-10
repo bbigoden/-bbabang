@@ -65,25 +65,19 @@ export default async function LandingPage() {
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             {userRole === 'broker' ? (
-              <Link href="/dashboard/broker">
-                <Button size="lg" className="bg-white text-blue-700 hover:bg-blue-50 font-bold px-8 shadow-lg">
-                  중개사 대시보드로 이동
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+              <Link href="/dashboard/broker" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-bold text-blue-700 hover:bg-blue-50 shadow-lg transition-colors">
+                중개사 대시보드로 이동
+                <ArrowRight className="h-5 w-5" />
               </Link>
             ) : (
               <>
-                <Link href="/request/new">
-                  <Button size="lg" className="bg-white text-blue-700 hover:bg-blue-50 font-bold px-8 shadow-lg">
-                    무료로 조건 등록하기
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
+                <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-bold text-blue-700 hover:bg-blue-50 shadow-lg transition-colors">
+                  무료로 조건 등록하기
+                  <ArrowRight className="h-5 w-5" />
                 </Link>
                 {!user && (
-                  <Link href="/auth/signup?role=broker">
-                    <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                      중개사로 시작하기
-                    </Button>
+                  <Link href="/auth/signup?role=broker" className="inline-flex items-center gap-2 rounded-xl border border-white px-8 py-3.5 text-base font-semibold text-white hover:bg-white/10 transition-colors">
+                    중개사로 시작하기
                   </Link>
                 )}
               </>
@@ -245,18 +239,14 @@ export default async function LandingPage() {
                 ))}
               </ul>
               {userRole === 'broker' ? (
-                <Link href="/dashboard/broker">
-                  <Button size="lg" variant="primary">
-                    중개사 대시보드로 이동
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
+                <Link href="/dashboard/broker" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 transition-colors">
+                  중개사 대시보드로 이동
+                  <ArrowRight className="h-5 w-5" />
                 </Link>
               ) : !user ? (
-                <Link href="/auth/signup?role=broker">
-                  <Button size="lg" variant="primary">
-                    중개사로 무료 가입하기
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
+                <Link href="/auth/signup?role=broker" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 transition-colors">
+                  중개사로 무료 가입하기
+                  <ArrowRight className="h-5 w-5" />
                 </Link>
               ) : null}
             </div>
@@ -293,11 +283,9 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-2xl">
           <h2 className="mb-4 text-3xl font-bold text-gray-900">지금 바로 시작하세요</h2>
           <p className="mb-8 text-gray-500">가입비, 광고비 없이 조건만 올리면 중개사가 찾아옵니다</p>
-          <Link href="/request/new">
-            <Button size="lg" variant="primary" className="px-10">
-              무료로 조건 등록하기
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+          <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-10 py-3.5 text-base font-semibold text-white hover:bg-blue-700 transition-colors">
+            무료로 조건 등록하기
+            <ArrowRight className="h-5 w-5" />
           </Link>
         </div>
       </section>

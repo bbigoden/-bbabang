@@ -68,11 +68,9 @@ export function ProposalActions({ proposalId, requestId, currentStatus, brokerId
         <span className="flex items-center gap-1 text-sm font-semibold text-green-600">
           <CheckCircle className="h-4 w-4" /> 수락됨
         </span>
-        <Link href={`/chat/${proposalId}`}>
-          <Button variant="primary" size="sm">
-            <MessageCircle className="mr-1.5 h-4 w-4" />
-            채팅하기
-          </Button>
+        <Link href={`/chat/${proposalId}`} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+          <MessageCircle className="h-4 w-4" />
+          채팅하기
         </Link>
       </div>
     )
@@ -106,11 +104,9 @@ export function ProposalActions({ proposalId, requestId, currentStatus, brokerId
         <CheckCircle className="mr-1.5 h-4 w-4" />
         수락
       </Button>
-      <Link href={`/chat/${proposalId}`}>
-        <Button variant="outline" size="sm">
-          <MessageCircle className="mr-1.5 h-4 w-4" />
-          채팅
-        </Button>
+      <Link href={`/chat/${proposalId}`} className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+        <MessageCircle className="h-4 w-4" />
+        채팅
       </Link>
     </div>
   )

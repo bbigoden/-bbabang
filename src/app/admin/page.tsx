@@ -80,7 +80,11 @@ export default function AdminPage() {
   useEffect(() => { init() }, [])
 
   const init = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    let user: any = null
+    try {
+      const { data } = await supabase.auth.getUser()
+      user = data.user
+    } catch { router.push('/auth/login'); return }
     if (!user) { router.push('/auth/login'); return }
 
     const { data: profile } = await supabase
@@ -632,11 +636,9 @@ export default function AdminPage() {
             >
               {verifying === brokerModal.id ? '처리 중...' : brokerModal.is_verified ? '인증 취소' : '인증 승인'}
             </button>
-            <Link href={`/broker/${brokerModal.id}`} target="_blank" className="flex-1">
-              <button className="w-full rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5" />
-                공개 프로필 보기
-              </button>
+            <Link href={`/broker/${brokerModal.id}`} target="_blank" className="flex-1 rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
+              <ExternalLink className="h-3.5 w-3.5" />
+              공개 프로필 보기
             </Link>
           </div>
         </Modal>
@@ -728,11 +730,9 @@ export default function AdminPage() {
           )}
 
           <div className="mt-4">
-            <Link href={`/request/${requestModal.id}`} target="_blank">
-              <button className="w-full rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5" />
-                요청 페이지 열기
-              </button>
+            <Link href={`/request/${requestModal.id}`} target="_blank" className="w-full rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
+              <ExternalLink className="h-3.5 w-3.5" />
+              요청 페이지 열기
             </Link>
           </div>
         </Modal>

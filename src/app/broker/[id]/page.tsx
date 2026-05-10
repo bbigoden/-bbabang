@@ -92,7 +92,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                 <p className="text-gray-500">{broker.office_name}</p>
               </div>
               <div className="text-right">
-                {broker.rating ? (
+                {broker.review_count > 0 ? (
                   <div>
                     <div className="flex items-center gap-2 justify-end">
                       <StarRating value={broker.rating} />

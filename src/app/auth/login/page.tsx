@@ -41,10 +41,17 @@ function LoginForm() {
       localStorage.removeItem(STORAGE_KEY)
     }
 
-    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (error) {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.')
+    let authData: any = null
+    try {
+      const result = await supabase.auth.signInWithPassword({ email, password })
+      if (result.error) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.')
+        setLoading(false)
+        return
+      }
+      authData = result.data
+    } catch {
+      setError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       setLoading(false)
       return
     }

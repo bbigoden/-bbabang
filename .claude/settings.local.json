@@ -27,7 +27,25 @@
       "Bash(npx vercel *)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pc\\\\Desktop\\\\코드\\\\빠방\\\\src\" -Recurse -Force)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-List FullName)",
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__list_projects",
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__apply_migration",
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__deploy_edge_function",
+      "Bash(del src\\\\middleware.ts)",
+      "Bash(git rm *)",
+      "Bash(cat next.config.ts)",
+      "Bash(cat next.config.js)",
+      "Bash(cat next.config.mjs)",
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__list_tables",
+      "mcp__61c29316-4fd5-4a6e-818c-1d7511d8509c__get_deployment_build_logs",
+      "mcp__61c29316-4fd5-4a6e-818c-1d7511d8509c__list_teams",
+      "mcp__61c29316-4fd5-4a6e-818c-1d7511d8509c__get_runtime_logs",
+      "Bash(gh run *)",
+      "Bash(git remote *)",
+      "Bash(xargs grep -L \"try {\")"
     ]
   }
 }

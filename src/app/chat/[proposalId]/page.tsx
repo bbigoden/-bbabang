@@ -185,7 +185,11 @@ export default function ChatPage() {
   }, [proposalId])
 
   const initChat = async () => {
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    let currentUser: any = null
+    try {
+      const { data } = await supabase.auth.getUser()
+      currentUser = data.user
+    } catch { router.push('/auth/login'); return }
     if (!currentUser) { router.push('/auth/login'); return }
     setUser(currentUser)
 
