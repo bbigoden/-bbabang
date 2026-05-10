@@ -161,10 +161,10 @@ function SelectCell({ value, options, onSave, colorMap }: {
         {value}
       </div>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[120px] rounded-xl border border-gray-200 bg-white shadow-lg py-1">
+        <div className={`absolute left-0 top-full z-50 mt-1 rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'}`}>
           {options.map(opt => (
             <button key={opt} onClick={() => { onSave(opt); setOpen(false) }}
-              className={`w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}
+              className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}
             >{opt}</button>
           ))}
         </div>
