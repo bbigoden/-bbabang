@@ -45,20 +45,22 @@ export default async function BrokerDashboardPage() {
       ? broker.district.split(',').map((s: string) => s.trim()).filter(Boolean)
       : []
 
-    const { data: pr } = await supabase
-      .from('proposals')
-      .select('*, request_posts(*, profiles(*))')
-      .eq('broker_id', broker.id)
-      .order('created_at', { ascending: false })
+    // proposals와 activeRequests는 서로 독립적 → 병렬 실행
+    const [{ data: pr }, { data: ar }] = await Promise.all([
+      supabase
+        .from('proposals')
+        .select('*, request_posts(*, profiles(*))')
+        .eq('broker_id', broker.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('request_posts')
+        .select('*, profiles(*)')
+        .in('district', brokerDistricts.length > 0 ? brokerDistricts : [''])
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ])
     proposals = pr ?? []
-
-    const { data: ar } = await supabase
-      .from('request_posts')
-      .select('*, profiles(*)')
-      .in('district', brokerDistricts.length > 0 ? brokerDistricts : [''])
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(10)
     activeRequests = ar ?? []
   } catch (e: any) {
     // Next.js redirect는 다시 throw

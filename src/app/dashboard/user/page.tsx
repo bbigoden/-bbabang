@@ -24,14 +24,16 @@ export default async function UserDashboardPage() {
   let requests: any[] = []
   let unreadCount = 0
   try {
-    const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    // profiles와 request_posts는 서로 독립적 → 병렬 실행
+    const [{ data: p }, { data: r }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase
+        .from('request_posts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+    ])
     profile = p
-
-    const { data: r } = await supabase
-      .from('request_posts')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
     requests = r ?? []
 
     const requestIds = requests.map((req: any) => req.id)
