@@ -28,26 +28,38 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   const { id: brokerId } = await params
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  let user: any = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch { /* 비로그인으로 표시 */ }
 
-  const [{ data: broker }, { data: reviews }, { data: properties }] = await Promise.all([
-    supabase
-      .from('broker_profiles')
-      .select('*, profiles(name, email)')
-      .eq('id', brokerId)
-      .single(),
-    supabase
-      .from('reviews')
-      .select('*, profiles(name)')
-      .eq('broker_id', brokerId)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('broker_properties')
-      .select('*')
-      .eq('broker_id', brokerId)
-      .eq('status', 'available')
-      .order('created_at', { ascending: false }),
-  ])
+  let broker: any = null
+  let reviews: any[] = []
+  let properties: any[] = []
+  try {
+    const [{ data: b }, { data: r }, { data: p }] = await Promise.all([
+      supabase
+        .from('broker_profiles')
+        .select('*, profiles(name, email)')
+        .eq('id', brokerId)
+        .single(),
+      supabase
+        .from('reviews')
+        .select('*, profiles(name)')
+        .eq('broker_id', brokerId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('broker_properties')
+        .select('*')
+        .eq('broker_id', brokerId)
+        .eq('status', 'available')
+        .order('created_at', { ascending: false }),
+    ])
+    broker = b
+    reviews = r ?? []
+    properties = p ?? []
+  } catch { /* 데이터 로드 실패 시 빈 상태 */ }
 
   if (!broker) notFound()
 

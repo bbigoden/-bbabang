@@ -14,29 +14,43 @@ import { notFound } from 'next/navigation'
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  let user: any = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch { /* 비로그인으로 표시 */ }
 
   let userRole: string | null = null
-  if (user) {
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    userRole = profile?.role ?? null
+  let request: any = null
+  let proposals: any[] = []
+
+  try {
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      userRole = profile?.role ?? null
+    }
+
+    // 요청 데이터
+    const { data: req } = await supabase
+      .from('request_posts')
+      .select('*, profiles(*)')
+      .eq('id', id)
+      .single()
+    request = req
+
+    // 제안 목록
+    const { data: pr } = await supabase
+      .from('proposals')
+      .select('*, broker_profiles(*, profiles(*))')
+      .eq('request_id', id)
+      .order('created_at', { ascending: false })
+    proposals = pr ?? []
+  } catch (e: any) {
+    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+    /* 데이터 로드 실패 시 빈 상태 */
   }
 
-  // 요청 데이터
-  const { data: request } = await supabase
-    .from('request_posts')
-    .select('*, profiles(*)')
-    .eq('id', id)
-    .single()
-
   if (!request) notFound()
-
-  // 제안 목록
-  const { data: proposals } = await supabase
-    .from('proposals')
-    .select('*, broker_profiles(*, profiles(*))')
-    .eq('request_id', id)
-    .order('created_at', { ascending: false })
 
   const isOwner = user?.id === request.user_id
 
