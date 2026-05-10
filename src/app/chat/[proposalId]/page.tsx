@@ -415,10 +415,8 @@ export default function ChatPage() {
       {/* ── 상단 헤더 ── */}
       <div className="border-b border-gray-100 bg-white shadow-sm">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
-          <Link href={isUser ? '/dashboard/user' : '/dashboard/broker'}>
-            <button className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
-            </button>
+          <Link href={isUser ? '/dashboard/user' : '/dashboard/broker'} className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
           </Link>
 
           <button
@@ -435,23 +433,19 @@ export default function ChatPage() {
                 )}
               </div>
               {isUser && broker?.office_name && (
-                <p className="text-xs text-gray-400">{broker.office_name} · {broker.district?.split(',')[0]}</p>
+                <p className="text-xs text-gray-400">{broker.office_name} · {broker.district?.split(',')?.[0]}</p>
               )}
             </div>
           </button>
 
           {isUser && proposal?.status === 'accepted' && (
-            <Link href={`/review/${proposalId}`}>
-              <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 hover:bg-yellow-100 transition-colors" title="리뷰 남기기">
-                <Star className="h-4 w-4" />
-              </button>
+            <Link href={`/review/${proposalId}`} className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 hover:bg-yellow-100 transition-colors" title="리뷰 남기기">
+              <Star className="h-4 w-4" />
             </Link>
           )}
           {otherPhone && (
-            <a href={`tel:${otherPhone}`}>
-              <button className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition-colors">
-                <Phone className="h-4 w-4" />
-              </button>
+            <a href={`tel:${otherPhone}`} className="flex h-9 w-9 items-center justify-center rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition-colors">
+              <Phone className="h-4 w-4" />
             </a>
           )}
         </div>

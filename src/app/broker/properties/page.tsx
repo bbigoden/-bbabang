@@ -206,10 +206,8 @@ export default function BrokerPropertiesPage() {
 
                       {/* 액션 버튼 */}
                       <div className="flex flex-col items-end gap-2">
-                        <Link href={`/broker/properties/${property.id}/edit`}>
-                          <button className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-                            <Pencil className="h-3.5 w-3.5" />수정
-                          </button>
+                        <Link href={`/broker/properties/${property.id}/edit`} className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                          <Pencil className="h-3.5 w-3.5" />수정
                         </Link>
                         <button
                           onClick={() => toggleStatus(property)}
