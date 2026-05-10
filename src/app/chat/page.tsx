@@ -9,81 +9,82 @@ import { redirect } from 'next/navigation'
 
 export default async function ChatListPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
+  let user: any = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    redirect('/auth/login')
+  }
   if (!user) redirect('/auth/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  const isBroker = profile?.role === 'broker'
-
+  let profile: any = null
   let chatRooms: any[] = []
-
-  if (isBroker) {
-    // 중개사: 본인 broker_profile로 연결된 proposals
-    const { data: broker } = await supabase
-      .from('broker_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (broker) {
-      const { data } = await supabase
-        .from('proposals')
-        .select(`
-          id, status, price, created_at,
-          request_posts(id, district, deal_type, room_type, min_price, max_price, profiles(name, email))
-        `)
-        .eq('broker_id', broker.id)
-        .order('created_at', { ascending: false })
-
-      chatRooms = data ?? []
-    }
-  } else {
-    // 일반 유저: 본인 요청에 달린 수락된 제안들
-    const { data } = await supabase
-      .from('proposals')
-      .select(`
-        id, status, price, created_at,
-        request_posts!inner(id, district, deal_type, room_type, min_price, max_price, user_id),
-        broker_profiles(id, office_name, profiles(name))
-      `)
-      .eq('request_posts.user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    chatRooms = data ?? []
-  }
-
-  // ── 읽지 않은 메시지 수 계산 ──────────────────────────────
-  const proposalIds = chatRooms.map((p: any) => p.id)
   let unreadMap: Record<string, number> = {}
 
-  if (proposalIds.length > 0) {
-    const { data: rooms } = await supabase
-      .from('chat_rooms')
-      .select('id, proposal_id')
-      .in('proposal_id', proposalIds)
+  try {
+    const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    profile = p
 
-    if (rooms && rooms.length > 0) {
-      const roomIds = rooms.map(r => r.id)
-      const { data: unreadMsgs } = await supabase
-        .from('chat_messages')
-        .select('room_id')
-        .in('room_id', roomIds)
-        .neq('sender_id', user.id)
-        .eq('is_read', false)
+    const isBroker = profile?.role === 'broker'
 
-      const roomToProposal = Object.fromEntries(rooms.map(r => [r.id, r.proposal_id]))
-      for (const msg of unreadMsgs ?? []) {
-        const pid = roomToProposal[msg.room_id]
-        if (pid) unreadMap[pid] = (unreadMap[pid] ?? 0) + 1
+    if (isBroker) {
+      const { data: broker } = await supabase
+        .from('broker_profiles').select('id').eq('user_id', user.id).single()
+
+      if (broker) {
+        const { data } = await supabase
+          .from('proposals')
+          .select(`id, status, price, created_at,
+            request_posts(id, district, deal_type, room_type, min_price, max_price, profiles(name, email))`)
+          .eq('broker_id', broker.id)
+          .order('created_at', { ascending: false })
+        chatRooms = data ?? []
+      }
+    } else {
+      // 일반 유저: 내 요청에 달린 제안들
+      const { data: myRequests } = await supabase
+        .from('request_posts').select('id').eq('user_id', user.id)
+      const myRequestIds = myRequests?.map((r: any) => r.id) ?? []
+
+      if (myRequestIds.length > 0) {
+        const { data } = await supabase
+          .from('proposals')
+          .select(`id, status, price, created_at,
+            request_posts(id, district, deal_type, room_type, min_price, max_price),
+            broker_profiles(id, office_name, profiles(name))`)
+          .in('request_id', myRequestIds)
+          .order('created_at', { ascending: false })
+        chatRooms = data ?? []
       }
     }
+
+    // 읽지 않은 메시지 수 계산
+    const proposalIds = chatRooms.map((p: any) => p.id)
+    if (proposalIds.length > 0) {
+      const { data: rooms } = await supabase
+        .from('chat_rooms').select('id, proposal_id').in('proposal_id', proposalIds)
+
+      if (rooms && rooms.length > 0) {
+        const roomIds = rooms.map(r => r.id)
+        const { data: unreadMsgs } = await supabase
+          .from('chat_messages').select('room_id')
+          .in('room_id', roomIds).neq('sender_id', user.id).eq('is_read', false)
+
+        const roomToProposal = Object.fromEntries(rooms.map(r => [r.id, r.proposal_id]))
+        for (const msg of unreadMsgs ?? []) {
+          const pid = roomToProposal[msg.room_id]
+          if (pid) unreadMap[pid] = (unreadMap[pid] ?? 0) + 1
+        }
+      }
+    }
+  } catch (e: any) {
+    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+    // 데이터 로드 실패 시 빈 목록으로 표시
   }
+
+  const isBroker = profile?.role === 'broker'
 
   const statusLabel: Record<string, string> = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
   const statusVariant: Record<string, 'warning' | 'success' | 'danger'> = {
