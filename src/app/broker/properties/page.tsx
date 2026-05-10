@@ -625,8 +625,8 @@ export default function BrokerPropertiesPage() {
                   // 상태
                   if (key === 'status') return (
                     <th key="status"
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'status' ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths['status'] ?? 88 }}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === 'status' ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths['status'] ?? 88, maxWidth: colWidths['status'] ?? 88 }}
                       draggable onDragStart={e => onColDragStart('status', e)}
                       onDragOver={e => onColDragOver('status', e)} onDrop={() => onColDrop('status')}
                       onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
@@ -638,8 +638,8 @@ export default function BrokerPropertiesPage() {
                   // 주소
                   if (key === 'address') return (
                     <th key="address"
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'address' ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths['address'] ?? 192 }}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === 'address' ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths['address'] ?? 192, maxWidth: colWidths['address'] ?? 192 }}
                       draggable onDragStart={e => onColDragStart('address', e)}
                       onDragOver={e => onColDragOver('address', e)} onDrop={() => onColDrop('address')}
                       onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
@@ -654,8 +654,8 @@ export default function BrokerPropertiesPage() {
                     if (!visibleCols.includes(key as ColKey)) return null
                     return (
                       <th key={key}
-                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
-                        style={{ width: colWidths[key] ?? 100 }}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}
                         draggable onDragStart={e => onColDragStart(key, e)}
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
                         onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
@@ -669,8 +669,8 @@ export default function BrokerPropertiesPage() {
                   const customCol = customColumns.find(c => c.id === key)
                   if (customCol && showCustom(key)) return (
                     <th key={key}
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths[key] ?? 120 }}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}
                       draggable onDragStart={e => onColDragStart(key, e)}
                       onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
                       onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
@@ -700,14 +700,14 @@ export default function BrokerPropertiesPage() {
                   </td>
                   {colOrder.map(key => {
                     if (key === 'status') return (
-                      <td key="status" className="px-2 py-1.5" style={{ width: colWidths['status'] ?? 88 }}>
+                      <td key="status" className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths['status'] ?? 88, maxWidth: colWidths['status'] ?? 88 }}>
                         <SelectCell value={STATUS_LABEL[p.status]} options={STATUS_OPTS.map(s => STATUS_LABEL[s])}
                           onSave={v => { const k = Object.entries(STATUS_LABEL).find(([, l]) => l === v)?.[0] as Property['status']; if (k) saveField(p.id, 'status', k) }}
                           colorMap={Object.fromEntries(STATUS_OPTS.map(s => [STATUS_LABEL[s], STATUS_COLOR[s]]))} />
                       </td>
                     )
                     if (key === 'address') return (
-                      <td key="address" className="px-2 py-1.5" style={{ width: colWidths['address'] ?? 192 }}>
+                      <td key="address" className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths['address'] ?? 192, maxWidth: colWidths['address'] ?? 192 }}>
                         <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
                       </td>
                     )
@@ -715,7 +715,7 @@ export default function BrokerPropertiesPage() {
                     if (fixedCol) {
                       if (!visibleCols.includes(key as ColKey)) return null
                       return (
-                        <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100 }}>
+                        <td key={key} className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'deal_type' && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
                           {key === 'room_type' && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'price' && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
@@ -728,7 +728,7 @@ export default function BrokerPropertiesPage() {
                     }
                     const customCol = customColumns.find(c => c.id === key)
                     if (customCol && showCustom(key)) return (
-                      <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 120 }}>
+                      <td key={key} className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
                         <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
                       </td>
                     )
