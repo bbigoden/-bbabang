@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Home, MessageCircle, User, Menu, X } from 'lucide-react'
@@ -16,6 +16,7 @@ interface HeaderProps {
 
 export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -40,9 +41,11 @@ export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
 
         {/* 데스크탑 네비 */}
         <nav className="hidden items-center gap-1 md:flex">
-          <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
-            매물 요청하기
-          </Link>
+          {pathname !== '/request/new' && (
+            <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+              매물 요청하기
+            </Link>
+          )}
           {role === 'broker' && (
             <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
               중개사 대시보드
