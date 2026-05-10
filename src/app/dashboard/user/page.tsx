@@ -9,13 +9,15 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 export default async function UserDashboardPage() {
-  const supabase = await createClient()
-
+  let supabase: any
   let user: any = null
+
   try {
+    supabase = await createClient()
     const { data } = await supabase.auth.getUser()
     user = data.user
-  } catch {
+  } catch (e: any) {
+    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
     redirect('/auth/login?redirect=/dashboard/user')
   }
   if (!user) redirect('/auth/login?redirect=/dashboard/user')
@@ -45,7 +47,8 @@ export default async function UserDashboardPage() {
         .eq('status', 'pending')
       unreadCount = count ?? 0
     }
-  } catch {
+  } catch (e: any) {
+    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
     // 데이터 로드 실패 시 빈 상태로 표시
   }
 
