@@ -420,7 +420,7 @@ export default function EditPropertyPage() {
               <CardBody>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
                   중개사 메모
-                  <span className="ml-2 text-xs font-normal text-orange-500">🔒 나와 관리자만 볼 수 있어요</span>
+                  <span className="ml-2 text-xs font-normal text-orange-500">🔒 나만 볼 수 있어요</span>
                 </label>
                 <textarea
                   placeholder="내부 메모, 집주인 연락처, 특이사항 등 개인 메모를 남기세요"
