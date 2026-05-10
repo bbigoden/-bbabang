@@ -70,33 +70,32 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
         </div>
       </div>
 
-      {/* 이미지 */}
-      <img
-        src={images[index]}
-        alt=""
-        className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      />
+      {/* 이미지 + 화살표 묶음 */}
+      <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+        {images.length > 1 && (
+          <button
+            onClick={e => { e.stopPropagation(); onPrev() }}
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
 
-      {/* 이전 버튼 */}
-      {images.length > 1 && (
-        <button
-          onClick={e => { e.stopPropagation(); onPrev() }}
-          className="absolute left-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-      )}
+        <img
+          src={images[index]}
+          alt=""
+          className="max-h-[80vh] max-w-[80vw] rounded-lg object-contain shadow-2xl"
+        />
 
-      {/* 다음 버튼 */}
-      {images.length > 1 && (
-        <button
-          onClick={e => { e.stopPropagation(); onNext() }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
-        >
-          <ChevronRight className="h-6 w-6" />
-        </button>
-      )}
+        {images.length > 1 && (
+          <button
+            onClick={e => { e.stopPropagation(); onNext() }}
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
+      </div>
 
       {/* 하단 썸네일 */}
       {images.length > 1 && (
