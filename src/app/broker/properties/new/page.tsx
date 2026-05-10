@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
@@ -35,8 +35,13 @@ export default function NewPropertyPage() {
   const [memo, setMemo] = useState('')
   const [images, setImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null)).catch(() => {})
+  }, [])
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? [])
@@ -138,7 +143,7 @@ export default function NewPropertyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header role="broker" />
+      <Header user={user} role="broker" />
 
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">

@@ -38,6 +38,7 @@ export default function EditPropertyPage() {
   const [existingImages, setExistingImages] = useState<string[]>([])
   const [newImages, setNewImages] = useState<File[]>([])
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
+  const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -53,6 +54,7 @@ export default function EditPropertyPage() {
       user = data.user
     } catch { router.push('/auth/login'); return }
     if (!user) { router.push('/auth/login'); return }
+    setUser(user)
 
     const { data: broker } = await supabase
       .from('broker_profiles')
@@ -195,7 +197,7 @@ export default function EditPropertyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header role="broker" />
+      <Header user={user} role="broker" />
 
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">
