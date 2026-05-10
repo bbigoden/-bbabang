@@ -44,7 +44,7 @@ const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피
 const OPTIONS_LIST = ['풀옵션', '에어컨', '세탁기', '냉장고', '전자레인지', '인터넷', '주차 가능', '엘리베이터', '반려동물 허용', 'CCTV', '도시가스', '관리비 포함']
 const DEAL_FILTERS = ['전체', '매매', '전세', '월세'] as const
 type DealFilter = typeof DEAL_FILTERS[number]
-const PAGE_SIZE = 50
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 const ALL_COLUMNS = [
   { key: 'assignee', label: '담당자' },
@@ -275,6 +275,7 @@ export default function BrokerPropertiesPage() {
   const [dealFilter, setDealFilter] = useState<DealFilter>('전체')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(DEFAULT_VISIBLE)
@@ -288,7 +289,7 @@ export default function BrokerPropertiesPage() {
   const show = (key: ColKey) => visibleCols.includes(key)
 
   useEffect(() => { init() }, [])
-  useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery])
+  useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery, pageSize])
 
   const init = async () => {
     let u: any = null
@@ -350,8 +351,8 @@ export default function BrokerPropertiesPage() {
     return list
   }, [properties, statusFilter, dealFilter, searchQuery])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -479,7 +480,7 @@ export default function BrokerPropertiesPage() {
                 >
                   {/* # */}
                   <td className="px-2 py-1.5 text-center text-xs text-gray-300 select-none">
-                    {(page - 1) * PAGE_SIZE + idx + 1}
+                    {(page - 1) * pageSize + idx + 1}
                   </td>
                   {/* 상태 */}
                   <td className="px-2 py-1.5">
@@ -552,30 +553,42 @@ export default function BrokerPropertiesPage() {
         </div>
 
         {/* 페이지네이션 */}
-        {totalPages > 1 && (
-          <div className="mt-5 flex items-center justify-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
-            ><ChevronLeft className="h-4 w-4" /></button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
-              .reduce<(number | '...')[]>((acc, n, i, arr) => {
-                if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('...')
-                acc.push(n); return acc
-              }, [])
-              .map((n, i) => n === '...'
-                ? <span key={`e${i}`} className="px-1 text-gray-400">…</span>
-                : <button key={n} onClick={() => setPage(n as number)}
-                    className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
-                  >{n}</button>
-              )
-            }
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
-            ><ChevronRight className="h-4 w-4" /></button>
-            <span className="ml-2 text-sm text-gray-400">{page} / {totalPages} (50개씩)</span>
+        <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+          {/* 페이지 이동 */}
+          {totalPages > 1 && (
+            <>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              ><ChevronLeft className="h-4 w-4" /></button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                .reduce<(number | '...')[]>((acc, n, i, arr) => {
+                  if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('...')
+                  acc.push(n); return acc
+                }, [])
+                .map((n, i) => n === '...'
+                  ? <span key={`e${i}`} className="px-1 text-gray-400">…</span>
+                  : <button key={n} onClick={() => setPage(n as number)}
+                      className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                    >{n}</button>
+                )
+              }
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+              ><ChevronRight className="h-4 w-4" /></button>
+            </>
+          )}
+          {/* 페이지당 개수 선택 */}
+          <div className="flex items-center gap-1 ml-3">
+            <span className="text-sm text-gray-400">페이지당</span>
+            {PAGE_SIZE_OPTIONS.map(n => (
+              <button key={n} onClick={() => setPageSize(n)}
+                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+              >{n}개</button>
+            ))}
+            <span className="text-sm text-gray-400 ml-1">| 총 {filtered.length}개</span>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
