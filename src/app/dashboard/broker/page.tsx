@@ -2,10 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, TrendingUp, MessageCircle, MapPin, CheckCircle, Building2 } from 'lucide-react'
-// formatDate, Badge, formatPrice used in proposals section
+import { Star, TrendingUp, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -27,6 +25,7 @@ export default async function BrokerDashboardPage() {
   let proposals: any[] = []
   let activeRequests: any[] = []
   let brokerDistricts: string[] = []
+  let recentReviews: any[] = []
 
   try {
     const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -45,8 +44,7 @@ export default async function BrokerDashboardPage() {
       ? broker.district.split(',').map((s: string) => s.trim()).filter(Boolean)
       : []
 
-    // proposals와 activeRequests는 서로 독립적 → 병렬 실행
-    const [{ data: pr }, { data: ar }] = await Promise.all([
+    const [{ data: pr }, { data: ar }, { data: rv }] = await Promise.all([
       supabase
         .from('proposals')
         .select('*, request_posts(*, profiles(*))')
@@ -59,19 +57,66 @@ export default async function BrokerDashboardPage() {
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(10),
+      supabase
+        .from('reviews')
+        .select('*, profiles(name)')
+        .eq('broker_id', broker.id)
+        .order('created_at', { ascending: false })
+        .limit(3),
     ])
     proposals = pr ?? []
     activeRequests = ar ?? []
+    recentReviews = rv ?? []
   } catch (e: any) {
-    // Next.js redirect는 다시 throw
     if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
-    // 데이터 로드 실패 시 빈 상태로 표시
   }
 
   if (!broker) redirect('/broker/register')
 
   const statusLabel = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
   const statusVariant = { pending: 'warning', accepted: 'success', rejected: 'danger' } as const
+
+  // ── 성과 지표 계산 ──────────────────────────────────
+  const totalProposals = proposals.length
+  const acceptedProposals = proposals.filter(p => p.status === 'accepted').length
+  const rejectedProposals = proposals.filter(p => p.status === 'rejected').length
+  const acceptanceRate = totalProposals > 0
+    ? Math.round((acceptedProposals / totalProposals) * 100)
+    : 0
+
+  const now = new Date()
+  const thisMonthProposals = proposals.filter(p => {
+    const d = new Date(p.created_at)
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  }).length
+
+  const acceptedWithPrice = proposals.filter(p => p.status === 'accepted' && p.price)
+  const avgPrice = acceptedWithPrice.length > 0
+    ? Math.round(acceptedWithPrice.reduce((sum, p) => sum + p.price, 0) / acceptedWithPrice.length)
+    : 0
+
+  // 최근 6개월 월별 제안 현황
+  const monthlyStats = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+    const month = d.getMonth()
+    const year = d.getFullYear()
+    const total = proposals.filter(p => {
+      const pd = new Date(p.created_at)
+      return pd.getMonth() === month && pd.getFullYear() === year
+    }).length
+    const accepted = proposals.filter(p => {
+      const pd = new Date(p.created_at)
+      return pd.getMonth() === month && pd.getFullYear() === year && p.status === 'accepted'
+    }).length
+    return { label: `${d.getMonth() + 1}월`, total, accepted }
+  })
+  const maxMonthly = Math.max(...monthlyStats.map(m => m.total), 1)
+
+  const rateColor = acceptanceRate >= 50
+    ? 'text-green-600'
+    : acceptanceRate >= 25
+      ? 'text-yellow-600'
+      : 'text-red-500'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -122,11 +167,11 @@ export default async function BrokerDashboardPage() {
           </div>
         </Link>
 
-        {/* 통계 */}
+        {/* 요약 통계 */}
         <div className="mb-8 grid grid-cols-3 gap-4">
           {[
-            { label: '내 제안', value: proposals?.length ?? 0, icon: MessageCircle, color: 'text-blue-600 bg-blue-50' },
-            { label: '수락된 제안', value: proposals?.filter(p => p.status === 'accepted').length ?? 0, icon: CheckCircle, color: 'text-green-600 bg-green-50' },
+            { label: '내 제안', value: totalProposals, icon: MessageCircle, color: 'text-blue-600 bg-blue-50' },
+            { label: '수락된 제안', value: acceptedProposals, icon: CheckCircle, color: 'text-green-600 bg-green-50' },
             { label: '주변 요청', value: activeRequests?.length ?? 0, icon: TrendingUp, color: 'text-purple-600 bg-purple-50' },
           ].map((stat) => (
             <Card key={stat.label}>
@@ -143,8 +188,153 @@ export default async function BrokerDashboardPage() {
           ))}
         </div>
 
+        {/* ── 성과 분석 ─────────────────────────────────── */}
+        <div className="mb-8">
+          <div className="mb-4 flex items-center gap-2">
+            <BarChart2 className="h-5 w-5 text-blue-600" />
+            <h2 className="font-bold text-gray-900">성과 분석</h2>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3 mb-4">
+            {/* 수락률 */}
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">제안 수락률</span>
+                </div>
+                <div className={`text-4xl font-black ${rateColor}`}>
+                  {acceptanceRate}%
+                </div>
+                <div className="mt-2 text-xs text-gray-400">
+                  전체 {totalProposals}건 중 수락 {acceptedProposals}건 · 거절 {rejectedProposals}건
+                </div>
+                {/* 수락률 바 */}
+                <div className="mt-3 h-2 w-full rounded-full bg-gray-100">
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      acceptanceRate >= 50 ? 'bg-green-500' : acceptanceRate >= 25 ? 'bg-yellow-400' : 'bg-red-400'
+                    }`}
+                    style={{ width: `${acceptanceRate}%` }}
+                  />
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* 이번 달 제안 */}
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageCircle className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">이번 달 제안</span>
+                </div>
+                <div className="text-4xl font-black text-blue-600">
+                  {thisMonthProposals}
+                  <span className="text-lg font-medium text-gray-400">건</span>
+                </div>
+                <div className="mt-2 text-xs text-gray-400">
+                  {now.getMonth() + 1}월 기준
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* 평균 성사가 */}
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <ThumbsUp className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">평균 성사 금액</span>
+                </div>
+                <div className="text-3xl font-black text-gray-900">
+                  {avgPrice > 0 ? formatPrice(avgPrice) : '-'}
+                </div>
+                <div className="mt-2 text-xs text-gray-400">
+                  수락된 제안 기준
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* 월별 제안 추이 */}
+          <Card>
+            <CardBody>
+              <p className="mb-4 text-sm font-semibold text-gray-700">최근 6개월 제안 추이</p>
+              <div className="flex items-end gap-3 h-28">
+                {monthlyStats.map((m) => (
+                  <div key={m.label} className="flex flex-1 flex-col items-center gap-1.5">
+                    <span className="text-xs font-bold text-gray-500">
+                      {m.total > 0 ? m.total : ''}
+                    </span>
+                    <div className="relative w-full flex flex-col justify-end" style={{ height: '80px' }}>
+                      {/* 전체 제안 (연한 색) */}
+                      <div
+                        className="w-full rounded-t-lg bg-blue-100 absolute bottom-0"
+                        style={{ height: `${Math.round((m.total / maxMonthly) * 80)}px` }}
+                      />
+                      {/* 수락된 제안 (진한 색) */}
+                      <div
+                        className="w-full rounded-t-lg bg-blue-500 absolute bottom-0"
+                        style={{ height: `${Math.round((m.accepted / maxMonthly) * 80)}px` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-400">{m.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-500" />
+                  수락된 제안
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-100" />
+                  전체 제안
+                </span>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+
+        {/* ── 최근 리뷰 ─────────────────────────────────── */}
+        {recentReviews.length > 0 && (
+          <div className="mb-8">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
+                <h2 className="font-bold text-gray-900">최근 고객 리뷰</h2>
+              </div>
+              <Link href={`/broker/${broker.id}`} className="text-xs text-blue-600 hover:underline">
+                전체 보기 →
+              </Link>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {recentReviews.map((review: any) => (
+                <Card key={review.id}>
+                  <CardBody className="py-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map(i => (
+                          <Star
+                            key={i}
+                            className={`h-3.5 w-3.5 ${i <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-gray-400">{formatDate(review.created_at)}</span>
+                    </div>
+                    {review.comment && (
+                      <p className="text-sm text-gray-600 line-clamp-2">{review.comment}</p>
+                    )}
+                    <p className="mt-2 text-xs text-gray-400">{review.profiles?.name ?? '익명'}</p>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-8 lg:grid-cols-2">
-          {/* 주변 신규 요청 (필터/검색 포함) */}
+          {/* 주변 신규 요청 */}
           <BrokerRequestsFilter brokerDistricts={brokerDistricts} />
 
           {/* 내 제안 현황 */}
