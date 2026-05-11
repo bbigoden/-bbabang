@@ -40,8 +40,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
+    window.location.href = '/'
   }
 
   return (

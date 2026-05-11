@@ -173,8 +173,7 @@ export default function AdminPage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
+    window.location.href = '/'
   }
 
   const openStatModal = async (type: 'users' | 'requests' | 'proposals') => {
