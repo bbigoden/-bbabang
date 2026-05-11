@@ -21,7 +21,6 @@ export default function ProfilePage() {
   const [saveMsg, setSaveMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   // 비밀번호 변경
-  const [pwCurrent, setPwCurrent] = useState('')
   const [pwNew, setPwNew] = useState('')
   const [pwConfirm, setPwConfirm] = useState('')
   const [pwSaving, setPwSaving] = useState(false)
@@ -69,7 +68,7 @@ export default function ProfilePage() {
       setPwMsg({ type: 'err', text: '비밀번호 변경에 실패했습니다.' })
     } else {
       setPwMsg({ type: 'ok', text: '비밀번호가 변경됐습니다.' })
-      setPwCurrent(''); setPwNew(''); setPwConfirm('')
+      setPwNew(''); setPwConfirm('')
       setTimeout(() => setPwMsg(null), 3000)
     }
   }

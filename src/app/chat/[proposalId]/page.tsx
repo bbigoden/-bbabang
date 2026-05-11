@@ -5,11 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { formatDate, formatPrice, maskAddress } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddress, cn } from '@/lib/utils'
 import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, Star, ImagePlus } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
 
 // ── 타입 ──────────────────────────────────────────
 interface PropertySnapshot {

@@ -10,7 +10,7 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, Shield, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Award, Hash, ChevronRight, ImageIcon
+  Hash, ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
