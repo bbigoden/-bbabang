@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice, maskAddress, cn } from '@/lib/utils'
-import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, Star, ImagePlus } from 'lucide-react'
+import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, Star, ImagePlus, Search } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -102,7 +102,7 @@ function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine
       {/* 내용 */}
       <div className="px-4 py-3 space-y-1.5">
         <p className={cn('text-sm font-semibold leading-snug', isMine ? 'text-blue-900' : 'text-gray-900')}>
-          {snapshot.address}
+          {maskAddress(snapshot.address)}
         </p>
         <p className={cn('text-xs', isMine ? 'text-blue-700' : 'text-gray-500')}>
           {snapshot.room_type}
@@ -157,6 +157,7 @@ export default function ChatPage() {
   const [showPicker, setShowPicker] = useState(false)
   const [brokerProperties, setBrokerProperties] = useState<BrokerProperty[]>([])
   const [loadingProps, setLoadingProps] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -587,25 +588,58 @@ export default function ChatPage() {
 
       {/* ── 매물 피커 모달 (중개사만) ── */}
       {showPicker && isBroker && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={() => setShowPicker(false)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={() => { setShowPicker(false); setPickerSearch('') }}>
           <div
-            className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl md:rounded-2xl"
-            style={{ maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            className="w-full max-w-xl rounded-t-2xl bg-white shadow-xl md:rounded-2xl"
+            style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
             onClick={e => e.stopPropagation()}
           >
             {/* 모달 헤더 */}
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-blue-600" />
-                <span className="font-bold text-gray-900">매물 선택</span>
+                <span className="font-bold text-gray-900">내 매물장</span>
+                {!loadingProps && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{brokerProperties.length}</span>}
               </div>
-              <button onClick={() => setShowPicker(false)} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors">
+              <button onClick={() => { setShowPicker(false); setPickerSearch('') }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* 모달 바디 */}
-            <div className="overflow-y-auto flex-1 p-4">
+            {/* 검색창 */}
+            {!loadingProps && brokerProperties.length > 0 && (
+              <div className="border-b border-gray-100 px-4 py-3 flex-shrink-0">
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white transition-colors">
+                  <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={pickerSearch}
+                    onChange={e => setPickerSearch(e.target.value)}
+                    placeholder="주소, 거래유형, 방종류 검색..."
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
+                    autoFocus
+                  />
+                  {pickerSearch && (
+                    <button onClick={() => setPickerSearch('')} className="text-gray-400 hover:text-gray-600">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 테이블 헤더 */}
+            {!loadingProps && brokerProperties.length > 0 && (
+              <div className="grid grid-cols-[3rem_1fr_auto_auto] gap-x-3 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
+                <span>유형</span>
+                <span>소재지</span>
+                <span className="text-right">가격</span>
+                <span className="w-14"></span>
+              </div>
+            )}
+
+            {/* 목록 */}
+            <div className="overflow-y-auto flex-1">
               {loadingProps ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
@@ -618,56 +652,62 @@ export default function ChatPage() {
                     매물 등록하기
                   </Link>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {brokerProperties.map(prop => {
-                    const dealColors: Record<string, string> = {
-                      '매매': 'bg-blue-100 text-blue-700',
-                      '전세': 'bg-green-100 text-green-700',
-                      '월세': 'bg-orange-100 text-orange-700',
-                      '단기': 'bg-purple-100 text-purple-700',
-                    }
-                    const badgeClass = dealColors[prop.deal_type] ?? 'bg-gray-100 text-gray-600'
-                    const priceText = prop.deal_type === '월세'
-                      ? `보증금 ${formatPrice(prop.price)} / 월 ${formatPrice(prop.monthly_rent ?? 0)}`
-                      : formatPrice(prop.price)
-
-                    return (
-                      <button
-                        key={prop.id}
-                        onClick={() => sendProperty(prop)}
-                        className="group w-full rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm hover:border-blue-300 hover:shadow-md transition-all"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>
-                                {prop.deal_type}
-                              </span>
-                              <span className="text-xs text-gray-400">{prop.room_type}</span>
-                            </div>
-                            <p className="font-semibold text-gray-900 truncate">{prop.address}</p>
-                            <p className="mt-0.5 text-sm font-black text-blue-600">{priceText}</p>
-                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-                              {prop.size_pyeong && <span>{prop.size_pyeong}평</span>}
-                              {prop.floor && <span>{prop.floor}층</span>}
-                              {(prop.options ?? []).slice(0, 2).map(o => (
-                                <span key={o} className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{o}</span>
-                              ))}
-                            </div>
-                            {prop.description && (
-                              <p className="mt-1.5 text-xs text-gray-400 line-clamp-1">{prop.description}</p>
-                            )}
+              ) : (() => {
+                const dealColors: Record<string, string> = {
+                  '매매': 'bg-blue-100 text-blue-700',
+                  '전세': 'bg-green-100 text-green-700',
+                  '월세': 'bg-orange-100 text-orange-700',
+                  '단기': 'bg-purple-100 text-purple-700',
+                }
+                const filtered = brokerProperties.filter(p => {
+                  if (!pickerSearch) return true
+                  const q = pickerSearch.toLowerCase()
+                  return (
+                    maskAddress(p.address).toLowerCase().includes(q) ||
+                    p.deal_type.includes(q) ||
+                    p.room_type.includes(q) ||
+                    (p.description ?? '').toLowerCase().includes(q)
+                  )
+                })
+                if (filtered.length === 0) return (
+                  <div className="py-12 text-center text-sm text-gray-400">
+                    검색 결과가 없습니다
+                  </div>
+                )
+                return (
+                  <div className="divide-y divide-gray-50">
+                    {filtered.map(prop => {
+                      const priceText = prop.deal_type === '월세'
+                        ? `${formatPrice(prop.price)}/${formatPrice(prop.monthly_rent ?? 0)}`
+                        : formatPrice(prop.price)
+                      return (
+                        <button
+                          key={prop.id}
+                          onClick={() => { sendProperty(prop); setPickerSearch('') }}
+                          className="group grid grid-cols-[3rem_1fr_auto_auto] w-full gap-x-3 items-center px-4 py-3 text-left hover:bg-blue-50 transition-colors"
+                        >
+                          <span className={`inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold ${dealColors[prop.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {prop.deal_type}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{maskAddress(prop.address)}</p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {prop.room_type}{prop.size_pyeong ? ` · ${prop.size_pyeong}평` : ''}{prop.floor ? ` · ${prop.floor}층` : ''}
+                            </p>
                           </div>
-                          <span className="flex-shrink-0 text-sm font-semibold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                          <div className="text-right">
+                            <p className="text-sm font-black text-blue-600 whitespace-nowrap">{priceText}</p>
+                            {prop.description && <p className="text-xs text-gray-400 truncate max-w-[100px]">{prop.description}</p>}
+                          </div>
+                          <span className="w-14 text-right text-xs font-semibold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
                             보내기 →
                           </span>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>
