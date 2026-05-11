@@ -300,8 +300,8 @@ function ImageCell({ images, onSave, onView }: {
   )
 }
 
-// ── 중개사메모 툴팁 아이콘 ──────────────────────────────────────────
-function MemoTooltipIcon() {
+// ── 컬럼 헤더 툴팁 아이콘 ──────────────────────────────────────────
+function TooltipIcon({ text }: { text: string }) {
   const [show, setShow] = useState(false)
   return (
     <span
@@ -312,7 +312,7 @@ function MemoTooltipIcon() {
       <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
       {show && (
         <span className="pointer-events-none absolute top-full right-0 mt-1.5 whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-xl z-[500]">
-          매물제안시 나에게만 보이는 메모입니다
+          {text}
         </span>
       )}
     </span>
@@ -686,10 +686,14 @@ export default function BrokerPropertiesPage() {
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
                         onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
                       >
-                        {key === 'memo' ? (
+                        {(key === 'memo' || key === 'address') ? (
                           <span className="flex items-center gap-1 pr-2">
                             <span className="truncate">{fixedCol.label}</span>
-                            <MemoTooltipIcon />
+                            <TooltipIcon text={
+                              key === 'memo'
+                                ? '매물제안시 나에게만 보이는 메모입니다'
+                                : '고객제안시 읍면동리까지만 표현됩니다'
+                            } />
                           </span>
                         ) : (
                           <span className="truncate block pr-2">{fixedCol.label}</span>

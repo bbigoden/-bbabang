@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddress } from '@/lib/utils'
 import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, Star, ImagePlus } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -461,7 +461,7 @@ export default function ChatPage() {
               {proposal.property_address && (
                 <span className="flex items-center gap-1 text-sm text-blue-700">
                   <MapPin className="h-3.5 w-3.5" />
-                  {proposal.property_address}
+                  {maskAddress(proposal.property_address)}
                 </span>
               )}
               <span className="ml-auto font-bold text-blue-700">{formatPrice(proposal.price)}</span>
