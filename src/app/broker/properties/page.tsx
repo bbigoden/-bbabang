@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy, SlidersHorizontal,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -55,8 +55,6 @@ const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피
 const OPTIONS_LIST = ['풀옵션', '에어컨', '세탁기', '냉장고', '전자레인지', '인터넷', '주차 가능', '엘리베이터', '반려동물 허용', 'CCTV', '도시가스', '관리비 포함']
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const PARKING_OPTS = ['주차가능', '주차불가', '협의']
-const DEAL_FILTERS = ['전체', '매매', '전세', '월세'] as const
-type DealFilter = typeof DEAL_FILTERS[number]
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
@@ -355,7 +353,9 @@ export default function BrokerPropertiesPage() {
   const [broker, setBroker] = useState<any>(null)
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
-  const [dealFilter, setDealFilter] = useState<DealFilter>('전체')
+  const [filterDealType, setFilterDealType] = useState('')
+  const [filterRoomType, setFilterRoomType] = useState('')
+  const [showFilter, setShowFilter] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
@@ -453,7 +453,7 @@ export default function BrokerPropertiesPage() {
   }
 
   useEffect(() => { init() }, [])
-  useEffect(() => { setPage(1) }, [dealFilter, searchQuery, pageSize])
+  useEffect(() => { setPage(1) }, [filterDealType, filterRoomType, searchQuery, pageSize])
 
   const init = async () => {
     let u: any = null
@@ -555,29 +555,30 @@ export default function BrokerPropertiesPage() {
 
   const filtered = useMemo(() => {
     let list = properties
-    if (dealFilter !== '전체') list = list.filter(p => p.deal_type === dealFilter)
+    if (filterDealType) list = list.filter(p => p.deal_type === filterDealType)
+    if (filterRoomType) list = list.filter(p => p.room_type === filterRoomType)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       list = list.filter(p => {
-        // 고정 필드 전체 검색
+        // 현재 표시 중인 필드만 검색 (숨겨진 DB 컬럼 제외)
         const fields = [
           p.address, p.deal_type, p.room_type, p.size_pyeong,
-          p.price != null ? String(p.price) : '',
+          p.price != null ? String(p.price) : null,
           p.total_floors, p.move_in_date, p.rooms_bathrooms,
           p.approval_date, p.parking,
-          p.management_fee != null ? String(p.management_fee) : '',
-          p.direction, p.brief_memo, p.memo, p.assignee,
+          p.management_fee != null ? String(p.management_fee) : null,
+          p.direction, p.brief_memo, p.memo,
         ]
         if (fields.some(f => f?.toLowerCase().includes(q))) return true
-        // 커스텀 필드 검색
+        // 커스텀 필드 값 검색
         if (p.custom_fields) {
-          return Object.values(p.custom_fields).some(v => v?.toLowerCase().includes(q))
+          return Object.values(p.custom_fields).some((v: any) => v?.toLowerCase?.().includes(q))
         }
         return false
       })
     }
     return list
-  }, [properties, dealFilter, searchQuery])
+  }, [properties, filterDealType, filterRoomType, searchQuery])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -687,23 +688,60 @@ export default function BrokerPropertiesPage() {
           </div>
         </div>
 
-        {/* 검색 + 거래유형 */}
-        <div className="mb-3 flex gap-2">
-          <div className="relative flex-1 max-w-xs">
+        {/* 검색 + 필터 */}
+        <div className="mb-2 flex gap-2">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="주소, 유형, 가격, 메모 등 전체 검색..." value={searchQuery}
+            <input type="text" placeholder="전체 검색..." value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          <div className="flex gap-1 rounded-xl border border-gray-200 bg-white p-1">
-            {DEAL_FILTERS.map(f => (
-              <button key={f} onClick={() => setDealFilter(f)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${dealFilter === f ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}
-              >{f}</button>
-            ))}
-          </div>
+          <button
+            onClick={() => setShowFilter(v => !v)}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomType) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            필터{(filterDealType || filterRoomType) ? ' · ON' : ''}
+          </button>
         </div>
+
+        {/* 필터 패널 */}
+        {showFilter && (
+          <div className="mb-3 rounded-xl border border-gray-200 bg-white p-4 space-y-3 shadow-sm">
+            <div>
+              <p className="mb-2 text-xs font-semibold text-gray-500">거래형태</p>
+              <div className="flex flex-wrap gap-1.5">
+                {DEAL_TYPES.map(t => (
+                  <button key={t} onClick={() => setFilterDealType(filterDealType === t ? '' : t)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterDealType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                  >{t}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold text-gray-500">중개대상물종류</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ROOM_TYPES.map(t => (
+                  <button key={t} onClick={() => setFilterRoomType(filterRoomType === t ? '' : t)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                  >{t}</button>
+                ))}
+              </div>
+            </div>
+            {(filterDealType || filterRoomType) && (
+              <button onClick={() => { setFilterDealType(''); setFilterRoomType('') }}
+                className="text-xs text-red-500 hover:text-red-600 font-medium">
+                필터 초기화
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 테이블 */}
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -763,7 +801,7 @@ export default function BrokerPropertiesPage() {
               {paginated.length === 0 ? (
                 <tr>
                   <td colSpan={colOrder.length + 2} className="py-20 text-center text-sm text-gray-400">
-                    {searchQuery || dealFilter !== '전체' ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
+                    {searchQuery || filterDealType || filterRoomType ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
               ) : paginated.map((p, idx) => (
