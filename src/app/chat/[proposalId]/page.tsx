@@ -810,7 +810,7 @@ export default function ChatPage() {
                   if (!pickerSearch) return true
                   const q = pickerSearch.toLowerCase()
                   return (
-                    maskAddress(p.address).toLowerCase().includes(q) ||
+                    p.address.toLowerCase().includes(q) ||
                     p.deal_type.includes(q) ||
                     p.room_type.includes(q) ||
                     (p.description ?? '').toLowerCase().includes(q)
@@ -848,7 +848,7 @@ export default function ChatPage() {
                             {prop.deal_type}
                           </span>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{maskAddress(prop.address)}</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate">{prop.address}</p>
                             <p className="text-xs text-gray-400 truncate">
                               {prop.room_type}{prop.size_pyeong ? ` · ${prop.size_pyeong}평` : ''}{prop.floor ? ` · ${prop.floor}층` : ''}
                             </p>

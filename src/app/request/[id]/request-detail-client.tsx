@@ -468,7 +468,7 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                 const filtered = brokerProperties.filter(p => {
                   if (!pickerSearch) return true
                   const q = pickerSearch.toLowerCase()
-                  return maskAddress(p.address).toLowerCase().includes(q) || p.deal_type.includes(q) || p.room_type.includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q)
+                  return p.address.toLowerCase().includes(q) || p.deal_type.includes(q) || p.room_type.includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q)
                 })
                 if (filtered.length === 0) return <div className="py-12 text-center text-sm text-gray-400">검색 결과가 없습니다</div>
                 return (
@@ -484,7 +484,7 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                           </span>
                           <span className={cn('inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold', dealColors[p.deal_type] ?? 'bg-gray-100 text-gray-600')}>{p.deal_type}</span>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{maskAddress(p.address)}</p>
+                            <p className="text-sm font-semibold text-gray-900 truncate">{p.address}</p>
                             <p className="text-xs text-gray-400 truncate">{p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}</p>
                           </div>
                           <div className="text-right">
