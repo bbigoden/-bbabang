@@ -303,15 +303,42 @@ function ImageCell({ images, onSave, onView }: {
 // ── 컬럼 헤더 툴팁 아이콘 ──────────────────────────────────────────
 function TooltipIcon({ text }: { text: string }) {
   const [show, setShow] = useState(false)
+  const [tipStyle, setTipStyle] = useState<React.CSSProperties>({})
+  const iconRef = useRef<HTMLSpanElement>(null)
+
+  const handleMouseEnter = () => {
+    if (iconRef.current) {
+      const rect = iconRef.current.getBoundingClientRect()
+      const style: React.CSSProperties = {
+        position: 'fixed',
+        top: rect.bottom + 6,
+        zIndex: 9999,
+        whiteSpace: 'nowrap',
+      }
+      // 화면 왼쪽 절반 → 오른쪽으로, 오른쪽 절반 → 왼쪽으로 정렬
+      if (rect.left < window.innerWidth / 2) {
+        style.left = rect.left
+      } else {
+        style.right = window.innerWidth - rect.right
+      }
+      setTipStyle(style)
+    }
+    setShow(true)
+  }
+
   return (
     <span
-      className="relative inline-flex flex-shrink-0"
-      onMouseEnter={() => setShow(true)}
+      ref={iconRef}
+      className="inline-flex flex-shrink-0"
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShow(false)}
     >
       <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
       {show && (
-        <span className="pointer-events-none absolute top-full right-0 mt-1.5 whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-xl z-[500]">
+        <span
+          className="pointer-events-none rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-xl"
+          style={tipStyle}
+        >
           {text}
         </span>
       )}
