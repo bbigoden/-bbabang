@@ -170,21 +170,23 @@ export default async function BrokerDashboardPage() {
         {/* 요약 통계 */}
         <div className="mb-8 grid grid-cols-3 gap-4">
           {[
-            { label: '내 제안', value: totalProposals, icon: MessageCircle, color: 'text-blue-600 bg-blue-50' },
-            { label: '수락된 제안', value: acceptedProposals, icon: CheckCircle, color: 'text-green-600 bg-green-50' },
-            { label: '주변 요청', value: activeRequests?.length ?? 0, icon: TrendingUp, color: 'text-purple-600 bg-purple-50' },
+            { label: '내 제안', value: totalProposals, icon: MessageCircle, color: 'text-blue-600 bg-blue-50', href: '#my-proposals' },
+            { label: '수락된 제안', value: acceptedProposals, icon: CheckCircle, color: 'text-green-600 bg-green-50', href: '#my-proposals' },
+            { label: '주변 요청', value: activeRequests?.length ?? 0, icon: TrendingUp, color: 'text-purple-600 bg-purple-50', href: '#nearby-requests' },
           ].map((stat) => (
-            <Card key={stat.label}>
-              <CardBody className="flex items-center gap-4">
-                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.color}`}>
-                  <stat.icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-2xl font-black text-gray-900">{stat.value}</div>
-                  <div className="text-xs text-gray-500">{stat.label}</div>
-                </div>
-              </CardBody>
-            </Card>
+            <Link key={stat.label} href={stat.href} scroll={true}>
+              <Card hover>
+                <CardBody className="flex items-center gap-4">
+                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.color}`}>
+                    <stat.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-black text-gray-900">{stat.value}</div>
+                    <div className="text-xs text-gray-500">{stat.label}</div>
+                  </div>
+                </CardBody>
+              </Card>
+            </Link>
           ))}
         </div>
 
@@ -335,10 +337,12 @@ export default async function BrokerDashboardPage() {
 
         <div className="grid gap-8 lg:grid-cols-2">
           {/* 주변 신규 요청 */}
-          <BrokerRequestsFilter brokerDistricts={brokerDistricts} />
+          <div id="nearby-requests">
+            <BrokerRequestsFilter brokerDistricts={brokerDistricts} />
+          </div>
 
           {/* 내 제안 현황 */}
-          <div>
+          <div id="my-proposals">
             <h2 className="mb-4 font-bold text-gray-900">내 제안 현황</h2>
             <div className="space-y-3">
               {(!proposals || proposals.length === 0) ? (
@@ -351,27 +355,29 @@ export default async function BrokerDashboardPage() {
                 proposals.slice(0, 8).map((proposal: any) => {
                   const req = proposal.request_posts
                   return (
-                    <Card key={proposal.id} hover>
-                      <CardBody className="py-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <Badge variant={statusVariant[proposal.status as keyof typeof statusVariant]}>
-                              {statusLabel[proposal.status as keyof typeof statusLabel]}
-                            </Badge>
-                            <div className="mt-1 font-bold text-gray-900">
-                              {formatPrice(proposal.price)}
-                            </div>
-                            {req && (
-                              <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
-                                <MapPin className="h-3.5 w-3.5" />
-                                {req.district} · {req.deal_type}
+                    <Link key={proposal.id} href={`/chat/${proposal.id}`}>
+                      <Card hover>
+                        <CardBody className="py-4">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <Badge variant={statusVariant[proposal.status as keyof typeof statusVariant]}>
+                                {statusLabel[proposal.status as keyof typeof statusLabel]}
+                              </Badge>
+                              <div className="mt-1 font-bold text-gray-900">
+                                {formatPrice(proposal.price)}
                               </div>
-                            )}
+                              {req && (
+                                <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  {req.district} · {req.deal_type}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400">{formatDate(proposal.created_at)}</span>
                           </div>
-                          <span className="text-xs text-gray-400">{formatDate(proposal.created_at)}</span>
-                        </div>
-                      </CardBody>
-                    </Card>
+                        </CardBody>
+                      </Card>
+                    </Link>
                   )
                 })
               )}

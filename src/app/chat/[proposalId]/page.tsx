@@ -585,66 +585,90 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* ── 매물 피커 패널 (중개사만) ── */}
+      {/* ── 매물 피커 모달 (중개사만) ── */}
       {showPicker && isBroker && (
-        <div className="border-t border-blue-100 bg-blue-50">
-          <div className="mx-auto max-w-2xl px-4 py-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
-                <Building2 className="h-4 w-4" /> 매물 선택
-              </span>
-              <button onClick={() => setShowPicker(false)} className="text-gray-400 hover:text-gray-600">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={() => setShowPicker(false)}>
+          <div
+            className="w-full max-w-lg rounded-t-2xl bg-white shadow-xl md:rounded-2xl"
+            style={{ maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-blue-600" />
+                <span className="font-bold text-gray-900">매물 선택</span>
+              </div>
+              <button onClick={() => setShowPicker(false)} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {loadingProps ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-              </div>
-            ) : brokerProperties.length === 0 ? (
-              <div className="py-3 text-center text-sm text-gray-500">
-                등록된 매물이 없습니다.{' '}
-                <Link href="/broker/properties/new" className="font-semibold text-blue-600 underline">
-                  매물 등록하기
-                </Link>
-              </div>
-            ) : (
-              <div className="flex gap-3 overflow-x-auto pb-1">
-                {brokerProperties.map(prop => (
-                  <button
-                    key={prop.id}
-                    onClick={() => sendProperty(prop)}
-                    className="flex-shrink-0 w-52 rounded-xl border border-blue-200 bg-white p-3 text-left hover:border-blue-400 hover:shadow-sm transition-all"
-                  >
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
-                        {prop.deal_type}
-                      </span>
-                      <span className="text-xs text-gray-500">{prop.room_type}</span>
-                    </div>
-                    <p className="text-xs font-semibold text-gray-800 truncate">{prop.address}</p>
-                    <p className="mt-0.5 text-sm font-black text-blue-600">
-                      {prop.deal_type === '월세'
-                        ? `${formatPrice(prop.price)} / ${formatPrice(prop.monthly_rent ?? 0)}`
-                        : formatPrice(prop.price)
-                      }
-                    </p>
-                    {prop.size_pyeong && (
-                      <p className="mt-0.5 text-xs text-gray-400">{prop.size_pyeong}평</p>
-                    )}
-                    <div className="mt-1.5 flex items-center justify-between">
-                      <div className="flex gap-1">
-                        {(prop.options ?? []).slice(0, 2).map(o => (
-                          <span key={o} className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{o}</span>
-                        ))}
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-blue-400" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* 모달 바디 */}
+            <div className="overflow-y-auto flex-1 p-4">
+              {loadingProps ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                </div>
+              ) : brokerProperties.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-200" />
+                  <p className="text-sm text-gray-500">등록된 매물이 없습니다</p>
+                  <Link href="/broker/properties/new" className="mt-3 inline-block text-sm font-semibold text-blue-600 underline">
+                    매물 등록하기
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {brokerProperties.map(prop => {
+                    const dealColors: Record<string, string> = {
+                      '매매': 'bg-blue-100 text-blue-700',
+                      '전세': 'bg-green-100 text-green-700',
+                      '월세': 'bg-orange-100 text-orange-700',
+                      '단기': 'bg-purple-100 text-purple-700',
+                    }
+                    const badgeClass = dealColors[prop.deal_type] ?? 'bg-gray-100 text-gray-600'
+                    const priceText = prop.deal_type === '월세'
+                      ? `보증금 ${formatPrice(prop.price)} / 월 ${formatPrice(prop.monthly_rent ?? 0)}`
+                      : formatPrice(prop.price)
+
+                    return (
+                      <button
+                        key={prop.id}
+                        onClick={() => sendProperty(prop)}
+                        className="group w-full rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm hover:border-blue-300 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>
+                                {prop.deal_type}
+                              </span>
+                              <span className="text-xs text-gray-400">{prop.room_type}</span>
+                            </div>
+                            <p className="font-semibold text-gray-900 truncate">{prop.address}</p>
+                            <p className="mt-0.5 text-sm font-black text-blue-600">{priceText}</p>
+                            <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                              {prop.size_pyeong && <span>{prop.size_pyeong}평</span>}
+                              {prop.floor && <span>{prop.floor}층</span>}
+                              {(prop.options ?? []).slice(0, 2).map(o => (
+                                <span key={o} className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{o}</span>
+                              ))}
+                            </div>
+                            {prop.description && (
+                              <p className="mt-1.5 text-xs text-gray-400 line-clamp-1">{prop.description}</p>
+                            )}
+                          </div>
+                          <span className="flex-shrink-0 text-sm font-semibold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            보내기 →
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
