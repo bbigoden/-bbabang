@@ -10,7 +10,7 @@ import { formatDate, formatPrice, maskAddress, cn } from '@/lib/utils'
 import {
   MapPin, Star, MessageCircle, Home, CheckCircle,
   Pencil, Archive, Send, Building2, X,
-  ImagePlus, Phone, ChevronLeft, Search
+  ImagePlus, Phone, ChevronLeft, ChevronRight, Search
 } from 'lucide-react'
 import { CloseRequestButton } from '@/components/close-request-button'
 import { ProposalActions } from '@/components/proposal-actions'
@@ -69,6 +69,13 @@ function PropertyCard({ snapshot, isMine, onClick }: { snapshot: PropertySnapsho
 
 // ── 매물 상세 모달 ──────────────────────────────────
 function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot; onClose: () => void }) {
+  const [imgIdx, setImgIdx] = useState(0)
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const images = snapshot.images ?? []
+
+  const prevImg = () => setImgIdx(i => Math.max(0, i - 1))
+  const nextImg = () => setImgIdx(i => Math.min(images.length - 1, i + 1))
+
   const priceText = snapshot.deal_type === '월세'
     ? `보증금 ${formatPrice(snapshot.price)} / 월 ${formatPrice(snapshot.monthly_rent ?? 0)}`
     : formatPrice(snapshot.price)
@@ -91,21 +98,48 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
           </button>
         </div>
         <div className="overflow-y-auto flex-1">
-          {snapshot.images && snapshot.images.length > 0 && (
-            <div className="relative h-48 w-full overflow-hidden bg-gray-100">
-              <Image src={snapshot.images[0]} alt={snapshot.address} fill className="object-cover" sizes="400px" />
-              {snapshot.images.length > 1 && (
-                <div className="absolute bottom-2 right-2 flex gap-1">
-                  {snapshot.images.slice(1, 4).map((src, i) => (
-                    <div key={i} className="relative h-10 w-10 overflow-hidden rounded-lg border-2 border-white">
-                      <Image src={src} alt="" fill className="object-cover" sizes="40px" />
-                    </div>
+          {/* 이미지 캐러셀 */}
+          {images.length > 0 ? (
+            <div className="relative h-52 w-full overflow-hidden bg-gray-100 flex-shrink-0"
+              onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
+              onTouchEnd={e => {
+                if (touchStartX === null) return
+                const diff = touchStartX - e.changedTouches[0].clientX
+                if (diff > 50) nextImg()
+                else if (diff < -50) prevImg()
+                setTouchStartX(null)
+              }}
+            >
+              <Image key={imgIdx} src={images[imgIdx]} alt={snapshot.address} fill className="object-cover" sizes="400px" />
+              {imgIdx > 0 && (
+                <button onClick={e => { e.stopPropagation(); prevImg() }}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              )}
+              {imgIdx < images.length - 1 && (
+                <button onClick={e => { e.stopPropagation(); nextImg() }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+              {images.length > 1 && (
+                <span className="absolute top-2 right-2 rounded-full bg-black/50 px-2.5 py-1 text-xs text-white font-medium">
+                  {imgIdx + 1} / {images.length}
+                </span>
+              )}
+              {images.length > 1 && (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {images.map((_, i) => (
+                    <button key={i} onClick={e => { e.stopPropagation(); setImgIdx(i) }}
+                      className={cn('rounded-full transition-all', i === imgIdx ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50')} />
                   ))}
-                  {snapshot.images.length > 4 && (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/50 text-xs text-white font-bold">+{snapshot.images.length - 4}</div>
-                  )}
                 </div>
               )}
+            </div>
+          ) : (
+            <div className="h-20 flex items-center justify-center bg-gray-50 flex-shrink-0">
+              <Building2 className="h-8 w-8 text-gray-200" />
             </div>
           )}
           <div className="p-5 space-y-4">
