@@ -52,10 +52,24 @@ const STATUS_COLOR: Record<string, string> = {
 }
 const DEAL_TYPES = ['매매', '전세', '월세']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '기타']
-const OPTIONS_LIST = ['풀옵션', '에어컨', '세탁기', '냉장고', '전자레인지', '인터넷', '주차 가능', '엘리베이터', '반려동물 허용', 'CCTV', '도시가스', '관리비 포함']
+const OPTIONS_LIST = [
+  // 가전
+  '풀옵션', '에어컨', '냉장고', '세탁기', '건조기', '전자레인지', '인덕션', '가스레인지', '식기세척기', 'TV',
+  // 가구
+  '침대', '소파', '책상', '옷장', '붙박이장', '신발장',
+  // 시설
+  '주차 가능', '엘리베이터', '도시가스', '인터넷', '반려동물 허용', 'CCTV',
+]
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+
+// 옵션 그룹 (가전/가구/시설)
+const OPTIONS_GROUPS = [
+  { label: '가전', items: ['풀옵션', '에어컨', '냉장고', '세탁기', '건조기', '전자레인지', '인덕션', '가스레인지', '식기세척기', 'TV'] },
+  { label: '가구', items: ['침대', '소파', '책상', '옷장', '붙박이장', '신발장'] },
+  { label: '시설', items: ['주차 가능', '엘리베이터', '도시가스', '인터넷', '반려동물 허용', 'CCTV'] },
+]
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
@@ -64,6 +78,7 @@ const ALL_COLUMNS = [
   { key: 'price',           label: '가격' },
   { key: 'room_type',       label: '중개대상물종류' },
   { key: 'deal_type',       label: '거래형태' },
+  { key: 'options',         label: '옵션' },
   { key: 'total_floors',    label: '총 층수' },
   { key: 'move_in_date',    label: '입주가능일' },
   { key: 'rooms_bathrooms', label: '방수/욕실수' },
@@ -298,6 +313,73 @@ function ImageCell({ images, onSave, onView }: {
   )
 }
 
+// ── 옵션 셀 ──────────────────────────────────────────
+function OptionsCell({ value, onSave }: { value: string[]; onSave: (v: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
+  const [draft, setDraft] = useState<string[]>(value)
+  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
+  useClickOutside(ref, () => { if (open) { onSave(draft); setOpen(false) } })
+
+  const toggle = (opt: string) => {
+    setDraft(prev => prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt])
+  }
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setOpenUp(window.innerHeight - rect.bottom < 280)
+    }
+    setDraft(value)
+    setOpen(v => !v)
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <div ref={btnRef} onClick={handleOpen}
+        className="cursor-pointer rounded px-1 py-0.5 min-h-[22px] flex flex-wrap gap-0.5 hover:bg-blue-50"
+      >
+        {value.length === 0
+          ? <span className="text-xs text-gray-300">—</span>
+          : value.slice(0, 3).map(o => (
+              <span key={o} className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700 font-medium">{o}</span>
+            ))
+        }
+        {value.length > 3 && <span className="text-[10px] text-gray-400">+{value.length - 3}</span>}
+      </div>
+      {open && (
+        <div className={`absolute left-0 z-50 w-64 rounded-xl border border-gray-200 bg-white shadow-xl p-3 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+          <div className="space-y-2.5">
+            {OPTIONS_GROUPS.map(group => (
+              <div key={group.label}>
+                <p className="mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">{group.label}</p>
+                <div className="flex flex-wrap gap-1">
+                  {group.items.map(opt => (
+                    <button key={opt} type="button" onClick={() => toggle(opt)}
+                      className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-all ${
+                        draft.includes(opt)
+                          ? 'border-blue-500 bg-blue-500 text-white'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => { onSave(draft); setOpen(false) }}
+            className="mt-3 w-full rounded-lg bg-blue-600 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors">
+            저장
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── 컬럼 헤더 툴팁 아이콘 ──────────────────────────────────────────
 function TooltipIcon({ text }: { text: string }) {
   const [show, setShow] = useState(false)
@@ -481,13 +563,25 @@ function BrokerPropertiesContent() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const w = window as any
+    // 이미 로드된 경우
     if (w.kakao?.maps?.services) { setMapReady(true); return }
-    if (document.querySelector('script[data-kakao-map]')) return
+    // 이미 스크립트 태그가 있는 경우 (로드 완료 대기)
+    if (document.querySelector('script[data-kakao-map]')) {
+      const poll = setInterval(() => {
+        if ((window as any).kakao?.maps?.services) {
+          clearInterval(poll)
+          setMapReady(true)
+        }
+      }, 200)
+      return () => clearInterval(poll)
+    }
     const script = document.createElement('script')
     script.setAttribute('data-kakao-map', 'true')
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=017c7c57dbe2ea685af175b10a5b6fdd&libraries=services&autoload=false`
+    // autoload=false 제거 → onload 시점에 kakao.maps 즉시 사용 가능
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=700a493a80faeb786caaa05bea56e4ad&libraries=services`
     script.async = true
-    script.onload = () => { w.kakao.maps.load(() => setMapReady(true)) }
+    script.onload = () => setMapReady(true)
+    script.onerror = () => console.error('[KakaoMap] SDK 로드 실패')
     document.head.appendChild(script)
   }, [])
 
@@ -1048,6 +1142,7 @@ function BrokerPropertiesContent() {
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
+                          {key === 'options'         && <OptionsCell value={p.options ?? []} onSave={v => saveField(p.id, 'options', v)} />}
                           {key === 'total_floors'    && <TextCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v || null)} placeholder="예: 3/15" />}
                           {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="예: 26/05/03" />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
