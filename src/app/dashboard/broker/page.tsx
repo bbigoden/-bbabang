@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, TrendingUp, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -167,28 +167,6 @@ export default async function BrokerDashboardPage() {
           </div>
         </Link>
 
-        {/* 요약 통계 */}
-        <div className="mb-8 grid grid-cols-3 gap-4">
-          {[
-            { label: '내 제안', value: totalProposals, icon: MessageCircle, color: 'text-blue-600 bg-blue-50', href: '#my-proposals' },
-            { label: '수락된 제안', value: acceptedProposals, icon: CheckCircle, color: 'text-green-600 bg-green-50', href: '#my-proposals' },
-            { label: '주변 요청', value: activeRequests?.length ?? 0, icon: TrendingUp, color: 'text-purple-600 bg-purple-50', href: '#nearby-requests' },
-          ].map((stat) => (
-            <Link key={stat.label} href={stat.href} scroll={true}>
-              <Card hover>
-                <CardBody className="flex items-center gap-4">
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.color}`}>
-                    <stat.icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-black text-gray-900">{stat.value}</div>
-                    <div className="text-xs text-gray-500">{stat.label}</div>
-                  </div>
-                </CardBody>
-              </Card>
-            </Link>
-          ))}
-        </div>
 
         {/* ── 성과 분석 ─────────────────────────────────── */}
         <div className="mb-8">
