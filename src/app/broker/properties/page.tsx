@@ -813,7 +813,7 @@ function BrokerPropertiesContent() {
                     if (!visibleCols.includes(key as ColKey)) return null
                     return (
                       <th key={key}
-                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors hover:bg-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
                         style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}
                         draggable onDragStart={e => onColDragStart(key, e)}
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
@@ -831,7 +831,7 @@ function BrokerPropertiesContent() {
                         ) : (
                           <span className="truncate block pr-2">{fixedCol.label}</span>
                         )}
-                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
+                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize bg-gray-200 opacity-40 hover:bg-blue-400 hover:opacity-100 transition-all" />
                       </th>
                     )
                   }
