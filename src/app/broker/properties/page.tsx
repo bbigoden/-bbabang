@@ -311,7 +311,7 @@ function MemoTooltipIcon() {
     >
       <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
       {show && (
-        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-xl z-[500]">
+        <span className="pointer-events-none absolute top-full right-0 mt-1.5 whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-xl z-[500]">
           매물제안시 나에게만 보이는 메모입니다
         </span>
       )}
