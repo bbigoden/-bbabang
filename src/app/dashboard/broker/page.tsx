@@ -223,13 +223,13 @@ export default async function BrokerDashboardPage() {
               <CardBody>
                 <div className="flex items-center gap-2 mb-2">
                   <ThumbsUp className="h-4 w-4 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-500">평균 성사 금액</span>
+                  <span className="text-xs font-medium text-gray-500">수락된 제안 평균가</span>
                 </div>
                 <div className="text-3xl font-black text-gray-900">
                   {avgPrice > 0 ? formatPrice(avgPrice) : '-'}
                 </div>
                 <div className="mt-2 text-xs text-gray-400">
-                  수락된 제안 기준
+                  수락된 {acceptedProposals}건 기준
                 </div>
               </CardBody>
             </Card>
