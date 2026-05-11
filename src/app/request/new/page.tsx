@@ -220,8 +220,9 @@ function RequestNewPageInner() {
       <div className="mx-auto max-w-xl px-4 py-10">
         {/* 공동중개 배너 */}
         {isCoBroker && (
-          <div className="mb-6 flex items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
             <span className="whitespace-nowrap rounded-full bg-purple-600 px-2.5 py-0.5 text-xs font-bold text-white">공동중개 요청</span>
+            <p className="text-sm text-purple-800">다른 중개사에게 발송되는 공동중개 요청입니다.</p>
           </div>
         )}
 
