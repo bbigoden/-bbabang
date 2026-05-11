@@ -747,10 +747,10 @@ export default function BrokerPropertiesPage() {
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
                           {key === 'total_floors'    && <TextCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v || null)} placeholder="예: 3/15" />}
-                          {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="입주가능일" />}
+                          {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="예: 26/05/03" />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
-                          {key === 'approval_date'   && <TextCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} placeholder="사용승인일" />}
-                          {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 주차가능" />}
+                          {key === 'approval_date'   && <TextCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} placeholder="예: 26/05/03" />}
+                          {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 1대" />}
                           {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
                           {key === 'direction'       && <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
