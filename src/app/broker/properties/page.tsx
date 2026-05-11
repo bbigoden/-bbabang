@@ -528,7 +528,7 @@ export default function BrokerPropertiesPage() {
       )
     }
     return list
-  }, [properties, statusFilter, dealFilter, searchQuery])
+  }, [properties, dealFilter, searchQuery])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
