@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -19,7 +19,7 @@ interface Property {
   monthly_rent: number | null
   management_fee: number | null
   premium: number | null
-  size_pyeong: number | null
+  size_pyeong: string | null
   floor: number | null
   total_floors: string | null
   options: string[]
@@ -515,6 +515,17 @@ export default function BrokerPropertiesPage() {
     setProperties(prev => prev.filter(p => p.id !== id))
   }
 
+  const duplicateProperty = async (prop: Property) => {
+    if (!broker) return
+    const { id, created_at, ...rest } = prop
+    const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
+    if (error || !data) return
+    setProperties(prev => [data, ...prev])
+    setAddingId(data.id)
+    setPage(1)
+    setTimeout(() => setAddingId(null), 2000)
+  }
+
   const filtered = useMemo(() => {
     let list = properties
     if (dealFilter !== '전체') list = list.filter(p => p.deal_type === dealFilter)
@@ -703,7 +714,7 @@ export default function BrokerPropertiesPage() {
                   )
                   return null
                 })}
-                <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 36 }}>삭제</th>
+                <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 56 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -727,7 +738,7 @@ export default function BrokerPropertiesPage() {
                       return (
                         <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
-                          {key === 'size_pyeong'     && <NumberCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v)} suffix="평" />}
+                          {key === 'size_pyeong'     && <TextCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v || null)} placeholder="전용/공급" />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
@@ -735,9 +746,9 @@ export default function BrokerPropertiesPage() {
                           {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="입주가능일" />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
                           {key === 'approval_date'   && <TextCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} placeholder="사용승인일" />}
-                          {key === 'parking'         && <SelectCell value={p.parking ?? ''} options={PARKING_OPTS} onSave={v => saveField(p.id, 'parking', v)} />}
+                          {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 주차가능" />}
                           {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
-                          {key === 'direction'       && <SelectCell value={p.direction ?? ''} options={DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} />}
+                          {key === 'direction'       && <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
                           {key === 'brief_memo'      && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
                           {key === 'memo'            && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
@@ -752,10 +763,15 @@ export default function BrokerPropertiesPage() {
                     )
                     return null
                   })}
-                  <td className="px-2 py-1.5 text-center bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
-                    <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
-                      <X className="h-4 w-4" />
-                    </button>
+                  <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button onClick={() => duplicateProperty(p)} className="text-gray-300 hover:text-blue-400 transition-colors" title="복사">
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
