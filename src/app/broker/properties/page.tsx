@@ -21,7 +21,7 @@ interface Property {
   premium: number | null
   size_pyeong: number | null
   floor: number | null
-  total_floors: number | null
+  total_floors: string | null
   options: string[]
   images: string[]
   brief_memo: string | null
@@ -731,7 +731,7 @@ export default function BrokerPropertiesPage() {
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
-                          {key === 'total_floors'    && <NumberCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v)} suffix="층" />}
+                          {key === 'total_floors'    && <TextCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v || null)} placeholder="예: 3/15" />}
                           {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="입주가능일" />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
                           {key === 'approval_date'   && <TextCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} placeholder="사용승인일" />}
