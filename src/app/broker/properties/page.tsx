@@ -558,12 +558,23 @@ export default function BrokerPropertiesPage() {
     if (dealFilter !== '전체') list = list.filter(p => p.deal_type === dealFilter)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
-      list = list.filter(p =>
-        p.address.toLowerCase().includes(q) ||
-        (p.assignee ?? '').toLowerCase().includes(q) ||
-        p.room_type.toLowerCase().includes(q) ||
-        (p.brief_memo ?? '').toLowerCase().includes(q)
-      )
+      list = list.filter(p => {
+        // 고정 필드 전체 검색
+        const fields = [
+          p.address, p.deal_type, p.room_type, p.size_pyeong,
+          p.price != null ? String(p.price) : '',
+          p.total_floors, p.move_in_date, p.rooms_bathrooms,
+          p.approval_date, p.parking,
+          p.management_fee != null ? String(p.management_fee) : '',
+          p.direction, p.brief_memo, p.memo, p.assignee,
+        ]
+        if (fields.some(f => f?.toLowerCase().includes(q))) return true
+        // 커스텀 필드 검색
+        if (p.custom_fields) {
+          return Object.values(p.custom_fields).some(v => v?.toLowerCase().includes(q))
+        }
+        return false
+      })
     }
     return list
   }, [properties, dealFilter, searchQuery])
@@ -680,7 +691,7 @@ export default function BrokerPropertiesPage() {
         <div className="mb-3 flex gap-2">
           <div className="relative flex-1 max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="주소, 담당자, 메모 검색..." value={searchQuery}
+            <input type="text" placeholder="주소, 유형, 가격, 메모 등 전체 검색..." value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
