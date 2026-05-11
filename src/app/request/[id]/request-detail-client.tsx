@@ -38,12 +38,12 @@ interface PropertySnapshot {
 }
 
 // ── 매물 카드 ──────────────────────────────────────
-function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine: boolean }) {
+function PropertyCard({ snapshot, isMine, onClick }: { snapshot: PropertySnapshot; isMine: boolean; onClick?: () => void }) {
   const priceText = snapshot.deal_type === '월세'
     ? `보증금 ${formatPrice(snapshot.price)} / 월 ${formatPrice(snapshot.monthly_rent ?? 0)}`
     : formatPrice(snapshot.price)
   return (
-    <div className={cn('w-52 rounded-2xl border overflow-hidden shadow-sm', isMine ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-white')}>
+    <div onClick={onClick} className={cn('w-52 rounded-2xl border overflow-hidden shadow-sm transition-shadow', isMine ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-white', onClick && 'cursor-pointer hover:shadow-md')}>
       <div className={cn('flex items-center gap-2 px-3 py-2 border-b text-xs font-semibold', isMine ? 'bg-blue-500 border-blue-400 text-white' : 'bg-gray-50 border-gray-100 text-gray-700')}>
         <Building2 className="h-3.5 w-3.5" />매물 공유
         <span className={cn('ml-auto px-2 py-0.5 rounded-full text-xs font-medium', isMine ? 'bg-blue-400 text-white' : 'bg-blue-100 text-blue-700')}>{snapshot.deal_type}</span>
@@ -57,6 +57,100 @@ function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine
         <p className={cn('text-xs font-semibold leading-snug', isMine ? 'text-blue-900' : 'text-gray-900')}>{maskAddress(snapshot.address)}</p>
         <p className={cn('text-xs', isMine ? 'text-blue-700' : 'text-gray-500')}>{snapshot.room_type}{snapshot.size_pyeong && ` · ${snapshot.size_pyeong}평`}</p>
         <p className={cn('text-sm font-black', isMine ? 'text-blue-800' : 'text-blue-600')}>{priceText}</p>
+      </div>
+      {onClick && (
+        <div className={cn('px-3 py-1.5 text-center text-xs border-t', isMine ? 'border-blue-200 text-blue-500' : 'border-gray-100 text-gray-400')}>
+          탭하면 상세 정보 보기
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 매물 상세 모달 ──────────────────────────────────
+function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot; onClose: () => void }) {
+  const priceText = snapshot.deal_type === '월세'
+    ? `보증금 ${formatPrice(snapshot.price)} / 월 ${formatPrice(snapshot.monthly_rent ?? 0)}`
+    : formatPrice(snapshot.price)
+  const dealColors: Record<string, string> = {
+    '매매': 'bg-blue-100 text-blue-700',
+    '전세': 'bg-green-100 text-green-700',
+    '월세': 'bg-orange-100 text-orange-700',
+    '단기': 'bg-purple-100 text-purple-700',
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-t-2xl bg-white shadow-xl md:rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-blue-600" />
+            <span className="font-bold text-gray-900">매물 상세</span>
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1">
+          {snapshot.images && snapshot.images.length > 0 && (
+            <div className="relative h-48 w-full overflow-hidden bg-gray-100">
+              <Image src={snapshot.images[0]} alt={snapshot.address} fill className="object-cover" sizes="400px" />
+              {snapshot.images.length > 1 && (
+                <div className="absolute bottom-2 right-2 flex gap-1">
+                  {snapshot.images.slice(1, 4).map((src, i) => (
+                    <div key={i} className="relative h-10 w-10 overflow-hidden rounded-lg border-2 border-white">
+                      <Image src={src} alt="" fill className="object-cover" sizes="40px" />
+                    </div>
+                  ))}
+                  {snapshot.images.length > 4 && (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/50 text-xs text-white font-bold">+{snapshot.images.length - 4}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="p-5 space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{snapshot.deal_type}</span>
+                <span className="text-xs text-gray-500">{snapshot.room_type}</span>
+              </div>
+              <p className="text-lg font-bold text-gray-900">{maskAddress(snapshot.address)}</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-4">
+              <p className="text-2xl font-black text-blue-600">{priceText}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {snapshot.size_pyeong && (
+                <div className="rounded-xl border border-gray-100 p-3">
+                  <p className="text-xs text-gray-400 mb-1">면적</p>
+                  <p className="text-sm font-semibold text-gray-900">{snapshot.size_pyeong}평</p>
+                </div>
+              )}
+              {snapshot.floor && (
+                <div className="rounded-xl border border-gray-100 p-3">
+                  <p className="text-xs text-gray-400 mb-1">층수</p>
+                  <p className="text-sm font-semibold text-gray-900">{snapshot.floor}층{snapshot.total_floors ? ` / ${snapshot.total_floors}층` : ''}</p>
+                </div>
+              )}
+            </div>
+            {(snapshot.options ?? []).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">옵션</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(snapshot.options ?? []).map(opt => (
+                    <span key={opt} className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">{opt}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {snapshot.description && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">메모</p>
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{snapshot.description}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -76,6 +170,9 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const [brokerProperties, setBrokerProperties] = useState<any[]>([])
   const [loadingProps, setLoadingProps] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
+  const [selectedPropIds, setSelectedPropIds] = useState<Set<string>>(new Set())
+  const [sendingProps, setSendingProps] = useState(false)
+  const [viewingSnapshot, setViewingSnapshot] = useState<PropertySnapshot | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -160,10 +257,25 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     setLoadingProps(false)
   }
 
-  const sendProperty = async (prop: any) => {
-    if (!room) return; setShowPicker(false)
-    const snapshot: PropertySnapshot = { deal_type: prop.deal_type, room_type: prop.room_type, address: prop.address, price: prop.price, monthly_rent: prop.monthly_rent, size_pyeong: prop.size_pyeong, floor: prop.floor, total_floors: prop.total_floors, options: prop.options, description: prop.description, images: prop.images ?? [], property_id: prop.id }
-    await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content: JSON.stringify(snapshot), message_type: 'property', property_id: prop.id })
+  const buildSnapshot = (prop: any): PropertySnapshot => ({
+    deal_type: prop.deal_type, room_type: prop.room_type, address: prop.address,
+    price: prop.price, monthly_rent: prop.monthly_rent, size_pyeong: prop.size_pyeong,
+    floor: prop.floor, total_floors: prop.total_floors, options: prop.options,
+    description: prop.description, images: prop.images ?? [], property_id: prop.id,
+  })
+
+  const sendSelectedProperties = async () => {
+    if (!room || selectedPropIds.size === 0 || sendingProps) return
+    setSendingProps(true)
+    const toSend = brokerProperties.filter(p => selectedPropIds.has(p.id))
+    for (const prop of toSend) {
+      await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content: JSON.stringify(buildSnapshot(prop)), message_type: 'property', property_id: prop.id })
+    }
+    setSendingProps(false); setShowPicker(false); setSelectedPropIds(new Set()); setPickerSearch('')
+  }
+
+  const togglePropSelection = (id: string) => {
+    setSelectedPropIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
   const proposal = room?.proposal
@@ -268,7 +380,7 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                       )}
                       <div className={cn('flex flex-col', isMine ? 'items-end' : 'items-start')}>
                         {msg.message_type === 'property' && snap ? (
-                          <PropertyCard snapshot={snap} isMine={isMine} />
+                          <PropertyCard snapshot={snap} isMine={isMine} onClick={() => setViewingSnapshot(snap)} />
                         ) : msg.message_type === 'image' ? (
                           <a href={msg.content} target="_blank" rel="noopener noreferrer">
                             <div className="relative overflow-hidden rounded-2xl border border-gray-100" style={{ width: '200px', height: '160px' }}>
@@ -300,9 +412,12 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
         <div ref={bottomRef} />
       </div>
 
+      {/* 매물 상세 모달 */}
+      {viewingSnapshot && <PropertyDetailModal snapshot={viewingSnapshot} onClose={() => setViewingSnapshot(null)} />}
+
       {/* 매물 피커 모달 */}
       {showPicker && isBroker && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowPicker(false); setPickerSearch('') }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }}>
           <div className="w-full max-w-xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
             {/* 모달 헤더 */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
@@ -311,7 +426,7 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                 <h3 className="font-bold text-gray-900">내 매물장</h3>
                 {!loadingProps && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{brokerProperties.length}</span>}
               </div>
-              <button onClick={() => { setShowPicker(false); setPickerSearch('') }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+              <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
                 <X className="h-4 w-4 text-gray-500" />
               </button>
             </div>
@@ -321,30 +436,17 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
               <div className="border-b border-gray-100 px-4 py-3 flex-shrink-0">
                 <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white transition-colors">
                   <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={pickerSearch}
-                    onChange={e => setPickerSearch(e.target.value)}
-                    placeholder="주소, 거래유형, 방종류 검색..."
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
-                    autoFocus
-                  />
-                  {pickerSearch && (
-                    <button onClick={() => setPickerSearch('')} className="text-gray-400 hover:text-gray-600">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  <input type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
+                    placeholder="주소, 거래유형, 방종류 검색..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400" autoFocus />
+                  {pickerSearch && <button onClick={() => setPickerSearch('')} className="text-gray-400 hover:text-gray-600"><X className="h-3.5 w-3.5" /></button>}
                 </div>
               </div>
             )}
 
             {/* 테이블 헤더 */}
             {!loadingProps && brokerProperties.length > 0 && (
-              <div className="grid grid-cols-[3rem_1fr_auto_auto] gap-x-3 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
-                <span>유형</span>
-                <span>소재지</span>
-                <span className="text-right">가격</span>
-                <span className="w-14"></span>
+              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
+                <span></span><span>유형</span><span>소재지</span><span className="text-right">가격</span>
               </div>
             )}
 
@@ -359,61 +461,50 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                 <div className="py-12 text-center">
                   <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-200" />
                   <p className="text-sm text-gray-500">등록된 매물이 없습니다</p>
-                  <a href="/broker/properties/new" target="_blank" className="mt-3 inline-block text-sm font-semibold text-blue-600 underline">
-                    매물 등록하러 가기
-                  </a>
+                  <a href="/broker/properties/new" target="_blank" className="mt-3 inline-block text-sm font-semibold text-blue-600 underline">매물 등록하러 가기</a>
                 </div>
               ) : (() => {
-                const dealColors: Record<string, string> = {
-                  '매매': 'bg-blue-100 text-blue-700',
-                  '전세': 'bg-green-100 text-green-700',
-                  '월세': 'bg-orange-100 text-orange-700',
-                  '단기': 'bg-purple-100 text-purple-700',
-                }
+                const dealColors: Record<string, string> = { '매매': 'bg-blue-100 text-blue-700', '전세': 'bg-green-100 text-green-700', '월세': 'bg-orange-100 text-orange-700', '단기': 'bg-purple-100 text-purple-700' }
                 const filtered = brokerProperties.filter(p => {
                   if (!pickerSearch) return true
                   const q = pickerSearch.toLowerCase()
-                  return (
-                    maskAddress(p.address).toLowerCase().includes(q) ||
-                    p.deal_type.includes(q) ||
-                    p.room_type.includes(q) ||
-                    (p.brief_memo ?? '').toLowerCase().includes(q)
-                  )
+                  return maskAddress(p.address).toLowerCase().includes(q) || p.deal_type.includes(q) || p.room_type.includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q)
                 })
-                if (filtered.length === 0) return (
-                  <div className="py-12 text-center text-sm text-gray-400">검색 결과가 없습니다</div>
-                )
+                if (filtered.length === 0) return <div className="py-12 text-center text-sm text-gray-400">검색 결과가 없습니다</div>
                 return (
                   <div className="divide-y divide-gray-50">
                     {filtered.map(p => {
-                      const priceText = p.deal_type === '월세'
-                        ? `${formatPrice(p.price)}/${formatPrice(p.monthly_rent ?? 0)}`
-                        : formatPrice(p.price)
+                      const isSelected = selectedPropIds.has(p.id)
+                      const priceText = p.deal_type === '월세' ? `${formatPrice(p.price)}/${formatPrice(p.monthly_rent ?? 0)}` : formatPrice(p.price)
                       return (
-                        <button key={p.id} onClick={() => { sendProperty(p); setPickerSearch('') }}
-                          className="group grid grid-cols-[3rem_1fr_auto_auto] w-full gap-x-3 items-center px-4 py-3 text-left hover:bg-blue-50 transition-colors">
-                          <span className={cn('inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold', dealColors[p.deal_type] ?? 'bg-gray-100 text-gray-600')}>
-                            {p.deal_type}
+                        <button key={p.id} onClick={() => togglePropSelection(p.id)}
+                          className={cn('grid grid-cols-[2rem_3rem_1fr_auto] w-full gap-x-3 items-center px-4 py-3 text-left transition-colors', isSelected ? 'bg-blue-50' : 'hover:bg-gray-50')}>
+                          <span className={cn('flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors flex-shrink-0', isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-300 bg-white')}>
+                            {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
                           </span>
+                          <span className={cn('inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold', dealColors[p.deal_type] ?? 'bg-gray-100 text-gray-600')}>{p.deal_type}</span>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 truncate">{maskAddress(p.address)}</p>
-                            <p className="text-xs text-gray-400 truncate">
-                              {p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}
-                            </p>
+                            <p className="text-xs text-gray-400 truncate">{p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-black text-blue-600 whitespace-nowrap">{priceText}</p>
                             {p.brief_memo && <p className="text-xs text-gray-400 truncate max-w-[100px]">{p.brief_memo}</p>}
                           </div>
-                          <span className="w-14 text-right text-xs font-semibold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            보내기 →
-                          </span>
                         </button>
                       )
                     })}
                   </div>
                 )
               })()}
+            </div>
+
+            {/* 하단 보내기 버튼 */}
+            <div className="border-t border-gray-100 px-4 py-3 flex-shrink-0">
+              <button onClick={sendSelectedProperties} disabled={selectedPropIds.size === 0 || sendingProps}
+                className={cn('w-full rounded-xl py-3 text-sm font-bold transition-colors', selectedPropIds.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}>
+                {sendingProps ? '전송 중...' : selectedPropIds.size > 0 ? `선택한 매물 ${selectedPropIds.size}건 보내기` : '매물을 선택하세요'}
+              </button>
             </div>
           </div>
         </div>

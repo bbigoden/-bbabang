@@ -54,16 +54,20 @@ interface BrokerProperty {
 }
 
 // ── 매물 카드 컴포넌트 ──────────────────────────────
-function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine: boolean }) {
+function PropertyCard({ snapshot, isMine, onClick }: { snapshot: PropertySnapshot; isMine: boolean; onClick?: () => void }) {
   const priceText = snapshot.deal_type === '월세'
     ? `보증금 ${formatPrice(snapshot.price)} / 월 ${formatPrice(snapshot.monthly_rent ?? 0)}`
     : formatPrice(snapshot.price)
 
   return (
-    <div className={cn(
-      'w-64 rounded-2xl border overflow-hidden shadow-sm',
-      isMine ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-white'
-    )}>
+    <div
+      onClick={onClick}
+      className={cn(
+        'w-64 rounded-2xl border overflow-hidden shadow-sm transition-shadow',
+        isMine ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-white',
+        onClick && 'cursor-pointer hover:shadow-md'
+      )}
+    >
       {/* 헤더 */}
       <div className={cn(
         'flex items-center gap-2 px-4 py-2.5 border-b',
@@ -135,6 +139,121 @@ function PropertyCard({ snapshot, isMine }: { snapshot: PropertySnapshot; isMine
           </p>
         )}
       </div>
+      {onClick && (
+        <div className={cn('px-4 py-2 text-center text-xs border-t', isMine ? 'border-blue-200 text-blue-500' : 'border-gray-100 text-gray-400')}>
+          탭하면 상세 정보 보기
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 매물 상세 모달 ──────────────────────────────────
+function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot; onClose: () => void }) {
+  const priceText = snapshot.deal_type === '월세'
+    ? `보증금 ${formatPrice(snapshot.price)} / 월 ${formatPrice(snapshot.monthly_rent ?? 0)}`
+    : formatPrice(snapshot.price)
+  const dealColors: Record<string, string> = {
+    '매매': 'bg-blue-100 text-blue-700',
+    '전세': 'bg-green-100 text-green-700',
+    '월세': 'bg-orange-100 text-orange-700',
+    '단기': 'bg-purple-100 text-purple-700',
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-t-2xl bg-white shadow-xl md:rounded-2xl overflow-hidden"
+        style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-blue-600" />
+            <span className="font-bold text-gray-900">매물 상세</span>
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1">
+          {/* 사진 */}
+          {snapshot.images && snapshot.images.length > 0 && (
+            <div className="relative h-48 w-full overflow-hidden bg-gray-100">
+              <Image src={snapshot.images[0]} alt={snapshot.address} fill className="object-cover" sizes="400px" />
+              {snapshot.images.length > 1 && (
+                <div className="absolute bottom-2 right-2 flex gap-1">
+                  {snapshot.images.slice(1, 4).map((src, i) => (
+                    <div key={i} className="relative h-10 w-10 overflow-hidden rounded-lg border-2 border-white">
+                      <Image src={src} alt="" fill className="object-cover" sizes="40px" />
+                    </div>
+                  ))}
+                  {snapshot.images.length > 4 && (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-black/50 text-xs text-white font-bold">
+                      +{snapshot.images.length - 4}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="p-5 space-y-4">
+            {/* 유형 + 주소 */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {snapshot.deal_type}
+                </span>
+                <span className="text-xs text-gray-500">{snapshot.room_type}</span>
+              </div>
+              <p className="text-lg font-bold text-gray-900">{maskAddress(snapshot.address)}</p>
+            </div>
+
+            {/* 가격 */}
+            <div className="rounded-xl bg-blue-50 p-4">
+              <p className="text-2xl font-black text-blue-600">{priceText}</p>
+            </div>
+
+            {/* 상세 정보 */}
+            <div className="grid grid-cols-2 gap-3">
+              {snapshot.size_pyeong && (
+                <div className="rounded-xl border border-gray-100 p-3">
+                  <p className="text-xs text-gray-400 mb-1">면적</p>
+                  <p className="text-sm font-semibold text-gray-900">{snapshot.size_pyeong}평</p>
+                </div>
+              )}
+              {snapshot.floor && (
+                <div className="rounded-xl border border-gray-100 p-3">
+                  <p className="text-xs text-gray-400 mb-1">층수</p>
+                  <p className="text-sm font-semibold text-gray-900">{snapshot.floor}층{snapshot.total_floors ? ` / ${snapshot.total_floors}층` : ''}</p>
+                </div>
+              )}
+            </div>
+
+            {/* 옵션 */}
+            {(snapshot.options ?? []).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">옵션</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(snapshot.options ?? []).map(opt => (
+                    <span key={opt} className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">{opt}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 설명 */}
+            {snapshot.description && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">메모</p>
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{snapshot.description}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -158,6 +277,11 @@ export default function ChatPage() {
   const [brokerProperties, setBrokerProperties] = useState<BrokerProperty[]>([])
   const [loadingProps, setLoadingProps] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
+  const [selectedPropIds, setSelectedPropIds] = useState<Set<string>>(new Set())
+  const [sendingProps, setSendingProps] = useState(false)
+
+  // 매물 상세 모달
+  const [viewingSnapshot, setViewingSnapshot] = useState<PropertySnapshot | null>(null)
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -349,30 +473,48 @@ export default function ChatPage() {
     setLoadingProps(false)
   }
 
-  // 매물 카드 전송
-  const sendProperty = async (property: BrokerProperty) => {
-    if (!room) return
-    setShowPicker(false)
-    const snapshot: PropertySnapshot = {
-      deal_type: property.deal_type,
-      room_type: property.room_type,
-      address: property.address,
-      price: property.price,
-      monthly_rent: property.monthly_rent,
-      size_pyeong: property.size_pyeong,
-      floor: property.floor,
-      total_floors: property.total_floors,
-      options: property.options,
-      description: property.description,
-      images: property.images ?? [],
-      property_id: property.id,
+  // 매물 카드 전송 (단일)
+  const buildSnapshot = (property: BrokerProperty): PropertySnapshot => ({
+    deal_type: property.deal_type,
+    room_type: property.room_type,
+    address: property.address,
+    price: property.price,
+    monthly_rent: property.monthly_rent,
+    size_pyeong: property.size_pyeong,
+    floor: property.floor,
+    total_floors: property.total_floors,
+    options: property.options,
+    description: property.description,
+    images: property.images ?? [],
+    property_id: property.id,
+  })
+
+  // 선택된 매물 전체 전송
+  const sendSelectedProperties = async () => {
+    if (!room || selectedPropIds.size === 0 || sendingProps) return
+    setSendingProps(true)
+    const toSend = brokerProperties.filter(p => selectedPropIds.has(p.id))
+    for (const property of toSend) {
+      await supabase.from('chat_messages').insert({
+        room_id: room.id,
+        sender_id: user.id,
+        content: JSON.stringify(buildSnapshot(property)),
+        message_type: 'property',
+        property_id: property.id,
+      })
     }
-    await supabase.from('chat_messages').insert({
-      room_id: room.id,
-      sender_id: user.id,
-      content: JSON.stringify(snapshot),
-      message_type: 'property',
-      property_id: property.id,
+    setSendingProps(false)
+    setShowPicker(false)
+    setSelectedPropIds(new Set())
+    setPickerSearch('')
+  }
+
+  const togglePropSelection = (id: string) => {
+    setSelectedPropIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
     })
   }
 
@@ -532,7 +674,7 @@ export default function ChatPage() {
                       <div className={cn('flex flex-col', isMine ? 'items-end' : 'items-start')}>
                         {/* 매물 카드 */}
                         {isPropertyMsg && propertySnapshot ? (
-                          <PropertyCard snapshot={propertySnapshot} isMine={isMine} />
+                          <PropertyCard snapshot={propertySnapshot} isMine={isMine} onClick={() => setViewingSnapshot(propertySnapshot)} />
                         ) : msg.message_type === 'image' ? (
                           /* 이미지 메시지 */
                           <a href={msg.content} target="_blank" rel="noopener noreferrer">
@@ -586,9 +728,14 @@ export default function ChatPage() {
         </div>
       </div>
 
+      {/* ── 매물 상세 모달 ── */}
+      {viewingSnapshot && (
+        <PropertyDetailModal snapshot={viewingSnapshot} onClose={() => setViewingSnapshot(null)} />
+      )}
+
       {/* ── 매물 피커 모달 (중개사만) ── */}
       {showPicker && isBroker && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={() => { setShowPicker(false); setPickerSearch('') }}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }}>
           <div
             className="w-full max-w-xl rounded-t-2xl bg-white shadow-xl md:rounded-2xl"
             style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
@@ -601,7 +748,7 @@ export default function ChatPage() {
                 <span className="font-bold text-gray-900">내 매물장</span>
                 {!loadingProps && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{brokerProperties.length}</span>}
               </div>
-              <button onClick={() => { setShowPicker(false); setPickerSearch('') }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors">
+              <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -630,11 +777,11 @@ export default function ChatPage() {
 
             {/* 테이블 헤더 */}
             {!loadingProps && brokerProperties.length > 0 && (
-              <div className="grid grid-cols-[3rem_1fr_auto_auto] gap-x-3 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
+              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
+                <span></span>
                 <span>유형</span>
                 <span>소재지</span>
                 <span className="text-right">가격</span>
-                <span className="w-14"></span>
               </div>
             )}
 
@@ -677,15 +824,26 @@ export default function ChatPage() {
                 return (
                   <div className="divide-y divide-gray-50">
                     {filtered.map(prop => {
+                      const isSelected = selectedPropIds.has(prop.id)
                       const priceText = prop.deal_type === '월세'
                         ? `${formatPrice(prop.price)}/${formatPrice(prop.monthly_rent ?? 0)}`
                         : formatPrice(prop.price)
                       return (
                         <button
                           key={prop.id}
-                          onClick={() => { sendProperty(prop); setPickerSearch('') }}
-                          className="group grid grid-cols-[3rem_1fr_auto_auto] w-full gap-x-3 items-center px-4 py-3 text-left hover:bg-blue-50 transition-colors"
+                          onClick={() => togglePropSelection(prop.id)}
+                          className={cn(
+                            'grid grid-cols-[2rem_3rem_1fr_auto] w-full gap-x-3 items-center px-4 py-3 text-left transition-colors',
+                            isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          )}
                         >
+                          {/* 체크박스 */}
+                          <span className={cn(
+                            'flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors flex-shrink-0',
+                            isSelected ? 'border-blue-600 bg-blue-600' : 'border-gray-300 bg-white'
+                          )}>
+                            {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
+                          </span>
                           <span className={`inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold ${dealColors[prop.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>
                             {prop.deal_type}
                           </span>
@@ -699,15 +857,33 @@ export default function ChatPage() {
                             <p className="text-sm font-black text-blue-600 whitespace-nowrap">{priceText}</p>
                             {prop.description && <p className="text-xs text-gray-400 truncate max-w-[100px]">{prop.description}</p>}
                           </div>
-                          <span className="w-14 text-right text-xs font-semibold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            보내기 →
-                          </span>
                         </button>
                       )
                     })}
                   </div>
                 )
               })()}
+            </div>
+
+            {/* 하단 보내기 버튼 */}
+            <div className="border-t border-gray-100 px-4 py-3 flex-shrink-0">
+              <button
+                onClick={sendSelectedProperties}
+                disabled={selectedPropIds.size === 0 || sendingProps}
+                className={cn(
+                  'w-full rounded-xl py-3 text-sm font-bold transition-colors',
+                  selectedPropIds.size > 0
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                )}
+              >
+                {sendingProps
+                  ? '전송 중...'
+                  : selectedPropIds.size > 0
+                    ? `선택한 매물 ${selectedPropIds.size}건 보내기`
+                    : '매물을 선택하세요'
+                }
+              </button>
             </div>
           </div>
         </div>
