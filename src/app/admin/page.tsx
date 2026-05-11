@@ -64,6 +64,8 @@ export default function AdminPage() {
 
   // 행 클릭 상세 모달
   const [brokerModal, setBrokerModal] = useState<any>(null)
+  const [brokerReviews, setBrokerReviews] = useState<any[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
   const [userModal, setUserModal] = useState<any>(null)
   const [requestModal, setRequestModal] = useState<any>(null)
   const [propertyModal, setPropertyModal] = useState<any>(null)
@@ -301,7 +303,14 @@ export default function AdminPage() {
                   brokers.map(broker => (
                     <tr
                       key={broker.id}
-                      onClick={() => setBrokerModal(broker)}
+                      onClick={async () => {
+                        setBrokerModal(broker)
+                        setBrokerReviews([])
+                        setReviewsLoading(true)
+                        const { data } = await supabase.from('reviews').select('*, profiles(name)').eq('broker_id', broker.id).order('created_at', { ascending: false })
+                        setBrokerReviews(data ?? [])
+                        setReviewsLoading(false)
+                      }}
                       className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
                     >
                       <td className="px-5 py-4">
@@ -515,14 +524,60 @@ export default function AdminPage() {
               </div>
             } />
             <InfoRow icon={Star} label="평점" value={
-              brokerModal.rating
-                ? `${brokerModal.rating.toFixed(1)} (리뷰 ${brokerModal.review_count}개)`
-                : '리뷰 없음'
+              brokerModal.rating ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5">
+                    {[1,2,3,4,5].map(i => (
+                      <Star key={i} className={`h-3.5 w-3.5 ${i <= Math.round(brokerModal.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'}`} />
+                    ))}
+                  </div>
+                  <span className="font-bold text-white">{brokerModal.rating.toFixed(1)}</span>
+                  <span className="text-gray-400 text-xs">({brokerModal.review_count}개)</span>
+                </div>
+              ) : '리뷰 없음'
             } />
             <InfoRow icon={MessageCircle} label="성사 건수" value={`${brokerModal.deal_count ?? 0}건`} />
             <InfoRow icon={Calendar} label="가입일" value={formatDate(brokerModal.created_at)} />
-            {brokerModal.description && (
-              <InfoRow icon={FileText} label="소개글" value={brokerModal.description} />
+          </div>
+
+          {/* 소개글 */}
+          {brokerModal.description && (
+            <div className="mb-5 rounded-xl border border-gray-700 bg-gray-800/40 p-4">
+              <p className="mb-1.5 text-xs font-semibold text-gray-400">소개글</p>
+              <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{brokerModal.description}</p>
+            </div>
+          )}
+
+          {/* 고객 리뷰 */}
+          <div className="mb-5">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-400">
+              <Star className="h-3.5 w-3.5" />
+              고객 리뷰
+              <span className="rounded-full bg-gray-700 px-1.5 py-0.5 text-gray-300">{brokerModal.review_count ?? 0}개</span>
+            </p>
+            {reviewsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              </div>
+            ) : brokerReviews.length === 0 ? (
+              <p className="rounded-xl border border-gray-800 bg-gray-800/40 py-4 text-center text-xs text-gray-500">리뷰가 없습니다</p>
+            ) : (
+              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                {brokerReviews.map(r => (
+                  <div key={r.id} className="rounded-xl border border-gray-700 bg-gray-800/40 px-3.5 py-2.5">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-semibold text-white">{r.profiles?.name ?? '(알 수 없음)'}</span>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        {[1,2,3,4,5].map(i => (
+                          <Star key={i} className={`h-3 w-3 ${i <= r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    {r.comment && <p className="text-xs text-gray-400 leading-relaxed">{r.comment}</p>}
+                    <p className="mt-1 text-[10px] text-gray-600">{formatDate(r.created_at)}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
@@ -574,23 +629,17 @@ export default function AdminPage() {
 
           {/* 버튼 영역 */}
           <div className="space-y-2">
-            <div className="flex gap-3">
-              <button
-                onClick={() => toggleVerify(brokerModal.id, brokerModal.is_verified)}
-                disabled={verifying === brokerModal.id}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
-                  brokerModal.is_verified
-                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                    : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                }`}
-              >
-                {verifying === brokerModal.id ? '처리 중...' : brokerModal.is_verified ? '인증 취소' : '인증 승인'}
-              </button>
-              <Link href={`/broker/${brokerModal.id}`} target="_blank" className="flex-1 rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
-                <ExternalLink className="h-3.5 w-3.5" />
-                공개 프로필
-              </Link>
-            </div>
+            <button
+              onClick={() => toggleVerify(brokerModal.id, brokerModal.is_verified)}
+              disabled={verifying === brokerModal.id}
+              className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
+                brokerModal.is_verified
+                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+              }`}
+            >
+              {verifying === brokerModal.id ? '처리 중...' : brokerModal.is_verified ? '인증 취소' : '인증 승인'}
+            </button>
             <Link
               href={`/broker/properties?broker_id=${brokerModal.id}`}
               target="_blank"
