@@ -174,6 +174,7 @@ export default function AdminPage() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
+    router.refresh()
   }
 
   const openStatModal = async (type: 'users' | 'requests' | 'proposals') => {
