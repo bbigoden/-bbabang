@@ -10,7 +10,7 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, Shield, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight
+  Hash, ChevronRight, Table2
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -572,22 +572,32 @@ export default function AdminPage() {
             )
           })()}
 
-          {/* 인증 버튼 */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => toggleVerify(brokerModal.id, brokerModal.is_verified)}
-              disabled={verifying === brokerModal.id}
-              className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
-                brokerModal.is_verified
-                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-              }`}
+          {/* 버튼 영역 */}
+          <div className="space-y-2">
+            <div className="flex gap-3">
+              <button
+                onClick={() => toggleVerify(brokerModal.id, brokerModal.is_verified)}
+                disabled={verifying === brokerModal.id}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all disabled:opacity-50 ${
+                  brokerModal.is_verified
+                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                }`}
+              >
+                {verifying === brokerModal.id ? '처리 중...' : brokerModal.is_verified ? '인증 취소' : '인증 승인'}
+              </button>
+              <Link href={`/broker/${brokerModal.id}`} target="_blank" className="flex-1 rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5" />
+                공개 프로필
+              </Link>
+            </div>
+            <Link
+              href={`/broker/properties?broker_id=${brokerModal.id}`}
+              target="_blank"
+              className="w-full rounded-xl border border-blue-500/40 bg-blue-500/10 py-2.5 text-sm font-semibold text-blue-400 hover:bg-blue-500/20 transition-colors flex items-center justify-center gap-1.5"
             >
-              {verifying === brokerModal.id ? '처리 중...' : brokerModal.is_verified ? '인증 취소' : '인증 승인'}
-            </button>
-            <Link href={`/broker/${brokerModal.id}`} target="_blank" className="flex-1 rounded-xl border border-gray-700 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors flex items-center justify-center gap-1.5">
-              <ExternalLink className="h-3.5 w-3.5" />
-              공개 프로필 보기
+              <Table2 className="h-4 w-4" />
+              매물장 전체 보기 (읽기 전용)
             </Link>
           </div>
         </Modal>

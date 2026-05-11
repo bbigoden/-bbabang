@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy, SlidersHorizontal,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -346,12 +346,27 @@ function TooltipIcon({ text }: { text: string }) {
 
 // ── 메인 페이지 ──────────────────────────────────────────
 export default function BrokerPropertiesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      </div>
+    }>
+      <BrokerPropertiesContent />
+    </Suspense>
+  )
+}
+
+function BrokerPropertiesContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
   const [properties, setProperties] = useState<Property[]>([])
+  const [isAdminView, setIsAdminView] = useState(false)
+  const [adminViewBrokerName, setAdminViewBrokerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterDealType, setFilterDealType] = useState('')
   const [filterRoomType, setFilterRoomType] = useState('')
@@ -460,6 +475,28 @@ export default function BrokerPropertiesPage() {
     try { const { data } = await supabase.auth.getUser(); u = data.user } catch { router.push('/auth/login'); return }
     if (!u) { router.push('/auth/login'); return }
     setUser(u)
+
+    const targetBrokerId = searchParams.get('broker_id')
+
+    // 어드민이 다른 중개사 매물장을 보는 경우
+    if (targetBrokerId) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', u.id).single()
+      if (profile?.role !== 'admin') { router.push('/broker/properties'); return }
+
+      const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns, office_name, profiles(name)').eq('id', targetBrokerId).single()
+      if (!b) { router.push('/admin'); return }
+      setBroker(b)
+      setIsAdminView(true)
+      setAdminViewBrokerName((b.profiles as any)?.name || b.office_name || '(이름 없음)')
+      const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
+      setCustomColumns(cols)
+      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
+      setProperties(data ?? [])
+      setLoading(false)
+      return
+    }
+
+    // 일반 중개사 본인 매물장
     const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns').eq('user_id', u.id).single()
     if (!b) { router.push('/broker/register'); return }
     setBroker(b)
@@ -604,10 +641,28 @@ export default function BrokerPropertiesPage() {
       )}
 
       <div className="px-4 py-6">
+        {/* 어드민 뷰 배너 */}
+        {isAdminView && (
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+            <Eye className="h-4 w-4 text-orange-500 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold text-orange-800">{adminViewBrokerName}</span>
+              <span className="ml-1.5 text-sm text-orange-600">의 매물장 — 읽기 전용 (관리자 뷰)</span>
+            </div>
+            <button
+              onClick={() => router.push('/admin')}
+              className="flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white px-3 py-1.5 text-sm font-semibold text-orange-700 hover:bg-orange-50 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              어드민으로
+            </button>
+          </div>
+        )}
+
         {/* 상단 */}
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">내 매물장</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{isAdminView ? `${adminViewBrokerName}의 매물장` : '내 매물장'}</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
           </div>
           <div className="flex items-center gap-2">
@@ -680,11 +735,13 @@ export default function BrokerPropertiesPage() {
                 </div>
               )}
             </div>
-            <button onClick={addNewRow}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="h-4 w-4" />매물 등록
-            </button>
+            {!isAdminView && (
+              <button onClick={addNewRow}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="h-4 w-4" />매물 등록
+              </button>
+            )}
           </div>
         </div>
 
@@ -794,7 +851,7 @@ export default function BrokerPropertiesPage() {
                   )
                   return null
                 })}
-                <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 56 }}></th>
+                {!isAdminView && <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 56 }}></th>}
               </tr>
             </thead>
             <tbody>
@@ -815,6 +872,28 @@ export default function BrokerPropertiesPage() {
                     const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                     if (fixedCol) {
                       if (!visibleCols.includes(key as ColKey)) return null
+                      // 읽기 전용 셀 (어드민 뷰)
+                      if (isAdminView) {
+                        const readVal = (() => {
+                          if (key === 'price') return p.price != null ? `${p.price.toLocaleString()}만` : '—'
+                          if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
+                          if (key === 'deal_type') {
+                            const colorMap: Record<string, string> = { 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }
+                            return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${colorMap[p.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{p.deal_type}</span>
+                          }
+                          if (key === 'room_type') return <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{p.room_type}</span>
+                          if (key === 'images') return p.images?.length > 0
+                            ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="" className="h-6 w-6 rounded border border-gray-200 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
+                            : <span className="text-xs text-gray-300">—</span>
+                          const raw: any = (p as any)[key]
+                          return raw != null && raw !== '' ? String(raw) : '—'
+                        })()
+                        return (
+                          <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                            <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{readVal}</div>
+                          </td>
+                        )
+                      }
                       return (
                         <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
@@ -838,21 +917,26 @@ export default function BrokerPropertiesPage() {
                     const customCol = customColumns.find(c => c.id === key)
                     if (customCol && showCustom(key)) return (
                       <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
-                        <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
+                        {isAdminView
+                          ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
+                          : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
+                        }
                       </td>
                     )
                     return null
                   })}
-                  <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <button onClick={() => duplicateProperty(p)} className="text-gray-300 hover:text-blue-400 transition-colors" title="복사">
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
+                  {!isAdminView && (
+                    <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => duplicateProperty(p)} className="text-gray-300 hover:text-blue-400 transition-colors" title="복사">
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
