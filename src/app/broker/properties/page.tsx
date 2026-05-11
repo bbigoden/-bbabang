@@ -61,6 +61,7 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
+  { key: 'address',         label: '소재지' },
   { key: 'size_pyeong',     label: '면적' },
   { key: 'price',           label: '가격' },
   { key: 'room_type',       label: '중개대상물종류' },
@@ -299,6 +300,25 @@ function ImageCell({ images, onSave, onView }: {
   )
 }
 
+// ── 중개사메모 툴팁 아이콘 ──────────────────────────────────────────
+function MemoTooltipIcon() {
+  const [show, setShow] = useState(false)
+  return (
+    <span
+      className="relative inline-flex flex-shrink-0"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+      {show && (
+        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-xl z-[500]">
+          매물제안시 나에게만 보이는 메모입니다
+        </span>
+      )}
+    </span>
+  )
+}
+
 // ── 메인 페이지 ──────────────────────────────────────────
 export default function BrokerPropertiesPage() {
   const router = useRouter()
@@ -319,15 +339,14 @@ export default function BrokerPropertiesPage() {
     try { const s = localStorage.getItem('broker_col_visible'); if (s) { const p = JSON.parse(s) as ColKey[]; return p.filter(k => ALL_COLUMNS.some(c => c.key === k)) } } catch {}
     return DEFAULT_VISIBLE
   })
-  // 통합 칼럼 순서 (status + fixed + address + custom 모두 포함)
+  // 통합 칼럼 순서 (고정 칼럼 + 커스텀 칼럼, status 제외)
   const [colOrder, setColOrder] = useState<string[]>(() => {
-    const defaultOrder = ['status', 'address', ...FIXED_COLS]
+    const defaultOrder = [...FIXED_COLS]
     try {
       const s = localStorage.getItem('broker_col_full_order')
       if (s) {
-        const p = JSON.parse(s) as string[]
-        if (p.includes('status') && p.includes('address')) {
-          // 새로 추가된 고정 칼럼이 있으면 뒤에 붙임
+        const p = (JSON.parse(s) as string[]).filter(k => k !== 'status') // 기존 저장값에서 status 제거
+        if (p.includes('address')) {
           const missing = defaultOrder.filter(k => !p.includes(k))
           return missing.length > 0 ? [...p, ...missing] : p
         }
@@ -337,7 +356,7 @@ export default function BrokerPropertiesPage() {
   })
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     const def: Record<string, number> = {
-      status: 88, address: 200,
+      address: 200,
       size_pyeong: 70, price: 96, room_type: 110, deal_type: 72,
       total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
       approval_date: 90, parking: 72, management_fee: 72,
@@ -653,32 +672,6 @@ export default function BrokerPropertiesPage() {
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                 <th className="px-2 py-2.5 text-center" style={{ width: 32 }}>#</th>
                 {colOrder.map(key => {
-                  // 상태
-                  if (key === 'status') return (
-                    <th key="status"
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'status' ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths['status'] ?? 88, maxWidth: colWidths['status'] ?? 88 }}
-                      draggable onDragStart={e => onColDragStart('status', e)}
-                      onDragOver={e => onColDragOver('status', e)} onDrop={() => onColDrop('status')}
-                      onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
-                    >
-                      <span className="truncate block pr-2">상태</span>
-                      <div onMouseDown={e => startResize('status', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
-                    </th>
-                  )
-                  // 주소
-                  if (key === 'address') return (
-                    <th key="address"
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'address' ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths['address'] ?? 200, maxWidth: colWidths['address'] ?? 200 }}
-                      draggable onDragStart={e => onColDragStart('address', e)}
-                      onDragOver={e => onColDragOver('address', e)} onDrop={() => onColDrop('address')}
-                      onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
-                    >
-                      <span className="truncate block pr-2">주소</span>
-                      <div onMouseDown={e => startResize('address', e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
-                    </th>
-                  )
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                   if (fixedCol) {
@@ -692,14 +685,9 @@ export default function BrokerPropertiesPage() {
                         onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
                       >
                         {key === 'memo' ? (
-                          <span className="flex items-center gap-1 pr-2 overflow-hidden">
+                          <span className="flex items-center gap-1 pr-2">
                             <span className="truncate">{fixedCol.label}</span>
-                            <span className="group/tip relative flex-shrink-0">
-                              <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
-                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tip:block whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] text-white shadow-lg z-[200]">
-                                매물제안시 나에게만 보이는 메모입니다
-                              </span>
-                            </span>
+                            <MemoTooltipIcon />
                           </span>
                         ) : (
                           <span className="truncate block pr-2">{fixedCol.label}</span>
@@ -742,23 +730,12 @@ export default function BrokerPropertiesPage() {
                     {(page - 1) * pageSize + idx + 1}
                   </td>
                   {colOrder.map(key => {
-                    if (key === 'status') return (
-                      <td key="status" className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths['status'] ?? 88, maxWidth: colWidths['status'] ?? 88 }}>
-                        <SelectCell value={STATUS_LABEL[p.status]} options={STATUS_OPTS.map(s => STATUS_LABEL[s])}
-                          onSave={v => { const k = Object.entries(STATUS_LABEL).find(([, l]) => l === v)?.[0] as Property['status']; if (k) saveField(p.id, 'status', k) }}
-                          colorMap={Object.fromEntries(STATUS_OPTS.map(s => [STATUS_LABEL[s], STATUS_COLOR[s]]))} />
-                      </td>
-                    )
-                    if (key === 'address') return (
-                      <td key="address" className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths['address'] ?? 192, maxWidth: colWidths['address'] ?? 192 }}>
-                        <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="주소 입력" />
-                      </td>
-                    )
                     const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                     if (fixedCol) {
                       if (!visibleCols.includes(key as ColKey)) return null
                       return (
                         <td key={key} className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                          {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <NumberCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v)} suffix="평" />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
