@@ -328,7 +328,6 @@ export default function BrokerPropertiesPage() {
   const [broker, setBroker] = useState<any>(null)
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'available' | 'contracted' | 'hidden'>('all')
   const [dealFilter, setDealFilter] = useState<DealFilter>('전체')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -427,7 +426,7 @@ export default function BrokerPropertiesPage() {
   }
 
   useEffect(() => { init() }, [])
-  useEffect(() => { setPage(1) }, [statusFilter, dealFilter, searchQuery, pageSize])
+  useEffect(() => { setPage(1) }, [dealFilter, searchQuery, pageSize])
 
   const init = async () => {
     let u: any = null
@@ -518,7 +517,6 @@ export default function BrokerPropertiesPage() {
 
   const filtered = useMemo(() => {
     let list = properties
-    if (statusFilter !== 'all') list = list.filter(p => p.status === statusFilter)
     if (dealFilter !== '전체') list = list.filter(p => p.deal_type === dealFilter)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
@@ -638,22 +636,6 @@ export default function BrokerPropertiesPage() {
               <Plus className="h-4 w-4" />매물 등록
             </button>
           </div>
-        </div>
-
-        {/* 통계 탭 */}
-        <div className="mb-4 flex gap-2">
-          {[
-            { key: 'all' as const, label: '전체', count: properties.length },
-            { key: 'available' as const, label: '매물있음', count: properties.filter(p => p.status === 'available').length },
-            { key: 'contracted' as const, label: '계약완료', count: properties.filter(p => p.status === 'contracted').length },
-            { key: 'hidden' as const, label: '숨김', count: properties.filter(p => p.status === 'hidden').length },
-          ].map(s => (
-            <button key={s.key} onClick={() => setStatusFilter(s.key)}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all border ${statusFilter === s.key ? 'bg-white border-blue-500 text-blue-600 shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
-            >
-              {s.label} <span className="ml-1 text-xs font-bold">{s.count}</span>
-            </button>
-          ))}
         </div>
 
         {/* 검색 + 거래유형 */}
