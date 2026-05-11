@@ -52,14 +52,6 @@ const STATUS_COLOR: Record<string, string> = {
 }
 const DEAL_TYPES = ['매매', '전세', '월세']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '기타']
-const OPTIONS_LIST = [
-  // 가전
-  '풀옵션', '에어컨', '냉장고', '세탁기', '건조기', '전자레인지', '인덕션', '가스레인지', '식기세척기', 'TV',
-  // 가구
-  '침대', '소파', '책상', '옷장', '붙박이장', '신발장',
-  // 시설
-  '주차 가능', '엘리베이터', '도시가스', '인터넷', '반려동물 허용', 'CCTV',
-]
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
@@ -297,73 +289,6 @@ function ImageCell({ images, onSave, onView }: {
             )}
           </div>
           <button onClick={saveAndClose} className="w-full rounded-lg bg-blue-600 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors">
-            저장
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 옵션 셀 ──────────────────────────────────────────
-function OptionsCell({ value, onSave }: { value: string[]; onSave: (v: string[]) => void }) {
-  const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
-  const [draft, setDraft] = useState<string[]>(value)
-  const ref = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(ref, () => { if (open) { onSave(draft); setOpen(false) } })
-
-  const toggle = (opt: string) => {
-    setDraft(prev => prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt])
-  }
-
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      setOpenUp(window.innerHeight - rect.bottom < 280)
-    }
-    setDraft(value)
-    setOpen(v => !v)
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className="cursor-pointer rounded px-1 py-0.5 min-h-[22px] flex flex-wrap gap-0.5 hover:bg-blue-50"
-      >
-        {value.length === 0
-          ? <span className="text-xs text-gray-300">—</span>
-          : value.slice(0, 3).map(o => (
-              <span key={o} className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700 font-medium">{o}</span>
-            ))
-        }
-        {value.length > 3 && <span className="text-[10px] text-gray-400">+{value.length - 3}</span>}
-      </div>
-      {open && (
-        <div className={`absolute left-0 z-50 w-64 rounded-xl border border-gray-200 bg-white shadow-xl p-3 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-          <div className="space-y-2.5">
-            {OPTIONS_GROUPS.map(group => (
-              <div key={group.label}>
-                <p className="mb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">{group.label}</p>
-                <div className="flex flex-wrap gap-1">
-                  {group.items.map(opt => (
-                    <button key={opt} type="button" onClick={() => toggle(opt)}
-                      className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-all ${
-                        draft.includes(opt)
-                          ? 'border-blue-500 bg-blue-500 text-white'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <button onClick={() => { onSave(draft); setOpen(false) }}
-            className="mt-3 w-full rounded-lg bg-blue-600 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors">
             저장
           </button>
         </div>

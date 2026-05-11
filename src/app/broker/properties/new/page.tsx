@@ -29,7 +29,6 @@ export default function NewPropertyPage() {
   const [floor, setFloor] = useState('')
   const [totalFloors, setTotalFloors] = useState('')
   const [description, setDescription] = useState('')
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [assignee, setAssignee] = useState('')
   const [briefMemo, setBriefMemo] = useState('')
   const [memo, setMemo] = useState('')
@@ -64,11 +63,6 @@ export default function NewPropertyPage() {
     setImagePreviews(prev => prev.filter((_, i) => i !== index))
   }
 
-  const toggleOption = (opt: string) => {
-    setSelectedOptions(prev =>
-      prev.includes(opt) ? prev.filter(o => o !== opt) : [...prev, opt]
-    )
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,7 +120,7 @@ export default function NewPropertyPage() {
       floor: floor ? Number(floor) : null,
       total_floors: totalFloors ? Number(totalFloors) : null,
       description: description || null,
-      options: selectedOptions,
+      options: [],
       images: uploadedUrls,
       assignee: assignee || null,
       brief_memo: briefMemo || null,
