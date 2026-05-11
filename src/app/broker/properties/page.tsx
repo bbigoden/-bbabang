@@ -80,6 +80,8 @@ const ALL_COLUMNS = [
 type ColKey = typeof ALL_COLUMNS[number]['key']
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
 const DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
+// 칼럼 구조가 바뀔 때마다 올려주면 localStorage 자동 초기화
+const COL_VERSION = 'v3'
 
 // 초기 커스텀 칼럼 (새 중개사용 기본값)
 const DEFAULT_CUSTOM_COLS: CustomColumn[] = [
@@ -336,20 +338,29 @@ export default function BrokerPropertiesPage() {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => {
-    try { const s = localStorage.getItem('broker_col_visible'); if (s) { const p = JSON.parse(s) as ColKey[]; return p.filter(k => ALL_COLUMNS.some(c => c.key === k)) } } catch {}
+    try {
+      if (localStorage.getItem('broker_col_version') !== COL_VERSION) return DEFAULT_VISIBLE
+      const s = localStorage.getItem('broker_col_visible')
+      if (s) { const p = JSON.parse(s) as ColKey[]; return p.filter(k => ALL_COLUMNS.some(c => c.key === k)) }
+    } catch {}
     return DEFAULT_VISIBLE
   })
-  // 통합 칼럼 순서 (고정 칼럼 + 커스텀 칼럼, status 제외)
+  // 통합 칼럼 순서 (고정 칼럼 + 커스텀 칼럼)
   const [colOrder, setColOrder] = useState<string[]>(() => {
     const defaultOrder = [...FIXED_COLS]
     try {
+      if (localStorage.getItem('broker_col_version') !== COL_VERSION) {
+        // 버전 불일치 → 저장값 초기화
+        localStorage.setItem('broker_col_version', COL_VERSION)
+        localStorage.removeItem('broker_col_full_order')
+        localStorage.removeItem('broker_col_visible')
+        return defaultOrder
+      }
       const s = localStorage.getItem('broker_col_full_order')
       if (s) {
-        const p = (JSON.parse(s) as string[]).filter(k => k !== 'status') // 기존 저장값에서 status 제거
-        if (p.includes('address')) {
-          const missing = defaultOrder.filter(k => !p.includes(k))
-          return missing.length > 0 ? [...p, ...missing] : p
-        }
+        const p = JSON.parse(s) as string[]
+        const missing = defaultOrder.filter(k => !p.includes(k))
+        return missing.length > 0 ? [...p, ...missing] : p
       }
     } catch {}
     return defaultOrder
@@ -388,10 +399,10 @@ export default function BrokerPropertiesPage() {
     setVisibleCustomCols(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id])
 
   // localStorage 저장
-  useEffect(() => { try { localStorage.setItem('broker_col_visible', JSON.stringify(visibleCols)) } catch {} }, [visibleCols])
+  useEffect(() => { try { localStorage.setItem('broker_col_version', COL_VERSION); localStorage.setItem('broker_col_visible', JSON.stringify(visibleCols)) } catch {} }, [visibleCols])
   useEffect(() => { try { localStorage.setItem('broker_col_widths', JSON.stringify(colWidths)) } catch {} }, [colWidths])
   useEffect(() => { try { localStorage.setItem('broker_visible_custom', JSON.stringify(visibleCustomCols)) } catch {} }, [visibleCustomCols])
-  useEffect(() => { try { localStorage.setItem('broker_col_full_order', JSON.stringify(colOrder)) } catch {} }, [colOrder])
+  useEffect(() => { try { localStorage.setItem('broker_col_version', COL_VERSION); localStorage.setItem('broker_col_full_order', JSON.stringify(colOrder)) } catch {} }, [colOrder])
 
   // 칼럼 너비 드래그 조절
   const startResize = (key: string, e: React.MouseEvent) => {
