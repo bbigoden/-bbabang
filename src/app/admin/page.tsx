@@ -61,7 +61,6 @@ export default function AdminPage() {
   const [recentRequests, setRecentRequests] = useState<any[]>([])
   const [verifying, setVerifying] = useState<string | null>(null)
   const [brokerProperties, setBrokerProperties] = useState<any[]>([])
-  const [selectedBrokerId, setSelectedBrokerId] = useState<string | null>(null)
 
   // 행 클릭 상세 모달
   const [brokerModal, setBrokerModal] = useState<any>(null)
@@ -458,101 +457,6 @@ export default function AdminPage() {
 
         </div>
 
-        {/* ── 중개사 매물장 ── */}
-        <div>
-          <div className="mb-4 flex items-center gap-3">
-            <h2 className="text-lg font-bold text-white">중개사 매물장</h2>
-            <span className="rounded-full bg-gray-700 px-2.5 py-0.5 text-xs text-gray-300">{brokerProperties.length}건</span>
-            <span className="ml-auto text-xs text-gray-500">클릭하면 상세 정보</span>
-          </div>
-
-          <div className="mb-3 flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedBrokerId(null)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                selectedBrokerId === null ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >전체</button>
-            {brokers.map(b => (
-              <button
-                key={b.id}
-                onClick={() => setSelectedBrokerId(b.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                  selectedBrokerId === b.id ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >{b.profiles?.name || b.office_name}</button>
-            ))}
-          </div>
-
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-800">
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">중개사</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">매물 정보</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">상태</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">🔒 중개사 메모</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(selectedBrokerId
-                  ? brokerProperties.filter(p => p.broker_id === selectedBrokerId)
-                  : brokerProperties
-                ).length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-gray-500">등록된 매물이 없습니다</td>
-                  </tr>
-                ) : (
-                  (selectedBrokerId
-                    ? brokerProperties.filter(p => p.broker_id === selectedBrokerId)
-                    : brokerProperties
-                  ).map(property => (
-                    <tr
-                      key={property.id}
-                      onClick={() => setPropertyModal(property)}
-                      className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="font-medium text-white">{property.broker_profiles?.profiles?.name}</div>
-                        <div className="text-xs text-gray-400">{property.broker_profiles?.office_name}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-1.5 text-sm text-white">
-                          <MapPin className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
-                          {property.address}
-                        </div>
-                        <div className="mt-0.5 text-xs text-gray-400">
-                          {property.deal_type} · {property.room_type}
-                          {property.size_pyeong ? ` · ${property.size_pyeong}평` : ''}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                          property.status === 'available' ? 'bg-green-500/20 text-green-400' :
-                          property.status === 'contracted' ? 'bg-blue-500/20 text-blue-400' :
-                          'bg-yellow-500/20 text-yellow-400'
-                        }`}>
-                          {property.status === 'available' ? '매물 있음' : property.status === 'contracted' ? '계약 완료' : '숨김'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        {property.memo ? (
-                          <div className="flex items-start gap-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 px-3 py-2 max-w-xs">
-                            <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-orange-400" />
-                            <p className="text-xs text-orange-300 line-clamp-2">{property.memo}</p>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-600">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         {/* ── Supabase 바로가기 ── */}
         <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
           <h3 className="mb-3 font-bold text-white">🔗 Supabase 직접 관리</h3>
@@ -616,12 +520,57 @@ export default function AdminPage() {
                 : '리뷰 없음'
             } />
             <InfoRow icon={MessageCircle} label="성사 건수" value={`${brokerModal.deal_count ?? 0}건`} />
-            <InfoRow icon={Building2} label="등록 매물" value={`${brokerProperties.filter(p => p.broker_id === brokerModal.id).length}건`} />
             <InfoRow icon={Calendar} label="가입일" value={formatDate(brokerModal.created_at)} />
             {brokerModal.description && (
               <InfoRow icon={FileText} label="소개글" value={brokerModal.description} />
             )}
           </div>
+
+          {/* 등록 매물 목록 */}
+          {(() => {
+            const props = brokerProperties.filter(p => p.broker_id === brokerModal.id)
+            return (
+              <div className="mb-5">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-400">
+                  <Home className="h-3.5 w-3.5" />
+                  등록 매물
+                  <span className="rounded-full bg-gray-700 px-1.5 py-0.5 text-gray-300">{props.length}건</span>
+                </p>
+                {props.length === 0 ? (
+                  <p className="rounded-xl border border-gray-800 bg-gray-800/40 py-4 text-center text-xs text-gray-500">등록된 매물이 없습니다</p>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {props.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setBrokerModal(null); setPropertyModal(p) }}
+                        className="w-full flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-800/40 px-3.5 py-2.5 text-left hover:bg-gray-800 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 text-sm text-white truncate">
+                            <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                            {p.address || '주소 없음'}
+                          </div>
+                          <div className="mt-0.5 text-xs text-gray-400">
+                            {p.deal_type} · {p.room_type}
+                            {p.size_pyeong ? ` · ${p.size_pyeong}` : ''}
+                            {p.price ? ` · ${formatPrice(p.price)}` : ''}
+                          </div>
+                        </div>
+                        <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
+                          p.status === 'available' ? 'bg-green-500/20 text-green-400' :
+                          p.status === 'contracted' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {p.status === 'available' ? '매물있음' : p.status === 'contracted' ? '계약완료' : '숨김'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* 인증 버튼 */}
           <div className="flex gap-3">
