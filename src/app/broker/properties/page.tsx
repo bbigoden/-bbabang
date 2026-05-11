@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -28,6 +28,11 @@ interface Property {
   description: string | null
   memo: string | null
   assignee: string | null
+  move_in_date: string | null
+  rooms_bathrooms: string | null
+  approval_date: string | null
+  parking: string | null
+  direction: string | null
   status: 'available' | 'contracted' | 'hidden'
   created_at: string
   custom_fields: Record<string, string> | null
@@ -48,19 +53,28 @@ const STATUS_COLOR: Record<string, string> = {
 const DEAL_TYPES = ['매매', '전세', '월세']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '기타']
 const OPTIONS_LIST = ['풀옵션', '에어컨', '세탁기', '냉장고', '전자레인지', '인터넷', '주차 가능', '엘리베이터', '반려동물 허용', 'CCTV', '도시가스', '관리비 포함']
+const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
+const PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const DEAL_FILTERS = ['전체', '매매', '전세', '월세'] as const
 type DealFilter = typeof DEAL_FILTERS[number]
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
-  { key: 'deal_type',    label: '거래' },
-  { key: 'room_type',    label: '유형' },
-  { key: 'price',        label: '가격/보증금' },
-  { key: 'monthly_rent', label: '임차료' },
-  { key: 'brief_memo',   label: '메모' },
-  { key: 'memo',         label: '중개사메모' },
-  { key: 'images',       label: '사진' },
+  { key: 'size_pyeong',     label: '면적' },
+  { key: 'price',           label: '가격' },
+  { key: 'room_type',       label: '중개대상물종류' },
+  { key: 'deal_type',       label: '거래형태' },
+  { key: 'total_floors',    label: '총 층수' },
+  { key: 'move_in_date',    label: '입주가능일' },
+  { key: 'rooms_bathrooms', label: '방수/욕실수' },
+  { key: 'approval_date',   label: '사용승인일' },
+  { key: 'parking',         label: '주차' },
+  { key: 'management_fee',  label: '관리비' },
+  { key: 'direction',       label: '방향' },
+  { key: 'images',          label: '사진' },
+  { key: 'brief_memo',      label: '메모' },
+  { key: 'memo',            label: '중개사메모' },
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
@@ -307,11 +321,28 @@ export default function BrokerPropertiesPage() {
   })
   // 통합 칼럼 순서 (status + fixed + address + custom 모두 포함)
   const [colOrder, setColOrder] = useState<string[]>(() => {
-    try { const s = localStorage.getItem('broker_col_full_order'); if (s) { const p = JSON.parse(s) as string[]; if (p.includes('status') && p.includes('address')) return p } } catch {}
-    return ['status', ...FIXED_COLS, 'address']
+    const defaultOrder = ['status', 'address', ...FIXED_COLS]
+    try {
+      const s = localStorage.getItem('broker_col_full_order')
+      if (s) {
+        const p = JSON.parse(s) as string[]
+        if (p.includes('status') && p.includes('address')) {
+          // 새로 추가된 고정 칼럼이 있으면 뒤에 붙임
+          const missing = defaultOrder.filter(k => !p.includes(k))
+          return missing.length > 0 ? [...p, ...missing] : p
+        }
+      }
+    } catch {}
+    return defaultOrder
   })
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const def: Record<string, number> = { assignee: 72, deal_type: 60, room_type: 72, price: 96, monthly_rent: 64, management_fee: 64, premium: 64, brief_memo: 128, memo: 128, images: 56 }
+    const def: Record<string, number> = {
+      status: 88, address: 200,
+      size_pyeong: 70, price: 96, room_type: 110, deal_type: 72,
+      total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
+      approval_date: 90, parking: 72, management_fee: 72,
+      direction: 68, images: 56, brief_memo: 140, memo: 140,
+    }
     try { const s = localStorage.getItem('broker_col_widths'); if (s) return { ...def, ...JSON.parse(s) } } catch {}
     return def
   })
@@ -625,7 +656,7 @@ export default function BrokerPropertiesPage() {
                   // 상태
                   if (key === 'status') return (
                     <th key="status"
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === 'status' ? 'bg-blue-50' : ''}`}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'status' ? 'bg-blue-50' : ''}`}
                       style={{ width: colWidths['status'] ?? 88, maxWidth: colWidths['status'] ?? 88 }}
                       draggable onDragStart={e => onColDragStart('status', e)}
                       onDragOver={e => onColDragOver('status', e)} onDrop={() => onColDrop('status')}
@@ -638,8 +669,8 @@ export default function BrokerPropertiesPage() {
                   // 주소
                   if (key === 'address') return (
                     <th key="address"
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === 'address' ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths['address'] ?? 192, maxWidth: colWidths['address'] ?? 192 }}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === 'address' ? 'bg-blue-50' : ''}`}
+                      style={{ width: colWidths['address'] ?? 200, maxWidth: colWidths['address'] ?? 200 }}
                       draggable onDragStart={e => onColDragStart('address', e)}
                       onDragOver={e => onColDragOver('address', e)} onDrop={() => onColDrop('address')}
                       onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
@@ -654,13 +685,25 @@ export default function BrokerPropertiesPage() {
                     if (!visibleCols.includes(key as ColKey)) return null
                     return (
                       <th key={key}
-                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
                         style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}
                         draggable onDragStart={e => onColDragStart(key, e)}
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
                         onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
                       >
-                        <span className="truncate block pr-2">{fixedCol.label}</span>
+                        {key === 'memo' ? (
+                          <span className="flex items-center gap-1 pr-2 overflow-hidden">
+                            <span className="truncate">{fixedCol.label}</span>
+                            <span className="group/tip relative flex-shrink-0">
+                              <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tip:block whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] text-white shadow-lg z-[200]">
+                                매물제안시 나에게만 보이는 메모입니다
+                              </span>
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="truncate block pr-2">{fixedCol.label}</span>
+                        )}
                         <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-300 opacity-0 hover:opacity-100" />
                       </th>
                     )
@@ -669,7 +712,7 @@ export default function BrokerPropertiesPage() {
                   const customCol = customColumns.find(c => c.id === key)
                   if (customCol && showCustom(key)) return (
                     <th key={key}
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors overflow-hidden ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
                       style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}
                       draggable onDragStart={e => onColDragStart(key, e)}
                       onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
@@ -716,13 +759,20 @@ export default function BrokerPropertiesPage() {
                       if (!visibleCols.includes(key as ColKey)) return null
                       return (
                         <td key={key} className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
-                          {key === 'deal_type' && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
-                          {key === 'room_type' && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
-                          {key === 'price' && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
-                          {key === 'monthly_rent' && <NumberCell value={p.monthly_rent} onSave={v => saveField(p.id, 'monthly_rent', v)} />}
-                          {key === 'brief_memo' && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
-                          {key === 'memo' && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
-                          {key === 'images' && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
+                          {key === 'size_pyeong'     && <NumberCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v)} suffix="평" />}
+                          {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
+                          {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
+                          {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
+                          {key === 'total_floors'    && <NumberCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v)} suffix="층" />}
+                          {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="입주가능일" />}
+                          {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
+                          {key === 'approval_date'   && <TextCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} placeholder="사용승인일" />}
+                          {key === 'parking'         && <SelectCell value={p.parking ?? ''} options={PARKING_OPTS} onSave={v => saveField(p.id, 'parking', v)} />}
+                          {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
+                          {key === 'direction'       && <SelectCell value={p.direction ?? ''} options={DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} />}
+                          {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
+                          {key === 'brief_memo'      && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
+                          {key === 'memo'            && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
                         </td>
                       )
                     }
