@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -26,25 +27,16 @@ export default async function LandingPage() {
         .eq('id', user.id)
         .single()
       userRole = profile?.role ?? null
-
-      if (userRole === 'user') {
-        const { data: reqs } = await supabase
-          .from('request_posts')
-          .select('id')
-          .eq('user_id', user.id)
-        const ids = reqs?.map((r: any) => r.id) ?? []
-        if (ids.length > 0) {
-          const { count } = await supabase
-            .from('proposals')
-            .select('*', { count: 'exact', head: true })
-            .in('request_id', ids)
-            .eq('status', 'pending')
-          unreadCount = count ?? 0
-        }
-      }
     }
   } catch {
     // Supabase 미설정 시 공개 랜딩만 표시
+  }
+
+  // 로그인된 유저는 바로 대시보드로 (try-catch 밖에서 redirect)
+  if (user) {
+    if (userRole === 'admin') redirect('/admin')
+    if (userRole === 'broker') redirect('/dashboard/broker')
+    redirect('/dashboard/user')
   }
 
   return (

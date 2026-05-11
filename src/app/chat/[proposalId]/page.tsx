@@ -274,19 +274,7 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
               )}
             </div>
 
-            {/* 옵션 */}
-            {(snapshot.options ?? []).length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2">옵션</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(snapshot.options ?? []).map(opt => (
-                    <span key={opt} className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">{opt}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 설명 */}
+            {/* 메모 */}
             {snapshot.description && (
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">메모</p>

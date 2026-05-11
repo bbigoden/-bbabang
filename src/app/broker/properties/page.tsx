@@ -64,13 +64,6 @@ const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '�
 const PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
-// 옵션 그룹 (가전/가구/시설)
-const OPTIONS_GROUPS = [
-  { label: '가전', items: ['풀옵션', '에어컨', '냉장고', '세탁기', '건조기', '전자레인지', '인덕션', '가스레인지', '식기세척기', 'TV'] },
-  { label: '가구', items: ['침대', '소파', '책상', '옷장', '붙박이장', '신발장'] },
-  { label: '시설', items: ['주차 가능', '엘리베이터', '도시가스', '인터넷', '반려동물 허용', 'CCTV'] },
-]
-
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
   { key: 'address',         label: '소재지' },
@@ -78,7 +71,6 @@ const ALL_COLUMNS = [
   { key: 'price',           label: '가격' },
   { key: 'room_type',       label: '중개대상물종류' },
   { key: 'deal_type',       label: '거래형태' },
-  { key: 'options',         label: '옵션' },
   { key: 'total_floors',    label: '총 층수' },
   { key: 'move_in_date',    label: '입주가능일' },
   { key: 'rooms_bathrooms', label: '방수/욕실수' },
@@ -1142,7 +1134,6 @@ function BrokerPropertiesContent() {
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
-                          {key === 'options'         && <OptionsCell value={p.options ?? []} onSave={v => saveField(p.id, 'options', v)} />}
                           {key === 'total_floors'    && <TextCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v || null)} placeholder="예: 3/15" />}
                           {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="예: 26/05/03" />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}

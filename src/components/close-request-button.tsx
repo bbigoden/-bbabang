@@ -23,8 +23,8 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
       return
     }
     setShowModal(false)
-    router.refresh()
     setLoading(false)
+    window.location.href = '/dashboard/user'
   }
 
   return (

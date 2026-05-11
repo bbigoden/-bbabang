@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Plus, Home, MessageCircle, Clock, Archive } from 'lucide-react'
+import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -63,7 +63,7 @@ export default async function UserDashboardPage() {
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         {/* 상단 인사 */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
               안녕하세요, {profile?.name ?? '회원'}님 👋
@@ -72,33 +72,34 @@ export default async function UserDashboardPage() {
           </div>
           <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             <Plus className="h-4 w-4" />
-            새 요청 등록
+            요청 등록
           </Link>
         </div>
 
-        {/* 요약 통계 */}
-        <div className="mb-8 grid grid-cols-3 gap-4">
-          {[
-            { label: '전체 요청', value: requests?.length ?? 0, icon: Home, color: 'text-blue-600 bg-blue-50' },
-            { label: '활성 요청', value: requests?.filter(r => r.status === 'active').length ?? 0, icon: Clock, color: 'text-green-600 bg-green-50' },
-            { label: '받은 제안', value: requests?.reduce((acc, r) => acc + (r.proposal_count ?? 0), 0) ?? 0, icon: MessageCircle, color: 'text-purple-600 bg-purple-50' },
-          ].map((stat) => (
-            <Card key={stat.label}>
-              <CardBody className="flex items-center gap-4">
-                <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.color}`}>
-                  <stat.icon className="h-5 w-5" />
+        {/* 이용 흐름 안내 */}
+        <div className="mb-8 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+          <p className="mb-3 text-xs font-bold text-blue-500 uppercase tracking-wide">빠방 이용 흐름</p>
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {[
+              { icon: FileText, label: '요청 등록', desc: '조건 입력', active: activeRequests.length === 0 },
+              { icon: Users, label: '제안 받기', desc: '중개사 제안', active: activeRequests.length > 0 && requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) === 0 },
+              { icon: MessageSquare, label: '채팅', desc: '매물 협의', active: (requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) ?? 0) > 0 },
+              { icon: FileCheck, label: '계약', desc: '직접 진행', active: false },
+            ].map((step, i) => (
+              <div key={i} className="flex items-center gap-1 flex-shrink-0">
+                <div className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 ${step.active ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'}`}>
+                  <step.icon className="h-4 w-4" />
+                  <span className="text-xs font-bold">{step.label}</span>
+                  <span className={`text-[10px] ${step.active ? 'text-blue-100' : 'text-gray-400'}`}>{step.desc}</span>
                 </div>
-                <div>
-                  <div className="text-2xl font-black text-gray-900">{stat.value}</div>
-                  <div className="text-xs text-gray-500">{stat.label}</div>
-                </div>
-              </CardBody>
-            </Card>
-          ))}
+                {i < 3 && <ChevronRight className="h-4 w-4 text-blue-300 flex-shrink-0" />}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* 활성 요청 목록 */}
-        <h2 className="mb-4 font-bold text-gray-900">활성 요청</h2>
+        <h2 className="mb-4 font-bold text-gray-900">진행 중인 요청 ({activeRequests.length})</h2>
 
         {activeRequests.length === 0 ? (
           <Card>

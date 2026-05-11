@@ -13,12 +13,6 @@ import Link from 'next/link'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실']
-const OPTIONS_GROUPS = [
-  { label: '가전', items: ['풀옵션', '에어컨', '냉장고', '세탁기', '건조기', '전자레인지', '인덕션', '가스레인지', '식기세척기', 'TV'] },
-  { label: '가구', items: ['침대', '소파', '책상', '옷장', '붙박이장', '신발장'] },
-  { label: '시설', items: ['주차 가능', '엘리베이터', '도시가스', '인터넷', '반려동물 허용', 'CCTV'] },
-]
-const OPTIONS = OPTIONS_GROUPS.flatMap(g => g.items)
 
 export default function NewPropertyPage() {
   const router = useRouter()
@@ -300,35 +294,6 @@ export default function NewPropertyPage() {
               </CardBody>
             </Card>
 
-            {/* 옵션 */}
-            <Card>
-              <CardBody>
-                <p className="mb-1 text-sm font-semibold text-gray-700">옵션 <span className="text-xs font-normal text-gray-400">(입주 시 제공되는 가전·가구)</span></p>
-                <div className="space-y-3 mt-3">
-                  {OPTIONS_GROUPS.map(group => (
-                    <div key={group.label}>
-                      <p className="mb-1.5 text-xs font-semibold text-gray-400">{group.label}</p>
-                      <div className="flex flex-wrap gap-2">
-                        {group.items.map(opt => (
-                          <button
-                            key={opt} type="button"
-                            onClick={() => toggleOption(opt)}
-                            className={cn(
-                              'rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
-                              selectedOptions.includes(opt)
-                                ? 'border-blue-500 bg-blue-500 text-white'
-                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                            )}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
 
             {/* 사진 업로드 */}
             <Card>

@@ -46,8 +46,8 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        {/* 로고 */}
-        <Link href="/" className="flex items-center gap-2">
+        {/* 로고 — 로그인 유저는 대시보드로, 비로그인은 홈으로 */}
+        <Link href={user ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user') : '/'} className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
             <Home className="h-5 w-5 text-white" />
           </div>

@@ -46,16 +46,19 @@ export default function ReviewPage() {
         router.push('/dashboard/user'); return
       }
 
-      // 이미 리뷰 작성했는지 확인
+      const brokerIdVal = proposal.broker_profiles?.id ?? ''
+
+      // 이미 리뷰 작성했는지 확인 (broker_id + user_id 유니크 조합으로 체크)
       const { data: existing } = await supabase
         .from('reviews')
         .select('id')
-        .eq('proposal_id', proposalId)
-        .single()
+        .eq('broker_id', brokerIdVal)
+        .eq('user_id', user.id)
+        .maybeSingle()
 
       if (existing) { setDone(true) }
 
-      setBrokerId(proposal.broker_profiles?.id ?? '')
+      setBrokerId(brokerIdVal)
       setBrokerName(proposal.broker_profiles?.profiles?.name ?? '중개사')
       setInitialLoading(false)
     }
@@ -75,11 +78,10 @@ export default function ReviewPage() {
     if (!user) return
 
     const { error: insertError } = await supabase.from('reviews').insert({
-      proposal_id: proposalId,
       broker_id: brokerId,
       user_id: user.id,
       rating,
-      comment: comment || null,
+      content: comment || '',
     })
 
     if (insertError) {
