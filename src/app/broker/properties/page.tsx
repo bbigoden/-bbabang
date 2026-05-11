@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -375,6 +375,13 @@ function BrokerPropertiesContent() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
+  const [isMapView, setIsMapView] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
+  const [geocoding, setGeocoding] = useState(false)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
+  const overlaysRef = useRef<any[]>([])
+  const infoOverlaysRef = useRef<any[]>([])
   const [addingId, setAddingId] = useState<string | null>(null)
   const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => {
     try {
@@ -469,6 +476,20 @@ function BrokerPropertiesContent() {
 
   useEffect(() => { init() }, [])
   useEffect(() => { setPage(1) }, [filterDealType, filterRoomType, searchQuery, pageSize])
+
+  // 카카오맵 SDK 로드
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const w = window as any
+    if (w.kakao?.maps?.services) { setMapReady(true); return }
+    if (document.querySelector('script[data-kakao-map]')) return
+    const script = document.createElement('script')
+    script.setAttribute('data-kakao-map', 'true')
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=017c7c57dbe2ea685af175b10a5b6fdd&libraries=services&autoload=false`
+    script.async = true
+    script.onload = () => { w.kakao.maps.load(() => setMapReady(true)) }
+    document.head.appendChild(script)
+  }, [])
 
   const init = async () => {
     let u: any = null
@@ -617,6 +638,87 @@ function BrokerPropertiesContent() {
     return list
   }, [properties, filterDealType, filterRoomType, searchQuery])
 
+  // 지도 뷰 전환 시 지도 초기화 & 마커 렌더링
+  useEffect(() => {
+    if (!isMapView || !mapReady) return
+    const timer = setTimeout(() => {
+      if (!mapContainerRef.current) return
+      const kakao = (window as any).kakao
+
+      if (!mapInstanceRef.current) {
+        mapInstanceRef.current = new kakao.maps.Map(mapContainerRef.current, {
+          center: new kakao.maps.LatLng(37.5665, 126.9780),
+          level: 9,
+        })
+        kakao.maps.event.addListener(mapInstanceRef.current, 'click', () => {
+          infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
+        })
+      }
+
+      const map = mapInstanceRef.current
+      overlaysRef.current.forEach((o: any) => o.setMap(null))
+      infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
+      overlaysRef.current = []
+      infoOverlaysRef.current = []
+
+      const geocoder = new kakao.maps.services.Geocoder()
+      const targets = filtered.filter(p => p.address)
+      if (targets.length === 0) { setGeocoding(false); return }
+
+      setGeocoding(true)
+      let done = 0
+      const colorMap: Record<string, string> = { 매매: '#2563eb', 전세: '#7c3aed', 월세: '#ea580c' }
+
+      const fmtPrice = (p: Property) => {
+        if (p.price == null) return '미정'
+        if (p.price >= 10000) {
+          const uk = Math.floor(p.price / 10000)
+          const man = p.price % 10000
+          return uk + '억' + (man > 0 ? ' ' + man + '만' : '')
+        }
+        return p.price.toLocaleString() + '만'
+      }
+
+      targets.forEach(prop => {
+        geocoder.addressSearch(prop.address!, (result: any, status: any) => {
+          done++
+          if (done === targets.length) setGeocoding(false)
+          if (status !== kakao.maps.services.Status.OK) return
+
+          const pos = new kakao.maps.LatLng(result[0].y, result[0].x)
+          const color = colorMap[prop.deal_type] ?? '#374151'
+
+          const markerEl = document.createElement('div')
+          markerEl.innerHTML = `<div style="background:${color};color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;border:2px solid #fff">${prop.deal_type} ${fmtPrice(prop)}</div>`
+          const markerOverlay = new kakao.maps.CustomOverlay({ position: pos, content: markerEl, yAnchor: 1.2 })
+          markerOverlay.setMap(map)
+          overlaysRef.current.push(markerOverlay)
+
+          const infoEl = document.createElement('div')
+          infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:170px;font-family:inherit">
+            <div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${prop.address}</div>
+            <div style="display:flex;gap:5px;align-items:center;margin-bottom:3px">
+              <span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${prop.deal_type}</span>
+              <span style="font-size:12px;font-weight:700;color:${color}">${fmtPrice(prop)}</span>
+            </div>
+            <div style="font-size:10px;color:#6b7280">${prop.room_type}${prop.size_pyeong ? ' · ' + prop.size_pyeong : ''}${prop.total_floors ? ' · ' + prop.total_floors : ''}</div>
+            ${prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${prop.brief_memo}</div>` : ''}
+          </div>`
+          const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 2.9, zIndex: 5 })
+          infoOverlaysRef.current.push(infoOverlay)
+
+          markerEl.addEventListener('click', (e) => {
+            e.stopPropagation()
+            infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
+            infoOverlay.setMap(map)
+          })
+        })
+      })
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [isMapView, mapReady, filtered])
+
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
 
@@ -735,6 +837,21 @@ function BrokerPropertiesContent() {
                 </div>
               )}
             </div>
+            {/* 목록/지도 토글 */}
+            <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <button
+                onClick={() => setIsMapView(false)}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${!isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                <List className="h-4 w-4" />목록
+              </button>
+              <button
+                onClick={() => setIsMapView(true)}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                <Map className="h-4 w-4" />지도
+              </button>
+            </div>
             {!isAdminView && (
               <button onClick={addNewRow}
                 className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
@@ -800,8 +917,38 @@ function BrokerPropertiesContent() {
           </div>
         )}
 
+        {/* 지도 뷰 */}
+        {isMapView && (
+          <div className="relative rounded-xl border border-gray-200 overflow-hidden shadow-sm" style={{ height: 560 }}>
+            <div ref={mapContainerRef} className="w-full h-full" />
+            {/* 로딩 오버레이 */}
+            {(!mapReady || geocoding) && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10">
+                <Loader2 className="h-7 w-7 animate-spin text-blue-600 mb-2" />
+                <p className="text-sm text-gray-500">{!mapReady ? '지도 불러오는 중...' : `주소 변환 중... (${filtered.filter(p=>p.address).length}건)`}</p>
+              </div>
+            )}
+            {/* 범례 */}
+            {mapReady && !geocoding && (
+              <div className="absolute bottom-4 left-4 flex gap-2 z-10">
+                {[['매매','#2563eb'],['전세','#7c3aed'],['월세','#ea580c']].map(([label, color]) => (
+                  <span key={label} style={{ background: color }} className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white shadow">
+                    {label}
+                  </span>
+                ))}
+              </div>
+            )}
+            {/* 검색 결과 없음 */}
+            {mapReady && !geocoding && filtered.filter(p => p.address).length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
+                <p className="text-sm text-gray-400">주소가 있는 매물이 없습니다</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 테이블 */}
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className={`overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm ${isMapView ? 'hidden' : ''}`}>
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
@@ -944,7 +1091,7 @@ function BrokerPropertiesContent() {
         </div>
 
         {/* 페이지네이션 */}
-        <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+        <div className={`mt-5 flex items-center justify-center gap-2 flex-wrap ${isMapView ? 'hidden' : ''}`}>
           {/* 페이지 이동 */}
           {totalPages > 1 && (
             <>
