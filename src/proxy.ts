@@ -25,7 +25,14 @@ export async function proxy(request: NextRequest) {
   })
 
   // 세션 갱신 (토큰 만료 시 자동 재발급)
-  const { data: { user } } = await supabase.auth.getUser()
+  let user: any = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // 세션 갱신 실패 시 그냥 통과 (페이지에서 처리)
+    return response
+  }
 
   // 보호된 경로: 로그인 필요
   const isProtected = PROTECTED.some(p => pathname.startsWith(p))
