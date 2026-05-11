@@ -83,10 +83,8 @@ const DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
 // 칼럼 구조가 바뀔 때마다 올려주면 localStorage 자동 초기화
 const COL_VERSION = 'v3'
 
-// 초기 커스텀 칼럼 (새 중개사용 기본값)
-const DEFAULT_CUSTOM_COLS: CustomColumn[] = [
-  { id: 'assignee', name: '담당자' },
-]
+// 초기 커스텀 칼럼 (기본값 없음)
+const DEFAULT_CUSTOM_COLS: CustomColumn[] = []
 
 // 팝오버를 닫기 위한 훅
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -379,7 +377,7 @@ export default function BrokerPropertiesPage() {
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [visibleCustomCols, setVisibleCustomCols] = useState<string[]>(() => {
     try { const s = localStorage.getItem('broker_visible_custom'); if (s) return JSON.parse(s) } catch {}
-    return ['assignee']
+    return []
   })
   const [editingColId, setEditingColId] = useState<string | null>(null)
   const [editingColName, setEditingColName] = useState('')
@@ -723,7 +721,7 @@ export default function BrokerPropertiesPage() {
                   )
                   return null
                 })}
-                <th className="px-2 py-2.5 text-center" style={{ width: 36 }}>삭제</th>
+                <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 36 }}>삭제</th>
               </tr>
             </thead>
             <tbody>
@@ -772,7 +770,7 @@ export default function BrokerPropertiesPage() {
                     )
                     return null
                   })}
-                  <td className="px-2 py-1.5 text-center">
+                  <td className="px-2 py-1.5 text-center bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
                     <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
                       <X className="h-4 w-4" />
                     </button>
