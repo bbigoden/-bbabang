@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
-import { User, Mail, Phone, ShieldCheck, Calendar, Lock, ChevronRight, Check, AlertCircle } from 'lucide-react'
+import { User, Mail, Calendar, Lock, Check, AlertCircle } from 'lucide-react'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -207,19 +207,6 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* 중개사 프로필 바로가기 */}
-        {profile?.role === 'broker' && (
-          <button
-            onClick={() => router.push('/dashboard/broker')}
-            className="w-full flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="h-5 w-5 text-blue-500" />
-              <span className="font-medium text-gray-800">중개사 대시보드</span>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </button>
-        )}
       </div>
     </div>
   )
