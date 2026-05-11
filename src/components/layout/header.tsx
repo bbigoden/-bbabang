@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Home, MessageCircle, User, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 
 interface HeaderProps {
@@ -14,11 +14,29 @@ interface HeaderProps {
   unreadCount?: number
 }
 
-export function Header({ user, role, unreadCount = 0 }: HeaderProps) {
+export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [user, setUser] = useState<any>(userProp ?? null)
+  const [role, setRole] = useState<string | null>(roleProp ?? null)
+
+  // props 없이 호출된 경우 자체적으로 유저 정보 가져오기
+  useEffect(() => {
+    if (userProp !== undefined) return
+    const fetch = async () => {
+      try {
+        const { data } = await supabase.auth.getUser()
+        if (data.user) {
+          setUser(data.user)
+          const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
+          setRole(profile?.role ?? null)
+        }
+      } catch {}
+    }
+    fetch()
+  }, [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
