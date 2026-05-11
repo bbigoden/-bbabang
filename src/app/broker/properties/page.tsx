@@ -71,7 +71,7 @@ const ALL_COLUMNS = [
   { key: 'management_fee',  label: '관리비' },
   { key: 'direction',       label: '방향' },
   { key: 'images',          label: '사진' },
-  { key: 'brief_memo',      label: '메모' },
+  { key: 'brief_memo',      label: '매물설명' },
   { key: 'memo',            label: '중개사메모' },
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
@@ -1067,7 +1067,7 @@ function BrokerPropertiesContent() {
                           {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
                           {key === 'direction'       && <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-                          {key === 'brief_memo'      && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="메모" />}
+                          {key === 'brief_memo'      && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />}
                           {key === 'memo'            && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
                         </td>
                       )

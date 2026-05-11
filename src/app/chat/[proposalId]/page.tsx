@@ -116,23 +116,6 @@ function PropertyCard({ snapshot, isMine, onClick }: { snapshot: PropertySnapsho
         <p className={cn('text-base font-black', isMine ? 'text-blue-800' : 'text-blue-600')}>
           {priceText}
         </p>
-        {(snapshot.options ?? []).length > 0 && (
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {(snapshot.options ?? []).slice(0, 3).map(opt => (
-              <span key={opt} className={cn(
-                'text-xs rounded-full px-2 py-0.5',
-                isMine ? 'bg-blue-200 text-blue-800' : 'bg-gray-100 text-gray-600'
-              )}>
-                {opt}
-              </span>
-            ))}
-            {(snapshot.options ?? []).length > 3 && (
-              <span className={cn('text-xs', isMine ? 'text-blue-600' : 'text-gray-400')}>
-                +{(snapshot.options ?? []).length - 3}
-              </span>
-            )}
-          </div>
-        )}
         {snapshot.description && (
           <p className={cn('text-xs line-clamp-2 pt-0.5 border-t', isMine ? 'border-blue-200 text-blue-700' : 'border-gray-100 text-gray-500')}>
             {snapshot.description}
@@ -274,10 +257,10 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
               )}
             </div>
 
-            {/* 메모 */}
+            {/* 매물설명 */}
             {snapshot.description && (
               <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2">메모</p>
+                <p className="text-xs font-semibold text-gray-500 mb-2">매물설명</p>
                 <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{snapshot.description}</p>
               </div>
             )}

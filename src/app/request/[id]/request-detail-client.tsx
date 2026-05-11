@@ -169,7 +169,7 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
             </div>
             {snapshot.description && (
               <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2">메모</p>
+                <p className="text-xs font-semibold text-gray-500 mb-2">매물설명</p>
                 <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{snapshot.description}</p>
               </div>
             )}
