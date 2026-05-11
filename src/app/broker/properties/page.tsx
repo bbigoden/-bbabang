@@ -126,7 +126,7 @@ function TextCell({ value, onSave, placeholder = '—', className = '' }: {
   }
   return (
     <div onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-      className={`cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] truncate ${value ? 'text-gray-800' : 'text-gray-300'} ${className}`}
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis ${value ? 'text-gray-800' : 'text-gray-300'} ${className}`}
       title={value ?? ''}
     >
       {value || placeholder}
@@ -165,7 +165,7 @@ function NumberCell({ value, onSave, suffix = '만' }: {
   }
   return (
     <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
-      className={`cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
     >
       {value != null ? `${value.toLocaleString()}${suffix}` : '—'}
     </div>
@@ -725,7 +725,7 @@ export default function BrokerPropertiesPage() {
                     if (fixedCol) {
                       if (!visibleCols.includes(key as ColKey)) return null
                       return (
-                        <td key={key} className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                        <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <NumberCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v)} suffix="평" />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
@@ -746,7 +746,7 @@ export default function BrokerPropertiesPage() {
                     }
                     const customCol = customColumns.find(c => c.id === key)
                     if (customCol && showCustom(key)) return (
-                      <td key={key} className="px-2 py-1.5 overflow-hidden" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
+                      <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
                         <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
                       </td>
                     )
