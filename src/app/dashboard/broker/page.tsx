@@ -166,14 +166,6 @@ export default async function BrokerDashboardPage() {
               <span className="text-sm font-bold text-gray-800">업무일지</span>
             </div>
           </Link>
-          <Link href="/chat">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100">
-                <MessageCircle className="h-5 w-5 text-orange-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800">대화목록</span>
-            </div>
-          </Link>
         </div>
 
 

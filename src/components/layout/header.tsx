@@ -78,14 +78,6 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
           )}
           {user ? (
             <>
-              <Link href="/chat" className="relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-                <MessageCircle className="h-5 w-5 text-gray-600" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Link>
               <NotificationBell userId={user.id} />
               <Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
                 <User className="h-5 w-5 text-gray-600" />
@@ -134,16 +126,6 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
             )}
             {user ? (
               <>
-                <Link href="/chat" onClick={() => setMobileOpen(false)}>
-                  <Button variant="ghost" size="md" className="w-full justify-start">
-                    대화목록
-                    {unreadCount > 0 && (
-                      <span className="ml-2 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </Button>
-                </Link>
                 <Link href="/profile" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">내 계정</Button>
                 </Link>
