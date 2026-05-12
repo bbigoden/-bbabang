@@ -106,11 +106,11 @@ export default async function BrokerCustomersPage() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="text-xs text-gray-400">제안 {proposals.length}건</span>
                       <Link
-                        href={`/chat/${chatProposal.id}`}
+                        href={`/request/${chatProposal.request_posts?.id}`}
                         className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
                       >
                         <MessageCircle className="h-3.5 w-3.5" />
-                        채팅
+                        대화
                       </Link>
                     </div>
                   </div>
@@ -120,7 +120,7 @@ export default async function BrokerCustomersPage() {
                     {proposals.slice(0, 3).map(p => {
                       const r = p.request_posts
                       return (
-                        <Link key={p.id} href={`/chat/${p.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+                        <Link key={p.id} href={`/request/${p.request_posts?.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusColor[p.status] ?? 'bg-gray-100 text-gray-500'}`}>
