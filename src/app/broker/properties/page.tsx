@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, cn } from '@/lib/utils'
 import {
   Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2,
 } from 'lucide-react'
