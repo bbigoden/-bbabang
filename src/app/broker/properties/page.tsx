@@ -778,7 +778,7 @@ function BrokerPropertiesContent() {
         {/* 상단 */}
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isAdminView ? `${adminViewBrokerName}의 매물장` : '내 매물장'}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
           </div>
           <div className="flex items-center gap-2">

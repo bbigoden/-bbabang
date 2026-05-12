@@ -447,7 +447,7 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-blue-600" />
-                <h3 className="font-bold text-gray-900">내 매물장</h3>
+                <h3 className="font-bold text-gray-900">매물목록</h3>
                 {!loadingProps && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{brokerProperties.length}</span>}
               </div>
               <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">

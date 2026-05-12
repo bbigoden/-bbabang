@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -140,21 +140,41 @@ export default async function BrokerDashboardPage() {
           </CardBody>
         </Card>
 
-        {/* 매물장 바로가기 */}
-        <Link href="/broker/properties">
-          <div className="mb-6 flex items-center justify-between rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4 hover:bg-blue-100 transition-colors cursor-pointer">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
-                <Building2 className="h-5 w-5 text-white" />
+        {/* 빠른 메뉴 4타일 */}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Link href="/broker/customers">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100">
+                <Users className="h-5 w-5 text-indigo-600" />
               </div>
-              <div>
-                <p className="font-bold text-gray-900">내 매물장</p>
-                <p className="text-xs text-gray-500">등록한 매물을 채팅에서 바로 공유하세요</p>
-              </div>
+              <span className="text-sm font-bold text-gray-800">고객목록</span>
             </div>
-            <span className="text-sm font-semibold text-blue-600">관리하기 →</span>
-          </div>
-        </Link>
+          </Link>
+          <Link href="/broker/properties">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100">
+                <Building2 className="h-5 w-5 text-blue-600" />
+              </div>
+              <span className="text-sm font-bold text-gray-800">매물목록</span>
+            </div>
+          </Link>
+          <Link href="/broker/diary">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100">
+                <ClipboardList className="h-5 w-5 text-green-600" />
+              </div>
+              <span className="text-sm font-bold text-gray-800">업무일지</span>
+            </div>
+          </Link>
+          <Link href="/chat">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100">
+                <MessageCircle className="h-5 w-5 text-orange-600" />
+              </div>
+              <span className="text-sm font-bold text-gray-800">채팅목록</span>
+            </div>
+          </Link>
+        </div>
 
 
         {/* ── 성과 분석 ─────────────────────────────────── */}

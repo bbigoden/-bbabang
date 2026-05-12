@@ -758,7 +758,7 @@ export default function ChatPage() {
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-blue-600" />
-                <span className="font-bold text-gray-900">내 매물장</span>
+                <span className="font-bold text-gray-900">매물목록</span>
                 {!loadingProps && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{brokerProperties.length}</span>}
               </div>
               <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400 transition-colors">

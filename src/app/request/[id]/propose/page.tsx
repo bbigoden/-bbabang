@@ -148,7 +148,7 @@ export default function ProposePage() {
                 <div className="py-10 text-center">
                   <Home className="mx-auto mb-2 h-8 w-8 text-gray-300" />
                   <p className="text-sm text-gray-400">매물있음 상태의 매물이 없습니다</p>
-                  <p className="mt-1 text-xs text-gray-400">내 매물장에서 매물을 먼저 등록해주세요</p>
+                  <p className="mt-1 text-xs text-gray-400">매물목록에서 매물을 먼저 등록해주세요</p>
                 </div>
               ) : (
                 myProperties.map(prop => (
@@ -234,7 +234,7 @@ export default function ProposePage() {
                 className="mb-5 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 py-3 text-sm font-semibold text-blue-600 hover:border-blue-400 hover:bg-blue-100 transition-colors"
               >
                 <BookOpen className="h-4 w-4" />
-                내 매물장에서 가져오기
+                매물목록에서 가져오기
                 {selectedPropertyId && <span className="ml-1 rounded-full bg-blue-600 px-2 py-0.5 text-[11px] text-white">선택됨</span>}
               </button>
 
