@@ -11,7 +11,14 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error(error)
-    window.location.reload()
+    // 무한 루프 방지: 이미 한 번 자동 새로고침했으면 멈춤
+    const key = 'error_auto_reloaded'
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1')
+      window.location.reload()
+    } else {
+      sessionStorage.removeItem(key)
+    }
   }, [error])
 
   return (
