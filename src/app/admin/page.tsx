@@ -450,10 +450,10 @@ export default function AdminPage() {
                         <td className="px-5 py-3.5">
                           <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
                             req.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                            req.status === 'matched' ? 'bg-blue-500/20 text-blue-400' :
+                            
                             'bg-gray-500/20 text-gray-400'
                           }`}>
-                            {req.status === 'active' ? '모집 중' : req.status === 'matched' ? '매칭 완료' : '종료'}
+                            {req.status === 'active' ? '모집 중' :  '종료'}
                           </span>
                         </td>
                       </tr>
@@ -698,10 +698,10 @@ export default function AdminPage() {
             </div>
             <span className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
               requestModal.status === 'active' ? 'bg-green-500/20 text-green-400' :
-              requestModal.status === 'matched' ? 'bg-blue-500/20 text-blue-400' :
+              
               'bg-gray-500/20 text-gray-400'
             }`}>
-              {requestModal.status === 'active' ? '모집 중' : requestModal.status === 'matched' ? '매칭 완료' : '종료'}
+              {requestModal.status === 'active' ? '모집 중' :  '종료'}
             </span>
           </div>
 
@@ -912,10 +912,10 @@ export default function AdminPage() {
                             <span className="font-semibold text-white">{req.profiles?.name || '(알 수 없음)'}</span>
                             <span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${
                               req.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                              req.status === 'matched' ? 'bg-blue-500/20 text-blue-400' :
+                              
                               'bg-gray-500/20 text-gray-400'
                             }`}>
-                              {req.status === 'active' ? '모집 중' : req.status === 'matched' ? '매칭 완료' : '종료'}
+                              {req.status === 'active' ? '모집 중' :  '종료'}
                             </span>
                           </div>
                           <div className="text-xs text-gray-400">{req.city} {req.district} · {req.deal_type?.split(',')?.[0]}</div>

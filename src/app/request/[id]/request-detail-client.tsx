@@ -598,8 +598,8 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {request.is_co_broker && <Badge variant="default" className="bg-purple-100 text-purple-700 border-purple-200">공동중개</Badge>}
-                  <Badge variant={request.status === 'active' ? 'success' : request.status === 'matched' ? 'info' : 'default'}>
-                    {request.status === 'active' ? '모집 중' : request.status === 'matched' ? '매칭 완료' : '마감'}
+                  <Badge variant={request.status === 'active' ? 'success' : 'default'}>
+                    {request.status === 'active' ? '모집 중' : '마감'}
                   </Badge>
                   {(request.deal_type?.split(',') ?? []).map((t: string) => <Badge key={t} variant="info">{t.trim()}</Badge>)}
                   {(request.room_type?.split(',') ?? []).slice(0, 2).map((t: string) => <Badge key={t} variant="default">{t.trim()}</Badge>)}

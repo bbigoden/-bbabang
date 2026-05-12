@@ -52,8 +52,8 @@ export default async function UserDashboardPage() {
   const activeRequests = requests?.filter(r => r.status !== 'closed') ?? []
   const closedRequests = requests?.filter(r => r.status === 'closed') ?? []
 
-  const statusLabel = { active: '모집 중', matched: '매칭 완료', closed: '마감' }
-  const statusVariant = { active: 'success', matched: 'info', closed: 'default' } as const
+  const statusLabel = { active: '모집 중', closed: '마감' }
+  const statusVariant = { active: 'success', closed: 'default' } as const
 
   return (
     <div className="min-h-screen bg-gray-50">
