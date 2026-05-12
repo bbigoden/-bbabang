@@ -715,17 +715,8 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
                         <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{proposal.description}</p>
                       )}
 
-                      <div className="mt-2 flex items-center justify-between">
+                      <div className="mt-2">
                         <span className="text-[10px] text-gray-400">{formatDate(proposal.created_at)}</span>
-                        {isSelected ? (
-                          <span className="text-xs font-semibold text-blue-600 flex items-center gap-1">
-                            <MessageCircle className="h-3 w-3" />채팅 중
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 flex items-center gap-1">
-                            <MessageCircle className="h-3 w-3" />채팅하기 →
-                          </span>
-                        )}
                       </div>
 
                       {isOwner && (
