@@ -302,7 +302,8 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const isBroker = !isOwner
   // 고객 입장: 사무소 이름 우선 표시 (없으면 개인 이름)
   const otherName = isOwner ? (broker?.office_name ?? brokerProfile?.name ?? '중개사') : (requester?.name ?? '고객')
-  const otherSubName = isOwner ? (broker?.office_name ? brokerProfile?.name : null) : null
+  // 대표(is_owner=true)일 때만 개인 이름 노출
+  const otherSubName = isOwner ? (broker?.office_name && broker?.is_owner !== false ? brokerProfile?.name : null) : null
   const otherPhone = isOwner ? brokerProfile?.phone : requester?.phone
 
   const grouped = messages.reduce((g: Record<string, Message[]>, m) => {

@@ -191,7 +191,7 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
                             <span className="text-sm font-bold text-gray-900 truncate">{broker?.office_name ?? brokerProfile?.name ?? '중개사'}</span>
                             {broker?.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
                           </div>
-                          <p className="text-xs text-gray-500 truncate">{broker?.office_name ? brokerProfile?.name : ''}</p>
+                          <p className="text-xs text-gray-500 truncate">{broker?.office_name && broker?.is_owner !== false ? brokerProfile?.name : ''}</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="text-sm font-black text-blue-600">{formatPrice(proposal.price)}</div>
