@@ -62,7 +62,7 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
   { key: 'address',         label: '소재지' },
-  { key: 'size_pyeong',     label: '면적' },
+  { key: 'size_pyeong',     label: '면적(전용/공급)' },
   { key: 'price',           label: '가격' },
   { key: 'room_type',       label: '중개대상물종류' },
   { key: 'deal_type',       label: '거래형태' },
@@ -283,9 +283,9 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
   const hasDed = !!size
   const hasSup = supplied != null
   const displayText = hasDed && hasSup
-    ? `전용${size}${unit}/공급${supplied}${unit}`
-    : hasDed ? `${size}${unit}(전용)`
-    : hasSup ? `${supplied}${unit}(공급)`
+    ? `${size}/${supplied}${unit}`
+    : hasDed ? `${size}${unit}`
+    : hasSup ? `${supplied}${unit}`
     : null
 
   return (
