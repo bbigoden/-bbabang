@@ -63,16 +63,12 @@ function LoginForm() {
       .eq('id', authData.user.id)
       .single()
 
-    if (redirectTo) {
-      router.push(redirectTo)
-    } else if (profile?.role === 'admin') {
-      router.push('/admin')
-    } else if (profile?.role === 'broker') {
-      router.push('/dashboard/broker')
-    } else {
-      router.push('/dashboard/user')
-    }
-    router.refresh()
+    const dest = redirectTo
+      ?? (profile?.role === 'admin' ? '/admin'
+        : profile?.role === 'broker' ? '/dashboard/broker'
+        : '/dashboard/user')
+
+    router.push(dest)
   }
 
   return (
