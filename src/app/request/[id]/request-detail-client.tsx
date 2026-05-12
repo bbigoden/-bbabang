@@ -13,7 +13,6 @@ import {
   ImagePlus, Phone, ChevronLeft, ChevronRight, Search
 } from 'lucide-react'
 import { CloseRequestButton } from '@/components/close-request-button'
-import { ProposalActions } from '@/components/proposal-actions'
 import { ShareButton } from '@/components/share-button'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -719,18 +718,6 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
                         <span className="text-[10px] text-gray-400">{formatDate(proposal.created_at)}</span>
                       </div>
 
-                      {isOwner && (
-                        <div className="mt-2" onClick={e => e.stopPropagation()}>
-                          <ProposalActions
-                            proposalId={proposal.id}
-                            requestId={request.id}
-                            currentStatus={proposal.status}
-                            brokerId={broker?.user_id}
-                            requestOwnerId={request.user_id}
-                            onChatClick={() => handleSelect(proposal.id)}
-                          />
-                        </div>
-                      )}
                     </button>
                   )
                 })}

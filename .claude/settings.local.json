@@ -51,7 +51,11 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pc\\\\Desktop\\\\코드\\\\빠방\" -Force)",
       "Bash(Select-Object Name, FullName)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\pc\\\\Desktop\\\\코드\\\\빠방\" -Recurse -Name)",
-      "Bash(xargs grep -l \"broker/\\\\[id\\\\]\")"
+      "Bash(xargs grep -l \"broker/\\\\[id\\\\]\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('next:', p.dependencies.next\\)\")",
+      "Bash(node -e \"const r = require\\('next/dist/client/components/redirect'\\); console.log\\(Object.keys\\(r\\)\\)\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\({next: p.dependencies?.next, version: p.version}, null, 2\\)\\)\")",
+      "Bash(node -e \"const {createBrowserClient} = require\\('@supabase/ssr'\\); console.log\\(typeof createBrowserClient\\)\")"
     ]
   }
 }
