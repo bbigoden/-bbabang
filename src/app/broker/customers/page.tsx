@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { redirect } from 'next/navigation'
 import { formatDate, formatPrice } from '@/lib/utils'
 import Link from 'next/link'
-import { MessageCircle, MapPin, Star, ChevronRight } from 'lucide-react'
+import { MapPin, Star, ChevronRight } from 'lucide-react'
 
 const statusLabel: Record<string, string> = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
 const statusColor: Record<string, string> = {
@@ -103,16 +103,7 @@ export default async function BrokerCustomersPage() {
                       </div>
                       <p className="text-xs text-gray-400 truncate">{profile.email}</p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs text-gray-400">제안 {proposals.length}건</span>
-                      <Link
-                        href={`/request/${chatProposal.request_posts?.id}`}
-                        className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        대화
-                      </Link>
-                    </div>
+                    <span className="text-xs text-gray-400 flex-shrink-0">제안 {proposals.length}건</span>
                   </div>
 
                   {/* 제안 목록 */}
