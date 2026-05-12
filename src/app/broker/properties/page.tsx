@@ -22,6 +22,7 @@ interface Property {
   size_pyeong: string | null
   area_type: string | null
   area_unit: string | null
+  area_supplied: number | null
   floor: number | null
   total_floors: string | null
   options: string[]
@@ -236,35 +237,38 @@ function SelectCell({ value, options, onSave, colorMap }: {
   )
 }
 
-// ── 면적 셀 (SelectCell 방식 팝오버) ──────────────────────────
-function AreaCell({ size, areaUnit, areaType, onSave }: {
-  size: string | null
+// ── 면적 셀 (전용·공급 각각 입력) ──────────────────────────
+function AreaCell({ size, supplied, areaUnit, onSave }: {
+  size: string | null          // 전용 면적
+  supplied: number | null      // 공급 면적
   areaUnit: string | null
-  areaType: string | null
-  onSave: (size: string | null, unit: string, type: string) => void
+  onSave: (dedicated: string | null, supplied: string | null, unit: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
-  const [draftSize, setDraftSize] = useState(size ?? '')
+  const [draftDedicated, setDraftDedicated] = useState(size ?? '')
+  const [draftSupplied, setDraftSupplied] = useState(supplied != null ? String(supplied) : '')
   const [draftUnit, setDraftUnit] = useState<'평' | 'm²'>((areaUnit as any) ?? '평')
-  const [draftType, setDraftType] = useState<'전용' | '공급'>((areaType as any) ?? '전용')
   const [hovered, setHovered] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useClickOutside(ref, () => {
-    if (open) { onSave(draftSize || null, draftUnit, draftType); setOpen(false) }
-  })
+  const commit = () => {
+    onSave(draftDedicated || null, draftSupplied || null, draftUnit)
+    setOpen(false)
+  }
+
+  useClickOutside(ref, () => { if (open) commit() })
   useEffect(() => { if (open) inputRef.current?.focus() }, [open])
 
   const handleOpen = () => {
-    setDraftSize(size ?? '')
+    setDraftDedicated(size ?? '')
+    setDraftSupplied(supplied != null ? String(supplied) : '')
     setDraftUnit((areaUnit as any) ?? '평')
-    setDraftType((areaType as any) ?? '전용')
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
-      const openUp = window.innerHeight - rect.bottom < 160
+      const openUp = window.innerHeight - rect.bottom < 180
       const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
       if (openUp) s.bottom = window.innerHeight - rect.top + 4
       else s.top = rect.bottom + 4
@@ -274,7 +278,15 @@ function AreaCell({ size, areaUnit, areaType, onSave }: {
     setHovered(false)
   }
 
-  const displayText = size ? `${size}${areaUnit ?? '평'}(${areaType ?? '전용'})` : null
+  // 표시 텍스트 조합
+  const unit = areaUnit ?? '평'
+  const hasDed = !!size
+  const hasSup = supplied != null
+  const displayText = hasDed && hasSup
+    ? `전용${size}${unit}/공급${supplied}${unit}`
+    : hasDed ? `${size}${unit}(전용)`
+    : hasSup ? `${supplied}${unit}(공급)`
+    : null
 
   return (
     <div ref={ref} className="relative">
@@ -289,16 +301,8 @@ function AreaCell({ size, areaUnit, areaType, onSave }: {
       </div>
       {hovered && displayText && <CellTooltip text={displayText} anchorRef={btnRef} />}
       {open && (
-        <div className="w-44 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5" style={popupStyle}>
-          <input
-            ref={inputRef}
-            type="number"
-            value={draftSize}
-            placeholder="면적 숫자"
-            onChange={e => setDraftSize(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { onSave(draftSize || null, draftUnit, draftType); setOpen(false) } if (e.key === 'Escape') setOpen(false) }}
-            className="w-full rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
-          />
+        <div className="w-48 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5" style={popupStyle}>
+          {/* 단위 토글 */}
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
             {(['평', 'm²'] as const).map(u => (
               <button key={u} type="button" onClick={() => setDraftUnit(u)}
@@ -307,13 +311,32 @@ function AreaCell({ size, areaUnit, areaType, onSave }: {
                 )}>{u}</button>
             ))}
           </div>
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            {(['전용', '공급'] as const).map(t => (
-              <button key={t} type="button" onClick={() => setDraftType(t)}
-                className={cn('flex-1 py-1 text-xs font-semibold transition-colors',
-                  draftType === t ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
-                )}>{t}</button>
-            ))}
+          {/* 전용 */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 flex-shrink-0 text-xs text-gray-500">전용</span>
+            <input
+              ref={inputRef}
+              type="number"
+              value={draftDedicated}
+              placeholder="—"
+              onChange={e => setDraftDedicated(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
+              className="flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+            />
+            <span className="text-xs text-gray-400">{draftUnit}</span>
+          </div>
+          {/* 공급 */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 flex-shrink-0 text-xs text-gray-500">공급</span>
+            <input
+              type="number"
+              value={draftSupplied}
+              placeholder="—"
+              onChange={e => setDraftSupplied(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
+              className="flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+            />
+            <span className="text-xs text-gray-400">{draftUnit}</span>
           </div>
         </div>
       )}
@@ -1225,7 +1248,7 @@ function BrokerPropertiesContent() {
                       return (
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
-                          {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} areaUnit={p.area_unit} areaType={p.area_type} onSave={(sz, unit, type) => { saveField(p.id, 'size_pyeong', sz); saveField(p.id, 'area_unit', unit); saveField(p.id, 'area_type', type) }} />}
+                          {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
