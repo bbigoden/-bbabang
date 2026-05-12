@@ -123,7 +123,8 @@ function TextCell({ value, onSave, placeholder = '—', className = '' }: {
   }
   return (
     <div onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis ${value ? 'text-gray-800' : 'text-gray-300'} ${className}`}
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis ${className}`}
+      style={{ color: value ? '#374151' : '#d1d5db' }}
       title={value ?? ''}
     >
       {value || placeholder}
@@ -964,7 +965,7 @@ function BrokerPropertiesContent() {
         <div className={`overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm ${isMapView ? 'hidden' : ''}`}>
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
-              <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
+              <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none divide-x divide-gray-100">
                 <th className="px-2 py-2.5 text-center" style={{ width: 32 }}>#</th>
                 {colOrder.map(key => {
                   // 고정 칼럼
@@ -1023,7 +1024,7 @@ function BrokerPropertiesContent() {
                 </tr>
               ) : paginated.map((p, idx) => (
                 <tr key={p.id}
-                  className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
+                  className={`border-b divide-x divide-gray-100 transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
                   <td className="px-2 py-1.5 text-center text-xs text-gray-300 select-none">
                     {(page - 1) * pageSize + idx + 1}
