@@ -180,8 +180,8 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
 }
 
 // ── 새 대화 패널 (카톡처럼 첫 메시지 = 제안 자동 생성) ──────
-function NewChatPanel({ requestId, currentUser, onCreated, onBack }: {
-  requestId: string; currentUser: any
+function NewChatPanel({ requestId, currentUser, customerName, onCreated, onBack }: {
+  requestId: string; currentUser: any; customerName: string
   onCreated: (proposalId: string) => void; onBack: () => void
 }) {
   const supabaseRef = useRef(createClient())
@@ -240,28 +240,33 @@ function NewChatPanel({ requestId, currentUser, onCreated, onBack }: {
 
   return (
     <div className="flex h-full flex-col bg-white">
+      {/* ChatPanel과 동일한 헤더 */}
       <div className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2.5 flex-shrink-0">
         <button onClick={onBack} className="md:hidden flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
           <ChevronLeft className="h-5 w-5 text-gray-600" />
         </button>
-        <div className="flex-1">
-          <p className="font-bold text-gray-900 text-sm">새 대화 시작</p>
-          <p className="text-xs text-gray-400">첫 메시지를 보내면 제안이 자동으로 등록됩니다</p>
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex-shrink-0">
+          {customerName[0]}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-bold text-gray-900 text-sm">{customerName}</span>
         </div>
       </div>
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mb-3 text-4xl">💬</div>
-          <p className="text-sm font-semibold text-gray-600">첫 메시지를 보내보세요</p>
-          <p className="mt-1 text-xs text-gray-400">전송하면 제안이 등록되고 대화가 시작됩니다</p>
+      {/* ChatPanel과 동일한 빈 메시지 영역 */}
+      <div className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center text-center">
+          <div className="text-3xl mb-2">👋</div>
+          <p className="text-sm font-semibold text-gray-600">{customerName}님과 대화를 시작하세요</p>
+          <p className="mt-1 text-xs text-gray-400">첫 메시지를 보내면 제안이 자동으로 등록됩니다</p>
         </div>
       </div>
+      {/* ChatPanel과 동일한 입력창 */}
       <div className="border-t border-gray-100 bg-white px-3 py-2.5 flex-shrink-0">
         <div className="flex items-end gap-1.5">
           <textarea ref={inputRef} value={input}
             onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px' }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder="첫 메시지 입력 (Enter 전송)" rows={1}
+            placeholder="메시지 입력 (Enter 전송)" rows={1}
             className="flex-1 resize-none overflow-hidden rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:bg-white transition-all"
             style={{ minHeight: '38px', maxHeight: '100px' }}
           />
@@ -844,6 +849,7 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
             <NewChatPanel
               requestId={request.id}
               currentUser={user}
+              customerName={request.profiles?.name ?? '고객'}
               onCreated={(proposalId) => { setProposing(false); setSelectedId(proposalId) }}
               onBack={() => { setProposing(false); setMobileTab('proposals') }}
             />
