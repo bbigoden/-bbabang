@@ -3,313 +3,589 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
-import { Plus, FileText, Trash2, ChevronLeft, Save, Calendar } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { Plus, Trash2, Search, Link2, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-interface DiaryEntry {
+// ── 상수 ──────────────────────────────────────────────
+const SOURCES = ['당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타']
+const INTERESTS = ['상가', '주거용', '공장', '창고', '사무실', '토지', '기타']
+const STATUSES = ['잠재', '진행중', '종료', '계약완료']
+
+const SOURCE_COLORS: Record<string, string> = {
+  '당근': 'bg-orange-100 text-orange-700',
+  '플레이스': 'bg-sky-100 text-sky-700',
+  '네이버광고': 'bg-green-100 text-green-700',
+  '네이버블로그': 'bg-green-100 text-green-700',
+  '공동': 'bg-purple-100 text-purple-700',
+  '지인': 'bg-pink-100 text-pink-700',
+  '특톡': 'bg-yellow-100 text-yellow-700',
+  '기타': 'bg-gray-100 text-gray-600',
+}
+const STATUS_COLORS: Record<string, string> = {
+  '잠재': 'bg-gray-100 text-gray-600',
+  '진행중': 'bg-blue-100 text-blue-700',
+  '종료': 'bg-red-100 text-red-600',
+  '계약완료': 'bg-green-100 text-green-700',
+}
+
+// ── 타입 ──────────────────────────────────────────────
+interface Consultation {
   id: string
-  title: string
-  content: string
-  date: string
+  customer_id: string | null
+  consulted_at: string
+  client_name: string
+  contact: string | null
+  amount: string | null
+  assignee: string | null
+  source: string | null
+  region: string | null
+  interest: string | null
+  status: string
+  memo: string | null
   created_at: string
-  updated_at: string
 }
 
-function formatDisplayDate(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+interface CustomerOption {
+  id: string
+  client_name: string
+  contact: string | null
+  assignee: string | null
+  source: string | null
 }
 
-function todayStr() {
-  return new Date().toISOString().split('T')[0]
+// ── useClickOutside ──────────────────────────────────
+function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) cb()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ref, cb])
 }
 
+// ── CellTooltip ──────────────────────────────────────
+function CellTooltip({ text, anchorRef }: { text: string; anchorRef: React.RefObject<HTMLElement | null> }) {
+  const [style, setStyle] = useState<React.CSSProperties>({})
+  useEffect(() => {
+    if (!anchorRef.current) return
+    const rect = anchorRef.current.getBoundingClientRect()
+    const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, top: rect.bottom + 4, maxWidth: 320, minWidth: 120 }
+    if (rect.left + 320 > window.innerWidth) s.right = window.innerWidth - rect.right
+    else s.left = rect.left
+    setStyle(s)
+  }, [anchorRef])
+  return (
+    <div className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap" style={style}>
+      {text}
+    </div>
+  )
+}
+
+// ── TextCell ──────────────────────────────────────────
+function TextCell({ value, onSave, placeholder = '—' }: { value: string | null; onSave: (v: string) => void; placeholder?: string }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const [hovered, setHovered] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
+  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
+
+  if (editing) {
+    return (
+      <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
+        className="w-full rounded border border-blue-400 bg-white px-2 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+      />
+    )
+  }
+  return (
+    <>
+      <div ref={cellRef}
+        onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
+        onMouseEnter={() => { if (value) setHovered(true) }}
+        onMouseLeave={() => setHovered(false)}
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        style={{ color: value ? '#374151' : '#d1d5db' }}
+      >
+        {value || placeholder}
+      </div>
+      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
+    </>
+  )
+}
+
+// ── LongTextCell ──────────────────────────────────────
+function LongTextCell({ value, onSave, placeholder = '—' }: { value: string | null; onSave: (v: string) => void; placeholder?: string }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const [hovered, setHovered] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { if (editing) { textareaRef.current?.focus(); textareaRef.current?.select() } }, [editing])
+  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
+
+  if (editing) {
+    return (
+      <textarea ref={textareaRef} value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
+        rows={3}
+        className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none min-w-[180px]"
+      />
+    )
+  }
+  return (
+    <>
+      <div ref={cellRef}
+        onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
+        onMouseEnter={() => { if (value) setHovered(true) }}
+        onMouseLeave={() => setHovered(false)}
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden"
+        style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}
+      >
+        {value || placeholder}
+      </div>
+      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
+    </>
+  )
+}
+
+// ── SelectCell ──────────────────────────────────────────
+function SelectCell({ value, options, onSave, colorMap }: {
+  value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>
+}) {
+  const [open, setOpen] = useState(false)
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
+  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
+  useClickOutside(ref, () => setOpen(false))
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      const openUp = window.innerHeight - rect.bottom < 200
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
+      if (openUp) s.bottom = window.innerHeight - rect.top + 4
+      else s.top = rect.bottom + 4
+      setPopupStyle(s)
+    }
+    setOpen(v => !v)
+  }
+
+  const display = value || '—'
+  return (
+    <div ref={ref} className="relative">
+      <div ref={btnRef} onClick={handleOpen}
+        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}
+      >
+        {display}
+      </div>
+      {open && (
+        <div className="flex flex-col min-w-[110px] rounded-xl border border-gray-200 bg-white shadow-lg py-1" style={popupStyle}>
+          {options.map(opt => (
+            <button key={opt} onClick={() => { onSave(opt); setOpen(false) }}
+              className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}
+            >{opt}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── CustomerCell (1차 상담 연결) ──────────────────────
+function CustomerCell({ value, customerId, customers, onSave }: {
+  value: string; customerId: string | null; customers: CustomerOption[];
+  onSave: (name: string, customerId: string | null, contact: string | null, assignee: string | null, source: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
+  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
+  useClickOutside(ref, () => { setOpen(false); setQuery('') })
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      const openUp = window.innerHeight - rect.bottom < 240
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left, width: 220 }
+      if (openUp) s.bottom = window.innerHeight - rect.top + 4
+      else s.top = rect.bottom + 4
+      setPopupStyle(s)
+    }
+    setOpen(v => !v)
+    setQuery('')
+  }
+
+  const filtered = customers.filter(c =>
+    !query || c.client_name.toLowerCase().includes(query.toLowerCase()) || c.contact?.includes(query)
+  ).slice(0, 8)
+
+  const select = (c: CustomerOption) => {
+    onSave(c.client_name, c.id, c.contact, c.assignee, c.source)
+    setOpen(false); setQuery('')
+  }
+
+  const clearLink = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onSave(value, null, null, null, null)
+  }
+
+  return (
+    <div ref={ref} className="relative flex items-center gap-1">
+      <div ref={btnRef} onClick={handleOpen}
+        className="flex-1 cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        style={{ color: value ? '#374151' : '#d1d5db', fontWeight: value ? 500 : 400 }}
+      >
+        {value || '고객명'}
+      </div>
+      {customerId && (
+        <span title="1차 상담 연결됨" className="flex-shrink-0">
+          <Link2 className="h-3 w-3 text-blue-400" />
+        </span>
+      )}
+      {open && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden" style={popupStyle}>
+          <div className="p-2 border-b border-gray-100">
+            <input
+              autoFocus
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="고객 검색..."
+              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400"
+            />
+          </div>
+          <div className="max-h-44 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-gray-400 text-center">검색 결과 없음</div>
+            ) : (
+              filtered.map(c => (
+                <button key={c.id} onClick={() => select(c)}
+                  className={cn('w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-blue-50 transition-colors',
+                    customerId === c.id && 'bg-blue-50')}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-gray-800 truncate">{c.client_name}</div>
+                    {c.contact && <div className="text-[10px] text-gray-400">{c.contact}</div>}
+                  </div>
+                  {customerId === c.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />}
+                </button>
+              ))
+            )}
+          </div>
+          {customerId && (
+            <div className="border-t border-gray-100 p-1.5">
+              <button onClick={clearLink}
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <X className="h-3 w-3" />연결 해제
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 메인 페이지 ──────────────────────────────────────
 export default function BrokerDiaryPage() {
-  const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
+  const supabase = createClient()
   const router = useRouter()
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
-  const [entries, setEntries] = useState<DiaryEntry[]>([])
-  const [selected, setSelected] = useState<DiaryEntry | null>(null)
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [date, setDate] = useState(todayStr())
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+  const [consultations, setConsultations] = useState<Consultation[]>([])
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [loading, setLoading] = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [search, setSearch] = useState('')
+  const [monthFilter, setMonthFilter] = useState(() => new Date().toISOString().slice(0, 7))
+  const [assigneeFilter, setAssigneeFilter] = useState('전체')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [addingId, setAddingId] = useState<string | null>(null)
 
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const contentRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => { init() }, [])
 
-  useEffect(() => {
-    init()
-  }, [])
+  const getRootBrokerId = (b: any) =>
+    b.is_owner !== false ? b.id : (b.parent_broker_id ?? b.id)
 
   const init = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) { router.push('/auth/login'); return }
     setUser(u)
-    const { data: bp } = await supabase.from('broker_profiles').select('*').eq('user_id', u.id).single()
-    if (!bp) { router.push('/dashboard/broker'); return }
-    setBroker(bp)
-    await loadEntries(bp.id)
+    const { data: b } = await supabase.from('broker_profiles').select('*').eq('user_id', u.id).single()
+    if (!b) { router.push('/broker/register'); return }
+    setBroker(b)
+    const rootId = b.is_owner !== false ? b.id : (b.parent_broker_id ?? b.id)
+
+    const [{ data: cons }, { data: custs }] = await Promise.all([
+      supabase.from('broker_consultations').select('*').eq('broker_id', rootId)
+        .order('consulted_at', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('broker_customers').select('id, client_name, contact, assignee, source')
+        .eq('broker_id', rootId).order('received_date', { ascending: false }),
+    ])
+    setConsultations(cons ?? [])
+    setCustomers(custs ?? [])
     setLoading(false)
   }
 
-  const loadEntries = async (brokerId: string) => {
-    const { data } = await supabase
-      .from('broker_diary')
-      .select('*')
-      .eq('broker_id', brokerId)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false })
-    setEntries(data ?? [])
-    return data ?? []
-  }
+  const saveField = useCallback(async (id: string, field: string, value: any) => {
+    await supabase.from('broker_consultations').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id)
+    setConsultations(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
+  }, [])
 
-  const selectEntry = (entry: DiaryEntry) => {
-    setSelected(entry)
-    setTitle(entry.title)
-    setContent(entry.content)
-    setDate(entry.date)
-    setSaveStatus('saved')
-  }
+  const saveCustomerLink = useCallback(async (
+    id: string, name: string, customerId: string | null,
+    contact: string | null, assignee: string | null, source: string | null
+  ) => {
+    const updates: any = { client_name: name, customer_id: customerId, updated_at: new Date().toISOString() }
+    if (customerId) { updates.contact = contact; updates.assignee = assignee; updates.source = source }
+    await supabase.from('broker_consultations').update(updates).eq('id', id)
+    setConsultations(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
+  }, [])
 
-  const newEntry = async () => {
+  const addRow = async () => {
     if (!broker) return
-    const { data } = await supabase.from('broker_diary').insert({
-      broker_id: broker.id,
-      title: '',
-      content: '',
-      date: todayStr(),
+    const rootId = getRootBrokerId(broker)
+    const today = new Date().toISOString().split('T')[0]
+    const { data, error } = await supabase.from('broker_consultations').insert({
+      broker_id: rootId,
+      consulted_at: today,
+      client_name: '',
+      status: '잠재',
     }).select().single()
-    if (!data) return
-    setEntries(prev => [data, ...prev])
-    selectEntry(data)
-    setTimeout(() => contentRef.current?.focus(), 50)
+    if (error || !data) return
+    setConsultations(prev => [data, ...prev])
+    setAddingId(data.id)
+    setTimeout(() => setAddingId(null), 2000)
   }
 
-  // 자동 저장 (디바운스 1.5초)
-  const triggerSave = useCallback((newTitle: string, newContent: string, newDate: string) => {
-    setSaveStatus('unsaved')
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      saveEntry(newTitle, newContent, newDate)
-    }, 1500)
-  }, [selected])
-
-  const saveEntry = async (t: string, c: string, d: string) => {
-    if (!selected || !broker) return
-    setSaveStatus('saving')
-    await supabase.from('broker_diary').update({
-      title: t,
-      content: c,
-      date: d,
-      updated_at: new Date().toISOString(),
-    }).eq('id', selected.id)
-    setEntries(prev => prev.map(e => e.id === selected.id ? { ...e, title: t, content: c, date: d } : e))
-    setSaveStatus('saved')
-  }
-
-  const handleTitleChange = (v: string) => {
-    setTitle(v)
-    triggerSave(v, content, date)
-  }
-
-  const handleContentChange = (v: string) => {
-    setContent(v)
-    triggerSave(title, v, date)
-  }
-
-  const handleDateChange = (v: string) => {
-    setDate(v)
-    triggerSave(title, content, v)
-  }
-
-  const deleteEntry = async (id: string) => {
-    await supabase.from('broker_diary').delete().eq('id', id)
-    const next = entries.filter(e => e.id !== id)
-    setEntries(next)
-    if (selected?.id === id) {
-      setSelected(null)
-      setTitle(''); setContent(''); setDate(todayStr())
-    }
+  const deleteRow = async (id: string) => {
+    await supabase.from('broker_consultations').delete().eq('id', id)
+    setConsultations(prev => prev.filter(c => c.id !== id))
     setDeleteConfirm(null)
   }
 
-  // 텍스트 영역 자동 높이
-  const autoResize = (el: HTMLTextAreaElement) => {
-    el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
+  // 월 목록
+  const months = (() => {
+    const set = new Set<string>()
+    consultations.forEach(c => { if (c.consulted_at) set.add(c.consulted_at.slice(0, 7)) })
+    // 이번달 없어도 항상 포함
+    const thisMonth = new Date().toISOString().slice(0, 7)
+    set.add(thisMonth)
+    return Array.from(set).sort((a, b) => b.localeCompare(a))
+  })()
+
+  // 담당자 목록
+  const assignees = (() => {
+    const set = new Set<string>()
+    consultations.forEach(c => { if (c.assignee) set.add(c.assignee) })
+    return ['전체', ...Array.from(set).sort()]
+  })()
+
+  // 필터링
+  const filtered = consultations.filter(c => {
+    if (monthFilter && !c.consulted_at?.startsWith(monthFilter)) return false
+    if (assigneeFilter !== '전체' && c.assignee !== assigneeFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return (c.client_name?.toLowerCase().includes(q) ||
+        c.contact?.includes(q) ||
+        c.assignee?.toLowerCase().includes(q) ||
+        c.memo?.toLowerCase().includes(q))
+    }
+    return true
+  })
+
+  // 월 표시 형식
+  const formatMonth = (m: string) => {
+    const [y, mo] = m.split('-')
+    return `${y.slice(2)}년 ${parseInt(mo)}월`
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-gray-400">불러오는 중...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">불러오는 중...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-gray-50">
       <Header user={user} role="broker" />
 
-      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 57px)' }}>
+      <div className="mx-auto max-w-screen-xl px-4 py-6">
 
-        {/* 사이드바 */}
-        <div className={`${sidebarOpen ? 'w-64' : 'w-0'} flex-shrink-0 border-r border-gray-100 bg-gray-50 flex flex-col transition-all duration-200 overflow-hidden`}>
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <span className="text-sm font-bold text-gray-700">업무일지</span>
-            <button
-              onClick={newEntry}
-              className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              새 일지
-            </button>
+        {/* 헤더 */}
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">업무일지</h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {formatMonth(monthFilter)} · {filtered.length}건
+            </p>
           </div>
-
-          <div className="flex-1 overflow-y-auto py-2">
-            {entries.length === 0 ? (
-              <div className="px-4 py-8 text-center text-xs text-gray-400">
-                아직 작성된 일지가 없어요
-              </div>
-            ) : (
-              entries.map(entry => (
-                <div
-                  key={entry.id}
-                  onClick={() => selectEntry(entry)}
-                  className={`group relative mx-2 mb-1 cursor-pointer rounded-lg px-3 py-2.5 transition-colors ${
-                    selected?.id === entry.id
-                      ? 'bg-blue-50 border border-blue-200'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <p className={`text-sm font-medium truncate ${selected?.id === entry.id ? 'text-blue-700' : 'text-gray-800'}`}>
-                    {entry.title || '제목 없음'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-400">{entry.date}</p>
-                  {entry.content && (
-                    <p className="mt-0.5 text-xs text-gray-400 truncate">{entry.content.slice(0, 30)}</p>
-                  )}
-
-                  {/* 삭제 버튼 */}
-                  <button
-                    onClick={e => { e.stopPropagation(); setDeleteConfirm(entry.id) }}
-                    className="absolute right-2 top-2 hidden group-hover:flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
+          <button onClick={addRow}
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            상담 추가
+          </button>
         </div>
 
-        {/* 메인 에디터 */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {!selected ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100">
-                <FileText className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="text-lg font-semibold text-gray-600">일지를 선택하거나 새로 작성하세요</p>
-              <p className="mt-1 text-sm text-gray-400">업무 내용, 메모, 할 일을 자유롭게 기록하세요</p>
-              <button
-                onClick={newEntry}
-                className="mt-6 flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                새 일지 작성
-              </button>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto">
-              {/* 에디터 헤더 */}
-              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-3">
-                <button
-                  onClick={() => setSidebarOpen(v => !v)}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <ChevronLeft className={`h-4 w-4 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`} />
-                  {sidebarOpen ? '사이드바 닫기' : '사이드바 열기'}
-                </button>
-                <div className="flex items-center gap-3">
-                  {saveStatus === 'saving' && (
-                    <span className="text-xs text-gray-400">저장 중...</span>
+        {/* 월 탭 */}
+        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+          {months.map(m => (
+            <button key={m} onClick={() => setMonthFilter(m)}
+              className={cn('flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                monthFilter === m ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
+              )}
+            >
+              {formatMonth(m)}
+              <span className="ml-1.5 text-[10px] opacity-60">
+                {consultations.filter(c => c.consulted_at?.startsWith(m)).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* 필터 */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="고객명, 연락처, 상담내용..."
+              className="w-full rounded-xl border border-gray-200 bg-white pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
+            />
+          </div>
+          {assignees.length > 1 && (
+            <div className="flex gap-1 flex-wrap">
+              {assignees.map(a => (
+                <button key={a} onClick={() => setAssigneeFilter(a)}
+                  className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                    assigneeFilter === a ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
                   )}
-                  {saveStatus === 'unsaved' && (
-                    <span className="text-xs text-orange-400">저장 안됨</span>
-                  )}
-                  {saveStatus === 'saved' && (
-                    <span className="flex items-center gap-1 text-xs text-green-500">
-                      <Save className="h-3 w-3" /> 저장됨
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* 날짜 */}
-              <div className="flex items-center gap-2 px-10 pt-8 pb-2">
-                <Calendar className="h-4 w-4 text-gray-300" />
-                <input
-                  type="date"
-                  value={date}
-                  onChange={e => handleDateChange(e.target.value)}
-                  className="text-sm text-gray-400 border-none outline-none bg-transparent cursor-pointer hover:text-gray-600"
-                />
-              </div>
-
-              {/* 제목 */}
-              <div className="px-10 pt-2 pb-4">
-                <textarea
-                  value={title}
-                  onChange={e => { handleTitleChange(e.target.value); autoResize(e.target) }}
-                  placeholder="제목을 입력하세요"
-                  rows={1}
-                  className="w-full resize-none border-none outline-none text-3xl font-bold text-gray-900 placeholder-gray-200 bg-transparent leading-tight overflow-hidden"
-                  style={{ minHeight: '44px' }}
-                  onInput={e => autoResize(e.currentTarget)}
-                />
-              </div>
-
-              {/* 구분선 */}
-              <div className="mx-10 border-t border-gray-100 mb-6" />
-
-              {/* 본문 */}
-              <div className="px-10 pb-32">
-                <textarea
-                  ref={contentRef}
-                  value={content}
-                  onChange={e => { handleContentChange(e.target.value); autoResize(e.target) }}
-                  placeholder="내용을 입력하세요..."
-                  className="w-full resize-none border-none outline-none text-base text-gray-700 placeholder-gray-300 bg-transparent leading-relaxed overflow-hidden"
-                  style={{ minHeight: '400px' }}
-                  onInput={e => autoResize(e.currentTarget)}
-                />
-              </div>
+                >{a}</button>
+              ))}
             </div>
           )}
         </div>
+
+        {/* 안내 */}
+        <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
+          <Link2 className="h-3 w-3" />
+          <span>고객명 클릭 시 1차 상담(고객목록)에서 연결할 수 있어요</span>
+        </div>
+
+        {/* 테이블 */}
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="w-8 px-3 py-2.5 text-center text-xs font-semibold text-gray-400">#</th>
+                  <th className="w-24 px-3 py-2.5 text-left text-xs font-semibold text-gray-500">날짜</th>
+                  <th className="min-w-[130px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">고객명</th>
+                  <th className="min-w-[120px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">연락처</th>
+                  <th className="min-w-[90px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">금액</th>
+                  <th className="min-w-[80px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">담당자</th>
+                  <th className="min-w-[90px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">유입경로</th>
+                  <th className="min-w-[80px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">지역</th>
+                  <th className="min-w-[80px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">관심물건</th>
+                  <th className="min-w-[90px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">진행상황</th>
+                  <th className="min-w-[200px] px-3 py-2.5 text-left text-xs font-semibold text-gray-500">상담내용</th>
+                  <th className="w-8 px-2 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="py-16 text-center text-sm text-gray-400">
+                      {consultations.length === 0
+                        ? '상담 추가 버튼으로 첫 기록을 남겨보세요'
+                        : '검색 결과가 없어요'}
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((c, idx) => (
+                    <tr key={c.id}
+                      className={cn(
+                        'border-b border-gray-50 hover:bg-gray-50/50 transition-colors',
+                        addingId === c.id && 'animate-pulse bg-blue-50/40'
+                      )}
+                    >
+                      <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono">{filtered.length - idx}</td>
+                      <td className="px-3 py-1.5">
+                        <TextCell value={c.consulted_at} onSave={v => saveField(c.id, 'consulted_at', v || null)} placeholder="날짜" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <CustomerCell
+                          value={c.client_name}
+                          customerId={c.customer_id}
+                          customers={customers}
+                          onSave={(name, cid, contact, assignee, source) =>
+                            saveCustomerLink(c.id, name, cid, contact, assignee, source)
+                          }
+                        />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <TextCell value={c.amount} onSave={v => saveField(c.id, 'amount', v || null)} placeholder="예: 5000/300" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <SelectCell value={c.source} options={SOURCES} onSave={v => saveField(c.id, 'source', v)} colorMap={SOURCE_COLORS} />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <TextCell value={c.region} onSave={v => saveField(c.id, 'region', v || null)} placeholder="지역" />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <SelectCell value={c.interest} options={INTERESTS} onSave={v => saveField(c.id, 'interest', v)} />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <SelectCell value={c.status} options={STATUSES} onSave={v => saveField(c.id, 'status', v)} colorMap={STATUS_COLORS} />
+                      </td>
+                      <td className="px-3 py-1.5">
+                        <LongTextCell value={c.memo} onSave={v => saveField(c.id, 'memo', v || null)} placeholder="상담내용" />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <button onClick={() => setDeleteConfirm(c.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      {/* 삭제 확인 모달 */}
+      {/* 삭제 확인 */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">일지를 삭제할까요?</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">상담 기록을 삭제할까요?</h3>
             <p className="text-sm text-gray-500 mb-6">삭제하면 복구할 수 없어요.</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
+              <button onClick={() => setDeleteConfirm(null)}
                 className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
               >취소</button>
-              <button
-                onClick={() => deleteEntry(deleteConfirm)}
+              <button onClick={() => deleteRow(deleteConfirm)}
                 className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
               >삭제</button>
             </div>
