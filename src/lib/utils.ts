@@ -5,7 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatPrice(price: number): string {
+export function formatPrice(price: number | null | undefined): string {
+  if (price == null) return '미정'
   if (price >= 10000) {
     const eok = Math.floor(price / 10000)
     const remainder = price % 10000
