@@ -161,11 +161,13 @@ function NumberCell({ value, onSave, suffix = '만' }: {
       />
     )
   }
+  const displayText = value != null ? `${value.toLocaleString()}${suffix}` : '—'
   return (
     <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
+      title={value != null ? displayText : undefined}
       className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
     >
-      {value != null ? `${value.toLocaleString()}${suffix}` : '—'}
+      {displayText}
     </div>
   )
 }
@@ -206,6 +208,83 @@ function SelectCell({ value, options, onSave, colorMap }: {
         </div>
       )}
     </div>
+  )
+}
+
+// ── 긴 텍스트 셀 (메모/설명용 — 호버 툴팁 + 텍스트에어리어 편집) ──────────
+function LongTextCell({ value, onSave, placeholder = '—' }: {
+  value: string | null, onSave: (v: string) => void, placeholder?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const [tooltip, setTooltip] = useState(false)
+  const [tipStyle, setTipStyle] = useState<React.CSSProperties>({})
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { if (editing) { textareaRef.current?.focus(); textareaRef.current?.select() } }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    if (draft !== (value ?? '')) onSave(draft)
+  }
+
+  const handleMouseEnter = () => {
+    if (!value || editing) return
+    if (cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect()
+      const style: React.CSSProperties = {
+        position: 'fixed',
+        zIndex: 9999,
+        top: rect.bottom + 6,
+        maxWidth: 320,
+        minWidth: 180,
+      }
+      if (rect.left + 320 > window.innerWidth) {
+        style.right = window.innerWidth - rect.right
+      } else {
+        style.left = rect.left
+      }
+      setTipStyle(style)
+    }
+    setTooltip(true)
+  }
+
+  if (editing) {
+    return (
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
+        rows={3}
+        className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+      />
+    )
+  }
+
+  return (
+    <>
+      <div
+        ref={cellRef}
+        onClick={() => { setDraft(value ?? ''); setEditing(true); setTooltip(false) }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setTooltip(false)}
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        style={{ color: value ? '#374151' : '#d1d5db' }}
+      >
+        {value || placeholder}
+      </div>
+      {tooltip && value && (
+        <div
+          className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap"
+          style={tipStyle}
+        >
+          {value}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -1072,8 +1151,8 @@ function BrokerPropertiesContent() {
                           {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
                           {key === 'direction'       && <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-                          {key === 'brief_memo'      && <TextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />}
-                          {key === 'memo'            && <TextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
+                          {key === 'brief_memo'      && <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />}
+                          {key === 'memo'            && <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
                         </td>
                       )
                     }

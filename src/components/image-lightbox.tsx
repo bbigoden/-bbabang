@@ -84,7 +84,13 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
         <img
           src={images[index]}
           alt=""
-          className="max-h-[80vh] max-w-[80vw] rounded-lg object-contain shadow-2xl"
+          className="rounded-lg object-contain shadow-2xl"
+          style={{
+            maxWidth: '80vw',
+            maxHeight: images.length > 1
+              ? 'calc(100vh - 180px)'   // 상단바 + 하단 썸네일 공간 확보
+              : 'calc(100vh - 100px)',  // 상단바만
+          }}
         />
 
         {images.length > 1 && (
