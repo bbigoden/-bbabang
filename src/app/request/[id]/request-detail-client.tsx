@@ -23,15 +23,50 @@ interface Props {
   userRole: string | null
 }
 
-export function RequestDetailClient({ request, proposals, user, userRole }: Props) {
+export function RequestDetailClient({ request, proposals: initialProposals, user, userRole }: Props) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const [proposals, setProposals] = useState(initialProposals)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isCreatingProposal, setIsCreatingProposal] = useState(false)
   const [mobileTab, setMobileTab] = useState<'proposals' | 'chat'>('proposals')
   const isOwner = user?.id === request.user_id
 
   const handleSelect = (id: string) => { setSelectedId(id); setMobileTab('chat') }
+
+  const handleAccept = async (e: React.MouseEvent, proposalId: string) => {
+    e.stopPropagation()
+    const proposal = proposals.find(p => p.id === proposalId)
+    await supabase.from('proposals').update({ status: 'accepted' }).eq('id', proposalId)
+    // 중개사에게 알림
+    if (proposal?.broker_profiles?.user_id) {
+      await supabase.from('notifications').insert({
+        user_id: proposal.broker_profiles.user_id,
+        type: 'proposal_accepted',
+        title: '제안이 수락되었어요! ✅',
+        body: '고객이 회원님의 제안을 수락했습니다.',
+        link: `/chat/${proposalId}`,
+      })
+    }
+    setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'accepted' } : p))
+  }
+
+  const handleReject = async (e: React.MouseEvent, proposalId: string) => {
+    e.stopPropagation()
+    const proposal = proposals.find(p => p.id === proposalId)
+    await supabase.from('proposals').update({ status: 'rejected' }).eq('id', proposalId)
+    // 중개사에게 알림
+    if (proposal?.broker_profiles?.user_id) {
+      await supabase.from('notifications').insert({
+        user_id: proposal.broker_profiles.user_id,
+        type: 'proposal_rejected',
+        title: '제안이 거절되었습니다 ❌',
+        body: '고객이 제안을 거절했습니다.',
+        link: `/chat/${proposalId}`,
+      })
+    }
+    setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'rejected' } : p))
+  }
 
   const handleProposeClick = async () => {
     if (!user || isCreatingProposal) return
@@ -212,9 +247,32 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
                         <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{proposal.description}</p>
                       )}
 
-                      <div className="mt-2">
+                      <div className="mt-2 flex items-center justify-between">
                         <span className="text-[10px] text-gray-400">{formatDate(proposal.created_at)}</span>
+                        {proposal.status === 'accepted' && (
+                          <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">✓ 수락됨</span>
+                        )}
+                        {proposal.status === 'rejected' && (
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">✕ 거절됨</span>
+                        )}
                       </div>
+
+                      {isOwner && proposal.status === 'pending' && (
+                        <div className="mt-2 flex gap-1.5" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={e => handleAccept(e, proposal.id)}
+                            className="flex-1 rounded-lg bg-blue-600 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                          >
+                            수락
+                          </button>
+                          <button
+                            onClick={e => handleReject(e, proposal.id)}
+                            className="flex-1 rounded-lg border border-gray-200 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
+                          >
+                            거절
+                          </button>
+                        </div>
+                      )}
 
                     </button>
                   )

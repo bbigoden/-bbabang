@@ -8,11 +8,12 @@ import { Plus, Trash2, Search, Link2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ── 상수 ──────────────────────────────────────────────
-const SOURCES = ['당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타']
+const SOURCES = ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타']
 const INTERESTS = ['상가', '주거용', '공장', '창고', '사무실', '토지', '기타']
 const STATUSES = ['잠재', '진행중', '종료', '계약완료']
 
 const SOURCE_COLORS: Record<string, string> = {
+  '빠방': 'bg-blue-100 text-blue-700',
   '당근': 'bg-orange-100 text-orange-700',
   '플레이스': 'bg-sky-100 text-sky-700',
   '네이버광고': 'bg-green-100 text-green-700',
