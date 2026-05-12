@@ -58,7 +58,7 @@ export function BrokerChatsClient({ user }: { user: any }) {
         .eq('broker_id', user.id)
         .order('created_at', { ascending: false })
 
-      setChatRooms((data ?? []) as ChatRoom[])
+      setChatRooms((data ?? []) as unknown as ChatRoom[])
       setLoading(false)
     }
     fetchRooms()
