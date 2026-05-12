@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 export interface Notification {
@@ -14,7 +14,10 @@ export interface Notification {
 }
 
 export function useNotifications(userId: string | null) {
-  const supabase = createClient()
+  // supabase 클라이언트를 ref로 고정 → 렌더링마다 새 인스턴스 생성 방지
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unread, setUnread] = useState(0)
 
@@ -28,14 +31,19 @@ export function useNotifications(userId: string | null) {
       .limit(30)
     setNotifications(data ?? [])
     setUnread((data ?? []).filter(n => !n.is_read).length)
-  }, [userId])
+  }, [userId, supabase])
 
+  // 초기 로드 — userId 변경 시에만
+  useEffect(() => {
+    load()
+  }, [load])
+
+  // 실시간 구독 — userId 변경 시에만 (load 의존성 제거)
   useEffect(() => {
     if (!userId) return
-    load()
 
     const channel = supabase
-      .channel(`notifications:${userId}:${Date.now()}`)
+      .channel(`notifications:${userId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -49,7 +57,7 @@ export function useNotifications(userId: string | null) {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [userId, load])
+  }, [userId, supabase])
 
   const markAllRead = async () => {
     if (!userId) return
