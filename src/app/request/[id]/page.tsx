@@ -35,8 +35,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       .eq('request_id', id)
       .order('created_at', { ascending: false })
     proposals = pr ?? []
-  } catch (e: any) {
-    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+  } catch {
+    // 데이터 로드 실패 시 notFound()로 처리
   }
 
   if (!request) notFound()
