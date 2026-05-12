@@ -199,7 +199,7 @@ function SelectCell({ value, options, onSave, colorMap }: {
   value: string, options: string[], onSave: (v: string) => void, colorMap?: Record<string, string>
 }) {
   const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
@@ -207,8 +207,11 @@ function SelectCell({ value, options, onSave, colorMap }: {
   const handleOpen = () => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
-      // 아래 공간이 200px 미만이면 위로 열기
-      setOpenUp(window.innerHeight - rect.bottom < 200)
+      const openUp = window.innerHeight - rect.bottom < 200
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
+      if (openUp) s.bottom = window.innerHeight - rect.top + 4
+      else s.top = rect.bottom + 4
+      setPopupStyle(s)
     }
     setOpen(v => !v)
   }
@@ -221,7 +224,7 @@ function SelectCell({ value, options, onSave, colorMap }: {
         {value}
       </div>
       {open && (
-        <div className={`absolute left-0 z-50 rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} ${options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'}`}>
+        <div className={`rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'}`} style={popupStyle}>
           {options.map(opt => (
             <button key={opt} onClick={() => { onSave(opt); setOpen(false) }}
               className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}
@@ -241,7 +244,7 @@ function AreaCell({ size, areaUnit, areaType, onSave }: {
   onSave: (size: string | null, unit: string, type: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const [draftSize, setDraftSize] = useState(size ?? '')
   const [draftUnit, setDraftUnit] = useState<'평' | 'm²'>((areaUnit as any) ?? '평')
   const [draftType, setDraftType] = useState<'전용' | '공급'>((areaType as any) ?? '전용')
@@ -261,7 +264,11 @@ function AreaCell({ size, areaUnit, areaType, onSave }: {
     setDraftType((areaType as any) ?? '전용')
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
-      setOpenUp(window.innerHeight - rect.bottom < 160)
+      const openUp = window.innerHeight - rect.bottom < 160
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
+      if (openUp) s.bottom = window.innerHeight - rect.top + 4
+      else s.top = rect.bottom + 4
+      setPopupStyle(s)
     }
     setOpen(v => !v)
     setHovered(false)
@@ -282,7 +289,7 @@ function AreaCell({ size, areaUnit, areaType, onSave }: {
       </div>
       {hovered && displayText && <CellTooltip text={displayText} anchorRef={btnRef} />}
       {open && (
-        <div className={`absolute left-0 z-50 w-44 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+        <div className="w-44 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5" style={popupStyle}>
           <input
             ref={inputRef}
             type="number"
@@ -358,7 +365,7 @@ function ImageCell({ images, onSave, onView }: {
   images: string[], onSave: (imgs: string[]) => void, onView: (idx: number) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [openUp, setOpenUp] = useState(false)
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const [newPreviews, setNewPreviews] = useState<string[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [localImgs, setLocalImgs] = useState<string[]>(images)
@@ -400,7 +407,11 @@ function ImageCell({ images, onSave, onView }: {
   const handleOpen = () => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
-      setOpenUp(window.innerHeight - rect.bottom < 260)
+      const openUp = window.innerHeight - rect.bottom < 260
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
+      if (openUp) s.bottom = window.innerHeight - rect.top + 4
+      else s.top = rect.bottom + 4
+      setPopupStyle(s)
     }
     setOpen(v => !v)
   }
@@ -419,7 +430,7 @@ function ImageCell({ images, onSave, onView }: {
         }
       </div>
       {open && (
-        <div className={`absolute left-0 z-50 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+        <div className="w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3" style={popupStyle}>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {localImgs.map((src, i) => (
               <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 group">
