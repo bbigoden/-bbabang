@@ -358,10 +358,12 @@ function ImageCell({ images, onSave, onView }: {
   images: string[], onSave: (imgs: string[]) => void, onView: (idx: number) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
   const [newPreviews, setNewPreviews] = useState<string[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [localImgs, setLocalImgs] = useState<string[]>(images)
   const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -395,9 +397,17 @@ function ImageCell({ images, onSave, onView }: {
     onSave(all)
   }
 
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setOpenUp(window.innerHeight - rect.bottom < 260)
+    }
+    setOpen(v => !v)
+  }
+
   return (
     <div ref={ref} className="relative">
-      <div onClick={() => setOpen(v => !v)} className="cursor-pointer flex gap-1 items-center hover:bg-blue-50 rounded px-1 py-0.5 min-h-[22px]">
+      <div ref={btnRef} onClick={handleOpen} className="cursor-pointer flex gap-1 items-center hover:bg-blue-50 rounded px-1 py-0.5 min-h-[22px]">
         {localImgs.length === 0
           ? <span className="text-xs text-gray-300">—</span>
           : <>
@@ -409,7 +419,7 @@ function ImageCell({ images, onSave, onView }: {
         }
       </div>
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3">
+        <div className={`absolute left-0 z-50 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {localImgs.map((src, i) => (
               <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 group">
