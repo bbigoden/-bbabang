@@ -94,27 +94,41 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => voi
   }, [ref, cb])
 }
 
+// ── 공통 호버 툴팁 카드 ──────────────────────────────────────────
+function CellTooltip({ text, anchorRef }: { text: string; anchorRef: React.RefObject<HTMLElement | null> }) {
+  const [style, setStyle] = useState<React.CSSProperties>({})
+  useEffect(() => {
+    if (!anchorRef.current) return
+    const rect = anchorRef.current.getBoundingClientRect()
+    const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, top: rect.bottom + 4, maxWidth: 320, minWidth: 120 }
+    if (rect.left + 320 > window.innerWidth) s.right = window.innerWidth - rect.right
+    else s.left = rect.left
+    setStyle(s)
+  }, [anchorRef])
+  return (
+    <div className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap" style={style}>
+      {text}
+    </div>
+  )
+}
+
 // ── 인라인 텍스트 셀 ──────────────────────────────────────────
 function TextCell({ value, onSave, placeholder = '—', className = '' }: {
   value: string | null, onSave: (v: string) => void, placeholder?: string, className?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
+  const [hovered, setHovered] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
 
-  const commit = () => {
-    setEditing(false)
-    if (draft !== (value ?? '')) onSave(draft)
-  }
+  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
 
   if (editing) {
     return (
-      <input
-        ref={inputRef}
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
+      <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
         className={`w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 ${className}`}
@@ -122,13 +136,17 @@ function TextCell({ value, onSave, placeholder = '—', className = '' }: {
     )
   }
   return (
-    <div onClick={() => { setDraft(value ?? ''); setEditing(true) }}
-      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis ${className}`}
-      style={{ color: value ? '#374151' : '#d1d5db' }}
-      title={value ?? ''}
-    >
-      {value || placeholder}
-    </div>
+    <>
+      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
+        onMouseEnter={() => { if (value) setHovered(true) }}
+        onMouseLeave={() => setHovered(false)}
+        className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis ${className}`}
+        style={{ color: value ? '#374151' : '#d1d5db' }}
+      >
+        {value || placeholder}
+      </div>
+      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
+    </>
   )
 }
 
@@ -138,7 +156,9 @@ function NumberCell({ value, onSave, suffix = '만' }: {
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value != null ? String(value) : '')
+  const [hovered, setHovered] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
 
@@ -150,11 +170,7 @@ function NumberCell({ value, onSave, suffix = '만' }: {
 
   if (editing) {
     return (
-      <input
-        ref={inputRef}
-        type="number"
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
+      <input ref={inputRef} type="number" value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value != null ? String(value) : ''); setEditing(false) } }}
         className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs text-right outline-none focus:ring-2 focus:ring-blue-300"
@@ -163,12 +179,16 @@ function NumberCell({ value, onSave, suffix = '만' }: {
   }
   const displayText = value != null ? `${value.toLocaleString()}${suffix}` : '—'
   return (
-    <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
-      title={value != null ? displayText : undefined}
-      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
-    >
-      {displayText}
-    </div>
+    <>
+      <div ref={cellRef} onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true); setHovered(false) }}
+        onMouseEnter={() => { if (value != null) setHovered(true) }}
+        onMouseLeave={() => setHovered(false)}
+        className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
+      >
+        {displayText}
+      </div>
+      {hovered && value != null && <CellTooltip text={displayText} anchorRef={cellRef} />}
+    </>
   )
 }
 
@@ -211,51 +231,23 @@ function SelectCell({ value, options, onSave, colorMap }: {
   )
 }
 
-// ── 긴 텍스트 셀 (메모/설명용 — 호버 툴팁 + 텍스트에어리어 편집) ──────────
+// ── 긴 텍스트 셀 (메모/설명용 — textarea 편집 + 공통 툴팁) ──────────
 function LongTextCell({ value, onSave, placeholder = '—' }: {
   value: string | null, onSave: (v: string) => void, placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
-  const [tooltip, setTooltip] = useState(false)
-  const [tipStyle, setTipStyle] = useState<React.CSSProperties>({})
+  const [hovered, setHovered] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cellRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { if (editing) { textareaRef.current?.focus(); textareaRef.current?.select() } }, [editing])
 
-  const commit = () => {
-    setEditing(false)
-    if (draft !== (value ?? '')) onSave(draft)
-  }
-
-  const handleMouseEnter = () => {
-    if (!value || editing) return
-    if (cellRef.current) {
-      const rect = cellRef.current.getBoundingClientRect()
-      const style: React.CSSProperties = {
-        position: 'fixed',
-        zIndex: 9999,
-        top: rect.bottom + 6,
-        maxWidth: 320,
-        minWidth: 180,
-      }
-      if (rect.left + 320 > window.innerWidth) {
-        style.right = window.innerWidth - rect.right
-      } else {
-        style.left = rect.left
-      }
-      setTipStyle(style)
-    }
-    setTooltip(true)
-  }
+  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
 
   if (editing) {
     return (
-      <textarea
-        ref={textareaRef}
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
+      <textarea ref={textareaRef} value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
         rows={3}
@@ -263,27 +255,17 @@ function LongTextCell({ value, onSave, placeholder = '—' }: {
       />
     )
   }
-
   return (
     <>
-      <div
-        ref={cellRef}
-        onClick={() => { setDraft(value ?? ''); setEditing(true); setTooltip(false) }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => setTooltip(false)}
+      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
+        onMouseEnter={() => { if (value) setHovered(true) }}
+        onMouseLeave={() => setHovered(false)}
         className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
         style={{ color: value ? '#374151' : '#d1d5db' }}
       >
         {value || placeholder}
       </div>
-      {tooltip && value && (
-        <div
-          className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap"
-          style={tipStyle}
-        >
-          {value}
-        </div>
-      )}
+      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
     </>
   )
 }
