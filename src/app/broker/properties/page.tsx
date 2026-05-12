@@ -184,13 +184,13 @@ function NumberCell({ value, onSave, suffix = '만' }: {
   return (
     <>
       <div ref={cellRef} onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true); setHovered(false) }}
-        onMouseEnter={() => { if (value != null) setHovered(true) }}
+        onMouseEnter={() => { if (!!value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
         className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
       >
         {displayText}
       </div>
-      {hovered && value != null && <CellTooltip text={displayText} anchorRef={cellRef} />}
+      {hovered && !!value && <CellTooltip text={displayText} anchorRef={cellRef} />}
     </>
   )
 }
