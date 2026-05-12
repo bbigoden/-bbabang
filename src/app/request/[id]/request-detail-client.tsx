@@ -179,108 +179,6 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
   )
 }
 
-// ── 새 대화 패널 (카톡처럼 첫 메시지 = 제안 자동 생성) ──────
-function NewChatPanel({ requestId, currentUser, customerName, onCreated, onBack }: {
-  requestId: string; currentUser: any; customerName: string
-  onCreated: (proposalId: string) => void; onBack: () => void
-}) {
-  const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
-  const [input, setInput] = useState('')
-  const [sending, setSending] = useState(false)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-
-  useEffect(() => { inputRef.current?.focus() }, [])
-
-  const handleSend = async () => {
-    if (!input.trim() || sending) return
-    setSending(true)
-
-    const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', currentUser.id).single()
-    if (!broker) { setSending(false); return }
-
-    // 1. 제안 생성
-    const { data: proposal } = await supabase.from('proposals').insert({
-      request_id: requestId, broker_id: broker.id,
-      price: 0, description: input.trim(),
-      property_address: null, property_images: [], status: 'pending',
-    }).select().single()
-    if (!proposal) { setSending(false); return }
-
-    // 2. proposal_count 업데이트 + 고객 알림
-    const { data: reqData } = await supabase.from('request_posts').select('proposal_count, user_id').eq('id', requestId).single()
-    if (reqData) {
-      await supabase.from('request_posts').update({ proposal_count: (reqData.proposal_count ?? 0) + 1 }).eq('id', requestId)
-      if (reqData.user_id) {
-        await supabase.from('notifications').insert({
-          user_id: reqData.user_id, type: 'new_proposal',
-          title: '새 제안이 도착했어요! 📨',
-          body: '중개사가 새로운 매물을 제안했습니다.',
-          link: `/request/${requestId}`,
-        })
-      }
-    }
-
-    // 3. 채팅방 생성
-    const { data: chatRoom } = await supabase.from('chat_rooms').insert({
-      request_id: requestId, user_id: reqData?.user_id,
-      broker_id: currentUser.id, proposal_id: proposal.id,
-    }).select().single()
-    if (!chatRoom) { setSending(false); return }
-
-    // 4. 첫 메시지 전송
-    await supabase.from('chat_messages').insert({
-      room_id: chatRoom.id, sender_id: currentUser.id,
-      content: input.trim(), message_type: 'text',
-    })
-
-    setSending(false)
-    onCreated(proposal.id)
-  }
-
-  return (
-    <div className="flex h-full flex-col bg-white">
-      {/* ChatPanel과 동일한 헤더 */}
-      <div className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2.5 flex-shrink-0">
-        <button onClick={onBack} className="md:hidden flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-          <ChevronLeft className="h-5 w-5 text-gray-600" />
-        </button>
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex-shrink-0">
-          {customerName[0]}
-        </div>
-        <div className="flex-1 min-w-0">
-          <span className="font-bold text-gray-900 text-sm">{customerName}</span>
-        </div>
-      </div>
-      {/* ChatPanel과 동일한 빈 메시지 영역 */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50 flex items-center justify-center">
-        <div className="flex flex-col items-center text-center">
-          <div className="text-3xl mb-2">👋</div>
-          <p className="text-sm font-semibold text-gray-600">{customerName}님과 대화를 시작하세요</p>
-          <p className="mt-1 text-xs text-gray-400">첫 메시지를 보내면 제안이 자동으로 등록됩니다</p>
-        </div>
-      </div>
-      {/* ChatPanel과 동일한 입력창 */}
-      <div className="border-t border-gray-100 bg-white px-3 py-2.5 flex-shrink-0">
-        <div className="flex items-end gap-1.5">
-          <textarea ref={inputRef} value={input}
-            onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px' }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-            placeholder="메시지 입력 (Enter 전송)" rows={1}
-            className="flex-1 resize-none overflow-hidden rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:bg-white transition-all"
-            style={{ minHeight: '38px', maxHeight: '100px' }}
-          />
-          <button onClick={handleSend} disabled={!input.trim() || sending}
-            className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-all',
-              input.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}>
-            <Send className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── 채팅 패널 ──────────────────────────────────────
 function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   proposalId: string; currentUser: any; isOwner: boolean; onBack: () => void
@@ -677,12 +575,53 @@ interface Props {
 }
 
 export function RequestDetailClient({ request, proposals, user, userRole }: Props) {
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [proposing, setProposing] = useState(false)
+  const [isCreatingProposal, setIsCreatingProposal] = useState(false)
   const [mobileTab, setMobileTab] = useState<'proposals' | 'chat'>('proposals')
   const isOwner = user?.id === request.user_id
 
-  const handleSelect = (id: string) => { setSelectedId(id); setProposing(false); setMobileTab('chat') }
+  const handleSelect = (id: string) => { setSelectedId(id); setMobileTab('chat') }
+
+  const handleProposeClick = async () => {
+    if (!user || isCreatingProposal) return
+    setIsCreatingProposal(true)
+    try {
+      const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).single()
+      if (!broker) return
+
+      // 이미 제안한 경우 기존 채팅방으로 이동
+      const { data: existing } = await supabase.from('proposals').select('id').eq('request_id', request.id).eq('broker_id', broker.id).maybeSingle()
+      if (existing) { setSelectedId(existing.id); setMobileTab('chat'); return }
+
+      // 제안 생성
+      const { data: proposal } = await supabase.from('proposals').insert({
+        request_id: request.id, broker_id: broker.id,
+        price: 0, description: '', property_address: null, property_images: [], status: 'pending',
+      }).select().single()
+      if (!proposal) return
+
+      // proposal_count 업데이트 + 고객 알림
+      const { data: reqData } = await supabase.from('request_posts').select('proposal_count, user_id').eq('id', request.id).single()
+      if (reqData) {
+        await supabase.from('request_posts').update({ proposal_count: (reqData.proposal_count ?? 0) + 1 }).eq('id', request.id)
+        if (reqData.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: reqData.user_id, type: 'new_proposal',
+            title: '새 제안이 도착했어요! 📨',
+            body: '중개사가 새로운 매물을 제안했습니다.',
+            link: `/request/${request.id}`,
+          })
+        }
+      }
+
+      setSelectedId(proposal.id)
+      setMobileTab('chat')
+    } finally {
+      setIsCreatingProposal(false)
+    }
+  }
 
   return (
     <div className="flex flex-col bg-gray-50" style={{ height: '100dvh' }}>
@@ -754,10 +693,14 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
             {/* 중개사: 제안하기 버튼 */}
             {userRole === 'broker' && request.status === 'active' && (
               <button
-                onClick={() => { setProposing(true); setSelectedId(null); setMobileTab('chat') }}
-                className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                onClick={handleProposeClick}
+                disabled={isCreatingProposal}
+                className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
-                <Home className="h-4 w-4" />이 고객에게 매물 제안하기
+                {isCreatingProposal
+                  ? <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />준비 중...</>
+                  : <><Home className="h-4 w-4" />이 고객에게 매물 제안하기</>
+                }
               </button>
             )}
           </div>
@@ -845,14 +788,6 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
               isOwner={isOwner}
               onBack={() => setMobileTab('proposals')}
             />
-          ) : proposing && user ? (
-            <NewChatPanel
-              requestId={request.id}
-              currentUser={user}
-              customerName={request.profiles?.name ?? '고객'}
-              onCreated={(proposalId) => { setProposing(false); setSelectedId(proposalId) }}
-              onBack={() => { setProposing(false); setMobileTab('proposals') }}
-            />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center text-center px-4 bg-gray-50">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
@@ -886,11 +821,11 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
           제안 목록 ({proposals.length})
         </button>
         <button
-          onClick={() => (selectedId || proposing) && setMobileTab('chat')}
+          onClick={() => selectedId && setMobileTab('chat')}
           className={cn('flex-1 py-3 text-sm font-semibold transition-colors',
-            mobileTab === 'chat' ? 'text-blue-600 border-t-2 border-blue-600 -mt-px' : (selectedId || proposing) ? 'text-gray-500' : 'text-gray-300')}
+            mobileTab === 'chat' ? 'text-blue-600 border-t-2 border-blue-600 -mt-px' : selectedId ? 'text-gray-500' : 'text-gray-300')}
         >
-          {selectedId || proposing ? '대화' : '대화 (제안 선택)'}
+          {selectedId ? '대화' : '대화 (제안 선택)'}
         </button>
       </div>
     </div>
