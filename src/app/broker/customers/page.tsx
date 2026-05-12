@@ -132,7 +132,7 @@ export default async function BrokerCustomersPage() {
                                   {r.district} · {r.deal_type}
                                 </span>
                               )}
-                              {p.price && (
+                              {!!p.price && (
                                 <span className="text-xs font-semibold text-blue-600">{formatPrice(p.price)}</span>
                               )}
                             </div>
