@@ -73,12 +73,12 @@ export function ProposalActions({ proposalId, requestId, currentStatus, brokerId
         {onChatClick ? (
           <button onClick={onChatClick} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             <MessageCircle className="h-4 w-4" />
-            채팅하기
+            대화하기
           </button>
         ) : (
           <Link href={`/chat/${proposalId}`} className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             <MessageCircle className="h-4 w-4" />
-            채팅하기
+            대화하기
           </Link>
         )}
       </div>
