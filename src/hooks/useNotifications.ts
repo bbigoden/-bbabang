@@ -42,22 +42,31 @@ export function useNotifications(userId: string | null) {
   useEffect(() => {
     if (!userId) return
 
-    const channel = supabase
-      .channel(`notifications:${userId}:${Date.now()}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`,
-      }, (payload) => {
-        const n = payload.new as Notification
-        setNotifications(prev => [n, ...prev])
-        setUnread(prev => prev + 1)
-      })
-      .subscribe()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    try {
+      channel = supabase
+        .channel(`notifications:${userId}:${Date.now()}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        }, (payload) => {
+          const n = payload.new as Notification
+          setNotifications(prev => [n, ...prev])
+          setUnread(prev => prev + 1)
+        })
+        .subscribe()
+    } catch (e) {
+      console.warn('Notification realtime subscription failed:', e)
+    }
 
-    return () => { supabase.removeChannel(channel) }
-  }, [userId, supabase])
+    return () => {
+      if (channel) {
+        try { supabase.removeChannel(channel) } catch {}
+      }
+    }
+  }, [userId])
 
   const markAllRead = async () => {
     if (!userId) return
