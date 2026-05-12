@@ -20,6 +20,8 @@ interface Property {
   management_fee: number | null
   premium: number | null
   size_pyeong: string | null
+  area_type: string | null
+  area_unit: string | null
   floor: number | null
   total_floors: string | null
   options: string[]
@@ -228,6 +230,84 @@ function SelectCell({ value, options, onSave, colorMap }: {
         </div>
       )}
     </div>
+  )
+}
+
+// ── 면적 셀 (숫자 + 단위 + 전용/공급 토글) ──────────────────────────
+function AreaCell({ size, areaUnit, areaType, onSave }: {
+  size: string | null
+  areaUnit: string | null
+  areaType: string | null
+  onSave: (size: string | null, unit: string, type: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draftSize, setDraftSize] = useState(size ?? '')
+  const [draftUnit, setDraftUnit] = useState<'평' | 'm²'>((areaUnit as any) ?? '평')
+  const [draftType, setDraftType] = useState<'전용' | '공급'>((areaType as any) ?? '전용')
+  const [hovered, setHovered] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    onSave(draftSize || null, draftUnit, draftType)
+  }
+
+  const displayText = size ? `${size}${areaUnit ?? '평'}(${areaType ?? '전용'})` : null
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1 py-0.5">
+        <input
+          ref={inputRef}
+          type="number"
+          value={draftSize}
+          placeholder="면적"
+          onChange={e => setDraftSize(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraftSize(size ?? ''); setEditing(false) } }}
+          className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+        />
+        <div className="flex gap-1">
+          <div className="flex rounded border border-gray-200 overflow-hidden flex-1">
+            {(['평', 'm²'] as const).map(u => (
+              <button key={u} type="button" onClick={() => setDraftUnit(u)}
+                className={cn('flex-1 py-0.5 text-[10px] font-semibold transition-colors',
+                  draftUnit === u ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
+                )}>{u}</button>
+            ))}
+          </div>
+          <div className="flex rounded border border-gray-200 overflow-hidden flex-1">
+            {(['전용', '공급'] as const).map(t => (
+              <button key={t} type="button" onClick={() => setDraftType(t)}
+                className={cn('flex-1 py-0.5 text-[10px] font-semibold transition-colors',
+                  draftType === t ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
+                )}>{t}</button>
+            ))}
+          </div>
+          <button type="button" onClick={commit}
+            className="rounded border border-blue-400 bg-blue-500 px-1.5 text-[10px] font-semibold text-white hover:bg-blue-600">
+            확인
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div ref={cellRef}
+        onClick={() => { setDraftSize(size ?? ''); setDraftUnit((areaUnit as any) ?? '평'); setDraftType((areaType as any) ?? '전용'); setEditing(true); setHovered(false) }}
+        onMouseEnter={() => { if (displayText) setHovered(true) }}
+        onMouseLeave={() => setHovered(false)}
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        style={{ color: displayText ? '#374151' : '#d1d5db' }}
+      >
+        {displayText ?? '전용/공급'}
+      </div>
+      {hovered && displayText && <CellTooltip text={displayText} anchorRef={cellRef} />}
+    </>
   )
 }
 
@@ -1121,7 +1201,7 @@ function BrokerPropertiesContent() {
                       return (
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
-                          {key === 'size_pyeong'     && <TextCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v || null)} placeholder="전용/공급" />}
+                          {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} areaUnit={p.area_unit} areaType={p.area_type} onSave={(sz, unit, type) => { saveField(p.id, 'size_pyeong', sz); saveField(p.id, 'area_unit', unit); saveField(p.id, 'area_type', type) }} />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
                           {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
