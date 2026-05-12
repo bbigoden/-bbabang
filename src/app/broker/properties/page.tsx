@@ -233,81 +233,84 @@ function SelectCell({ value, options, onSave, colorMap }: {
   )
 }
 
-// ── 면적 셀 (숫자 + 단위 + 전용/공급 토글) ──────────────────────────
+// ── 면적 셀 (SelectCell 방식 팝오버) ──────────────────────────
 function AreaCell({ size, areaUnit, areaType, onSave }: {
   size: string | null
   areaUnit: string | null
   areaType: string | null
   onSave: (size: string | null, unit: string, type: string) => void
 }) {
-  const [editing, setEditing] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
   const [draftSize, setDraftSize] = useState(size ?? '')
   const [draftUnit, setDraftUnit] = useState<'평' | 'm²'>((areaUnit as any) ?? '평')
   const [draftType, setDraftType] = useState<'전용' | '공급'>((areaType as any) ?? '전용')
   const [hovered, setHovered] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const cellRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+  useClickOutside(ref, () => {
+    if (open) { onSave(draftSize || null, draftUnit, draftType); setOpen(false) }
+  })
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
 
-  const commit = () => {
-    setEditing(false)
-    onSave(draftSize || null, draftUnit, draftType)
+  const handleOpen = () => {
+    setDraftSize(size ?? '')
+    setDraftUnit((areaUnit as any) ?? '평')
+    setDraftType((areaType as any) ?? '전용')
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setOpenUp(window.innerHeight - rect.bottom < 160)
+    }
+    setOpen(v => !v)
+    setHovered(false)
   }
 
   const displayText = size ? `${size}${areaUnit ?? '평'}(${areaType ?? '전용'})` : null
 
-  if (editing) {
-    return (
-      <div className="flex flex-col gap-1 py-0.5">
-        <input
-          ref={inputRef}
-          type="number"
-          value={draftSize}
-          placeholder="면적"
-          onChange={e => setDraftSize(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraftSize(size ?? ''); setEditing(false) } }}
-          className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
-        />
-        <div className="flex gap-1">
-          <div className="flex rounded border border-gray-200 overflow-hidden flex-1">
-            {(['평', 'm²'] as const).map(u => (
-              <button key={u} type="button" onClick={() => setDraftUnit(u)}
-                className={cn('flex-1 py-0.5 text-[10px] font-semibold transition-colors',
-                  draftUnit === u ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
-                )}>{u}</button>
-            ))}
-          </div>
-          <div className="flex rounded border border-gray-200 overflow-hidden flex-1">
-            {(['전용', '공급'] as const).map(t => (
-              <button key={t} type="button" onClick={() => setDraftType(t)}
-                className={cn('flex-1 py-0.5 text-[10px] font-semibold transition-colors',
-                  draftType === t ? 'bg-blue-500 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
-                )}>{t}</button>
-            ))}
-          </div>
-          <button type="button" onClick={commit}
-            className="rounded border border-blue-400 bg-blue-500 px-1.5 text-[10px] font-semibold text-white hover:bg-blue-600">
-            확인
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <>
-      <div ref={cellRef}
-        onClick={() => { setDraftSize(size ?? ''); setDraftUnit((areaUnit as any) ?? '평'); setDraftType((areaType as any) ?? '전용'); setEditing(true); setHovered(false) }}
-        onMouseEnter={() => { if (displayText) setHovered(true) }}
+    <div ref={ref} className="relative">
+      <div ref={btnRef}
+        onClick={handleOpen}
+        onMouseEnter={() => { if (!open && displayText) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
         className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
         style={{ color: displayText ? '#374151' : '#d1d5db' }}
       >
         {displayText ?? '전용/공급'}
       </div>
-      {hovered && displayText && <CellTooltip text={displayText} anchorRef={cellRef} />}
-    </>
+      {hovered && displayText && <CellTooltip text={displayText} anchorRef={btnRef} />}
+      {open && (
+        <div className={`absolute left-0 z-50 w-44 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5 ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+          <input
+            ref={inputRef}
+            type="number"
+            value={draftSize}
+            placeholder="면적 숫자"
+            onChange={e => setDraftSize(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { onSave(draftSize || null, draftUnit, draftType); setOpen(false) } if (e.key === 'Escape') setOpen(false) }}
+            className="w-full rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+          />
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            {(['평', 'm²'] as const).map(u => (
+              <button key={u} type="button" onClick={() => setDraftUnit(u)}
+                className={cn('flex-1 py-1 text-xs font-semibold transition-colors',
+                  draftUnit === u ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                )}>{u}</button>
+            ))}
+          </div>
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            {(['전용', '공급'] as const).map(t => (
+              <button key={t} type="button" onClick={() => setDraftType(t)}
+                className={cn('flex-1 py-1 text-xs font-semibold transition-colors',
+                  draftType === t ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                )}>{t}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
