@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { MapPin, Clock, Search, SlidersHorizontal, X } from 'lucide-react'
 import Link from 'next/link'
@@ -182,38 +181,33 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
           </Card>
         ) : (
           filtered.map((req: any) => (
-            <Card key={req.id} hover>
-              <CardBody className="py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap gap-1.5 mb-1">
-                      {req.is_co_broker && (
-                        <Badge variant="default" className="bg-purple-100 text-purple-700 border-purple-200">공동중개</Badge>
-                      )}
-                      {(req.deal_type?.split(',') ?? []).map((t: string) => (
-                        <Badge key={t} variant="info">{t.trim()}</Badge>
-                      ))}
-                      {(req.room_type?.split(',') ?? []).slice(0, 2).map((t: string) => (
-                        <Badge key={t} variant="default">{t.trim()}</Badge>
-                      ))}
-                    </div>
-                    <div className="font-bold text-blue-600">
-                      {formatPrice(req.min_price)}~{formatPrice(req.max_price)}
-                    </div>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {req.city} {req.district}
-                      <span className="mx-1">·</span>
-                      <Clock className="h-3.5 w-3.5" />
-                      {formatDate(req.created_at)}
-                    </div>
+            <Link key={req.id} href={`/request/${req.id}`}>
+              <Card hover>
+                <CardBody className="py-4">
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {req.is_co_broker && (
+                      <Badge variant="default" className="bg-purple-100 text-purple-700 border-purple-200">공동중개</Badge>
+                    )}
+                    {(req.deal_type?.split(',') ?? []).map((t: string) => (
+                      <Badge key={t} variant="info">{t.trim()}</Badge>
+                    ))}
+                    {(req.room_type?.split(',') ?? []).slice(0, 2).map((t: string) => (
+                      <Badge key={t} variant="default">{t.trim()}</Badge>
+                    ))}
                   </div>
-                  <Link href={`/request/${req.id}/propose`} className="flex-shrink-0">
-                    <Button size="sm" variant="primary">제안</Button>
-                  </Link>
-                </div>
-              </CardBody>
-            </Card>
+                  <div className="font-bold text-blue-600">
+                    {formatPrice(req.min_price)}~{formatPrice(req.max_price)}
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {req.city} {req.district}
+                    <span className="mx-1">·</span>
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatDate(req.created_at)}
+                  </div>
+                </CardBody>
+              </Card>
+            </Link>
           ))
         )}
       </div>
