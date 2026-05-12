@@ -523,7 +523,7 @@ function BrokerPropertiesContent() {
       setAdminViewBrokerName((b.profiles as any)?.name || b.office_name || '(이름 없음)')
       const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
       setCustomColumns(cols)
-      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: true })
+      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
       setProperties(data ?? [])
       setLoading(false)
       return
@@ -536,7 +536,7 @@ function BrokerPropertiesContent() {
     // 커스텀 칼럼 로드 (없으면 기본값)
     const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
     setCustomColumns(cols)
-    const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: true })
+    const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
     setProperties(data ?? [])
     setLoading(false)
   }
@@ -602,9 +602,9 @@ function BrokerPropertiesContent() {
       images: [],
     }).select().single()
     if (error || !data) return
-    setProperties(prev => [...prev, data])
+    setProperties(prev => [data, ...prev])
     setAddingId(data.id)
-    setPage(Math.max(1, Math.ceil((filtered.length + 1) / pageSize)))
+    setPage(1)
     setTimeout(() => setAddingId(null), 2000)
   }
 
@@ -619,9 +619,9 @@ function BrokerPropertiesContent() {
     const { id, created_at, ...rest } = prop
     const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
     if (error || !data) return
-    setProperties(prev => [...prev, data])
+    setProperties(prev => [data, ...prev])
     setAddingId(data.id)
-    setPage(Math.max(1, Math.ceil((filtered.length + 1) / pageSize)))
+    setPage(1)
     setTimeout(() => setAddingId(null), 2000)
   }
 
@@ -1027,7 +1027,7 @@ function BrokerPropertiesContent() {
                   className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
                   <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
-                    {(page - 1) * pageSize + idx + 1}
+                    {filtered.length - ((page - 1) * pageSize + idx)}
                   </td>
                   {colOrder.map(key => {
                     const fixedCol = ALL_COLUMNS.find(c => c.key === key)
