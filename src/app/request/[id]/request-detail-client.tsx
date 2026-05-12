@@ -736,6 +736,7 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
                             currentStatus={proposal.status}
                             brokerId={broker?.user_id}
                             requestOwnerId={request.user_id}
+                            onChatClick={() => handleSelect(proposal.id)}
                           />
                         </div>
                       )}
