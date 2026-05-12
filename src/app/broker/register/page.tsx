@@ -7,7 +7,7 @@ import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
-import { Shield, CheckCircle, X } from 'lucide-react'
+import { Shield, CheckCircle, X, Users, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const REGIONS: Record<string, string[]> = {
@@ -35,9 +35,20 @@ export default function BrokerRegisterPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  // 가입 유형: 'owner' = 대표, 'employee' = 직원
+  const [joinType, setJoinType] = useState<'owner' | 'employee'>('owner')
+
+  // --- 대표 가입 상태 ---
   const [selectedCity, setSelectedCity] = useState('서울특별시')
-  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]) // 복수 선택
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([])
   const [form, setForm] = useState({ office_name: '', license_number: '', address: '', bio: '' })
+
+  // --- 직원 가입 상태 ---
+  const [officeCode, setOfficeCode] = useState('')
+  const [codePreview, setCodePreview] = useState<{ office_name: string; address: string } | null>(null)
+  const [codeChecking, setCodeChecking] = useState(false)
+  const [codeError, setCodeError] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -48,15 +59,88 @@ export default function BrokerRegisterPage() {
       prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]
     )
   }
-
   const removeDistrict = (d: string) =>
     setSelectedDistricts(prev => prev.filter(x => x !== d))
 
-  const handleCityChange = (city: string) => {
-    setSelectedCity(city)
+  // 코드 입력 시 사무소 조회 (6자리 완성 시 자동)
+  const handleCodeChange = async (val: string) => {
+    const v = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+    setOfficeCode(v)
+    setCodeError('')
+    setCodePreview(null)
+    if (v.length === 6) {
+      setCodeChecking(true)
+      try {
+        const { data } = await supabase
+          .from('broker_profiles')
+          .select('id, office_name, address')
+          .eq('office_code', v)
+          .single()
+        if (data) {
+          setCodePreview({ office_name: data.office_name, address: data.address })
+        } else {
+          setCodeError('등록된 사무소 코드가 아닙니다.')
+        }
+      } catch {
+        setCodeError('조회 중 오류가 발생했습니다.')
+      }
+      setCodeChecking(false)
+    }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 직원 등록
+  const handleEmployeeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!codePreview) { setError('사무소 코드를 확인해주세요.'); return }
+    setLoading(true)
+    setError('')
+
+    try {
+      const { data: authData } = await supabase.auth.getUser()
+      const user = authData.user
+      if (!user) { router.push('/auth/login'); return }
+
+      // 부모 broker 조회
+      const { data: parentBroker } = await supabase
+        .from('broker_profiles')
+        .select('id, office_name, address, district')
+        .eq('office_code', officeCode)
+        .single()
+
+      if (!parentBroker) { setError('사무소 코드를 다시 확인해주세요.'); setLoading(false); return }
+
+      // 직원 broker_profile 생성 — 사무소 정보 공유, is_owner=false
+      const { error: insertError } = await supabase.from('broker_profiles').insert({
+        user_id: user.id,
+        office_name: parentBroker.office_name,
+        address: parentBroker.address,
+        district: parentBroker.district,
+        license_number: '',
+        bio: null,
+        rating: 0,
+        review_count: 0,
+        deal_count: 0,
+        is_verified: false,
+        is_owner: false,
+        parent_broker_id: parentBroker.id,
+      })
+
+      if (insertError) {
+        setError('등록 중 오류가 발생했습니다.')
+        setLoading(false)
+        return
+      }
+
+      await supabase.from('profiles').update({ role: 'broker' }).eq('id', user.id)
+      router.push('/dashboard/broker')
+    } catch {
+      setError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+      setLoading(false)
+    }
+  }
+
+  // 대표 등록
+  const handleOwnerSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (selectedDistricts.length === 0) { setError('활동 지역을 최소 1개 선택해주세요.'); return }
     setLoading(true)
@@ -74,12 +158,13 @@ export default function BrokerRegisterPage() {
       office_name: form.office_name,
       license_number: form.license_number,
       address: form.address,
-      district: selectedDistricts.join(','), // 복수 지역 콤마 구분
+      district: selectedDistricts.join(','),
       bio: form.bio || null,
       rating: 0,
       review_count: 0,
       deal_count: 0,
       is_verified: false,
+      is_owner: true,
     })
 
     if (insertError) {
@@ -88,9 +173,7 @@ export default function BrokerRegisterPage() {
       return
     }
 
-    // profiles.role을 'broker'로 업데이트
     await supabase.from('profiles').update({ role: 'broker' }).eq('id', user.id)
-
     router.push('/dashboard/broker')
   }
 
@@ -108,103 +191,183 @@ export default function BrokerRegisterPage() {
           <p className="mt-2 text-sm text-gray-500">인증 완료 후 고객 요청에 제안할 수 있습니다</p>
         </div>
 
-        {/* 인증 안내 */}
-        <div className="mb-4 flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          <CheckCircle className="h-5 w-5 flex-shrink-0" />
-          <span>자격증 번호 인증 후 <strong>빠방 인증 뱃지</strong>가 부여됩니다</span>
+        {/* 가입 유형 선택 */}
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          {[
+            { value: 'owner', label: '사무소 대표', icon: Building2, desc: '새 사무소 개설' },
+            { value: 'employee', label: '소속 직원', icon: Users, desc: '사무소 코드로 합류' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { setJoinType(opt.value as 'owner' | 'employee'); setError('') }}
+              className={cn(
+                'rounded-xl border-2 p-4 text-left transition-all',
+                joinType === opt.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              )}
+            >
+              <opt.icon className={cn('mb-2 h-5 w-5', joinType === opt.value ? 'text-blue-600' : 'text-gray-400')} />
+              <div className={cn('font-semibold text-sm', joinType === opt.value ? 'text-blue-700' : 'text-gray-700')}>
+                {opt.label}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
+            </button>
+          ))}
         </div>
 
-        <Card>
-          <CardBody>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <Input label="부동산 상호명" placeholder="예: 행복부동산" value={form.office_name} onChange={(e) => update('office_name', e.target.value)} required />
-              <Input label="공인중개사 자격증 번호" placeholder="예: 제20-XXXXX호" value={form.license_number} onChange={(e) => update('license_number', e.target.value)} required hint="자격증 번호로 인증 검토 후 뱃지가 발급됩니다" />
-              <Input label="사무소 주소" placeholder="서울시 강남구 역삼동 123-45" value={form.address} onChange={(e) => update('address', e.target.value)} required />
-
-              {/* 활동 지역 선택 - 전국 + 복수 선택 */}
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">주요 활동 지역</label>
-                  <span className="text-xs text-gray-400">중복 선택 가능</span>
+        {/* ── 직원 등록 ── */}
+        {joinType === 'employee' && (
+          <Card>
+            <CardBody>
+              <div className="mb-4 flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                <CheckCircle className="h-5 w-5 flex-shrink-0" />
+                <span>사무소 대표에게 <strong>6자리 코드</strong>를 받아 입력해주세요</span>
+              </div>
+              <form onSubmit={handleEmployeeSubmit} className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">사무소 코드</label>
+                  <input
+                    type="text"
+                    value={officeCode}
+                    onChange={(e) => handleCodeChange(e.target.value)}
+                    placeholder="예: A1B2C3"
+                    maxLength={6}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-center text-xl font-mono font-bold tracking-widest text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                  />
+                  {codeChecking && (
+                    <p className="mt-1.5 text-xs text-gray-400">조회 중...</p>
+                  )}
+                  {codeError && (
+                    <p className="mt-1.5 text-xs text-red-500">⚠️ {codeError}</p>
+                  )}
+                  {codePreview && (
+                    <div className="mt-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-semibold text-green-700">사무소 확인 완료</span>
+                      </div>
+                      <p className="text-sm font-bold text-gray-900">{codePreview.office_name}</p>
+                      <p className="text-xs text-gray-500">{codePreview.address}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* 선택된 지역 태그 */}
-                {selectedDistricts.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {selectedDistricts.map(d => (
-                      <span key={d} className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
-                        {d}
-                        <button type="button" onClick={() => removeDistrict(d)}>
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
+                {error && (
+                  <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">⚠️ {error}</div>
                 )}
 
-                {/* 시/도 선택 */}
-                <select
-                  value={selectedCity}
-                  onChange={(e) => handleCityChange(e.target.value)}
-                  className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full"
+                  loading={loading}
+                  disabled={!codePreview}
                 >
-                  {CITIES.map(city => <option key={city} value={city}>{city}</option>)}
-                </select>
+                  소속 직원으로 등록
+                </Button>
+              </form>
+            </CardBody>
+          </Card>
+        )}
 
-                {/* 구/군 선택 */}
-                <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
-                  {(REGIONS[selectedCity] ?? []).map(d => (
-                    <button
-                      key={d}
-                      type="button"
-                      onClick={() => toggleDistrict(d)}
-                      className={cn(
-                        'rounded-xl border-2 py-2 text-xs font-medium transition-all',
-                        selectedDistricts.includes(d)
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      )}
+        {/* ── 대표 등록 ── */}
+        {joinType === 'owner' && (
+          <>
+            <div className="mb-4 flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              <CheckCircle className="h-5 w-5 flex-shrink-0" />
+              <span>자격증 번호 인증 후 <strong>빠방 인증 뱃지</strong>가 부여됩니다</span>
+            </div>
+
+            <Card>
+              <CardBody>
+                <form onSubmit={handleOwnerSubmit} className="space-y-5">
+                  <Input label="부동산 상호명" placeholder="예: 행복부동산" value={form.office_name} onChange={(e) => update('office_name', e.target.value)} required />
+                  <Input label="공인중개사 자격증 번호" placeholder="예: 제20-XXXXX호" value={form.license_number} onChange={(e) => update('license_number', e.target.value)} required hint="자격증 번호로 인증 검토 후 뱃지가 발급됩니다" />
+                  <Input label="사무소 주소" placeholder="서울시 강남구 역삼동 123-45" value={form.address} onChange={(e) => update('address', e.target.value)} required />
+
+                  {/* 활동 지역 선택 */}
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">주요 활동 지역</label>
+                      <span className="text-xs text-gray-400">중복 선택 가능</span>
+                    </div>
+
+                    {selectedDistricts.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-2">
+                        {selectedDistricts.map(d => (
+                          <span key={d} className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                            {d}
+                            <button type="button" onClick={() => removeDistrict(d)}>
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <select
+                      value={selectedCity}
+                      onChange={(e) => setSelectedCity(e.target.value)}
+                      className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
-                      {selectedDistricts.includes(d) && '✓ '}
-                      {d}
-                    </button>
-                  ))}
-                </div>
-                {selectedDistricts.length === 0 && (
-                  <p className="mt-1.5 text-xs text-gray-400">* 활동할 지역을 선택해주세요</p>
-                )}
-              </div>
+                      {CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+                    </select>
 
-              {/* 자기소개 */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  자기소개 <span className="font-normal text-gray-400">(선택)</span>
-                </label>
-                <textarea
-                  placeholder="경력, 전문 분야, 고객에게 전하고 싶은 말 등을 적어주세요&#10;예: 강남 10년 경력, 아파트 전문, 친절한 상담"
-                  value={form.bio}
-                  onChange={(e) => update('bio', e.target.value)}
-                  rows={4}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
-                />
-              </div>
+                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {(REGIONS[selectedCity] ?? []).map(d => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => toggleDistrict(d)}
+                          className={cn(
+                            'rounded-xl border-2 py-2 text-xs font-medium transition-all',
+                            selectedDistricts.includes(d)
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                          )}
+                        >
+                          {selectedDistricts.includes(d) && '✓ '}
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                    {selectedDistricts.length === 0 && (
+                      <p className="mt-1.5 text-xs text-gray-400">* 활동할 지역을 선택해주세요</p>
+                    )}
+                  </div>
 
-              {error && (
-                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">⚠️ {error}</div>
-              )}
+                  {/* 자기소개 */}
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                      자기소개 <span className="font-normal text-gray-400">(선택)</span>
+                    </label>
+                    <textarea
+                      placeholder="경력, 전문 분야, 고객에게 전하고 싶은 말 등을 적어주세요&#10;예: 강남 10년 경력, 아파트 전문, 친절한 상담"
+                      value={form.bio}
+                      onChange={(e) => update('bio', e.target.value)}
+                      rows={4}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                    />
+                  </div>
 
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                loading={loading}
-                disabled={!form.office_name || !form.license_number || !form.address || selectedDistricts.length === 0}
-              >
-                중개사 등록 신청
-              </Button>
-            </form>
-          </CardBody>
-        </Card>
+                  {error && (
+                    <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">⚠️ {error}</div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full"
+                    loading={loading}
+                    disabled={!form.office_name || !form.license_number || !form.address || selectedDistricts.length === 0}
+                  >
+                    중개사 등록 신청
+                  </Button>
+                </form>
+              </CardBody>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   )

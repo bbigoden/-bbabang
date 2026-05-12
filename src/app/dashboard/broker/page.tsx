@@ -7,6 +7,7 @@ import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2,
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
+import { OfficeCodeCard } from '@/components/office-code-card'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -139,6 +140,13 @@ export default async function BrokerDashboardPage() {
             </div>
           </CardBody>
         </Card>
+
+        {/* 직원 합류 코드 — 대표만 표시 */}
+        {broker.is_owner !== false && (
+          <div className="mb-6">
+            <OfficeCodeCard brokerId={broker.id} initialCode={broker.office_code ?? null} />
+          </div>
+        )}
 
         {/* 빠른 메뉴 4타일 */}
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
