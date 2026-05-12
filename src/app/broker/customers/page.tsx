@@ -159,7 +159,9 @@ export default function BrokerCustomersPage() {
   const router = useRouter()
 
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
+  const [isOwner, setIsOwner] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -170,21 +172,36 @@ export default function BrokerCustomersPage() {
 
   useEffect(() => { init() }, [])
 
-  const getRootBrokerId = (b: any) =>
-    b.is_owner !== false ? b.id : (b.parent_broker_id ?? b.id)
-
   const init = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) { router.push('/auth/login'); return }
     setUser(u)
-    const { data: b } = await supabase.from('broker_profiles').select('*').eq('user_id', u.id).single()
+
+    const [{ data: prof }, { data: b }] = await Promise.all([
+      supabase.from('profiles').select('name').eq('id', u.id).single(),
+      supabase.from('broker_profiles').select('*').eq('user_id', u.id).single(),
+    ])
     if (!b) { router.push('/broker/register'); return }
+    setProfile(prof)
     setBroker(b)
-    const rootId = b.is_owner !== false ? b.id : (b.parent_broker_id ?? b.id)
+
+    const owner = b.is_owner !== false
+    setIsOwner(owner)
+
+    let brokerIds: string[] = [b.id]
+    if (owner) {
+      // 대표: 소속 직원 ID도 포함
+      const { data: employees } = await supabase
+        .from('broker_profiles')
+        .select('id')
+        .eq('parent_broker_id', b.id)
+      if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
+    }
+
     const { data } = await supabase
       .from('broker_customers')
       .select('*')
-      .eq('broker_id', rootId)
+      .in('broker_id', brokerIds)
       .order('received_date', { ascending: false })
       .order('created_at', { ascending: false })
     setCustomers(data ?? [])
@@ -198,12 +215,12 @@ export default function BrokerCustomersPage() {
 
   const addRow = async () => {
     if (!broker) return
-    const rootId = getRootBrokerId(broker)
     const today = new Date().toISOString().split('T')[0]
     const { data, error } = await supabase.from('broker_customers').insert({
-      broker_id: rootId,
+      broker_id: broker.id,          // 항상 본인 ID
       client_name: '',
       received_date: today,
+      assignee: profile?.name ?? null, // 담당자 자동 입력
       category: '비주거',
       status: '잠재',
     }).select().single()
@@ -317,8 +334,8 @@ export default function BrokerCustomersPage() {
             />
           </div>
 
-          {/* 담당자 필터 */}
-          {assignees.length > 1 && (
+          {/* 담당자 필터 — 대표만 표시 */}
+          {isOwner && assignees.length > 1 && (
             <div className="flex gap-1 flex-wrap">
               {assignees.map(a => (
                 <button key={a} onClick={() => setAssigneeFilter(a)}

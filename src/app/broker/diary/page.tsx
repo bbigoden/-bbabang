@@ -301,7 +301,9 @@ export default function BrokerDiaryPage() {
   const router = useRouter()
 
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
+  const [isOwner, setIsOwner] = useState(false)
   const [consultations, setConsultations] = useState<Consultation[]>([])
   const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -313,23 +315,34 @@ export default function BrokerDiaryPage() {
 
   useEffect(() => { init() }, [])
 
-  const getRootBrokerId = (b: any) =>
-    b.is_owner !== false ? b.id : (b.parent_broker_id ?? b.id)
-
   const init = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
     if (!u) { router.push('/auth/login'); return }
     setUser(u)
-    const { data: b } = await supabase.from('broker_profiles').select('*').eq('user_id', u.id).single()
+
+    const [{ data: prof }, { data: b }] = await Promise.all([
+      supabase.from('profiles').select('name').eq('id', u.id).single(),
+      supabase.from('broker_profiles').select('*').eq('user_id', u.id).single(),
+    ])
     if (!b) { router.push('/broker/register'); return }
+    setProfile(prof)
     setBroker(b)
-    const rootId = b.is_owner !== false ? b.id : (b.parent_broker_id ?? b.id)
+
+    const owner = b.is_owner !== false
+    setIsOwner(owner)
+
+    let brokerIds: string[] = [b.id]
+    if (owner) {
+      const { data: employees } = await supabase
+        .from('broker_profiles').select('id').eq('parent_broker_id', b.id)
+      if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
+    }
 
     const [{ data: cons }, { data: custs }] = await Promise.all([
-      supabase.from('broker_consultations').select('*').eq('broker_id', rootId)
+      supabase.from('broker_consultations').select('*').in('broker_id', brokerIds)
         .order('consulted_at', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('broker_customers').select('id, client_name, contact, assignee, source')
-        .eq('broker_id', rootId).order('received_date', { ascending: false }),
+        .in('broker_id', brokerIds).order('received_date', { ascending: false }),
     ])
     setConsultations(cons ?? [])
     setCustomers(custs ?? [])
@@ -353,12 +366,12 @@ export default function BrokerDiaryPage() {
 
   const addRow = async () => {
     if (!broker) return
-    const rootId = getRootBrokerId(broker)
     const today = new Date().toISOString().split('T')[0]
     const { data, error } = await supabase.from('broker_consultations').insert({
-      broker_id: rootId,
+      broker_id: broker.id,           // 항상 본인 ID
       consulted_at: today,
       client_name: '',
+      assignee: profile?.name ?? null, // 담당자 자동 입력
       status: '잠재',
     }).select().single()
     if (error || !data) return
@@ -465,7 +478,8 @@ export default function BrokerDiaryPage() {
               className="w-full rounded-xl border border-gray-200 bg-white pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
             />
           </div>
-          {assignees.length > 1 && (
+          {/* 담당자 필터 — 대표만 표시 */}
+          {isOwner && assignees.length > 1 && (
             <div className="flex gap-1 flex-wrap">
               {assignees.map(a => (
                 <button key={a} onClick={() => setAssigneeFilter(a)}
