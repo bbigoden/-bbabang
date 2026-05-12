@@ -184,7 +184,8 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
 function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   proposalId: string; currentUser: any; isOwner: boolean; onBack: () => void
 }) {
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const [room, setRoom] = useState<any>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')

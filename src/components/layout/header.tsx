@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Home, MessageCircle, User, Menu, X } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 
 interface HeaderProps {
@@ -17,7 +17,8 @@ interface HeaderProps {
 export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<any>(userProp ?? null)
   const [role, setRole] = useState<string | null>(roleProp ?? null)

@@ -276,7 +276,8 @@ export default function ChatPage() {
   const params = useParams()
   const router = useRouter()
   const proposalId = params.proposalId as string
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const [user, setUser] = useState<any>(null)
   const [room, setRoom] = useState<any>(null)

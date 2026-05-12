@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { XCircle, AlertTriangle } from 'lucide-react'
 
 export function CloseRequestButton({ requestId }: { requestId: string }) {
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)

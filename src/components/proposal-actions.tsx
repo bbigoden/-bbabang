@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,8 @@ interface ProposalActionsProps {
 
 export function ProposalActions({ proposalId, requestId, currentStatus, brokerId, requestOwnerId }: ProposalActionsProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
   const [status, setStatus] = useState(currentStatus)
   const [loading, setLoading] = useState<'accept' | 'reject' | null>(null)
 

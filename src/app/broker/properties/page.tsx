@@ -218,7 +218,8 @@ function ImageCell({ images, onSave, onView }: {
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [localImgs, setLocalImgs] = useState<string[]>(images)
   const ref = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   useEffect(() => { setLocalImgs(images) }, [images])
   useClickOutside(ref, () => { if (open) { saveAndClose() } })
@@ -360,7 +361,8 @@ export default function BrokerPropertiesPage() {
 function BrokerPropertiesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
@@ -545,7 +547,7 @@ function BrokerPropertiesContent() {
   const saveField = useCallback(async (id: string, field: string, value: any) => {
     await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
     setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
-  }, [supabase])
+  }, [])
 
   // 커스텀 필드 값 저장
   const saveCustomField = useCallback(async (propertyId: string, colId: string, value: string) => {
@@ -553,7 +555,7 @@ function BrokerPropertiesContent() {
     const updated = { ...(prop?.custom_fields ?? {}), [colId]: value }
     await supabase.from('broker_properties').update({ custom_fields: updated }).eq('id', propertyId)
     setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, custom_fields: updated } : p))
-  }, [supabase, properties])
+  }, [properties])
 
   // 커스텀 칼럼 추가
   const addCustomColumn = async (name: string) => {
