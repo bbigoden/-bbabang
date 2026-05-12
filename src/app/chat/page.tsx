@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation'
 export default async function ChatListPage() {
   const supabase = await createClient()
 
+  // ── 인증 확인 (redirect는 try/catch 밖에서 호출) ──────────
   let user: any = null
   try {
     const { data } = await supabase.auth.getUser()
@@ -79,8 +80,7 @@ export default async function ChatListPage() {
         }
       }
     }
-  } catch (e: any) {
-    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+  } catch {
     // 데이터 로드 실패 시 빈 목록으로 표시
   }
 

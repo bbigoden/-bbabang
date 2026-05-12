@@ -40,23 +40,15 @@ export default async function BrokerDashboardPage() {
 
   // ── 부가 데이터 조회 (실패해도 빈 상태로 처리) ────────────
   let proposals: any[] = []
-  let activeRequests: any[] = []
   let recentReviews: any[] = []
 
   try {
-    const [{ data: pr }, { data: ar }, { data: rv }] = await Promise.all([
+    const [{ data: pr }, { data: rv }] = await Promise.all([
       supabase
         .from('proposals')
         .select('*, request_posts(*, profiles(*))')
         .eq('broker_id', broker.id)
         .order('created_at', { ascending: false }),
-      supabase
-        .from('request_posts')
-        .select('*, profiles(*)')
-        .in('district', brokerDistricts.length > 0 ? brokerDistricts : [''])
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(10),
       supabase
         .from('reviews')
         .select('*, profiles(name)')
@@ -65,7 +57,6 @@ export default async function BrokerDashboardPage() {
         .limit(3),
     ])
     proposals = pr ?? []
-    activeRequests = ar ?? []
     recentReviews = rv ?? []
   } catch {
     // 부가 데이터 로드 실패 시 빈 상태로 렌더링
@@ -300,8 +291,8 @@ export default async function BrokerDashboardPage() {
                       </div>
                       <span className="text-xs text-gray-400">{formatDate(review.created_at)}</span>
                     </div>
-                    {review.comment && (
-                      <p className="text-sm text-gray-600 line-clamp-2">{review.comment}</p>
+                    {review.content && (
+                      <p className="text-sm text-gray-600 line-clamp-2">{review.content}</p>
                     )}
                     <p className="mt-2 text-xs text-gray-400">{review.profiles?.name ?? '익명'}</p>
                   </CardBody>
