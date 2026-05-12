@@ -754,19 +754,18 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center text-center px-4 bg-gray-50">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
+                <MessageCircle className="h-8 w-8 text-blue-500" />
+              </div>
               {!user ? (
                 <>
-                  <MessageCircle className="mb-3 h-12 w-12 text-gray-200" />
-                  <p className="font-semibold text-gray-500">로그인 후 채팅할 수 있어요</p>
+                  <h3 className="text-base font-bold text-gray-800">로그인 후 채팅할 수 있어요</h3>
                   <Link href="/auth/login" className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
                     로그인하기
                   </Link>
                 </>
               ) : (
                 <>
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
-                    <MessageCircle className="h-8 w-8 text-blue-500" />
-                  </div>
                   <h3 className="text-base font-bold text-gray-800">제안을 선택하세요</h3>
                   <p className="mt-1.5 text-sm text-gray-400">왼쪽에서 중개사 제안을 클릭하면<br />바로 채팅을 시작할 수 있어요</p>
                 </>
