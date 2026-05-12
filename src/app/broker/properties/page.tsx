@@ -523,7 +523,7 @@ function BrokerPropertiesContent() {
       setAdminViewBrokerName((b.profiles as any)?.name || b.office_name || '(이름 없음)')
       const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
       setCustomColumns(cols)
-      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
+      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: true })
       setProperties(data ?? [])
       setLoading(false)
       return
@@ -536,7 +536,7 @@ function BrokerPropertiesContent() {
     // 커스텀 칼럼 로드 (없으면 기본값)
     const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
     setCustomColumns(cols)
-    const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
+    const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: true })
     setProperties(data ?? [])
     setLoading(false)
   }
@@ -602,9 +602,9 @@ function BrokerPropertiesContent() {
       images: [],
     }).select().single()
     if (error || !data) return
-    setProperties(prev => [data, ...prev])
+    setProperties(prev => [...prev, data])
     setAddingId(data.id)
-    setPage(1)
+    setPage(Math.max(1, Math.ceil((filtered.length + 1) / pageSize)))
     setTimeout(() => setAddingId(null), 2000)
   }
 
@@ -619,9 +619,9 @@ function BrokerPropertiesContent() {
     const { id, created_at, ...rest } = prop
     const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
     if (error || !data) return
-    setProperties(prev => [data, ...prev])
+    setProperties(prev => [...prev, data])
     setAddingId(data.id)
-    setPage(1)
+    setPage(Math.max(1, Math.ceil((filtered.length + 1) / pageSize)))
     setTimeout(() => setAddingId(null), 2000)
   }
 

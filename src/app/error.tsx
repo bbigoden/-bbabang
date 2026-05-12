@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function Error({
   error,
@@ -9,15 +9,24 @@ export default function Error({
   error: Error & { digest?: string }
   unstable_retry: () => void
 }) {
+  const [count, setCount] = useState(5)
+
   useEffect(() => {
     console.error(error)
   }, [error])
+
+  useEffect(() => {
+    if (count <= 0) { window.location.reload(); return }
+    const t = setTimeout(() => setCount(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [count])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 text-center">
       <div className="mb-6 text-6xl">😵</div>
       <h1 className="mb-2 text-2xl font-bold text-gray-900">오류가 발생했어요</h1>
       <p className="mb-6 text-gray-500">일시적인 오류가 발생했습니다. 다시 시도해 주세요.</p>
+      <p className="mb-4 text-sm text-gray-400">{count}초 후 자동으로 새로고침됩니다</p>
       <div className="flex gap-3">
         <button
           onClick={() => unstable_retry()}
