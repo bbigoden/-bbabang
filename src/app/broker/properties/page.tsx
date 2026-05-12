@@ -301,7 +301,7 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
       </div>
       {hovered && displayText && <CellTooltip text={displayText} anchorRef={btnRef} />}
       {open && (
-        <div className="w-48 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5" style={popupStyle}>
+        <div className="w-44 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5" style={popupStyle}>
           {/* 단위 토글 */}
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
             {(['평', 'm²'] as const).map(u => (
@@ -312,31 +312,31 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
             ))}
           </div>
           {/* 전용 */}
-          <div className="flex items-center gap-1.5">
-            <span className="w-8 flex-shrink-0 text-xs text-gray-500">전용</span>
+          <div className="flex items-center gap-1">
+            <span className="w-7 flex-shrink-0 text-xs text-gray-500">전용</span>
             <input
               ref={inputRef}
               type="number"
               value={draftDedicated}
-              placeholder="—"
+              placeholder=""
               onChange={e => setDraftDedicated(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
-              className="flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+              className="w-0 flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
-            <span className="text-xs text-gray-400">{draftUnit}</span>
+            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{draftUnit}</span>
           </div>
           {/* 공급 */}
-          <div className="flex items-center gap-1.5">
-            <span className="w-8 flex-shrink-0 text-xs text-gray-500">공급</span>
+          <div className="flex items-center gap-1">
+            <span className="w-7 flex-shrink-0 text-xs text-gray-500">공급</span>
             <input
               type="number"
               value={draftSupplied}
-              placeholder="—"
+              placeholder=""
               onChange={e => setDraftSupplied(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
-              className="flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+              className="w-0 flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
-            <span className="text-xs text-gray-400">{draftUnit}</span>
+            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{draftUnit}</span>
           </div>
         </div>
       )}
