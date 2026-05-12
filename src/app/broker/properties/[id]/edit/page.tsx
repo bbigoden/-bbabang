@@ -32,6 +32,8 @@ export default function EditPropertyPage() {
   const [managementFee, setManagementFee] = useState('')
   const [premium, setPremium] = useState('')
   const [sizePyeong, setSizePyeong] = useState('')
+  const [areaType, setAreaType] = useState<'전용' | '공급'>('전용')
+  const [areaUnit, setAreaUnit] = useState<'평' | 'm²'>('평')
   const [floor, setFloor] = useState('')
   const [totalFloors, setTotalFloors] = useState('')
   const [description, setDescription] = useState('')
@@ -88,6 +90,8 @@ export default function EditPropertyPage() {
     setManagementFee(property.management_fee ? String(property.management_fee) : '')
     setPremium(property.premium ? String(property.premium) : '')
     setSizePyeong(property.size_pyeong ? String(property.size_pyeong) : '')
+    setAreaType(property.area_type ?? '전용')
+    setAreaUnit(property.area_unit ?? '평')
     setFloor(property.floor ? String(property.floor) : '')
     setTotalFloors(property.total_floors ? String(property.total_floors) : '')
     setDescription(property.description ?? '')
@@ -177,6 +181,8 @@ export default function EditPropertyPage() {
         management_fee: managementFee ? Number(managementFee) : null,
         premium: premium ? Number(premium) : null,
         size_pyeong: sizePyeong ? Number(sizePyeong) : null,
+        area_type: areaType,
+        area_unit: areaUnit,
         floor: floor ? Number(floor) : null,
         total_floors: totalFloors ? Number(totalFloors) : null,
         description: description || null,
@@ -330,28 +336,59 @@ export default function EditPropertyPage() {
             <Card>
               <CardBody>
                 <p className="mb-3 text-sm font-semibold text-gray-700">크기 / 층수 (선택)</p>
-                <div className="grid grid-cols-3 gap-3">
-                  <Input
-                    label="평수"
-                    type="number"
-                    placeholder="25"
-                    value={sizePyeong}
-                    onChange={e => setSizePyeong(e.target.value)}
-                  />
-                  <Input
-                    label="층"
-                    type="number"
-                    placeholder="3"
-                    value={floor}
-                    onChange={e => setFloor(e.target.value)}
-                  />
-                  <Input
-                    label="건물 총 층"
-                    type="number"
-                    placeholder="10"
-                    value={totalFloors}
-                    onChange={e => setTotalFloors(e.target.value)}
-                  />
+                <div className="space-y-3">
+                  {/* 면적 입력 + 단위/구분 토글 */}
+                  <div>
+                    <p className="mb-1.5 text-xs text-gray-500">면적</p>
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        type="number"
+                        placeholder={areaUnit === '평' ? '25' : '82'}
+                        value={sizePyeong}
+                        onChange={e => setSizePyeong(e.target.value)}
+                        className="flex-1"
+                      />
+                      {/* 단위 토글: 평 / m² */}
+                      <div className="flex rounded-xl border border-gray-200 overflow-hidden flex-shrink-0">
+                        {(['평', 'm²'] as const).map(u => (
+                          <button key={u} type="button" onClick={() => setAreaUnit(u)}
+                            className={cn('px-3 py-2 text-xs font-semibold transition-colors',
+                              areaUnit === u ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                            )}>
+                            {u}
+                          </button>
+                        ))}
+                      </div>
+                      {/* 전용/공급 토글 */}
+                      <div className="flex rounded-xl border border-gray-200 overflow-hidden flex-shrink-0">
+                        {(['전용', '공급'] as const).map(t => (
+                          <button key={t} type="button" onClick={() => setAreaType(t)}
+                            className={cn('px-3 py-2 text-xs font-semibold transition-colors',
+                              areaType === t ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                            )}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {/* 층수 */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="층"
+                      type="number"
+                      placeholder="3"
+                      value={floor}
+                      onChange={e => setFloor(e.target.value)}
+                    />
+                    <Input
+                      label="건물 총 층"
+                      type="number"
+                      placeholder="10"
+                      value={totalFloors}
+                      onChange={e => setTotalFloors(e.target.value)}
+                    />
+                  </div>
                 </div>
               </CardBody>
             </Card>

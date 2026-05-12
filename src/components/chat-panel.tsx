@@ -25,6 +25,7 @@ export interface Message {
 export interface PropertySnapshot {
   deal_type: string; room_type: string; address: string
   price: number; monthly_rent: number | null; size_pyeong: number | null
+  area_type?: string; area_unit?: string
   floor: number | null; total_floors: number | null
   options: string[]; description: string | null; images?: string[]; property_id: string
 }
@@ -47,7 +48,7 @@ export function PropertyCard({ snapshot, isMine, onClick }: { snapshot: Property
       )}
       <div className="px-3 py-2.5 space-y-1">
         <p className={cn('text-xs font-semibold leading-snug', isMine ? 'text-blue-900' : 'text-gray-900')}>{maskAddress(snapshot.address)}</p>
-        <p className={cn('text-xs', isMine ? 'text-blue-700' : 'text-gray-500')}>{snapshot.room_type}{snapshot.size_pyeong && ` · ${snapshot.size_pyeong}평`}</p>
+        <p className={cn('text-xs', isMine ? 'text-blue-700' : 'text-gray-500')}>{snapshot.room_type}{snapshot.size_pyeong && ` · ${snapshot.size_pyeong}${snapshot.area_unit ?? '평'}(${snapshot.area_type ?? '전용'})`}</p>
         <p className={cn('text-sm font-black', isMine ? 'text-blue-800' : 'text-blue-600')}>{priceText}</p>
       </div>
       {onClick && (
@@ -149,7 +150,7 @@ export function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertyS
               {snapshot.size_pyeong && (
                 <div className="rounded-xl border border-gray-100 p-3">
                   <p className="text-xs text-gray-400 mb-1">면적</p>
-                  <p className="text-sm font-semibold text-gray-900">{snapshot.size_pyeong}평</p>
+                  <p className="text-sm font-semibold text-gray-900">{snapshot.size_pyeong}{snapshot.area_unit ?? '평'}<span className="ml-1 text-xs font-normal text-gray-400">({snapshot.area_type ?? '전용'})</span></p>
                 </div>
               )}
               {snapshot.floor && (
@@ -277,6 +278,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const buildSnapshot = (prop: any): PropertySnapshot => ({
     deal_type: prop.deal_type, room_type: prop.room_type, address: prop.address,
     price: prop.price, monthly_rent: prop.monthly_rent, size_pyeong: prop.size_pyeong,
+    area_type: prop.area_type ?? '전용', area_unit: prop.area_unit ?? '평',
     floor: prop.floor, total_floors: prop.total_floors, options: prop.options,
     description: prop.description, images: prop.images ?? [], property_id: prop.id,
   })
