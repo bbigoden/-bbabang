@@ -136,7 +136,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
               <>
                 <Link href="/chat" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">
-                    채팅
+                    대화목록
                     {unreadCount > 0 && (
                       <span className="ml-2 rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                         {unreadCount}

@@ -171,7 +171,7 @@ export default async function BrokerDashboardPage() {
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100">
                 <MessageCircle className="h-5 w-5 text-orange-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">채팅목록</span>
+              <span className="text-sm font-bold text-gray-800">대화목록</span>
             </div>
           </Link>
         </div>

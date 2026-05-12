@@ -789,7 +789,7 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
           className={cn('flex-1 py-3 text-sm font-semibold transition-colors',
             mobileTab === 'chat' ? 'text-blue-600 border-t-2 border-blue-600 -mt-px' : selectedId ? 'text-gray-500' : 'text-gray-300')}
         >
-          {selectedId ? '채팅' : '채팅 (제안 선택)'}
+          {selectedId ? '대화목록' : '대화목록 (제안 선택)'}
         </button>
       </div>
     </div>

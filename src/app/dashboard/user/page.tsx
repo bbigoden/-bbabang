@@ -81,7 +81,7 @@ export default async function UserDashboardPage() {
             {[
               { icon: FileText, label: '요청 등록', desc: '조건 입력', active: activeRequests.length === 0 },
               { icon: Users, label: '제안 받기', desc: '중개사 제안', active: activeRequests.length > 0 && requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) === 0 },
-              { icon: MessageSquare, label: '채팅', desc: '매물 협의', active: (requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) ?? 0) > 0 },
+              { icon: MessageSquare, label: '대화목록', desc: '매물 협의', active: (requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) ?? 0) > 0 },
               { icon: FileCheck, label: '계약', desc: '직접 진행', active: false },
             ].map((step, i) => (
               <div key={i} className="flex items-center gap-1 flex-shrink-0">

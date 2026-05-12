@@ -101,9 +101,9 @@ export default async function ChatListPage() {
             <MessageCircle className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">채팅</h1>
+            <h1 className="text-xl font-bold text-gray-900">대화목록</h1>
             <p className="text-sm text-gray-500">
-              {isBroker ? '내가 보낸 제안들의 채팅방' : '내 요청에 온 제안들의 채팅방'}
+              {isBroker ? '내가 보낸 제안들의 대화목록' : '내 요청에 온 제안들의 대화목록'}
             </p>
           </div>
         </div>
@@ -112,7 +112,7 @@ export default async function ChatListPage() {
           <Card>
             <CardBody className="py-16 text-center">
               <MessageCircle className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-              <p className="text-gray-500 font-medium">채팅방이 없습니다</p>
+              <p className="text-gray-500 font-medium">대화목록이 없습니다</p>
               <p className="mt-1 text-sm text-gray-400">
                 {isBroker ? '매물 요청에 제안을 보내보세요' : '요청을 등록하면 중개사가 제안을 보냅니다'}
               </p>
@@ -166,7 +166,7 @@ export default async function ChatListPage() {
                               {unreadMap[proposal.id]}
                             </span>
                           ) : (
-                            <span className="text-xs text-blue-500 font-medium">채팅 열기 →</span>
+                            <span className="text-xs text-blue-500 font-medium">대화 열기 →</span>
                           )}
                         </div>
                       </div>
