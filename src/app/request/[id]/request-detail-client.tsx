@@ -354,7 +354,7 @@ function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       </div>
 
       {/* 제안 가격 바 */}
-      {proposal?.price && (
+      {!!proposal?.price && (
         <div className="bg-blue-50 border-b border-blue-100 px-3 py-1.5 flex-shrink-0 flex items-center justify-between">
           {proposal.property_address && (
             <span className="flex items-center gap-1 text-xs text-blue-700">
