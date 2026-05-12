@@ -1026,7 +1026,7 @@ function BrokerPropertiesContent() {
                 <tr key={p.id}
                   className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
-                  <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
+                  <td className="px-2 py-1.5 text-center text-xs text-gray-300 select-none">
                     {(page - 1) * pageSize + idx + 1}
                   </td>
                   {colOrder.map(key => {
@@ -1050,13 +1050,13 @@ function BrokerPropertiesContent() {
                           return raw != null && raw !== '' ? String(raw) : '—'
                         })()
                         return (
-                          <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                          <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                             <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{readVal}</div>
                           </td>
                         )
                       }
                       return (
-                        <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                        <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <TextCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v || null)} placeholder="전용/공급" />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
@@ -1077,7 +1077,7 @@ function BrokerPropertiesContent() {
                     }
                     const customCol = customColumns.find(c => c.id === key)
                     if (customCol && showCustom(key)) return (
-                      <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
+                      <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
                         {isAdminView
                           ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
                           : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
