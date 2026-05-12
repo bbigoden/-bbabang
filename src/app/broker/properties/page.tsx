@@ -966,7 +966,7 @@ function BrokerPropertiesContent() {
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                <th className="px-2 py-2.5 text-center" style={{ width: 32 }}>#</th>
+                <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
                 {colOrder.map(key => {
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -974,7 +974,7 @@ function BrokerPropertiesContent() {
                     if (!visibleCols.includes(key as ColKey)) return null
                     return (
                       <th key={key}
-                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors hover:bg-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 hover:bg-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
                         style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}
                         draggable onDragStart={e => onColDragStart(key, e)}
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
@@ -992,7 +992,7 @@ function BrokerPropertiesContent() {
                         ) : (
                           <span className="truncate block pr-2">{fixedCol.label}</span>
                         )}
-                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize bg-gray-200 opacity-40 hover:bg-blue-400 hover:opacity-100 transition-all" />
+                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 hover:opacity-100 transition-all" />
                       </th>
                     )
                   }
@@ -1000,14 +1000,14 @@ function BrokerPropertiesContent() {
                   const customCol = customColumns.find(c => c.id === key)
                   if (customCol && showCustom(key)) return (
                     <th key={key}
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
                       style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}
                       draggable onDragStart={e => onColDragStart(key, e)}
                       onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
                       onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
                     >
                       <span className="truncate block pr-2">{customCol.name}</span>
-                      <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize bg-gray-200 opacity-40 hover:bg-blue-400 hover:opacity-100 transition-all" />
+                      <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 hover:opacity-100 transition-all" />
                     </th>
                   )
                   return null
@@ -1026,7 +1026,7 @@ function BrokerPropertiesContent() {
                 <tr key={p.id}
                   className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
-                  <td className="px-2 py-1.5 text-center text-xs text-gray-300 select-none">
+                  <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
                     {(page - 1) * pageSize + idx + 1}
                   </td>
                   {colOrder.map(key => {
@@ -1050,13 +1050,13 @@ function BrokerPropertiesContent() {
                           return raw != null && raw !== '' ? String(raw) : '—'
                         })()
                         return (
-                          <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                          <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                             <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{readVal}</div>
                           </td>
                         )
                       }
                       return (
-                        <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                        <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <TextCell value={p.size_pyeong} onSave={v => saveField(p.id, 'size_pyeong', v || null)} placeholder="전용/공급" />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
@@ -1077,7 +1077,7 @@ function BrokerPropertiesContent() {
                     }
                     const customCol = customColumns.find(c => c.id === key)
                     if (customCol && showCustom(key)) return (
-                      <td key={key} className="px-2 py-1.5" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
+                      <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
                         {isAdminView
                           ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
                           : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
