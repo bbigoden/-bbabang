@@ -8,24 +8,23 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 export default async function UserDashboardPage() {
-  let supabase: any
-  let user: any = null
+  const supabase = await createClient()
 
+  // ── 인증 확인 (redirect는 try/catch 밖에서 호출) ──────────
+  let user: any = null
   try {
-    supabase = await createClient()
     const { data } = await supabase.auth.getUser()
     user = data.user
-  } catch (e: any) {
-    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+  } catch {
     redirect('/auth/login?redirect=/dashboard/user')
   }
   if (!user) redirect('/auth/login?redirect=/dashboard/user')
 
+  // ── 부가 데이터 조회 (실패해도 빈 상태로 처리) ────────────
   let profile: any = null
   let requests: any[] = []
   let unreadCount = 0
   try {
-    // profiles와 request_posts는 서로 독립적 → 병렬 실행
     const [{ data: p }, { data: r }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase
@@ -46,8 +45,7 @@ export default async function UserDashboardPage() {
         .eq('status', 'pending')
       unreadCount = count ?? 0
     }
-  } catch (e: any) {
-    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+  } catch {
     // 데이터 로드 실패 시 빈 상태로 표시
   }
 

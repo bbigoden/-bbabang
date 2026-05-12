@@ -1,47 +1,32 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
-export default function Error({ error, reset }: { error: Error; reset: () => void }) {
-  const [countdown, setCountdown] = useState(2)
-
+export default function Error({
+  error,
+  unstable_retry,
+}: {
+  error: Error & { digest?: string }
+  unstable_retry: () => void
+}) {
   useEffect(() => {
     console.error(error)
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          window.location.reload()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(timer)
   }, [error])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 text-center">
       <div className="mb-6 text-6xl">😵</div>
       <h1 className="mb-2 text-2xl font-bold text-gray-900">오류가 발생했어요</h1>
-      <p className="mb-6 text-gray-500">{countdown}초 후 자동으로 다시 시도합니다...</p>
-      <div className="mb-6 flex items-center justify-center gap-1.5">
-        {[0, 1].map(i => (
-          <div
-            key={i}
-            className={`h-2.5 w-2.5 rounded-full transition-colors duration-500 ${countdown <= i ? 'bg-blue-200' : 'bg-blue-500'}`}
-          />
-        ))}
-      </div>
+      <p className="mb-6 text-gray-500">일시적인 오류가 발생했습니다. 다시 시도해 주세요.</p>
       <div className="flex gap-3">
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => unstable_retry()}
           className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-7 py-3.5 text-base font-semibold text-white hover:bg-blue-700 transition-colors"
         >
           <svg className="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          지금 다시 시도
+          다시 시도
         </button>
         <button
           onClick={() => { window.location.href = '/' }}

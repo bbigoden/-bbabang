@@ -20,30 +20,30 @@ export default async function BrokerDashboardPage() {
   }
   if (!user) redirect('/auth/login?redirect=/dashboard/broker')
 
-  let profile: any = null
-  let broker: any = null
+  // ── 역할 확인 (redirect는 try/catch 밖에서 호출) ───────────
+  const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  if (!profileData || profileData.role !== 'broker') redirect('/dashboard/user')
+
+  const { data: brokerData } = await supabase
+    .from('broker_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
+  if (!brokerData) redirect('/broker/register')
+
+  const profile = profileData
+  const broker = brokerData
+
+  const brokerDistricts: string[] = broker.district
+    ? broker.district.split(',').map((s: string) => s.trim()).filter(Boolean)
+    : []
+
+  // ── 부가 데이터 조회 (실패해도 빈 상태로 처리) ────────────
   let proposals: any[] = []
   let activeRequests: any[] = []
-  let brokerDistricts: string[] = []
   let recentReviews: any[] = []
 
   try {
-    const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    profile = p
-    if (profile?.role !== 'broker') redirect('/dashboard/user')
-
-    const { data: b } = await supabase
-      .from('broker_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-    broker = b
-    if (!broker) redirect('/broker/register')
-
-    brokerDistricts = broker.district
-      ? broker.district.split(',').map((s: string) => s.trim()).filter(Boolean)
-      : []
-
     const [{ data: pr }, { data: ar }, { data: rv }] = await Promise.all([
       supabase
         .from('proposals')
@@ -67,11 +67,9 @@ export default async function BrokerDashboardPage() {
     proposals = pr ?? []
     activeRequests = ar ?? []
     recentReviews = rv ?? []
-  } catch (e: any) {
-    if (e?.digest?.startsWith('NEXT_REDIRECT')) throw e
+  } catch {
+    // 부가 데이터 로드 실패 시 빈 상태로 렌더링
   }
-
-  if (!broker) redirect('/broker/register')
 
   const statusLabel = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
   const statusVariant = { pending: 'warning', accepted: 'success', rejected: 'danger' } as const
