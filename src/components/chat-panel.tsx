@@ -300,7 +300,9 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const brokerProfile = broker?.profiles
   const requester = proposal?.request_posts?.profiles
   const isBroker = !isOwner
-  const otherName = isOwner ? (brokerProfile?.name ?? '중개사') : (requester?.name ?? '고객')
+  // 고객 입장: 사무소 이름 우선 표시 (없으면 개인 이름)
+  const otherName = isOwner ? (broker?.office_name ?? brokerProfile?.name ?? '중개사') : (requester?.name ?? '고객')
+  const otherSubName = isOwner ? (broker?.office_name ? brokerProfile?.name : null) : null
   const otherPhone = isOwner ? brokerProfile?.phone : requester?.phone
 
   const grouped = messages.reduce((g: Record<string, Message[]>, m) => {
@@ -332,7 +334,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             <span className="font-bold text-gray-900 text-sm">{otherName}</span>
             {isOwner && broker?.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-500" />}
           </div>
-          {isOwner && broker?.office_name && <p className="text-xs text-gray-400 truncate">{broker.office_name}</p>}
+          {otherSubName && <p className="text-xs text-gray-400 truncate">{otherSubName}</p>}
         </div>
         {isOwner && proposal?.status === 'accepted' && (
           <Link href={`/review/${proposalId}`} className="flex h-8 w-8 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 hover:bg-yellow-100 transition-colors">

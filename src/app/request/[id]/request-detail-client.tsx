@@ -188,10 +188,10 @@ export function RequestDetailClient({ request, proposals, user, userRole }: Prop
                         </Link>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-gray-900 truncate">{brokerProfile?.name ?? '중개사'}</span>
+                            <span className="text-sm font-bold text-gray-900 truncate">{broker?.office_name ?? brokerProfile?.name ?? '중개사'}</span>
                             {broker?.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
                           </div>
-                          <p className="text-xs text-gray-500 truncate">{broker?.office_name}</p>
+                          <p className="text-xs text-gray-500 truncate">{broker?.office_name ? brokerProfile?.name : ''}</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="text-sm font-black text-blue-600">{formatPrice(proposal.price)}</div>
