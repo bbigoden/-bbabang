@@ -93,6 +93,11 @@ export default function BrokerRegisterPage() {
       })
       if (insertError) { setError('등록 중 오류가 발생했습니다.'); setLoading(false); return }
 
+      // 코드 1회용 — 사용 후 자동 재발급
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+      const newCode = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+      await supabase.from('broker_profiles').update({ office_code: newCode }).eq('id', parentBroker.id)
+
       await supabase.from('profiles').update({ role: 'broker' }).eq('id', user.id)
       router.push('/broker/register/pending')
     } catch {

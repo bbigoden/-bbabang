@@ -63,14 +63,14 @@ export function OfficeCodeCard({ brokerId, initialCode }: OfficeCodeCardProps) {
                 }
               </button>
             </div>
-            <p className="text-xs text-gray-400 mb-3">직원이 가입 시 이 코드를 입력하면 자동으로 소속됩니다</p>
+            <p className="text-xs text-gray-400 mb-3">1회용 코드입니다. 직원이 등록 신청하면 자동으로 새 코드가 발급됩니다</p>
             <button
               onClick={handleGenerate}
               disabled={loading}
               className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-              코드 재발급
+              코드 수동 재발급
             </button>
           </>
         ) : (
