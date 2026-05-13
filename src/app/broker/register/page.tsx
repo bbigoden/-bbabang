@@ -109,17 +109,7 @@ export default function BrokerRegisterPage() {
 
       if (!parentBroker) { setError('사무소 코드를 다시 확인해주세요.'); setLoading(false); return }
 
-      // 초대 정보 확인 (권한 적용)
-      const userEmail = user.email?.toLowerCase() ?? ''
-      const { data: invitation } = await supabase
-        .from('employee_invitations')
-        .select('id, permissions')
-        .eq('owner_broker_id', parentBroker.id)
-        .eq('email', userEmail)
-        .eq('status', 'pending')
-        .single()
-
-      // 직원 broker_profile 생성 — 사무소 정보 공유, is_owner=false
+      // 직원 broker_profile 생성 — 승인 대기 상태(is_approved=false)
       const { error: insertError } = await supabase.from('broker_profiles').insert({
         user_id: user.id,
         office_name: parentBroker.office_name,
@@ -133,15 +123,9 @@ export default function BrokerRegisterPage() {
         is_verified: false,
         is_owner: false,
         parent_broker_id: parentBroker.id,
-        permissions: invitation?.permissions ?? null,
+        permissions: null,
+        is_approved: false,
       })
-
-      // 초대 상태 업데이트
-      if (invitation?.id) {
-        await supabase.from('employee_invitations')
-          .update({ status: 'accepted', accepted_at: new Date().toISOString() })
-          .eq('id', invitation.id)
-      }
 
       if (insertError) {
         setError('등록 중 오류가 발생했습니다.')
@@ -150,7 +134,7 @@ export default function BrokerRegisterPage() {
       }
 
       await supabase.from('profiles').update({ role: 'broker' }).eq('id', user.id)
-      router.push('/dashboard/broker')
+      router.push('/broker/register/pending')
     } catch {
       setError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
       setLoading(false)

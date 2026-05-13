@@ -783,6 +783,7 @@ export default function BrokerDiaryPage() {
 
     // ── 권한 체크 (직원만) ──────────────────────────────
     if (!owner) {
+      if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
       const perms = b.permissions
       if (perms?.diary?.view === false) { setAccessDenied(true); setLoading(false); return }
       setCanEdit(perms ? perms.diary?.edit !== false : true)

@@ -1105,7 +1105,7 @@ function BrokerPropertiesContent() {
     }
 
     // 일반 중개사 본인 매물장
-    const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns, is_owner, parent_broker_id, permissions').eq('user_id', u.id).single()
+    const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns, is_owner, parent_broker_id, permissions, is_approved').eq('user_id', u.id).single()
     if (!b) { router.push('/broker/register'); return }
     setBroker(b)
     setSettingsBrokerId(b.id)
@@ -1113,6 +1113,7 @@ function BrokerPropertiesContent() {
     // ── 권한 체크 (직원만) ──────────────────────────────
     const owner = b.is_owner !== false
     if (!owner) {
+      if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
       const perms = b.permissions
       if (perms?.properties?.view === false) { setAccessDenied(true); setLoading(false); return }
       setCanEdit(perms ? perms.properties?.edit !== false : true)

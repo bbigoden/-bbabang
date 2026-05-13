@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, X, Mail, Shield, Users, Check, Clock, ChevronDown } from 'lucide-react'
+import { X, Shield, Users, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Permission {
@@ -29,15 +29,8 @@ interface Employee {
   id: string
   user_id: string
   permissions: Permissions | null
+  is_approved: boolean
   profiles: { name: string; email: string } | null
-}
-
-interface Invitation {
-  id: string
-  email: string
-  permissions: Permissions
-  status: 'pending' | 'accepted' | 'expired'
-  invited_at: string
 }
 
 const PAGE_LABELS: Record<string, string> = {
@@ -53,10 +46,8 @@ function PermissionEditor({ perms, onChange }: {
   const toggle = (page: 'customers' | 'diary' | 'properties', field: 'view' | 'edit') => {
     const cur = perms[page]
     if (field === 'view' && cur.view) {
-      // view 끄면 edit도 끔
       onChange({ ...perms, [page]: { view: false, edit: false } })
     } else if (field === 'edit' && !cur.view) {
-      // view 없이 edit 켜면 view도 켬
       onChange({ ...perms, [page]: { view: true, edit: true } })
     } else {
       onChange({ ...perms, [page]: { ...cur, [field]: !cur[field] } })
@@ -101,20 +92,17 @@ export default function BrokerTeamPage() {
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [approved, setApproved] = useState<Employee[]>([])
+  const [pending, setPending] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [isOwner, setIsOwner] = useState(false)
 
-  // 초대 폼
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [invitePerms, setInvitePerms] = useState<Permissions>(DEFAULT_PERMISSIONS)
-  const [inviting, setInviting] = useState(false)
-  const [inviteError, setInviteError] = useState('')
-  const [inviteSuccess, setInviteSuccess] = useState(false)
-  const [showInviteForm, setShowInviteForm] = useState(false)
+  // 승인 폼
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [approvePerms, setApprovePerms] = useState<Permissions>(DEFAULT_PERMISSIONS)
+  const [approving, setApproving] = useState(false)
 
-  // 편집 중인 직원 권한
+  // 권한 편집
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editPerms, setEditPerms] = useState<Permissions>(DEFAULT_PERMISSIONS)
   const [saving, setSaving] = useState(false)
@@ -133,81 +121,53 @@ export default function BrokerTeamPage() {
     const owner = b.is_owner !== false
     setIsOwner(owner)
 
-    if (!owner) {
-      // 직원이면 대표 정보 및 팀원 목록 조회
+    if (owner) {
       const { data: emps } = await supabase
         .from('broker_profiles')
-        .select('id, user_id, permissions, profiles(name, email)')
-        .eq('parent_broker_id', b.parent_broker_id)
-      setEmployees((emps ?? []) as unknown as Employee[])
-    } else {
-      // 대표이면 직원 목록 + 초대 목록 조회
-      const [{ data: emps }, { data: invs }] = await Promise.all([
-        supabase.from('broker_profiles')
-          .select('id, user_id, permissions, profiles(name, email)')
-          .eq('parent_broker_id', b.id),
-        supabase.from('employee_invitations')
-          .select('id, email, permissions, status, invited_at')
-          .eq('owner_broker_id', b.id)
-          .order('invited_at', { ascending: false }),
-      ])
-      setEmployees((emps ?? []) as unknown as Employee[])
-      setInvitations((invs ?? []) as unknown as Invitation[])
+        .select('id, user_id, permissions, is_approved, profiles(name, email)')
+        .eq('parent_broker_id', b.id)
+
+      const list = (emps ?? []) as unknown as Employee[]
+      setApproved(list.filter(e => e.is_approved))
+      setPending(list.filter(e => !e.is_approved))
     }
 
     setLoading(false)
   }
 
-  const sendInvite = async () => {
-    if (!inviteEmail.trim() || !broker) return
-    setInviting(true); setInviteError(''); setInviteSuccess(false)
-    try {
-      const { error } = await supabase.from('employee_invitations').insert({
-        owner_broker_id: broker.id,
-        email: inviteEmail.trim().toLowerCase(),
-        permissions: invitePerms,
-      })
-      if (error) {
-        if (error.code === '23505') setInviteError('이미 초대한 이메일이에요.')
-        else setInviteError('초대 중 오류가 발생했어요.')
-      } else {
-        setInviteSuccess(true)
-        setInviteEmail('')
-        setInvitePerms(DEFAULT_PERMISSIONS)
-        setShowInviteForm(false)
-        // 목록 새로고침
-        const { data: invs } = await supabase
-          .from('employee_invitations')
-          .select('id, email, permissions, status, invited_at')
-          .eq('owner_broker_id', broker.id)
-          .order('invited_at', { ascending: false })
-        setInvitations((invs ?? []) as Invitation[])
-      }
-    } finally {
-      setInviting(false)
+  const approveEmployee = async (empId: string) => {
+    setApproving(true)
+    await supabase.from('broker_profiles')
+      .update({ is_approved: true, permissions: approvePerms })
+      .eq('id', empId)
+    const emp = pending.find(e => e.id === empId)
+    if (emp) {
+      setApproved(prev => [...prev, { ...emp, is_approved: true, permissions: approvePerms }])
+      setPending(prev => prev.filter(e => e.id !== empId))
     }
+    setApprovingId(null)
+    setApproving(false)
   }
 
-  const cancelInvite = async (invId: string) => {
-    await supabase.from('employee_invitations').delete().eq('id', invId)
-    setInvitations(prev => prev.filter(i => i.id !== invId))
+  const rejectEmployee = async (empId: string) => {
+    if (!confirm('이 신청을 거절할까요? 직원의 계정 자체는 유지됩니다.')) return
+    await supabase.from('broker_profiles').delete().eq('id', empId)
+    setPending(prev => prev.filter(e => e.id !== empId))
   }
 
   const saveEmployeePerms = async (empId: string) => {
     setSaving(true)
     await supabase.from('broker_profiles').update({ permissions: editPerms }).eq('id', empId)
-    setEmployees(prev => prev.map(e => e.id === empId ? { ...e, permissions: editPerms } : e))
+    setApproved(prev => prev.map(e => e.id === empId ? { ...e, permissions: editPerms } : e))
     setEditingId(null)
     setSaving(false)
   }
 
   const removeEmployee = async (empId: string) => {
-    if (!confirm('이 직원을 팀에서 제거할까요? 직원의 계정은 유지되지만 공유 데이터 접근이 차단됩니다.')) return
-    await supabase.from('broker_profiles').update({ parent_broker_id: null }).eq('id', empId)
-    setEmployees(prev => prev.filter(e => e.id !== empId))
+    if (!confirm('이 직원을 팀에서 제거할까요?')) return
+    await supabase.from('broker_profiles').update({ parent_broker_id: null, is_approved: false }).eq('id', empId)
+    setApproved(prev => prev.filter(e => e.id !== empId))
   }
-
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -231,76 +191,90 @@ export default function BrokerTeamPage() {
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-2xl px-4 py-8">
 
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-gray-900">팀 관리</h1>
-            <p className="text-sm text-gray-400 mt-0.5">직원을 초대하고 접근 권한을 설정해요</p>
-          </div>
-          <button onClick={() => { setShowInviteForm(true); setInviteSuccess(false) }}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors">
-            <Plus className="h-4 w-4" />직원 초대
-          </button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-gray-900">팀 관리</h1>
+          <p className="text-sm text-gray-400 mt-0.5">직원 등록 신청을 승인하고 권한을 설정해요</p>
         </div>
 
-        {/* 초대 성공 알림 */}
-        {inviteSuccess && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-            <Check className="h-4 w-4 flex-shrink-0" />초대 이메일이 등록됐어요. 해당 이메일로 가입하면 자동으로 팀에 연결돼요.
+        {/* 사무소 코드 안내 */}
+        {broker?.office_code && (
+          <div className="mb-6 rounded-2xl bg-blue-50 border border-blue-200 p-4">
+            <p className="text-xs font-bold text-blue-700 mb-1">직원에게 이 코드를 알려주세요</p>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-black font-mono tracking-widest text-blue-900">{broker.office_code}</span>
+              <span className="text-xs text-blue-500">직원이 이 코드로 등록 신청하면 여기서 승인할 수 있어요</span>
+            </div>
           </div>
         )}
 
-        {/* 초대 폼 */}
-        {showInviteForm && (
-          <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50/30 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-gray-800">새 직원 초대</h3>
-              <button onClick={() => setShowInviteForm(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X className="h-4 w-4" />
-              </button>
+        {/* 승인 대기 */}
+        {pending.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="h-4 w-4 text-yellow-500" />
+              <h2 className="text-sm font-bold text-gray-700">승인 대기 ({pending.length}명)</h2>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-gray-600 block mb-1.5">이메일 주소</label>
-                <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendInvite()}
-                  placeholder="직원 이메일 입력"
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 bg-white" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600 block mb-2">권한 설정</label>
-                <div className="rounded-xl border border-gray-200 bg-white p-3">
-                  <PermissionEditor perms={invitePerms} onChange={setInvitePerms} />
+            <div className="space-y-2">
+              {pending.map(emp => (
+                <div key={emp.id} className="rounded-2xl border border-yellow-200 bg-yellow-50/40 overflow-hidden">
+                  <div className="flex items-center gap-3 p-4">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-100 text-sm font-bold text-yellow-700 flex-shrink-0">
+                      {emp.profiles?.name?.[0] ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-800">{emp.profiles?.name ?? '—'}</div>
+                      <div className="text-xs text-gray-400">{emp.profiles?.email}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => {
+                        if (approvingId === emp.id) { setApprovingId(null) }
+                        else { setApprovingId(emp.id); setApprovePerms(DEFAULT_PERMISSIONS) }
+                      }}
+                        className={cn('rounded-xl px-3 py-1.5 text-xs font-bold transition-colors',
+                          approvingId === emp.id ? 'bg-blue-600 text-white' : 'bg-green-600 text-white hover:bg-green-700')}>
+                        승인
+                      </button>
+                      <button onClick={() => rejectEmployee(emp.id)}
+                        className="rounded-xl px-3 py-1.5 text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 transition-colors">
+                        거절
+                      </button>
+                    </div>
+                  </div>
+                  {approvingId === emp.id && (
+                    <div className="border-t border-yellow-200 bg-white p-4">
+                      <p className="text-xs font-semibold text-gray-600 mb-2">권한 설정 후 승인</p>
+                      <PermissionEditor perms={approvePerms} onChange={setApprovePerms} />
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={() => setApprovingId(null)}
+                          className="flex-1 rounded-xl border border-gray-200 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">취소</button>
+                        <button onClick={() => approveEmployee(emp.id)} disabled={approving}
+                          className="flex-1 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                          {approving ? '승인 중...' : '승인 완료'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-              {inviteError && <p className="text-xs text-red-500">{inviteError}</p>}
-              <div className="flex gap-2">
-                <button onClick={() => setShowInviteForm(false)}
-                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
-                <button onClick={sendInvite} disabled={inviting || !inviteEmail.trim()}
-                  className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                  {inviting ? '초대 중...' : '초대하기'}
-                </button>
-              </div>
+              ))}
             </div>
           </div>
         )}
 
         {/* 현재 팀원 */}
-        <div className="mb-6">
+        <div>
           <div className="flex items-center gap-2 mb-3">
             <Users className="h-4 w-4 text-gray-400" />
-            <h2 className="text-sm font-bold text-gray-700">현재 팀원 ({employees.length}명)</h2>
+            <h2 className="text-sm font-bold text-gray-700">현재 팀원 ({approved.length}명)</h2>
           </div>
-          {employees.length === 0 ? (
+          {approved.length === 0 ? (
             <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
               <Users className="mx-auto h-8 w-8 text-gray-200 mb-3" />
               <p className="text-sm text-gray-400">아직 팀원이 없어요</p>
-              <p className="text-xs text-gray-300 mt-1">직원을 초대해 팀을 구성해보세요</p>
+              <p className="text-xs text-gray-300 mt-1">직원에게 사무소 코드를 알려주세요</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {employees.map(emp => (
+              {approved.map(emp => (
                 <div key={emp.id} className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
                   <div className="flex items-center gap-3 p-4">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-sm font-bold text-gray-600 flex-shrink-0">
@@ -344,49 +318,6 @@ export default function BrokerTeamPage() {
           )}
         </div>
 
-        {/* 대기 중인 초대 */}
-        {invitations.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <h2 className="text-sm font-bold text-gray-700">대기 중인 초대 ({invitations.filter(i => i.status === 'pending').length}건)</h2>
-            </div>
-            <div className="space-y-2">
-              {invitations.map(inv => (
-                <div key={inv.id} className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                  <Mail className="h-4 w-4 text-gray-300 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-700 truncate">{inv.email}</div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={cn('text-[10px] font-semibold rounded-md px-1.5 py-0.5',
-                        inv.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        inv.status === 'accepted' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
-                        {inv.status === 'pending' ? '대기중' : inv.status === 'accepted' ? '수락됨' : '만료'}
-                      </span>
-                      <span className="text-[10px] text-gray-300">{formatDate(inv.invited_at)} 초대</span>
-                    </div>
-                  </div>
-                  {inv.status === 'pending' && (
-                    <button onClick={() => cancelInvite(inv.id)}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors flex-shrink-0">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 초대 안내 */}
-        <div className="mt-6 rounded-2xl bg-blue-50 border border-blue-100 p-4">
-          <h3 className="text-xs font-bold text-blue-700 mb-1">초대 방법 안내</h3>
-          <ol className="text-xs text-blue-600 space-y-0.5 list-decimal list-inside leading-relaxed">
-            <li>직원 이메일 주소를 입력하고 권한을 설정해요</li>
-            <li>직원이 해당 이메일로 빠방에 가입하면 자동으로 팀에 연결돼요</li>
-            <li>이미 가입된 계정도 동일하게 연결할 수 있어요</li>
-          </ol>
-        </div>
       </div>
     </div>
   )

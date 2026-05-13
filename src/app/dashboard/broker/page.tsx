@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -140,6 +140,17 @@ export default async function BrokerDashboardPage() {
             </div>
           </CardBody>
         </Card>
+
+        {/* 승인 대기 중 배너 — 미승인 직원에게만 표시 */}
+        {broker.is_owner === false && broker.is_approved === false && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl bg-yellow-50 border border-yellow-200 px-5 py-4">
+            <Clock className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-yellow-800">승인 대기 중</p>
+              <p className="text-xs text-yellow-600 mt-0.5">대표가 아직 등록 신청을 승인하지 않았어요. 대표에게 문의해주세요.</p>
+            </div>
+          </div>
+        )}
 
         {/* 직원 합류 코드 — 대표만 표시 */}
         {broker.is_owner !== false && (
