@@ -4,75 +4,63 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Download, X, ChevronDown, EyeOff, Eye, MoreHorizontal, Lock, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
-// ── 컬럼 정의 ──────────────────────────────────────────
 interface ColDef {
   key: string; label: string; fixed?: boolean; minWidth?: number
   hasOptions?: boolean; defaultOpts?: string[]; isLong?: boolean
 }
 
-const DIARY_COLS: ColDef[] = [
-  { key: 'consulted_at', label: '날짜',     fixed: true, minWidth: 100 },
-  { key: 'client_name',  label: '고객명',   fixed: true, minWidth: 140 },
-  { key: 'contact',      label: '연락처',   minWidth: 130 },
-  { key: 'amount',       label: '금액',     minWidth: 100 },
-  { key: 'assignee',     label: '담당자',   minWidth: 90 },
-  { key: 'source',       label: '유입경로', minWidth: 110, hasOptions: true, defaultOpts: ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타'] },
-  { key: 'region',       label: '지역',     minWidth: 90 },
-  { key: 'interest',     label: '관심물건', minWidth: 90, hasOptions: true, defaultOpts: ['상가', '주거용', '공장', '창고', '사무실', '토지', '기타'] },
-  { key: 'status',       label: '진행상황', minWidth: 100, hasOptions: true, defaultOpts: ['잠재', '진행중', '종료', '계약완료'] },
-  { key: 'memo',         label: '상담내용', minWidth: 220, isLong: true },
-  { key: 'proposals',   label: '제안매물', minWidth: 220 },
+const CUST_COLS: ColDef[] = [
+  { key: 'request',       label: '고객명',   fixed: true, minWidth: 160, isLong: true },
+  { key: 'received_date', label: '접수일자', minWidth: 100 },
+  { key: 'contact',       label: '연락처',   minWidth: 130 },
+  { key: 'assignee',      label: '담당자',   minWidth: 90 },
+  { key: 'source',        label: '유입경로', minWidth: 110, hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
+  { key: 'category',      label: '관심물건', minWidth: 90,  hasOptions: true, defaultOpts: ['상가','주거용','공장','창고','사무실','토지','기타'] },
+  { key: 'status',        label: '진행상황', minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
 ]
 
-const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(DIARY_COLS.map(c => [c.key, c.minWidth ?? 100]))
-
+const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
 const DEFAULT_COL_SETTINGS: ColSettings = {
-  visible:    DIARY_COLS.filter(c => !c.fixed).map(c => c.key),
-  order:      DIARY_COLS.map(c => c.key),
+  visible:    CUST_COLS.filter(c => !c.fixed).map(c => c.key),
+  order:      CUST_COLS.map(c => c.key),
   widths:     DEFAULT_WIDTHS,
   customCols: [],
-  options:    Object.fromEntries(DIARY_COLS.filter(c => c.hasOptions).map(c => [c.key, c.defaultOpts!])),
+  options:    Object.fromEntries(CUST_COLS.filter(c => c.hasOptions).map(c => [c.key, c.defaultOpts!])),
   colTypes:   {},
 }
 
 const SOURCE_COLORS: Record<string, string> = {
-  '빠방': 'bg-blue-100 text-blue-700', '당근': 'bg-orange-100 text-orange-700',
-  '플레이스': 'bg-sky-100 text-sky-700', '네이버광고': 'bg-green-100 text-green-700',
-  '네이버블로그': 'bg-green-100 text-green-700', '공동': 'bg-purple-100 text-purple-700',
-  '지인': 'bg-pink-100 text-pink-700', '특톡': 'bg-yellow-100 text-yellow-700',
-  '기타': 'bg-gray-100 text-gray-600',
+  '빠방':'bg-blue-100 text-blue-700','당근':'bg-orange-100 text-orange-700',
+  '플레이스':'bg-sky-100 text-sky-700','네이버광고':'bg-green-100 text-green-700',
+  '네이버블로그':'bg-green-100 text-green-700','공동':'bg-purple-100 text-purple-700',
+  '지인':'bg-pink-100 text-pink-700','특톡':'bg-yellow-100 text-yellow-700','기타':'bg-gray-100 text-gray-600',
 }
 const STATUS_COLORS: Record<string, string> = {
-  '잠재': 'bg-gray-100 text-gray-600', '진행중': 'bg-blue-100 text-blue-700',
-  '종료': 'bg-red-100 text-red-600', '계약완료': 'bg-green-100 text-green-700',
+  '잠재':'bg-gray-100 text-gray-600','진행중':'bg-blue-100 text-blue-700',
+  '종료':'bg-red-100 text-red-600','계약완료':'bg-green-100 text-green-700',
 }
-const COL_COLORS: Record<string, Record<string, string>> = { source: SOURCE_COLORS, status: STATUS_COLORS }
+const CATEGORY_COLORS: Record<string, string> = {
+  '상가':'bg-amber-100 text-amber-700','주거용':'bg-sky-100 text-sky-700',
+  '공장':'bg-orange-100 text-orange-700','창고':'bg-rose-100 text-rose-700',
+  '사무실':'bg-indigo-100 text-indigo-700','토지':'bg-green-100 text-green-700','기타':'bg-gray-100 text-gray-600',
+}
+const COL_COLORS: Record<string, Record<string, string>> = { source: SOURCE_COLORS, status: STATUS_COLORS, category: CATEGORY_COLORS }
 
-interface ProposalSummary {
-  id: string
-  property_id: string
-  broker_properties: {
-    id: string; address: string; deal_type: string; room_type: string
-    price: number; monthly_rent: number | null
-  }
-}
-interface PropertyOption {
-  id: string; address: string; deal_type: string; room_type: string
-  price: number; monthly_rent: number | null
+interface Customer {
+  id: string; client_name: string; contact: string | null; received_date: string | null
+  assignee: string | null; category: string; source: string | null; status: string
+  request: string | null; custom_fields: Record<string, string> | null
 }
 
-interface Consultation {
-  id: string; customer_id: string | null; consulted_at: string; client_name: string
-  contact: string | null; amount: string | null; assignee: string | null
-  source: string | null; region: string | null; interest: string | null
-  status: string; memo: string | null; created_at: string
-  custom_fields: Record<string, string> | null
+type DiarySectionField = 'work_summary' | 'ad_status' | 'suggestions' | 'delivery_notes'
+interface DiaryEntry {
+  work_summary: string | null; ad_status: string | null
+  suggestions: string | null; delivery_notes: string | null
 }
-interface CustomerOption { id: string; client_name: string; contact: string | null; assignee: string | null; source: string | null }
 
 // ── useClickOutside ──────────────────────────────────
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -96,7 +84,7 @@ function CellTooltip({ text, anchorRef }: { text: string; anchorRef: React.RefOb
   return <div className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap" style={style}>{text}</div>
 }
 
-// ── TextCell ──────────────────────────────────────────
+// ── TextCell ─────────────────────────────────────────
 function TextCell({ value, onSave, placeholder = '—', readOnly }: { value: string | null; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -105,21 +93,12 @@ function TextCell({ value, onSave, placeholder = '—', readOnly }: { value: str
   const cellRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
   const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
-  if (readOnly) return (
-    <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
-      style={{ color: value ? '#374151' : '#d1d5db' }}>{value || placeholder}</div>
-  )
-  if (editing) return (
-    <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
-      onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
-      className="w-full rounded border border-blue-400 bg-white px-2 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-300" />
-  )
+  if (readOnly) return <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis" style={{ color: value ? '#374151' : '#d1d5db' }}>{value || placeholder}</div>
+  if (editing) return <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }} className="w-full rounded border border-blue-400 bg-white px-2 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-300" />
   return (
     <>
-      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
-        onMouseEnter={() => { if (value) setHovered(true) }} onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
-        style={{ color: value ? '#374151' : '#d1d5db' }}>
+      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }} onMouseEnter={() => { if (value) setHovered(true) }} onMouseLeave={() => setHovered(false)}
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis" style={{ color: value ? '#374151' : '#d1d5db' }}>
         {value || placeholder}
       </div>
       {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
@@ -127,14 +106,8 @@ function TextCell({ value, onSave, placeholder = '—', readOnly }: { value: str
   )
 }
 
-// ── LongTextCell ──────────────────────────────────────
+// ── LongTextCell ─────────────────────────────────────
 function LongTextCell({ value, onSave, placeholder = '—', readOnly }: { value: string | null; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
-  if (readOnly) return (
-    <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden"
-      style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-      {value || placeholder}
-    </div>
-  )
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [hovered, setHovered] = useState(false)
@@ -142,17 +115,12 @@ function LongTextCell({ value, onSave, placeholder = '—', readOnly }: { value:
   const cellRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (editing) { textareaRef.current?.focus(); textareaRef.current?.select() } }, [editing])
   const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
-  if (editing) return (
-    <textarea ref={textareaRef} value={draft} onChange={e => setDraft(e.target.value)}
-      onBlur={commit} onKeyDown={e => { if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
-      rows={3} className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none min-w-[180px]" />
-  )
+  if (readOnly) return <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden" style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{value || placeholder}</div>
+  if (editing) return <textarea ref={textareaRef} value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }} rows={3} className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none min-w-[180px]" />
   return (
     <>
-      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
-        onMouseEnter={() => { if (value) setHovered(true) }} onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden"
-        style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }} onMouseEnter={() => { if (value) setHovered(true) }} onMouseLeave={() => setHovered(false)}
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden" style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
         {value || placeholder}
       </div>
       {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
@@ -160,20 +128,14 @@ function LongTextCell({ value, onSave, placeholder = '—', readOnly }: { value:
   )
 }
 
-// ── SelectCell ──────────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap, readOnly }: {
-  value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean
-}) {
+// ── SelectCell ───────────────────────────────────────
+function SelectCell({ value, options, onSave, colorMap, readOnly }: { value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean }) {
   const [open, setOpen] = useState(false)
-  if (readOnly) return (
-    <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>
-      {value || '—'}
-    </div>
-  )
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
+  if (readOnly) return <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>{value || '—'}</div>
   const handleOpen = () => {
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect()
@@ -185,195 +147,8 @@ function SelectCell({ value, options, onSave, colorMap, readOnly }: {
   }
   return (
     <div ref={ref} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>
-        {value || '—'}
-      </div>
-      {open && (
-        <div className="flex flex-col min-w-[110px] rounded-xl border border-gray-200 bg-white shadow-lg py-1" style={popupStyle}>
-          {options.map(opt => (
-            <button key={opt} onClick={() => { onSave(opt); setOpen(false) }}
-              className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}>{opt}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── CustomerCell (고객목록 불러오기) ──────────────────────
-function CustomerCell({ value, customerId, customers, onSave }: {
-  value: string; customerId: string | null; customers: CustomerOption[]
-  onSave: (name: string, cid: string | null, contact: string | null, assignee: string | null, source: string | null) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
-  const ref = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(ref, () => { setOpen(false); setQuery('') })
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: r.left, width: 220 }
-      if (window.innerHeight - r.bottom < 240) s.bottom = window.innerHeight - r.top + 4; else s.top = r.bottom + 4
-      setPopupStyle(s)
-    }
-    setOpen(v => !v); setQuery('')
-  }
-  const filteredCustomers = customers.filter(c => !query || c.client_name.toLowerCase().includes(query.toLowerCase()) || c.contact?.includes(query)).slice(0, 8)
-  const select = (c: CustomerOption) => { onSave(c.client_name, c.id, c.contact, c.assignee, c.source); setOpen(false); setQuery('') }
-  const clearLink = (e: React.MouseEvent) => { e.stopPropagation(); onSave(value, null, null, null, null) }
-  return (
-    <div ref={ref} className="relative flex items-center gap-1">
-      <div ref={btnRef} onClick={handleOpen}
-        className="flex-1 cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
-        style={{ color: value ? '#374151' : '#d1d5db', fontWeight: value ? 500 : 400 }}>
-        {value || '고객명'}
-      </div>
-      {customerId && <span title="고객목록에서 불러옴" className="flex-shrink-0"><Download className="h-3 w-3 text-blue-400" /></span>}
-      {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden" style={popupStyle}>
-          <div className="p-2 border-b border-gray-100">
-            <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="고객 검색..."
-              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400" />
-          </div>
-          <div className="max-h-44 overflow-y-auto">
-            {filteredCustomers.length === 0 ? (
-              <div className="px-3 py-3 text-xs text-gray-400 text-center">검색 결과 없음</div>
-            ) : filteredCustomers.map(c => (
-              <button key={c.id} onClick={() => select(c)}
-                className={cn('w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-blue-50 transition-colors', customerId === c.id && 'bg-blue-50')}>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-gray-800 truncate">{c.client_name}</div>
-                  {c.contact && <div className="text-[10px] text-gray-400">{c.contact}</div>}
-                </div>
-                {customerId === c.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />}
-              </button>
-            ))}
-          </div>
-          {customerId && (
-            <div className="border-t border-gray-100 p-1.5">
-              <button onClick={clearLink} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs text-red-400 hover:bg-red-50 rounded-lg transition-colors">
-                <X className="h-3 w-3" />불러오기 초기화
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── ProposalCell ──────────────────────────────────────
-function ProposalCell({ consultationId, myProposals, allProperties, onAdd, onRemove }: {
-  consultationId: string
-  myProposals: ProposalSummary[]
-  allProperties: PropertyOption[]
-  onAdd: (propertyId: string) => void
-  onRemove: (proposalId: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
-  const ref = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(ref, () => { setOpen(false); setQuery('') })
-
-  const proposedIds = new Set(myProposals.map(p => p.property_id))
-  const available = allProperties.filter(p =>
-    !proposedIds.has(p.id) &&
-    (!query || p.address.toLowerCase().includes(query.toLowerCase()) || p.deal_type.includes(query) || p.room_type.includes(query))
-  ).slice(0, 8)
-
-  const formatPrice = (p: PropertyOption) => {
-    if (p.deal_type === '월세') {
-      const deposit = p.price >= 10000 ? `${Math.floor(p.price / 10000)}억${p.price % 10000 ? ` ${p.price % 10000}만` : ''}` : `${p.price}만`
-      const monthly = p.monthly_rent ? `/${p.monthly_rent}만` : ''
-      return `${deposit}${monthly}`
-    }
-    return p.price >= 10000 ? `${Math.floor(p.price / 10000)}억${p.price % 10000 ? ` ${p.price % 10000}만` : ''}` : `${p.price}만`
-  }
-
-  const handleOpen = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: r.left, width: 260 }
-      if (window.innerHeight - r.bottom < 280) s.bottom = window.innerHeight - r.top + 4; else s.top = r.bottom + 4
-      setPopupStyle(s)
-    }
-    setOpen(v => !v); setQuery('')
-  }
-
-  return (
-    <div ref={ref} className="relative w-full">
-      <div ref={btnRef} onClick={handleOpen}
-        className="flex flex-wrap gap-1 cursor-pointer min-h-[22px] rounded px-1 py-0.5 hover:bg-blue-50 transition-colors">
-        {myProposals.length === 0 ? (
-          <span className="text-xs text-gray-300 select-none">+ 매물 추가</span>
-        ) : myProposals.map(p => (
-          <span key={p.id}
-            className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700 font-medium max-w-[160px]">
-            <Building2 className="h-2.5 w-2.5 flex-shrink-0" />
-            <span className="truncate">{p.broker_properties.address.slice(-14)}</span>
-            <button onClick={e => { e.stopPropagation(); onRemove(p.id) }}
-              className="flex-shrink-0 hover:text-red-500 transition-colors ml-0.5">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        ))}
-      </div>
-      {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={popupStyle}
-          onClick={e => e.stopPropagation()}>
-          <div className="p-2 border-b border-gray-100">
-            <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
-              placeholder="매물 주소 검색..."
-              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400" />
-          </div>
-          {myProposals.length > 0 && (
-            <div className="px-2 pt-1.5 pb-1">
-              <div className="text-[10px] font-bold text-gray-400 uppercase px-1 mb-1">제안 중인 매물</div>
-              {myProposals.map(p => (
-                <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-blue-50/60 mb-0.5">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-blue-800 truncate">{p.broker_properties.address}</div>
-                    <div className="text-[10px] text-blue-500">{p.broker_properties.deal_type} · {p.broker_properties.room_type}</div>
-                  </div>
-                  <button onClick={() => onRemove(p.id)}
-                    className="flex h-5 w-5 items-center justify-center rounded text-blue-300 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className={myProposals.length > 0 ? 'border-t border-gray-100' : ''}>
-            {available.length === 0 && !query ? (
-              <div className="px-3 py-3 text-xs text-gray-400 text-center">매물이 없어요</div>
-            ) : available.length === 0 ? (
-              <div className="px-3 py-3 text-xs text-gray-400 text-center">검색 결과 없음</div>
-            ) : (
-              <>
-                <div className="text-[10px] font-bold text-gray-400 uppercase px-3 pt-1.5 pb-0.5">추가할 매물</div>
-                <div className="max-h-44 overflow-y-auto pb-1">
-                  {available.map(p => (
-                    <button key={p.id} onClick={() => { onAdd(p.id); setQuery('') }}
-                      className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-blue-50 transition-colors">
-                      <Building2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-gray-800 truncate">{p.address}</div>
-                        <div className="text-[10px] text-gray-400">{p.deal_type} · {p.room_type} · {formatPrice(p)}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <div ref={btnRef} onClick={handleOpen} className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>{value || '—'}</div>
+      {open && <div className="flex flex-col min-w-[110px] rounded-xl border border-gray-200 bg-white shadow-lg py-1" style={popupStyle}>{options.map(opt => <button key={opt} onClick={() => { onSave(opt); setOpen(false) }} className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}>{opt}</button>)}</div>}
     </div>
   )
 }
@@ -393,225 +168,63 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
   const containerRef = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(containerRef, () => { setOpen(false); setRenaming(false) })
-
   const canOpen = !isFixed || hasOptions || isCustom
-
   const handleOpen = (e: React.MouseEvent) => {
-    if (!canOpen) return
-    e.stopPropagation()
+    if (!canOpen) return; e.stopPropagation()
     if (btnRef.current) {
       const r = btnRef.current.getBoundingClientRect()
       setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 230), minWidth: 210 })
     }
     setOpen(v => !v)
   }
-
-  const addOpt = () => {
-    const v = newOpt.trim()
-    if (!v || !options || options.includes(v)) return
-    onSetOptions?.([...options, v]); setNewOpt('')
-  }
-
-  const commitRename = () => {
-    const v = renameVal.trim()
-    if (v && v !== label) onRename?.(v)
-    setRenaming(false); setOpen(false)
-  }
-
+  const addOpt = () => { const v = newOpt.trim(); if (!v || !options || options.includes(v)) return; onSetOptions?.([...options, v]); setNewOpt('') }
+  const commitRename = () => { const v = renameVal.trim(); if (v && v !== label) onRename?.(v); setRenaming(false); setOpen(false) }
   return (
     <div ref={containerRef} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className={cn('flex items-center gap-1 select-none', canOpen && 'cursor-pointer group')}>
+      <div ref={btnRef} onClick={handleOpen} className={cn('flex items-center gap-1 select-none', canOpen && 'cursor-pointer group')}>
         {isFixed && <Lock className="h-2.5 w-2.5 text-gray-300 flex-shrink-0" />}
         <span className="text-xs font-semibold text-gray-500">{label}</span>
         {canOpen && !isFixed && <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
       </div>
       {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
-          onClick={e => e.stopPropagation()}>
-          <div className="px-3 py-2 border-b border-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1.5">
-            {isFixed && <Lock className="h-3 w-3 text-gray-400" />}
-            {label}
-          </div>
-
-          {!isFixed && !isCustom && (
-            <button onClick={() => { onHide?.(); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-              <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
-            </button>
-          )}
-
-          {isCustom && (
-            <>
-              {renaming ? (
-                <div className="px-3 py-2 flex gap-1.5 border-b border-gray-100">
-                  <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setRenaming(false); setRenameVal(label) } }}
-                    className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0" />
-                  <button onClick={commitRename} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">확인</button>
+        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style} onClick={e => e.stopPropagation()}>
+          <div className="px-3 py-2 border-b border-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1.5">{isFixed && <Lock className="h-3 w-3 text-gray-400" />}{label}</div>
+          {!isFixed && !isCustom && <button onClick={() => { onHide?.(); setOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"><EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기</button>}
+          {isCustom && (<>
+            {renaming ? (
+              <div className="px-3 py-2 flex gap-1.5 border-b border-gray-100">
+                <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setRenaming(false); setRenameVal(label) } }} className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0" />
+                <button onClick={commitRename} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">확인</button>
+              </div>
+            ) : <button onClick={() => { setRenaming(true); setRenameVal(label) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"><span className="text-gray-400">✏️</span>칼럼 이름 변경</button>}
+            {onChangeType && colType && (
+              <div className="px-3 py-2 border-t border-gray-100">
+                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
+                <div className="flex gap-1">
+                  <button onClick={() => onChangeType('text')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>텍스트</button>
+                  <button onClick={() => onChangeType('select')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>선택</button>
                 </div>
-              ) : (
-                <button onClick={() => { setRenaming(true); setRenameVal(label) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-400">✏️</span>칼럼 이름 변경
-                </button>
-              )}
-              {onChangeType && colType && (
-                <div className="px-3 py-2 border-t border-gray-100">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
-                  <div className="flex gap-1">
-                    <button onClick={() => onChangeType('text')}
-                      className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                      텍스트
-                    </button>
-                    <button onClick={() => onChangeType('select')}
-                      className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                      선택
-                    </button>
-                  </div>
-                </div>
-              )}
-              <button onClick={() => { onHide?.(); setOpen(false) }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors border-t border-gray-100">
-                <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
-              </button>
-              <button onClick={() => { onDelete?.(); setOpen(false) }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100">
-                <X className="h-3.5 w-3.5" />칼럼 완전 삭제
-              </button>
-            </>
-          )}
-
-          {hasOptions && options && (
-            <>
-              {(!isFixed || isCustom) && <div className="border-t border-gray-100" />}
-              <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
-              <div className="px-2 pb-1 max-h-44 overflow-y-auto">
-                {options.map(opt => (
-                  <div key={opt} className="group/opt flex items-center gap-1.5 px-1.5 py-1 rounded-lg hover:bg-gray-50">
-                    <span className="flex-1 text-xs text-gray-700">{opt}</span>
-                    <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))}
-                      className="opacity-0 group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
               </div>
-              <div className="px-2 pb-2 pt-1 flex gap-1.5 border-t border-gray-100">
-                <input value={newOpt} onChange={e => setNewOpt(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addOpt() }}
-                  placeholder="항목 추가..."
-                  className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 min-w-0" />
-                <button onClick={addOpt} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 flex-shrink-0">추가</button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── ColAdder (숨김 칼럼 복원 + 커스텀 칼럼 추가) ────────────
-function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddCustom, asHeaderButton }: {
-  fixedCols: ColDef[]
-  optionalCols: ColDef[]
-  customCols: Array<{ id: string; name: string }>
-  visible: string[]
-  onShow: (key: string) => void
-  onAddCustom: (name: string) => void
-  asHeaderButton?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const [style, setStyle] = useState<React.CSSProperties>({})
-  const [addingName, setAddingName] = useState('')
-  const [showInput, setShowInput] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(containerRef, () => { setOpen(false); setShowInput(false); setAddingName('') })
-
-  const hiddenOptional = optionalCols.filter(c => !visible.includes(c.key))
-  const hiddenCustom = customCols.filter(c => !visible.includes(c.id))
-
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, right: Math.max(4, window.innerWidth - r.right), minWidth: 180 })
-    }
-    setOpen(v => !v)
-  }
-
-  const addCustom = () => {
-    const v = addingName.trim()
-    if (!v) return
-    onAddCustom(v); setAddingName(''); setShowInput(false); setOpen(false)
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className={asHeaderButton
-          ? 'flex items-center gap-2 rounded-xl border border-blue-600 px-4 py-2.5 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer'
-          : 'flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none'
-        }>
-        {asHeaderButton ? <>헤더 추가</> : '+'}</div>
-      {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
-          onClick={e => e.stopPropagation()}>
-
-          {/* 고정 칼럼 섹션 */}
-          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-            <Lock className="h-2.5 w-2.5" />고정 칼럼
-          </div>
-          {fixedCols.map(col => (
-            <div key={col.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-400">
-              <span className="text-[10px] text-gray-300">🔒</span>{col.label}
-            </div>
-          ))}
-
-          {/* 선택 칼럼 섹션 */}
-          {hiddenOptional.length > 0 && (
-            <>
-              <div className="border-t border-gray-100 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">선택 칼럼</div>
-              {hiddenOptional.map(col => (
-                <button key={col.key} onClick={() => { onShow(col.key); setOpen(false) }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                  <span className="text-gray-300 font-bold">+</span>{col.label}
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* 내 칼럼 섹션 */}
-          {hiddenCustom.length > 0 && (
-            <>
-              <div className="border-t border-gray-100 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">내 칼럼</div>
-              {hiddenCustom.map(col => (
-                <button key={col.id} onClick={() => { onShow(col.id); setOpen(false) }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                  <span className="text-gray-300 font-bold">+</span>{col.name}
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* 새 칼럼 만들기 */}
-          <div className="border-t border-gray-100">
-            {showInput ? (
-              <div className="flex items-center gap-1.5 px-2 py-2">
-                <input autoFocus value={addingName} onChange={e => setAddingName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') { setShowInput(false); setAddingName('') } }}
-                  placeholder="칼럼 이름 입력"
-                  className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0 placeholder-gray-300" />
-                <button onClick={addCustom} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">추가</button>
-              </div>
-            ) : (
-              <button onClick={() => setShowInput(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 transition-colors font-medium">
-                <Plus className="h-3.5 w-3.5" />새 칼럼 만들기
-              </button>
             )}
-          </div>
+            <button onClick={() => { onHide?.(); setOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 border-t border-gray-100"><EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기</button>
+            <button onClick={() => { onDelete?.(); setOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 border-t border-gray-100"><X className="h-3.5 w-3.5" />칼럼 완전 삭제</button>
+          </>)}
+          {hasOptions && options && (<>
+            {(!isFixed || isCustom) && <div className="border-t border-gray-100" />}
+            <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
+            <div className="px-2 pb-1 max-h-44 overflow-y-auto">
+              {options.map(opt => (
+                <div key={opt} className="group/opt flex items-center gap-1.5 px-1.5 py-1 rounded-lg hover:bg-gray-50">
+                  <span className="flex-1 text-xs text-gray-700">{opt}</span>
+                  <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))} className="opacity-0 group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400"><X className="h-3 w-3" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="px-2 pb-2 pt-1 flex gap-1.5 border-t border-gray-100">
+              <input value={newOpt} onChange={e => setNewOpt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addOpt() }} placeholder="항목 추가..." className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 min-w-0" />
+              <button onClick={addOpt} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 flex-shrink-0">추가</button>
+            </div>
+          </>)}
         </div>
       )}
     </div>
@@ -629,42 +242,22 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
   const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
   useClickOutside(containerRef, () => { setOpen(false); setName(''); setType('text') })
   useEffect(() => { if (open) inputRef.current?.focus() }, [open])
-
   const handleOpen = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 210), zIndex: 9999 })
-    }
+    if (!open && btnRef.current) { const r = btnRef.current.getBoundingClientRect(); setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 210), zIndex: 9999 }) }
     setOpen(v => !v)
   }
-  const add = () => {
-    if (name.trim()) { onAdd(name.trim(), type); setName(''); setType('text'); setOpen(false) }
-  }
-
+  const add = () => { if (name.trim()) { onAdd(name.trim(), type); setName(''); setType('text'); setOpen(false) } }
   return (
     <div ref={containerRef} className="relative">
-      <button ref={btnRef} onClick={handleOpen}
-        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">
-        +
-      </button>
+      <button ref={btnRef} onClick={handleOpen} className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">+</button>
       {open && (
         <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white shadow-xl p-2.5" style={popStyle}>
-          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }}
-            placeholder="칼럼 이름 입력"
-            className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 w-44" />
+          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }} placeholder="칼럼 이름 입력" className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 w-44" />
           <div className="flex gap-1">
-            <button onClick={() => setType('text')}
-              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-              텍스트
-            </button>
-            <button onClick={() => setType('select')}
-              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-              선택
-            </button>
+            <button onClick={() => setType('text')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>텍스트</button>
+            <button onClick={() => setType('select')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>선택</button>
           </div>
-          <button onClick={add} disabled={!name.trim()}
-            className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40">추가</button>
+          <button onClick={add} disabled={!name.trim()} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40">추가</button>
         </div>
       )}
     </div>
@@ -673,11 +266,7 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
 
 // ── ColVisibility ─────────────────────────────────────
 function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle }: {
-  fixedCols: ColDef[]
-  optionalCols: ColDef[]
-  customCols: Array<{ id: string; name: string }>
-  visible: string[]
-  onToggle: (key: string) => void
+  fixedCols: ColDef[]; optionalCols: ColDef[]; customCols: Array<{ id: string; name: string }>; visible: string[]; onToggle: (key: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -685,44 +274,22 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
   const containerRef = useRef<HTMLDivElement>(null)
   const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
   useClickOutside(containerRef, () => setOpen(false))
-
   const handleOpen = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 260), zIndex: 9999, width: 260 })
-    }
+    if (!open && btnRef.current) { const r = btnRef.current.getBoundingClientRect(); setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 260), zIndex: 9999, width: 260 }) }
     setOpen(v => !v)
   }
-
-  const all = [
-    ...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })),
-    ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false })),
-    ...customCols.map(c => ({ key: c.id, label: c.name, fixed: false })),
-  ]
+  const all = [...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })), ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false })), ...customCols.map(c => ({ key: c.id, label: c.name, fixed: false }))]
   const rows = search ? all.filter(c => c.label.includes(search)) : all
-  const hideAll = () => all.filter(c => !c.fixed && visible.includes(c.key)).forEach(c => onToggle(c.key))
-
   return (
     <div ref={containerRef} className="relative">
-      <button ref={btnRef} onClick={handleOpen}
-        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors">
-        <MoreHorizontal className="h-3.5 w-3.5" />
-      </button>
+      <button ref={btnRef} onClick={handleOpen} className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors"><MoreHorizontal className="h-3.5 w-3.5" /></button>
       {open && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={popStyle}>
-          <div className="p-2 border-b border-gray-100">
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="속성을 검색하세요" autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
-          </div>
-          <div className="px-3 py-2 border-b border-gray-100">
-            <span className="text-xs font-medium text-gray-500">표에 표시하기</span>
-          </div>
+          <div className="p-2 border-b border-gray-100"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="속성을 검색하세요" autoFocus className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400" /></div>
+          <div className="px-3 py-2 border-b border-gray-100"><span className="text-xs font-medium text-gray-500">표에 표시하기</span></div>
           <div className="max-h-64 overflow-y-auto py-1">
             {rows.map(c => (
-              <div key={c.key}
-                className={`flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`}
-                onClick={() => !c.fixed && onToggle(c.key)}>
+              <div key={c.key} className={`flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !c.fixed && onToggle(c.key)}>
                 <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700' : 'text-gray-400'}`}>{c.label}</span>
                 <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${c.fixed || visible.includes(c.key) ? 'text-gray-400' : 'text-gray-200'}`} />
               </div>
@@ -734,7 +301,32 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
   )
 }
 
-// ── 메인 페이지 ──────────────────────────────────────
+// ── DiarySection ─────────────────────────────────────
+function DiarySection({ num, title, value, onSave, readOnly }: {
+  num: number; title: string; value: string | null; onSave: (v: string) => void; readOnly?: boolean
+}) {
+  const [draft, setDraft] = useState(value ?? '')
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { setDraft(value ?? '') }, [value])
+  const handleBlur = async () => {
+    if (draft === (value ?? '')) return
+    setSaving(true); await onSave(draft); setSaving(false)
+  }
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+        <span className="text-sm font-bold text-gray-800">{num}. {title}</span>
+        {saving && <span className="text-xs text-gray-400 ml-auto">저장 중...</span>}
+      </div>
+      {readOnly
+        ? <div className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap min-h-[60px]">{value || <span className="text-gray-300">—</span>}</div>
+        : <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={handleBlur} placeholder={`${title} 입력...`} rows={3} className="w-full px-4 py-3 text-sm text-gray-700 placeholder-gray-300 resize-none outline-none focus:ring-2 focus:ring-blue-400/20 focus:ring-inset" />
+      }
+    </div>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────
 export default function BrokerDiaryPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -742,31 +334,25 @@ export default function BrokerDiaryPage() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
-  const [isOwner, setIsOwner] = useState(false)
   const [canEdit, setCanEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
-  const [consultations, setConsultations] = useState<Consultation[]>([])
-  const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [monthFilter, setMonthFilter] = useState(() => new Date().toISOString().slice(0, 7))
-  const [dayView, setDayView] = useState(false)
-  const [dayFilter, setDayFilter] = useState(() => new Date().toISOString().split('T')[0])
-  const [assigneeFilter, setAssigneeFilter] = useState('전체')
+
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
-  const [proposals, setProposals] = useState<Record<string, ProposalSummary[]>>({})
-  const [allProperties, setAllProperties] = useState<PropertyOption[]>([])
-
-  // 칼럼 드래그
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const wasDragRef = useRef(false)
 
-  // 칼럼 설정 (DB)
-  const { settings, update, loaded } = useColSettings('diary', broker?.id ?? null, DEFAULT_COL_SETTINGS)
+  const [diaryDate, setDiaryDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [diary, setDiary] = useState<DiaryEntry>({ work_summary: null, ad_status: null, suggestions: null, delivery_notes: null })
+  const [diaryLoading, setDiaryLoading] = useState(false)
+
+  const { settings, update, loaded } = useColSettings('diary_cust', broker?.id ?? null, DEFAULT_COL_SETTINGS)
 
   useEffect(() => { init() }, [])
+  useEffect(() => { if (broker) loadDiary(diaryDate) }, [diaryDate, broker?.id])
 
   const init = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
@@ -779,302 +365,161 @@ export default function BrokerDiaryPage() {
     if (!b) { router.push('/broker/register'); return }
     setProfile(prof); setBroker(b)
     const owner = b.is_owner !== false
-    setIsOwner(owner)
-
-    // ── 권한 체크 (직원만) ──────────────────────────────
     if (!owner) {
       if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
       const perms = b.permissions
       if (perms?.diary?.view === false) { setAccessDenied(true); setLoading(false); return }
       setCanEdit(perms ? perms.diary?.edit !== false : true)
     }
-
-    // ── 데이터 범위 결정 ───────────────────────────────
     let brokerIds: string[] = [b.id]
     if (owner) {
-      const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
-      if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
+      const { data: emps } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
+      if (emps) brokerIds = [b.id, ...emps.map((e: any) => e.id)]
     } else if (b.permissions?.can_see_others !== false && b.parent_broker_id) {
-      const { data: siblings } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
-      if (siblings) brokerIds = siblings.map((e: any) => e.id)
+      const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
+      if (sibs) brokerIds = sibs.map((e: any) => e.id)
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
-
-    const [{ data: cons }, { data: custs }, { data: props }] = await Promise.all([
-      supabase.from('broker_consultations').select('*').in('broker_id', brokerIds)
-        .order('consulted_at', { ascending: false }).order('created_at', { ascending: false }),
-      supabase.from('broker_customers').select('id, client_name, contact, assignee, source')
-        .in('broker_id', brokerIds).order('received_date', { ascending: false }),
-      supabase.from('broker_properties').select('id, address, deal_type, room_type, price, monthly_rent')
-        .in('broker_id', brokerIds).order('created_at', { ascending: false }),
-    ])
-    setConsultations(cons ?? [])
+    const { data: custs } = await supabase
+      .from('broker_customers')
+      .select('id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields')
+      .in('broker_id', brokerIds)
+      .order('created_at', { ascending: false })
     setCustomers(custs ?? [])
-    setAllProperties(props ?? [])
-
-    // 제안매물 로드
-    if (cons && cons.length > 0) {
-      const consIds = cons.map((c: any) => c.id)
-      const { data: proposalData } = await supabase
-        .from('consultation_proposals')
-        .select('id, consultation_id, property_id, broker_properties(id, address, deal_type, room_type, price, monthly_rent)')
-        .in('consultation_id', consIds)
-      if (proposalData) {
-        const map: Record<string, ProposalSummary[]> = {}
-        proposalData.forEach((p: any) => {
-          if (!map[p.consultation_id]) map[p.consultation_id] = []
-          map[p.consultation_id].push(p as unknown as ProposalSummary)
-        })
-        setProposals(map)
-      }
-    }
     setLoading(false)
   }
 
-  const saveField = useCallback(async (id: string, field: string, value: any) => {
-    await supabase.from('broker_consultations').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id)
-    setConsultations(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
-  }, [])
-
-  const saveCustomerLink = useCallback(async (
-    id: string, name: string, customerId: string | null,
-    contact: string | null, assignee: string | null, source: string | null
-  ) => {
-    const updates: any = { client_name: name, customer_id: customerId, updated_at: new Date().toISOString() }
-    if (customerId) { updates.contact = contact; updates.assignee = assignee; updates.source = source }
-    await supabase.from('broker_consultations').update(updates).eq('id', id)
-    setConsultations(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
-  }, [])
-
-  const saveCustomField = useCallback(async (id: string, colId: string, value: string) => {
-    const row = consultations.find(c => c.id === id)
-    const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
-    await supabase.from('broker_consultations').update({ custom_fields: newFields }).eq('id', id)
-    setConsultations(prev => prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c))
-  }, [consultations])
-
-  // 제안매물 추가/삭제
-  const addProposal = useCallback(async (consultationId: string, propertyId: string) => {
-    const { data } = await supabase
-      .from('consultation_proposals')
-      .insert({ consultation_id: consultationId, property_id: propertyId })
-      .select('id, consultation_id, property_id, broker_properties(id, address, deal_type, room_type, price, monthly_rent)')
-      .single()
-    if (data) {
-      setProposals(prev => ({
-        ...prev,
-        [consultationId]: [...(prev[consultationId] ?? []), data as unknown as ProposalSummary],
-      }))
-    }
-  }, [])
-
-  const removeProposal = useCallback(async (consultationId: string, proposalId: string) => {
-    await supabase.from('consultation_proposals').delete().eq('id', proposalId)
-    setProposals(prev => ({
-      ...prev,
-      [consultationId]: (prev[consultationId] ?? []).filter(p => p.id !== proposalId),
-    }))
-  }, [])
-
-  const addRow = async () => {
+  const loadDiary = async (date: string) => {
     if (!broker) return
-    const today = dayView ? dayFilter : new Date().toISOString().split('T')[0]
-    const opts = settings.options
-    const { data, error } = await supabase.from('broker_consultations').insert({
-      broker_id: broker.id, consulted_at: today, client_name: '',
-      assignee: profile?.name ?? null, status: opts.status?.[0] ?? '잠재',
+    setDiaryLoading(true)
+    const { data } = await supabase
+      .from('broker_diary').select('work_summary, ad_status, suggestions, delivery_notes')
+      .eq('broker_id', broker.id).eq('date', date).maybeSingle()
+    setDiary(data ?? { work_summary: null, ad_status: null, suggestions: null, delivery_notes: null })
+    setDiaryLoading(false)
+  }
+
+  const saveDiaryField = useCallback(async (field: DiarySectionField, value: string) => {
+    if (!broker) return
+    const payload = { [field]: value || null, updated_at: new Date().toISOString() }
+    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', broker.id).eq('date', diaryDate).maybeSingle()
+    if (existing) {
+      await supabase.from('broker_diary').update(payload).eq('id', existing.id)
+    } else {
+      await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
+    }
+    setDiary(prev => ({ ...prev, [field]: value || null }))
+  }, [broker, diaryDate])
+
+  const addCustomer = async () => {
+    if (!broker) return
+    const { data, error } = await supabase.from('broker_customers').insert({
+      broker_id: broker.id, client_name: '', request: '', contact: null,
+      received_date: null, assignee: profile?.name ?? null,
+      category: settings.options.category?.[0] ?? '상가', source: null,
+      status: settings.options.status?.[0] ?? '잠재',
     }).select().single()
     if (error || !data) return
-    setConsultations(prev => [data, ...prev])
+    setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
   }
 
-  const deleteRow = async (id: string) => {
-    await supabase.from('broker_consultations').delete().eq('id', id)
-    setConsultations(prev => prev.filter(c => c.id !== id))
+  const deleteCustomer = async (id: string) => {
+    await supabase.from('broker_customers').delete().eq('id', id)
+    setCustomers(prev => prev.filter(c => c.id !== id))
     setDeleteConfirm(null)
   }
 
-  // 칼럼 너비 조절
+  const saveField = useCallback(async (id: string, field: string, value: any) => {
+    await supabase.from('broker_customers').update({ [field]: value }).eq('id', id)
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
+  }, [])
+
+  const saveCustomField = useCallback(async (id: string, colId: string, value: string) => {
+    const row = customers.find(c => c.id === id)
+    const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
+    await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', id)
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c))
+  }, [customers])
+
+  const showCol = (key: string) => update(prev => ({ ...prev, visible: [...prev.visible, key] }))
+  const hideCol = (key: string) => update(prev => ({ ...prev, visible: prev.visible.filter(k => k !== key) }))
+  const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
+  const addCustomCol = (name: string, type: 'text' | 'select' = 'text') => {
+    const id = `custom_${Date.now()}`
+    update(prev => ({ ...prev, customCols: [...prev.customCols, { id, name, type }], order: [...prev.order, id], visible: [...prev.visible, id], widths: { ...prev.widths, [id]: 120 }, options: type === 'select' ? { ...prev.options, [id]: [] } : prev.options }))
+  }
+  const renameCustomCol = (id: string, name: string) => update(prev => ({ ...prev, customCols: prev.customCols.map(c => c.id === id ? { ...c, name } : c) }))
+  const changeCustomColType = (id: string, type: 'text' | 'select') => update(prev => ({ ...prev, customCols: prev.customCols.map(c => c.id === id ? { ...c, type } : c), options: type === 'select' && !prev.options[id] ? { ...prev.options, [id]: [] } : prev.options }))
+  const deleteCustomCol = (id: string) => update(prev => ({ ...prev, customCols: prev.customCols.filter(c => c.id !== id), order: prev.order.filter(k => k !== id), visible: prev.visible.filter(k => k !== id) }))
+
   const startResize = (key: string, e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
-    const startX = e.clientX
-    const startW = settings.widths[key] ?? 100
+    const startX = e.clientX; const startW = settings.widths[key] ?? 100
     const onMove = (ev: MouseEvent) => update(prev => ({ ...prev, widths: { ...prev.widths, [key]: Math.max(50, startW + ev.clientX - startX) } }))
     const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
-  // 칼럼 순서 드래그
-  const onColDragStart = (key: string, e: React.DragEvent) => {
-    wasDragRef.current = true; setDragCol(key); e.dataTransfer.effectAllowed = 'move'
-  }
+  const onColDragStart = (key: string, e: React.DragEvent) => { wasDragRef.current = true; setDragCol(key); e.dataTransfer.effectAllowed = 'move' }
   const onColDragOver = (key: string, e: React.DragEvent) => { e.preventDefault(); setDragOverCol(key) }
   const onColDrop = (key: string) => {
     if (!dragCol || dragCol === key) return
-    update(prev => {
-      const arr = [...prev.order]; const fi = arr.indexOf(dragCol); const ti = arr.indexOf(key)
-      if (fi < 0 || ti < 0) return prev
-      arr.splice(fi, 1); arr.splice(ti, 0, dragCol)
-      return { ...prev, order: arr }
-    })
+    update(prev => { const arr = [...prev.order]; const fi = arr.indexOf(dragCol); const ti = arr.indexOf(key); if (fi < 0 || ti < 0) return prev; arr.splice(fi, 1); arr.splice(ti, 0, dragCol); return { ...prev, order: arr } })
     setDragCol(null); setDragOverCol(null)
   }
-  const onColDragEnd = () => {
-    setDragCol(null); setDragOverCol(null)
-    setTimeout(() => { wasDragRef.current = false }, 50)
+  const onColDragEnd = () => { setDragCol(null); setDragOverCol(null); setTimeout(() => { wasDragRef.current = false }, 50) }
+
+  const changeDate = (delta: number) => {
+    const d = new Date(diaryDate); d.setDate(d.getDate() + delta)
+    setDiaryDate(d.toISOString().split('T')[0])
   }
 
-  // 칼럼 표시/숨김
-  const showCol = (key: string) => update(prev => ({ ...prev, visible: [...prev.visible, key] }))
-  const hideCol = (key: string) => update(prev => ({ ...prev, visible: prev.visible.filter(k => k !== key) }))
-  const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
-
-  // 커스텀 칼럼 관리
-  const addCustomCol = (name: string, type: 'text' | 'select' = 'text') => {
-    const id = `custom_${Date.now()}`
-    update(prev => ({
-      ...prev,
-      customCols: [...prev.customCols, { id, name, type }],
-      order: [...prev.order, id],
-      visible: [...prev.visible, id],
-      widths: { ...prev.widths, [id]: 120 },
-      options: type === 'select' ? { ...prev.options, [id]: [] } : prev.options,
-    }))
-  }
-  const renameCustomCol = (id: string, name: string) => {
-    update(prev => ({ ...prev, customCols: prev.customCols.map(c => c.id === id ? { ...c, name } : c) }))
-  }
-  const changeCustomColType = (id: string, type: 'text' | 'select') => {
-    update(prev => ({
-      ...prev,
-      customCols: prev.customCols.map(c => c.id === id ? { ...c, type } : c),
-      options: type === 'select' && !prev.options[id] ? { ...prev.options, [id]: [] } : prev.options,
-    }))
-  }
-  const deleteCustomCol = (id: string) => {
-    update(prev => ({
-      ...prev,
-      customCols: prev.customCols.filter(c => c.id !== id),
-      order: prev.order.filter(k => k !== id),
-      visible: prev.visible.filter(k => k !== id),
-    }))
-  }
-
-  // 필터
-  const months = (() => {
-    const set = new Set<string>()
-    consultations.forEach(c => { if (c.consulted_at) set.add(c.consulted_at.slice(0, 7)) })
-    set.add(new Date().toISOString().slice(0, 7))
-    return Array.from(set).sort((a, b) => b.localeCompare(a))
-  })()
-  const assignees = (() => {
-    const set = new Set<string>()
-    consultations.forEach(c => { if (c.assignee) set.add(c.assignee) })
-    return ['전체', ...Array.from(set).sort()]
-  })()
-  // 일별 네비게이션용 날짜 목록
-  const daysInMonth = Array.from(new Set(
-    consultations.filter(c => c.consulted_at?.startsWith(monthFilter)).map(c => c.consulted_at).filter(Boolean)
-  )).sort() as string[]
-  const dayIdx = daysInMonth.indexOf(dayFilter)
-  const prevDay = dayIdx > 0 ? daysInMonth[dayIdx - 1] : null
-  const nextDay = dayIdx < daysInMonth.length - 1 ? daysInMonth[dayIdx + 1] : null
-
-  const formatDay = (d: string) => {
+  const formatDateHeader = (d: string) => {
     const date = new Date(d)
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토']
-    return `${d.slice(5).replace('-', '/')} (${dayNames[date.getDay()]})`
+    const days = ['일','월','화','수','목','금','토']
+    const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0')
+    return `@${y}/${m}/${day} (${days[date.getDay()]})`
   }
 
-  const filtered = consultations.filter(c => {
-    if (monthFilter && !c.consulted_at?.startsWith(monthFilter)) return false
-    if (dayView && c.consulted_at !== dayFilter) return false
-    if (assigneeFilter !== '전체' && c.assignee !== assigneeFilter) return false
-    if (search) {
-      const q = search.toLowerCase()
-      return c.client_name?.toLowerCase().includes(q) || c.contact?.includes(q) ||
-        c.assignee?.toLowerCase().includes(q) || c.memo?.toLowerCase().includes(q)
-    }
-    return true
-  })
+  const fixedCols = CUST_COLS.filter(c => c.fixed)
+  const optionalCols = CUST_COLS.filter(c => !c.fixed)
 
-  const formatMonth = (m: string) => { const [y, mo] = m.split('-'); return `${y.slice(2)}년 ${parseInt(mo)}월` }
-
-  // 활성 칼럼
-  const fixedCols = DIARY_COLS.filter(c => c.fixed)
-  const optionalCols = DIARY_COLS.filter(c => !c.fixed)
-
-  type ActiveCol =
-    | { type: 'fixed'; def: ColDef }
-    | { type: 'optional'; def: ColDef }
-    | { type: 'custom'; id: string; name: string }
+  type ActiveCol = { type: 'fixed'; def: ColDef } | { type: 'optional'; def: ColDef } | { type: 'custom'; id: string; name: string }
 
   const activeCols: ActiveCol[] = loaded
     ? settings.order.flatMap((key): ActiveCol[] => {
-        const fixedDef = fixedCols.find(c => c.key === key)
-        if (fixedDef) return [{ type: 'fixed', def: fixedDef }]
-        const optDef = optionalCols.find(c => c.key === key)
-        if (optDef && settings.visible.includes(key)) return [{ type: 'optional', def: optDef }]
-        const customDef = settings.customCols.find(c => c.id === key)
-        if (customDef && settings.visible.includes(key)) return [{ type: 'custom', id: customDef.id, name: customDef.name }]
+        const fd = fixedCols.find(c => c.key === key); if (fd) return [{ type: 'fixed', def: fd }]
+        const od = optionalCols.find(c => c.key === key); if (od && settings.visible.includes(key)) return [{ type: 'optional', def: od }]
+        const cd = settings.customCols.find(c => c.id === key); if (cd && settings.visible.includes(key)) return [{ type: 'custom', id: cd.id, name: cd.name }]
         return []
       })
     : fixedCols.map(def => ({ type: 'fixed' as const, def }))
 
-  const renderCell = (c: Consultation, col: ActiveCol) => {
+  const getColKey = (col: ActiveCol) => col.type === 'custom' ? col.id : col.def.key
+  const getColWidth = (col: ActiveCol) => { const key = getColKey(col); return settings.widths[key] ?? (col.type === 'custom' ? 120 : (col.def.minWidth ?? 100)) }
+
+  const renderCell = (c: Customer, col: ActiveCol) => {
     const ro = !canEdit
     if (col.type === 'custom') {
-      const customDef = settings.customCols.find(cc => cc.id === col.id)
-      if (customDef?.type === 'select') {
-        const opts = settings.options[col.id] ?? []
-        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} />
-      }
+      const cd = settings.customCols.find(cc => cc.id === col.id)
+      if (cd?.type === 'select') return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={settings.options[col.id] ?? []} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} />
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
-    const def = col.def
-    const opts = settings.options[def.key] ?? def.defaultOpts ?? []
-    const colorMap = COL_COLORS[def.key]
+    const def = col.def; const opts = settings.options[def.key] ?? def.defaultOpts ?? []; const colorMap = COL_COLORS[def.key]
     switch (def.key) {
-      case 'consulted_at': return <TextCell value={c.consulted_at} onSave={v => saveField(c.id, 'consulted_at', v || null)} placeholder="날짜" readOnly={ro} />
-      case 'client_name':
-        return ro
-          ? <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis font-medium" style={{ color: c.client_name ? '#374151' : '#d1d5db' }}>{c.client_name || '고객명'}</div>
-          : <CustomerCell value={c.client_name} customerId={c.customer_id} customers={customers}
-              onSave={(name, cid, contact, assignee, source) => saveCustomerLink(c.id, name, cid, contact, assignee, source)} />
-      case 'contact':   return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
-      case 'amount':    return <TextCell value={c.amount} onSave={v => saveField(c.id, 'amount', v || null)} placeholder="예: 5000/300" readOnly={ro} />
-      case 'assignee':  return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
-      case 'source':    return <SelectCell value={c.source} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
-      case 'region':    return <TextCell value={c.region} onSave={v => saveField(c.id, 'region', v || null)} placeholder="지역" readOnly={ro} />
-      case 'interest':  return <SelectCell value={c.interest} options={opts} onSave={v => saveField(c.id, 'interest', v)} readOnly={ro} />
-      case 'status':    return <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
-      case 'memo':      return <LongTextCell value={c.memo} onSave={v => saveField(c.id, 'memo', v || null)} placeholder="상담내용" readOnly={ro} />
-      case 'proposals':
-        return (
-          <ProposalCell
-            consultationId={c.id}
-            myProposals={proposals[c.id] ?? []}
-            allProperties={allProperties}
-            onAdd={pid => addProposal(c.id, pid)}
-            onRemove={pid => removeProposal(c.id, pid)}
-          />
-        )
+      case 'request':       return <LongTextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="고객명" readOnly={ro} />
+      case 'received_date': return <TextCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
+      case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
+      case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
+      case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
+      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
+      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
       default: return null
     }
   }
 
-  const getColKey = (col: ActiveCol) => col.type === 'custom' ? col.id : col.def.key
-  const getColWidth = (col: ActiveCol) => {
-    const key = getColKey(col)
-    return settings.widths[key] ?? (col.type === 'custom' ? 120 : (col.def.minWidth ?? 100))
-  }
-
-  if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-gray-400 text-sm">불러오는 중...</div>
-    </div>
-  )
+  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-400 text-sm">불러오는 중...</div></div>
 
   if (accessDenied) return (
     <div className="min-h-screen bg-gray-50">
@@ -1090,200 +535,107 @@ export default function BrokerDiaryPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} role="broker" />
-      <div className="mx-auto max-w-screen-xl px-4 py-6">
+      <div className="mx-auto max-w-screen-xl px-4 py-6 space-y-4">
 
-        {/* 헤더 */}
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-gray-900">업무일지</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {dayView ? formatDay(dayFilter) : formatMonth(monthFilter)} · {filtered.length}건
-            </p>
+        {/* 날짜 헤더 */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-black text-gray-900">{formatDateHeader(diaryDate)} 업무일지</h1>
+          <div className="flex items-center gap-2">
+            <button onClick={() => changeDate(-1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
+            <input type="date" value={diaryDate} onChange={e => { if (e.target.value) setDiaryDate(e.target.value) }} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-blue-400 cursor-pointer" />
+            <button onClick={() => changeDate(1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
           </div>
-          <button onClick={() => { setDayView(v => !v); if (!dayView) setDayFilter(new Date().toISOString().split('T')[0]) }}
-            className={cn('rounded-xl px-3 py-2 text-sm font-semibold transition-colors border',
-              dayView ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300')}>
-            {dayView ? '월별 보기' : '일별 보기'}
-          </button>
         </div>
 
-        {/* 월 탭 */}
-        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
-          {months.map(m => (
-            <button key={m} onClick={() => { setMonthFilter(m); if (dayView) setDayFilter(m + '-01') }}
-              className={cn('flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                monthFilter === m ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300')}>
-              {formatMonth(m)}
-              <span className="ml-1.5 text-[10px] opacity-60">{consultations.filter(c => c.consulted_at?.startsWith(m)).length}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* 일별 네비게이션 */}
-        {dayView && (
-          <div className="mb-3 flex items-center justify-center gap-3">
-            <button onClick={() => prevDay && setDayFilter(prevDay)} disabled={!prevDay}
-              className="flex items-center justify-center h-8 w-8 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-default transition-colors">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-1.5">
-              <input type="date" value={dayFilter}
-                onChange={e => { if (e.target.value) { setDayFilter(e.target.value); setMonthFilter(e.target.value.slice(0, 7)) } }}
-                className="text-sm font-semibold text-gray-800 outline-none cursor-pointer" />
-              <span className="text-xs text-gray-400">
-                ({['일','월','화','수','목','금','토'][new Date(dayFilter).getDay()]})
-              </span>
-            </div>
-            <button onClick={() => nextDay && setDayFilter(nextDay)} disabled={!nextDay}
-              className="flex items-center justify-center h-8 w-8 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-default transition-colors">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
-        {/* 필터 */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="고객명, 연락처, 상담내용..."
-              className="w-full rounded-xl border border-gray-200 bg-white pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
-          </div>
-          {isOwner && assignees.length > 1 && (
-            <div className="flex gap-1 flex-wrap">
-              {assignees.map(a => (
-                <button key={a} onClick={() => setAssigneeFilter(a)}
-                  className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                    assigneeFilter === a ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
-                  )}>{a}</button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 안내 */}
-        <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
-          <Download className="h-3 w-3" />
-          <span>고객명 클릭 시 고객목록에서 정보를 불러올 수 있어요</span>
-        </div>
-
-        {/* 테이블 */}
+        {/* Section 1: 고객정보 */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
+            <span className="text-sm font-bold text-gray-800">1. 고객정보({profile?.name ?? ''})</span>
+            <span className="text-xs text-gray-400">{customers.length}명</span>
+            {canEdit && (
+              <button onClick={addCustomer} className="ml-auto flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100 transition-colors">
+                <Plus className="h-3.5 w-3.5" />새로 만들기
+              </button>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
               <thead>
                 <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                   <th className="px-3 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
                   {activeCols.map(col => {
-                    const key = getColKey(col)
-                    const w = getColWidth(col)
+                    const key = getColKey(col); const w = getColWidth(col)
                     return (
-                      <th key={key}
-                        className={`px-2 py-2.5 text-left relative border-r border-gray-100 transition-colors ${dragOverCol === key ? 'bg-blue-50' : 'hover:bg-gray-100'} cursor-grab`}
-                        style={{ width: w, maxWidth: w }}
-                        draggable
-                        onDragStart={e => onColDragStart(key, e)}
-                        onDragOver={e => onColDragOver(key, e)}
-                        onDrop={() => onColDrop(key)}
-                        onDragEnd={onColDragEnd}
-                      >
+                      <th key={key} className={`px-2 py-2.5 text-left relative border-r border-gray-100 transition-colors ${dragOverCol === key ? 'bg-blue-50' : 'hover:bg-gray-100'} cursor-grab`}
+                        style={{ width: w, maxWidth: w }} draggable
+                        onDragStart={e => onColDragStart(key, e)} onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)} onDragEnd={onColDragEnd}>
                         <div className="pr-2">
                           {col.type === 'custom' ? (() => {
-                            const customDef = settings.customCols.find(cc => cc.id === col.id)
-                            return (
-                              <ColumnHeader
-                                label={col.name} isCustom
-                                colType={customDef?.type ?? 'text'}
-                                onChangeType={type => changeCustomColType(col.id, type)}
-                                hasOptions={customDef?.type === 'select'}
-                                options={settings.options[col.id] ?? []}
-                                onSetOptions={opts => setOpts(col.id, opts)}
-                                onHide={() => hideCol(col.id)}
-                                onRename={name => renameCustomCol(col.id, name)}
-                                onDelete={() => deleteCustomCol(col.id)}
-                              />
-                            )
+                            const cd = settings.customCols.find(cc => cc.id === col.id)
+                            return <ColumnHeader label={col.name} isCustom colType={cd?.type ?? 'text'} onChangeType={t => changeCustomColType(col.id, t)} hasOptions={cd?.type === 'select'} options={settings.options[col.id] ?? []} onSetOptions={opts => setOpts(col.id, opts)} onHide={() => hideCol(col.id)} onRename={n => renameCustomCol(col.id, n)} onDelete={() => deleteCustomCol(col.id)} />
                           })() : (
-                            <ColumnHeader
-                              label={col.def.label}
-                              isFixed={col.def.fixed}
-                              hasOptions={col.def.hasOptions}
-                              options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []}
-                              onSetOptions={opts => setOpts(col.def.key, opts)}
-                              onHide={() => hideCol(col.def.key)}
-                            />
+                            <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []} onSetOptions={opts => setOpts(col.def.key, opts)} onHide={() => hideCol(col.def.key)} />
                           )}
                         </div>
-                        <div onMouseDown={e => startResize(key, e)}
-                          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
+                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
                       </th>
                     )
                   })}
                   <th className="px-2 py-2.5 bg-gray-50" style={{ width: 56, minWidth: 56 }}>
                     <div className="flex items-center justify-end gap-0.5">
                       <AddColBtn onAdd={addCustomCol} />
-                      <ColVisibility
-                        fixedCols={fixedCols}
-                        optionalCols={optionalCols}
-                        customCols={settings.customCols}
-                        visible={settings.visible}
-                        onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)}
-                      />
+                      <ColVisibility fixedCols={fixedCols} optionalCols={optionalCols} customCols={settings.customCols} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
                     </div>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={activeCols.length + 3} className="py-16 text-center text-sm text-gray-400">
-                      {consultations.length === 0 ? '상담 추가 버튼으로 첫 기록을 남겨보세요' : dayView ? `${formatDay(dayFilter)} 상담 기록이 없어요` : '검색 결과가 없어요'}
-                    </td>
-                  </tr>
-                ) : filtered.map((c, idx) => (
+                {customers.length === 0 ? (
+                  <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">새로 만들기 버튼으로 첫 고객을 등록해보세요</td></tr>
+                ) : customers.map((c, idx) => (
                   <tr key={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{filtered.length - idx}</td>
+                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{customers.length - idx}</td>
                     {activeCols.map(col => (
-                      <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100"
-                        style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
-                        {renderCell(c, col)}
-                      </td>
+                      <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
                     ))}
                     <td className="px-2 py-1.5 border-r border-gray-100" />
                     <td className="px-2 py-1.5 text-center">
-                      {canEdit && (
-                        <button onClick={() => setDeleteConfirm(c.id)}
-                          className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      {canEdit && <button onClick={() => setDeleteConfirm(c.id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
                     </td>
                   </tr>
                 ))}
                 {canEdit && (
-                  <tr>
-                    <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
-                      <button onClick={addRow}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
-                        <Plus className="h-3.5 w-3.5" />상담 추가
-                      </button>
-                    </td>
-                  </tr>
+                  <tr><td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                    <button onClick={addCustomer} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                      <Plus className="h-3.5 w-3.5" />신규 item
+                    </button>
+                  </td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
+        {/* Sections 2–5 */}
+        {diaryLoading ? (
+          <div className="text-center text-sm text-gray-400 py-4">불러오는 중...</div>
+        ) : (<>
+          <DiarySection num={2} title="업무요약"  value={diary.work_summary}    onSave={v => saveDiaryField('work_summary', v)}    readOnly={!canEdit} />
+          <DiarySection num={3} title="광고현황"  value={diary.ad_status}       onSave={v => saveDiaryField('ad_status', v)}       readOnly={!canEdit} />
+          <DiarySection num={4} title="건의사항"  value={diary.suggestions}     onSave={v => saveDiaryField('suggestions', v)}     readOnly={!canEdit} />
+          <DiarySection num={5} title="전달사항"  value={diary.delivery_notes}  onSave={v => saveDiaryField('delivery_notes', v)}  readOnly={!canEdit} />
+        </>)}
+
       </div>
 
-      {/* 삭제 확인 */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">상담 기록을 삭제할까요?</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">고객을 삭제할까요?</h3>
             <p className="text-sm text-gray-500 mb-6">삭제하면 복구할 수 없어요.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
-              <button onClick={() => deleteRow(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
+              <button onClick={() => deleteCustomer(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
             </div>
           </div>
         </div>

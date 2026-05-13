@@ -12,7 +12,7 @@ export interface ColSettings {
   colTypes: Record<string, 'text' | 'select'>
 }
 
-type Page = 'properties' | 'customers' | 'diary'
+type Page = 'properties' | 'customers' | 'diary' | 'diary_cust'
 
 export function useColSettings(
   page: Page,
