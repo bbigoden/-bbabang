@@ -82,7 +82,7 @@ function CellTooltip({ text, anchorRef }: { text: string; anchorRef: React.RefOb
 }
 
 // ── DateCell ──────────────────────────────────────────
-function DateCell({ value, onSave }: { value: string | null; onSave: (v: string) => void }) {
+function DateCell({ value, onSave, readOnly }: { value: string | null; onSave: (v: string) => void; readOnly?: boolean }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [viewYear, setViewYear] = useState(() => {
@@ -111,6 +111,11 @@ function DateCell({ value, onSave }: { value: string | null; onSave: (v: string)
 
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
 
+  if (readOnly) return (
+    <div className="w-full px-1 py-0.5 text-xs min-h-[22px]" style={{ color: value ? '#374151' : '#d1d5db' }}>
+      {value || '—'}
+    </div>
+  )
   const handleOpen = () => {
     if (open) return
     setDraft(value ?? '')
@@ -206,7 +211,7 @@ function DateCell({ value, onSave }: { value: string | null; onSave: (v: string)
 }
 
 // ── TextCell ──────────────────────────────────────────
-function TextCell({ value, onSave, placeholder = '—' }: { value: string | null; onSave: (v: string) => void; placeholder?: string }) {
+function TextCell({ value, onSave, placeholder = '—', readOnly }: { value: string | null; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [hovered, setHovered] = useState(false)
@@ -214,6 +219,10 @@ function TextCell({ value, onSave, placeholder = '—' }: { value: string | null
   const cellRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
   const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
+  if (readOnly) return (
+    <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+      style={{ color: value ? '#374151' : '#d1d5db' }}>{value || placeholder}</div>
+  )
   if (editing) return (
     <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
       onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
@@ -233,10 +242,15 @@ function TextCell({ value, onSave, placeholder = '—' }: { value: string | null
 }
 
 // ── SelectCell ──────────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap }: {
-  value: string; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>
+function SelectCell({ value, options, onSave, colorMap, readOnly }: {
+  value: string; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  if (readOnly) return (
+    <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>
+      {value || '—'}
+    </div>
+  )
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
@@ -634,6 +648,8 @@ export default function BrokerCustomersPage() {
   const [profile, setProfile] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
+  const [canEdit, setCanEdit] = useState(true)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -664,11 +680,27 @@ export default function BrokerCustomersPage() {
     setProfile(prof); setBroker(b)
     const owner = b.is_owner !== false
     setIsOwner(owner)
+
+    // ── 권한 체크 (직원만) ──────────────────────────────
+    if (!owner) {
+      const perms = b.permissions
+      if (perms?.customers?.view === false) { setAccessDenied(true); setLoading(false); return }
+      setCanEdit(perms ? perms.customers?.edit !== false : true)
+    }
+
+    // ── 데이터 범위 결정 ───────────────────────────────
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
+    } else if (b.permissions?.can_see_others !== false && b.parent_broker_id) {
+      // 직원이지만 타직원 공유 허용 → 같은 팀 전체 + 대표
+      const { data: siblings } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
+      if (siblings) brokerIds = siblings.map((e: any) => e.id)
+      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
+    // can_see_others=false 이면 brokerIds = [b.id] 그대로 (본인 데이터만)
+
     const { data } = await supabase.from('broker_customers').select('*')
       .in('broker_id', brokerIds).order('received_date', { ascending: false }).order('created_at', { ascending: false })
     setCustomers(data ?? [])
@@ -837,31 +869,32 @@ export default function BrokerCustomersPage() {
     : fixedCols.map(def => ({ type: 'fixed' as const, def }))
 
   const renderCell = (c: Customer, col: ActiveCol) => {
+    const ro = !canEdit
     if (col.type === 'custom') {
       const customDef = settings.customCols.find(cc => cc.id === col.id)
       if (customDef?.type === 'select') {
         const opts = settings.options[col.id] ?? []
-        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} />
+        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} />
       }
-      return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" />
+      return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
     const def = col.def
     const opts = settings.options[def.key] ?? def.defaultOpts ?? []
     const colorMap = COL_COLORS[def.key]
     switch (def.key) {
-      case 'request':       return <TextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="요청사항" />
-      case 'received_date': return <DateCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} />
-      case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" />
-      case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" />
+      case 'request':       return <TextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
+      case 'received_date': return <DateCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} readOnly={ro} />
+      case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
+      case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
       case 'category':      return (settings.colTypes['category'] === 'text')
-        ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" />
-        : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} />
+        ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" readOnly={ro} />
+        : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
       case 'source':        return (settings.colTypes['source'] === 'text')
-        ? <TextCell value={c.source} onSave={v => saveField(c.id, 'source', v || null)} placeholder="유입" />
-        : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} />
+        ? <TextCell value={c.source} onSave={v => saveField(c.id, 'source', v || null)} placeholder="유입" readOnly={ro} />
+        : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
       case 'status':        return (settings.colTypes['status'] === 'text')
-        ? <TextCell value={c.status} onSave={v => saveField(c.id, 'status', v)} placeholder="진행상황" />
-        : <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} />
+        ? <TextCell value={c.status} onSave={v => saveField(c.id, 'status', v)} placeholder="진행상황" readOnly={ro} />
+        : <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
       default: return null
     }
   }
@@ -875,6 +908,17 @@ export default function BrokerCustomersPage() {
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-gray-400 text-sm">불러오는 중...</div>
+    </div>
+  )
+
+  if (accessDenied) return (
+    <div className="min-h-screen bg-gray-50">
+      <Header user={user} role="broker" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="text-5xl">🔒</div>
+        <h2 className="text-lg font-bold text-gray-700">고객목록 접근 권한이 없어요</h2>
+        <p className="text-sm text-gray-400">대표에게 권한 설정을 요청해주세요.</p>
+      </div>
     </div>
   )
 
@@ -1028,21 +1072,25 @@ export default function BrokerCustomersPage() {
                     ))}
                     <td className="px-2 py-1.5 border-r border-gray-100" />
                     <td className="px-2 py-1.5 text-center">
-                      <button onClick={() => setDeleteConfirm(c.id)}
-                        className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {canEdit && (
+                        <button onClick={() => setDeleteConfirm(c.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
-                <tr>
-                  <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
-                    <button onClick={addRow}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
-                      <Plus className="h-3.5 w-3.5" />고객 등록
-                    </button>
-                  </td>
-                </tr>
+                {canEdit && (
+                  <tr>
+                    <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                      <button onClick={addRow}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                        <Plus className="h-3.5 w-3.5" />고객 등록
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

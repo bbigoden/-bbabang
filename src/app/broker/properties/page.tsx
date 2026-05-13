@@ -976,6 +976,8 @@ function BrokerPropertiesContent() {
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
   const [properties, setProperties] = useState<Property[]>([])
+  const [canEdit, setCanEdit] = useState(true)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [isAdminView, setIsAdminView] = useState(false)
   const [adminViewBrokerName, setAdminViewBrokerName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -1103,14 +1105,35 @@ function BrokerPropertiesContent() {
     }
 
     // 일반 중개사 본인 매물장
-    const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns').eq('user_id', u.id).single()
+    const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns, is_owner, parent_broker_id, permissions').eq('user_id', u.id).single()
     if (!b) { router.push('/broker/register'); return }
     setBroker(b)
     setSettingsBrokerId(b.id)
-    // 커스텀 칼럼 로드 (없으면 기본값)
+
+    // ── 권한 체크 (직원만) ──────────────────────────────
+    const owner = b.is_owner !== false
+    if (!owner) {
+      const perms = b.permissions
+      if (perms?.properties?.view === false) { setAccessDenied(true); setLoading(false); return }
+      setCanEdit(perms ? perms.properties?.edit !== false : true)
+    }
+
+    // ── 커스텀 칼럼 로드 ───────────────────────────────
     const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
     setCustomColumns(cols)
-    const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
+
+    // ── 데이터 범위 결정 ───────────────────────────────
+    let brokerIds: string[] = [b.id]
+    if (owner) {
+      const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
+      if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
+    } else if (b.permissions?.can_see_others !== false && b.parent_broker_id) {
+      const { data: siblings } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
+      if (siblings) brokerIds = siblings.map((e: any) => e.id)
+      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
+    }
+
+    const { data } = await supabase.from('broker_properties').select('*').in('broker_id', brokerIds).order('created_at', { ascending: false })
     setProperties(data ?? [])
     setLoading(false)
   }
@@ -1347,6 +1370,17 @@ function BrokerPropertiesContent() {
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+    </div>
+  )
+
+  if (accessDenied) return (
+    <div className="min-h-screen bg-gray-50">
+      <Header user={user} role="broker" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="text-5xl">🔒</div>
+        <h2 className="text-lg font-bold text-gray-700">매물목록 접근 권한이 없어요</h2>
+        <p className="text-sm text-gray-400">대표에게 권한 설정을 요청해주세요.</p>
+      </div>
     </div>
   )
 
@@ -1601,8 +1635,8 @@ function BrokerPropertiesContent() {
                     if (fixedCol) {
                       if (!settings.visible.includes(key)) return null
                       const w = settings.widths[key] ?? 100
-                      // 읽기 전용 셀 (어드민 뷰)
-                      if (isAdminView) {
+                      // 읽기 전용 셀 (어드민 뷰 또는 편집 권한 없는 직원)
+                      if (isAdminView || !canEdit) {
                         const readVal = (() => {
                           if (key === 'price') return p.price != null ? `${p.price.toLocaleString()}만` : '—'
                           if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
@@ -1648,7 +1682,7 @@ function BrokerPropertiesContent() {
                       const w = settings.widths[key] ?? 120
                       return (
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                          {isAdminView
+                          {(isAdminView || !canEdit)
                             ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
                             : customCol.type === 'select'
                               ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} />
@@ -1662,18 +1696,18 @@ function BrokerPropertiesContent() {
                   {!isAdminView && (
                     <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => duplicateProperty(p)} className="text-gray-300 hover:text-blue-400 transition-colors" title="복사">
+                        {canEdit && <button onClick={() => duplicateProperty(p)} className="text-gray-300 hover:text-blue-400 transition-colors" title="복사">
                           <Copy className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
+                        </button>}
+                        {canEdit && <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
                           <X className="h-3.5 w-3.5" />
-                        </button>
+                        </button>}
                       </div>
                     </td>
                   )}
                 </tr>
               ))}
-              {!isAdminView && (
+              {!isAdminView && canEdit && (
                 <tr>
                   <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100">
                     <button onClick={addNewRow}

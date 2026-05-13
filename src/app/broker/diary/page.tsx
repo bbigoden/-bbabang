@@ -97,7 +97,7 @@ function CellTooltip({ text, anchorRef }: { text: string; anchorRef: React.RefOb
 }
 
 // ── TextCell ──────────────────────────────────────────
-function TextCell({ value, onSave, placeholder = '—' }: { value: string | null; onSave: (v: string) => void; placeholder?: string }) {
+function TextCell({ value, onSave, placeholder = '—', readOnly }: { value: string | null; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [hovered, setHovered] = useState(false)
@@ -105,6 +105,10 @@ function TextCell({ value, onSave, placeholder = '—' }: { value: string | null
   const cellRef = useRef<HTMLDivElement>(null)
   useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
   const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
+  if (readOnly) return (
+    <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+      style={{ color: value ? '#374151' : '#d1d5db' }}>{value || placeholder}</div>
+  )
   if (editing) return (
     <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
       onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
@@ -124,7 +128,13 @@ function TextCell({ value, onSave, placeholder = '—' }: { value: string | null
 }
 
 // ── LongTextCell ──────────────────────────────────────
-function LongTextCell({ value, onSave, placeholder = '—' }: { value: string | null; onSave: (v: string) => void; placeholder?: string }) {
+function LongTextCell({ value, onSave, placeholder = '—', readOnly }: { value: string | null; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
+  if (readOnly) return (
+    <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden"
+      style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+      {value || placeholder}
+    </div>
+  )
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [hovered, setHovered] = useState(false)
@@ -151,10 +161,15 @@ function LongTextCell({ value, onSave, placeholder = '—' }: { value: string | 
 }
 
 // ── SelectCell ──────────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap }: {
-  value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>
+function SelectCell({ value, options, onSave, colorMap, readOnly }: {
+  value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
+  if (readOnly) return (
+    <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>
+      {value || '—'}
+    </div>
+  )
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
@@ -728,6 +743,8 @@ export default function BrokerDiaryPage() {
   const [profile, setProfile] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
+  const [canEdit, setCanEdit] = useState(true)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [consultations, setConsultations] = useState<Consultation[]>([])
   const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -763,11 +780,25 @@ export default function BrokerDiaryPage() {
     setProfile(prof); setBroker(b)
     const owner = b.is_owner !== false
     setIsOwner(owner)
+
+    // ── 권한 체크 (직원만) ──────────────────────────────
+    if (!owner) {
+      const perms = b.permissions
+      if (perms?.diary?.view === false) { setAccessDenied(true); setLoading(false); return }
+      setCanEdit(perms ? perms.diary?.edit !== false : true)
+    }
+
+    // ── 데이터 범위 결정 ───────────────────────────────
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
+    } else if (b.permissions?.can_see_others !== false && b.parent_broker_id) {
+      const { data: siblings } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
+      if (siblings) brokerIds = siblings.map((e: any) => e.id)
+      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
+
     const [{ data: cons }, { data: custs }, { data: props }] = await Promise.all([
       supabase.from('broker_consultations').select('*').in('broker_id', brokerIds)
         .order('consulted_at', { ascending: false }).order('created_at', { ascending: false }),
@@ -991,32 +1022,33 @@ export default function BrokerDiaryPage() {
     : fixedCols.map(def => ({ type: 'fixed' as const, def }))
 
   const renderCell = (c: Consultation, col: ActiveCol) => {
+    const ro = !canEdit
     if (col.type === 'custom') {
       const customDef = settings.customCols.find(cc => cc.id === col.id)
       if (customDef?.type === 'select') {
         const opts = settings.options[col.id] ?? []
-        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} />
+        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} />
       }
-      return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" />
+      return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
     const def = col.def
     const opts = settings.options[def.key] ?? def.defaultOpts ?? []
     const colorMap = COL_COLORS[def.key]
     switch (def.key) {
-      case 'consulted_at': return <TextCell value={c.consulted_at} onSave={v => saveField(c.id, 'consulted_at', v || null)} placeholder="날짜" />
+      case 'consulted_at': return <TextCell value={c.consulted_at} onSave={v => saveField(c.id, 'consulted_at', v || null)} placeholder="날짜" readOnly={ro} />
       case 'client_name':
-        return (
-          <CustomerCell value={c.client_name} customerId={c.customer_id} customers={customers}
-            onSave={(name, cid, contact, assignee, source) => saveCustomerLink(c.id, name, cid, contact, assignee, source)} />
-        )
-      case 'contact':   return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" />
-      case 'amount':    return <TextCell value={c.amount} onSave={v => saveField(c.id, 'amount', v || null)} placeholder="예: 5000/300" />
-      case 'assignee':  return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" />
-      case 'source':    return <SelectCell value={c.source} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} />
-      case 'region':    return <TextCell value={c.region} onSave={v => saveField(c.id, 'region', v || null)} placeholder="지역" />
-      case 'interest':  return <SelectCell value={c.interest} options={opts} onSave={v => saveField(c.id, 'interest', v)} />
-      case 'status':    return <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} />
-      case 'memo':      return <LongTextCell value={c.memo} onSave={v => saveField(c.id, 'memo', v || null)} placeholder="상담내용" />
+        return ro
+          ? <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis font-medium" style={{ color: c.client_name ? '#374151' : '#d1d5db' }}>{c.client_name || '고객명'}</div>
+          : <CustomerCell value={c.client_name} customerId={c.customer_id} customers={customers}
+              onSave={(name, cid, contact, assignee, source) => saveCustomerLink(c.id, name, cid, contact, assignee, source)} />
+      case 'contact':   return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
+      case 'amount':    return <TextCell value={c.amount} onSave={v => saveField(c.id, 'amount', v || null)} placeholder="예: 5000/300" readOnly={ro} />
+      case 'assignee':  return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
+      case 'source':    return <SelectCell value={c.source} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
+      case 'region':    return <TextCell value={c.region} onSave={v => saveField(c.id, 'region', v || null)} placeholder="지역" readOnly={ro} />
+      case 'interest':  return <SelectCell value={c.interest} options={opts} onSave={v => saveField(c.id, 'interest', v)} readOnly={ro} />
+      case 'status':    return <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
+      case 'memo':      return <LongTextCell value={c.memo} onSave={v => saveField(c.id, 'memo', v || null)} placeholder="상담내용" readOnly={ro} />
       case 'proposals':
         return (
           <ProposalCell
@@ -1040,6 +1072,17 @@ export default function BrokerDiaryPage() {
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-gray-400 text-sm">불러오는 중...</div>
+    </div>
+  )
+
+  if (accessDenied) return (
+    <div className="min-h-screen bg-gray-50">
+      <Header user={user} role="broker" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <div className="text-5xl">🔒</div>
+        <h2 className="text-lg font-bold text-gray-700">업무일지 접근 권한이 없어요</h2>
+        <p className="text-sm text-gray-400">대표에게 권한 설정을 요청해주세요.</p>
+      </div>
     </div>
   )
 
@@ -1206,21 +1249,25 @@ export default function BrokerDiaryPage() {
                     ))}
                     <td className="px-2 py-1.5 border-r border-gray-100" />
                     <td className="px-2 py-1.5 text-center">
-                      <button onClick={() => setDeleteConfirm(c.id)}
-                        className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {canEdit && (
+                        <button onClick={() => setDeleteConfirm(c.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
-                <tr>
-                  <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
-                    <button onClick={addRow}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
-                      <Plus className="h-3.5 w-3.5" />상담 추가
-                    </button>
-                  </td>
-                </tr>
+                {canEdit && (
+                  <tr>
+                    <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                      <button onClick={addRow}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                        <Plus className="h-3.5 w-3.5" />상담 추가
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
