@@ -6,9 +6,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Settings2, Lock, Pencil, Check, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, EyeOff, ChevronDown,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
+import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
 interface Property {
   id: string
@@ -80,11 +81,22 @@ const ALL_COLUMNS = [
 type ColKey = typeof ALL_COLUMNS[number]['key']
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
 const DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
-// 칼럼 구조가 바뀔 때마다 올려주면 localStorage 자동 초기화
-const COL_VERSION = 'v3'
 
 // 초기 커스텀 칼럼 (기본값 없음)
 const DEFAULT_CUSTOM_COLS: CustomColumn[] = []
+
+const DEFAULT_PROP_SETTINGS: ColSettings = {
+  visible:    [...FIXED_COLS],
+  order:      [...FIXED_COLS],
+  widths: {
+    address: 200, size_pyeong: 70, price: 96, room_type: 110, deal_type: 72,
+    total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
+    approval_date: 90, parking: 72, management_fee: 72,
+    direction: 68, images: 56, brief_memo: 140, memo: 140,
+  },
+  customCols: [],
+  options:    {},
+}
 
 // 팝오버를 닫기 위한 훅
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -533,6 +545,163 @@ function TooltipIcon({ text }: { text: string }) {
   )
 }
 
+// ── ColumnHeader (헤더 클릭 설정) ────────────────────────
+function PropColHeader({ label, isCustom, onHide, onRename, onDelete }: {
+  label: string; isCustom?: boolean
+  onHide?: () => void; onRename?: (name: string) => void; onDelete?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [style, setStyle] = useState<React.CSSProperties>({})
+  const [renaming, setRenaming] = useState(false)
+  const [renameVal, setRenameVal] = useState(label)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
+  useClickOutside(containerRef, () => { setOpen(false); setRenaming(false) })
+
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 220), minWidth: 200 })
+    }
+    setOpen(v => !v)
+  }
+
+  const commitRename = () => {
+    const v = renameVal.trim()
+    if (v && v !== label) onRename?.(v)
+    setRenaming(false); setOpen(false)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div ref={btnRef} onClick={handleOpen}
+        className="flex items-center gap-1 select-none cursor-pointer group">
+        <span className="text-xs font-semibold text-gray-500 truncate">{label}</span>
+        <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+      </div>
+      {open && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
+          onClick={e => e.stopPropagation()}>
+          <div className="px-3 py-2 border-b border-gray-100 text-xs font-bold text-gray-700">{label}</div>
+          {isCustom && (
+            <>
+              {renaming ? (
+                <div className="px-3 py-2 flex gap-1.5 border-b border-gray-100">
+                  <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setRenaming(false); setRenameVal(label) } }}
+                    className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0" />
+                  <button onClick={commitRename} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">확인</button>
+                </div>
+              ) : (
+                <button onClick={() => { setRenaming(true); setRenameVal(label) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+                  <span className="text-gray-400">✏️</span>칼럼 이름 변경
+                </button>
+              )}
+            </>
+          )}
+          <button onClick={() => { onHide?.(); setOpen(false) }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+            <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
+          </button>
+          {isCustom && (
+            <button onClick={() => { onDelete?.(); setOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100">
+              <X className="h-3.5 w-3.5" />칼럼 완전 삭제
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── ColAdder (숨김 복원 + 새 칼럼) ───────────────────────
+function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onShowCustom, onAddCustom }: {
+  hiddenFixed: Array<{ key: string; label: string }>
+  customCols: CustomColumn[]
+  visibleCustom: string[]
+  onShowFixed: (key: string) => void
+  onShowCustom: (id: string) => void
+  onAddCustom: (name: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [style, setStyle] = useState<React.CSSProperties>({})
+  const [showInput, setShowInput] = useState(false)
+  const [addingName, setAddingName] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
+  useClickOutside(containerRef, () => { setOpen(false); setShowInput(false); setAddingName('') })
+
+  const hiddenCustom = customCols.filter(c => !visibleCustom.includes(c.id))
+
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, right: Math.max(4, window.innerWidth - r.right), minWidth: 200 })
+    }
+    setOpen(v => !v)
+  }
+
+  const addCustom = () => {
+    const v = addingName.trim()
+    if (!v) return
+    onAddCustom(v); setAddingName(''); setShowInput(false); setOpen(false)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div ref={btnRef} onClick={handleOpen}
+        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">+</div>
+      {open && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
+          onClick={e => e.stopPropagation()}>
+          {/* 고정 칼럼 섹션 */}
+          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+            <Lock className="h-2.5 w-2.5" />고정 칼럼
+          </div>
+          {hiddenFixed.length > 0 ? hiddenFixed.map(col => (
+            <button key={col.key} onClick={() => { onShowFixed(col.key); setOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+              <span className="text-gray-300 font-bold">+</span>{col.label}
+            </button>
+          )) : (
+            <div className="px-3 py-1.5 text-xs text-gray-400">모두 표시 중</div>
+          )}
+
+          {/* 내 칼럼 섹션 */}
+          <div className="border-t border-gray-100 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">내 칼럼</div>
+          {hiddenCustom.map(col => (
+            <button key={col.id} onClick={() => { onShowCustom(col.id); setOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+              <span className="text-gray-300 font-bold">+</span>{col.name}
+            </button>
+          ))}
+
+          {/* 새 칼럼 만들기 */}
+          <div className="border-t border-gray-100">
+            {showInput ? (
+              <div className="flex items-center gap-1.5 px-2 py-2">
+                <input autoFocus value={addingName} onChange={e => setAddingName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') { setShowInput(false); setAddingName('') } }}
+                  placeholder="칼럼 이름 입력"
+                  className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0 placeholder-gray-300" />
+                <button onClick={addCustom} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">추가</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowInput(true)}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 transition-colors font-medium">
+                <Plus className="h-3.5 w-3.5" />새 칼럼 만들기
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── 메인 페이지 ──────────────────────────────────────────
 export default function BrokerPropertiesPage() {
   return (
@@ -573,96 +742,48 @@ function BrokerPropertiesContent() {
   const overlaysRef = useRef<any[]>([])
   const infoOverlaysRef = useRef<any[]>([])
   const [addingId, setAddingId] = useState<string | null>(null)
-  const [visibleCols, setVisibleCols] = useState<ColKey[]>(() => {
-    try {
-      if (localStorage.getItem('broker_col_version') !== COL_VERSION) return DEFAULT_VISIBLE
-      const s = localStorage.getItem('broker_col_visible')
-      if (s) { const p = JSON.parse(s) as ColKey[]; return p.filter(k => ALL_COLUMNS.some(c => c.key === k)) }
-    } catch {}
-    return DEFAULT_VISIBLE
-  })
-  // 통합 칼럼 순서 (고정 칼럼 + 커스텀 칼럼)
-  const [colOrder, setColOrder] = useState<string[]>(() => {
-    const defaultOrder = [...FIXED_COLS]
-    try {
-      if (localStorage.getItem('broker_col_version') !== COL_VERSION) {
-        // 버전 불일치 → 저장값 초기화
-        localStorage.setItem('broker_col_version', COL_VERSION)
-        localStorage.removeItem('broker_col_full_order')
-        localStorage.removeItem('broker_col_visible')
-        return defaultOrder
-      }
-      const s = localStorage.getItem('broker_col_full_order')
-      if (s) {
-        const p = JSON.parse(s) as string[]
-        const missing = defaultOrder.filter(k => !p.includes(k))
-        return missing.length > 0 ? [...p, ...missing] : p
-      }
-    } catch {}
-    return defaultOrder
-  })
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    const def: Record<string, number> = {
-      address: 200,
-      size_pyeong: 70, price: 96, room_type: 110, deal_type: 72,
-      total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
-      approval_date: 90, parking: 72, management_fee: 72,
-      direction: 68, images: 56, brief_memo: 140, memo: 140,
-    }
-    try { const s = localStorage.getItem('broker_col_widths'); if (s) return { ...def, ...JSON.parse(s) } } catch {}
-    return def
-  })
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
-  const [visibleCustomCols, setVisibleCustomCols] = useState<string[]>(() => {
-    try { const s = localStorage.getItem('broker_visible_custom'); if (s) return JSON.parse(s) } catch {}
-    return []
-  })
-  const [editingColId, setEditingColId] = useState<string | null>(null)
-  const [editingColName, setEditingColName] = useState('')
-  const [newColName, setNewColName] = useState('')
-  const [addingCol, setAddingCol] = useState(false)
+  const [settingsBrokerId, setSettingsBrokerId] = useState<string | null>(null)
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
-  const [colMenuOpen, setColMenuOpen] = useState(false)
-  const colMenuRef = useRef<HTMLDivElement>(null)
-  useClickOutside(colMenuRef, () => { setColMenuOpen(false); setAddingCol(false); setEditingColId(null) })
+  const wasDragRef = useRef(false)
 
-  const toggleCol = (key: ColKey) =>
-    setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
-  const show = (key: ColKey) => visibleCols.includes(key)
-  const showCustom = (id: string) => visibleCustomCols.includes(id)
-  const toggleCustomCol = (id: string) =>
-    setVisibleCustomCols(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id])
+  // 칼럼 설정 (DB)
+  const { settings, update, loaded: colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
 
-  // localStorage 저장
-  useEffect(() => { try { localStorage.setItem('broker_col_version', COL_VERSION); localStorage.setItem('broker_col_visible', JSON.stringify(visibleCols)) } catch {} }, [visibleCols])
-  useEffect(() => { try { localStorage.setItem('broker_col_widths', JSON.stringify(colWidths)) } catch {} }, [colWidths])
-  useEffect(() => { try { localStorage.setItem('broker_visible_custom', JSON.stringify(visibleCustomCols)) } catch {} }, [visibleCustomCols])
-  useEffect(() => { try { localStorage.setItem('broker_col_version', COL_VERSION); localStorage.setItem('broker_col_full_order', JSON.stringify(colOrder)) } catch {} }, [colOrder])
+  // 고정 칼럼이 settings.order에 없는 경우 추가 (첫 로드 또는 새 칼럼 추가시)
+  const syncedOrder = useMemo(() => {
+    const order = settings.order
+    const missing = FIXED_COLS.filter(k => !order.includes(k))
+    return missing.length > 0 ? [...order, ...missing] : order
+  }, [settings.order])
 
   // 칼럼 너비 드래그 조절
   const startResize = (key: string, e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault(); e.stopPropagation()
     const startX = e.clientX
-    const startW = colWidths[key] ?? 100
-    const onMove = (ev: MouseEvent) => setColWidths(prev => ({ ...prev, [key]: Math.max(40, startW + ev.clientX - startX) }))
+    const startW = settings.widths[key] ?? 100
+    const onMove = (ev: MouseEvent) => update(prev => ({ ...prev, widths: { ...prev.widths, [key]: Math.max(40, startW + ev.clientX - startX) } }))
     const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
+    document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
 
-  // 칼럼 순서 드래그 (colOrder 기준 통합)
-  const onColDragStart = (key: string, e: React.DragEvent) => { setDragCol(key); e.dataTransfer.effectAllowed = 'move' }
+  // 칼럼 순서 드래그
+  const onColDragStart = (key: string, e: React.DragEvent) => { wasDragRef.current = true; setDragCol(key); e.dataTransfer.effectAllowed = 'move' }
   const onColDragOver = (key: string, e: React.DragEvent) => { e.preventDefault(); setDragOverCol(key) }
   const onColDrop = (key: string) => {
     if (!dragCol || dragCol === key) return
-    setColOrder(prev => {
-      const arr = [...prev]; const fi = arr.indexOf(dragCol); const ti = arr.indexOf(key)
-      if (fi < 0 || ti < 0) return arr; arr.splice(fi, 1); arr.splice(ti, 0, dragCol); return arr
+    update(prev => {
+      const arr = [...prev.order]; const fi = arr.indexOf(dragCol); const ti = arr.indexOf(key)
+      if (fi < 0 || ti < 0) return prev; arr.splice(fi, 1); arr.splice(ti, 0, dragCol); return { ...prev, order: arr }
     })
     setDragCol(null); setDragOverCol(null)
   }
+  const onColDragEnd = () => { setDragCol(null); setDragOverCol(null); setTimeout(() => { wasDragRef.current = false }, 50) }
+
+  // 칼럼 표시/숨김
+  const hideCol = (key: string) => update(prev => ({ ...prev, visible: prev.visible.filter(k => k !== key) }))
+  const showCol = (key: string) => update(prev => ({ ...prev, visible: [...prev.visible, key] }))
 
   useEffect(() => { init() }, [])
   useEffect(() => { setPage(1) }, [filterDealType, filterRoomType, searchQuery, pageSize])
@@ -713,6 +834,9 @@ function BrokerPropertiesContent() {
       setAdminViewBrokerName((b.profiles as any)?.name || b.office_name || '(이름 없음)')
       const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
       setCustomColumns(cols)
+      // 어드민 본인의 broker profile ID로 settings 로드
+      const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
+      if (ownBroker) setSettingsBrokerId(ownBroker.id)
       const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
       setProperties(data ?? [])
       setLoading(false)
@@ -723,6 +847,7 @@ function BrokerPropertiesContent() {
     const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns').eq('user_id', u.id).single()
     if (!b) { router.push('/broker/register'); return }
     setBroker(b)
+    setSettingsBrokerId(b.id)
     // 커스텀 칼럼 로드 (없으면 기본값)
     const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
     setCustomColumns(cols)
@@ -752,10 +877,12 @@ function BrokerPropertiesContent() {
     const updated = [...customColumns, newCol]
     await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
     setCustomColumns(updated)
-    setVisibleCustomCols(prev => [...prev, newCol.id])
-    setColOrder(prev => [...prev, newCol.id])
-    setNewColName('')
-    setAddingCol(false)
+    update(prev => ({
+      ...prev,
+      order: [...prev.order, newCol.id],
+      visible: [...prev.visible, newCol.id],
+      widths: { ...prev.widths, [newCol.id]: 120 },
+    }))
   }
 
   // 커스텀 칼럼 이름 수정
@@ -764,7 +891,6 @@ function BrokerPropertiesContent() {
     const updated = customColumns.map(c => c.id === id ? { ...c, name: name.trim() } : c)
     await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
     setCustomColumns(updated)
-    setEditingColId(null)
   }
 
   // 커스텀 칼럼 삭제
@@ -775,8 +901,11 @@ function BrokerPropertiesContent() {
     const updated = customColumns.filter(c => c.id !== id)
     await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
     setCustomColumns(updated)
-    setVisibleCustomCols(prev => prev.filter(k => k !== id))
-    setColOrder(prev => prev.filter(k => k !== id))
+    update(prev => ({
+      ...prev,
+      order: prev.order.filter(k => k !== id),
+      visible: prev.visible.filter(k => k !== id),
+    }))
   }
 
   const addNewRow = async () => {
@@ -972,75 +1101,6 @@ function BrokerPropertiesContent() {
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* 컬럼 설정 */}
-            <div ref={colMenuRef} className="relative">
-              <button onClick={() => setColMenuOpen(v => !v)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                <Settings2 className="h-4 w-4" />컬럼
-              </button>
-              {colMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-xl border border-gray-200 bg-white shadow-lg py-2">
-                  {/* 고정 칼럼 */}
-                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1"><Lock className="h-3 w-3" /> 고정 칼럼</p>
-                  {ALL_COLUMNS.map(col => (
-                    <button key={col.key} onClick={() => toggleCol(col.key)}
-                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <span className={`flex h-4 w-4 items-center justify-center rounded border-2 transition-all ${visibleCols.includes(col.key) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`}>
-                        {visibleCols.includes(col.key) && <span className="text-[9px] font-black text-white">✓</span>}
-                      </span>
-                      <span className="flex-1 text-left">{col.label}</span>
-                      <Lock className="h-3 w-3 text-gray-300" />
-                    </button>
-                  ))}
-                  {/* 사용자 정의 칼럼 */}
-                  <div className="my-1.5 border-t border-gray-100" />
-                  <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-wide">내 칼럼</p>
-                  {customColumns.map(col => (
-                    <div key={col.id} className="flex items-center gap-1 px-2 py-1 hover:bg-gray-50 group">
-                      <button onClick={() => toggleCustomCol(col.id)}
-                        className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-all ${visibleCustomCols.includes(col.id) ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`}>
-                        {visibleCustomCols.includes(col.id) && <span className="text-[9px] font-black text-white">✓</span>}
-                      </button>
-                      {editingColId === col.id ? (
-                        <input autoFocus value={editingColName} onChange={e => setEditingColName(e.target.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') renameCustomColumn(col.id, editingColName); if (e.key === 'Escape') setEditingColId(null) }}
-                          onBlur={() => renameCustomColumn(col.id, editingColName)}
-                          className="flex-1 rounded border border-blue-400 px-1.5 py-0.5 text-xs outline-none" />
-                      ) : (
-                        <span className="flex-1 px-1 text-sm text-gray-700 truncate">{col.name}</span>
-                      )}
-                      <button onClick={() => { setEditingColId(col.id); setEditingColName(col.name) }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-blue-500 transition-all">
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      <button onClick={() => deleteCustomColumn(col.id)}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-red-500 transition-all">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  {/* 칼럼 추가 */}
-                  {addingCol ? (
-                    <div className="flex items-center gap-1 px-2 py-1">
-                      <input autoFocus value={newColName} onChange={e => setNewColName(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') addCustomColumn(newColName); if (e.key === 'Escape') { setAddingCol(false); setNewColName('') } }}
-                        placeholder="칼럼 이름 입력"
-                        className="flex-1 rounded border border-blue-400 px-1.5 py-0.5 text-xs outline-none placeholder-gray-300" />
-                      <button onClick={() => addCustomColumn(newColName)} className="p-0.5 text-blue-500 hover:text-blue-700">
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button onClick={() => setAddingCol(true)}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50 transition-colors">
-                      <Plus className="h-3.5 w-3.5" /> 칼럼 추가
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
             {/* 목록/지도 토글 */}
             <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden">
               <button
@@ -1157,58 +1217,74 @@ function BrokerPropertiesContent() {
             <thead>
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                 <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
-                {colOrder.map(key => {
+                {syncedOrder.map(key => {
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                   if (fixedCol) {
-                    if (!visibleCols.includes(key as ColKey)) return null
+                    if (!settings.visible.includes(key)) return null
+                    const w = settings.widths[key] ?? 100
                     return (
                       <th key={key}
                         className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 hover:bg-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
-                        style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}
+                        style={{ width: w, maxWidth: w }}
                         draggable onDragStart={e => onColDragStart(key, e)}
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
-                        onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
+                        onDragEnd={onColDragEnd}
                       >
-                        {(key === 'memo' || key === 'address') ? (
-                          <span className="flex items-center gap-1 pr-2">
-                            <span className="truncate">{fixedCol.label}</span>
-                            <TooltipIcon text={
-                              key === 'memo'
-                                ? '매물제안시 나에게만 보이는 메모입니다'
-                                : '고객제안시 읍면동리까지만 표현됩니다'
-                            } />
-                          </span>
-                        ) : (
-                          <span className="truncate block pr-2">{fixedCol.label}</span>
-                        )}
-                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 hover:opacity-100 transition-all" />
+                        <div className="pr-2 flex items-center gap-1">
+                          <PropColHeader label={fixedCol.label} onHide={() => hideCol(key)} />
+                          {(key === 'memo' || key === 'address') && (
+                            <TooltipIcon text={key === 'memo' ? '매물제안시 나에게만 보이는 메모입니다' : '고객제안시 읍면동리까지만 표현됩니다'} />
+                          )}
+                        </div>
+                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
                       </th>
                     )
                   }
                   // 커스텀 칼럼
                   const customCol = customColumns.find(c => c.id === key)
-                  if (customCol && showCustom(key)) return (
-                    <th key={key}
-                      className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
-                      style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}
-                      draggable onDragStart={e => onColDragStart(key, e)}
-                      onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
-                      onDragEnd={() => { setDragCol(null); setDragOverCol(null) }}
-                    >
-                      <span className="truncate block pr-2">{customCol.name}</span>
-                      <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 hover:opacity-100 transition-all" />
-                    </th>
-                  )
+                  if (customCol && settings.visible.includes(key)) {
+                    const w = settings.widths[key] ?? 120
+                    return (
+                      <th key={key}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 hover:bg-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        style={{ width: w, maxWidth: w }}
+                        draggable onDragStart={e => onColDragStart(key, e)}
+                        onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
+                        onDragEnd={onColDragEnd}
+                      >
+                        <div className="pr-2">
+                          <PropColHeader label={customCol.name} isCustom
+                            onHide={() => hideCol(key)}
+                            onRename={name => renameCustomColumn(key, name)}
+                            onDelete={() => deleteCustomColumn(key)}
+                          />
+                        </div>
+                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
+                      </th>
+                    )
+                  }
                   return null
                 })}
+                {!isAdminView && (
+                  <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 40 }}>
+                    <PropColAdder
+                      hiddenFixed={ALL_COLUMNS.filter(c => !settings.visible.includes(c.key))}
+                      customCols={customColumns}
+                      visibleCustom={settings.visible.filter(k => customColumns.some(c => c.id === k))}
+                      onShowFixed={showCol}
+                      onShowCustom={showCol}
+                      onAddCustom={addCustomColumn}
+                    />
+                  </th>
+                )}
                 {!isAdminView && <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 56 }}></th>}
               </tr>
             </thead>
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={colOrder.length + 2} className="py-20 text-center text-sm text-gray-400">
+                  <td colSpan={syncedOrder.length + 2} className="py-20 text-center text-sm text-gray-400">
                     {searchQuery || filterDealType || filterRoomType ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
@@ -1219,10 +1295,11 @@ function BrokerPropertiesContent() {
                   <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
                     {filtered.length - ((page - 1) * pageSize + idx)}
                   </td>
-                  {colOrder.map(key => {
+                  {syncedOrder.map(key => {
                     const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                     if (fixedCol) {
-                      if (!visibleCols.includes(key as ColKey)) return null
+                      if (!settings.visible.includes(key)) return null
+                      const w = settings.widths[key] ?? 100
                       // 읽기 전용 셀 (어드민 뷰)
                       if (isAdminView) {
                         const readVal = (() => {
@@ -1240,13 +1317,13 @@ function BrokerPropertiesContent() {
                           return raw != null && raw !== '' ? String(raw) : '—'
                         })()
                         return (
-                          <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                          <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
                             <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{readVal}</div>
                           </td>
                         )
                       }
                       return (
-                        <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 100, maxWidth: colWidths[key] ?? 100 }}>
+                        <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
@@ -1266,14 +1343,17 @@ function BrokerPropertiesContent() {
                       )
                     }
                     const customCol = customColumns.find(c => c.id === key)
-                    if (customCol && showCustom(key)) return (
-                      <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: colWidths[key] ?? 120, maxWidth: colWidths[key] ?? 120 }}>
-                        {isAdminView
-                          ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
-                          : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
-                        }
-                      </td>
-                    )
+                    if (customCol && settings.visible.includes(key)) {
+                      const w = settings.widths[key] ?? 120
+                      return (
+                        <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
+                          {isAdminView
+                            ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
+                            : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
+                          }
+                        </td>
+                      )
+                    }
                     return null
                   })}
                   {!isAdminView && (
