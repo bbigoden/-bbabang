@@ -15,13 +15,14 @@ interface ColDef {
 }
 
 const CUST_COLS: ColDef[] = [
-  { key: 'request',       label: '요청사항', fixed: true, minWidth: 160, isLong: true },
-  { key: 'received_date', label: '접수일자', fixed: true, minWidth: 100 },
-  { key: 'contact',       label: '연락처',   fixed: true, minWidth: 130 },
-  { key: 'assignee',      label: '담당자',   fixed: true, minWidth: 90 },
-  { key: 'category',      label: '구분',     fixed: true, minWidth: 80,  hasOptions: true, defaultOpts: ['비주거','주거용'] },
-  { key: 'source',        label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
-  { key: 'status',        label: '진행상황', fixed: true, minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
+  { key: 'request',            label: '요청사항', fixed: true, minWidth: 160, isLong: true },
+  { key: 'received_date',      label: '접수일자', fixed: true, minWidth: 100 },
+  { key: 'contact',            label: '연락처',   fixed: true, minWidth: 130 },
+  { key: 'assignee',           label: '담당자',   fixed: true, minWidth: 90 },
+  { key: 'category',           label: '구분',     fixed: true, minWidth: 80,  hasOptions: true, defaultOpts: ['비주거','주거용'] },
+  { key: 'source',             label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
+  { key: 'status',             label: '진행상황', fixed: true, minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
+  { key: 'proposed_properties',label: '제안 매물', fixed: true, minWidth: 180 },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -57,9 +58,14 @@ interface Customer {
   assignee: string | null; category: string; source: string | null; status: string
   request: string | null; custom_fields: Record<string, string> | null
 }
+interface Property {
+  id: string; address: string; deal_type: string; room_type: string
+  price: number; monthly_rent: number | null
+}
 interface DiaryCustomerRow {
   link_id: string   // broker_diary_customers.id
   sort_order: number
+  proposed_property_ids: string[] | null
   id: string; client_name: string; contact: string | null; received_date: string | null
   assignee: string | null; category: string; source: string | null; status: string
   request: string | null; custom_fields: Record<string, string> | null
@@ -304,6 +310,93 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
   )
 }
 
+// ── ProposedPropertiesCell ────────────────────────────
+function ProposedPropertiesCell({ propIds, allProperties, onOpen, readOnly }: {
+  propIds: string[] | null; allProperties: Property[]
+  onOpen: () => void; readOnly?: boolean
+}) {
+  const selected = (propIds ?? []).map(id => allProperties.find(p => p.id === id)).filter(Boolean) as Property[]
+  if (selected.length === 0) {
+    if (readOnly) return <span className="text-xs text-gray-300 px-1">—</span>
+    return (
+      <button onClick={onOpen} className="flex items-center gap-1 px-1 py-0.5 text-xs text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors w-full">
+        <Plus className="h-3 w-3" />매물 추가
+      </button>
+    )
+  }
+  return (
+    <div className="flex flex-wrap gap-1 items-center px-1 py-0.5">
+      {selected.map(p => (
+        <span key={p.id} className="inline-flex items-center rounded-lg bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px] truncate" title={p.address}>
+          {p.address}
+        </span>
+      ))}
+      {!readOnly && (
+        <button onClick={onOpen} className="flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 transition-colors flex-shrink-0">
+          <Plus className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── PropertyPicker ────────────────────────────────────
+function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
+  allProperties: Property[]; selectedIds: string[]
+  onConfirm: (ids: string[]) => void; onClose: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds))
+  const filtered = allProperties.filter(p =>
+    !search || p.address.toLowerCase().includes(search.toLowerCase()) ||
+    p.deal_type.includes(search) || p.room_type.includes(search)
+  ).slice(0, 30)
+  const toggle = (id: string) => {
+    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+  const formatPrice = (p: Property) => {
+    if (p.deal_type === '월세') return `${(p.price/10000).toFixed(0)}/${(p.monthly_rent??0)/10000}만`
+    return `${(p.price/10000).toFixed(0)}만`
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-800">제안 매물 선택</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="px-3 py-2.5 border-b border-gray-100">
+          <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+        </div>
+        <div className="max-h-64 overflow-y-auto">
+          {filtered.length === 0
+            ? <div className="py-8 text-center text-sm text-gray-400">매물 없음</div>
+            : filtered.map(p => (
+              <div key={p.id} onClick={() => toggle(p.id)}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0">
+                <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${selected.has(p.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                  {selected.has(p.id) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800 truncate">{p.address}</div>
+                  <div className="text-xs text-gray-400">{p.deal_type} · {p.room_type} · {formatPrice(p)}</div>
+                </div>
+              </div>
+            ))
+          }
+        </div>
+        <div className="p-3 border-t border-gray-100 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+          <button onClick={() => onConfirm(Array.from(selected))} className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            확인 ({selected.size}개)
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── CustomerPicker ────────────────────────────────────
 function CustomerPicker({ allCustomers, linkedIds, onAddExisting, onCreateNew, onClose }: {
   allCustomers: Customer[]; linkedIds: Set<string>
@@ -421,7 +514,9 @@ export default function BrokerDiaryPage() {
   // Section 1 데이터
   const [diaryCustomers, setDiaryCustomers] = useState<DiaryCustomerRow[]>([])
   const [allCustomers, setAllCustomers] = useState<Customer[]>([])   // 고객 피커용
+  const [allProperties, setAllProperties] = useState<Property[]>([]) // 매물 피커용
   const [showPicker, setShowPicker] = useState(false)
+  const [propertyPickerLinkId, setPropertyPickerLinkId] = useState<string | null>(null) // 매물 피커 대상
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null) // link_id
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
@@ -487,11 +582,16 @@ export default function BrokerDiaryPage() {
       if (sibs) brokerIds = sibs.map((e: any) => e.id)
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
-    const { data: custs } = await supabase
-      .from('broker_customers')
-      .select('id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields')
-      .in('broker_id', brokerIds).order('created_at', { ascending: false })
+    const [{ data: custs }, { data: props }] = await Promise.all([
+      supabase.from('broker_customers')
+        .select('id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields')
+        .in('broker_id', brokerIds).order('created_at', { ascending: false }),
+      supabase.from('broker_properties')
+        .select('id, address, deal_type, room_type, price, monthly_rent')
+        .in('broker_id', brokerIds).order('created_at', { ascending: false }),
+    ])
     setAllCustomers(custs ?? [])
+    setAllProperties(props ?? [])
     setLoading(false)
   }
 
@@ -501,11 +601,11 @@ export default function BrokerDiaryPage() {
     const targetId = viewingBrokerId ?? broker.id
     const [{ data: links }, { data: diaryRow }] = await Promise.all([
       supabase.from('broker_diary_customers')
-        .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+        .select('id, sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
         .eq('broker_id', targetId).eq('diary_date', date).order('sort_order'),
       supabase.from('broker_diary').select('sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
     ])
-    setDiaryCustomers((links ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, ...l.broker_customers as Customer })))
+    setDiaryCustomers((links ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
     setSectionContent(diaryRow?.sections_content ?? {})
     setDiaryLoading(false)
   }
@@ -516,7 +616,7 @@ export default function BrokerDiaryPage() {
     const nextOrder = diaryCustomers.length
     const { data, error } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: c.id, sort_order: nextOrder }).select('id').single()
     if (!error && data) {
-      setDiaryCustomers(prev => [...prev, { link_id: data.id, sort_order: nextOrder, ...c }])
+      setDiaryCustomers(prev => [...prev, { link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }])
     }
     setShowPicker(false)
   }
@@ -535,7 +635,7 @@ export default function BrokerDiaryPage() {
     setAllCustomers(prev => [newCust, ...prev])
     const nextOrder = diaryCustomers.length
     const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
-    if (link) setDiaryCustomers(prev => [...prev, { link_id: link.id, sort_order: nextOrder, ...newCust as Customer }])
+    if (link) setDiaryCustomers(prev => [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
   }
 
   // 고객 행 삭제 (diary_customers 링크만 제거)
@@ -558,6 +658,13 @@ export default function BrokerDiaryPage() {
     await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', customerId)
     setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, custom_fields: newFields } : c))
   }, [diaryCustomers])
+
+  // 제안 매물 저장
+  const saveProposedProperties = async (linkId: string, ids: string[]) => {
+    await supabase.from('broker_diary_customers').update({ proposed_property_ids: ids }).eq('id', linkId)
+    setDiaryCustomers(prev => prev.map(c => c.link_id === linkId ? { ...c, proposed_property_ids: ids } : c))
+    setPropertyPickerLinkId(null)
+  }
 
   // 섹션 내용 저장
   const saveSectionContent = useCallback(async (sectionId: string, value: string) => {
@@ -641,7 +748,7 @@ export default function BrokerDiaryPage() {
     setImporting(true)
     const [{ data: sourceLinks }, { data: sourceDiary }] = await Promise.all([
       supabase.from('broker_diary_customers')
-        .select('sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+        .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
         .eq('broker_id', broker.id).eq('diary_date', importDate).order('sort_order'),
       supabase.from('broker_diary').select('sections_content').eq('broker_id', broker.id).eq('date', importDate).maybeSingle(),
     ])
@@ -651,11 +758,12 @@ export default function BrokerDiaryPage() {
       const inserts = sourceLinks.map((l: any, idx: number) => ({
         broker_id: broker.id, diary_date: diaryDate,
         customer_id: (l.broker_customers as any).id, sort_order: idx,
+        proposed_property_ids: l.proposed_property_ids ?? [],
       }))
       const { data: newLinks } = await supabase.from('broker_diary_customers')
         .insert(inserts)
         .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
-      setDiaryCustomers((newLinks ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, ...l.broker_customers as Customer })))
+      setDiaryCustomers((newLinks ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
     } else {
       setDiaryCustomers([])
     }
@@ -715,6 +823,7 @@ export default function BrokerDiaryPage() {
       case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
       case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
       case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
+      case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} allProperties={allProperties} onOpen={() => setPropertyPickerLinkId(c.link_id)} readOnly={ro} />
       default: return null
     }
   }
@@ -855,6 +964,19 @@ export default function BrokerDiaryPage() {
         <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds}
           onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
       )}
+
+      {/* 제안 매물 피커 */}
+      {propertyPickerLinkId && (() => {
+        const row = diaryCustomers.find(c => c.link_id === propertyPickerLinkId)
+        return (
+          <PropertyPicker
+            allProperties={allProperties}
+            selectedIds={row?.proposed_property_ids ?? []}
+            onConfirm={ids => saveProposedProperties(propertyPickerLinkId, ids)}
+            onClose={() => setPropertyPickerLinkId(null)}
+          />
+        )
+      })()}
 
       {/* 불러오기 모달 */}
       {showImport && (
