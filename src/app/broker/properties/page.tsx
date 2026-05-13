@@ -979,6 +979,7 @@ function BrokerPropertiesContent() {
   const [canEdit, setCanEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [isAdminView, setIsAdminView] = useState(false)
+  const [isOwner, setIsOwner] = useState(true)
   const [adminViewBrokerName, setAdminViewBrokerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterDealType, setFilterDealType] = useState('')
@@ -1112,6 +1113,7 @@ function BrokerPropertiesContent() {
 
     // ── 권한 체크 (직원만) ──────────────────────────────
     const owner = b.is_owner !== false
+    setIsOwner(owner)
     if (!owner) {
       if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
       const perms = b.permissions
@@ -1535,6 +1537,8 @@ function BrokerPropertiesContent() {
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                 <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
                 {syncedOrder.map(key => {
+                  // 직원에게 중개사메모 숨김
+                  if (key === 'memo' && !isOwner && !isAdminView) return null
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                   if (fixedCol) {
@@ -1632,6 +1636,8 @@ function BrokerPropertiesContent() {
                     {filtered.length - ((page - 1) * pageSize + idx)}
                   </td>
                   {syncedOrder.map(key => {
+                    // 직원에게 중개사메모 숨김
+                    if (key === 'memo' && !isOwner && !isAdminView) return null
                     const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                     if (fixedCol) {
                       if (!settings.visible.includes(key)) return null
