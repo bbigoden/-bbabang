@@ -354,13 +354,14 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
 }
 
 // ── ColAdder (숨김 칼럼 복원 + 커스텀 칼럼 추가) ────────────
-function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddCustom }: {
+function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddCustom, asHeaderButton }: {
   fixedCols: ColDef[]
   optionalCols: ColDef[]
   customCols: Array<{ id: string; name: string }>
   visible: string[]
   onShow: (key: string) => void
   onAddCustom: (name: string) => void
+  asHeaderButton?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<React.CSSProperties>({})
@@ -390,7 +391,11 @@ function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddC
   return (
     <div ref={containerRef} className="relative">
       <div ref={btnRef} onClick={handleOpen}
-        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">+</div>
+        className={asHeaderButton
+          ? 'flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer'
+          : 'flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none'
+        }>
+        {asHeaderButton ? <>헤더 추가</> : '+'}</div>
       {open && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
           onClick={e => e.stopPropagation()}>
@@ -704,10 +709,21 @@ export default function BrokerDiaryPage() {
             <h1 className="text-2xl font-black text-gray-900">업무일지</h1>
             <p className="text-sm text-gray-400 mt-0.5">{formatMonth(monthFilter)} · {filtered.length}건</p>
           </div>
-          <button onClick={addRow}
-            className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm">
-            <Plus className="h-4 w-4" />상담 추가
-          </button>
+          <div className="flex items-center gap-2">
+            <ColAdder
+              fixedCols={fixedCols}
+              optionalCols={optionalCols}
+              customCols={settings.customCols}
+              visible={settings.visible}
+              onShow={showCol}
+              onAddCustom={addCustomCol}
+              asHeaderButton
+            />
+            <button onClick={addRow}
+              className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm">
+              <Plus className="h-4 w-4" />상담 추가
+            </button>
+          </div>
         </div>
 
         {/* 월 탭 */}
@@ -791,16 +807,6 @@ export default function BrokerDiaryPage() {
                       </th>
                     )
                   })}
-                  <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 40 }}>
-                    <ColAdder
-                      fixedCols={fixedCols}
-                      optionalCols={optionalCols}
-                      customCols={settings.customCols}
-                      visible={settings.visible}
-                      onShow={showCol}
-                      onAddCustom={addCustomCol}
-                    />
-                  </th>
                   <th className="w-10 px-2 py-2.5" />
                 </tr>
               </thead>

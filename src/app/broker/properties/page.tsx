@@ -618,13 +618,14 @@ function PropColHeader({ label, isCustom, onHide, onRename, onDelete }: {
 }
 
 // ── ColAdder (숨김 복원 + 새 칼럼) ───────────────────────
-function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onShowCustom, onAddCustom }: {
+function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onShowCustom, onAddCustom, asHeaderButton }: {
   hiddenFixed: Array<{ key: string; label: string }>
   customCols: CustomColumn[]
   visibleCustom: string[]
   onShowFixed: (key: string) => void
   onShowCustom: (id: string) => void
   onAddCustom: (name: string) => void
+  asHeaderButton?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<React.CSSProperties>({})
@@ -653,7 +654,11 @@ function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onS
   return (
     <div ref={containerRef} className="relative">
       <div ref={btnRef} onClick={handleOpen}
-        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">+</div>
+        className={asHeaderButton
+          ? 'flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer'
+          : 'flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none'
+        }>
+        {asHeaderButton ? <>헤더 추가</> : '+'}</div>
       {open && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
           onClick={e => e.stopPropagation()}>
@@ -1117,11 +1122,22 @@ function BrokerPropertiesContent() {
               </button>
             </div>
             {!isAdminView && (
-              <button onClick={addNewRow}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-4 w-4" />매물 등록
-              </button>
+              <div className="flex items-center gap-2">
+                <PropColAdder
+                  hiddenFixed={ALL_COLUMNS.filter(c => !settings.visible.includes(c.key))}
+                  customCols={customColumns}
+                  visibleCustom={settings.visible.filter(k => customColumns.some(c => c.id === k))}
+                  onShowFixed={showCol}
+                  onShowCustom={showCol}
+                  onAddCustom={addCustomColumn}
+                  asHeaderButton
+                />
+                <button onClick={addNewRow}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />매물 등록
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -1266,18 +1282,6 @@ function BrokerPropertiesContent() {
                   }
                   return null
                 })}
-                {!isAdminView && (
-                  <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 40 }}>
-                    <PropColAdder
-                      hiddenFixed={ALL_COLUMNS.filter(c => !settings.visible.includes(c.key))}
-                      customCols={customColumns}
-                      visibleCustom={settings.visible.filter(k => customColumns.some(c => c.id === k))}
-                      onShowFixed={showCol}
-                      onShowCustom={showCol}
-                      onAddCustom={addCustomColumn}
-                    />
-                  </th>
-                )}
                 {!isAdminView && <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 56 }}></th>}
               </tr>
             </thead>
