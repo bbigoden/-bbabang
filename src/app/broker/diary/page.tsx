@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Download, X, ChevronDown, EyeOff, Eye, MoreHorizontal, Lock } from 'lucide-react'
+import { Plus, Trash2, Search, Download, X, ChevronDown, EyeOff, Eye, MoreHorizontal, Lock, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
@@ -25,6 +25,7 @@ const DIARY_COLS: ColDef[] = [
   { key: 'interest',     label: '관심물건', minWidth: 90, hasOptions: true, defaultOpts: ['상가', '주거용', '공장', '창고', '사무실', '토지', '기타'] },
   { key: 'status',       label: '진행상황', minWidth: 100, hasOptions: true, defaultOpts: ['잠재', '진행중', '종료', '계약완료'] },
   { key: 'memo',         label: '상담내용', minWidth: 220, isLong: true },
+  { key: 'proposals',   label: '제안매물', minWidth: 220 },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(DIARY_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -50,6 +51,19 @@ const STATUS_COLORS: Record<string, string> = {
   '종료': 'bg-red-100 text-red-600', '계약완료': 'bg-green-100 text-green-700',
 }
 const COL_COLORS: Record<string, Record<string, string>> = { source: SOURCE_COLORS, status: STATUS_COLORS }
+
+interface ProposalSummary {
+  id: string
+  property_id: string
+  broker_properties: {
+    id: string; address: string; deal_type: string; room_type: string
+    price: number; monthly_rent: number | null
+  }
+}
+interface PropertyOption {
+  id: string; address: string; deal_type: string; room_type: string
+  price: number; monthly_rent: number | null
+}
 
 interface Consultation {
   id: string; customer_id: string | null; consulted_at: string; client_name: string
@@ -230,6 +244,119 @@ function CustomerCell({ value, customerId, customers, onSave }: {
               </button>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── ProposalCell ──────────────────────────────────────
+function ProposalCell({ consultationId, myProposals, allProperties, onAdd, onRemove }: {
+  consultationId: string
+  myProposals: ProposalSummary[]
+  allProperties: PropertyOption[]
+  onAdd: (propertyId: string) => void
+  onRemove: (proposalId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
+  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLDivElement>(null)
+  useClickOutside(ref, () => { setOpen(false); setQuery('') })
+
+  const proposedIds = new Set(myProposals.map(p => p.property_id))
+  const available = allProperties.filter(p =>
+    !proposedIds.has(p.id) &&
+    (!query || p.address.toLowerCase().includes(query.toLowerCase()) || p.deal_type.includes(query) || p.room_type.includes(query))
+  ).slice(0, 8)
+
+  const formatPrice = (p: PropertyOption) => {
+    if (p.deal_type === '월세') {
+      const deposit = p.price >= 10000 ? `${Math.floor(p.price / 10000)}억${p.price % 10000 ? ` ${p.price % 10000}만` : ''}` : `${p.price}만`
+      const monthly = p.monthly_rent ? `/${p.monthly_rent}만` : ''
+      return `${deposit}${monthly}`
+    }
+    return p.price >= 10000 ? `${Math.floor(p.price / 10000)}억${p.price % 10000 ? ` ${p.price % 10000}만` : ''}` : `${p.price}만`
+  }
+
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: r.left, width: 260 }
+      if (window.innerHeight - r.bottom < 280) s.bottom = window.innerHeight - r.top + 4; else s.top = r.bottom + 4
+      setPopupStyle(s)
+    }
+    setOpen(v => !v); setQuery('')
+  }
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <div ref={btnRef} onClick={handleOpen}
+        className="flex flex-wrap gap-1 cursor-pointer min-h-[22px] rounded px-1 py-0.5 hover:bg-blue-50 transition-colors">
+        {myProposals.length === 0 ? (
+          <span className="text-xs text-gray-300 select-none">+ 매물 추가</span>
+        ) : myProposals.map(p => (
+          <span key={p.id}
+            className="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700 font-medium max-w-[160px]">
+            <Building2 className="h-2.5 w-2.5 flex-shrink-0" />
+            <span className="truncate">{p.broker_properties.address.slice(-14)}</span>
+            <button onClick={e => { e.stopPropagation(); onRemove(p.id) }}
+              className="flex-shrink-0 hover:text-red-500 transition-colors ml-0.5">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ))}
+      </div>
+      {open && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={popupStyle}
+          onClick={e => e.stopPropagation()}>
+          <div className="p-2 border-b border-gray-100">
+            <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="매물 주소 검색..."
+              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400" />
+          </div>
+          {myProposals.length > 0 && (
+            <div className="px-2 pt-1.5 pb-1">
+              <div className="text-[10px] font-bold text-gray-400 uppercase px-1 mb-1">제안 중인 매물</div>
+              {myProposals.map(p => (
+                <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-blue-50/60 mb-0.5">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-blue-800 truncate">{p.broker_properties.address}</div>
+                    <div className="text-[10px] text-blue-500">{p.broker_properties.deal_type} · {p.broker_properties.room_type}</div>
+                  </div>
+                  <button onClick={() => onRemove(p.id)}
+                    className="flex h-5 w-5 items-center justify-center rounded text-blue-300 hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className={myProposals.length > 0 ? 'border-t border-gray-100' : ''}>
+            {available.length === 0 && !query ? (
+              <div className="px-3 py-3 text-xs text-gray-400 text-center">매물이 없어요</div>
+            ) : available.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-gray-400 text-center">검색 결과 없음</div>
+            ) : (
+              <>
+                <div className="text-[10px] font-bold text-gray-400 uppercase px-3 pt-1.5 pb-0.5">추가할 매물</div>
+                <div className="max-h-44 overflow-y-auto pb-1">
+                  {available.map(p => (
+                    <button key={p.id} onClick={() => { onAdd(p.id); setQuery('') }}
+                      className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-blue-50 transition-colors">
+                      <Building2 className="h-3.5 w-3.5 text-gray-300 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-gray-800 truncate">{p.address}</div>
+                        <div className="text-[10px] text-gray-400">{p.deal_type} · {p.room_type} · {formatPrice(p)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -606,9 +733,13 @@ export default function BrokerDiaryPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [monthFilter, setMonthFilter] = useState(() => new Date().toISOString().slice(0, 7))
+  const [dayView, setDayView] = useState(false)
+  const [dayFilter, setDayFilter] = useState(() => new Date().toISOString().split('T')[0])
   const [assigneeFilter, setAssigneeFilter] = useState('전체')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
+  const [proposals, setProposals] = useState<Record<string, ProposalSummary[]>>({})
+  const [allProperties, setAllProperties] = useState<PropertyOption[]>([])
 
   // 칼럼 드래그
   const [dragCol, setDragCol] = useState<string | null>(null)
@@ -637,14 +768,34 @@ export default function BrokerDiaryPage() {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
     }
-    const [{ data: cons }, { data: custs }] = await Promise.all([
+    const [{ data: cons }, { data: custs }, { data: props }] = await Promise.all([
       supabase.from('broker_consultations').select('*').in('broker_id', brokerIds)
         .order('consulted_at', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('broker_customers').select('id, client_name, contact, assignee, source')
         .in('broker_id', brokerIds).order('received_date', { ascending: false }),
+      supabase.from('broker_properties').select('id, address, deal_type, room_type, price, monthly_rent')
+        .in('broker_id', brokerIds).order('created_at', { ascending: false }),
     ])
     setConsultations(cons ?? [])
     setCustomers(custs ?? [])
+    setAllProperties(props ?? [])
+
+    // 제안매물 로드
+    if (cons && cons.length > 0) {
+      const consIds = cons.map((c: any) => c.id)
+      const { data: proposalData } = await supabase
+        .from('consultation_proposals')
+        .select('id, consultation_id, property_id, broker_properties(id, address, deal_type, room_type, price, monthly_rent)')
+        .in('consultation_id', consIds)
+      if (proposalData) {
+        const map: Record<string, ProposalSummary[]> = {}
+        proposalData.forEach((p: any) => {
+          if (!map[p.consultation_id]) map[p.consultation_id] = []
+          map[p.consultation_id].push(p as unknown as ProposalSummary)
+        })
+        setProposals(map)
+      }
+    }
     setLoading(false)
   }
 
@@ -670,9 +821,32 @@ export default function BrokerDiaryPage() {
     setConsultations(prev => prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c))
   }, [consultations])
 
+  // 제안매물 추가/삭제
+  const addProposal = useCallback(async (consultationId: string, propertyId: string) => {
+    const { data } = await supabase
+      .from('consultation_proposals')
+      .insert({ consultation_id: consultationId, property_id: propertyId })
+      .select('id, consultation_id, property_id, broker_properties(id, address, deal_type, room_type, price, monthly_rent)')
+      .single()
+    if (data) {
+      setProposals(prev => ({
+        ...prev,
+        [consultationId]: [...(prev[consultationId] ?? []), data as unknown as ProposalSummary],
+      }))
+    }
+  }, [])
+
+  const removeProposal = useCallback(async (consultationId: string, proposalId: string) => {
+    await supabase.from('consultation_proposals').delete().eq('id', proposalId)
+    setProposals(prev => ({
+      ...prev,
+      [consultationId]: (prev[consultationId] ?? []).filter(p => p.id !== proposalId),
+    }))
+  }, [])
+
   const addRow = async () => {
     if (!broker) return
-    const today = new Date().toISOString().split('T')[0]
+    const today = dayView ? dayFilter : new Date().toISOString().split('T')[0]
     const opts = settings.options
     const { data, error } = await supabase.from('broker_consultations').insert({
       broker_id: broker.id, consulted_at: today, client_name: '',
@@ -767,8 +941,23 @@ export default function BrokerDiaryPage() {
     consultations.forEach(c => { if (c.assignee) set.add(c.assignee) })
     return ['전체', ...Array.from(set).sort()]
   })()
+  // 일별 네비게이션용 날짜 목록
+  const daysInMonth = Array.from(new Set(
+    consultations.filter(c => c.consulted_at?.startsWith(monthFilter)).map(c => c.consulted_at).filter(Boolean)
+  )).sort() as string[]
+  const dayIdx = daysInMonth.indexOf(dayFilter)
+  const prevDay = dayIdx > 0 ? daysInMonth[dayIdx - 1] : null
+  const nextDay = dayIdx < daysInMonth.length - 1 ? daysInMonth[dayIdx + 1] : null
+
+  const formatDay = (d: string) => {
+    const date = new Date(d)
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토']
+    return `${d.slice(5).replace('-', '/')} (${dayNames[date.getDay()]})`
+  }
+
   const filtered = consultations.filter(c => {
     if (monthFilter && !c.consulted_at?.startsWith(monthFilter)) return false
+    if (dayView && c.consulted_at !== dayFilter) return false
     if (assigneeFilter !== '전체' && c.assignee !== assigneeFilter) return false
     if (search) {
       const q = search.toLowerCase()
@@ -828,6 +1017,16 @@ export default function BrokerDiaryPage() {
       case 'interest':  return <SelectCell value={c.interest} options={opts} onSave={v => saveField(c.id, 'interest', v)} />
       case 'status':    return <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} />
       case 'memo':      return <LongTextCell value={c.memo} onSave={v => saveField(c.id, 'memo', v || null)} placeholder="상담내용" />
+      case 'proposals':
+        return (
+          <ProposalCell
+            consultationId={c.id}
+            myProposals={proposals[c.id] ?? []}
+            allProperties={allProperties}
+            onAdd={pid => addProposal(c.id, pid)}
+            onRemove={pid => removeProposal(c.id, pid)}
+          />
+        )
       default: return null
     }
   }
@@ -853,14 +1052,21 @@ export default function BrokerDiaryPage() {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black text-gray-900">업무일지</h1>
-            <p className="text-sm text-gray-400 mt-0.5">{formatMonth(monthFilter)} · {filtered.length}건</p>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {dayView ? formatDay(dayFilter) : formatMonth(monthFilter)} · {filtered.length}건
+            </p>
           </div>
+          <button onClick={() => { setDayView(v => !v); if (!dayView) setDayFilter(new Date().toISOString().split('T')[0]) }}
+            className={cn('rounded-xl px-3 py-2 text-sm font-semibold transition-colors border',
+              dayView ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300')}>
+            {dayView ? '월별 보기' : '일별 보기'}
+          </button>
         </div>
 
         {/* 월 탭 */}
         <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
           {months.map(m => (
-            <button key={m} onClick={() => setMonthFilter(m)}
+            <button key={m} onClick={() => { setMonthFilter(m); if (dayView) setDayFilter(m + '-01') }}
               className={cn('flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
                 monthFilter === m ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300')}>
               {formatMonth(m)}
@@ -868,6 +1074,28 @@ export default function BrokerDiaryPage() {
             </button>
           ))}
         </div>
+
+        {/* 일별 네비게이션 */}
+        {dayView && (
+          <div className="mb-3 flex items-center justify-center gap-3">
+            <button onClick={() => prevDay && setDayFilter(prevDay)} disabled={!prevDay}
+              className="flex items-center justify-center h-8 w-8 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-default transition-colors">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-1.5">
+              <input type="date" value={dayFilter}
+                onChange={e => { if (e.target.value) { setDayFilter(e.target.value); setMonthFilter(e.target.value.slice(0, 7)) } }}
+                className="text-sm font-semibold text-gray-800 outline-none cursor-pointer" />
+              <span className="text-xs text-gray-400">
+                ({['일','월','화','수','목','금','토'][new Date(dayFilter).getDay()]})
+              </span>
+            </div>
+            <button onClick={() => nextDay && setDayFilter(nextDay)} disabled={!nextDay}
+              className="flex items-center justify-center h-8 w-8 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 disabled:opacity-30 disabled:cursor-default transition-colors">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* 필터 */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -964,7 +1192,7 @@ export default function BrokerDiaryPage() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={activeCols.length + 3} className="py-16 text-center text-sm text-gray-400">
-                      {consultations.length === 0 ? '상담 추가 버튼으로 첫 기록을 남겨보세요' : '검색 결과가 없어요'}
+                      {consultations.length === 0 ? '상담 추가 버튼으로 첫 기록을 남겨보세요' : dayView ? `${formatDay(dayFilter)} 상담 기록이 없어요` : '검색 결과가 없어요'}
                     </td>
                   </tr>
                 ) : filtered.map((c, idx) => (

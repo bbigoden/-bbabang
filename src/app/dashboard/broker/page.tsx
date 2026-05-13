@@ -182,6 +182,16 @@ export default async function BrokerDashboardPage() {
               <span className="text-sm font-bold text-gray-800">대화목록</span>
             </div>
           </Link>
+          {broker.is_owner !== false && (
+            <Link href="/broker/team">
+              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
+                <span className="text-sm font-bold text-gray-800">팀 관리</span>
+              </div>
+            </Link>
+          )}
         </div>
 
 
