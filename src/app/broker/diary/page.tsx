@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
@@ -614,6 +614,45 @@ export default function BrokerDiaryPage() {
   }
   const onColDragEnd = () => { setDragCol(null); setDragOverCol(null); setTimeout(() => { wasDragRef.current = false }, 50) }
 
+  // 불러오기
+  const [showImport, setShowImport] = useState(false)
+  const [importDate, setImportDate] = useState('')
+  const [importing, setImporting] = useState(false)
+
+  const importFromDate = async () => {
+    if (!broker || !importDate) return
+    setImporting(true)
+    const [{ data: sourceLinks }, { data: sourceDiary }] = await Promise.all([
+      supabase.from('broker_diary_customers')
+        .select('sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+        .eq('broker_id', broker.id).eq('diary_date', importDate).order('sort_order'),
+      supabase.from('broker_diary').select('sections_content').eq('broker_id', broker.id).eq('date', importDate).maybeSingle(),
+    ])
+    // 현재 날짜 고객 링크 삭제 후 재삽입
+    await supabase.from('broker_diary_customers').delete().eq('broker_id', broker.id).eq('diary_date', diaryDate)
+    if (sourceLinks && sourceLinks.length > 0) {
+      const inserts = sourceLinks.map((l: any, idx: number) => ({
+        broker_id: broker.id, diary_date: diaryDate,
+        customer_id: (l.broker_customers as any).id, sort_order: idx,
+      }))
+      const { data: newLinks } = await supabase.from('broker_diary_customers')
+        .insert(inserts)
+        .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+      setDiaryCustomers((newLinks ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, ...l.broker_customers as Customer })))
+    } else {
+      setDiaryCustomers([])
+    }
+    // 섹션 내용 복사
+    const newContent = sourceDiary?.sections_content ?? {}
+    const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
+    const { data: existingDiary } = await supabase.from('broker_diary').select('id').eq('broker_id', broker.id).eq('date', diaryDate).maybeSingle()
+    if (existingDiary) await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
+    else await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
+    setSectionContent(newContent)
+    setImporting(false)
+    setShowImport(false)
+  }
+
   // 날짜 포맷
   const changeDate = (delta: number) => { const d = new Date(diaryDate); d.setDate(d.getDate() + delta); setDiaryDate(d.toISOString().split('T')[0]) }
   const formatDateHeader = (d: string) => {
@@ -679,6 +718,12 @@ export default function BrokerDiaryPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black text-gray-900">{formatDateHeader(diaryDate)} 업무일지</h1>
           <div className="flex items-center gap-2">
+            {canEdit && (
+              <button onClick={() => { setImportDate(''); setShowImport(true) }}
+                className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                <Download className="h-3.5 w-3.5" />불러오기
+              </button>
+            )}
             <button onClick={() => changeDate(-1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
             <input type="date" value={diaryDate} onChange={e => { if (e.target.value) setDiaryDate(e.target.value) }} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-blue-400 cursor-pointer" />
             <button onClick={() => changeDate(1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
@@ -770,6 +815,29 @@ export default function BrokerDiaryPage() {
       {showPicker && (
         <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds}
           onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
+      )}
+
+      {/* 불러오기 모달 */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">다른 날 업무일지 불러오기</h3>
+            <p className="text-sm text-gray-400 mb-5">선택한 날짜의 고객·내용을 <span className="font-semibold text-gray-700">{formatDateHeader(diaryDate)}</span>에 덮어씁니다.</p>
+            <div className="mb-5">
+              <label className="text-xs font-semibold text-gray-500 mb-1.5 block">불러올 날짜</label>
+              <input type="date" value={importDate} max={diaryDate}
+                onChange={e => setImportDate(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 cursor-pointer" />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowImport(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+              <button onClick={importFromDate} disabled={!importDate || importing}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
+                {importing ? '불러오는 중...' : '불러오기'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 삭제 확인 */}
