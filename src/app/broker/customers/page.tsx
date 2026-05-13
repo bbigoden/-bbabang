@@ -15,19 +15,18 @@ interface ColDef {
 }
 
 const CUST_COLS: ColDef[] = [
-  { key: 'request',        label: '요청사항', fixed: true, minWidth: 160 },
-  { key: 'received_date',  label: '접수일자', fixed: true, minWidth: 100 },
-  { key: 'contact',        label: '연락처',   fixed: true, minWidth: 130 },
-  { key: 'assignee',       label: '담당자',   fixed: true, minWidth: 90 },
-  { key: 'category',       label: '구분',     fixed: true, minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
-  { key: 'source',         label: '유입',     fixed: true, minWidth: 90, hasOptions: true, defaultOpts: ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타'] },
-  { key: 'status',         label: '진행상황', minWidth: 100, hasOptions: true, defaultOpts: ['잠재', '진행중', '종료', '계약완료'] },
+  { key: 'request',        label: '요청사항', minWidth: 160 },
+  { key: 'received_date',  label: '접수일자', minWidth: 100 },
+  { key: 'contact',        label: '연락처',   minWidth: 130 },
+  { key: 'assignee',       label: '담당자',   minWidth: 90 },
+  { key: 'category',       label: '구분',     minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
+  { key: 'source',         label: '유입',     minWidth: 90, hasOptions: true, defaultOpts: ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타'] },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
 
 const DEFAULT_COL_SETTINGS: ColSettings = {
-  visible:    CUST_COLS.filter(c => !c.fixed).map(c => c.key),
+  visible:    CUST_COLS.map(c => c.key),
   order:      CUST_COLS.map(c => c.key),
   widths:     DEFAULT_WIDTHS,
   customCols: [],
@@ -842,9 +841,9 @@ export default function BrokerCustomersPage() {
   const inProgress = statsBase.filter(c => c.status === '진행중').length
   const contracted = statsBase.filter(c => c.status === '계약완료').length
 
-  // 활성 칼럼 (order 기준으로 정렬)
-  const fixedCols = CUST_COLS.filter(c => c.fixed)
-  const optionalCols = CUST_COLS.filter(c => !c.fixed)
+  // 활성 칼럼 (fixed 개념 제거 — 모두 숨기기 가능)
+  const fixedCols: ColDef[] = []
+  const optionalCols = CUST_COLS
 
   type ActiveCol =
     | { type: 'fixed'; def: ColDef }
@@ -852,22 +851,16 @@ export default function BrokerCustomersPage() {
     | { type: 'custom'; id: string; name: string }
 
   const activeCols: ActiveCol[] = loaded
-    ? (() => {
-        const fromOrder = settings.order.flatMap((key): ActiveCol[] => {
-          const fixedDef = fixedCols.find(c => c.key === key)
-          if (fixedDef) return [{ type: 'fixed', def: fixedDef }]
-          const optDef = optionalCols.find(c => c.key === key)
+    ? [
+        ...settings.order.flatMap((key): ActiveCol[] => {
+          const optDef = CUST_COLS.find(c => c.key === key)
           if (optDef && settings.visible.includes(key)) return [{ type: 'optional', def: optDef }]
           const customDef = settings.customCols.find(c => c.id === key)
           if (customDef && settings.visible.includes(key)) return [{ type: 'custom', id: customDef.id, name: customDef.name }]
           return []
-        })
-        const missingFixed = fixedCols
-          .filter(c => !settings.order.includes(c.key))
-          .map(def => ({ type: 'fixed' as const, def }))
-        return [...fromOrder, ...missingFixed]
-      })()
-    : fixedCols.map(def => ({ type: 'fixed' as const, def }))
+        }),
+      ]
+    : CUST_COLS.map(def => ({ type: 'optional' as const, def }))
 
   const renderCell = (c: Customer, col: ActiveCol) => {
     const ro = !canEdit
