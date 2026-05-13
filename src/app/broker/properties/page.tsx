@@ -14,6 +14,7 @@ import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
 interface Property {
   id: string
+  broker_id: string
   deal_type: string
   room_type: string
   address: string
@@ -1537,8 +1538,6 @@ function BrokerPropertiesContent() {
               <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                 <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
                 {syncedOrder.map(key => {
-                  // 직원에게 중개사메모 숨김
-                  if (key === 'memo' && !isOwner && !isAdminView) return null
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                   if (fixedCol) {
@@ -1636,8 +1635,6 @@ function BrokerPropertiesContent() {
                     {filtered.length - ((page - 1) * pageSize + idx)}
                   </td>
                   {syncedOrder.map(key => {
-                    // 직원에게 중개사메모 숨김
-                    if (key === 'memo' && !isOwner && !isAdminView) return null
                     const fixedCol = ALL_COLUMNS.find(c => c.key === key)
                     if (fixedCol) {
                       if (!settings.visible.includes(key)) return null
@@ -1680,7 +1677,13 @@ function BrokerPropertiesContent() {
                           {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
                           {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
-                          {key === 'memo'            && (settings.colTypes['memo'] === 'select' ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} /> : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />)}
+                          {key === 'memo'            && (() => {
+                            const isMine = isOwner || isAdminView || p.broker_id === broker?.id
+                            if (!isMine) return <span className="text-gray-200 text-xs select-none">—</span>
+                            return settings.colTypes['memo'] === 'select'
+                              ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} />
+                              : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
+                          })()}
                         </td>
                       )
                     }

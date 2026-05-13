@@ -55,7 +55,10 @@
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('next:', p.dependencies.next\\)\")",
       "Bash(node -e \"const r = require\\('next/dist/client/components/redirect'\\); console.log\\(Object.keys\\(r\\)\\)\")",
       "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\({next: p.dependencies?.next, version: p.version}, null, 2\\)\\)\")",
-      "Bash(node -e \"const {createBrowserClient} = require\\('@supabase/ssr'\\); console.log\\(typeof createBrowserClient\\)\")"
+      "Bash(node -e \"const {createBrowserClient} = require\\('@supabase/ssr'\\); console.log\\(typeof createBrowserClient\\)\")",
+      "Bash(findstr SUPABASE)",
+      "Bash(vercel deploy *)",
+      "Bash(ls /mnt/c/Users/pc/.claude/projects/C--Users-pc-Desktop------/memory/ 2>/dev/null || ls \"C:/Users/pc/.claude/projects/C--Users-pc-Desktop------/memory/\")"
     ]
   }
 }
