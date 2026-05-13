@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { X, Shield, Users, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { OfficeCodeCard } from '@/components/office-code-card'
 
 interface Permission {
   view: boolean
@@ -206,14 +207,10 @@ export default function BrokerTeamPage() {
           <p className="text-sm text-gray-400 mt-0.5">직원 등록 신청을 승인하고 권한을 설정해요</p>
         </div>
 
-        {/* 사무소 코드 안내 */}
-        {broker?.office_code && (
-          <div className="mb-6 rounded-2xl bg-blue-50 border border-blue-200 p-4">
-            <p className="text-xs font-bold text-blue-700 mb-1">직원에게 이 코드를 알려주세요</p>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl font-black font-mono tracking-widest text-blue-900">{broker.office_code}</span>
-              <span className="text-xs text-blue-500">직원이 이 코드로 등록 신청하면 여기서 승인할 수 있어요</span>
-            </div>
+        {/* 사무소 코드 */}
+        {broker && (
+          <div className="mb-6">
+            <OfficeCodeCard brokerId={broker.id} initialCode={broker.office_code ?? null} />
           </div>
         )}
 

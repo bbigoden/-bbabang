@@ -164,13 +164,6 @@ export default async function BrokerDashboardPage() {
           </div>
         )}
 
-        {/* 직원 합류 코드 — 대표만 표시 */}
-        {broker.is_owner !== false && (
-          <div className="mb-6">
-            <OfficeCodeCard brokerId={broker.id} initialCode={broker.office_code ?? null} />
-          </div>
-        )}
-
         {/* 빠른 메뉴 4타일 */}
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Link href="/broker/customers">
