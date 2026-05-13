@@ -8,19 +8,20 @@ import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, More
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
+// ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
   key: string; label: string; fixed?: boolean; minWidth?: number
   hasOptions?: boolean; defaultOpts?: string[]; isLong?: boolean
 }
 
 const CUST_COLS: ColDef[] = [
-  { key: 'request',       label: '고객명',   fixed: true, minWidth: 160, isLong: true },
-  { key: 'received_date', label: '접수일자', minWidth: 100 },
-  { key: 'contact',       label: '연락처',   minWidth: 130 },
-  { key: 'assignee',      label: '담당자',   minWidth: 90 },
-  { key: 'source',        label: '유입경로', minWidth: 110, hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
-  { key: 'category',      label: '관심물건', minWidth: 90,  hasOptions: true, defaultOpts: ['상가','주거용','공장','창고','사무실','토지','기타'] },
-  { key: 'status',        label: '진행상황', minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
+  { key: 'request',       label: '요청사항', fixed: true, minWidth: 160, isLong: true },
+  { key: 'received_date', label: '접수일자', fixed: true, minWidth: 100 },
+  { key: 'contact',       label: '연락처',   fixed: true, minWidth: 130 },
+  { key: 'assignee',      label: '담당자',   fixed: true, minWidth: 90 },
+  { key: 'category',      label: '구분',     fixed: true, minWidth: 80,  hasOptions: true, defaultOpts: ['비주거','주거용'] },
+  { key: 'source',        label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
+  { key: 'status',        label: '진행상황', fixed: true, minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -44,9 +45,10 @@ const STATUS_COLORS: Record<string, string> = {
   '종료':'bg-red-100 text-red-600','계약완료':'bg-green-100 text-green-700',
 }
 const CATEGORY_COLORS: Record<string, string> = {
-  '상가':'bg-amber-100 text-amber-700','주거용':'bg-sky-100 text-sky-700',
-  '공장':'bg-orange-100 text-orange-700','창고':'bg-rose-100 text-rose-700',
-  '사무실':'bg-indigo-100 text-indigo-700','토지':'bg-green-100 text-green-700','기타':'bg-gray-100 text-gray-600',
+  '비주거':'bg-amber-100 text-amber-700','주거용':'bg-sky-100 text-sky-700',
+  '상가':'bg-amber-100 text-amber-700','공장':'bg-orange-100 text-orange-700',
+  '창고':'bg-rose-100 text-rose-700','사무실':'bg-indigo-100 text-indigo-700',
+  '토지':'bg-green-100 text-green-700','기타':'bg-gray-100 text-gray-600',
 }
 const COL_COLORS: Record<string, Record<string, string>> = { source: SOURCE_COLORS, status: STATUS_COLORS, category: CATEGORY_COLORS }
 
@@ -55,12 +57,21 @@ interface Customer {
   assignee: string | null; category: string; source: string | null; status: string
   request: string | null; custom_fields: Record<string, string> | null
 }
-
-type DiarySectionField = 'work_summary' | 'ad_status' | 'suggestions' | 'delivery_notes'
-interface DiaryEntry {
-  work_summary: string | null; ad_status: string | null
-  suggestions: string | null; delivery_notes: string | null
+interface DiaryCustomerRow {
+  link_id: string   // broker_diary_customers.id
+  sort_order: number
+  id: string; client_name: string; contact: string | null; received_date: string | null
+  assignee: string | null; category: string; source: string | null; status: string
+  request: string | null; custom_fields: Record<string, string> | null
 }
+
+interface SectionDef { id: string; title: string }
+const DEFAULT_SECTIONS: SectionDef[] = [
+  { id: 's_work',     title: '업무요약' },
+  { id: 's_ad',       title: '광고현황' },
+  { id: 's_suggest',  title: '건의사항' },
+  { id: 's_delivery', title: '전달사항' },
+]
 
 // ── useClickOutside ──────────────────────────────────
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -137,12 +148,7 @@ function SelectCell({ value, options, onSave, colorMap, readOnly }: { value: str
   useClickOutside(ref, () => setOpen(false))
   if (readOnly) return <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>{value || '—'}</div>
   const handleOpen = () => {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: r.left }
-      if (window.innerHeight - r.bottom < 200) s.bottom = window.innerHeight - r.top + 4; else s.top = r.bottom + 4
-      setPopupStyle(s)
-    }
+    if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: r.left }; if (window.innerHeight - r.bottom < 200) s.bottom = window.innerHeight - r.top + 4; else s.top = r.bottom + 4; setPopupStyle(s) }
     setOpen(v => !v)
   }
   return (
@@ -171,10 +177,7 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
   const canOpen = !isFixed || hasOptions || isCustom
   const handleOpen = (e: React.MouseEvent) => {
     if (!canOpen) return; e.stopPropagation()
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 230), minWidth: 210 })
-    }
+    if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 230), minWidth: 210 }) }
     setOpen(v => !v)
   }
   const addOpt = () => { const v = newOpt.trim(); if (!v || !options || options.includes(v)) return; onSetOptions?.([...options, v]); setNewOpt('') }
@@ -301,26 +304,100 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
   )
 }
 
-// ── DiarySection ─────────────────────────────────────
-function DiarySection({ num, title, value, onSave, readOnly }: {
-  num: number; title: string; value: string | null; onSave: (v: string) => void; readOnly?: boolean
+// ── CustomerPicker ────────────────────────────────────
+function CustomerPicker({ allCustomers, linkedIds, onAddExisting, onCreateNew, onClose }: {
+  allCustomers: Customer[]; linkedIds: Set<string>
+  onAddExisting: (c: Customer) => void; onCreateNew: () => void; onClose: () => void
 }) {
-  const [draft, setDraft] = useState(value ?? '')
+  const [search, setSearch] = useState('')
+  const filtered = allCustomers
+    .filter(c => !search || (c.request ?? '').toLowerCase().includes(search.toLowerCase()) || c.contact?.includes(search) || c.client_name?.toLowerCase().includes(search.toLowerCase()))
+    .slice(0, 20)
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-800">고객 등록</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="px-3 py-2.5 border-b border-gray-100">
+          <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="고객 검색 (이름, 연락처...)" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+        </div>
+        <div className="max-h-60 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="py-8 text-center text-sm text-gray-400">검색 결과 없음</div>
+          ) : filtered.map(c => {
+            const isAdded = linkedIds.has(c.id)
+            return (
+              <button key={c.id} onClick={() => !isAdded && onAddExisting(c)} disabled={isAdded}
+                className={cn('w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0', isAdded && 'opacity-40 cursor-default')}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800 truncate">{c.request || c.client_name || '이름 없음'}</div>
+                  <div className="text-xs text-gray-400">{c.contact || '연락처 없음'}</div>
+                </div>
+                {isAdded
+                  ? <span className="text-xs text-blue-400 font-medium flex-shrink-0">추가됨</span>
+                  : <span className="text-xs text-gray-300 flex-shrink-0">추가</span>
+                }
+              </button>
+            )
+          })}
+        </div>
+        <div className="p-3 border-t border-gray-100">
+          <button onClick={onCreateNew} className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
+            <Plus className="h-4 w-4" />새 고객 만들기
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── DiarySection (동적, 이름변경/삭제 가능) ───────────────
+function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly }: {
+  def: SectionDef; num: number; content: string | null
+  onSave: (v: string) => void; onRename: (id: string, title: string) => void
+  onDelete: (id: string) => void; readOnly?: boolean
+}) {
+  const [renaming, setRenaming] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(def.title)
+  const [draft, setDraft] = useState(content ?? '')
   const [saving, setSaving] = useState(false)
-  useEffect(() => { setDraft(value ?? '') }, [value])
+  useEffect(() => { setDraft(content ?? '') }, [content])
+  useEffect(() => { setTitleDraft(def.title) }, [def.title])
+  const commitRename = () => {
+    if (titleDraft.trim() && titleDraft !== def.title) onRename(def.id, titleDraft.trim())
+    setRenaming(false)
+  }
   const handleBlur = async () => {
-    if (draft === (value ?? '')) return
+    if (draft === (content ?? '')) return
     setSaving(true); await onSave(draft); setSaving(false)
   }
   return (
     <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-        <span className="text-sm font-bold text-gray-800">{num}. {title}</span>
-        {saving && <span className="text-xs text-gray-400 ml-auto">저장 중...</span>}
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 bg-gray-50/50 group/header">
+        <span className="text-sm font-bold text-gray-400 flex-shrink-0">{num}.</span>
+        {renaming ? (
+          <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
+            onBlur={commitRename} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setTitleDraft(def.title); setRenaming(false) } }}
+            className="flex-1 rounded-lg border border-blue-400 px-2 py-0.5 text-sm font-bold text-gray-800 outline-none" />
+        ) : (
+          <span className={cn('text-sm font-bold text-gray-800', !readOnly && 'cursor-pointer hover:text-blue-600 transition-colors')}
+            onClick={() => !readOnly && setRenaming(true)} title="클릭하여 이름 변경">
+            {def.title}
+          </span>
+        )}
+        {saving && <span className="text-xs text-gray-400 ml-2">저장 중...</span>}
+        {!readOnly && !renaming && (
+          <button onClick={() => onDelete(def.id)}
+            className="ml-auto opacity-0 group-hover/header:opacity-100 flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-all">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       {readOnly
-        ? <div className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap min-h-[60px]">{value || <span className="text-gray-300">—</span>}</div>
-        : <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={handleBlur} placeholder={`${title} 입력...`} rows={3} className="w-full px-4 py-3 text-sm text-gray-700 placeholder-gray-300 resize-none outline-none focus:ring-2 focus:ring-blue-400/20 focus:ring-inset" />
+        ? <div className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap min-h-[60px]">{content || <span className="text-gray-300">—</span>}</div>
+        : <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={handleBlur} placeholder={`${def.title} 입력...`} rows={3} className="w-full px-4 py-3 text-sm text-gray-700 placeholder-gray-300 resize-none outline-none focus:ring-2 focus:ring-blue-400/20 focus:ring-inset" />
       }
     </div>
   )
@@ -338,21 +415,29 @@ export default function BrokerDiaryPage() {
   const [accessDenied, setAccessDenied] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [addingId, setAddingId] = useState<string | null>(null)
+  // Section 1 데이터
+  const [diaryCustomers, setDiaryCustomers] = useState<DiaryCustomerRow[]>([])
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([])   // 고객 피커용
+  const [showPicker, setShowPicker] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null) // link_id
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const wasDragRef = useRef(false)
 
+  // Section 2-5 데이터
+  const [sections, setSections] = useState<SectionDef[]>(DEFAULT_SECTIONS)
+  const [sectionContent, setSectionContent] = useState<Record<string, string>>({})
+  const sectionsDebounceRef = useRef<any>(null)
+
+  // 날짜
   const [diaryDate, setDiaryDate] = useState(() => new Date().toISOString().split('T')[0])
-  const [diary, setDiary] = useState<DiaryEntry>({ work_summary: null, ad_status: null, suggestions: null, delivery_notes: null })
   const [diaryLoading, setDiaryLoading] = useState(false)
 
+  // 칼럼 설정
   const { settings, update, loaded } = useColSettings('diary_cust', broker?.id ?? null, DEFAULT_COL_SETTINGS)
 
   useEffect(() => { init() }, [])
-  useEffect(() => { if (broker) loadDiary(diaryDate) }, [diaryDate, broker?.id])
+  useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id])
 
   const init = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
@@ -371,6 +456,12 @@ export default function BrokerDiaryPage() {
       if (perms?.diary?.view === false) { setAccessDenied(true); setLoading(false); return }
       setCanEdit(perms ? perms.diary?.edit !== false : true)
     }
+
+    // 섹션 설정 로드 (broker_profiles.col_settings.diary_sections)
+    const savedSections = b.col_settings?.['diary_sections']?.sections
+    if (Array.isArray(savedSections) && savedSections.length > 0) setSections(savedSections)
+
+    // 고객 피커용 전체 고객 로드
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: emps } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
@@ -383,65 +474,120 @@ export default function BrokerDiaryPage() {
     const { data: custs } = await supabase
       .from('broker_customers')
       .select('id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields')
-      .in('broker_id', brokerIds)
-      .order('created_at', { ascending: false })
-    setCustomers(custs ?? [])
+      .in('broker_id', brokerIds).order('created_at', { ascending: false })
+    setAllCustomers(custs ?? [])
     setLoading(false)
   }
 
-  const loadDiary = async (date: string) => {
+  const loadDiaryData = async (date: string) => {
     if (!broker) return
     setDiaryLoading(true)
-    const { data } = await supabase
-      .from('broker_diary').select('work_summary, ad_status, suggestions, delivery_notes')
-      .eq('broker_id', broker.id).eq('date', date).maybeSingle()
-    setDiary(data ?? { work_summary: null, ad_status: null, suggestions: null, delivery_notes: null })
+    const [{ data: links }, { data: diaryRow }] = await Promise.all([
+      supabase.from('broker_diary_customers')
+        .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+        .eq('broker_id', broker.id).eq('diary_date', date).order('sort_order'),
+      supabase.from('broker_diary').select('sections_content').eq('broker_id', broker.id).eq('date', date).maybeSingle(),
+    ])
+    setDiaryCustomers((links ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, ...l.broker_customers as Customer })))
+    setSectionContent(diaryRow?.sections_content ?? {})
     setDiaryLoading(false)
   }
 
-  const saveDiaryField = useCallback(async (field: DiarySectionField, value: string) => {
+  // 고객 피커: 기존 고객 추가
+  const addExistingCustomer = async (c: Customer) => {
     if (!broker) return
-    const payload = { [field]: value || null, updated_at: new Date().toISOString() }
-    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', broker.id).eq('date', diaryDate).maybeSingle()
-    if (existing) {
-      await supabase.from('broker_diary').update(payload).eq('id', existing.id)
-    } else {
-      await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
+    const nextOrder = diaryCustomers.length
+    const { data, error } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: c.id, sort_order: nextOrder }).select('id').single()
+    if (!error && data) {
+      setDiaryCustomers(prev => [...prev, { link_id: data.id, sort_order: nextOrder, ...c }])
     }
-    setDiary(prev => ({ ...prev, [field]: value || null }))
-  }, [broker, diaryDate])
-
-  const addCustomer = async () => {
-    if (!broker) return
-    const { data, error } = await supabase.from('broker_customers').insert({
-      broker_id: broker.id, client_name: '', request: '', contact: null,
-      received_date: null, assignee: profile?.name ?? null,
-      category: settings.options.category?.[0] ?? '상가', source: null,
-      status: settings.options.status?.[0] ?? '잠재',
-    }).select().single()
-    if (error || !data) return
-    setCustomers(prev => [data, ...prev])
-    setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
+    setShowPicker(false)
   }
 
-  const deleteCustomer = async (id: string) => {
-    await supabase.from('broker_customers').delete().eq('id', id)
-    setCustomers(prev => prev.filter(c => c.id !== id))
+  // 고객 피커: 새 고객 만들기
+  const createAndAddCustomer = async () => {
+    if (!broker) return
+    setShowPicker(false)
+    const { data: newCust, error: ce } = await supabase.from('broker_customers').insert({
+      broker_id: broker.id, client_name: '', request: '', contact: null,
+      received_date: null, assignee: profile?.name ?? null,
+      category: settings.options.category?.[0] ?? '비주거', source: null,
+      status: settings.options.status?.[0] ?? '잠재',
+    }).select().single()
+    if (ce || !newCust) return
+    setAllCustomers(prev => [newCust, ...prev])
+    const nextOrder = diaryCustomers.length
+    const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
+    if (link) setDiaryCustomers(prev => [...prev, { link_id: link.id, sort_order: nextOrder, ...newCust as Customer }])
+  }
+
+  // 고객 행 삭제 (diary_customers 링크만 제거)
+  const unlinkCustomer = async (linkId: string) => {
+    await supabase.from('broker_diary_customers').delete().eq('id', linkId)
+    setDiaryCustomers(prev => prev.filter(c => c.link_id !== linkId))
     setDeleteConfirm(null)
   }
 
-  const saveField = useCallback(async (id: string, field: string, value: any) => {
-    await supabase.from('broker_customers').update({ [field]: value }).eq('id', id)
-    setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
+  // 고객 필드 수정 (broker_customers 업데이트)
+  const saveCustomerField = useCallback(async (customerId: string, field: string, value: any) => {
+    await supabase.from('broker_customers').update({ [field]: value }).eq('id', customerId)
+    setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, [field]: value } : c))
+    setAllCustomers(prev => prev.map(c => c.id === customerId ? { ...c, [field]: value } : c))
   }, [])
 
-  const saveCustomField = useCallback(async (id: string, colId: string, value: string) => {
-    const row = customers.find(c => c.id === id)
+  const saveCustomField = useCallback(async (customerId: string, colId: string, value: string) => {
+    const row = diaryCustomers.find(c => c.id === customerId)
     const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
-    await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', id)
-    setCustomers(prev => prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c))
-  }, [customers])
+    await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', customerId)
+    setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, custom_fields: newFields } : c))
+  }, [diaryCustomers])
 
+  // 섹션 내용 저장
+  const saveSectionContent = useCallback(async (sectionId: string, value: string) => {
+    if (!broker) return
+    const newContent = { ...sectionContent, [sectionId]: value || undefined }
+    if (!value) delete newContent[sectionId]
+    const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
+    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', broker.id).eq('date', diaryDate).maybeSingle()
+    if (existing) await supabase.from('broker_diary').update(payload).eq('id', existing.id)
+    else await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
+    setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
+  }, [broker, diaryDate, sectionContent])
+
+  // 섹션 이름 변경
+  const renameSection = (id: string, title: string) => {
+    const newSections = sections.map(s => s.id === id ? { ...s, title } : s)
+    setSections(newSections)
+    saveSectionConfig(newSections)
+  }
+
+  // 섹션 삭제
+  const deleteSection = (id: string) => {
+    const newSections = sections.filter(s => s.id !== id)
+    setSections(newSections)
+    saveSectionConfig(newSections)
+  }
+
+  // 섹션 추가
+  const addSection = () => {
+    const id = `s_${Date.now()}`
+    const newSections = [...sections, { id, title: '새 섹션' }]
+    setSections(newSections)
+    saveSectionConfig(newSections)
+  }
+
+  // 섹션 설정 저장
+  const saveSectionConfig = async (newSections: SectionDef[]) => {
+    if (!broker) return
+    if (sectionsDebounceRef.current) clearTimeout(sectionsDebounceRef.current)
+    sectionsDebounceRef.current = setTimeout(async () => {
+      const { data } = await supabase.from('broker_profiles').select('col_settings').eq('id', broker.id).single()
+      const existing = data?.col_settings ?? {}
+      await supabase.from('broker_profiles').update({ col_settings: { ...existing, diary_sections: { sections: newSections } } }).eq('id', broker.id)
+    }, 500)
+  }
+
+  // 칼럼 설정 헬퍼
   const showCol = (key: string) => update(prev => ({ ...prev, visible: [...prev.visible, key] }))
   const hideCol = (key: string) => update(prev => ({ ...prev, visible: prev.visible.filter(k => k !== key) }))
   const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
@@ -452,7 +598,6 @@ export default function BrokerDiaryPage() {
   const renameCustomCol = (id: string, name: string) => update(prev => ({ ...prev, customCols: prev.customCols.map(c => c.id === id ? { ...c, name } : c) }))
   const changeCustomColType = (id: string, type: 'text' | 'select') => update(prev => ({ ...prev, customCols: prev.customCols.map(c => c.id === id ? { ...c, type } : c), options: type === 'select' && !prev.options[id] ? { ...prev.options, [id]: [] } : prev.options }))
   const deleteCustomCol = (id: string) => update(prev => ({ ...prev, customCols: prev.customCols.filter(c => c.id !== id), order: prev.order.filter(k => k !== id), visible: prev.visible.filter(k => k !== id) }))
-
   const startResize = (key: string, e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
     const startX = e.clientX; const startW = settings.widths[key] ?? 100
@@ -460,7 +605,6 @@ export default function BrokerDiaryPage() {
     const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
     document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp)
   }
-
   const onColDragStart = (key: string, e: React.DragEvent) => { wasDragRef.current = true; setDragCol(key); e.dataTransfer.effectAllowed = 'move' }
   const onColDragOver = (key: string, e: React.DragEvent) => { e.preventDefault(); setDragOverCol(key) }
   const onColDrop = (key: string) => {
@@ -470,23 +614,17 @@ export default function BrokerDiaryPage() {
   }
   const onColDragEnd = () => { setDragCol(null); setDragOverCol(null); setTimeout(() => { wasDragRef.current = false }, 50) }
 
-  const changeDate = (delta: number) => {
-    const d = new Date(diaryDate); d.setDate(d.getDate() + delta)
-    setDiaryDate(d.toISOString().split('T')[0])
-  }
-
+  // 날짜 포맷
+  const changeDate = (delta: number) => { const d = new Date(diaryDate); d.setDate(d.getDate() + delta); setDiaryDate(d.toISOString().split('T')[0]) }
   const formatDateHeader = (d: string) => {
-    const date = new Date(d)
-    const days = ['일','월','화','수','목','금','토']
-    const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0')
-    return `@${y}/${m}/${day} (${days[date.getDay()]})`
+    const date = new Date(d); const days = ['일','월','화','수','목','금','토']
+    return `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')} (${days[date.getDay()]})`
   }
 
+  // 활성 칼럼
   const fixedCols = CUST_COLS.filter(c => c.fixed)
   const optionalCols = CUST_COLS.filter(c => !c.fixed)
-
   type ActiveCol = { type: 'fixed'; def: ColDef } | { type: 'optional'; def: ColDef } | { type: 'custom'; id: string; name: string }
-
   const activeCols: ActiveCol[] = loaded
     ? settings.order.flatMap((key): ActiveCol[] => {
         const fd = fixedCols.find(c => c.key === key); if (fd) return [{ type: 'fixed', def: fd }]
@@ -495,11 +633,10 @@ export default function BrokerDiaryPage() {
         return []
       })
     : fixedCols.map(def => ({ type: 'fixed' as const, def }))
-
   const getColKey = (col: ActiveCol) => col.type === 'custom' ? col.id : col.def.key
   const getColWidth = (col: ActiveCol) => { const key = getColKey(col); return settings.widths[key] ?? (col.type === 'custom' ? 120 : (col.def.minWidth ?? 100)) }
 
-  const renderCell = (c: Customer, col: ActiveCol) => {
+  const renderCell = (c: DiaryCustomerRow, col: ActiveCol) => {
     const ro = !canEdit
     if (col.type === 'custom') {
       const cd = settings.customCols.find(cc => cc.id === col.id)
@@ -508,19 +645,20 @@ export default function BrokerDiaryPage() {
     }
     const def = col.def; const opts = settings.options[def.key] ?? def.defaultOpts ?? []; const colorMap = COL_COLORS[def.key]
     switch (def.key) {
-      case 'request':       return <LongTextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="고객명" readOnly={ro} />
-      case 'received_date': return <TextCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
-      case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
-      case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
-      case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
-      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
-      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
+      case 'request':       return <LongTextCell value={c.request} onSave={v => saveCustomerField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
+      case 'received_date': return <TextCell value={c.received_date} onSave={v => saveCustomerField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
+      case 'contact':       return <TextCell value={c.contact} onSave={v => saveCustomerField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
+      case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
+      case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
+      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
+      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
       default: return null
     }
   }
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-400 text-sm">불러오는 중...</div></div>
+  const linkedIds = new Set(diaryCustomers.map(c => c.id))
 
+  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-400 text-sm">불러오는 중...</div></div>
   if (accessDenied) return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} role="broker" />
@@ -551,91 +689,98 @@ export default function BrokerDiaryPage() {
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
             <span className="text-sm font-bold text-gray-800">1. 고객정보({profile?.name ?? ''})</span>
-            <span className="text-xs text-gray-400">{customers.length}명</span>
-            {canEdit && (
-              <button onClick={addCustomer} className="ml-auto flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-100 transition-colors">
-                <Plus className="h-3.5 w-3.5" />새로 만들기
-              </button>
-            )}
+            <span className="text-xs text-gray-400">{diaryCustomers.length}명</span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
-              <thead>
-                <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                  <th className="px-3 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
-                  {activeCols.map(col => {
-                    const key = getColKey(col); const w = getColWidth(col)
-                    return (
-                      <th key={key} className={`px-2 py-2.5 text-left relative border-r border-gray-100 transition-colors ${dragOverCol === key ? 'bg-blue-50' : 'hover:bg-gray-100'} cursor-grab`}
-                        style={{ width: w, maxWidth: w }} draggable
-                        onDragStart={e => onColDragStart(key, e)} onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)} onDragEnd={onColDragEnd}>
-                        <div className="pr-2">
-                          {col.type === 'custom' ? (() => {
-                            const cd = settings.customCols.find(cc => cc.id === col.id)
-                            return <ColumnHeader label={col.name} isCustom colType={cd?.type ?? 'text'} onChangeType={t => changeCustomColType(col.id, t)} hasOptions={cd?.type === 'select'} options={settings.options[col.id] ?? []} onSetOptions={opts => setOpts(col.id, opts)} onHide={() => hideCol(col.id)} onRename={n => renameCustomCol(col.id, n)} onDelete={() => deleteCustomCol(col.id)} />
-                          })() : (
-                            <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []} onSetOptions={opts => setOpts(col.def.key, opts)} onHide={() => hideCol(col.def.key)} />
-                          )}
-                        </div>
-                        <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
-                      </th>
-                    )
-                  })}
-                  <th className="px-2 py-2.5 bg-gray-50" style={{ width: 56, minWidth: 56 }}>
-                    <div className="flex items-center justify-end gap-0.5">
-                      <AddColBtn onAdd={addCustomCol} />
-                      <ColVisibility fixedCols={fixedCols} optionalCols={optionalCols} customCols={settings.customCols} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.length === 0 ? (
-                  <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">새로 만들기 버튼으로 첫 고객을 등록해보세요</td></tr>
-                ) : customers.map((c, idx) => (
-                  <tr key={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{customers.length - idx}</td>
-                    {activeCols.map(col => (
-                      <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
-                    ))}
-                    <td className="px-2 py-1.5 border-r border-gray-100" />
-                    <td className="px-2 py-1.5 text-center">
-                      {canEdit && <button onClick={() => setDeleteConfirm(c.id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
-                    </td>
+          {diaryLoading ? (
+            <div className="py-8 text-center text-sm text-gray-400">불러오는 중...</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
+                <thead>
+                  <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
+                    <th className="px-3 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
+                    {activeCols.map(col => {
+                      const key = getColKey(col); const w = getColWidth(col)
+                      return (
+                        <th key={key} className={`px-2 py-2.5 text-left relative border-r border-gray-100 transition-colors ${dragOverCol === key ? 'bg-blue-50' : 'hover:bg-gray-100'} cursor-grab`}
+                          style={{ width: w, maxWidth: w }} draggable
+                          onDragStart={e => onColDragStart(key, e)} onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)} onDragEnd={onColDragEnd}>
+                          <div className="pr-2">
+                            {col.type === 'custom' ? (() => {
+                              const cd = settings.customCols.find(cc => cc.id === col.id)
+                              return <ColumnHeader label={col.name} isCustom colType={cd?.type ?? 'text'} onChangeType={t => changeCustomColType(col.id, t)} hasOptions={cd?.type === 'select'} options={settings.options[col.id] ?? []} onSetOptions={opts => setOpts(col.id, opts)} onHide={() => hideCol(col.id)} onRename={n => renameCustomCol(col.id, n)} onDelete={() => deleteCustomCol(col.id)} />
+                            })() : <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []} onSetOptions={opts => setOpts(col.def.key, opts)} onHide={() => hideCol(col.def.key)} />}
+                          </div>
+                          <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
+                        </th>
+                      )
+                    })}
+                    <th className="px-2 py-2.5 bg-gray-50" style={{ width: 56, minWidth: 56 }}>
+                      <div className="flex items-center justify-end gap-0.5">
+                        <AddColBtn onAdd={addCustomCol} />
+                        <ColVisibility fixedCols={fixedCols} optionalCols={optionalCols} customCols={settings.customCols} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
+                      </div>
+                    </th>
                   </tr>
-                ))}
-                {canEdit && (
-                  <tr><td colSpan={activeCols.length + 3} className="border-t border-gray-100">
-                    <button onClick={addCustomer} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
-                      <Plus className="h-3.5 w-3.5" />신규 item
-                    </button>
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {diaryCustomers.length === 0 ? (
+                    <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
+                  ) : diaryCustomers.map((c, idx) => (
+                    <tr key={c.link_id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{diaryCustomers.length - idx}</td>
+                      {activeCols.map(col => (
+                        <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
+                      ))}
+                      <td className="px-2 py-1.5 border-r border-gray-100" />
+                      <td className="px-2 py-1.5 text-center">
+                        {canEdit && <button onClick={() => setDeleteConfirm(c.link_id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
+                      </td>
+                    </tr>
+                  ))}
+                  {canEdit && (
+                    <tr><td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                      <button onClick={() => setShowPicker(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                        <Plus className="h-3.5 w-3.5" />고객 등록
+                      </button>
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        {/* Sections 2–5 */}
-        {diaryLoading ? (
-          <div className="text-center text-sm text-gray-400 py-4">불러오는 중...</div>
-        ) : (<>
-          <DiarySection num={2} title="업무요약"  value={diary.work_summary}    onSave={v => saveDiaryField('work_summary', v)}    readOnly={!canEdit} />
-          <DiarySection num={3} title="광고현황"  value={diary.ad_status}       onSave={v => saveDiaryField('ad_status', v)}       readOnly={!canEdit} />
-          <DiarySection num={4} title="건의사항"  value={diary.suggestions}     onSave={v => saveDiaryField('suggestions', v)}     readOnly={!canEdit} />
-          <DiarySection num={5} title="전달사항"  value={diary.delivery_notes}  onSave={v => saveDiaryField('delivery_notes', v)}  readOnly={!canEdit} />
+        {/* Sections 2-5 */}
+        {!diaryLoading && (<>
+          {sections.map((def, idx) => (
+            <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
+              onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!canEdit} />
+          ))}
+          {canEdit && (
+            <button onClick={addSection} className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-3 text-sm font-medium text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
+              <Plus className="h-4 w-4" />섹션 추가
+            </button>
+          )}
         </>)}
 
       </div>
 
+      {/* 고객 피커 */}
+      {showPicker && (
+        <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds}
+          onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
+      )}
+
+      {/* 삭제 확인 */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">고객을 삭제할까요?</h3>
-            <p className="text-sm text-gray-500 mb-6">삭제하면 복구할 수 없어요.</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">오늘 일지에서 제거할까요?</h3>
+            <p className="text-sm text-gray-500 mb-6">고객 정보는 유지되고, 오늘 일지에서만 사라져요.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
-              <button onClick={() => deleteCustomer(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
+              <button onClick={() => unlinkCustomer(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">제거</button>
             </div>
           </div>
         </div>
