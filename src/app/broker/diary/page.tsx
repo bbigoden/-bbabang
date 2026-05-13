@@ -411,6 +411,9 @@ export default function BrokerDiaryPage() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
+  const [isOwner, setIsOwner] = useState(false)
+  const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
+  const [viewingBrokerId, setViewingBrokerId] = useState<string | null>(null) // null = 자기 자신
   const [canEdit, setCanEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -437,7 +440,7 @@ export default function BrokerDiaryPage() {
   const { settings, update, loaded } = useColSettings('diary_cust', broker?.id ?? null, DEFAULT_COL_SETTINGS)
 
   useEffect(() => { init() }, [])
-  useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id])
+  useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id, viewingBrokerId])
 
   const init = async () => {
     const { data: { user: u } } = await supabase.auth.getUser()
@@ -450,6 +453,7 @@ export default function BrokerDiaryPage() {
     if (!b) { router.push('/broker/register'); return }
     setProfile(prof); setBroker(b)
     const owner = b.is_owner !== false
+    setIsOwner(owner)
     if (!owner) {
       if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
       const perms = b.permissions
@@ -460,6 +464,18 @@ export default function BrokerDiaryPage() {
     // 섹션 설정 로드 (broker_profiles.col_settings.diary_sections)
     const savedSections = b.col_settings?.['diary_sections']?.sections
     if (Array.isArray(savedSections) && savedSections.length > 0) setSections(savedSections)
+
+    // 대표: 직원 목록 로드
+    if (owner) {
+      const { data: emps } = await supabase
+        .from('broker_profiles')
+        .select('id, profiles(name)')
+        .eq('parent_broker_id', b.id)
+        .eq('is_approved', true)
+      if (emps) {
+        setEmployees(emps.map((e: any) => ({ id: e.id, name: (e.profiles as any)?.name ?? '직원' })))
+      }
+    }
 
     // 고객 피커용 전체 고객 로드
     let brokerIds: string[] = [b.id]
@@ -482,11 +498,12 @@ export default function BrokerDiaryPage() {
   const loadDiaryData = async (date: string) => {
     if (!broker) return
     setDiaryLoading(true)
+    const targetId = viewingBrokerId ?? broker.id
     const [{ data: links }, { data: diaryRow }] = await Promise.all([
       supabase.from('broker_diary_customers')
         .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
-        .eq('broker_id', broker.id).eq('diary_date', date).order('sort_order'),
-      supabase.from('broker_diary').select('sections_content').eq('broker_id', broker.id).eq('date', date).maybeSingle(),
+        .eq('broker_id', targetId).eq('diary_date', date).order('sort_order'),
+      supabase.from('broker_diary').select('sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
     ])
     setDiaryCustomers((links ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, ...l.broker_customers as Customer })))
     setSectionContent(diaryRow?.sections_content ?? {})
@@ -660,6 +677,13 @@ export default function BrokerDiaryPage() {
     return `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')} (${days[date.getDay()]})`
   }
 
+  // 현재 보고 있는 사람 이름
+  const viewingName = viewingBrokerId
+    ? (employees.find(e => e.id === viewingBrokerId)?.name ?? '직원')
+    : (profile?.name ?? '')
+  // 대표가 다른 직원 일지 보는 중이면 읽기 전용
+  const effectiveCanEdit = canEdit && !viewingBrokerId
+
   // 활성 칼럼
   const fixedCols = CUST_COLS.filter(c => c.fixed)
   const optionalCols = CUST_COLS.filter(c => !c.fixed)
@@ -676,7 +700,7 @@ export default function BrokerDiaryPage() {
   const getColWidth = (col: ActiveCol) => { const key = getColKey(col); return settings.widths[key] ?? (col.type === 'custom' ? 120 : (col.def.minWidth ?? 100)) }
 
   const renderCell = (c: DiaryCustomerRow, col: ActiveCol) => {
-    const ro = !canEdit
+    const ro = !effectiveCanEdit
     if (col.type === 'custom') {
       const cd = settings.customCols.find(cc => cc.id === col.id)
       if (cd?.type === 'select') return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={settings.options[col.id] ?? []} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} />
@@ -716,9 +740,24 @@ export default function BrokerDiaryPage() {
 
         {/* 날짜 헤더 */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-black text-gray-900">{formatDateHeader(diaryDate)} 업무일지</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black text-gray-900">{formatDateHeader(diaryDate)} 업무일지</h1>
+            {/* 대표: 직원 선택 드롭다운 */}
+            {isOwner && employees.length > 0 && (
+              <select
+                value={viewingBrokerId ?? ''}
+                onChange={e => setViewingBrokerId(e.target.value || null)}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 outline-none focus:border-blue-400 cursor-pointer"
+              >
+                <option value="">내 일지</option>
+                {employees.map(e => (
+                  <option key={e.id} value={e.id}>{e.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            {canEdit && (
+            {effectiveCanEdit && (
               <button onClick={() => { setImportDate(''); setShowImport(true) }}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
                 <Download className="h-3.5 w-3.5" />불러오기
@@ -733,7 +772,7 @@ export default function BrokerDiaryPage() {
         {/* Section 1: 고객정보 */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-            <span className="text-sm font-bold text-gray-800">1. 고객정보({profile?.name ?? ''})</span>
+            <span className="text-sm font-bold text-gray-800">1. 고객정보({viewingName})</span>
             <span className="text-xs text-gray-400">{diaryCustomers.length}명</span>
           </div>
           {diaryLoading ? (
@@ -779,11 +818,11 @@ export default function BrokerDiaryPage() {
                       ))}
                       <td className="px-2 py-1.5 border-r border-gray-100" />
                       <td className="px-2 py-1.5 text-center">
-                        {canEdit && <button onClick={() => setDeleteConfirm(c.link_id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
+                        {effectiveCanEdit && <button onClick={() => setDeleteConfirm(c.link_id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
                       </td>
                     </tr>
                   ))}
-                  {canEdit && (
+                  {effectiveCanEdit && (
                     <tr><td colSpan={activeCols.length + 3} className="border-t border-gray-100">
                       <button onClick={() => setShowPicker(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
                         <Plus className="h-3.5 w-3.5" />고객 등록
@@ -800,9 +839,9 @@ export default function BrokerDiaryPage() {
         {!diaryLoading && (<>
           {sections.map((def, idx) => (
             <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
-              onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!canEdit} />
+              onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!effectiveCanEdit} />
           ))}
-          {canEdit && (
+          {effectiveCanEdit && (
             <button onClick={addSection} className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-3 text-sm font-medium text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
               <Plus className="h-4 w-4" />섹션 추가
             </button>
