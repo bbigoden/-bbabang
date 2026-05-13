@@ -638,6 +638,29 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
   )
 }
 
+// ── DonutChart ─────────────────────────────────────────
+function DonutChart({ data, colors, total }: { data: [string, number][]; colors: string[]; total: number }) {
+  const r = 15.9155
+  let cumulative = 0
+  return (
+    <svg viewBox="0 0 36 36" className="w-full h-full" style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx="18" cy="18" r={r} fill="none" stroke="#f3f4f6" strokeWidth="3.8" />
+      {data.map(([, value], i) => {
+        const pct = (value / total) * 100
+        const dashoffset = -cumulative
+        cumulative += pct
+        return (
+          <circle key={i} cx="18" cy="18" r={r} fill="none"
+            stroke={colors[i % colors.length]}
+            strokeWidth="3.8"
+            strokeDasharray={`${pct - 0.5} ${100 - pct + 0.5}`}
+            strokeDashoffset={dashoffset} />
+        )
+      })}
+    </svg>
+  )
+}
+
 // ── 메인 페이지 ──────────────────────────────────────
 export default function BrokerCustomersPage() {
   const supabase = createClient()
@@ -943,85 +966,109 @@ export default function BrokerCustomersPage() {
         </div>
 
         {/* 통계 */}
-        <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* 신규 */}
-          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
-                <Users className="h-3.5 w-3.5 text-blue-600" />
+        {(() => {
+          const ASSIGNEE_COLORS = ['#60a5fa','#3b82f6','#2563eb','#93c5fd']
+          const CATEGORY_COLORS_CHART = ['#a78bfa','#8b5cf6','#7c3aed','#c4b5fd']
+          const SOURCE_COLORS_CHART = ['#34d399','#10b981','#f59e0b','#f97316','#6366f1','#ec4899','#14b8a6','#84cc16']
+          const aTotal = assigneeDist.reduce((s,[,v])=>s+v,0)
+          const cTotal = categoryDist.reduce((s,[,v])=>s+v,0)
+          const sTotal = sourceDist.reduce((s,[,v])=>s+v,0)
+          return (
+            <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* 신규 */}
+              <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm flex flex-col justify-between">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
+                    <Users className="h-3.5 w-3.5 text-blue-600" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500">신규</span>
+                </div>
+                <div>
+                  <div className="text-3xl font-black text-blue-600 leading-none">{newThisMonth}<span className="text-sm font-normal text-gray-400 ml-1">명</span></div>
+                  <div className="text-[10px] text-gray-300 mt-1">이번달 신규 고객</div>
+                </div>
               </div>
-              <span className="text-xs text-gray-500">신규</span>
+
+              {/* 담당자 도넛 */}
+              <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 mb-3">담당자</div>
+                {assigneeDist.length === 0 ? (
+                  <div className="text-xs text-gray-300 text-center py-6">데이터 없음</div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
+                      <DonutChart data={assigneeDist} colors={ASSIGNEE_COLORS} total={aTotal} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[11px] font-bold text-gray-600">{aTotal}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {assigneeDist.map(([label, count], i) => (
+                        <div key={label} className="flex items-center gap-1.5">
+                          <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: ASSIGNEE_COLORS[i % ASSIGNEE_COLORS.length] }} />
+                          <span className="text-[11px] text-gray-600 truncate flex-1">{label}</span>
+                          <span className="text-[11px] font-bold text-gray-700">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 구분 도넛 */}
+              <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 mb-3">구분</div>
+                {categoryDist.length === 0 ? (
+                  <div className="text-xs text-gray-300 text-center py-6">데이터 없음</div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
+                      <DonutChart data={categoryDist} colors={CATEGORY_COLORS_CHART} total={cTotal} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[11px] font-bold text-gray-600">{cTotal}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {categoryDist.map(([label, count], i) => (
+                        <div key={label} className="flex items-center gap-1.5">
+                          <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS_CHART[i % CATEGORY_COLORS_CHART.length] }} />
+                          <span className="text-[11px] text-gray-600 truncate flex-1">{label}</span>
+                          <span className="text-[11px] font-bold text-gray-700">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 유입 도넛 */}
+              <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
+                <div className="text-xs font-semibold text-gray-500 mb-3">유입</div>
+                {sourceDist.length === 0 ? (
+                  <div className="text-xs text-gray-300 text-center py-6">데이터 없음</div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
+                      <DonutChart data={sourceDist} colors={SOURCE_COLORS_CHART} total={sTotal} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[11px] font-bold text-gray-600">{sTotal}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {sourceDist.map(([label, count], i) => (
+                        <div key={label} className="flex items-center gap-1.5">
+                          <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS_CHART[i % SOURCE_COLORS_CHART.length] }} />
+                          <span className="text-[11px] text-gray-600 truncate flex-1">{label}</span>
+                          <span className="text-[11px] font-bold text-gray-700">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="text-2xl font-black text-blue-600">{newThisMonth}<span className="text-sm font-normal text-gray-400 ml-1">명</span></div>
-            <div className="text-[10px] text-gray-300 mt-0.5">이번달 신규 고객</div>
-          </div>
-
-          {/* 담당자 */}
-          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
-            <div className="text-xs font-semibold text-gray-500 mb-3">담당자</div>
-            {assigneeDist.length === 0 ? (
-              <div className="text-xs text-gray-300 text-center py-3">데이터 없음</div>
-            ) : (
-              <div className="space-y-2">
-                {assigneeDist.map(([label, count]) => (
-                  <div key={label}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{label}</span>
-                      <span className="text-[11px] font-bold text-gray-700">{count}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${Math.round(count / (assigneeDist[0][1] || 1) * 100)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 구분 */}
-          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
-            <div className="text-xs font-semibold text-gray-500 mb-3">구분</div>
-            {categoryDist.length === 0 ? (
-              <div className="text-xs text-gray-300 text-center py-3">데이터 없음</div>
-            ) : (
-              <div className="space-y-2">
-                {categoryDist.map(([label, count]) => (
-                  <div key={label}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{label}</span>
-                      <span className="text-[11px] font-bold text-gray-700">{count}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-violet-400 transition-all" style={{ width: `${Math.round(count / (categoryDist[0][1] || 1) * 100)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 유입 */}
-          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
-            <div className="text-xs font-semibold text-gray-500 mb-3">유입</div>
-            {sourceDist.length === 0 ? (
-              <div className="text-xs text-gray-300 text-center py-3">데이터 없음</div>
-            ) : (
-              <div className="space-y-2">
-                {sourceDist.map(([label, count]) => (
-                  <div key={label}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{label}</span>
-                      <span className="text-[11px] font-bold text-gray-700">{count}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${Math.round(count / (sourceDist[0][1] || 1) * 100)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          )
+        })()}
 
         {/* 필터 */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
