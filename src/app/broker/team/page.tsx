@@ -138,9 +138,14 @@ export default function BrokerTeamPage() {
 
   const approveEmployee = async (empId: string) => {
     setApproving(true)
-    await supabase.from('broker_profiles')
+    const { error } = await supabase.from('broker_profiles')
       .update({ is_approved: true, permissions: approvePerms })
       .eq('id', empId)
+    if (error) {
+      alert('승인 중 오류가 발생했습니다: ' + error.message)
+      setApproving(false)
+      return
+    }
     const emp = pending.find(e => e.id === empId)
     if (emp) {
       setApproved(prev => [...prev, { ...emp, is_approved: true, permissions: approvePerms }])
