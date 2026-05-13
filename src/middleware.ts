@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 
 const PROTECTED = ['/dashboard', '/request/new', '/broker/register', '/broker/properties', '/chat', '/admin', '/profile']
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -30,7 +30,6 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch {
-    // 세션 갱신 실패 시 그냥 통과 (페이지에서 처리)
     return response
   }
 
