@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, EyeOff, ChevronDown,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -45,6 +46,7 @@ interface Property {
 interface CustomColumn {
   id: string
   name: string
+  type?: 'text' | 'select'
 }
 
 const STATUS_OPTS = ['available', 'contracted', 'hidden'] as const
@@ -546,12 +548,14 @@ function TooltipIcon({ text }: { text: string }) {
 }
 
 // ── ColumnHeader (헤더 클릭 설정) ────────────────────────
-function PropColHeader({ label, isCustom, onHide, onRename, onDelete }: {
-  label: string; isCustom?: boolean
+function PropColHeader({ label, isCustom, hasOptions, options, onSetOptions, onHide, onRename, onDelete }: {
+  label: string; isCustom?: boolean; hasOptions?: boolean
+  options?: string[]; onSetOptions?: (opts: string[]) => void
   onHide?: () => void; onRename?: (name: string) => void; onDelete?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<React.CSSProperties>({})
+  const [newOpt, setNewOpt] = useState('')
   const [renaming, setRenaming] = useState(false)
   const [renameVal, setRenameVal] = useState(label)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -571,6 +575,12 @@ function PropColHeader({ label, isCustom, onHide, onRename, onDelete }: {
     const v = renameVal.trim()
     if (v && v !== label) onRename?.(v)
     setRenaming(false); setOpen(false)
+  }
+
+  const addOpt = () => {
+    const v = newOpt.trim()
+    if (!v || !options || options.includes(v)) return
+    onSetOptions?.([...options, v]); setNewOpt('')
   }
 
   return (
@@ -605,6 +615,30 @@ function PropColHeader({ label, isCustom, onHide, onRename, onDelete }: {
             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
             <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
           </button>
+          {hasOptions && options && (
+            <>
+              <div className="border-t border-gray-100" />
+              <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
+              <div className="px-2 pb-1 max-h-44 overflow-y-auto">
+                {options.map(opt => (
+                  <div key={opt} className="group/opt flex items-center gap-1.5 px-1.5 py-1 rounded-lg hover:bg-gray-50">
+                    <span className="flex-1 text-xs text-gray-700">{opt}</span>
+                    <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))}
+                      className="opacity-0 group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="px-2 pb-2 pt-1 flex gap-1.5 border-t border-gray-100">
+                <input value={newOpt} onChange={e => setNewOpt(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addOpt() }}
+                  placeholder="항목 추가..."
+                  className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 min-w-0" />
+                <button onClick={addOpt} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 flex-shrink-0">추가</button>
+              </div>
+            </>
+          )}
           {isCustom && (
             <button onClick={() => { onDelete?.(); setOpen(false) }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100">
@@ -655,7 +689,7 @@ function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onS
     <div ref={containerRef} className="relative">
       <div ref={btnRef} onClick={handleOpen}
         className={asHeaderButton
-          ? 'flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer'
+          ? 'flex items-center gap-2 rounded-xl border border-blue-600 px-4 py-2.5 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer'
           : 'flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none'
         }>
         {asHeaderButton ? <>헤더 추가</> : '+'}</div>
@@ -707,6 +741,141 @@ function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onS
   )
 }
 
+// ── AddColBtn ─────────────────────────────────────────
+function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [type, setType] = useState<'text' | 'select'>('text')
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
+
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => {
+      if (!btnRef.current?.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) {
+        setOpen(false); setName(''); setType('text')
+      }
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 210), zIndex: 9999 })
+    }
+    setOpen(v => !v)
+  }
+  const add = () => {
+    if (name.trim()) { onAdd(name.trim(), type); setName(''); setType('text'); setOpen(false) }
+  }
+
+  return (
+    <div className="relative">
+      <button ref={btnRef} onClick={handleOpen}
+        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">
+        +
+      </button>
+      {open && createPortal(
+        <div ref={popupRef} className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white shadow-xl p-2.5" style={popStyle}>
+          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }}
+            placeholder="칼럼 이름 입력"
+            className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 w-44" />
+          <div className="flex gap-1">
+            <button onClick={() => setType('text')}
+              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              텍스트
+            </button>
+            <button onClick={() => setType('select')}
+              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              선택
+            </button>
+          </div>
+          <button onClick={add} disabled={!name.trim()}
+            className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40">추가</button>
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
+
+// ── PropColVisibility ─────────────────────────────────────
+function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
+  allFixed: ReadonlyArray<{ readonly key: string; readonly label: string }>
+  customCols: CustomColumn[]
+  visible: string[]
+  onToggle: (key: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
+
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => {
+      if (!btnRef.current?.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 260), zIndex: 9999, width: 260 })
+    }
+    setOpen(v => !v)
+  }
+
+  const all = [
+    ...allFixed.map(c => ({ key: c.key, label: c.label })),
+    ...customCols.map(c => ({ key: c.id, label: c.name })),
+  ]
+  const rows = search ? all.filter(c => c.label.includes(search)) : all
+
+  return (
+    <div className="relative">
+      <button ref={btnRef} onClick={handleOpen}
+        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors">
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+      {open && createPortal(
+        <div ref={popupRef} className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={popStyle}>
+          <div className="p-2 border-b border-gray-100">
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="속성을 검색하세요" autoFocus
+              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+          </div>
+          <div className="px-3 py-2 border-b border-gray-100">
+            <span className="text-xs font-medium text-gray-500">표에 표시하기</span>
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1">
+            {rows.map(c => (
+              <div key={c.key}
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                onClick={() => onToggle(c.key)}>
+                <span className={`text-xs font-medium ${visible.includes(c.key) ? 'text-gray-700' : 'text-gray-400'}`}>{c.label}</span>
+                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${visible.includes(c.key) ? 'text-gray-400' : 'text-gray-200'}`} />
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
+
 // ── 메인 페이지 ──────────────────────────────────────────
 export default function BrokerPropertiesPage() {
   return (
@@ -747,6 +916,7 @@ function BrokerPropertiesContent() {
   const overlaysRef = useRef<any[]>([])
   const infoOverlaysRef = useRef<any[]>([])
   const [addingId, setAddingId] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'property' | 'column'; id: string; label?: string } | null>(null)
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [settingsBrokerId, setSettingsBrokerId] = useState<string | null>(null)
   const [dragCol, setDragCol] = useState<string | null>(null)
@@ -759,9 +929,11 @@ function BrokerPropertiesContent() {
   // 고정 칼럼이 settings.order에 없는 경우 추가 (첫 로드 또는 새 칼럼 추가시)
   const syncedOrder = useMemo(() => {
     const order = settings.order
-    const missing = FIXED_COLS.filter(k => !order.includes(k))
+    const missingFixed = FIXED_COLS.filter(k => !order.includes(k))
+    const missingCustom = customColumns.filter(c => !order.includes(c.id)).map(c => c.id)
+    const missing = [...missingFixed, ...missingCustom]
     return missing.length > 0 ? [...order, ...missing] : order
-  }, [settings.order])
+  }, [settings.order, customColumns])
 
   // 칼럼 너비 드래그 조절
   const startResize = (key: string, e: React.MouseEvent) => {
@@ -788,7 +960,11 @@ function BrokerPropertiesContent() {
 
   // 칼럼 표시/숨김
   const hideCol = (key: string) => update(prev => ({ ...prev, visible: prev.visible.filter(k => k !== key) }))
-  const showCol = (key: string) => update(prev => ({ ...prev, visible: [...prev.visible, key] }))
+  const showCol = (key: string) => update(prev => ({
+    ...prev,
+    visible: [...prev.visible, key],
+    order: prev.order.includes(key) ? prev.order : [...prev.order, key],
+  }))
 
   useEffect(() => { init() }, [])
   useEffect(() => { setPage(1) }, [filterDealType, filterRoomType, searchQuery, pageSize])
@@ -876,9 +1052,9 @@ function BrokerPropertiesContent() {
   }, [properties])
 
   // 커스텀 칼럼 추가
-  const addCustomColumn = async (name: string) => {
+  const addCustomColumn = async (name: string, type: 'text' | 'select' = 'text') => {
     if (!name.trim() || !broker) return
-    const newCol: CustomColumn = { id: `col_${Date.now()}`, name: name.trim() }
+    const newCol: CustomColumn = { id: `col_${Date.now()}`, name: name.trim(), type }
     const updated = [...customColumns, newCol]
     await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
     setCustomColumns(updated)
@@ -887,6 +1063,7 @@ function BrokerPropertiesContent() {
       order: [...prev.order, newCol.id],
       visible: [...prev.visible, newCol.id],
       widths: { ...prev.widths, [newCol.id]: 120 },
+      options: type === 'select' ? { ...prev.options, [newCol.id]: [] } : prev.options,
     }))
   }
 
@@ -898,19 +1075,14 @@ function BrokerPropertiesContent() {
     setCustomColumns(updated)
   }
 
+  // 칼럼 옵션 저장
+  const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
+
   // 커스텀 칼럼 삭제
-  const deleteCustomColumn = async (id: string) => {
+  const deleteCustomColumn = (id: string) => {
     if (!broker) return
     const col = customColumns.find(c => c.id === id)
-    if (!confirm(`'${col?.name ?? ''}' 칼럼을 삭제하시겠어요?\n해당 칼럼의 모든 데이터가 삭제됩니다.`)) return
-    const updated = customColumns.filter(c => c.id !== id)
-    await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
-    setCustomColumns(updated)
-    update(prev => ({
-      ...prev,
-      order: prev.order.filter(k => k !== id),
-      visible: prev.visible.filter(k => k !== id),
-    }))
+    setDeleteConfirm({ type: 'column', id, label: col?.name })
   }
 
   const addNewRow = async () => {
@@ -932,10 +1104,27 @@ function BrokerPropertiesContent() {
     setTimeout(() => setAddingId(null), 2000)
   }
 
-  const deleteProperty = async (id: string) => {
-    if (!confirm('삭제하시겠어요?')) return
-    await supabase.from('broker_properties').delete().eq('id', id)
-    setProperties(prev => prev.filter(p => p.id !== id))
+  const deleteProperty = (id: string) => {
+    setDeleteConfirm({ type: 'property', id })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return
+    if (deleteConfirm.type === 'property') {
+      await supabase.from('broker_properties').delete().eq('id', deleteConfirm.id)
+      setProperties(prev => prev.filter(p => p.id !== deleteConfirm.id))
+    } else if (deleteConfirm.type === 'column') {
+      const id = deleteConfirm.id
+      const updated = customColumns.filter(c => c.id !== id)
+      await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker!.id)
+      setCustomColumns(updated)
+      update(prev => ({
+        ...prev,
+        order: prev.order.filter(k => k !== id),
+        visible: prev.visible.filter(k => k !== id),
+      }))
+    }
+    setDeleteConfirm(null)
   }
 
   const duplicateProperty = async (prop: Property) => {
@@ -1121,24 +1310,6 @@ function BrokerPropertiesContent() {
                 <Map className="h-4 w-4" />지도
               </button>
             </div>
-            {!isAdminView && (
-              <div className="flex items-center gap-2">
-                <PropColAdder
-                  hiddenFixed={ALL_COLUMNS.filter(c => !settings.visible.includes(c.key))}
-                  customCols={customColumns}
-                  visibleCustom={settings.visible.filter(k => customColumns.some(c => c.id === k))}
-                  onShowFixed={showCol}
-                  onShowCustom={showCol}
-                  onAddCustom={addCustomColumn}
-                  asHeaderButton
-                />
-                <button onClick={addNewRow}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />매물 등록
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
@@ -1271,6 +1442,9 @@ function BrokerPropertiesContent() {
                       >
                         <div className="pr-2">
                           <PropColHeader label={customCol.name} isCustom
+                            hasOptions={customCol.type === 'select'}
+                            options={settings.options[key] ?? []}
+                            onSetOptions={opts => setOpts(key, opts)}
                             onHide={() => hideCol(key)}
                             onRename={name => renameCustomColumn(key, name)}
                             onDelete={() => deleteCustomColumn(key)}
@@ -1282,7 +1456,19 @@ function BrokerPropertiesContent() {
                   }
                   return null
                 })}
-                {!isAdminView && <th className="px-2 py-2.5 text-center bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 56 }}></th>}
+                {!isAdminView && (
+                  <th className="px-2 py-2.5 bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 64, minWidth: 64 }}>
+                    <div className="flex items-center justify-end gap-0.5">
+                      <AddColBtn onAdd={addCustomColumn} />
+                      <PropColVisibility
+                        allFixed={ALL_COLUMNS}
+                        customCols={customColumns}
+                        visible={settings.visible}
+                        onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)}
+                      />
+                    </div>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -1353,7 +1539,9 @@ function BrokerPropertiesContent() {
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
                           {isAdminView
                             ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
-                            : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
+                            : customCol.type === 'select'
+                              ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} />
+                              : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
                           }
                         </td>
                       )
@@ -1374,6 +1562,16 @@ function BrokerPropertiesContent() {
                   )}
                 </tr>
               ))}
+              {!isAdminView && (
+                <tr>
+                  <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100">
+                    <button onClick={addNewRow}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                      <Plus className="h-3.5 w-3.5" />매물 등록
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -1416,6 +1614,26 @@ function BrokerPropertiesContent() {
           </div>
         </div>
       </div>
+
+      {/* 삭제 확인 모달 */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              {deleteConfirm.type === 'property' ? '매물을 삭제할까요?' : `'${deleteConfirm.label}' 칼럼을 삭제할까요?`}
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">
+              {deleteConfirm.type === 'column' ? '해당 칼럼의 모든 데이터가 삭제됩니다.' : '삭제하면 복구할 수 없어요.'}
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+              <button onClick={confirmDelete}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

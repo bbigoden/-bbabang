@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Link2, X, ChevronDown, EyeOff, Lock } from 'lucide-react'
+import { Plus, Trash2, Search, Download, X, ChevronDown, EyeOff, Eye, MoreHorizontal, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
@@ -171,7 +171,7 @@ function SelectCell({ value, options, onSave, colorMap }: {
   )
 }
 
-// ── CustomerCell (1차 상담 연결) ──────────────────────
+// ── CustomerCell (고객목록 불러오기) ──────────────────────
 function CustomerCell({ value, customerId, customers, onSave }: {
   value: string; customerId: string | null; customers: CustomerOption[]
   onSave: (name: string, cid: string | null, contact: string | null, assignee: string | null, source: string | null) => void
@@ -201,7 +201,7 @@ function CustomerCell({ value, customerId, customers, onSave }: {
         style={{ color: value ? '#374151' : '#d1d5db', fontWeight: value ? 500 : 400 }}>
         {value || '고객명'}
       </div>
-      {customerId && <span title="1차 상담 연결됨" className="flex-shrink-0"><Link2 className="h-3 w-3 text-blue-400" /></span>}
+      {customerId && <span title="고객목록에서 불러옴" className="flex-shrink-0"><Download className="h-3 w-3 text-blue-400" /></span>}
       {open && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden" style={popupStyle}>
           <div className="p-2 border-b border-gray-100">
@@ -225,7 +225,7 @@ function CustomerCell({ value, customerId, customers, onSave }: {
           {customerId && (
             <div className="border-t border-gray-100 p-1.5">
               <button onClick={clearLink} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs text-red-400 hover:bg-red-50 rounded-lg transition-colors">
-                <X className="h-3 w-3" />연결 해제
+                <X className="h-3 w-3" />불러오기 초기화
               </button>
             </div>
           )}
@@ -392,7 +392,7 @@ function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddC
     <div ref={containerRef} className="relative">
       <div ref={btnRef} onClick={handleOpen}
         className={asHeaderButton
-          ? 'flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer'
+          ? 'flex items-center gap-2 rounded-xl border border-blue-600 px-4 py-2.5 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer'
           : 'flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none'
         }>
         {asHeaderButton ? <>헤더 추가</> : '+'}</div>
@@ -452,6 +452,122 @@ function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddC
                 <Plus className="h-3.5 w-3.5" />새 칼럼 만들기
               </button>
             )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── AddColBtn ─────────────────────────────────────────
+function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [type, setType] = useState<'text' | 'select'>('text')
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
+  useClickOutside(containerRef, () => { setOpen(false); setName(''); setType('text') })
+  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 210), zIndex: 9999 })
+    }
+    setOpen(v => !v)
+  }
+  const add = () => {
+    if (name.trim()) { onAdd(name.trim(), type); setName(''); setType('text'); setOpen(false) }
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button ref={btnRef} onClick={handleOpen}
+        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">
+        +
+      </button>
+      {open && (
+        <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white shadow-xl p-2.5" style={popStyle}>
+          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }}
+            placeholder="칼럼 이름 입력"
+            className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 w-44" />
+          <div className="flex gap-1">
+            <button onClick={() => setType('text')}
+              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              텍스트
+            </button>
+            <button onClick={() => setType('select')}
+              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              선택
+            </button>
+          </div>
+          <button onClick={add} disabled={!name.trim()}
+            className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40">추가</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── ColVisibility ─────────────────────────────────────
+function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle }: {
+  fixedCols: ColDef[]
+  optionalCols: ColDef[]
+  customCols: Array<{ id: string; name: string }>
+  visible: string[]
+  onToggle: (key: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
+  useClickOutside(containerRef, () => setOpen(false))
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 260), zIndex: 9999, width: 260 })
+    }
+    setOpen(v => !v)
+  }
+
+  const all = [
+    ...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })),
+    ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false })),
+    ...customCols.map(c => ({ key: c.id, label: c.name, fixed: false })),
+  ]
+  const rows = search ? all.filter(c => c.label.includes(search)) : all
+  const hideAll = () => all.filter(c => !c.fixed && visible.includes(c.key)).forEach(c => onToggle(c.key))
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button ref={btnRef} onClick={handleOpen}
+        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors">
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={popStyle}>
+          <div className="p-2 border-b border-gray-100">
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="속성을 검색하세요" autoFocus
+              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+          </div>
+          <div className="px-3 py-2 border-b border-gray-100">
+            <span className="text-xs font-medium text-gray-500">표에 표시하기</span>
+          </div>
+          <div className="max-h-64 overflow-y-auto py-1">
+            {rows.map(c => (
+              <div key={c.key}
+                className={`flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`}
+                onClick={() => !c.fixed && onToggle(c.key)}>
+                <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700' : 'text-gray-400'}`}>{c.label}</span>
+                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${c.fixed || visible.includes(c.key) ? 'text-gray-400' : 'text-gray-200'}`} />
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -592,14 +708,15 @@ export default function BrokerDiaryPage() {
   const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
 
   // 커스텀 칼럼 관리
-  const addCustomCol = (name: string) => {
+  const addCustomCol = (name: string, type: 'text' | 'select' = 'text') => {
     const id = `custom_${Date.now()}`
     update(prev => ({
       ...prev,
-      customCols: [...prev.customCols, { id, name }],
+      customCols: [...prev.customCols, { id, name, type }],
       order: [...prev.order, id],
       visible: [...prev.visible, id],
       widths: { ...prev.widths, [id]: 120 },
+      options: type === 'select' ? { ...prev.options, [id]: [] } : prev.options,
     }))
   }
   const renameCustomCol = (id: string, name: string) => {
@@ -662,6 +779,11 @@ export default function BrokerDiaryPage() {
 
   const renderCell = (c: Consultation, col: ActiveCol) => {
     if (col.type === 'custom') {
+      const customDef = settings.customCols.find(cc => cc.id === col.id)
+      if (customDef?.type === 'select') {
+        const opts = settings.options[col.id] ?? []
+        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} />
+      }
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" />
     }
     const def = col.def
@@ -709,21 +831,6 @@ export default function BrokerDiaryPage() {
             <h1 className="text-2xl font-black text-gray-900">업무일지</h1>
             <p className="text-sm text-gray-400 mt-0.5">{formatMonth(monthFilter)} · {filtered.length}건</p>
           </div>
-          <div className="flex items-center gap-2">
-            <ColAdder
-              fixedCols={fixedCols}
-              optionalCols={optionalCols}
-              customCols={settings.customCols}
-              visible={settings.visible}
-              onShow={showCol}
-              onAddCustom={addCustomCol}
-              asHeaderButton
-            />
-            <button onClick={addRow}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors shadow-sm">
-              <Plus className="h-4 w-4" />상담 추가
-            </button>
-          </div>
         </div>
 
         {/* 월 탭 */}
@@ -759,8 +866,8 @@ export default function BrokerDiaryPage() {
 
         {/* 안내 */}
         <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
-          <Link2 className="h-3 w-3" />
-          <span>고객명 클릭 시 1차 상담(고객목록)에서 연결할 수 있어요</span>
+          <Download className="h-3 w-3" />
+          <span>고객명 클릭 시 고객목록에서 정보를 불러올 수 있어요</span>
         </div>
 
         {/* 테이블 */}
@@ -787,6 +894,9 @@ export default function BrokerDiaryPage() {
                           {col.type === 'custom' ? (
                             <ColumnHeader
                               label={col.name} isCustom
+                              hasOptions={settings.customCols.find(cc => cc.id === col.id)?.type === 'select'}
+                              options={settings.options[col.id] ?? []}
+                              onSetOptions={opts => setOpts(col.id, opts)}
                               onHide={() => hideCol(col.id)}
                               onRename={name => renameCustomCol(col.id, name)}
                               onDelete={() => deleteCustomCol(col.id)}
@@ -807,7 +917,18 @@ export default function BrokerDiaryPage() {
                       </th>
                     )
                   })}
-                  <th className="w-10 px-2 py-2.5" />
+                  <th className="px-2 py-2.5 bg-gray-50" style={{ width: 56, minWidth: 56 }}>
+                    <div className="flex items-center justify-end gap-0.5">
+                      <AddColBtn onAdd={addCustomCol} />
+                      <ColVisibility
+                        fixedCols={fixedCols}
+                        optionalCols={optionalCols}
+                        customCols={settings.customCols}
+                        visible={settings.visible}
+                        onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)}
+                      />
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -835,6 +956,14 @@ export default function BrokerDiaryPage() {
                     </td>
                   </tr>
                 ))}
+                <tr>
+                  <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                    <button onClick={addRow}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                      <Plus className="h-3.5 w-3.5" />상담 추가
+                    </button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

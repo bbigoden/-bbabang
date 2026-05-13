@@ -7,7 +7,7 @@ export interface ColSettings {
   visible: string[]
   order: string[]
   widths: Record<string, number>
-  customCols: Array<{ id: string; name: string }>
+  customCols: Array<{ id: string; name: string; type?: 'text' | 'select' }>
   options: Record<string, string[]>
 }
 
@@ -35,7 +35,7 @@ export function useColSettings(
       const saved = data?.col_settings?.[page] as Partial<ColSettings> | undefined
       if (saved) {
         setSettings(prev => ({
-          visible:    saved.visible    ?? prev.visible,
+          visible:    (saved.visible && saved.visible.length > 0) ? saved.visible : prev.visible,
           order:      saved.order      ?? prev.order,
           widths:     { ...prev.widths, ...(saved.widths ?? {}) },
           customCols: saved.customCols ?? prev.customCols,
