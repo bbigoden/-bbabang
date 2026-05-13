@@ -236,9 +236,10 @@ function CustomerCell({ value, customerId, customers, onSave }: {
 }
 
 // ── ColumnHeader ─────────────────────────────────────
-function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOptions, onHide, onRename, onDelete }: {
+function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOptions, colType, onChangeType, onHide, onRename, onDelete }: {
   label: string; isFixed?: boolean; isCustom?: boolean; hasOptions?: boolean
   options?: string[]; onSetOptions?: (opts: string[]) => void
+  colType?: 'text' | 'select'; onChangeType?: (type: 'text' | 'select') => void
   onHide?: () => void; onRename?: (name: string) => void; onDelete?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -312,8 +313,23 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
                   <span className="text-gray-400">✏️</span>칼럼 이름 변경
                 </button>
               )}
+              {onChangeType && colType && (
+                <div className="px-3 py-2 border-t border-gray-100">
+                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
+                  <div className="flex gap-1">
+                    <button onClick={() => onChangeType('text')}
+                      className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                      텍스트
+                    </button>
+                    <button onClick={() => onChangeType('select')}
+                      className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                      선택
+                    </button>
+                  </div>
+                </div>
+              )}
               <button onClick={() => { onHide?.(); setOpen(false) }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors border-t border-gray-100">
                 <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
               </button>
               <button onClick={() => { onDelete?.(); setOpen(false) }}
@@ -722,6 +738,13 @@ export default function BrokerDiaryPage() {
   const renameCustomCol = (id: string, name: string) => {
     update(prev => ({ ...prev, customCols: prev.customCols.map(c => c.id === id ? { ...c, name } : c) }))
   }
+  const changeCustomColType = (id: string, type: 'text' | 'select') => {
+    update(prev => ({
+      ...prev,
+      customCols: prev.customCols.map(c => c.id === id ? { ...c, type } : c),
+      options: type === 'select' && !prev.options[id] ? { ...prev.options, [id]: [] } : prev.options,
+    }))
+  }
   const deleteCustomCol = (id: string) => {
     update(prev => ({
       ...prev,
@@ -891,17 +914,22 @@ export default function BrokerDiaryPage() {
                         onDragEnd={onColDragEnd}
                       >
                         <div className="pr-2">
-                          {col.type === 'custom' ? (
-                            <ColumnHeader
-                              label={col.name} isCustom
-                              hasOptions={settings.customCols.find(cc => cc.id === col.id)?.type === 'select'}
-                              options={settings.options[col.id] ?? []}
-                              onSetOptions={opts => setOpts(col.id, opts)}
-                              onHide={() => hideCol(col.id)}
-                              onRename={name => renameCustomCol(col.id, name)}
-                              onDelete={() => deleteCustomCol(col.id)}
-                            />
-                          ) : (
+                          {col.type === 'custom' ? (() => {
+                            const customDef = settings.customCols.find(cc => cc.id === col.id)
+                            return (
+                              <ColumnHeader
+                                label={col.name} isCustom
+                                colType={customDef?.type ?? 'text'}
+                                onChangeType={type => changeCustomColType(col.id, type)}
+                                hasOptions={customDef?.type === 'select'}
+                                options={settings.options[col.id] ?? []}
+                                onSetOptions={opts => setOpts(col.id, opts)}
+                                onHide={() => hideCol(col.id)}
+                                onRename={name => renameCustomCol(col.id, name)}
+                                onDelete={() => deleteCustomCol(col.id)}
+                              />
+                            )
+                          })() : (
                             <ColumnHeader
                               label={col.def.label}
                               isFixed={col.def.fixed}

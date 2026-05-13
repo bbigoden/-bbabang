@@ -548,9 +548,10 @@ function TooltipIcon({ text }: { text: string }) {
 }
 
 // ── ColumnHeader (헤더 클릭 설정) ────────────────────────
-function PropColHeader({ label, isCustom, hasOptions, options, onSetOptions, onHide, onRename, onDelete }: {
+function PropColHeader({ label, isCustom, hasOptions, options, onSetOptions, colType, onChangeType, onHide, onRename, onDelete }: {
   label: string; isCustom?: boolean; hasOptions?: boolean
   options?: string[]; onSetOptions?: (opts: string[]) => void
+  colType?: 'text' | 'select'; onChangeType?: (type: 'text' | 'select') => void
   onHide?: () => void; onRename?: (name: string) => void; onDelete?: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -611,8 +612,23 @@ function PropColHeader({ label, isCustom, hasOptions, options, onSetOptions, onH
               )}
             </>
           )}
+          {onChangeType && colType && (
+            <div className="px-3 py-2 border-t border-gray-100">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
+              <div className="flex gap-1">
+                <button onClick={() => onChangeType('text')}
+                  className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                  텍스트
+                </button>
+                <button onClick={() => onChangeType('select')}
+                  className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                  선택
+                </button>
+              </div>
+            </div>
+          )}
           <button onClick={() => { onHide?.(); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors border-t border-gray-100">
             <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
           </button>
           {hasOptions && options && (
@@ -1078,6 +1094,18 @@ function BrokerPropertiesContent() {
   // 칼럼 옵션 저장
   const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
 
+  // 커스텀 칼럼 타입 변경
+  const changeCustomColumnType = async (id: string, type: 'text' | 'select') => {
+    if (!broker) return
+    const updated = customColumns.map(c => c.id === id ? { ...c, type } : c)
+    await supabase.from('broker_profiles').update({ custom_columns: updated }).eq('id', broker.id)
+    setCustomColumns(updated)
+    update(prev => ({
+      ...prev,
+      options: type === 'select' && !prev.options[id] ? { ...prev.options, [id]: [] } : prev.options,
+    }))
+  }
+
   // 커스텀 칼럼 삭제
   const deleteCustomColumn = (id: string) => {
     if (!broker) return
@@ -1442,6 +1470,8 @@ function BrokerPropertiesContent() {
                       >
                         <div className="pr-2">
                           <PropColHeader label={customCol.name} isCustom
+                            colType={customCol.type ?? 'text'}
+                            onChangeType={type => changeCustomColumnType(key, type)}
                             hasOptions={customCol.type === 'select'}
                             options={settings.options[key] ?? []}
                             onSetOptions={opts => setOpts(key, opts)}
