@@ -3,11 +3,12 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
 import { OfficeCodeCard } from '@/components/office-code-card'
+import { BrokerChangeOffice } from '@/components/broker-change-office'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -152,6 +153,17 @@ export default async function BrokerDashboardPage() {
           </div>
         )}
 
+        {/* 사무소 탈퇴 버튼 — 승인된 직원에게만 표시 */}
+        {broker.is_owner === false && broker.is_approved === true && broker.parent_broker_id && (
+          <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">{broker.office_name}</p>
+              <p className="text-xs text-gray-400 mt-0.5">소속 사무소</p>
+            </div>
+            <BrokerChangeOffice brokerId={broker.id} parentBrokerId={broker.parent_broker_id} />
+          </div>
+        )}
+
         {/* 직원 합류 코드 — 대표만 표시 */}
         {broker.is_owner !== false && (
           <div className="mb-6">
@@ -200,6 +212,16 @@ export default async function BrokerDashboardPage() {
                   <Users className="h-5 w-5 text-purple-600" />
                 </div>
                 <span className="text-sm font-bold text-gray-800">팀 관리</span>
+              </div>
+            </Link>
+          )}
+          {broker.is_owner !== false && (
+            <Link href="/broker/settings">
+              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
+                  <Settings className="h-5 w-5 text-gray-600" />
+                </div>
+                <span className="text-sm font-bold text-gray-800">사무소 설정</span>
               </div>
             </Link>
           )}

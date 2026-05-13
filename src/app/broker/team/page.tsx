@@ -164,7 +164,17 @@ export default function BrokerTeamPage() {
   }
 
   const removeEmployee = async (empId: string) => {
-    if (!confirm('이 직원을 팀에서 제거할까요?')) return
+    if (!confirm('이 직원을 팀에서 제거할까요?\n직원이 입력한 고객·매물·업무일지 데이터는 사무소에 귀속됩니다.')) return
+    if (!broker) return
+
+    // 직원 데이터를 대표 broker_id로 이전
+    await Promise.all([
+      supabase.from('broker_customers').update({ broker_id: broker.id }).eq('broker_id', empId),
+      supabase.from('broker_properties').update({ broker_id: broker.id }).eq('broker_id', empId),
+      supabase.from('broker_consultations').update({ broker_id: broker.id }).eq('broker_id', empId),
+    ])
+
+    // 직원 프로필 사무소 연결 해제
     await supabase.from('broker_profiles').update({ parent_broker_id: null, is_approved: false }).eq('id', empId)
     setApproved(prev => prev.filter(e => e.id !== empId))
   }
