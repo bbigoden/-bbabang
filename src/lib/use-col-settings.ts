@@ -9,6 +9,7 @@ export interface ColSettings {
   widths: Record<string, number>
   customCols: Array<{ id: string; name: string; type?: 'text' | 'select' }>
   options: Record<string, string[]>
+  colTypes: Record<string, 'text' | 'select'>
 }
 
 type Page = 'properties' | 'customers' | 'diary'
@@ -40,6 +41,7 @@ export function useColSettings(
           widths:     { ...prev.widths, ...(saved.widths ?? {}) },
           customCols: saved.customCols ?? prev.customCols,
           options:    { ...prev.options, ...(saved.options ?? {}) },
+          colTypes:   { ...prev.colTypes, ...(saved.colTypes ?? {}) },
         }))
       }
       setLoaded(true)

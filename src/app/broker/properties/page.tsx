@@ -97,7 +97,8 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
     direction: 68, images: 56, brief_memo: 140, memo: 140,
   },
   customCols: [],
-  options:    {},
+  options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS] },
+  colTypes:   {},
 }
 
 // 팝오버를 닫기 위한 훅
@@ -394,6 +395,67 @@ function LongTextCell({ value, onSave, placeholder = '—' }: {
       </div>
       {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
     </>
+  )
+}
+
+// ── 날짜 셀 ──────────────────────────────────────────
+function DateCell({ value, onSave }: { value: string | null; onSave: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const [viewYear, setViewYear] = useState(() => { const d = value ? new Date(value) : new Date(); return isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear() })
+  const [viewMonth, setViewMonth] = useState(() => { const d = value ? new Date(value) : new Date(); return isNaN(d.getTime()) ? new Date().getMonth() : d.getMonth() })
+  const btnRef = useRef<HTMLDivElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (!btnRef.current?.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) { commit(); setOpen(false) } }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open, draft])
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
+  const handleOpen = () => {
+    if (open) return
+    setDraft(value ?? '')
+    const d = value ? new Date(value) : new Date(); const base = isNaN(d.getTime()) ? new Date() : d
+    setViewYear(base.getFullYear()); setViewMonth(base.getMonth())
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPopStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 4 + 260 > window.innerHeight ? r.top - 264 : r.bottom + 4, left: r.left + 240 > window.innerWidth ? window.innerWidth - 248 : r.left })
+    }
+    setOpen(true)
+  }
+  const commit = () => { if (draft && draft !== (value ?? '')) onSave(draft); setOpen(false) }
+  const selectDate = (y: number, m: number, d: number) => { const str = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; setDraft(str); onSave(str); setOpen(false) }
+  const prevMonth = () => { if (viewMonth === 0) { setViewYear(y => y-1); setViewMonth(11) } else setViewMonth(m => m-1) }
+  const nextMonth = () => { if (viewMonth === 11) { setViewYear(y => y+1); setViewMonth(0) } else setViewMonth(m => m+1) }
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay()
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate()
+  const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i+1)]
+  while (cells.length % 7 !== 0) cells.push(null)
+  const today = new Date(); const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
+  const selectedStr = value ?? ''
+  return (
+    <div className="relative w-full">
+      <div ref={btnRef} onClick={handleOpen} className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis" style={{ color: value ? '#374151' : '#d1d5db' }}>{value || '날짜'}</div>
+      {open && (
+        <div ref={popupRef} className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={{ ...popStyle, width: 240 }}>
+          <div className="p-2 border-b border-gray-100">
+            <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }} placeholder="2026-05-13" className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+          </div>
+          <div className="flex items-center justify-between px-3 py-2">
+            <button onClick={prevMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 text-gray-500 text-xs font-bold">‹</button>
+            <span className="text-xs font-semibold text-gray-700">{viewYear}년 {viewMonth+1}월</span>
+            <button onClick={nextMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 text-gray-500 text-xs font-bold">›</button>
+          </div>
+          <div className="grid grid-cols-7 px-2 pb-1">{['일','월','화','수','목','금','토'].map((d,i) => <div key={d} className={`text-center text-[10px] font-medium pb-1 ${i===0?'text-red-400':i===6?'text-blue-400':'text-gray-400'}`}>{d}</div>)}</div>
+          <div className="grid grid-cols-7 px-2 pb-2 gap-y-0.5">
+            {cells.map((day, i) => { if (!day) return <div key={i} />; const str = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`; const isSelected = str===selectedStr; const isToday = str===todayStr; const col = i%7; return (<button key={i} onClick={() => selectDate(viewYear, viewMonth, day)} className={`flex h-7 w-7 mx-auto items-center justify-center rounded-full text-xs transition-colors ${isSelected?'bg-blue-600 text-white font-bold':isToday?'border border-blue-400 text-blue-600 font-semibold hover:bg-blue-50':col===0?'text-red-400 hover:bg-red-50':col===6?'text-blue-400 hover:bg-blue-50':'text-gray-700 hover:bg-gray-100'}`}>{day}</button>) })}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1094,6 +1156,11 @@ function BrokerPropertiesContent() {
   // 칼럼 옵션 저장
   const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
 
+  // 고정 칼럼 타입 변경
+  const changeFixedColType = (key: string, type: 'text' | 'select') => {
+    update(prev => ({ ...prev, colTypes: { ...prev.colTypes, [key]: type } }))
+  }
+
   // 커스텀 칼럼 타입 변경
   const changeCustomColumnType = async (id: string, type: 'text' | 'select') => {
     if (!broker) return
@@ -1447,7 +1514,21 @@ function BrokerPropertiesContent() {
                         onDragEnd={onColDragEnd}
                       >
                         <div className="pr-2 flex items-center gap-1">
-                          <PropColHeader label={fixedCol.label} onHide={() => hideCol(key)} />
+                          {(() => {
+                            const TOGGLE_COLS: Record<string, 'text' | 'select'> = { room_type: 'select', deal_type: 'select', direction: 'text', brief_memo: 'text', memo: 'text' }
+                            const defaultType = TOGGLE_COLS[key]
+                            const effectiveType = settings.colTypes[key] ?? defaultType
+                            return (
+                              <PropColHeader label={fixedCol.label}
+                                colType={defaultType !== undefined ? effectiveType : undefined}
+                                onChangeType={defaultType !== undefined ? type => changeFixedColType(key, type) : undefined}
+                                hasOptions={effectiveType === 'select'}
+                                options={settings.options[key] ?? []}
+                                onSetOptions={opts => setOpts(key, opts)}
+                                onHide={() => hideCol(key)}
+                              />
+                            )
+                          })()}
                           {(key === 'memo' || key === 'address') && (
                             <TooltipIcon text={key === 'memo' ? '매물제안시 나에게만 보이는 메모입니다' : '고객제안시 읍면동리까지만 표현됩니다'} />
                           )}
@@ -1547,18 +1628,18 @@ function BrokerPropertiesContent() {
                           {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
-                          {key === 'room_type'       && <SelectCell value={p.room_type} options={ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />}
-                          {key === 'deal_type'       && <SelectCell value={p.deal_type} options={DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />}
+                          {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />)}
+                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />)}
                           {key === 'total_floors'    && <TextCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v || null)} placeholder="예: 3/15" />}
-                          {key === 'move_in_date'    && <TextCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} placeholder="예: 26/05/03" />}
+                          {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
-                          {key === 'approval_date'   && <TextCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} placeholder="예: 26/05/03" />}
+                          {key === 'approval_date'   && <DateCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} />}
                           {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 1대" />}
                           {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
-                          {key === 'direction'       && <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />}
+                          {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-                          {key === 'brief_memo'      && <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />}
-                          {key === 'memo'            && <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />}
+                          {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
+                          {key === 'memo'            && (settings.colTypes['memo'] === 'select' ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} /> : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />)}
                         </td>
                       )
                     }

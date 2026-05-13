@@ -32,6 +32,7 @@ const DEFAULT_COL_SETTINGS: ColSettings = {
   widths:     DEFAULT_WIDTHS,
   customCols: [],
   options:    Object.fromEntries(CUST_COLS.filter(c => c.hasOptions).map(c => [c.key, c.defaultOpts!])),
+  colTypes:   {},
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -770,6 +771,9 @@ export default function BrokerCustomersPage() {
       options: type === 'select' && !prev.options[id] ? { ...prev.options, [id]: [] } : prev.options,
     }))
   }
+  const changeFixedColType = (key: string, type: 'text' | 'select') => {
+    update(prev => ({ ...prev, colTypes: { ...prev.colTypes, [key]: type } }))
+  }
   const deleteCustomCol = (id: string) => {
     update(prev => ({
       ...prev,
@@ -849,9 +853,15 @@ export default function BrokerCustomersPage() {
       case 'received_date': return <DateCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} />
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" />
       case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" />
-      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} />
-      case 'source':        return <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} />
-      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} />
+      case 'category':      return (settings.colTypes['category'] === 'text')
+        ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" />
+        : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} />
+      case 'source':        return (settings.colTypes['source'] === 'text')
+        ? <TextCell value={c.source} onSave={v => saveField(c.id, 'source', v || null)} placeholder="유입" />
+        : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} />
+      case 'status':        return (settings.colTypes['status'] === 'text')
+        ? <TextCell value={c.status} onSave={v => saveField(c.id, 'status', v)} placeholder="진행상황" />
+        : <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} />
       default: return null
     }
   }
@@ -972,9 +982,11 @@ export default function BrokerCustomersPage() {
                             <ColumnHeader
                               label={col.def.label}
                               isFixed={col.def.fixed}
-                              hasOptions={col.def.hasOptions}
+                              hasOptions={col.def.hasOptions && settings.colTypes[col.def.key] !== 'text'}
                               options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []}
                               onSetOptions={opts => setOpts(col.def.key, opts)}
+                              colType={col.def.hasOptions ? (settings.colTypes[col.def.key] ?? 'select') : undefined}
+                              onChangeType={col.def.hasOptions ? type => changeFixedColType(col.def.key, type) : undefined}
                               onHide={() => hideCol(col.def.key)}
                             />
                           )}

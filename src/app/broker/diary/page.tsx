@@ -35,6 +35,7 @@ const DEFAULT_COL_SETTINGS: ColSettings = {
   widths:     DEFAULT_WIDTHS,
   customCols: [],
   options:    Object.fromEntries(DIARY_COLS.filter(c => c.hasOptions).map(c => [c.key, c.defaultOpts!])),
+  colTypes:   {},
 }
 
 const SOURCE_COLORS: Record<string, string> = {
