@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Users, TrendingUp, CheckCircle, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock } from 'lucide-react'
+import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
@@ -21,7 +21,6 @@ const CUST_COLS: ColDef[] = [
   { key: 'assignee',       label: '담당자',   minWidth: 90 },
   { key: 'category',       label: '구분',     minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
   { key: 'source',         label: '유입',     minWidth: 90, hasOptions: true, defaultOpts: ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타'] },
-  { key: 'status',         label: '진행상황', minWidth: 100, hasOptions: true, defaultOpts: ['잠재', '진행중', '종료', '계약완료'] },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -837,10 +836,23 @@ export default function BrokerCustomersPage() {
     return true
   })
   const thisMonth = new Date().toISOString().slice(0, 7)
-  const statsBase = assigneeFilter !== '전체' ? customers.filter(c => c.assignee === assigneeFilter) : customers
-  const newThisMonth = statsBase.filter(c => c.received_date?.startsWith(thisMonth)).length
-  const inProgress = statsBase.filter(c => c.status === '진행중').length
-  const contracted = statsBase.filter(c => c.status === '계약완료').length
+  const newThisMonth = customers.filter(c => c.received_date?.startsWith(thisMonth)).length
+
+  const assigneeDist = (() => {
+    const map: Record<string, number> = {}
+    customers.forEach(c => { if (c.assignee) map[c.assignee] = (map[c.assignee] ?? 0) + 1 })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 4)
+  })()
+  const categoryDist = (() => {
+    const map: Record<string, number> = {}
+    customers.forEach(c => { if (c.category) map[c.category] = (map[c.category] ?? 0) + 1 })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 4)
+  })()
+  const sourceDist = (() => {
+    const map: Record<string, number> = {}
+    customers.forEach(c => { if (c.source) map[c.source] = (map[c.source] ?? 0) + 1 })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 4)
+  })()
 
   // 활성 칼럼 (fixed 개념 제거 — 모두 숨기기 가능)
   const fixedCols: ColDef[] = []
@@ -931,22 +943,84 @@ export default function BrokerCustomersPage() {
         </div>
 
         {/* 통계 */}
-        <div className="mb-5 grid grid-cols-3 gap-3">
-          {[
-            { icon: Users, label: '이번달 신규', value: newThisMonth, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { icon: TrendingUp, label: '진행중', value: inProgress, color: 'text-orange-600', bg: 'bg-orange-50' },
-            { icon: CheckCircle, label: '계약완료', value: contracted, color: 'text-green-600', bg: 'bg-green-50' },
-          ].map(s => (
-            <div key={s.label} className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${s.bg}`}>
-                  <s.icon className={`h-3.5 w-3.5 ${s.color}`} />
-                </div>
-                <span className="text-xs text-gray-500">{s.label}</span>
+        <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* 신규 */}
+          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
+                <Users className="h-3.5 w-3.5 text-blue-600" />
               </div>
-              <div className={`text-2xl font-black ${s.color}`}>{s.value}<span className="text-sm font-normal text-gray-400 ml-1">명</span></div>
+              <span className="text-xs text-gray-500">신규</span>
             </div>
-          ))}
+            <div className="text-2xl font-black text-blue-600">{newThisMonth}<span className="text-sm font-normal text-gray-400 ml-1">명</span></div>
+            <div className="text-[10px] text-gray-300 mt-0.5">이번달 신규 고객</div>
+          </div>
+
+          {/* 담당자 */}
+          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
+            <div className="text-xs font-semibold text-gray-500 mb-3">담당자</div>
+            {assigneeDist.length === 0 ? (
+              <div className="text-xs text-gray-300 text-center py-3">데이터 없음</div>
+            ) : (
+              <div className="space-y-2">
+                {assigneeDist.map(([label, count]) => (
+                  <div key={label}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{label}</span>
+                      <span className="text-[11px] font-bold text-gray-700">{count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-400 transition-all" style={{ width: `${Math.round(count / (assigneeDist[0][1] || 1) * 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 구분 */}
+          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
+            <div className="text-xs font-semibold text-gray-500 mb-3">구분</div>
+            {categoryDist.length === 0 ? (
+              <div className="text-xs text-gray-300 text-center py-3">데이터 없음</div>
+            ) : (
+              <div className="space-y-2">
+                {categoryDist.map(([label, count]) => (
+                  <div key={label}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{label}</span>
+                      <span className="text-[11px] font-bold text-gray-700">{count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-violet-400 transition-all" style={{ width: `${Math.round(count / (categoryDist[0][1] || 1) * 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 유입 */}
+          <div className="rounded-2xl bg-white border border-gray-100 px-4 py-4 shadow-sm">
+            <div className="text-xs font-semibold text-gray-500 mb-3">유입</div>
+            {sourceDist.length === 0 ? (
+              <div className="text-xs text-gray-300 text-center py-3">데이터 없음</div>
+            ) : (
+              <div className="space-y-2">
+                {sourceDist.map(([label, count]) => (
+                  <div key={label}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-[11px] text-gray-600 truncate max-w-[90px]">{label}</span>
+                      <span className="text-[11px] font-bold text-gray-700">{count}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${Math.round(count / (sourceDist[0][1] || 1) * 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 필터 */}
