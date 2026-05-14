@@ -597,7 +597,6 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
   const all = [
     ...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })),
     ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false })),
-    ...customCols.map(c => ({ key: c.id, label: c.name, fixed: false })),
   ]
   const rows = search ? all.filter(c => c.label.includes(search)) : all
   const hideAll = () => all.filter(c => !c.fixed && visible.includes(c.key)).forEach(c => onToggle(c.key))

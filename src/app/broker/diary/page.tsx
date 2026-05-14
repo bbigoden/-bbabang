@@ -286,7 +286,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
     if (!open && btnRef.current) { const r = btnRef.current.getBoundingClientRect(); setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 260), zIndex: 9999, width: 260 }) }
     setOpen(v => !v)
   }
-  const all = [...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })), ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false })), ...customCols.map(c => ({ key: c.id, label: c.name, fixed: false }))]
+  const all = [...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })), ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false }))]
   const rows = search ? all.filter(c => c.label.includes(search)) : all
   return (
     <div ref={containerRef} className="relative">
