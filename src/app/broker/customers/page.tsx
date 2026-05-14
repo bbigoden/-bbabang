@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock } from 'lucide-react'
+import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 
@@ -633,6 +633,14 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
   )
 }
 
+// ── mapCategory ───────────────────────────────────────
+function mapCategory(roomType: string, opts: string[]): string {
+  if (!roomType) return opts[0] ?? '비주거'
+  const residential = ['아파트', '빌라', '원룸', '투룸', '쓰리룸', '주택', '연립', '다세대', '오피스텔', '다가구']
+  if (residential.some(r => roomType.includes(r))) return opts.includes('주거용') ? '주거용' : opts[0]
+  return opts.includes('비주거') ? '비주거' : opts[0]
+}
+
 // ── DonutChart ─────────────────────────────────────────
 function DonutChart({ data, colors, total }: { data: [string, number][]; colors: string[]; total: number }) {
   const r = 15.9155
@@ -675,6 +683,13 @@ export default function BrokerCustomersPage() {
   const [assigneeFilter, setAssigneeFilter] = useState('전체')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
+
+  // 불러오기 모달
+  const [showImport, setShowImport] = useState(false)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importItems, setImportItems] = useState<any[]>([])
+  const [importSelected, setImportSelected] = useState<Set<string>>(new Set())
+  const [importing, setImporting] = useState(false)
 
   // 칼럼 드래그
   const [dragCol, setDragCol] = useState<string | null>(null)
@@ -765,6 +780,53 @@ export default function BrokerCustomersPage() {
     if (error || !data) return
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
+  }
+
+  const openImport = async () => {
+    setShowImport(true)
+    setImportSelected(new Set())
+    setImportLoading(true)
+    const { data } = await supabase
+      .from('chat_rooms')
+      .select(`id, created_at, request_posts(deal_type, room_type, city, district, description), profiles!chat_rooms_user_id_fkey(name)`)
+      .eq('broker_id', user?.id)
+      .order('created_at', { ascending: false })
+    setImportItems(data ?? [])
+    setImportLoading(false)
+  }
+
+  const toggleImportSelect = (id: string) => {
+    setImportSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const doImport = async () => {
+    if (!broker || importSelected.size === 0) return
+    setImporting(true)
+    const categoryOpts = settings.options.category ?? ['비주거', '주거용']
+    const rows = importItems.filter(item => importSelected.has(item.id))
+    const inserts = rows.map(item => {
+      const rp = item.request_posts as any
+      const parts = [rp?.deal_type, rp?.room_type, rp?.district, rp?.description].filter(Boolean)
+      return {
+        broker_id: broker.id,
+        received_date: new Date(item.created_at).toISOString().split('T')[0],
+        request: parts.join(' · ') || null,
+        assignee: profile?.name ?? null,
+        category: mapCategory(rp?.room_type ?? '', categoryOpts),
+        source: '빠방',
+        status: settings.options.status?.[0] ?? '잠재',
+      }
+    })
+    const { data, error } = await supabase.from('broker_customers').insert(inserts).select()
+    if (!error && data) {
+      setCustomers(prev => [...data, ...prev])
+      setShowImport(false)
+    }
+    setImporting(false)
   }
 
   const deleteRow = async (id: string) => {
@@ -1212,10 +1274,16 @@ export default function BrokerCustomersPage() {
                 {canEdit && (
                   <tr>
                     <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
-                      <button onClick={addRow}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
-                        <Plus className="h-3.5 w-3.5" />고객 등록
-                      </button>
+                      <div className="flex items-center divide-x divide-gray-100">
+                        <button onClick={addRow}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                          <Plus className="h-3.5 w-3.5" />고객 등록
+                        </button>
+                        <button onClick={openImport}
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                          <Download className="h-3.5 w-3.5" />불러오기
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -1224,6 +1292,76 @@ export default function BrokerCustomersPage() {
           </div>
         </div>
       </div>
+
+      {/* 불러오기 모달 */}
+      {showImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl mx-4 flex flex-col" style={{ maxHeight: '80vh' }}>
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">빠방 대화 불러오기</h3>
+                <p className="text-xs text-gray-400 mt-0.5">선택한 고객을 고객목록에 추가해요</p>
+              </div>
+              <button onClick={() => setShowImport(false)} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* 목록 */}
+            <div className="flex-1 overflow-y-auto">
+              {importLoading ? (
+                <div className="flex items-center justify-center py-16 text-sm text-gray-400">불러오는 중...</div>
+              ) : importItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-2">
+                  <div className="text-3xl">💬</div>
+                  <p className="text-sm text-gray-400">빠방에서 대화한 고객이 없어요</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {importItems.map(item => {
+                    const rp = item.request_posts as any
+                    const userName = (item.profiles as any)?.name ?? '이름 없음'
+                    const summary = [rp?.deal_type, rp?.room_type, rp?.district].filter(Boolean).join(' · ')
+                    const desc = rp?.description
+                    const date = new Date(item.created_at).toLocaleDateString('ko-KR', { year: '2-digit', month: 'numeric', day: 'numeric' })
+                    const selected = importSelected.has(item.id)
+                    return (
+                      <div key={item.id} onClick={() => toggleImportSelect(item.id)}
+                        className={cn('flex items-start gap-3 px-5 py-3.5 cursor-pointer transition-colors', selected ? 'bg-blue-50' : 'hover:bg-gray-50')}>
+                        <div className={cn('mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 transition-colors',
+                          selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300')}>
+                          {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-900">{userName}</span>
+                            <span className="text-xs text-gray-400">{date}</span>
+                          </div>
+                          <div className="text-xs text-gray-600 mt-0.5">{summary || '요청사항 없음'}</div>
+                          {desc && <div className="text-xs text-gray-400 mt-0.5 truncate">{desc}</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 푸터 */}
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-100">
+              <span className="text-xs text-gray-400">{importSelected.size > 0 ? `${importSelected.size}명 선택됨` : '고객을 선택해주세요'}</span>
+              <div className="flex gap-2">
+                <button onClick={() => setShowImport(false)} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+                <button onClick={doImport} disabled={importSelected.size === 0 || importing}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition-colors">
+                  {importing ? '추가 중...' : '고객 추가'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 삭제 확인 */}
       {deleteConfirm && (
