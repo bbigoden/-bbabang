@@ -1,0 +1,18 @@
+-- 매물 자동 채움 기능에 필요한 컬럼 안전망
+-- 이미 존재하면 무시됨.
+
+ALTER TABLE broker_properties
+  ADD COLUMN IF NOT EXISTS approval_date DATE,
+  ADD COLUMN IF NOT EXISTS parking TEXT,
+  ADD COLUMN IF NOT EXISTS area_supplied DECIMAL(7,2),
+  ADD COLUMN IF NOT EXISTS area_unit TEXT,
+  ADD COLUMN IF NOT EXISTS area_type TEXT,
+  ADD COLUMN IF NOT EXISTS management_fee INTEGER,
+  ADD COLUMN IF NOT EXISTS premium INTEGER,
+  ADD COLUMN IF NOT EXISTS images TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS assignee TEXT,
+  ADD COLUMN IF NOT EXISTS brief_memo TEXT,
+  ADD COLUMN IF NOT EXISTS memo TEXT,
+  ADD COLUMN IF NOT EXISTS rooms_bathrooms TEXT,
+  ADD COLUMN IF NOT EXISTS direction TEXT,
+  ADD COLUMN IF NOT EXISTS move_in_date DATE;

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown, Wand2,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -171,8 +171,12 @@ function TextCell({ value, onSave, placeholder = '—', className = '' }: {
 }
 
 // ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
-function AddressCell({ value, onSave, placeholder = '소재지 입력' }: {
-  value: string | null, onSave: (v: string) => void, placeholder?: string
+function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placeholder = '소재지 입력' }: {
+  value: string | null
+  onSave: (v: string) => void
+  onAutoFill?: () => void
+  autoFilling?: boolean
+  placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -220,6 +224,25 @@ function AddressCell({ value, onSave, placeholder = '소재지 입력' }: {
         >
           <Search className="h-3 w-3" />
         </button>
+        {onAutoFill && (
+          <button type="button"
+            onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
+            onClick={onAutoFill}
+            disabled={autoFilling || !value}
+            className={cn(
+              'shrink-0 flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-bold shadow-sm border disabled:cursor-not-allowed',
+              value
+                ? 'border-indigo-500 bg-indigo-500 text-white hover:bg-indigo-600'
+                : 'border-gray-300 bg-gray-100 text-gray-400'
+            )}
+            title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
+          >
+            {autoFilling
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : <Wand2 className="h-3 w-3" strokeWidth={2.5} />}
+            자동
+          </button>
+        )}
       </div>
     )
   }
@@ -242,6 +265,22 @@ function AddressCell({ value, onSave, placeholder = '소재지 입력' }: {
         >
           <Search className="h-3 w-3" />
         </button>
+        {onAutoFill && (
+          <button type="button" onClick={onAutoFill} disabled={autoFilling || !value}
+            className={cn(
+              'shrink-0 flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-bold shadow-sm disabled:cursor-not-allowed',
+              value
+                ? 'border-indigo-500 bg-indigo-500 text-white hover:bg-indigo-600'
+                : 'border-gray-300 bg-gray-100 text-gray-400'
+            )}
+            title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
+          >
+            {autoFilling
+              ? <Loader2 className="h-3 w-3 animate-spin" />
+              : <Wand2 className="h-3 w-3" strokeWidth={2.5} />}
+            자동
+          </button>
+        )}
       </div>
       {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
     </>
@@ -1077,6 +1116,8 @@ function BrokerPropertiesContent() {
   const overlaysRef = useRef<any[]>([])
   const infoOverlaysRef = useRef<any[]>([])
   const [addingId, setAddingId] = useState<string | null>(null)
+  const [autoFillingId, setAutoFillingId] = useState<string | null>(null)
+  const [autoFillToast, setAutoFillToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'property' | 'column'; id: string; label?: string } | null>(null)
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [settingsBrokerId, setSettingsBrokerId] = useState<string | null>(null)
@@ -1244,6 +1285,119 @@ function BrokerPropertiesContent() {
     await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
     setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
   }, [])
+
+  // 행 자동 채움: 주소 → 카카오 지오코딩 → 세움터 API → 같은 행 다중 필드 일괄 업데이트
+  const autoFillRow = useCallback(async (id: string, addr: string) => {
+    if (!addr?.trim()) {
+      setAutoFillToast({ type: 'error', text: '소재지를 먼저 입력해주세요' })
+      setTimeout(() => setAutoFillToast(null), 2500)
+      return
+    }
+    const kakao = (window as any).kakao
+    if (!kakao?.maps?.services) {
+      setAutoFillToast({ type: 'error', text: '지도 SDK 로드 중... 잠시 후 다시 시도해주세요' })
+      setTimeout(() => setAutoFillToast(null), 2500)
+      return
+    }
+    setAutoFillingId(id)
+    try {
+      const hoMatch = addr.match(/(\d+)\s*호/)
+      const ho = hoMatch ? hoMatch[1] : ''
+      let searchAddr = addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').trim()
+      if (hoMatch) searchAddr = searchAddr.slice(0, hoMatch.index).trim()
+      searchAddr = searchAddr.replace(/\s+/g, ' ')
+
+      const geo: { b_code: string; bun: string; ji: string; road: string; jibun: string } =
+        await new Promise((resolve, reject) => {
+          const geocoder = new kakao.maps.services.Geocoder()
+          const candidates = [searchAddr]
+          const stripped = searchAddr.replace(/\s+\d+(-\d+)?$/, '').trim()
+          if (stripped && stripped !== searchAddr) candidates.push(stripped)
+          let idx = 0
+          const tryNext = () => {
+            if (idx >= candidates.length) return reject(new Error('주소를 찾을 수 없습니다'))
+            const q = candidates[idx++]
+            geocoder.addressSearch(q, (result: any[], status: string) => {
+              if (status === kakao.maps.services.Status.OK && result.length > 0) {
+                const r = result[0]
+                resolve({
+                  b_code: r.address?.b_code ?? '',
+                  bun: r.address?.main_address_no ?? '',
+                  ji: r.address?.sub_address_no || '0',
+                  road: r.road_address?.address_name ?? '',
+                  jibun: r.address?.address_name ?? '',
+                })
+              } else {
+                tryNext()
+              }
+            })
+          }
+          tryNext()
+        })
+
+      if (!geo.b_code || geo.b_code.length !== 10) {
+        throw new Error('법정동 코드 변환 실패')
+      }
+
+      const res = await fetch('/api/properties/auto-fill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sigunguCd: geo.b_code.slice(0, 5),
+          bjdongCd: geo.b_code.slice(5),
+          bun: geo.bun,
+          ji: geo.ji,
+          ho,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? '세움터 조회 실패')
+
+      const normalizedAddr = geo.road
+        ? (ho ? `${geo.road} ${ho}호` : geo.road)
+        : (geo.jibun ? (ho ? `${geo.jibun} ${ho}호` : geo.jibun) : addr)
+
+      const updates: Record<string, any> = {}
+      if (normalizedAddr && normalizedAddr !== addr) updates.address = normalizedAddr
+      if (data.size_pyeong != null) {
+        updates.size_pyeong = String(data.size_pyeong)
+        updates.area_unit = '평'
+        updates.area_type = '전용'
+      }
+      if (data.total_floors != null) {
+        updates.total_floors = data.floor != null
+          ? `${data.floor}/${data.total_floors}`
+          : String(data.total_floors)
+      }
+      if (data.approval_date) updates.approval_date = data.approval_date
+      if (data.parking) updates.parking = data.parking
+      if (data.room_type) updates.room_type = data.room_type
+
+      const keys = Object.keys(updates)
+      if (keys.length > 0) {
+        await supabase.from('broker_properties').update(updates).eq('id', id)
+        setProperties(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p))
+      }
+
+      const labels: Record<string, string> = {
+        address: '주소', size_pyeong: '면적', total_floors: '층',
+        approval_date: '승인일', parking: '주차', room_type: '유형',
+      }
+      const filledNames = Object.keys(updates)
+        .map(k => labels[k]).filter(Boolean) as string[]
+      setAutoFillToast({
+        type: 'success',
+        text: filledNames.length > 0
+          ? `자동채움: ${filledNames.join(' · ')}${data.building_name ? ` (${data.building_name})` : ''}`
+          : '건축물대장 조회됨 (변경 없음)',
+      })
+    } catch (e: any) {
+      setAutoFillToast({ type: 'error', text: e?.message ?? '자동채움 실패' })
+    } finally {
+      setAutoFillingId(null)
+      setTimeout(() => setAutoFillToast(null), 3500)
+    }
+  }, [supabase])
 
   // 커스텀 필드 값 저장
   const saveCustomField = useCallback(async (propertyId: string, colId: string, value: string) => {
@@ -1760,7 +1914,7 @@ function BrokerPropertiesContent() {
                       }
                       return (
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                          {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
+                          {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={() => autoFillRow(p.id, p.address || '')} autoFilling={autoFillingId === p.id} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />)}
@@ -1867,6 +2021,21 @@ function BrokerPropertiesContent() {
           </div>
         </div>
       </div>
+
+      {/* 자동채움 토스트 */}
+      {autoFillToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+          <div className={cn(
+            'rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg flex items-center gap-2',
+            autoFillToast.type === 'success'
+              ? 'bg-green-600 text-white'
+              : 'bg-red-600 text-white'
+          )}>
+            {autoFillToast.type === 'success' ? <Wand2 className="h-4 w-4" /> : <X className="h-4 w-4" />}
+            {autoFillToast.text}
+          </div>
+        </div>
+      )}
 
       {/* 삭제 확인 모달 */}
       {deleteConfirm && (
