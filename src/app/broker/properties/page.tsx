@@ -229,18 +229,12 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
             onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
             onClick={onAutoFill}
             disabled={autoFilling || !value}
-            className={cn(
-              'shrink-0 flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-bold shadow-sm border disabled:cursor-not-allowed',
-              value
-                ? 'border-indigo-500 bg-indigo-500 text-white hover:bg-indigo-600'
-                : 'border-gray-300 bg-gray-100 text-gray-400'
-            )}
+            className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
             title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
           >
             {autoFilling
-              ? <Loader2 className="h-3 w-3 animate-spin" />
-              : <Wand2 className="h-3 w-3" strokeWidth={2.5} />}
-            자동
+              ? <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
+              : <Wand2 className="h-3 w-3" />}
           </button>
         )}
       </div>
@@ -268,17 +262,14 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
         {onAutoFill && (
           <button type="button" onClick={onAutoFill} disabled={autoFilling || !value}
             className={cn(
-              'shrink-0 flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-bold shadow-sm disabled:cursor-not-allowed',
-              value
-                ? 'border-indigo-500 bg-indigo-500 text-white hover:bg-indigo-600'
-                : 'border-gray-300 bg-gray-100 text-gray-400'
+              'shrink-0 rounded p-0.5 transition-opacity hover:text-indigo-500 group-hover:opacity-100 disabled:cursor-not-allowed disabled:hover:text-gray-300',
+              autoFilling ? 'opacity-100 text-indigo-500' : 'opacity-0 text-gray-300'
             )}
             title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
           >
             {autoFilling
               ? <Loader2 className="h-3 w-3 animate-spin" />
-              : <Wand2 className="h-3 w-3" strokeWidth={2.5} />}
-            자동
+              : <Wand2 className="h-3 w-3" />}
           </button>
         )}
       </div>
@@ -1293,14 +1284,19 @@ function BrokerPropertiesContent() {
       setTimeout(() => setAutoFillToast(null), 2500)
       return
     }
-    const kakao = (window as any).kakao
-    if (!kakao?.maps?.services) {
-      setAutoFillToast({ type: 'error', text: '지도 SDK 로드 중... 잠시 후 다시 시도해주세요' })
-      setTimeout(() => setAutoFillToast(null), 2500)
-      return
-    }
     setAutoFillingId(id)
     try {
+      // 카카오 SDK 로드 대기 (최대 10초)
+      const kakao: any = await new Promise((resolve, reject) => {
+        const start = Date.now()
+        const check = () => {
+          const w = window as any
+          if (w.kakao?.maps?.services) return resolve(w.kakao)
+          if (Date.now() - start >= 10000) return reject(new Error('지도 SDK 로드 실패. 새로고침 후 다시 시도해주세요'))
+          setTimeout(check, 200)
+        }
+        check()
+      })
       const hoMatch = addr.match(/(\d+)\s*호/)
       const ho = hoMatch ? hoMatch[1] : ''
       let searchAddr = addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').trim()
