@@ -1055,26 +1055,30 @@ function BrokerPropertiesContent() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const w = window as any
-    // 이미 로드된 경우
-    if (w.kakao?.maps?.services) { setMapReady(true); return }
-    // 이미 스크립트 태그가 있는 경우 (로드 완료 대기)
+
+    const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
+    if (!kakaoKey) { console.error('[KakaoMap] NEXT_PUBLIC_KAKAO_MAP_KEY 없음'); return }
+
+    const onReady = () => {
+      w.kakao.maps.load(() => setMapReady(true))
+    }
+
+    // 이미 SDK 로드됨
+    if (w.kakao?.maps) { onReady(); return }
+
+    // 스크립트 태그 이미 있음 → 로드 완료 대기
     if (document.querySelector('script[data-kakao-map]')) {
       const poll = setInterval(() => {
-        if ((window as any).kakao?.maps?.services) {
-          clearInterval(poll)
-          setMapReady(true)
-        }
+        if ((window as any).kakao?.maps) { clearInterval(poll); onReady() }
       }, 200)
       return () => clearInterval(poll)
     }
+
     const script = document.createElement('script')
     script.setAttribute('data-kakao-map', 'true')
-    // autoload=false 제거 → onload 시점에 kakao.maps 즉시 사용 가능
-    const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
-    if (!kakaoKey) { console.error('[KakaoMap] NEXT_PUBLIC_KAKAO_MAP_KEY 환경변수가 없습니다'); return }
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services`
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`
     script.async = true
-    script.onload = () => setMapReady(true)
+    script.onload = onReady
     script.onerror = () => console.error('[KakaoMap] SDK 로드 실패')
     document.head.appendChild(script)
   }, [])
