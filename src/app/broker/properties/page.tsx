@@ -1070,7 +1070,9 @@ function BrokerPropertiesContent() {
     const script = document.createElement('script')
     script.setAttribute('data-kakao-map', 'true')
     // autoload=false 제거 → onload 시점에 kakao.maps 즉시 사용 가능
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=700a493a80faeb786caaa05bea56e4ad&libraries=services`
+    const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
+    if (!kakaoKey) { console.error('[KakaoMap] NEXT_PUBLIC_KAKAO_MAP_KEY 환경변수가 없습니다'); return }
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services`
     script.async = true
     script.onload = () => setMapReady(true)
     script.onerror = () => console.error('[KakaoMap] SDK 로드 실패')
