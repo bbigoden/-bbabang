@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
-import { User, Mail, Calendar, Lock, Check, AlertCircle } from 'lucide-react'
+import { User, Mail, Calendar, Lock, Check, AlertCircle, Trash2 } from 'lucide-react'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -25,6 +25,11 @@ export default function ProfilePage() {
   const [pwConfirm, setPwConfirm] = useState('')
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // 회원탈퇴
+  const [showWithdraw, setShowWithdraw] = useState(false)
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawErr, setWithdrawErr] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -71,6 +76,27 @@ export default function ProfilePage() {
       setPwNew(''); setPwConfirm('')
       setTimeout(() => setPwMsg(null), 3000)
     }
+  }
+
+  const withdraw = async () => {
+    setWithdrawing(true)
+    setWithdrawErr(null)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session?.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    const json = await res.json()
+    if (!res.ok || json.error) {
+      setWithdrawErr(json.error ?? '탈퇴 중 오류가 발생했습니다.')
+      setWithdrawing(false)
+      return
+    }
+    await supabase.auth.signOut()
+    router.push('/')
   }
 
   const roleLabel = (role: string) => {
@@ -206,7 +232,58 @@ export default function ProfilePage() {
           </button>
         </div>
 
+        {/* 회원탈퇴 */}
+        <div className="rounded-2xl border border-red-100 bg-white shadow-sm p-6">
+          <h2 className="mb-1 font-bold text-gray-900 flex items-center gap-2">
+            <Trash2 className="h-4 w-4 text-red-400" /> 회원탈퇴
+          </h2>
+          <p className="mb-4 text-sm text-gray-400">탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.</p>
+          <button
+            onClick={() => { setShowWithdraw(true); setWithdrawErr(null) }}
+            className="rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+          >
+            탈퇴하기
+          </button>
+        </div>
+
       </div>
+
+      {/* 탈퇴 확인 모달 */}
+      {showWithdraw && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mx-auto">
+              <Trash2 className="h-6 w-6 text-red-500" />
+            </div>
+            <h3 className="text-center text-lg font-bold text-gray-900 mb-2">정말 탈퇴하시겠어요?</h3>
+            <p className="text-center text-sm text-gray-500 mb-5">
+              계정과 모든 데이터가 즉시 삭제되며<br />되돌릴 수 없습니다.
+            </p>
+            {withdrawErr && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                {withdrawErr}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowWithdraw(false)}
+                disabled={withdrawing}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={withdraw}
+                disabled={withdrawing}
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                {withdrawing ? '처리 중...' : '탈퇴 확인'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
