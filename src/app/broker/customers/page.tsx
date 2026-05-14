@@ -670,6 +670,7 @@ export default function BrokerCustomersPage() {
   const [profile, setProfile] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
+  const [teamMembers, setTeamMembers] = useState<string[]>([])
   const [canEdit, setCanEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -709,6 +710,20 @@ export default function BrokerCustomersPage() {
       const perms = b.permissions
       if (perms?.customers?.view === false) { setAccessDenied(true); setLoading(false); return }
       setCanEdit(perms ? perms.customers?.edit !== false : true)
+    }
+
+    // ── 팀원 이름 목록 구성 ────────────────────────────
+    const myName = prof?.name
+    if (owner) {
+      const { data: emps } = await supabase
+        .from('broker_profiles')
+        .select('profiles(name)')
+        .eq('parent_broker_id', b.id)
+        .eq('is_approved', true)
+      const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
+      setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
+    } else {
+      setTeamMembers(myName ? [myName] : [])
     }
 
     // ── 데이터 범위 결정 ───────────────────────────────
@@ -915,7 +930,9 @@ export default function BrokerCustomersPage() {
       case 'request':       return <TextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
       case 'received_date': return <DateCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} readOnly={ro} />
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
-      case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
+      case 'assignee':
+        if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
+        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveField(c.id, 'assignee', v || null)} />
       case 'category':      return (settings.colTypes['category'] === 'text')
         ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" readOnly={ro} />
         : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />

@@ -506,6 +506,7 @@ export default function BrokerDiaryPage() {
   const [broker, setBroker] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
+  const [teamMembers, setTeamMembers] = useState<string[]>([])
   const [viewingBrokerId, setViewingBrokerId] = useState<string | null>(null) // null = 자기 자신
   const [canEdit, setCanEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
@@ -568,8 +569,14 @@ export default function BrokerDiaryPage() {
         .eq('parent_broker_id', b.id)
         .eq('is_approved', true)
       if (emps) {
-        setEmployees(emps.map((e: any) => ({ id: e.id, name: (e.profiles as any)?.name ?? '직원' })))
+        const empList = emps.map((e: any) => ({ id: e.id, name: (e.profiles as any)?.name ?? '직원' }))
+        setEmployees(empList)
+        setTeamMembers([prof?.name, ...empList.map(e => e.name)].filter(Boolean) as string[])
+      } else {
+        setTeamMembers(prof?.name ? [prof.name] : [])
       }
+    } else {
+      setTeamMembers(prof?.name ? [prof.name] : [])
     }
 
     // 고객 피커용 전체 고객 로드
@@ -822,7 +829,9 @@ export default function BrokerDiaryPage() {
       case 'request':       return <LongTextCell value={c.request} onSave={v => saveCustomerField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
       case 'received_date': return <TextCell value={c.received_date} onSave={v => saveCustomerField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveCustomerField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
-      case 'assignee':      return <TextCell value={c.assignee} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} placeholder="담당자" readOnly={ro} />
+      case 'assignee':
+        if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
+        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} />
       case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
       case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
       case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
