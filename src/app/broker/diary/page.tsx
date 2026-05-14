@@ -799,8 +799,8 @@ export default function BrokerDiaryPage() {
   // 대표가 다른 직원 일지 보는 중이면 읽기 전용
   const effectiveCanEdit = canEdit && !viewingBrokerId
 
-  // 활성 칼럼 (fixed 개념 제거 — 모두 숨기기 가능)
-  const fixedCols: ColDef[] = []
+  // 활성 칼럼
+  const fixedCols: ColDef[] = [{ key: 'client_name', label: '고객명', fixed: true, minWidth: 100 }]
   const optionalCols = CUST_COLS
   type ActiveCol = { type: 'fixed'; def: ColDef } | { type: 'optional'; def: ColDef } | { type: 'custom'; id: string; name: string }
   const activeCols: ActiveCol[] = loaded
@@ -826,6 +826,7 @@ export default function BrokerDiaryPage() {
     }
     const def = col.def; const opts = settings.options[def.key] ?? def.defaultOpts ?? []; const colorMap = COL_COLORS[def.key]
     switch (def.key) {
+      case 'client_name':   return <TextCell value={c.client_name} onSave={v => saveCustomerField(c.id, 'client_name', v || null)} placeholder="고객명" readOnly={ro} />
       case 'request':       return <LongTextCell value={c.request} onSave={v => saveCustomerField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
       case 'received_date': return <TextCell value={c.received_date} onSave={v => saveCustomerField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveCustomerField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
@@ -904,6 +905,20 @@ export default function BrokerDiaryPage() {
                 <thead>
                   <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                     <th className="px-3 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
+                    {fixedCols.map(col => {
+                      const w = settings.widths[col.key] ?? col.minWidth ?? 100
+                      return (
+                        <th key={col.key}
+                          className="px-2 py-2.5 text-left relative border-r border-gray-100 bg-gray-50"
+                          style={{ width: w, maxWidth: w }}>
+                          <div className="pr-2">
+                            <ColumnHeader label={col.label} isFixed />
+                          </div>
+                          <div onMouseDown={e => startResize(col.key, e)}
+                            className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
+                        </th>
+                      )
+                    })}
                     {activeCols.map(col => {
                       const key = getColKey(col); const w = getColWidth(col)
                       return (
@@ -930,10 +945,16 @@ export default function BrokerDiaryPage() {
                 </thead>
                 <tbody>
                   {diaryCustomers.length === 0 ? (
-                    <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
+                    <tr><td colSpan={fixedCols.length + activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
                   ) : diaryCustomers.map((c, idx) => (
                     <tr key={c.link_id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                       <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{diaryCustomers.length - idx}</td>
+                      {fixedCols.map(col => (
+                        <td key={col.key} className="px-3 py-1.5 border-r border-gray-100"
+                          style={{ width: settings.widths[col.key] ?? col.minWidth ?? 100, maxWidth: settings.widths[col.key] ?? col.minWidth ?? 100 }}>
+                          {renderCell(c, { type: 'fixed', def: col })}
+                        </td>
+                      ))}
                       {activeCols.map(col => (
                         <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
                       ))}
@@ -944,7 +965,7 @@ export default function BrokerDiaryPage() {
                     </tr>
                   ))}
                   {effectiveCanEdit && (
-                    <tr><td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                    <tr><td colSpan={fixedCols.length + activeCols.length + 3} className="border-t border-gray-100">
                       <button onClick={() => setShowPicker(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
                         <Plus className="h-3.5 w-3.5" />고객 등록
                       </button>

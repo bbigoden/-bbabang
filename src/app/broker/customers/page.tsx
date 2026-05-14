@@ -892,8 +892,8 @@ export default function BrokerCustomersPage() {
     return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 4)
   })()
 
-  // 활성 칼럼 (fixed 개념 제거 — 모두 숨기기 가능)
-  const fixedCols: ColDef[] = []
+  // 활성 칼럼
+  const fixedCols: ColDef[] = [{ key: 'client_name', label: '고객명', fixed: true, minWidth: 100 }]
   const optionalCols = CUST_COLS
 
   type ActiveCol =
@@ -927,6 +927,7 @@ export default function BrokerCustomersPage() {
     const opts = settings.options[def.key] ?? def.defaultOpts ?? []
     const colorMap = COL_COLORS[def.key]
     switch (def.key) {
+      case 'client_name':   return <TextCell value={c.client_name} onSave={v => saveField(c.id, 'client_name', v || null)} placeholder="고객명" readOnly={ro} />
       case 'request':       return <TextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
       case 'received_date': return <DateCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} readOnly={ro} />
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
@@ -1126,6 +1127,20 @@ export default function BrokerCustomersPage() {
               <thead>
                 <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
                   <th className="px-3 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
+                  {fixedCols.map(col => {
+                    const w = settings.widths[col.key] ?? col.minWidth ?? 100
+                    return (
+                      <th key={col.key}
+                        className="px-2 py-2.5 text-left relative border-r border-gray-100 bg-gray-50"
+                        style={{ width: w, maxWidth: w }}>
+                        <div className="pr-2">
+                          <ColumnHeader label={col.label} isFixed />
+                        </div>
+                        <div onMouseDown={e => startResize(col.key, e)}
+                          className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
+                      </th>
+                    )
+                  })}
                   {activeCols.map(col => {
                     const key = getColKey(col)
                     const w = getColWidth(col)
@@ -1190,13 +1205,19 @@ export default function BrokerCustomersPage() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={activeCols.length + 3} className="py-16 text-center text-sm text-gray-400">
+                    <td colSpan={fixedCols.length + activeCols.length + 3} className="py-16 text-center text-sm text-gray-400">
                       {customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
                     </td>
                   </tr>
                 ) : filtered.map((c, idx) => (
                   <tr key={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
                     <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{filtered.length - idx}</td>
+                    {fixedCols.map(col => (
+                      <td key={col.key} className="px-3 py-1.5 border-r border-gray-100"
+                        style={{ width: settings.widths[col.key] ?? col.minWidth ?? 100, maxWidth: settings.widths[col.key] ?? col.minWidth ?? 100 }}>
+                        {renderCell(c, { type: 'fixed', def: col })}
+                      </td>
+                    ))}
                     {activeCols.map(col => (
                       <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100"
                         style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
@@ -1216,7 +1237,7 @@ export default function BrokerCustomersPage() {
                 ))}
                 {canEdit && (
                   <tr>
-                    <td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                    <td colSpan={fixedCols.length + activeCols.length + 3} className="border-t border-gray-100">
                       <button onClick={addRow}
                         className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
                         <Plus className="h-3.5 w-3.5" />고객 등록
