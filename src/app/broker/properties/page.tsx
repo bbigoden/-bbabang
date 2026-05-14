@@ -80,6 +80,7 @@ const ALL_COLUMNS = [
   { key: 'images',          label: '사진' },
   { key: 'brief_memo',      label: '매물설명' },
   { key: 'memo',            label: '중개사메모' },
+  { key: 'assignee',        label: '담당자' },
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
@@ -95,7 +96,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
     address: 200, size_pyeong: 70, price: 96, room_type: 110, deal_type: 72,
     total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
     approval_date: 90, parking: 72, management_fee: 72,
-    direction: 68, images: 56, brief_memo: 140, memo: 140,
+    direction: 68, images: 56, brief_memo: 140, memo: 140, assignee: 80,
   },
   customCols: [],
   options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS] },
@@ -163,6 +164,84 @@ function TextCell({ value, onSave, placeholder = '—', className = '' }: {
         style={{ color: value ? '#374151' : '#d1d5db' }}
       >
         {value || placeholder}
+      </div>
+      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
+    </>
+  )
+}
+
+// ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
+function AddressCell({ value, onSave, placeholder = '소재지 입력' }: {
+  value: string | null, onSave: (v: string) => void, placeholder?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value ?? '')
+  const [hovered, setHovered] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const cellRef = useRef<HTMLDivElement>(null)
+  const skipBlurRef = useRef(false)
+
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+
+  const commit = () => {
+    if (skipBlurRef.current) { skipBlurRef.current = false; return }
+    setEditing(false)
+    if (draft !== (value ?? '')) onSave(draft)
+  }
+
+  const openPostcode = () => {
+    const w = window as any
+    if (!w.daum?.Postcode) { alert('주소 검색 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return }
+    new w.daum.Postcode({
+      oncomplete: (data: any) => {
+        const addr = data.roadAddress || data.jibunAddress || data.address || ''
+        if (!addr) return
+        setDraft(addr)
+        if (addr !== (value ?? '')) onSave(addr)
+        setEditing(true)
+        setTimeout(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(addr.length, addr.length) }, 0)
+      },
+    }).open()
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
+          className="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+        />
+        <button type="button"
+          onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
+          onClick={openPostcode}
+          className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-blue-600"
+          title="주소 검색"
+        >
+          <Search className="h-3 w-3" />
+        </button>
+      </div>
+    )
+  }
+  return (
+    <>
+      <div ref={cellRef}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="group flex w-full items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px]"
+      >
+        <span onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
+          className="min-w-0 flex-1 cursor-pointer overflow-hidden whitespace-nowrap text-ellipsis"
+          style={{ color: value ? '#374151' : '#d1d5db' }}
+        >
+          {value || placeholder}
+        </span>
+        <button type="button" onClick={openPostcode}
+          className="shrink-0 rounded p-0.5 text-gray-300 opacity-0 transition-opacity hover:text-blue-500 group-hover:opacity-100"
+          title="주소 검색"
+        >
+          <Search className="h-3 w-3" />
+        </button>
       </div>
       {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
     </>
@@ -1082,6 +1161,19 @@ function BrokerPropertiesContent() {
     document.head.appendChild(script)
   }, [])
 
+  // 다음 우편번호 SDK 로드 (소재지 검색용)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if ((window as any).daum?.Postcode) return
+    if (document.querySelector('script[data-daum-postcode]')) return
+    const script = document.createElement('script')
+    script.setAttribute('data-daum-postcode', 'true')
+    script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
+    script.async = true
+    script.onerror = () => console.error('[DaumPostcode] SDK 로드 실패')
+    document.head.appendChild(script)
+  }, [])
+
   const init = async () => {
     let u: any = null
     try { const { data } = await supabase.auth.getUser(); u = data.user } catch { router.push('/auth/login'); return }
@@ -1279,7 +1371,7 @@ function BrokerPropertiesContent() {
           p.total_floors, p.move_in_date, p.rooms_bathrooms,
           p.approval_date, p.parking,
           p.management_fee != null ? String(p.management_fee) : null,
-          p.direction, p.brief_memo, p.memo,
+          p.direction, p.brief_memo, p.memo, p.assignee,
         ]
         if (fields.some(f => f?.toLowerCase().includes(q))) return true
         // 커스텀 필드 값 검색
@@ -1668,7 +1760,7 @@ function BrokerPropertiesContent() {
                       }
                       return (
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                          {key === 'address'         && <TextCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
+                          {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />)}
@@ -1689,6 +1781,7 @@ function BrokerPropertiesContent() {
                               ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} />
                               : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
                           })()}
+                          {key === 'assignee'        && <TextCell value={p.assignee} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />}
                         </td>
                       )
                     }

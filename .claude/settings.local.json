@@ -58,7 +58,15 @@
       "Bash(node -e \"const {createBrowserClient} = require\\('@supabase/ssr'\\); console.log\\(typeof createBrowserClient\\)\")",
       "Bash(findstr SUPABASE)",
       "Bash(vercel deploy *)",
-      "Bash(ls /mnt/c/Users/pc/.claude/projects/C--Users-pc-Desktop------/memory/ 2>/dev/null || ls \"C:/Users/pc/.claude/projects/C--Users-pc-Desktop------/memory/\")"
+      "Bash(ls /mnt/c/Users/pc/.claude/projects/C--Users-pc-Desktop------/memory/ 2>/dev/null || ls \"C:/Users/pc/.claude/projects/C--Users-pc-Desktop------/memory/\")",
+      "WebFetch(domain:dapi.kakao.com)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" -H \"Referer: https://bbabang.vercel.app/broker/properties\" \"https://dapi.kakao.com/v2/maps/sdk.js?appkey=700a493a80faeb786caaa05bea56e4ad&libraries=services&autoload=false\")",
+      "Bash(curl -sS -H \"Referer: https://bbabang.vercel.app/broker/properties\" \"https://dapi.kakao.com/v2/maps/sdk.js?appkey=700a493a80faeb786caaa05bea56e4ad&libraries=services&autoload=false\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('sharp'\\)\\)\")",
+      "Bash(gh api *)",
+      "Bash(gh repo *)",
+      "PowerShell(gh api user --jq '.login')",
+      "PowerShell(gh repo view bbigoden/-bbabang --json name,visibility,defaultBranchRef)"
     ]
   }
 }
