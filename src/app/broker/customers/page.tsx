@@ -15,12 +15,12 @@ interface ColDef {
 }
 
 const CUST_COLS: ColDef[] = [
-  { key: 'request',        label: '요청사항', minWidth: 160 },
-  { key: 'received_date',  label: '접수일자', minWidth: 100 },
-  { key: 'contact',        label: '연락처',   minWidth: 130 },
-  { key: 'assignee',       label: '담당자',   minWidth: 90 },
-  { key: 'category',       label: '구분',     minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
-  { key: 'source',         label: '유입',     minWidth: 90, hasOptions: true, defaultOpts: ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타'] },
+  { key: 'request',        label: '요청사항', fixed: true, minWidth: 160 },
+  { key: 'received_date',  label: '접수일자', fixed: true, minWidth: 100 },
+  { key: 'contact',        label: '연락처',   fixed: true, minWidth: 130 },
+  { key: 'assignee',       label: '담당자',   fixed: true, minWidth: 90 },
+  { key: 'category',       label: '구분',     fixed: true, minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
+  { key: 'source',         label: '유입',     fixed: true, minWidth: 90, hasOptions: true, defaultOpts: ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타'] },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -297,7 +297,7 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
   const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(containerRef, () => { setOpen(false); setRenaming(false) })
 
-  const canOpen = !isFixed || hasOptions || isCustom
+  const canOpen = !isFixed || hasOptions || isCustom || !!onHide
   const wasDragRef = useRef(false)
 
   const handleOpen = (e: React.MouseEvent) => {
@@ -338,7 +338,7 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
             {label}
           </div>
 
-          {!isFixed && !isCustom && (
+          {!isCustom && onHide && (
             <button onClick={() => { onHide?.(); setOpen(false) }}
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
               <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기

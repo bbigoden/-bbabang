@@ -15,14 +15,14 @@ interface ColDef {
 }
 
 const CUST_COLS: ColDef[] = [
-  { key: 'request',            label: '요청사항', minWidth: 160, isLong: true },
-  { key: 'received_date',      label: '접수일자', minWidth: 100 },
-  { key: 'contact',            label: '연락처',   minWidth: 130 },
-  { key: 'assignee',           label: '담당자',   minWidth: 90 },
-  { key: 'category',           label: '구분',     minWidth: 80,  hasOptions: true, defaultOpts: ['비주거','주거용'] },
-  { key: 'source',             label: '유입',     minWidth: 90,  hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
-  { key: 'status',             label: '진행상황', minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
-  { key: 'proposed_properties',label: '제안 매물', minWidth: 180 },
+  { key: 'request',            label: '요청사항', fixed: true, minWidth: 160, isLong: true },
+  { key: 'received_date',      label: '접수일자', fixed: true, minWidth: 100 },
+  { key: 'contact',            label: '연락처',   fixed: true, minWidth: 130 },
+  { key: 'assignee',           label: '담당자',   fixed: true, minWidth: 90 },
+  { key: 'category',           label: '구분',     fixed: true, minWidth: 80,  hasOptions: true, defaultOpts: ['비주거','주거용'] },
+  { key: 'source',             label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
+  { key: 'status',             label: '진행상황', fixed: true, minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
+  { key: 'proposed_properties',label: '제안 매물', fixed: true, minWidth: 180 },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -180,7 +180,7 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
   const containerRef = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(containerRef, () => { setOpen(false); setRenaming(false) })
-  const canOpen = !isFixed || hasOptions || isCustom
+  const canOpen = !isFixed || hasOptions || isCustom || !!onHide
   const handleOpen = (e: React.MouseEvent) => {
     if (!canOpen) return; e.stopPropagation()
     if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 230), minWidth: 210 }) }
@@ -198,7 +198,7 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
       {open && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style} onClick={e => e.stopPropagation()}>
           <div className="px-3 py-2 border-b border-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1.5">{isFixed && <Lock className="h-3 w-3 text-gray-400" />}{label}</div>
-          {!isFixed && !isCustom && <button onClick={() => { onHide?.(); setOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"><EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기</button>}
+          {!isCustom && onHide && <button onClick={() => { onHide?.(); setOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"><EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기</button>}
           {isCustom && (<>
             {renaming ? (
               <div className="px-3 py-2 flex gap-1.5 border-b border-gray-100">
