@@ -1056,8 +1056,7 @@ function BrokerPropertiesContent() {
     if (typeof window === 'undefined') return
     const w = window as any
 
-    const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
-    if (!kakaoKey) { console.error('[KakaoMap] NEXT_PUBLIC_KAKAO_MAP_KEY 없음'); return }
+    const KAKAO_KEY = '700a493a80faeb786caaa05bea56e4ad'
 
     const onReady = () => {
       w.kakao.maps.load(() => setMapReady(true))
@@ -1076,7 +1075,7 @@ function BrokerPropertiesContent() {
 
     const script = document.createElement('script')
     script.setAttribute('data-kakao-map', 'true')
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&libraries=services&autoload=false`
     script.async = true
     script.onload = onReady
     script.onerror = () => console.error('[KakaoMap] SDK 로드 실패')
