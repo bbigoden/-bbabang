@@ -215,7 +215,6 @@ function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOpti
                 </div>
               </div>
             )}
-            <button onClick={() => { onHide?.(); setOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 border-t border-gray-100"><EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기</button>
             <button onClick={() => { onDelete?.(); setOpen(false) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 border-t border-gray-100"><X className="h-3.5 w-3.5" />칼럼 완전 삭제</button>
           </>)}
           {hasOptions && options && (<>
