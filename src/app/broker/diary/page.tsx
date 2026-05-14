@@ -315,6 +315,13 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, readOnly }: {
   onOpen: () => void; readOnly?: boolean
 }) {
   const selected = (propIds ?? []).map(id => allProperties.find(p => p.id === id)).filter(Boolean) as Property[]
+  const formatProp = (p: Property) => {
+    const price = p.deal_type === '월세'
+      ? `${Math.round(p.price / 10000)}/${Math.round((p.monthly_rent ?? 0) / 10000)}만`
+      : `${Math.round(p.price / 10000)}만`
+    const name = p.address || `${p.deal_type} ${p.room_type}`
+    return `${name} · ${price}`
+  }
   if (selected.length === 0) {
     if (readOnly) return <span className="text-xs text-gray-300 px-1">—</span>
     return (
@@ -326,8 +333,8 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, readOnly }: {
   return (
     <div className="flex flex-wrap gap-1 items-center px-1 py-0.5">
       {selected.map(p => (
-        <span key={p.id} className="inline-flex items-center rounded-lg bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px] truncate" title={p.address}>
-          {p.address}
+        <span key={p.id} className="inline-flex items-center rounded-lg bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[200px] truncate" title={formatProp(p)}>
+          {formatProp(p)}
         </span>
       ))}
       {!readOnly && (
