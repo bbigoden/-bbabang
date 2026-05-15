@@ -198,10 +198,9 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
     if (!w.daum?.Postcode) { alert('주소 검색 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return }
     new w.daum.Postcode({
       oncomplete: (data: any) => {
-        const addr = data.roadAddress || data.jibunAddress || data.address || ''
+        const addr = data.jibunAddress || data.roadAddress || data.address || ''
         if (!addr) return
         setDraft(addr)
-        if (addr !== (value ?? '')) onSave(addr)
         setEditing(true)
         setTimeout(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(addr.length, addr.length) }, 0)
       },
