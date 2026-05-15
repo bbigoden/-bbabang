@@ -4,6 +4,7 @@ const SEUM_BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService'
 
 interface AutoFillBody {
   address?: string
+  bcode?: string
   sigunguCd?: string
   bjdongCd?: string
   bun?: string
@@ -105,7 +106,14 @@ export async function POST(req: NextRequest) {
 
   let { sigunguCd, bjdongCd, bun, ji, ho, platGbCd } = body
 
-  if (body.address && (!sigunguCd || !bjdongCd || !bun)) {
+  if (body.bcode && body.bcode.length === 10 && !sigunguCd) {
+    sigunguCd = body.bcode.slice(0, 5)
+    bjdongCd = body.bcode.slice(5)
+    if (!bun && body.address) {
+      const m = body.address.trim().match(/(\d+)(?:-(\d+))?\s*$/)
+      if (m) { bun = m[1]; ji = m[2] || '0' }
+    }
+  } else if (body.address && (!sigunguCd || !bjdongCd || !bun)) {
     const geo = await geocodeAddress(body.address)
     if (!geo) return NextResponse.json({ error: '주소를 찾을 수 없습니다 (KAKAO_REST_KEY 확인 필요)' }, { status: 400 })
     sigunguCd = geo.sigunguCd

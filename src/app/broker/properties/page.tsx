@@ -174,7 +174,7 @@ function TextCell({ value, onSave, placeholder = '—', className = '' }: {
 function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placeholder = '소재지 입력' }: {
   value: string | null
   onSave: (v: string) => void
-  onAutoFill?: () => void
+  onAutoFill?: (bcode?: string) => void
   autoFilling?: boolean
   placeholder?: string
 }) {
@@ -184,6 +184,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
   const inputRef = useRef<HTMLInputElement>(null)
   const cellRef = useRef<HTMLDivElement>(null)
   const skipBlurRef = useRef(false)
+  const bcodeRef = useRef('')
 
   useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
 
@@ -200,6 +201,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
       oncomplete: (data: any) => {
         const addr = data.jibunAddress || data.roadAddress || data.address || ''
         if (!addr) return
+        bcodeRef.current = data.bcode ?? ''
         setDraft(addr)
         setEditing(true)
         setTimeout(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(addr.length, addr.length) }, 0)
@@ -226,7 +228,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
         {onAutoFill && (
           <button type="button"
             onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
-            onClick={onAutoFill}
+            onClick={() => onAutoFill(bcodeRef.current || undefined)}
             disabled={autoFilling || !value}
             className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
             title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
@@ -259,7 +261,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
           <Search className="h-3 w-3" />
         </button>
         {onAutoFill && (
-          <button type="button" onClick={onAutoFill} disabled={autoFilling || !value}
+          <button type="button" onClick={() => onAutoFill(bcodeRef.current || undefined)} disabled={autoFilling || !value}
             className={cn(
               'shrink-0 rounded p-0.5 transition-opacity hover:text-indigo-500 group-hover:opacity-100 disabled:cursor-not-allowed disabled:hover:text-gray-300',
               autoFilling ? 'opacity-100 text-indigo-500' : 'opacity-0 text-gray-300'
@@ -1277,7 +1279,7 @@ function BrokerPropertiesContent() {
   }, [])
 
   // 행 자동 채움: 주소 → 카카오 지오코딩 → 세움터 API → 같은 행 다중 필드 일괄 업데이트
-  const autoFillRow = useCallback(async (id: string, addr: string) => {
+  const autoFillRow = useCallback(async (id: string, addr: string, bcode?: string) => {
     if (!addr?.trim()) {
       setAutoFillToast({ type: 'error', text: '소재지를 먼저 입력해주세요' })
       setTimeout(() => setAutoFillToast(null), 2500)
@@ -1291,10 +1293,14 @@ function BrokerPropertiesContent() {
       if (hoMatch) searchAddr = searchAddr.slice(0, hoMatch.index).trim()
       searchAddr = searchAddr.replace(/\s+/g, ' ')
 
+      const body = bcode && bcode.length === 10
+        ? { bcode, address: searchAddr, ho }
+        : { address: searchAddr, ho }
+
       const res = await fetch('/api/properties/auto-fill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: searchAddr, ho }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '세움터 조회 실패')
@@ -1855,7 +1861,7 @@ function BrokerPropertiesContent() {
                       }
                       return (
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                          {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={() => autoFillRow(p.id, p.address || '')} autoFilling={autoFillingId === p.id} placeholder="소재지 입력" />}
+                          {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={autoFillingId === p.id} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
                           {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
                           {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />)}
