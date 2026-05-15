@@ -113,7 +113,6 @@ export async function POST(req: NextRequest) {
       // "불당동 1421 101동" 처럼 동(棟)번호로 끝나는 경우 제거 후 본번 추출
       const addrForBun = body.address.trim().replace(/\s+\d+동\s*$/, '').trim()
       const m = addrForBun.match(/(\d+)(?:-(\d+))?\s*$/)
-      console.log('[auto-fill] addr:', body.address, '| addrForBun:', addrForBun, '| bun from m:', m?.[1])
       if (m) { bun = m[1]; ji = m[2] || '0' }
     }
   } else if (body.address && (!sigunguCd || !bjdongCd || !bun)) {
@@ -185,9 +184,11 @@ export async function POST(req: NextRequest) {
       if (target.length > 0) {
         const exclusive = target.filter(f => f.exposPubuseGbCd === '1')
         areaM2 = exclusive.reduce((sum, f) => sum + (Number(f.area) || 0), 0)
-        const flrStr = String(target[0].flrNoNm ?? '').replace(/[^0-9-]/g, '')
+        // 층 정보는 전용면적 행 우선(공용 행은 flrNoNm이 "각층"으로 층수 미표기)
+        const flrSource = exclusive.length > 0 ? exclusive[0] : target[0]
+        const flrStr = String(flrSource.flrNoNm ?? '').replace(/[^0-9-]/g, '')
         floor = Number(flrStr) || null
-        yongdoNm = String(target[0].mainPurpsCdNm ?? '')
+        yongdoNm = String(flrSource.mainPurpsCdNm ?? '')
       }
     } else {
       const flrs = await callSeum('getBrFlrOulnInfo', addr)
