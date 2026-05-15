@@ -1288,10 +1288,18 @@ function BrokerPropertiesContent() {
     setAutoFillingId(id)
     try {
       const hoMatch = addr.match(/(\d+)\s*호/)
-      const ho = hoMatch ? hoMatch[1] : ''
+      let ho = hoMatch ? hoMatch[1] : ''
       let searchAddr = addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').trim()
       if (hoMatch) searchAddr = searchAddr.slice(0, hoMatch.index).trim()
       searchAddr = searchAddr.replace(/\s+/g, ' ')
+      // "101-2403" 형식(동-호 하이픈, 호 접미사 없음) 처리
+      if (!ho) {
+        const dongHoMatch = searchAddr.match(/\s(\d{1,3})-(\d{3,4})\s*$/)
+        if (dongHoMatch) {
+          ho = dongHoMatch[2]
+          searchAddr = (searchAddr.slice(0, dongHoMatch.index) + ` ${dongHoMatch[1]}동`).replace(/\s+/g, ' ').trim()
+        }
+      }
 
       const body = bcode && bcode.length === 10
         ? { bcode, address: searchAddr, ho }
