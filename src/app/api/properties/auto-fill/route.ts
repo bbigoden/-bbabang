@@ -16,21 +16,31 @@ interface SeumItem {
 }
 
 async function callSeum(endpoint: string, params: Record<string, string>): Promise<SeumItem[]> {
-  const url = new URL(`${SEUM_BASE}/${endpoint}`)
-  url.searchParams.set('serviceKey', process.env.SEUM_API_KEY ?? '')
-  url.searchParams.set('numOfRows', '1000')
-  url.searchParams.set('pageNo', '1')
-  url.searchParams.set('startDate', '')
-  url.searchParams.set('endDate', '')
-  url.searchParams.set('_type', 'json')
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
+  const PAGE_SIZE = 100
+  const all: SeumItem[] = []
 
-  const res = await fetch(url.toString(), { cache: 'no-store' })
-  if (!res.ok) return []
-  const json = await res.json().catch(() => null)
-  const item = json?.response?.body?.items?.item
-  if (!item) return []
-  return Array.isArray(item) ? item : [item]
+  for (let page = 1; page <= 20; page++) {
+    const url = new URL(`${SEUM_BASE}/${endpoint}`)
+    url.searchParams.set('serviceKey', process.env.SEUM_API_KEY ?? '')
+    url.searchParams.set('numOfRows', String(PAGE_SIZE))
+    url.searchParams.set('pageNo', String(page))
+    url.searchParams.set('startDate', '')
+    url.searchParams.set('endDate', '')
+    url.searchParams.set('_type', 'json')
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
+
+    const res = await fetch(url.toString(), { cache: 'no-store' })
+    if (!res.ok) break
+    const json = await res.json().catch(() => null)
+    const body = json?.response?.body
+    const item = body?.items?.item
+    if (!item) break
+    const rows = Array.isArray(item) ? item : [item]
+    all.push(...rows)
+    if (all.length >= Number(body?.totalCount ?? 0) || rows.length < PAGE_SIZE) break
+  }
+
+  return all
 }
 
 const pad4 = (s: string) => String(s || '0').padStart(4, '0')
