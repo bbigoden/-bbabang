@@ -1285,91 +1285,16 @@ function BrokerPropertiesContent() {
     }
     setAutoFillingId(id)
     try {
-      // 카카오 SDK 보장: 스크립트 로드 + services 라이브러리 초기화까지
-      const kakao: any = await (async () => {
-        const w = window as any
-        if (w.kakao?.maps?.services) return w.kakao
-
-        // SDK 스크립트가 아예 없으면 직접 삽입
-        if (!document.querySelector('script[data-kakao-map]')) {
-          const key = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY || '700a493a80faeb786caaa05bea56e4ad'
-          const script = document.createElement('script')
-          script.setAttribute('data-kakao-map', 'true')
-          script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&libraries=services&autoload=false`
-          script.async = true
-          document.head.appendChild(script)
-        }
-
-        // kakao.maps.load 함수 등장까지 대기 (최대 10초)
-        await new Promise<void>((resolve, reject) => {
-          const start = Date.now()
-          const check = () => {
-            if (w.kakao?.maps?.load) return resolve()
-            if (Date.now() - start >= 10000) return reject(new Error('지도 SDK 스크립트 로드 실패. 새로고침 후 다시 시도해주세요'))
-            setTimeout(check, 200)
-          }
-          check()
-        })
-
-        // services 라이브러리 초기화 (load 콜백 안에서 services 사용 가능)
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('지도 services 라이브러리 초기화 시간 초과')), 8000)
-          w.kakao.maps.load(() => { clearTimeout(timeout); resolve() })
-        })
-
-        if (!w.kakao?.maps?.services) {
-          throw new Error('지도 services 라이브러리를 사용할 수 없습니다')
-        }
-        return w.kakao
-      })()
       const hoMatch = addr.match(/(\d+)\s*호/)
       const ho = hoMatch ? hoMatch[1] : ''
       let searchAddr = addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').trim()
       if (hoMatch) searchAddr = searchAddr.slice(0, hoMatch.index).trim()
       searchAddr = searchAddr.replace(/\s+/g, ' ')
 
-      const geo: { b_code: string; bun: string; ji: string; road: string; jibun: string } =
-        await new Promise((resolve, reject) => {
-          const geocoder = new kakao.maps.services.Geocoder()
-          const candidates = [searchAddr]
-          const stripped = searchAddr.replace(/\s+\d+(-\d+)?$/, '').trim()
-          if (stripped && stripped !== searchAddr) candidates.push(stripped)
-          let idx = 0
-          const tryNext = () => {
-            if (idx >= candidates.length) return reject(new Error('주소를 찾을 수 없습니다'))
-            const q = candidates[idx++]
-            geocoder.addressSearch(q, (result: any[], status: string) => {
-              if (status === kakao.maps.services.Status.OK && result.length > 0) {
-                const r = result[0]
-                resolve({
-                  b_code: r.address?.b_code ?? '',
-                  bun: r.address?.main_address_no ?? '',
-                  ji: r.address?.sub_address_no || '0',
-                  road: r.road_address?.address_name ?? '',
-                  jibun: r.address?.address_name ?? '',
-                })
-              } else {
-                tryNext()
-              }
-            })
-          }
-          tryNext()
-        })
-
-      if (!geo.b_code || geo.b_code.length !== 10) {
-        throw new Error('법정동 코드 변환 실패')
-      }
-
       const res = await fetch('/api/properties/auto-fill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sigunguCd: geo.b_code.slice(0, 5),
-          bjdongCd: geo.b_code.slice(5),
-          bun: geo.bun,
-          ji: geo.ji,
-          ho,
-        }),
+        body: JSON.stringify({ address: searchAddr, ho }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '세움터 조회 실패')

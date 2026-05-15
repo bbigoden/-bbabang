@@ -3,12 +3,32 @@ import { NextRequest, NextResponse } from 'next/server'
 const SEUM_BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService'
 
 interface AutoFillBody {
-  sigunguCd: string
-  bjdongCd: string
-  bun: string
+  address?: string
+  sigunguCd?: string
+  bjdongCd?: string
+  bun?: string
   ji?: string
   ho?: string
   platGbCd?: string
+}
+
+async function geocodeAddress(address: string): Promise<{ sigunguCd: string; bjdongCd: string; bun: string; ji: string } | null> {
+  const key = process.env.KAKAO_REST_KEY
+  if (!key) return null
+  const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&analyze_type=similar`
+  const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` }, cache: 'no-store' })
+  if (!res.ok) return null
+  const json = await res.json().catch(() => null)
+  const doc = json?.documents?.[0]
+  if (!doc) return null
+  const bCode: string = doc.address?.b_code ?? ''
+  if (bCode.length !== 10) return null
+  return {
+    sigunguCd: bCode.slice(0, 5),
+    bjdongCd: bCode.slice(5),
+    bun: doc.address?.main_address_no ?? '',
+    ji: doc.address?.sub_address_no || '0',
+  }
 }
 
 interface SeumItem {
@@ -75,7 +95,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '잘못된 요청 형식' }, { status: 400 })
   }
 
-  const { sigunguCd, bjdongCd, bun, ji, ho, platGbCd } = body
+  let { sigunguCd, bjdongCd, bun, ji, ho, platGbCd } = body
+
+  if (body.address && (!sigunguCd || !bjdongCd || !bun)) {
+    const geo = await geocodeAddress(body.address)
+    if (!geo) return NextResponse.json({ error: '주소를 찾을 수 없습니다 (KAKAO_REST_KEY 확인 필요)' }, { status: 400 })
+    sigunguCd = geo.sigunguCd
+    bjdongCd = geo.bjdongCd
+    bun = geo.bun
+    ji = geo.ji
+  }
+
   if (!sigunguCd || !bjdongCd || !bun) {
     return NextResponse.json({ error: '시군구·법정동·본번이 필요합니다' }, { status: 400 })
   }
