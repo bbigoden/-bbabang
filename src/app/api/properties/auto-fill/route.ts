@@ -54,7 +54,7 @@ async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Respons
   }
 }
 
-async function callSeumPage(url: string, retries = 2): Promise<{ body: { items?: { item?: unknown }; totalCount?: unknown } } | null> {
+async function callSeumPage(url: string, retries = 2): Promise<{ items?: { item?: unknown }; totalCount?: unknown } | null> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetchWithTimeout(url)
