@@ -44,6 +44,38 @@ interface SeumItem {
   [k: string]: string | number | undefined
 }
 
+async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { cache: 'no-store', signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function callSeumPage(url: string, retries = 2): Promise<{ body: { items?: { item?: unknown }; totalCount?: unknown } } | null> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchWithTimeout(url)
+      if (!res.ok) {
+        if (attempt < retries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+        continue
+      }
+      const json = await res.json().catch(() => null)
+      const body = json?.response?.body
+      if (!body) {
+        if (attempt < retries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+        continue
+      }
+      return body
+    } catch {
+      if (attempt < retries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+    }
+  }
+  return null
+}
+
 async function callSeum(endpoint: string, params: Record<string, string>): Promise<SeumItem[]> {
   const PAGE_SIZE = 100
   const all: SeumItem[] = []
@@ -58,10 +90,8 @@ async function callSeum(endpoint: string, params: Record<string, string>): Promi
     url.searchParams.set('_type', 'json')
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
-    const res = await fetch(url.toString(), { cache: 'no-store' })
-    if (!res.ok) break
-    const json = await res.json().catch(() => null)
-    const body = json?.response?.body
+    const body = await callSeumPage(url.toString())
+    if (!body) break
     const item = body?.items?.item
     if (!item) break
     const rows = Array.isArray(item) ? item : [item]
