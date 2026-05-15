@@ -170,14 +170,19 @@ export async function POST(req: NextRequest) {
 
     if (expos.length > 0) {
       const hoNorm = String(ho ?? '').replace(/호$/, '').trim()
-      const matched = hoNorm
+      const matchHo = (f: SeumItem) => String(f.hoNm ?? '').replace(/호$/, '').trim() === hoNorm
+      let matched = hoNorm
         ? expos.filter(f => {
-            if (String(f.hoNm ?? '').replace(/호$/, '').trim() !== hoNorm) return false
+            if (!matchHo(f)) return false
             // 동번호가 지정된 경우 해당 동만 필터 (다동 건물 면적 중복 합산 방지)
             if (dongFilter) return String(f.dongNm ?? '') === dongFilter
             return true
           })
         : []
+      // 동필터 적용 후 매칭 없으면 동필터 제외 재시도 (단동 건물에 동번호 입력된 경우 대응)
+      if (matched.length === 0 && dongFilter && hoNorm) {
+        matched = expos.filter(matchHo)
+      }
       const target =
         matched.length > 0
           ? matched
