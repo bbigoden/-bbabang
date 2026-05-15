@@ -76,7 +76,7 @@ const pad4 = (s: string) => String(s || '0').padStart(4, '0')
 
 function mapRoomType(purps: string): string | null {
   const p = purps || ''
-  if (p.includes('아파트')) return '아파트'
+  if (p.includes('아파트') || p.includes('공동주택')) return '아파트'
   if (p.includes('오피스텔')) return '오피스텔'
   if (p.includes('다세대') || p.includes('연립')) return '빌라/연립'
   if (p.includes('단독주택') || p.includes('다가구')) return '단독주택'
