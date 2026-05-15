@@ -321,6 +321,64 @@ function NumberCell({ value, onSave, suffix = '만' }: {
   )
 }
 
+// ── 월세 보증금/임차료 셀 ──────────────────────────────────
+function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
+  price: number | null; rent: number | null
+  onSavePrice: (v: number | null) => void; onSaveRent: (v: number | null) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draftPrice, setDraftPrice] = useState(price != null ? String(price) : '')
+  const [draftRent, setDraftRent] = useState(rent != null ? String(rent) : '')
+  const rentInputRef = useRef<HTMLInputElement>(null)
+
+  const commitPrice = (moveNext = false) => {
+    const num = draftPrice.trim() === '' ? null : Number(draftPrice)
+    if (num !== price) onSavePrice(isNaN(num as number) ? null : num)
+    if (moveNext) { rentInputRef.current?.focus(); rentInputRef.current?.select() }
+  }
+  const commitRent = () => {
+    const num = draftRent.trim() === '' ? null : Number(draftRent)
+    if (num !== rent) onSaveRent(isNaN(num as number) ? null : num)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-0.5">
+        <input autoFocus type="number" value={draftPrice} onChange={e => setDraftPrice(e.target.value)}
+          onBlur={() => commitPrice(false)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitPrice(true) }
+            if (e.key === 'Escape') { setDraftPrice(price != null ? String(price) : ''); setEditing(false) }
+          }}
+          className="w-0 flex-1 rounded border border-blue-400 bg-white px-1 py-1 text-xs text-right outline-none focus:ring-1 focus:ring-blue-300"
+          placeholder="보증금"
+        />
+        <span className="text-gray-400 text-xs flex-shrink-0">/</span>
+        <input ref={rentInputRef} type="number" value={draftRent} onChange={e => setDraftRent(e.target.value)}
+          onBlur={commitRent}
+          onKeyDown={e => {
+            if (e.key === 'Enter') commitRent()
+            if (e.key === 'Escape') { setDraftRent(rent != null ? String(rent) : ''); setEditing(false) }
+          }}
+          className="w-0 flex-1 rounded border border-blue-400 bg-white px-1 py-1 text-xs text-right outline-none focus:ring-1 focus:ring-blue-300"
+          placeholder="임차료"
+        />
+      </div>
+    )
+  }
+  const dep = price != null ? `${price.toLocaleString()}만` : '—'
+  const mo = rent != null ? `${rent.toLocaleString()}만` : '—'
+  return (
+    <div className="flex items-center cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs gap-0.5"
+      onClick={() => { setDraftPrice(price != null ? String(price) : ''); setDraftRent(rent != null ? String(rent) : ''); setEditing(true) }}>
+      <span className={`font-semibold ${price ? 'text-gray-800' : 'text-gray-300'}`}>{dep}</span>
+      <span className="text-gray-400 flex-shrink-0">/</span>
+      <span className={`font-semibold ${rent ? 'text-gray-800' : 'text-gray-300'}`}>{mo}</span>
+    </div>
+  )
+}
+
 // ── 팝오버 선택 셀 ──────────────────────────────────────────
 function SelectCell({ value, options, onSave, colorMap }: {
   value: string, options: string[], onSave: (v: string) => void, colorMap?: Record<string, string>
@@ -758,10 +816,10 @@ function PropColHeader({ label, isCustom, hasOptions, options, onSetOptions, col
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative overflow-hidden">
       <div ref={btnRef} onClick={handleOpen}
-        className="flex items-center gap-1 select-none cursor-pointer group">
-        <span className="text-xs font-semibold text-gray-500 truncate">{label}</span>
+        className="flex items-center gap-1 select-none cursor-pointer group min-w-0">
+        <span className="text-xs font-semibold text-gray-500 truncate min-w-0">{label}</span>
         <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
       </div>
       {open && (
@@ -1757,7 +1815,7 @@ function BrokerPropertiesContent() {
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
                         onDragEnd={onColDragEnd}
                       >
-                        <div className="pr-2 flex items-center gap-1">
+                        <div className="pr-2 flex items-center gap-1 overflow-hidden">
                           {(() => {
                             const TOGGLE_COLS: Record<string, 'text' | 'select'> = { room_type: 'select', deal_type: 'select', direction: 'text', brief_memo: 'text', memo: 'text' }
                             const defaultType = TOGGLE_COLS[key]
@@ -1793,7 +1851,7 @@ function BrokerPropertiesContent() {
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
                         onDragEnd={onColDragEnd}
                       >
-                        <div className="pr-2">
+                        <div className="pr-2 overflow-hidden">
                           <PropColHeader label={customCol.name} isCustom
                             colType={customCol.type ?? 'text'}
                             onChangeType={type => changeCustomColumnType(key, type)}
@@ -1848,7 +1906,14 @@ function BrokerPropertiesContent() {
                       // 읽기 전용 셀 (어드민 뷰 또는 편집 권한 없는 직원)
                       if (isAdminView || !canEdit) {
                         const readVal = (() => {
-                          if (key === 'price') return p.price != null ? `${p.price.toLocaleString()}만` : '—'
+                          if (key === 'price') {
+                            if (p.deal_type === '월세') {
+                              const dep = p.price != null ? `${p.price.toLocaleString()}만` : '—'
+                              const mo = p.monthly_rent != null ? `${p.monthly_rent.toLocaleString()}만` : '—'
+                              return `${dep}/${mo}`
+                            }
+                            return p.price != null ? `${p.price.toLocaleString()}만` : '—'
+                          }
                           if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
                           if (key === 'deal_type') {
                             const colorMap: Record<string, string> = { 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }
@@ -1871,7 +1936,9 @@ function BrokerPropertiesContent() {
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
                           {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={autoFillingId === p.id} placeholder="소재지 입력" />}
                           {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
-                          {key === 'price'           && <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />}
+                          {key === 'price'           && (p.deal_type === '월세'
+                            ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
+                            : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
                           {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />)}
                           {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />)}
                           {key === 'total_floors'    && <TextCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v || null)} placeholder="예: 3/15" />}
