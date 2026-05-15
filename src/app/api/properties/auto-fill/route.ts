@@ -14,7 +14,7 @@ interface AutoFillBody {
 
 async function geocodeAddress(address: string): Promise<{ sigunguCd: string; bjdongCd: string; bun: string; ji: string } | null> {
   try {
-    const key = process.env.KAKAO_REST_KEY
+    const key = (process.env.KAKAO_REST_KEY ?? '').trim()
     if (!key) return null
     const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&analyze_type=similar`
     const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` } })
