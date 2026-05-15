@@ -79,8 +79,10 @@ function mapRoomType(purps: string): string | null {
   if (p.includes('아파트')) return '아파트'
   if (p.includes('오피스텔')) return '오피스텔'
   if (p.includes('다세대') || p.includes('연립')) return '빌라/연립'
+  if (p.includes('단독주택') || p.includes('다가구')) return '단독주택'
   if (p.includes('업무')) return '사무실'
   if (p.includes('근린생활') || p.includes('판매') || p.includes('소매')) return '상가'
+  if (p.includes('공장') || p.includes('창고') || p.includes('위험물')) return '창고/공장'
   return null
 }
 
@@ -207,7 +209,10 @@ export async function POST(req: NextRequest) {
     }
 
     const sizePyeong = areaM2 > 0 ? m2ToPyeong(areaM2) : null
-    const roomType = mapRoomType(yongdoNm) || mapRoomType(mainPurps)
+    // ho 지정 시 해당 유닛 용도 우선, ho 없으면 건물 전체 용도(mainPurps) 우선
+    const roomType = ho
+      ? mapRoomType(yongdoNm) || mapRoomType(mainPurps)
+      : mapRoomType(mainPurps) || mapRoomType(yongdoNm)
 
     return NextResponse.json({
       size_m2: areaM2 > 0 ? +areaM2.toFixed(2) : null,
