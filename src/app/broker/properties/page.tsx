@@ -1186,10 +1186,10 @@ function BrokerPropertiesContent() {
 
     const script = document.createElement('script')
     script.setAttribute('data-kakao-map', 'true')
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&libraries=services&autoload=false`
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&libraries=services&autoload=false`
     script.async = true
     script.onload = onReady
-    script.onerror = () => console.error('[KakaoMap] SDK 로드 실패')
+    script.onerror = (e) => console.error('[KakaoMap] SDK 로드 실패', { src: script.src, event: e })
     document.head.appendChild(script)
   }, [])
 
@@ -1296,7 +1296,7 @@ function BrokerPropertiesContent() {
           const key = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY || '700a493a80faeb786caaa05bea56e4ad'
           const script = document.createElement('script')
           script.setAttribute('data-kakao-map', 'true')
-          script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&libraries=services&autoload=false`
+          script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&libraries=services&autoload=false`
           script.async = true
           document.head.appendChild(script)
         }
