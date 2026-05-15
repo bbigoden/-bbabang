@@ -100,12 +100,13 @@ export async function POST(req: NextRequest) {
     let areaM2 = 0
     let yongdoNm = ''
 
-    const expos = await callSeum('getBrExposPubuseAreaInfo', { ...addr, regstrKindCd: '4' })
+    let expos = await callSeum('getBrExposPubuseAreaInfo', { ...addr, regstrKindCd: '4' })
+    if (expos.length === 0) expos = await callSeum('getBrExposPubuseAreaInfo', addr)
 
     if (expos.length > 0) {
-      const hoNorm = String(ho ?? '').trim()
+      const hoNorm = String(ho ?? '').replace(/호$/, '').trim()
       const matched = hoNorm
-        ? expos.filter(f => String(f.hoNm ?? '').trim() === hoNorm)
+        ? expos.filter(f => String(f.hoNm ?? '').replace(/호$/, '').trim() === hoNorm)
         : []
       const target =
         matched.length > 0

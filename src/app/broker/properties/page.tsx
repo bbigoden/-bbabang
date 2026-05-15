@@ -1374,12 +1374,7 @@ function BrokerPropertiesContent() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? '세움터 조회 실패')
 
-      const normalizedAddr = geo.road
-        ? (ho ? `${geo.road} ${ho}호` : geo.road)
-        : (geo.jibun ? (ho ? `${geo.jibun} ${ho}호` : geo.jibun) : addr)
-
       const updates: Record<string, any> = {}
-      if (normalizedAddr && normalizedAddr !== addr) updates.address = normalizedAddr
       if (data.size_pyeong != null) {
         updates.size_pyeong = String(data.size_pyeong)
         updates.area_unit = '평'
@@ -1401,7 +1396,7 @@ function BrokerPropertiesContent() {
       }
 
       const labels: Record<string, string> = {
-        address: '주소', size_pyeong: '면적', total_floors: '층',
+        size_pyeong: '면적', total_floors: '층',
         approval_date: '승인일', parking: '주차', room_type: '유형',
       }
       const filledNames = Object.keys(updates)
