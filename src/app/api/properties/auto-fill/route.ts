@@ -110,7 +110,9 @@ export async function POST(req: NextRequest) {
     sigunguCd = body.bcode.slice(0, 5)
     bjdongCd = body.bcode.slice(5)
     if (!bun && body.address) {
-      const m = body.address.trim().match(/(\d+)(?:-(\d+))?\s*$/)
+      // "불당동 1421 101동" 처럼 동(棟)번호로 끝나는 경우 제거 후 본번 추출
+      const addrForBun = body.address.trim().replace(/\s+\d+동\s*$/, '').trim()
+      const m = addrForBun.match(/(\d+)(?:-(\d+))?\s*$/)
       if (m) { bun = m[1]; ji = m[2] || '0' }
     }
   } else if (body.address && (!sigunguCd || !bjdongCd || !bun)) {
@@ -125,6 +127,10 @@ export async function POST(req: NextRequest) {
   if (!sigunguCd || !bjdongCd || !bun) {
     return NextResponse.json({ error: '시군구·법정동·본번이 필요합니다' }, { status: 400 })
   }
+
+  // 주소에서 동(棟)번호 추출 (101동, 102동 등) — 다동 건물 필터링용
+  const dongFilterMatch = body.address?.match(/\b(\d+)동(?:\s|$)/)
+  const dongFilter = dongFilterMatch ? `${dongFilterMatch[1]}동` : ''
 
   const addr = {
     sigunguCd,
@@ -141,7 +147,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '건축물대장을 찾을 수 없습니다' }, { status: 404 })
     }
 
-    const t = title[0]
+    // 동번호가 지정된 경우 해당 동의 표제부 선택
+    const t = (dongFilter ? title.find(x => String(x.dongNm ?? '') === dongFilter) : null) ?? title[0]
     const totalFloors = Number(t.grndFlrCnt) || null
     const approvalDate = formatDate(t.useAprDay)
     const parkingTotal =
@@ -162,7 +169,12 @@ export async function POST(req: NextRequest) {
     if (expos.length > 0) {
       const hoNorm = String(ho ?? '').replace(/호$/, '').trim()
       const matched = hoNorm
-        ? expos.filter(f => String(f.hoNm ?? '').replace(/호$/, '').trim() === hoNorm)
+        ? expos.filter(f => {
+            if (String(f.hoNm ?? '').replace(/호$/, '').trim() !== hoNorm) return false
+            // 동번호가 지정된 경우 해당 동만 필터 (다동 건물 면적 중복 합산 방지)
+            if (dongFilter) return String(f.dongNm ?? '') === dongFilter
+            return true
+          })
         : []
       const target =
         matched.length > 0
