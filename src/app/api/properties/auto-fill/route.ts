@@ -13,21 +13,29 @@ interface AutoFillBody {
 }
 
 async function geocodeAddress(address: string): Promise<{ sigunguCd: string; bjdongCd: string; bun: string; ji: string } | null> {
-  const key = process.env.KAKAO_REST_KEY
-  if (!key) return null
-  const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&analyze_type=similar`
-  const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` }, cache: 'no-store' })
-  if (!res.ok) return null
-  const json = await res.json().catch(() => null)
-  const doc = json?.documents?.[0]
-  if (!doc) return null
-  const bCode: string = doc.address?.b_code ?? ''
-  if (bCode.length !== 10) return null
-  return {
-    sigunguCd: bCode.slice(0, 5),
-    bjdongCd: bCode.slice(5),
-    bun: doc.address?.main_address_no ?? '',
-    ji: doc.address?.sub_address_no || '0',
+  try {
+    const key = process.env.KAKAO_REST_KEY
+    if (!key) return null
+    const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&analyze_type=similar`
+    const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` } })
+    if (!res.ok) {
+      console.error('[geocode] kakao api error', res.status, res.statusText)
+      return null
+    }
+    const json = await res.json().catch((e: unknown) => { console.error('[geocode] json parse error', e); return null })
+    const doc = json?.documents?.[0]
+    if (!doc) return null
+    const bCode: string = doc.address?.b_code ?? ''
+    if (bCode.length !== 10) return null
+    return {
+      sigunguCd: bCode.slice(0, 5),
+      bjdongCd: bCode.slice(5),
+      bun: doc.address?.main_address_no ?? '',
+      ji: doc.address?.sub_address_no || '0',
+    }
+  } catch (e) {
+    console.error('[geocode] unexpected error', e)
+    return null
   }
 }
 
