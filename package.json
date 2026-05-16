@@ -14,7 +14,11 @@
     "test:a11y": "node accessibility-test.mjs",
     "test:load": "node load-test.mjs",
     "test:contract": "node contract-test.mjs",
-    "test:all": "npm test && npm run test:integration && npm run test:contract && npm run test:a11y && npm run test:load"
+    "test:smoke": "node smoke-test.mjs",
+    "test:seo": "node seo-test.mjs",
+    "test:visual": "node visual-regression-test.mjs",
+    "test:visual:update": "node visual-regression-test.mjs --update",
+    "test:all": "npm test && npm run test:integration && npm run test:contract && npm run test:a11y && npm run test:load && npm run test:smoke && npm run test:seo"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
@@ -42,7 +46,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
     "jsdom": "^29.1.1",
+    "pixelmatch": "^7.2.0",
     "playwright": "^1.60.0",
+    "pngjs": "^7.0.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.6"
