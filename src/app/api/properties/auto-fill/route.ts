@@ -111,7 +111,7 @@ function mapRoomType(purps: string): string | null {
   if (p.includes('다세대') || p.includes('연립')) return '빌라/연립'
   if (p.includes('단독주택') || p.includes('다가구')) return '단독주택'
   if (p.includes('업무')) return '사무실'
-  if (p.includes('근린생활') || p.includes('판매') || p.includes('소매')) return '상가'
+  if (p.includes('근린생활') || p.includes('판매') || p.includes('소매') || p.includes('교육연구') || p.includes('교육시설')) return '상가'
   if (p.includes('공장') || p.includes('창고') || p.includes('위험물')) return '창고/공장'
   return null
 }
