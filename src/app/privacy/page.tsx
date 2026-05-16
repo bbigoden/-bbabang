@@ -87,9 +87,9 @@ export default function PrivacyPage() {
           </div>
 
           <div className="mt-10 border-t border-gray-100 pt-6">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
               개인정보와 관련한 문의사항은{' '}
-              <a href="mailto:bbigoden@gmail.com" className="text-blue-600 hover:underline">
+              <a href="mailto:bbigoden@gmail.com" className="text-blue-600 underline">
                 bbigoden@gmail.com
               </a>
               으로 연락주세요.
