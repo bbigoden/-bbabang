@@ -10,7 +10,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "node integration-test.mjs"
+    "test:integration": "node integration-test.mjs",
+    "test:a11y": "node accessibility-test.mjs",
+    "test:load": "node load-test.mjs",
+    "test:contract": "node contract-test.mjs",
+    "test:all": "npm test && npm run test:integration && npm run test:contract && npm run test:a11y && npm run test:load"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
@@ -25,12 +29,19 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.6",
+    "autocannon": "^8.0.0",
+    "axe-core": "^4.11.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.5",
+    "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
     "tailwindcss": "^4",
     "typescript": "^5",

@@ -99,7 +99,11 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
         {/* 모바일 메뉴 버튼 */}
         <div className="flex items-center gap-2 md:hidden">
           {user && <NotificationBell userId={user.id} />}
-          <button onClick={() => setMobileOpen(!mobileOpen)}>
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
+            aria-expanded={mobileOpen}
+          >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
         </div>
