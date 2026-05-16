@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 
 const PROTECTED = ['/dashboard', '/request/new', '/broker/register', '/broker/properties', '/chat', '/admin', '/profile']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
