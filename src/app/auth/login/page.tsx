@@ -23,6 +23,16 @@ function LoginForm() {
   const [rememberEmail, setRememberEmail] = useState(false)
 
   useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
+      const dest = redirectTo
+        ?? (profile?.role === 'admin' ? '/admin'
+          : profile?.role === 'broker' ? '/dashboard/broker'
+          : '/dashboard/user')
+      router.replace(dest)
+    })
+
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       setEmail(saved)
