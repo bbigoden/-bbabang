@@ -448,6 +448,10 @@ export default function ChatPage() {
     if (!file || !room) return
     e.target.value = ''
 
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!ALLOWED_TYPES.includes(file.type)) return
+    if (file.size > 10 * 1024 * 1024) return
+
     const ext = file.name.split('.').pop()
     const path = `chat/${room.id}/${Date.now()}.${ext}`
     const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })

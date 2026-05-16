@@ -153,8 +153,10 @@ export default function EditPropertyPage() {
     if (!user) { router.push('/auth/login'); return }
 
     // 새 이미지 업로드
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
     const uploadedUrls: string[] = []
     for (const file of newImages) {
+      if (!ALLOWED_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) continue
       const ext = file.name.split('.').pop()
       const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error: uploadError } = await supabase.storage

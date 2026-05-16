@@ -257,6 +257,8 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
 
   const sendImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file || !room) return; e.target.value = ''
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!ALLOWED_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) return
     const path = `chat/${room.id}/${Date.now()}.${file.name.split('.').pop()}`
     const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
     if (error) return

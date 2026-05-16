@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 const SEUM_BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService'
 
@@ -137,6 +138,13 @@ function parseFloor(item: SeumItem): number | null {
 export async function POST(req: NextRequest) {
   if (!process.env.SEUM_API_KEY) {
     return NextResponse.json({ error: 'SEUM_API_KEY 미설정' }, { status: 500 })
+  }
+
+  // 인증 확인 — 로그인한 사용자(중개사)만 호출 가능
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
   }
 
   let body: AutoFillBody
