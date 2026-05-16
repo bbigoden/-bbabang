@@ -48,6 +48,10 @@ export default function ProfilePage() {
   }, [])
 
   const saveProfile = async () => {
+    if (!name.trim()) {
+      setSaveMsg({ type: 'err', text: '이름을 입력해주세요.' })
+      return
+    }
     setSaving(true)
     setSaveMsg(null)
     const { error } = await supabase.from('profiles').update({ name: name.trim(), phone: phone.trim() }).eq('id', user.id)
