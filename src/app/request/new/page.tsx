@@ -114,6 +114,17 @@ function RequestNewPageInner() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // 역할 체크 — 중개사/관리자는 요청 등록 불가
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
+        if (data?.role === 'broker') router.replace('/dashboard/broker')
+        else if (data?.role === 'admin') router.replace('/admin')
+      })
+    })
+  }, [])
+
   // 다중 선택
   const [dealTypes, setDealTypes] = useState<string[]>([])
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])

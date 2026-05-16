@@ -49,6 +49,10 @@ export default async function UserDashboardPage() {
     // 데이터 로드 실패 시 빈 상태로 표시
   }
 
+  // 고객(user) 전용 페이지 — 다른 역할은 본인 대시보드로 이동
+  if (profile?.role === 'broker') redirect('/dashboard/broker')
+  if (profile?.role === 'admin') redirect('/admin')
+
   const activeRequests = requests?.filter(r => r.status !== 'closed') ?? []
   const closedRequests = requests?.filter(r => r.status === 'closed') ?? []
 
