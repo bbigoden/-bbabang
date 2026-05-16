@@ -16,13 +16,17 @@ export function formatPrice(price: number | null | undefined): string {
   return `${price.toLocaleString()}만`
 }
 
-// 주소를 읍/면/동/리 수준까지만 표시 (지번 숨김)
+// 주소를 읍/면/동/리/가 수준까지만 표시 (지번·건물번호 숨김)
+// - 숫자로 시작하는 토큰(101동, 102동 등 아파트 동번호)은 건물번호로 간주해 제외
+// - 마지막 매칭 토큰 기준 — "구이면 덕천리 100" → "구이면 덕천리"
 export function maskAddress(address: string | null | undefined): string {
   if (!address) return ''
   const tokens = address.trim().split(/\s+/)
-  // 읍·면·동·리·가 로 끝나는 토큰까지만 포함
-  const stopIdx = tokens.findIndex(t => /[읍면동리가]$/.test(t))
-  if (stopIdx === -1) return tokens[0] ?? address // 못 찾으면 첫 토큰만
+  let stopIdx = -1
+  for (let i = 0; i < tokens.length; i++) {
+    if (/[읍면동리가]$/.test(tokens[i]) && !/^\d/.test(tokens[i])) stopIdx = i
+  }
+  if (stopIdx === -1) return tokens[0] ?? address
   return tokens.slice(0, stopIdx + 1).join(' ')
 }
 
