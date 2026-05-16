@@ -124,6 +124,16 @@ function formatDate(s: unknown): string | null {
 
 const m2ToPyeong = (m2: number) => +(m2 / 3.305785).toFixed(2)
 
+function parseFloor(item: SeumItem): number | null {
+  const nm = String(item.flrNoNm ?? '')
+  if (nm.includes('~')) return null  // 지하1층~지상8층 등 범위 표기는 단일 층 특정 불가
+  if (String(item.flrGbCd ?? '') === '10' || nm.includes('지하')) {
+    const n = nm.replace(/[^0-9]/g, '')
+    return n ? -Number(n) : (Number(item.flrNo) > 0 ? -Number(item.flrNo) : -1)
+  }
+  return Number(nm.replace(/[^0-9-]/g, '')) || null
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.SEUM_API_KEY) {
     return NextResponse.json({ error: 'SEUM_API_KEY 미설정' }, { status: 500 })
@@ -223,8 +233,7 @@ export async function POST(req: NextRequest) {
         areaM2 = exclusive.reduce((sum, f) => sum + (Number(f.area) || 0), 0)
         // 층 정보는 전용면적 행 우선(공용 행은 flrNoNm이 "각층"으로 층수 미표기)
         const flrSource = exclusive.length > 0 ? exclusive[0] : target[0]
-        const flrStr = String(flrSource.flrNoNm ?? '').replace(/[^0-9-]/g, '')
-        floor = Number(flrStr) || null
+        floor = parseFloor(flrSource)
         yongdoNm = String(flrSource.mainPurpsCdNm ?? '')
       }
     } else {
@@ -234,8 +243,7 @@ export async function POST(req: NextRequest) {
         : flrs.filter(f => Number(f.flrNo) === 1)
       if (target.length > 0) {
         areaM2 = Number(target[0].area) || 0
-        const flrStr = String(target[0].flrNoNm ?? '').replace(/[^0-9-]/g, '')
-        floor = Number(flrStr) || null
+        floor = parseFloor(target[0])
         yongdoNm = String(target[0].mainPurpsCdNm ?? '')
       } else if (flrs.length > 0) {
         areaM2 = Number(flrs[0].area) || 0
