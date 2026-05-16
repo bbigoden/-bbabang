@@ -657,7 +657,9 @@ function ImageCell({ images, onSave, onView }: {
     if (newFiles.length > 0) {
       const { data } = await supabase.auth.getUser()
       const uid = data.user?.id ?? 'unknown'
+      const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
       for (const file of newFiles) {
+        if (!ALLOWED_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) continue
         const ext = file.name.split('.').pop()
         const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
         const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
@@ -1591,6 +1593,7 @@ function BrokerPropertiesContent() {
         }
         return p.price.toLocaleString() + '만'
       }
+      const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
       targets.forEach(prop => {
         geocoder.addressSearch(prop.address!, (result: any, status: any) => {
@@ -1602,20 +1605,20 @@ function BrokerPropertiesContent() {
           const color = colorMap[prop.deal_type] ?? '#374151'
 
           const markerEl = document.createElement('div')
-          markerEl.innerHTML = `<div style="background:${color};color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;border:2px solid #fff">${prop.deal_type} ${fmtPrice(prop)}</div>`
+          markerEl.innerHTML = `<div style="background:${color};color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;border:2px solid #fff">${esc(prop.deal_type)} ${esc(fmtPrice(prop))}</div>`
           const markerOverlay = new kakao.maps.CustomOverlay({ position: pos, content: markerEl, yAnchor: 1.2 })
           markerOverlay.setMap(map)
           overlaysRef.current.push(markerOverlay)
 
           const infoEl = document.createElement('div')
           infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:170px;font-family:inherit">
-            <div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${prop.address}</div>
+            <div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${esc(prop.address)}</div>
             <div style="display:flex;gap:5px;align-items:center;margin-bottom:3px">
-              <span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${prop.deal_type}</span>
-              <span style="font-size:12px;font-weight:700;color:${color}">${fmtPrice(prop)}</span>
+              <span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(prop.deal_type)}</span>
+              <span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(prop))}</span>
             </div>
-            <div style="font-size:10px;color:#6b7280">${prop.room_type}${prop.size_pyeong ? ' · ' + prop.size_pyeong : ''}${prop.total_floors ? ' · ' + prop.total_floors : ''}</div>
-            ${prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${prop.brief_memo}</div>` : ''}
+            <div style="font-size:10px;color:#6b7280">${esc(prop.room_type)}${prop.size_pyeong ? ' · ' + esc(prop.size_pyeong) : ''}${prop.total_floors ? ' · ' + esc(prop.total_floors) : ''}</div>
+            ${prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(prop.brief_memo)}</div>` : ''}
           </div>`
           const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 2.9, zIndex: 5 })
           infoOverlaysRef.current.push(infoOverlay)
