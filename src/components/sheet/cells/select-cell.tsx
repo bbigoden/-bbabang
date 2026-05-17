@@ -19,7 +19,7 @@ export function SelectCell({
   readOnly,
   placeholder,
 }: {
-  value: string
+  value: string | null
   options: string[]
   onSave: (v: string) => void
   colorMap?: Record<string, string>
