@@ -248,10 +248,31 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     return () => { supabase.removeChannel(channel) }
   }
 
+  const notifyRecipient = async (preview: string) => {
+    if (!room) return
+    const recipientId = room.user_id === currentUser.id ? room.broker_id : room.user_id
+    if (!recipientId || recipientId === currentUser.id) return
+    const url = room.user_id === currentUser.id ? `/broker/chats` : `/chat/${room.proposal_id}`
+    try {
+      await fetch('/api/push/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUserId: recipientId,
+          title: '새 메시지',
+          body: preview.slice(0, 80),
+          url,
+          tag: `chat-${room.id}`,
+        }),
+      })
+    } catch {}
+  }
+
   const sendMessage = async () => {
     if (!input.trim() || !room || sending) return
     setSending(true); const content = input.trim(); setInput('')
     await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content, message_type: 'text' })
+    notifyRecipient(content)
     setSending(false); inputRef.current?.focus()
   }
 
@@ -264,6 +285,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     if (error) return
     const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
     await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content: publicUrl, message_type: 'image' })
+    notifyRecipient('📷 사진을 보냈어요')
   }
 
   const openPropertyPicker = async () => {
@@ -292,6 +314,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     for (const prop of toSend) {
       await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content: JSON.stringify(buildSnapshot(prop)), message_type: 'property', property_id: prop.id })
     }
+    notifyRecipient(`🏠 매물 ${toSend.length}건을 공유했어요`)
     setSendingProps(false); setShowPicker(false); setSelectedPropIds(new Set()); setPickerSearch('')
   }
 

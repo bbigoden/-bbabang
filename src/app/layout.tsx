@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import './globals.css'
+import { ServiceWorkerRegister } from '@/components/sw-register'
 
 const geist = Geist({ subsets: ['latin'] })
 
@@ -56,6 +57,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full">
       <body className={`${geist.className} min-h-full bg-gray-50 text-gray-900 antialiased`}>
+        <ServiceWorkerRegister />
         {children}
       </body>
     </html>

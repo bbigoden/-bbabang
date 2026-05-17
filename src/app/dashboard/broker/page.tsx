@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
 import { OfficeCodeCard } from '@/components/office-code-card'
 import { BrokerChangeOffice } from '@/components/broker-change-office'
+import { PushPrompt } from '@/components/push-prompt'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -416,6 +417,7 @@ export default async function BrokerDashboardPage() {
           </div>
         </div>
       </div>
+      <PushPrompt message="새 메시지·고객 매칭 알림을 받아보세요" />
     </div>
   )
 }
