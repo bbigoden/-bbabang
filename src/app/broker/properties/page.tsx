@@ -1425,8 +1425,8 @@ function BrokerPropertiesContent() {
     if (!broker) return
     const { data, error } = await supabase.from('broker_properties').insert({
       broker_id: broker.id,
-      deal_type: '매매',
-      room_type: '아파트',
+      deal_type: '',
+      room_type: '',
       address: '',
       price: 0,
       status: 'available',
