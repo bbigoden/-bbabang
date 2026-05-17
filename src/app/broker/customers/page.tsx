@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
+import { ColumnHeader } from '@/components/sheet/column-header'
 
 // ── 컬럼 정의 ──────────────────────────────────────────
 interface ColDef {
@@ -281,136 +282,6 @@ function SelectCell({ value, options, onSave, colorMap, readOnly }: {
   )
 }
 
-// ── ColumnHeader ─────────────────────────────────────
-function ColumnHeader({ label, isFixed, isCustom, hasOptions, options, onSetOptions, colType, onChangeType, onHide, onRename, onDelete }: {
-  label: string; isFixed?: boolean; isCustom?: boolean; hasOptions?: boolean
-  options?: string[]; onSetOptions?: (opts: string[]) => void
-  colType?: 'text' | 'select'; onChangeType?: (type: 'text' | 'select') => void
-  onHide?: () => void; onRename?: (name: string) => void; onDelete?: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [style, setStyle] = useState<React.CSSProperties>({})
-  const [newOpt, setNewOpt] = useState('')
-  const [renaming, setRenaming] = useState(false)
-  const [renameVal, setRenameVal] = useState(label)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(containerRef, () => { setOpen(false); setRenaming(false) })
-
-  const canOpen = !isFixed || hasOptions || isCustom || !!onHide
-  const wasDragRef = useRef(false)
-
-  const handleOpen = (e: React.MouseEvent) => {
-    if (!canOpen || wasDragRef.current) return
-    e.stopPropagation()
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 230), minWidth: 210 })
-    }
-    setOpen(v => !v)
-  }
-
-  const addOpt = () => {
-    const v = newOpt.trim()
-    if (!v || !options || options.includes(v)) return
-    onSetOptions?.([...options, v]); setNewOpt('')
-  }
-
-  const commitRename = () => {
-    const v = renameVal.trim()
-    if (v && v !== label) onRename?.(v)
-    setRenaming(false); setOpen(false)
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className={cn('flex items-center gap-1 select-none', canOpen && 'cursor-pointer group')}>
-        {isFixed && <Lock className="h-2.5 w-2.5 text-gray-300 flex-shrink-0" />}
-        <span className="text-xs font-semibold text-gray-500">{label}</span>
-        {canOpen && !isFixed && <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />}
-      </div>
-      {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
-          onClick={e => e.stopPropagation()}>
-          <div className="px-3 py-2 border-b border-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1.5">
-            {isFixed && <Lock className="h-3 w-3 text-gray-400" />}
-            {label}
-          </div>
-
-          {!isCustom && onHide && (
-            <button onClick={() => { onHide?.(); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-              <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
-            </button>
-          )}
-
-          {isCustom && (
-            <>
-              {renaming ? (
-                <div className="px-3 py-2 flex gap-1.5 border-b border-gray-100">
-                  <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setRenaming(false); setRenameVal(label) } }}
-                    className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0" />
-                  <button onClick={commitRename} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">확인</button>
-                </div>
-              ) : (
-                <button onClick={() => { setRenaming(true); setRenameVal(label) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-400">✏️</span>칼럼 이름 변경
-                </button>
-              )}
-              {onChangeType && colType && (
-                <div className="px-3 py-2 border-t border-gray-100">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
-                  <div className="flex gap-1">
-                    <button onClick={() => onChangeType('text')}
-                      className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                      텍스트
-                    </button>
-                    <button onClick={() => onChangeType('select')}
-                      className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                      선택
-                    </button>
-                  </div>
-                </div>
-              )}
-              <button onClick={() => { onDelete?.(); setOpen(false) }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100">
-                <X className="h-3.5 w-3.5" />칼럼 완전 삭제
-              </button>
-            </>
-          )}
-
-          {hasOptions && options && (
-            <>
-              {(!isFixed || isCustom) && <div className="border-t border-gray-100" />}
-              <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
-              <div className="px-2 pb-1 max-h-44 overflow-y-auto">
-                {options.map(opt => (
-                  <div key={opt} className="group/opt flex items-center gap-1.5 px-1.5 py-1 rounded-lg hover:bg-gray-50">
-                    <span className="flex-1 text-xs text-gray-700">{opt}</span>
-                    <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))}
-                      className="opacity-0 group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="px-2 pb-2 pt-1 flex gap-1.5 border-t border-gray-100">
-                <input value={newOpt} onChange={e => setNewOpt(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addOpt() }}
-                  placeholder="항목 추가..."
-                  className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 min-w-0" />
-                <button onClick={addOpt} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 flex-shrink-0">추가</button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── ColAdder (숨김 칼럼 복원 + 커스텀 칼럼 추가) ────────────
 function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddCustom, asHeaderButton }: {

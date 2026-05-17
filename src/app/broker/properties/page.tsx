@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
+import { ColumnHeader } from '@/components/sheet/column-header'
 import {
   Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown, Wand2,
 } from 'lucide-react'
@@ -828,125 +829,6 @@ function TooltipIcon({ text }: { text: string }) {
 }
 
 // ── ColumnHeader (헤더 클릭 설정) ────────────────────────
-function PropColHeader({ label, isFixed, isCustom, hasOptions, options, onSetOptions, colType, onChangeType, onHide, onRename, onDelete }: {
-  label: string; isFixed?: boolean; isCustom?: boolean; hasOptions?: boolean
-  options?: string[]; onSetOptions?: (opts: string[]) => void
-  colType?: 'text' | 'select'; onChangeType?: (type: 'text' | 'select') => void
-  onHide?: () => void; onRename?: (name: string) => void; onDelete?: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [style, setStyle] = useState<React.CSSProperties>({})
-  const [newOpt, setNewOpt] = useState('')
-  const [renaming, setRenaming] = useState(false)
-  const [renameVal, setRenameVal] = useState(label)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(containerRef, () => { setOpen(false); setRenaming(false) })
-
-  const handleOpen = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, left: Math.min(r.left, window.innerWidth - 220), minWidth: 200 })
-    }
-    setOpen(v => !v)
-  }
-
-  const commitRename = () => {
-    const v = renameVal.trim()
-    if (v && v !== label) onRename?.(v)
-    setRenaming(false); setOpen(false)
-  }
-
-  const addOpt = () => {
-    const v = newOpt.trim()
-    if (!v || !options || options.includes(v)) return
-    onSetOptions?.([...options, v]); setNewOpt('')
-  }
-
-  return (
-    <div ref={containerRef} className="relative overflow-hidden">
-      <div ref={btnRef} onClick={handleOpen}
-        className="flex items-center gap-1 select-none cursor-pointer group min-w-0">
-        {isFixed && <Lock className="h-2.5 w-2.5 text-gray-300 flex-shrink-0" />}
-        <span className="text-xs font-semibold text-gray-500 truncate min-w-0">{label}</span>
-        {!isFixed && <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
-      </div>
-      {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
-          onClick={e => e.stopPropagation()}>
-          <div className="px-3 py-2 border-b border-gray-100 text-xs font-bold text-gray-700">{label}</div>
-          {isCustom && (
-            <>
-              {renaming ? (
-                <div className="px-3 py-2 flex gap-1.5 border-b border-gray-100">
-                  <input autoFocus value={renameVal} onChange={e => setRenameVal(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setRenaming(false); setRenameVal(label) } }}
-                    className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0" />
-                  <button onClick={commitRename} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">확인</button>
-                </div>
-              ) : (
-                <button onClick={() => { setRenaming(true); setRenameVal(label) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
-                  <span className="text-gray-400">✏️</span>칼럼 이름 변경
-                </button>
-              )}
-            </>
-          )}
-          {onChangeType && colType && (
-            <div className="px-3 py-2 border-t border-gray-100">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
-              <div className="flex gap-1">
-                <button onClick={() => onChangeType('text')}
-                  className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                  텍스트
-                </button>
-                <button onClick={() => onChangeType('select')}
-                  className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                  선택
-                </button>
-              </div>
-            </div>
-          )}
-          <button onClick={() => { onHide?.(); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors border-t border-gray-100">
-            <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
-          </button>
-          {hasOptions && options && (
-            <>
-              <div className="border-t border-gray-100" />
-              <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
-              <div className="px-2 pb-1 max-h-44 overflow-y-auto">
-                {options.map(opt => (
-                  <div key={opt} className="group/opt flex items-center gap-1.5 px-1.5 py-1 rounded-lg hover:bg-gray-50">
-                    <span className="flex-1 text-xs text-gray-700">{opt}</span>
-                    <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))}
-                      className="opacity-0 group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="px-2 pb-2 pt-1 flex gap-1.5 border-t border-gray-100">
-                <input value={newOpt} onChange={e => setNewOpt(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addOpt() }}
-                  placeholder="항목 추가..."
-                  className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 min-w-0" />
-                <button onClick={addOpt} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 flex-shrink-0">추가</button>
-              </div>
-            </>
-          )}
-          {isCustom && (
-            <button onClick={() => { onDelete?.(); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100">
-              <X className="h-3.5 w-3.5" />칼럼 완전 삭제
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── ColAdder (숨김 복원 + 새 칼럼) ───────────────────────
 function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onShowCustom, onAddCustom, asHeaderButton }: {
@@ -1888,7 +1770,7 @@ function BrokerPropertiesContent() {
                             const defaultType = TOGGLE_COLS[key]
                             const effectiveType = settings.colTypes[key] ?? defaultType
                             return (
-                              <PropColHeader label={fixedCol.label} isFixed
+                              <ColumnHeader label={fixedCol.label} isFixed
                                 colType={defaultType !== undefined ? effectiveType : undefined}
                                 onChangeType={defaultType !== undefined ? type => changeFixedColType(key, type) : undefined}
                                 hasOptions={effectiveType === 'select'}
@@ -1919,7 +1801,7 @@ function BrokerPropertiesContent() {
                         onDragEnd={onColDragEnd}
                       >
                         <div className="pr-2 overflow-hidden">
-                          <PropColHeader label={customCol.name} isCustom
+                          <ColumnHeader label={customCol.name} isCustom
                             colType={customCol.type ?? 'text'}
                             onChangeType={type => changeCustomColumnType(key, type)}
                             hasOptions={customCol.type === 'select'}
