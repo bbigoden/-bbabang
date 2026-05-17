@@ -329,8 +329,10 @@ function FloorCell({ floor, totalFloors, onSave }: {
   onSave: (floor: number | null, totalFloors: string | null) => void
 }) {
   const display = (() => {
-    const f = floor != null ? String(floor) : ''
     const t = totalFloors ?? ''
+    // total_floors에 이미 "f/t" 형식이 들어있으면 그대로 (옛 데이터/타 클라이언트 보호)
+    if (t.includes('/')) return t
+    const f = floor != null ? String(floor) : ''
     if (f && t) return `${f}/${t}`
     return f || t
   })()
