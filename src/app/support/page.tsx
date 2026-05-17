@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Mail, MessageCircle, Home } from 'lucide-react'
 
-export const metadata = { title: '고객지원 – 빠방' }
+export const metadata = { title: '고객지원' }
 
 export default function SupportPage() {
   return (

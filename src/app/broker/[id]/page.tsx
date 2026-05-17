@@ -142,14 +142,16 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                       </div>
                     )}
                     <div className="flex flex-wrap gap-1.5 mb-2">
-                      <Badge variant="info">{p.deal_type}</Badge>
-                      <Badge variant="default">{p.room_type}</Badge>
+                      {p.deal_type && <Badge variant="info">{p.deal_type}</Badge>}
+                      {p.room_type && <Badge variant="default">{p.room_type}</Badge>}
                     </div>
-                    <p className="font-semibold text-gray-800 text-sm truncate">{p.address}</p>
+                    <p className="font-semibold text-gray-800 text-sm truncate">{p.address || '주소 미입력'}</p>
                     <p className="text-blue-600 font-black mt-1">
-                      {p.deal_type === '월세'
-                        ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
-                        : formatPrice(p.price)
+                      {!p.price
+                        ? '가격 협의'
+                        : p.deal_type === '월세'
+                          ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
+                          : formatPrice(p.price)
                       }
                     </p>
                   </CardBody>

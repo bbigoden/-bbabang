@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { Home } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: '개인정보처리방침 | 빠방',
+  title: '개인정보처리방침',
   description: '빠방 개인정보처리방침',
 }
 

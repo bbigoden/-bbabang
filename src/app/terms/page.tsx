@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { Home } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: '이용약관 | 빠방',
+  title: '이용약관',
   description: '빠방 서비스 이용약관',
 }
 
