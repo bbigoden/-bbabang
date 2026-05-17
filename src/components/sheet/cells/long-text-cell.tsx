@@ -13,10 +13,12 @@ export function LongTextCell({
   value,
   onSave,
   placeholder = '—',
+  readOnly,
 }: {
   value: string | null
   onSave: (v: string) => void
   placeholder?: string
+  readOnly?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -35,6 +37,21 @@ export function LongTextCell({
     setEditing(false)
     if (draft !== (value ?? '')) onSave(draft)
   }
+
+  if (readOnly) return (
+    <>
+      <div
+        ref={cellRef}
+        onMouseEnter={() => { if (value) setHovered(true) }}
+        onMouseLeave={() => setHovered(false)}
+        className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        style={{ color: value ? '#374151' : '#d1d5db' }}
+      >
+        {value || placeholder}
+      </div>
+      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
+    </>
+  )
 
   if (editing) return (
     <textarea
