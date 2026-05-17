@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const SEUM_BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService'
+
+// 봇/외부 클라이언트용: Authorization: Bearer <access_token> 헤더로 인증
+async function getUserFromBearer(req: NextRequest) {
+  const auth = req.headers.get('authorization') ?? ''
+  if (!auth.toLowerCase().startsWith('bearer ')) return null
+  const token = auth.slice(7).trim()
+  if (!token) return null
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+  if (!url || !anon) return null
+  const supa = createSupabaseClient(url, anon)
+  const { data, error } = await supa.auth.getUser(token)
+  if (error) return null
+  return data.user
+}
 
 interface AutoFillBody {
   address?: string
@@ -141,8 +157,13 @@ export async function POST(req: NextRequest) {
   }
 
   // 인증 확인 — 로그인한 사용자(중개사)만 호출 가능
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Bearer 토큰(봇/외부 클라이언트) 우선, 없으면 쿠키 세션(브라우저)
+  let user = await getUserFromBearer(req)
+  if (!user) {
+    const supabase = await createClient()
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  }
   if (!user) {
     return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
   }
