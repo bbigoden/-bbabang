@@ -33,17 +33,22 @@ interface AutoFillBody {
 async function geocodeAddress(address: string): Promise<{ sigunguCd: string; bjdongCd: string; bun: string; ji: string } | null> {
   try {
     const key = (process.env.KAKAO_REST_KEY ?? '').trim()
+    console.error('[geocode-diag] key_present:', !!key, 'len:', key.length, 'prefix:', key.slice(0, 6))
     if (!key) return null
     const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&analyze_type=similar`
     const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` } })
+    console.error('[geocode-diag] kakao_status:', res.status, res.statusText)
     if (!res.ok) {
-      console.error('[geocode] kakao api error', res.status, res.statusText)
+      const body = await res.text().catch(() => 'no body')
+      console.error('[geocode-diag] kakao_body:', body.slice(0, 200))
       return null
     }
     const json = await res.json().catch((e: unknown) => { console.error('[geocode] json parse error', e); return null })
+    console.error('[geocode-diag] documents_count:', json?.documents?.length ?? 'no field')
     const doc = json?.documents?.[0]
     if (!doc) return null
     const bCode: string = doc.address?.b_code ?? ''
+    console.error('[geocode-diag] b_code:', bCode)
     if (bCode.length !== 10) return null
     return {
       sigunguCd: bCode.slice(0, 5),
