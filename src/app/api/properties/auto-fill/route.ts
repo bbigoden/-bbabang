@@ -152,6 +152,14 @@ function parseFloor(item: SeumItem): number | null {
 }
 
 export async function POST(req: NextRequest) {
+  // [TEMP DIAG] 환경변수 가시성 확인
+  const _k = process.env.KAKAO_REST_KEY
+  const _s = process.env.SEUM_API_KEY
+  console.log('[auto-fill diag]',
+    'KAKAO_REST_KEY:', _k ? `set len=${_k.length} starts=${_k.slice(0,4)}` : 'NOT_SET',
+    'SEUM_API_KEY:', _s ? `set len=${_s.length}` : 'NOT_SET',
+  )
+
   if (!process.env.SEUM_API_KEY) {
     return NextResponse.json({ error: 'SEUM_API_KEY 미설정' }, { status: 500 })
   }
