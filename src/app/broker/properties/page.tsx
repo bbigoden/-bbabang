@@ -281,8 +281,8 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
 }
 
 // ── 인라인 숫자 셀 ──────────────────────────────────────────
-function NumberCell({ value, onSave, suffix = '만' }: {
-  value: number | null, onSave: (v: number | null) => void, suffix?: string
+function NumberCell({ value, onSave, suffix = '만', placeholder }: {
+  value: number | null, onSave: (v: number | null) => void, suffix?: string, placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value != null ? String(value) : '')
@@ -307,7 +307,7 @@ function NumberCell({ value, onSave, suffix = '만' }: {
       />
     )
   }
-  const displayText = value != null ? `${value.toLocaleString()}${suffix}` : '—'
+  const displayText = value != null ? `${value.toLocaleString()}${suffix}` : (placeholder ?? '—')
   return (
     <>
       <div ref={cellRef} onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true); setHovered(false) }}
@@ -430,8 +430,8 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
 }
 
 // ── 팝오버 선택 셀 ──────────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap }: {
-  value: string, options: string[], onSave: (v: string) => void, colorMap?: Record<string, string>
+function SelectCell({ value, options, onSave, colorMap, placeholder }: {
+  value: string, options: string[], onSave: (v: string) => void, colorMap?: Record<string, string>, placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
@@ -454,9 +454,9 @@ function SelectCell({ value, options, onSave, colorMap }: {
   return (
     <div ref={ref} className="relative">
       <div ref={btnRef} onClick={handleOpen}
-        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1 hover:opacity-80 ${colorMap?.[value] ?? 'bg-gray-100 text-gray-600'}`}
+        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1 hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-300'}`}
       >
-        {value}
+        {value || placeholder || '—'}
       </div>
       {open && (
         <div className={`rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'}`} style={popupStyle}>
@@ -740,7 +740,7 @@ function ImageCell({ images, onSave, onView }: {
     <div ref={ref} className="relative">
       <div ref={btnRef} onClick={handleOpen} className="cursor-pointer flex gap-1 items-center hover:bg-blue-50 rounded px-1 py-0.5 min-h-[22px]">
         {localImgs.length === 0
-          ? <span className="text-xs text-gray-300">—</span>
+          ? <span className="text-xs text-gray-300">사진</span>
           : <>
               <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 flex-shrink-0">
                 <img src={localImgs[0]} alt="" className="h-full w-full object-cover" />
@@ -1890,14 +1890,14 @@ function BrokerPropertiesContent() {
                           {key === 'price'           && (p.deal_type === '월세'
                             ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
                             : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
-                          {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />)}
-                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />)}
+                          {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" />)}
+                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} placeholder="거래형태" />)}
                           {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
                           {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
                           {key === 'approval_date'   && <DateCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} />}
                           {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 1대" />}
-                          {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} />}
+                          {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} placeholder="관리비" />}
                           {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
                           {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
@@ -1908,7 +1908,7 @@ function BrokerPropertiesContent() {
                               ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} />
                               : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
                           })()}
-                          {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} />}
+                          {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />}
                         </td>
                       )
                     }

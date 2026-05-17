@@ -242,13 +242,13 @@ function TextCell({ value, onSave, placeholder = '—', readOnly }: { value: str
 }
 
 // ── SelectCell ──────────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap, readOnly }: {
-  value: string; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean
+function SelectCell({ value, options, onSave, colorMap, readOnly, placeholder }: {
+  value: string; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean; placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   if (readOnly) return (
     <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>
-      {value || '—'}
+      {value || placeholder || '—'}
     </div>
   )
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
@@ -267,8 +267,8 @@ function SelectCell({ value, options, onSave, colorMap, readOnly }: {
   return (
     <div ref={ref} className="relative">
       <div ref={btnRef} onClick={handleOpen}
-        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${colorMap?.[value] ?? 'bg-gray-100 text-gray-600'}`}>
-        {value || '—'}
+        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-300'}`}>
+        {value || placeholder || '—'}
       </div>
       {open && (
         <div className="flex flex-col min-w-[110px] rounded-xl border border-gray-200 bg-white shadow-lg py-1" style={popupStyle}>
@@ -641,12 +641,10 @@ export default function BrokerCustomersPage() {
   const addRow = async () => {
     if (!broker) return
     const today = new Date().toISOString().split('T')[0]
-    const opts = settings.options
     const { data, error } = await supabase.from('broker_customers').insert({
       broker_id: broker.id, client_name: '', received_date: today,
       assignee: profile?.name ?? null,
-      category: opts.category?.[0] ?? '비주거',
-      status: opts.status?.[0] ?? '잠재',
+      category: '', status: '',
     }).select().single()
     if (error || !data) return
     setCustomers(prev => [data, ...prev])
@@ -860,16 +858,16 @@ export default function BrokerCustomersPage() {
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
       case 'assignee':
         if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
-        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveField(c.id, 'assignee', v || null)} />
+        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" />
       case 'category':      return (settings.colTypes['category'] === 'text')
         ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" readOnly={ro} />
-        : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
+        : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" />
       case 'source':        return (settings.colTypes['source'] === 'text')
         ? <TextCell value={c.source} onSave={v => saveField(c.id, 'source', v || null)} placeholder="유입" readOnly={ro} />
-        : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
+        : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" />
       case 'status':        return (settings.colTypes['status'] === 'text')
         ? <TextCell value={c.status} onSave={v => saveField(c.id, 'status', v)} placeholder="진행상황" readOnly={ro} />
-        : <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
+        : <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" />
       default: return null
     }
   }

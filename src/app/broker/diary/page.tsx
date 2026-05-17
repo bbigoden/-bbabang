@@ -147,20 +147,20 @@ function LongTextCell({ value, onSave, placeholder = '—', readOnly }: { value:
 }
 
 // ── SelectCell ───────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap, readOnly }: { value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean }) {
+function SelectCell({ value, options, onSave, colorMap, readOnly, placeholder }: { value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean; placeholder?: string }) {
   const [open, setOpen] = useState(false)
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
-  if (readOnly) return <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>{value || '—'}</div>
+  if (readOnly) return <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>{value || placeholder || '—'}</div>
   const handleOpen = () => {
     if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: r.left }; if (window.innerHeight - r.bottom < 200) s.bottom = window.innerHeight - r.top + 4; else s.top = r.bottom + 4; setPopupStyle(s) }
     setOpen(v => !v)
   }
   return (
     <div ref={ref} className="relative">
-      <div ref={btnRef} onClick={handleOpen} className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>{value || '—'}</div>
+      <div ref={btnRef} onClick={handleOpen} className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-300'}`}>{value || placeholder || '—'}</div>
       {open && <div className="flex flex-col min-w-[110px] rounded-xl border border-gray-200 bg-white shadow-lg py-1" style={popupStyle}>{options.map(opt => <button key={opt} onClick={() => { onSave(opt); setOpen(false) }} className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}>{opt}</button>)}</div>}
     </div>
   )
@@ -550,32 +550,33 @@ export default function BrokerDiaryPage() {
     setDiaryLoading(false)
   }
 
-  // 고객 피커: 기존 고객 추가
+  // 고객 피커: 기존 고객 추가 (위로 쌓이게 — sort_order 최소값 - 1)
   const addExistingCustomer = async (c: Customer) => {
     if (!broker) return
-    const nextOrder = diaryCustomers.length
+    const minOrder = diaryCustomers.length > 0 ? Math.min(...diaryCustomers.map(d => d.sort_order)) : 0
+    const nextOrder = minOrder - 1
     const { data, error } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: c.id, sort_order: nextOrder }).select('id').single()
     if (!error && data) {
-      setDiaryCustomers(prev => [...prev, { link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }])
+      setDiaryCustomers(prev => [{ link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }, ...prev])
     }
     setShowPicker(false)
   }
 
-  // 고객 피커: 새 고객 만들기
+  // 고객 피커: 새 고객 만들기 (구분/진행상황 빈 값으로 생성, 위로 쌓이게)
   const createAndAddCustomer = async () => {
     if (!broker) return
     setShowPicker(false)
     const { data: newCust, error: ce } = await supabase.from('broker_customers').insert({
       broker_id: broker.id, client_name: '', request: '', contact: null,
-      received_date: null, assignee: profile?.name ?? null,
-      category: settings.options.category?.[0] ?? '비주거', source: null,
-      status: settings.options.status?.[0] ?? '잠재',
+      received_date: null, assignee: profile?.name ?? null, source: null,
+      category: '', status: '',
     }).select().single()
     if (ce || !newCust) return
     setAllCustomers(prev => [newCust, ...prev])
-    const nextOrder = diaryCustomers.length
+    const minOrder = diaryCustomers.length > 0 ? Math.min(...diaryCustomers.map(d => d.sort_order)) : 0
+    const nextOrder = minOrder - 1
     const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
-    if (link) setDiaryCustomers(prev => [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
+    if (link) setDiaryCustomers(prev => [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev])
   }
 
   // 고객 행 삭제 (diary_customers 링크만 제거)
@@ -764,10 +765,10 @@ export default function BrokerDiaryPage() {
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveCustomerField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
       case 'assignee':
         if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
-        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} />
-      case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} />
-      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} />
-      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} />
+        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} placeholder="담당자" />
+      case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" />
+      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" />
+      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" />
       case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} allProperties={allProperties} onOpen={() => setPropertyPickerLinkId(c.link_id)} readOnly={ro} />
       default: return null
     }
