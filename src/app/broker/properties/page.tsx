@@ -321,6 +321,53 @@ function NumberCell({ value, onSave, suffix = '만' }: {
   )
 }
 
+// ── 층/총층 셀 (floor / total_floors 합쳐서 "2/5" 형태로) ─────
+function FloorCell({ floor, totalFloors, onSave }: {
+  floor: number | null
+  totalFloors: string | null
+  onSave: (floor: number | null, totalFloors: string | null) => void
+}) {
+  const display = (() => {
+    const f = floor != null ? String(floor) : ''
+    const t = totalFloors ?? ''
+    if (f && t) return `${f}/${t}`
+    return f || t
+  })()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(display)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    if (draft === display) return
+    const v = draft.trim()
+    if (!v) { onSave(null, null); return }
+    const m = v.match(/^(-?\d+)\s*\/\s*(.+)$/)
+    if (m) onSave(parseInt(m[1], 10), m[2].trim())
+    else onSave(null, v)
+  }
+
+  if (editing) {
+    return (
+      <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(display); setEditing(false) } }}
+        className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+        placeholder="예: 3/15"
+      />
+    )
+  }
+  return (
+    <div onClick={() => { setDraft(display); setEditing(true) }}
+      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+      style={{ color: display ? '#374151' : '#d1d5db' }}>
+      {display || '예: 3/15'}
+    </div>
+  )
+}
+
 // ── 월세 보증금/임차료 셀 ──────────────────────────────────
 function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
   price: number | null; rent: number | null
@@ -370,10 +417,10 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
   const dep = price != null ? `${price.toLocaleString()}만` : '—'
   const mo = rent != null ? `${rent.toLocaleString()}만` : '—'
   return (
-    <div className="flex items-center cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs gap-0.5"
+    <div className="w-full cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs overflow-hidden whitespace-nowrap text-ellipsis"
       onClick={() => { setDraftPrice(price != null ? String(price) : ''); setDraftRent(rent != null ? String(rent) : ''); setEditing(true) }}>
       <span className={`font-semibold ${price ? 'text-gray-800' : 'text-gray-300'}`}>{dep}</span>
-      <span className="text-gray-400 flex-shrink-0">/</span>
+      <span className="text-gray-400 mx-0.5">/</span>
       <span className={`font-semibold ${rent ? 'text-gray-800' : 'text-gray-300'}`}>{mo}</span>
     </div>
   )
@@ -781,8 +828,8 @@ function TooltipIcon({ text }: { text: string }) {
 }
 
 // ── ColumnHeader (헤더 클릭 설정) ────────────────────────
-function PropColHeader({ label, isCustom, hasOptions, options, onSetOptions, colType, onChangeType, onHide, onRename, onDelete }: {
-  label: string; isCustom?: boolean; hasOptions?: boolean
+function PropColHeader({ label, isFixed, isCustom, hasOptions, options, onSetOptions, colType, onChangeType, onHide, onRename, onDelete }: {
+  label: string; isFixed?: boolean; isCustom?: boolean; hasOptions?: boolean
   options?: string[]; onSetOptions?: (opts: string[]) => void
   colType?: 'text' | 'select'; onChangeType?: (type: 'text' | 'select') => void
   onHide?: () => void; onRename?: (name: string) => void; onDelete?: () => void
@@ -821,8 +868,9 @@ function PropColHeader({ label, isCustom, hasOptions, options, onSetOptions, col
     <div ref={containerRef} className="relative overflow-hidden">
       <div ref={btnRef} onClick={handleOpen}
         className="flex items-center gap-1 select-none cursor-pointer group min-w-0">
+        {isFixed && <Lock className="h-2.5 w-2.5 text-gray-300 flex-shrink-0" />}
         <span className="text-xs font-semibold text-gray-500 truncate min-w-0">{label}</span>
-        <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        {!isFixed && <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
       </div>
       {open && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
@@ -1151,6 +1199,7 @@ function BrokerPropertiesContent() {
   const [accessDenied, setAccessDenied] = useState(false)
   const [isAdminView, setIsAdminView] = useState(false)
   const [isOwner, setIsOwner] = useState(true)
+  const [teamMembers, setTeamMembers] = useState<string[]>([])
   const [adminViewBrokerName, setAdminViewBrokerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterDealType, setFilterDealType] = useState('')
@@ -1310,6 +1359,21 @@ function BrokerPropertiesContent() {
       const perms = b.permissions
       if (perms?.properties?.view === false) { setAccessDenied(true); setLoading(false); return }
       setCanEdit(perms ? perms.properties?.edit !== false : true)
+    }
+
+    // ── 팀원 이름 목록 (담당자 드롭다운용) ──────────────
+    const { data: prof } = await supabase.from('profiles').select('name').eq('id', u.id).single()
+    const myName = prof?.name as string | undefined
+    if (owner) {
+      const { data: emps } = await supabase
+        .from('broker_profiles')
+        .select('profiles(name)')
+        .eq('parent_broker_id', b.id)
+        .eq('is_approved', true)
+      const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
+      setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
+    } else {
+      setTeamMembers(myName ? [myName] : [])
     }
 
     // ── 커스텀 칼럼 로드 ───────────────────────────────
@@ -1824,7 +1888,7 @@ function BrokerPropertiesContent() {
                             const defaultType = TOGGLE_COLS[key]
                             const effectiveType = settings.colTypes[key] ?? defaultType
                             return (
-                              <PropColHeader label={fixedCol.label}
+                              <PropColHeader label={fixedCol.label} isFixed
                                 colType={defaultType !== undefined ? effectiveType : undefined}
                                 onChangeType={defaultType !== undefined ? type => changeFixedColType(key, type) : undefined}
                                 hasOptions={effectiveType === 'select'}
@@ -1944,7 +2008,7 @@ function BrokerPropertiesContent() {
                             : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
                           {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} />)}
                           {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} />)}
-                          {key === 'total_floors'    && <TextCell value={p.total_floors} onSave={v => saveField(p.id, 'total_floors', v || null)} placeholder="예: 3/15" />}
+                          {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
                           {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
                           {key === 'approval_date'   && <DateCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} />}
@@ -1960,7 +2024,7 @@ function BrokerPropertiesContent() {
                               ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} />
                               : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
                           })()}
-                          {key === 'assignee'        && <TextCell value={p.assignee} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />}
+                          {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} />}
                         </td>
                       )
                     }
