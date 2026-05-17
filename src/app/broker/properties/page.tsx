@@ -7,8 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
+import { useSheetDirection } from '@/lib/use-sheet-direction'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown, Wand2,
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown, Wand2, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -1112,6 +1113,7 @@ function BrokerPropertiesContent() {
 
   // 칼럼 설정 (DB)
   const { settings, update, loaded: colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
+  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null)
 
   // 고정 칼럼이 settings.order에 없는 경우 추가 (첫 로드 또는 새 칼럼 추가시)
   const syncedOrder = useMemo(() => {
@@ -1434,7 +1436,7 @@ function BrokerPropertiesContent() {
       images: [],
     }).select().single()
     if (error || !data) return
-    setProperties(prev => [data, ...prev])
+    setProperties(prev => direction === 'up' ? [data, ...prev] : [...prev, data])
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
@@ -1584,7 +1586,8 @@ function BrokerPropertiesContent() {
 
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const sortedFiltered = direction === 'up' ? filtered : [...filtered].reverse()
+  const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize)
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -1847,7 +1850,7 @@ function BrokerPropertiesContent() {
                   className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
                   <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
-                    {filtered.length - ((page - 1) * pageSize + idx)}
+                    {direction === 'up' ? filtered.length - ((page - 1) * pageSize + idx) : ((page - 1) * pageSize + idx + 1)}
                   </td>
                   {syncedOrder.map(key => {
                     const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1945,10 +1948,18 @@ function BrokerPropertiesContent() {
               {!isAdminView && canEdit && (
                 <tr>
                   <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100">
-                    <button onClick={addNewRow}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
-                      <Plus className="h-3.5 w-3.5" />매물 등록
-                    </button>
+                    <div className="flex items-center divide-x divide-gray-100">
+                      <button onClick={addNewRow}
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                        <Plus className="h-3.5 w-3.5" />매물 등록
+                      </button>
+                      <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
+                        title={direction === 'up' ? '새 행이 위로 쌓임 (클릭하면 아래로)' : '새 행이 아래로 쌓임 (클릭하면 위로)'}
+                        className="flex items-center gap-1 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                        {direction === 'up' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                        {direction === 'up' ? '위로 쌓기' : '아래로 쌓기'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )}

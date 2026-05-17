@@ -4,9 +4,10 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, ArrowUp, ArrowDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
+import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { ColumnHeader } from '@/components/sheet/column-header'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
@@ -467,6 +468,7 @@ export default function BrokerDiaryPage() {
 
   // 칼럼 설정
   const { settings, update, loaded } = useColSettings('diary_cust', broker?.id ?? null, DEFAULT_COL_SETTINGS)
+  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null)
 
   useEffect(() => { init() }, [])
   useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id, viewingBrokerId])
@@ -550,14 +552,18 @@ export default function BrokerDiaryPage() {
     setDiaryLoading(false)
   }
 
-  // 고객 피커: 기존 고객 추가 (위로 쌓이게 — sort_order 최소값 - 1)
+  // 고객 피커: 기존 고객 추가 (direction에 따라 위/아래)
   const addExistingCustomer = async (c: Customer) => {
     if (!broker) return
-    const minOrder = diaryCustomers.length > 0 ? Math.min(...diaryCustomers.map(d => d.sort_order)) : 0
-    const nextOrder = minOrder - 1
+    const orders = diaryCustomers.map(d => d.sort_order)
+    const nextOrder = direction === 'up'
+      ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
+      : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
     const { data, error } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: c.id, sort_order: nextOrder }).select('id').single()
     if (!error && data) {
-      setDiaryCustomers(prev => [{ link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }, ...prev])
+      setDiaryCustomers(prev => direction === 'up'
+        ? [{ link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }, ...prev]
+        : [...prev, { link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }])
     }
     setShowPicker(false)
   }
@@ -573,10 +579,14 @@ export default function BrokerDiaryPage() {
     }).select().single()
     if (ce || !newCust) return
     setAllCustomers(prev => [newCust, ...prev])
-    const minOrder = diaryCustomers.length > 0 ? Math.min(...diaryCustomers.map(d => d.sort_order)) : 0
-    const nextOrder = minOrder - 1
+    const orders = diaryCustomers.map(d => d.sort_order)
+    const nextOrder = direction === 'up'
+      ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
+      : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
     const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
-    if (link) setDiaryCustomers(prev => [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev])
+    if (link) setDiaryCustomers(prev => direction === 'up'
+      ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
+      : [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
   }
 
   // 고객 행 삭제 (diary_customers 링크만 제거)
@@ -865,9 +875,9 @@ export default function BrokerDiaryPage() {
                 <tbody>
                   {diaryCustomers.length === 0 ? (
                     <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
-                  ) : diaryCustomers.map((c, idx) => (
+                  ) : (direction === 'up' ? diaryCustomers : [...diaryCustomers].reverse()).map((c, idx) => (
                     <tr key={c.link_id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                      <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{diaryCustomers.length - idx}</td>
+                      <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? diaryCustomers.length - idx : idx + 1}</td>
                       {activeCols.map(col => (
                         <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
                       ))}
@@ -879,9 +889,17 @@ export default function BrokerDiaryPage() {
                   ))}
                   {effectiveCanEdit && (
                     <tr><td colSpan={activeCols.length + 3} className="border-t border-gray-100">
-                      <button onClick={() => setShowPicker(true)} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
-                        <Plus className="h-3.5 w-3.5" />고객 등록
-                      </button>
+                      <div className="flex items-center divide-x divide-gray-100">
+                        <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                          <Plus className="h-3.5 w-3.5" />고객 등록
+                        </button>
+                        <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
+                          title={direction === 'up' ? '새 행이 위로 쌓임 (클릭하면 아래로)' : '새 행이 아래로 쌓임 (클릭하면 위로)'}
+                          className="flex items-center gap-1 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                          {direction === 'up' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                          {direction === 'up' ? '위로 쌓기' : '아래로 쌓기'}
+                        </button>
+                      </div>
                     </td></tr>
                   )}
                 </tbody>

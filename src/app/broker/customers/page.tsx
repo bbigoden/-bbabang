@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
+import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { ColumnHeader } from '@/components/sheet/column-header'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 
 // ── 컬럼 정의 ──────────────────────────────────────────
 interface ColDef {
@@ -569,6 +571,7 @@ export default function BrokerCustomersPage() {
 
   // 칼럼 설정 (DB)
   const { settings, update, loaded } = useColSettings('customers', broker?.id ?? null, DEFAULT_COL_SETTINGS)
+  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null)
 
   useEffect(() => { init() }, [])
 
@@ -647,7 +650,7 @@ export default function BrokerCustomersPage() {
       category: '', status: '',
     }).select().single()
     if (error || !data) return
-    setCustomers(prev => [data, ...prev])
+    setCustomers(prev => direction === 'up' ? [data, ...prev] : [...prev, data])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
   }
 
@@ -1120,9 +1123,9 @@ export default function BrokerCustomersPage() {
                       {customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
                     </td>
                   </tr>
-                ) : filtered.map((c, idx) => (
+                ) : (direction === 'up' ? filtered : [...filtered].reverse()).map((c, idx) => (
                   <tr key={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{filtered.length - idx}</td>
+                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? filtered.length - idx : idx + 1}</td>
                     {activeCols.map(col => (
                       <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100"
                         style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
@@ -1147,6 +1150,12 @@ export default function BrokerCustomersPage() {
                         <button onClick={addRow}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
                           <Plus className="h-3.5 w-3.5" />고객 등록
+                        </button>
+                        <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
+                          title={direction === 'up' ? '새 행이 위로 쌓임 (클릭하면 아래로)' : '새 행이 아래로 쌓임 (클릭하면 위로)'}
+                          className="flex items-center gap-1 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                          {direction === 'up' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+                          {direction === 'up' ? '위로 쌓기' : '아래로 쌓기'}
                         </button>
                         <button onClick={openImport}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
