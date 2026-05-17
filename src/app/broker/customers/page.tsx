@@ -650,7 +650,8 @@ export default function BrokerCustomersPage() {
       category: '', status: '',
     }).select().single()
     if (error || !data) return
-    setCustomers(prev => direction === 'up' ? [data, ...prev] : [...prev, data])
+    // customers 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
+    setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
   }
 

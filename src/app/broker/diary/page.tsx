@@ -875,7 +875,7 @@ export default function BrokerDiaryPage() {
                 <tbody>
                   {diaryCustomers.length === 0 ? (
                     <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
-                  ) : (direction === 'up' ? diaryCustomers : [...diaryCustomers].reverse()).map((c, idx) => (
+                  ) : diaryCustomers.map((c, idx) => (
                     <tr key={c.link_id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                       <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? diaryCustomers.length - idx : idx + 1}</td>
                       {activeCols.map(col => (

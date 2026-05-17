@@ -1436,7 +1436,8 @@ function BrokerPropertiesContent() {
       images: [],
     }).select().single()
     if (error || !data) return
-    setProperties(prev => direction === 'up' ? [data, ...prev] : [...prev, data])
+    // properties 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
+    setProperties(prev => [data, ...prev])
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
