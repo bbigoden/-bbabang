@@ -8,6 +8,12 @@ import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
+import { useClickOutside } from '@/lib/use-click-outside'
+import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
+import { TextCell } from '@/components/sheet/cells/text-cell'
+import { SelectCell } from '@/components/sheet/cells/select-cell'
+import { DateCell } from '@/components/sheet/cells/date-cell'
+import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
   Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown, Wand2, ArrowUp, ArrowDown,
 } from 'lucide-react'
@@ -103,73 +109,6 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
   customCols: [],
   options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS] },
   colTypes:   {},
-}
-
-// 팝오버를 닫기 위한 훅
-function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) cb()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [ref, cb])
-}
-
-// ── 공통 호버 툴팁 카드 ──────────────────────────────────────────
-function CellTooltip({ text, anchorRef }: { text: string; anchorRef: React.RefObject<HTMLElement | null> }) {
-  const [style, setStyle] = useState<React.CSSProperties>({})
-  useEffect(() => {
-    if (!anchorRef.current) return
-    const rect = anchorRef.current.getBoundingClientRect()
-    const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, top: rect.bottom + 4, maxWidth: 320, minWidth: 120 }
-    if (rect.left + 320 > window.innerWidth) s.right = window.innerWidth - rect.right
-    else s.left = rect.left
-    setStyle(s)
-  }, [anchorRef])
-  return (
-    <div className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap" style={style}>
-      {text}
-    </div>
-  )
-}
-
-// ── 인라인 텍스트 셀 ──────────────────────────────────────────
-function TextCell({ value, onSave, placeholder = '—', className = '' }: {
-  value: string | null, onSave: (v: string) => void, placeholder?: string, className?: string
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const [hovered, setHovered] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const cellRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
-
-  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
-
-  if (editing) {
-    return (
-      <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
-        className={`w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 ${className}`}
-      />
-    )
-  }
-  return (
-    <>
-      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
-        onMouseEnter={() => { if (value) setHovered(true) }}
-        onMouseLeave={() => setHovered(false)}
-        className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis ${className}`}
-        style={{ color: value ? '#374151' : '#d1d5db' }}
-      >
-        {value || placeholder}
-      </div>
-      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
-    </>
-  )
 }
 
 // ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
@@ -431,48 +370,6 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
 }
 
 // ── 팝오버 선택 셀 ──────────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap, placeholder }: {
-  value: string, options: string[], onSave: (v: string) => void, colorMap?: Record<string, string>, placeholder?: string
-}) {
-  const [open, setOpen] = useState(false)
-  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
-  const ref = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(ref, () => setOpen(false))
-
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect()
-      const openUp = window.innerHeight - rect.bottom < 200
-      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
-      if (openUp) s.bottom = window.innerHeight - rect.top + 4
-      else s.top = rect.bottom + 4
-      setPopupStyle(s)
-    }
-    setOpen(v => !v)
-  }
-
-  return (
-    <div ref={ref} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1 hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-300'}`}
-      >
-        {value || placeholder || '—'}
-      </div>
-      {open && (
-        <div className={`rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'}`} style={popupStyle}>
-          {options.map(opt => (
-            <button key={opt} onClick={() => { onSave(opt); setOpen(false) }}
-              className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}
-            >{opt}</button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 면적 셀 (전용·공급 각각 입력) ──────────────────────────
 function AreaCell({ size, supplied, areaUnit, onSave }: {
   size: string | null          // 전용 면적
   supplied: number | null      // 공급 면적
@@ -580,106 +477,6 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
 }
 
 // ── 긴 텍스트 셀 (메모/설명용 — textarea 편집 + 공통 툴팁) ──────────
-function LongTextCell({ value, onSave, placeholder = '—' }: {
-  value: string | null, onSave: (v: string) => void, placeholder?: string
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const [hovered, setHovered] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const cellRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => { if (editing) { textareaRef.current?.focus(); textareaRef.current?.select() } }, [editing])
-
-  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
-
-  if (editing) {
-    return (
-      <textarea ref={textareaRef} value={draft} onChange={e => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={e => { if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
-        rows={3}
-        className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-      />
-    )
-  }
-  return (
-    <>
-      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
-        onMouseEnter={() => { if (value) setHovered(true) }}
-        onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
-        style={{ color: value ? '#374151' : '#d1d5db' }}
-      >
-        {value || placeholder}
-      </div>
-      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
-    </>
-  )
-}
-
-// ── 날짜 셀 ──────────────────────────────────────────
-function DateCell({ value, onSave }: { value: string | null; onSave: (v: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const [viewYear, setViewYear] = useState(() => { const d = value ? new Date(value) : new Date(); return isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear() })
-  const [viewMonth, setViewMonth] = useState(() => { const d = value ? new Date(value) : new Date(); return isNaN(d.getTime()) ? new Date().getMonth() : d.getMonth() })
-  const btnRef = useRef<HTMLDivElement>(null)
-  const popupRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => { if (!btnRef.current?.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) { commit(); setOpen(false) } }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [open, draft])
-  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
-  const handleOpen = () => {
-    if (open) return
-    setDraft(value ?? '')
-    const d = value ? new Date(value) : new Date(); const base = isNaN(d.getTime()) ? new Date() : d
-    setViewYear(base.getFullYear()); setViewMonth(base.getMonth())
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPopStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 4 + 260 > window.innerHeight ? r.top - 264 : r.bottom + 4, left: r.left + 240 > window.innerWidth ? window.innerWidth - 248 : r.left })
-    }
-    setOpen(true)
-  }
-  const commit = () => { if (draft && draft !== (value ?? '')) onSave(draft); setOpen(false) }
-  const selectDate = (y: number, m: number, d: number) => { const str = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; setDraft(str); onSave(str); setOpen(false) }
-  const prevMonth = () => { if (viewMonth === 0) { setViewYear(y => y-1); setViewMonth(11) } else setViewMonth(m => m-1) }
-  const nextMonth = () => { if (viewMonth === 11) { setViewYear(y => y+1); setViewMonth(0) } else setViewMonth(m => m+1) }
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay()
-  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate()
-  const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i+1)]
-  while (cells.length % 7 !== 0) cells.push(null)
-  const today = new Date(); const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
-  const selectedStr = value ?? ''
-  return (
-    <div className="relative w-full">
-      <div ref={btnRef} onClick={handleOpen} className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis" style={{ color: value ? '#374151' : '#d1d5db' }}>{value || '날짜'}</div>
-      {open && (
-        <div ref={popupRef} className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={{ ...popStyle, width: 240 }}>
-          <div className="p-2 border-b border-gray-100">
-            <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }} placeholder="2026-05-13" className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <button onClick={prevMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 text-gray-500 text-xs font-bold">‹</button>
-            <span className="text-xs font-semibold text-gray-700">{viewYear}년 {viewMonth+1}월</span>
-            <button onClick={nextMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 text-gray-500 text-xs font-bold">›</button>
-          </div>
-          <div className="grid grid-cols-7 px-2 pb-1">{['일','월','화','수','목','금','토'].map((d,i) => <div key={d} className={`text-center text-[10px] font-medium pb-1 ${i===0?'text-red-400':i===6?'text-blue-400':'text-gray-400'}`}>{d}</div>)}</div>
-          <div className="grid grid-cols-7 px-2 pb-2 gap-y-0.5">
-            {cells.map((day, i) => { if (!day) return <div key={i} />; const str = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`; const isSelected = str===selectedStr; const isToday = str===todayStr; const col = i%7; return (<button key={i} onClick={() => selectDate(viewYear, viewMonth, day)} className={`flex h-7 w-7 mx-auto items-center justify-center rounded-full text-xs transition-colors ${isSelected?'bg-blue-600 text-white font-bold':isToday?'border border-blue-400 text-blue-600 font-semibold hover:bg-blue-50':col===0?'text-red-400 hover:bg-red-50':col===6?'text-blue-400 hover:bg-blue-50':'text-gray-700 hover:bg-gray-100'}`}>{day}</button>) })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 사진 셀 ──────────────────────────────────────────
 function ImageCell({ images, onSave, onView }: {
   images: string[], onSave: (imgs: string[]) => void, onView: (idx: number) => void
 }) {

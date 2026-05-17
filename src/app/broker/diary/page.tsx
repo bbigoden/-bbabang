@@ -8,7 +8,12 @@ import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, More
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
+import { useClickOutside } from '@/lib/use-click-outside'
 import { ColumnHeader } from '@/components/sheet/column-header'
+import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
+import { TextCell } from '@/components/sheet/cells/text-cell'
+import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
+import { SelectCell } from '@/components/sheet/cells/select-cell'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -81,91 +86,6 @@ const DEFAULT_SECTIONS: SectionDef[] = [
   { id: 's_delivery', title: '전달사항' },
 ]
 
-// ── useClickOutside ──────────────────────────────────
-function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) cb() }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [ref, cb])
-}
-
-// ── CellTooltip ──────────────────────────────────────
-function CellTooltip({ text, anchorRef }: { text: string; anchorRef: React.RefObject<HTMLElement | null> }) {
-  const [style, setStyle] = useState<React.CSSProperties>({})
-  useEffect(() => {
-    if (!anchorRef.current) return
-    const r = anchorRef.current.getBoundingClientRect()
-    const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, top: r.bottom + 4, maxWidth: 320, minWidth: 120 }
-    if (r.left + 320 > window.innerWidth) s.right = window.innerWidth - r.right; else s.left = r.left
-    setStyle(s)
-  }, [anchorRef])
-  return <div className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap" style={style}>{text}</div>
-}
-
-// ── TextCell ─────────────────────────────────────────
-function TextCell({ value, onSave, placeholder = '—', readOnly }: { value: string | null; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const [hovered, setHovered] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const cellRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
-  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
-  if (readOnly) return <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis" style={{ color: value ? '#374151' : '#d1d5db' }}>{value || placeholder}</div>
-  if (editing) return <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }} className="w-full rounded border border-blue-400 bg-white px-2 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-300" />
-  return (
-    <>
-      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }} onMouseEnter={() => { if (value) setHovered(true) }} onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis" style={{ color: value ? '#374151' : '#d1d5db' }}>
-        {value || placeholder}
-      </div>
-      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
-    </>
-  )
-}
-
-// ── LongTextCell ─────────────────────────────────────
-function LongTextCell({ value, onSave, placeholder = '—', readOnly }: { value: string | null; onSave: (v: string) => void; placeholder?: string; readOnly?: boolean }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value ?? '')
-  const [hovered, setHovered] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const cellRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (editing) { textareaRef.current?.focus(); textareaRef.current?.select() } }, [editing])
-  const commit = () => { setEditing(false); if (draft !== (value ?? '')) onSave(draft) }
-  if (readOnly) return <div className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden" style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{value || placeholder}</div>
-  if (editing) return <textarea ref={textareaRef} value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit} onKeyDown={e => { if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }} rows={3} className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none min-w-[180px]" />
-  return (
-    <>
-      <div ref={cellRef} onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }} onMouseEnter={() => { if (value) setHovered(true) }} onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden" style={{ color: value ? '#374151' : '#d1d5db', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-        {value || placeholder}
-      </div>
-      {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
-    </>
-  )
-}
-
-// ── SelectCell ───────────────────────────────────────
-function SelectCell({ value, options, onSave, colorMap, readOnly, placeholder }: { value: string | null; options: string[]; onSave: (v: string) => void; colorMap?: Record<string, string>; readOnly?: boolean; placeholder?: string }) {
-  const [open, setOpen] = useState(false)
-  const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
-  const ref = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(ref, () => setOpen(false))
-  if (readOnly) return <div className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'}`}>{value || placeholder || '—'}</div>
-  const handleOpen = () => {
-    if (btnRef.current) { const r = btnRef.current.getBoundingClientRect(); const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: r.left }; if (window.innerHeight - r.bottom < 200) s.bottom = window.innerHeight - r.top + 4; else s.top = r.bottom + 4; setPopupStyle(s) }
-    setOpen(v => !v)
-  }
-  return (
-    <div ref={ref} className="relative">
-      <div ref={btnRef} onClick={handleOpen} className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center hover:opacity-80 ${value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-300'}`}>{value || placeholder || '—'}</div>
-      {open && <div className="flex flex-col min-w-[110px] rounded-xl border border-gray-200 bg-white shadow-lg py-1" style={popupStyle}>{options.map(opt => <button key={opt} onClick={() => { onSave(opt); setOpen(false) }} className={`px-3 py-1.5 text-left text-xs hover:bg-gray-50 font-medium ${opt === value ? 'text-blue-600' : 'text-gray-700'}`}>{opt}</button>)}</div>}
-    </div>
-  )
-}
 
 
 // ── AddColBtn ─────────────────────────────────────────
