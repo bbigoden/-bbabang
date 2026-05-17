@@ -33,22 +33,17 @@ interface AutoFillBody {
 async function geocodeAddress(address: string): Promise<{ sigunguCd: string; bjdongCd: string; bun: string; ji: string } | null> {
   try {
     const key = (process.env.KAKAO_REST_KEY ?? '').trim()
-    console.error('[geocode-diag] key_present:', !!key, 'len:', key.length, 'prefix:', key.slice(0, 6))
     if (!key) return null
     const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&analyze_type=similar`
     const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` } })
-    console.error('[geocode-diag] kakao_status:', res.status, res.statusText)
     if (!res.ok) {
-      const body = await res.text().catch(() => 'no body')
-      console.error('[geocode-diag] kakao_body:', body.slice(0, 200))
+      console.error('[geocode] kakao api error', res.status, res.statusText)
       return null
     }
     const json = await res.json().catch((e: unknown) => { console.error('[geocode] json parse error', e); return null })
-    console.error('[geocode-diag] documents_count:', json?.documents?.length ?? 'no field')
     const doc = json?.documents?.[0]
     if (!doc) return null
     const bCode: string = doc.address?.b_code ?? ''
-    console.error('[geocode-diag] b_code:', bCode)
     if (bCode.length !== 10) return null
     return {
       sigunguCd: bCode.slice(0, 5),
@@ -157,37 +152,6 @@ function parseFloor(item: SeumItem): number | null {
 }
 
 export async function POST(req: NextRequest) {
-  // [TEMP DIAG] 환경변수 가시성 확인
-  const _k = process.env.KAKAO_REST_KEY
-  const _s = process.env.SEUM_API_KEY
-  console.log('[auto-fill diag]',
-    'KAKAO_REST_KEY:', _k ? `set len=${_k.length} starts=${_k.slice(0,4)}` : 'NOT_SET',
-    'SEUM_API_KEY:', _s ? `set len=${_s.length}` : 'NOT_SET',
-  )
-
-  // [TEMP DIAG] _diag=1 이면 진단 정보 반환
-  const url = new URL(req.url)
-  if (url.searchParams.get('_diag') === '1') {
-    const probeBody = await req.json().catch(() => ({} as { address?: string }))
-    const probeAddr = (probeBody as { address?: string }).address || '서울시 강남구 역삼동 736-22'
-    const k = (process.env.KAKAO_REST_KEY ?? '').trim()
-    const s = (process.env.SEUM_API_KEY ?? '').trim()
-    const diag: Record<string, unknown> = {
-      probe_address: probeAddr,
-      kakao_key_set: !!k, kakao_key_len: k.length, kakao_key_prefix: k.slice(0, 6),
-      seum_key_set: !!s, seum_key_len: s.length,
-    }
-    try {
-      const kakaoUrl = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(probeAddr)}&analyze_type=similar`
-      const r = await fetch(kakaoUrl, { headers: { Authorization: `KakaoAK ${k}` } })
-      diag.kakao_status = r.status
-      diag.kakao_body = (await r.text()).slice(0, 600)
-    } catch (e) {
-      diag.kakao_throw = String((e as Error)?.message ?? e)
-    }
-    return NextResponse.json(diag)
-  }
-
   if (!process.env.SEUM_API_KEY) {
     return NextResponse.json({ error: 'SEUM_API_KEY 미설정' }, { status: 500 })
   }
