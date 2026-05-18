@@ -34,6 +34,28 @@ export default function BrokerRegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // 사업자번호 검증
+  const [bizVerifying, setBizVerifying] = useState(false)
+  const [bizResult, setBizResult] = useState<{ ok: boolean; isActive?: boolean; status?: { b_stt?: string }; error?: string } | null>(null)
+
+  const verifyBusiness = async () => {
+    if (!form.business_reg_number) { setBizResult({ ok: false, error: '사업자등록번호를 먼저 입력해주세요' }); return }
+    setBizVerifying(true); setBizResult(null)
+    try {
+      const r = await fetch('/api/brokers/verify-business', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessNumber: form.business_reg_number }),
+      })
+      const j = await r.json()
+      if (!r.ok) setBizResult({ ok: false, error: j.error ?? '검증 실패' })
+      else setBizResult({ ok: true, isActive: j.isActive, status: j.status })
+    } catch (e: any) {
+      setBizResult({ ok: false, error: e?.message ?? '네트워크 오류' })
+    }
+    setBizVerifying(false)
+  }
+
   const update = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
 
   const handleCodeChange = async (val: string) => {
@@ -224,8 +246,23 @@ export default function BrokerRegisterPage() {
                   value={form.license_number} onChange={(e) => update('license_number', e.target.value)} required />
                 <Input label="중개사무소 등록번호" placeholder="예: 11680-2024-00123"
                   value={form.office_reg_number} onChange={(e) => update('office_reg_number', e.target.value)} required />
-                <Input label="사업자등록번호" placeholder="예: 123-45-67890"
-                  value={form.business_reg_number} onChange={(e) => update('business_reg_number', e.target.value)} required />
+                <div>
+                  <Input label="사업자등록번호" placeholder="예: 123-45-67890"
+                    value={form.business_reg_number} onChange={(e) => update('business_reg_number', e.target.value)} required />
+                  <div className="mt-2 flex items-center gap-2">
+                    <button type="button" onClick={verifyBusiness} disabled={bizVerifying || !form.business_reg_number}
+                      className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50 transition-colors">
+                      {bizVerifying ? '검증 중...' : '국세청 사업자 검증'}
+                    </button>
+                    {bizResult && (
+                      bizResult.ok
+                        ? <span className={`text-xs font-semibold ${bizResult.isActive ? 'text-green-600' : 'text-orange-600'}`}>
+                            {bizResult.isActive ? '✅ 계속사업자' : `⚠ ${bizResult.status?.b_stt ?? '확인 필요'}`}
+                          </span>
+                        : <span className="text-xs text-red-500">⚠ {bizResult.error}</span>
+                    )}
+                  </div>
+                </div>
 
                 {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">⚠️ {error}</div>}
 
