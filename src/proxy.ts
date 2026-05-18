@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-const PROTECTED = ['/dashboard', '/request/new', '/broker/register', '/broker/properties', '/chat', '/admin', '/profile']
+const PROTECTED = ['/dashboard', '/request/new', '/broker/register', '/broker/properties', '/chat', '/admin', '/profile', '/settings']
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl

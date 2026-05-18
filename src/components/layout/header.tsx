@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Home, MessageCircle, User, Menu, X } from 'lucide-react'
+import { Home, MessageCircle, User, Menu, X, Settings } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 
@@ -79,8 +79,8 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
           {user ? (
             <>
               <NotificationBell userId={user.id} />
-              <Link href="/profile" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-                <User className="h-5 w-5 text-gray-600" />
+              <Link href="/settings" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors" title="설정">
+                <Settings className="h-5 w-5 text-gray-600" />
               </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>로그아웃</Button>
             </>
@@ -130,8 +130,8 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
             )}
             {user ? (
               <>
-                <Link href="/profile" onClick={() => setMobileOpen(false)}>
-                  <Button variant="ghost" size="md" className="w-full justify-start">내 계정</Button>
+                <Link href="/settings" onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" size="md" className="w-full justify-start">설정</Button>
                 </Link>
                 <Button variant="outline" size="md" className="w-full" onClick={handleLogout}>로그아웃</Button>
               </>
