@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Header } from '@/components/layout/header'
 import { cn } from '@/lib/utils'
 import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
+import { RegionPicker, type RegionValue } from '@/components/region-picker'
 
 // ─── 거래 유형 ───
 const DEAL_TYPES = ['매매', '월세', '전세']
@@ -28,81 +29,6 @@ const PROPERTY_CATEGORIES = [
   },
 ]
 
-// ─── 전국 시/도별 구/군 데이터 ───
-const REGIONS: Record<string, string[]> = {
-  '서울특별시': [
-    '강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구',
-    '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구',
-    '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구',
-  ],
-  '경기도': [
-    '수원시', '성남시', '고양시', '용인시', '부천시', '안산시', '화성시', '남양주시',
-    '안양시', '평택시', '의정부시', '파주시', '시흥시', '김포시', '광주시', '광명시',
-    '군포시', '하남시', '오산시', '이천시', '안성시', '의왕시', '양주시', '구리시',
-    '포천시', '여주시', '동두천시', '과천시', '가평군', '양평군', '연천군',
-  ],
-  '인천광역시': [
-    '중구', '동구', '미추홀구', '연수구', '남동구', '부평구', '계양구', '서구',
-    '강화군', '옹진군',
-  ],
-  '부산광역시': [
-    '중구', '서구', '동구', '영도구', '부산진구', '동래구', '남구', '북구',
-    '해운대구', '사하구', '금정구', '강서구', '연제구', '수영구', '사상구', '기장군',
-  ],
-  '대구광역시': [
-    '중구', '동구', '서구', '남구', '북구', '수성구', '달서구', '달성군',
-  ],
-  '대전광역시': [
-    '동구', '중구', '서구', '유성구', '대덕구',
-  ],
-  '광주광역시': [
-    '동구', '서구', '남구', '북구', '광산구',
-  ],
-  '울산광역시': [
-    '중구', '남구', '동구', '북구', '울주군',
-  ],
-  '세종특별자치시': [
-    '세종시 전체',
-  ],
-  '강원특별자치도': [
-    '춘천시', '원주시', '강릉시', '동해시', '태백시', '속초시', '삼척시',
-    '홍천군', '횡성군', '영월군', '평창군', '정선군', '철원군', '화천군',
-    '양구군', '인제군', '고성군', '양양군',
-  ],
-  '충청북도': [
-    '청주시', '충주시', '제천시', '보은군', '옥천군', '영동군', '증평군',
-    '진천군', '괴산군', '음성군', '단양군',
-  ],
-  '충청남도': [
-    '천안시', '공주시', '보령시', '아산시', '서산시', '논산시', '계룡시', '당진시',
-    '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군',
-  ],
-  '전북특별자치도': [
-    '전주시', '군산시', '익산시', '정읍시', '남원시', '김제시',
-    '완주군', '진안군', '무주군', '장수군', '임실군', '순창군', '고창군', '부안군',
-  ],
-  '전라남도': [
-    '목포시', '여수시', '순천시', '나주시', '광양시',
-    '담양군', '곡성군', '구례군', '고흥군', '보성군', '화순군', '장흥군',
-    '강진군', '해남군', '영암군', '무안군', '함평군', '영광군', '장성군',
-    '완도군', '진도군', '신안군',
-  ],
-  '경상북도': [
-    '포항시', '경주시', '김천시', '안동시', '구미시', '영주시', '영천시',
-    '상주시', '문경시', '경산시', '의성군', '청송군', '영양군', '영덕군',
-    '청도군', '고령군', '성주군', '칠곡군', '예천군', '봉화군', '울진군', '울릉군',
-  ],
-  '경상남도': [
-    '창원시', '진주시', '통영시', '사천시', '김해시', '밀양시', '거제시', '양산시',
-    '의령군', '함안군', '창녕군', '고성군', '남해군', '하동군', '산청군',
-    '함양군', '거창군', '합천군',
-  ],
-  '제주특별자치도': [
-    '제주시', '서귀포시',
-  ],
-}
-
-const CITIES = Object.keys(REGIONS)
 const STEPS = ['거래·매물 유형', '위치', '예산', '상세 조건']
 
 function RequestNewPageInner() {
@@ -129,9 +55,8 @@ function RequestNewPageInner() {
   const [dealTypes, setDealTypes] = useState<string[]>([])
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])
 
+  const [region, setRegion] = useState<RegionValue | null>(null)
   const [form, setForm] = useState({
-    city: '서울특별시',
-    district: '',
     min_price: '',       // 전세/매매: 금액 / 월세: 보증금
     max_price: '',
     min_monthly: '',     // 월세 전용: 월세 최소
@@ -156,16 +81,9 @@ function RequestNewPageInner() {
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     )
 
-  // 시/도 변경 시 구/군 초기화
-  const handleCityChange = (city: string) => {
-    setForm(prev => ({ ...prev, city, district: '' }))
-  }
-
-  const currentDistricts = REGIONS[form.city] ?? []
-
   const canNext = () => {
     if (step === 0) return dealTypes.length > 0 && propertyTypes.length > 0
-    if (step === 1) return form.district !== ''
+    if (step === 1) return region !== null
     if (step === 2) return form.min_price !== '' && form.max_price !== ''
     return true
   }
@@ -194,8 +112,9 @@ function RequestNewPageInner() {
           user_id: user.id,
           deal_type: dealTypes.join(', '),
           room_type: propertyTypes.join(', '),
-          city: form.city,
-          district: form.district,
+          city: region!.sido,
+          district: region!.sigungu,
+          dong: region!.dong,
           min_price: Number(form.min_price),
           max_price: Number(form.max_price),
           min_monthly: dealTypes.includes('월세') && form.min_monthly ? Number(form.min_monthly) : null,
@@ -353,48 +272,17 @@ function RequestNewPageInner() {
           {/* ── Step 1: 위치 ── */}
           {step === 1 && (
             <div className="space-y-4">
-              {/* 시/도 선택 */}
               <div>
-                <p className="mb-2 text-sm font-medium text-gray-700">시 / 도</p>
-                <select
-                  value={form.city}
-                  onChange={(e) => handleCityChange(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  {CITIES.map((city) => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 구/군 선택 - 시/도에 따라 동적 변경 */}
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">
-                    구 / 군 / 시
-                  </p>
-                  {form.district && (
-                    <span className="text-xs font-semibold text-blue-600">
-                      ✓ {form.district} 선택됨
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
-                  {currentDistricts.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => update('district', d)}
-                      className={cn(
-                        'rounded-xl border-2 py-2 text-xs font-medium transition-all',
-                        form.district === d
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      )}
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
+                <p className="mb-1.5 text-sm font-medium text-gray-700">관심 지역</p>
+                <p className="mb-3 text-xs text-gray-500">
+                  동·읍·면 단위까지 검색할 수 있어요. 예: <span className="font-medium text-gray-700">불당동</span>, <span className="font-medium text-gray-700">강남</span>, <span className="font-medium text-gray-700">수원 영통</span>
+                </p>
+                <RegionPicker
+                  value={region}
+                  onPick={r => setRegion(r)}
+                  onClear={() => setRegion(null)}
+                  autoFocus
+                />
               </div>
             </div>
           )}
@@ -527,7 +415,7 @@ function RequestNewPageInner() {
                 <p className="font-semibold text-gray-700 mb-2">등록 요약</p>
                 <p className="text-gray-600">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
                 <p className="text-gray-600">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
-                <p className="text-gray-600">📍 위치: <span className="font-medium">{form.city} {form.district}</span></p>
+                <p className="text-gray-600">📍 위치: <span className="font-medium">{region ? `${region.sido} ${region.sigungu}${region.dong ? ` ${region.dong}` : ''}` : '-'}</span></p>
                 <p className="text-gray-600">💰 예산:&nbsp;
                   <span className="font-medium">
                     {Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원
