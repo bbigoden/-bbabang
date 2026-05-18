@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { X, Shield, Users, Clock } from 'lucide-react'
@@ -90,6 +91,7 @@ function PermissionEditor({ perms, onChange }: {
 export default function BrokerTeamPage() {
   const supabase = createClient()
   const router = useRouter()
+  const auth = useAuth()
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
@@ -108,15 +110,17 @@ export default function BrokerTeamPage() {
   const [editPerms, setEditPerms] = useState<Permissions>(DEFAULT_PERMISSIONS)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { init() }, [])
+  useEffect(() => {
+    if (auth.loading) return
+    if (!auth.user) { router.push('/auth/login'); return }
+    if (!auth.broker) { router.push('/broker/register'); return }
+    init()
+  }, [auth.loading, auth.user?.id, auth.broker?.id])
 
   const init = async () => {
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) { router.push('/auth/login'); return }
+    const u = auth.user!
+    const b = auth.broker!
     setUser(u)
-
-    const { data: b } = await supabase.from('broker_profiles').select('*').eq('user_id', u.id).single()
-    if (!b) { router.push('/broker/register'); return }
     setBroker(b)
 
     const owner = b.is_owner !== false

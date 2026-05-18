@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice, maskAddress, cn } from '@/lib/utils'
@@ -278,6 +279,7 @@ export default function ChatPage() {
   const proposalId = params.proposalId as string
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const auth = useAuth()
 
   const [user, setUser] = useState<any>(null)
   const [room, setRoom] = useState<any>(null)
@@ -307,6 +309,8 @@ export default function ChatPage() {
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
 
   useEffect(() => {
+    if (auth.loading) return
+    if (!auth.user) { router.push('/auth/login'); return }
     let destroyed = false
     let channelCleanup: (() => void) | undefined
     initChat().then(fn => {
@@ -320,15 +324,10 @@ export default function ChatPage() {
       destroyed = true
       channelCleanup?.()
     }
-  }, [proposalId])
+  }, [proposalId, auth.loading, auth.user?.id])
 
   const initChat = async () => {
-    let currentUser: any = null
-    try {
-      const { data } = await supabase.auth.getUser()
-      currentUser = data.user
-    } catch { router.push('/auth/login'); return }
-    if (!currentUser) { router.push('/auth/login'); return }
+    const currentUser = auth.user!
     setUser(currentUser)
 
     const { data: proposal } = await supabase

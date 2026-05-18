@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
@@ -53,6 +54,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
 export default function AdminPage() {
   const router = useRouter()
   const supabase = createClient()
+  const auth = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ users: 0, brokers: 0, requests: 0, proposals: 0 })
@@ -78,20 +80,14 @@ export default function AdminPage() {
   const [allRequestsAll, setAllRequestsAll] = useState<any[]>([])
   const [loadingModal, setLoadingModal] = useState(false)
 
-  useEffect(() => { init() }, [])
+  useEffect(() => {
+    if (auth.loading) return
+    if (!auth.user) { router.push('/auth/login'); return }
+    if (auth.profile?.role !== 'admin') { router.push('/'); return }
+    init()
+  }, [auth.loading, auth.user?.id, auth.profile?.role])
 
   const init = async () => {
-    let user: any = null
-    try {
-      const { data } = await supabase.auth.getUser()
-      user = data.user
-    } catch { router.push('/auth/login'); return }
-    if (!user) { router.push('/auth/login'); return }
-
-    const { data: profile } = await supabase
-      .from('profiles').select('role').eq('id', user.id).single()
-
-    if (profile?.role !== 'admin') { router.push('/'); return }
 
     try {
       await Promise.all([loadStats(), loadBrokers(), loadRecentUsers(), loadRecentRequests(), loadBrokerProperties()])
