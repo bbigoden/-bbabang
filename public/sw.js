@@ -1,17 +1,18 @@
 // Service Worker for 빠방 PWA
-// - 정적 자원 (JS/CSS/이미지): CacheFirst
-// - 매물 사진 (Supabase Storage): StaleWhileRevalidate
-// - 페이지/API: NetworkFirst (실패 시 캐시·오프라인 페이지)
-// - 푸시 알림 처리
+// 원칙: SW는 정적 자원·이미지 캐싱만 담당. 페이지·API·DB 호출은 가로채지 않는다.
+// - /_next/static/* : CacheFirst (불변 해시)
+// - 정적 자원(아이콘·manifest) : CacheFirst
+// - Supabase /storage/ 이미지 : StaleWhileRevalidate
+// - 그 외(HTML, /api/*, supabase rest) : SW 패스스루 (브라우저 기본 처리)
+// - navigate 요청 실패 시에만 offline.html fallback
+// - 푸시 알림 / 클릭 처리
 
-const VERSION = 'ppabang-v1'
+const VERSION = 'ppabang-v2'
 const STATIC_CACHE = `${VERSION}-static`
-const RUNTIME_CACHE = `${VERSION}-runtime`
 const IMAGE_CACHE = `${VERSION}-images`
 const OFFLINE_URL = '/offline.html'
 
 const PRECACHE = [
-  '/',
   '/offline.html',
   '/icon-192.png',
   '/icon-512.png',
@@ -39,49 +40,45 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-// ── fetch 가로채기 ──────────────────────────────────────
+// ── fetch 가로채기 (최소화) ───────────────────────────────
 self.addEventListener('fetch', (event) => {
   const { request } = event
   if (request.method !== 'GET') return
   const url = new URL(request.url)
+  const sameOrigin = url.origin === self.location.origin
 
-  // 외부 도메인은 그냥 통과 (카카오 API, 세움터 API 등)
-  if (url.origin !== self.location.origin && !url.hostname.includes('supabase.co')) {
+  // 1) Supabase Storage 이미지만 캐시 (다른 supabase 호출은 통과)
+  if (url.hostname.includes('supabase.co')) {
+    if (url.pathname.includes('/storage/')) {
+      event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE))
+    }
     return
   }
 
-  // 1) Supabase 매물 이미지: StaleWhileRevalidate (캐시 즉시 + 백그라운드 업데이트)
-  if (url.hostname.includes('supabase.co') && url.pathname.includes('/storage/')) {
-    event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE))
-    return
-  }
+  // 2) 그 외 외부 도메인 (Kakao API 등): 통과
+  if (!sameOrigin) return
 
-  // 2) /_next/static (해시 포함 자원): CacheFirst (불변)
+  // 3) Next.js 해시 정적 자원: CacheFirst
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(cacheFirst(request, STATIC_CACHE))
     return
   }
 
-  // 3) 정적 자원 (icon, favicon, manifest): CacheFirst
+  // 4) 사전 캐시 정적 자원: CacheFirst
   if (PRECACHE.includes(url.pathname)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE))
     return
   }
 
-  // 4) API 호출: NetworkFirst
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request, RUNTIME_CACHE))
+  // 5) navigate(HTML) 요청은 정상 fetch + 실패 시 오프라인 fallback
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match(OFFLINE_URL).then(r => r || new Response('Offline', { status: 503 })))
+    )
     return
   }
 
-  // 5) HTML 페이지: NetworkFirst (실패 시 오프라인 페이지)
-  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
-    event.respondWith(networkFirstWithOffline(request))
-    return
-  }
-
-  // 그 외: NetworkFirst
-  event.respondWith(networkFirst(request, RUNTIME_CACHE))
+  // 6) 그 외 (페이지 chunk, /api/*, 동적 자원): SW 미관여 (브라우저 기본)
 })
 
 // ── 캐시 전략 ────────────────────────────────────────────
@@ -97,35 +94,6 @@ async function cacheFirst(request, cacheName) {
     return res
   } catch {
     return new Response('', { status: 504 })
-  }
-}
-
-async function networkFirst(request, cacheName) {
-  try {
-    const res = await fetch(request)
-    if (res.ok) {
-      const cache = await caches.open(cacheName)
-      cache.put(request, res.clone())
-    }
-    return res
-  } catch {
-    const cached = await caches.match(request)
-    return cached || new Response('', { status: 504 })
-  }
-}
-
-async function networkFirstWithOffline(request) {
-  try {
-    const res = await fetch(request)
-    if (res.ok) {
-      const cache = await caches.open(RUNTIME_CACHE)
-      cache.put(request, res.clone())
-    }
-    return res
-  } catch {
-    const cached = await caches.match(request)
-    if (cached) return cached
-    return caches.match(OFFLINE_URL)
   }
 }
 
@@ -161,7 +129,6 @@ self.addEventListener('notificationclick', (event) => {
   const url = event.notification.data?.url || '/'
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
-      // 이미 열린 탭이 있으면 그쪽으로 포커스
       for (const c of cs) {
         if (c.url.includes(url) && 'focus' in c) return c.focus()
       }
