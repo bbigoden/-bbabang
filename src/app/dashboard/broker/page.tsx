@@ -44,9 +44,10 @@ export default async function BrokerDashboardPage() {
   // ── 부가 데이터 조회 (실패해도 빈 상태로 처리) ────────────
   let proposals: any[] = []
   let recentReviews: any[] = []
+  let recommendedRequests: any[] = []
 
   try {
-    const [{ data: pr }, { data: rv }] = await Promise.all([
+    const [{ data: pr }, { data: rv }, { data: rec }] = await Promise.all([
       supabase
         .from('proposals')
         .select('*, request_posts(*, profiles(*))')
@@ -58,9 +59,11 @@ export default async function BrokerDashboardPage() {
         .eq('broker_id', broker.id)
         .order('created_at', { ascending: false })
         .limit(3),
+      supabase.rpc('recommend_requests_for_broker', { p_broker_id: broker.id, p_limit: 6 }),
     ])
     proposals = pr ?? []
     recentReviews = rv ?? []
+    recommendedRequests = rec ?? []
   } catch {
     // 부가 데이터 로드 실패 시 빈 상태로 렌더링
   }
@@ -221,6 +224,48 @@ export default async function BrokerDashboardPage() {
           )}
         </div>
 
+
+        {/* ── 추천 요청 (AI 매칭) ─────────────────────────── */}
+        {recommendedRequests.length > 0 && (
+          <div className="mb-8">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-purple-600" />
+                <h2 className="font-bold text-gray-900">관심 지역 매칭 요청</h2>
+                <Badge variant="warning">추천</Badge>
+              </div>
+              <Link href="/settings/notifications" className="text-xs text-gray-500 hover:text-blue-600">
+                관심 지역 설정 →
+              </Link>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {recommendedRequests.map((r: any) => (
+                <Link key={r.request_id} href={`/request/${r.request_id}`}
+                  className="block rounded-2xl border border-purple-100 bg-white p-4 hover:border-purple-300 hover:shadow-sm transition-all">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Badge variant="info">{r.deal_type || '거래'}</Badge>
+                      <Badge variant="default">{r.room_type || '매물'}</Badge>
+                    </div>
+                    <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700">매칭 {r.score}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mb-1">
+                    {[r.city, r.district, r.dong].filter(Boolean).join(' ')}
+                  </p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {r.min_price != null && r.max_price != null
+                      ? `${formatPrice(r.min_price)} ~ ${formatPrice(r.max_price)}`
+                      : '가격 미지정'}
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-gray-400">
+                    <span>{formatDate(r.created_at)}</span>
+                    <span>{r.proposal_count}개 제안 중</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── 성과 분석 ─────────────────────────────────── */}
         <div className="mb-8">

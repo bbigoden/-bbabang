@@ -28,19 +28,19 @@ export async function POST(req: NextRequest) {
   if (post.user_id !== user.id) return NextResponse.json({ error: '본인 요청만 알림 발송 가능' }, { status: 403 })
   if (!post.city || !post.district) return NextResponse.json({ ok: true, sent: 0, skipped: 'region_empty' })
 
-  // 매칭 중개사 조회 (본인이 중개사라면 본인 제외)
-  const { data: matches, error: rpcErr } = await supabase.rpc('find_matching_brokers', {
-    p_sido: post.city,
-    p_sigungu: post.district,
-    p_dong: post.dong,
-    p_exclude_user_id: user.id,
+  // 점수 기반 추천 — 상위 20명에게만 푸시 (스팸 방지)
+  const { data: matches, error: rpcErr } = await supabase.rpc('recommend_brokers_for_request', {
+    p_request_id: post.id,
+    p_limit: 20,
   })
   if (rpcErr) {
     console.error('[notify-brokers] rpc error', rpcErr)
     return NextResponse.json({ error: '매칭 조회 실패' }, { status: 500 })
   }
 
-  const targets = (matches ?? []) as Array<{ user_id: string; broker_id: string }>
+  // score > 0 + 지역 매칭(region_score > 0)인 중개사만 푸시
+  const targets = ((matches ?? []) as Array<{ user_id: string; broker_id: string; score: number; region_score: number }>)
+    .filter(m => m.region_score > 0)
   if (targets.length === 0) return NextResponse.json({ ok: true, sent: 0, matched: 0 })
 
   // 푸시 발송 (실패는 무시, 다음 단계로 진행)
