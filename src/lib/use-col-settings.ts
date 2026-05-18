@@ -10,6 +10,8 @@ export interface ColSettings {
   customCols: Array<{ id: string; name: string; type?: 'text' | 'select' }>
   options: Record<string, string[]>
   colTypes: Record<string, 'text' | 'select'>
+  /** 다중 선택 허용 여부 (select 칼럼 한정). true면 셀에 칩 여러 개 가능. */
+  multi: Record<string, boolean>
 }
 
 type Page = 'properties' | 'customers' | 'diary' | 'diary_cust'
@@ -42,6 +44,7 @@ export function useColSettings(
           customCols: saved.customCols ?? prev.customCols,
           options:    { ...prev.options, ...(saved.options ?? {}) },
           colTypes:   { ...prev.colTypes, ...(saved.colTypes ?? {}) },
+          multi:      { ...prev.multi,    ...(saved.multi    ?? {}) },
         }))
       }
       setLoaded(true)

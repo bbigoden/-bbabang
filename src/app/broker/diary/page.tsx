@@ -40,6 +40,7 @@ const DEFAULT_COL_SETTINGS: ColSettings = {
   customCols: [],
   options:    Object.fromEntries(CUST_COLS.filter(c => c.hasOptions).map(c => [c.key, c.defaultOpts!])),
   colTypes:   {},
+  multi:      {},
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -634,6 +635,7 @@ export default function BrokerDiaryPage() {
   const showCol = (key: string) => update(prev => ({ ...prev, visible: [...prev.visible, key] }))
   const hideCol = (key: string) => update(prev => ({ ...prev, visible: prev.visible.filter(k => k !== key) }))
   const setOpts = (key: string, opts: string[]) => update(prev => ({ ...prev, options: { ...prev.options, [key]: opts } }))
+  const setMulti = (key: string, multi: boolean) => update(prev => ({ ...prev, multi: { ...prev.multi, [key]: multi } }))
   const addCustomCol = (name: string, type: 'text' | 'select' = 'text') => {
     const id = `custom_${Date.now()}`
     update(prev => ({ ...prev, customCols: [...prev.customCols, { id, name, type }], order: [...prev.order, id], visible: [...prev.visible, id], widths: { ...prev.widths, [id]: 120 }, options: type === 'select' ? { ...prev.options, [id]: [] } : prev.options }))
@@ -733,7 +735,7 @@ export default function BrokerDiaryPage() {
     const ro = !effectiveCanEdit
     if (col.type === 'custom') {
       const cd = settings.customCols.find(cc => cc.id === col.id)
-      if (cd?.type === 'select') return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={settings.options[col.id] ?? []} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} />
+      if (cd?.type === 'select') return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={settings.options[col.id] ?? []} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} multi={settings.multi[col.id]} />
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
     const def = col.def; const opts = settings.options[def.key] ?? def.defaultOpts ?? []; const colorMap = COL_COLORS[def.key]
@@ -743,10 +745,10 @@ export default function BrokerDiaryPage() {
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveCustomerField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
       case 'assignee':
         if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
-        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} placeholder="담당자" />
-      case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" />
-      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" />
-      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" />
+        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />
+      case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" multi={settings.multi['source']} />
+      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" multi={settings.multi['category']} />
+      case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" multi={settings.multi['status']} />
       case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} allProperties={allProperties} onOpen={() => setPropertyPickerLinkId(c.link_id)} readOnly={ro} />
       default: return null
     }
@@ -825,8 +827,8 @@ export default function BrokerDiaryPage() {
                           <div className="pr-2">
                             {col.type === 'custom' ? (() => {
                               const cd = settings.customCols.find(cc => cc.id === col.id)
-                              return <ColumnHeader label={col.name} isCustom colType={cd?.type ?? 'text'} onChangeType={t => changeCustomColType(col.id, t)} hasOptions={cd?.type === 'select'} options={settings.options[col.id] ?? []} onSetOptions={opts => setOpts(col.id, opts)} onHide={() => hideCol(col.id)} onRename={n => renameCustomCol(col.id, n)} onDelete={() => deleteCustomCol(col.id)} />
-                            })() : <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []} onSetOptions={opts => setOpts(col.def.key, opts)} onHide={() => hideCol(col.def.key)} />}
+                              return <ColumnHeader label={col.name} isCustom colType={cd?.type ?? 'text'} onChangeType={t => changeCustomColType(col.id, t)} hasOptions={cd?.type === 'select'} options={settings.options[col.id] ?? []} onSetOptions={opts => setOpts(col.id, opts)} isMulti={settings.multi[col.id]} onChangeMulti={cd?.type === 'select' ? m => setMulti(col.id, m) : undefined} onHide={() => hideCol(col.id)} onRename={n => renameCustomCol(col.id, n)} onDelete={() => deleteCustomCol(col.id)} />
+                            })() : <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []} onSetOptions={opts => setOpts(col.def.key, opts)} isMulti={settings.multi[col.def.key]} onChangeMulti={col.def.hasOptions ? m => setMulti(col.def.key, m) : undefined} onHide={() => hideCol(col.def.key)} />}
                           </div>
                           <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
                         </th>

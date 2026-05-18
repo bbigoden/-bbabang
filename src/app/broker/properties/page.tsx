@@ -109,6 +109,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
   customCols: [],
   options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS] },
   colTypes:   {},
+  multi:      {},
 }
 
 // ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
@@ -1201,6 +1202,11 @@ function BrokerPropertiesContent() {
     update(prev => ({ ...prev, colTypes: { ...prev.colTypes, [key]: type } }))
   }
 
+  // 다중 선택 토글
+  const setMulti = (key: string, multi: boolean) => {
+    update(prev => ({ ...prev, multi: { ...prev.multi, [key]: multi } }))
+  }
+
   // 커스텀 칼럼 타입 변경
   const changeCustomColumnType = async (id: string, type: 'text' | 'select') => {
     if (!broker) return
@@ -1579,6 +1585,8 @@ function BrokerPropertiesContent() {
                                 hasOptions={effectiveType === 'select'}
                                 options={settings.options[key] ?? []}
                                 onSetOptions={opts => setOpts(key, opts)}
+                                isMulti={settings.multi[key]}
+                                onChangeMulti={effectiveType === 'select' ? m => setMulti(key, m) : undefined}
                                 onHide={() => hideCol(key)}
                               />
                             )
@@ -1610,6 +1618,8 @@ function BrokerPropertiesContent() {
                             hasOptions={customCol.type === 'select'}
                             options={settings.options[key] ?? []}
                             onSetOptions={opts => setOpts(key, opts)}
+                            isMulti={settings.multi[key]}
+                            onChangeMulti={customCol.type === 'select' ? m => setMulti(key, m) : undefined}
                             onHide={() => hideCol(key)}
                             onRename={name => renameCustomColumn(key, name)}
                             onDelete={() => deleteCustomColumn(key)}
@@ -1691,25 +1701,25 @@ function BrokerPropertiesContent() {
                           {key === 'price'           && (p.deal_type === '월세'
                             ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
                             : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
-                          {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" />)}
-                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} placeholder="거래형태" />)}
+                          {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
+                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
                           {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
                           {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
                           {key === 'approval_date'   && <DateCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} />}
                           {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 1대" />}
                           {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} placeholder="관리비" />}
-                          {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
+                          {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} multi={settings.multi['direction']} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
                           {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-                          {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
+                          {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
                           {key === 'memo'            && (() => {
                             const isMine = isOwner || isAdminView || p.broker_id === broker?.id
                             if (!isMine) return <span className="text-gray-200 text-xs select-none">—</span>
                             return settings.colTypes['memo'] === 'select'
-                              ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} />
+                              ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} multi={settings.multi['memo']} />
                               : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
                           })()}
-                          {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" />}
+                          {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />}
                         </td>
                       )
                     }
@@ -1721,7 +1731,7 @@ function BrokerPropertiesContent() {
                           {(isAdminView || !canEdit)
                             ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
                             : customCol.type === 'select'
-                              ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} />
+                              ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} multi={settings.multi[key]} />
                               : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
                           }
                         </td>

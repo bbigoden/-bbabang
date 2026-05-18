@@ -30,6 +30,8 @@ export interface ColumnHeaderProps {
   onSetOptions?: (opts: string[]) => void
   colType?: 'text' | 'select'
   onChangeType?: (type: 'text' | 'select') => void
+  isMulti?: boolean
+  onChangeMulti?: (multi: boolean) => void
   onHide?: () => void
   onRename?: (name: string) => void
   onDelete?: () => void
@@ -37,7 +39,7 @@ export interface ColumnHeaderProps {
 
 export function ColumnHeader({
   label, isFixed, isCustom, hasOptions, options, onSetOptions,
-  colType, onChangeType, onHide, onRename, onDelete,
+  colType, onChangeType, isMulti, onChangeMulti, onHide, onRename, onDelete,
 }: ColumnHeaderProps) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<React.CSSProperties>({})
@@ -158,9 +160,23 @@ export function ColumnHeader({
             </div>
           )}
 
+          {hasOptions && onChangeMulti && (
+            <div className="px-3 py-2 border-t border-gray-100">
+              <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                <span className="text-xs font-medium text-gray-700">다중 선택 허용</span>
+                <button type="button"
+                  onClick={() => onChangeMulti(!isMulti)}
+                  role="switch" aria-checked={!!isMulti}
+                  className={`relative h-5 w-9 rounded-full transition-colors flex-shrink-0 ${isMulti ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                  <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${isMulti ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </label>
+            </div>
+          )}
+
           {hasOptions && options && (
             <>
-              {(!isFixed || isCustom) && <div className="border-t border-gray-100" />}
+              {(!isFixed || isCustom) && !onChangeMulti && <div className="border-t border-gray-100" />}
               <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
               <div className="px-2 pb-1 max-h-44 overflow-y-auto">
                 {options.map(opt => (

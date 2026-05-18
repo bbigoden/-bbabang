@@ -40,6 +40,7 @@ const DEFAULT_COL_SETTINGS: ColSettings = {
   customCols: [],
   options:    Object.fromEntries(CUST_COLS.filter(c => c.hasOptions).map(c => [c.key, c.defaultOpts!])),
   colTypes:   {},
+  multi:      {},
 }
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -557,6 +558,9 @@ export default function BrokerCustomersPage() {
   const changeFixedColType = (key: string, type: 'text' | 'select') => {
     update(prev => ({ ...prev, colTypes: { ...prev.colTypes, [key]: type } }))
   }
+  const setMulti = (key: string, multi: boolean) => {
+    update(prev => ({ ...prev, multi: { ...prev.multi, [key]: multi } }))
+  }
   const deleteCustomCol = (id: string) => {
     update(prev => ({
       ...prev,
@@ -639,7 +643,7 @@ export default function BrokerCustomersPage() {
       const customDef = settings.customCols.find(cc => cc.id === col.id)
       if (customDef?.type === 'select') {
         const opts = settings.options[col.id] ?? []
-        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} />
+        return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={opts} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} multi={settings.multi[col.id]} />
       }
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
@@ -652,16 +656,16 @@ export default function BrokerCustomersPage() {
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
       case 'assignee':
         if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
-        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" />
+        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />
       case 'category':      return (settings.colTypes['category'] === 'text')
         ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" readOnly={ro} />
-        : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" />
+        : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" multi={settings.multi['category']} />
       case 'source':        return (settings.colTypes['source'] === 'text')
         ? <TextCell value={c.source} onSave={v => saveField(c.id, 'source', v || null)} placeholder="유입" readOnly={ro} />
-        : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" />
+        : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" multi={settings.multi['source']} />
       case 'status':        return (settings.colTypes['status'] === 'text')
         ? <TextCell value={c.status} onSave={v => saveField(c.id, 'status', v)} placeholder="진행상황" readOnly={ro} />
-        : <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" />
+        : <SelectCell value={c.status} options={opts} onSave={v => saveField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" multi={settings.multi['status']} />
       default: return null
     }
   }
@@ -870,6 +874,8 @@ export default function BrokerCustomersPage() {
                                 hasOptions={customDef?.type === 'select'}
                                 options={settings.options[col.id] ?? []}
                                 onSetOptions={opts => setOpts(col.id, opts)}
+                                isMulti={settings.multi[col.id]}
+                                onChangeMulti={m => setMulti(col.id, m)}
                                 onHide={() => hideCol(col.id)}
                                 onRename={name => renameCustomCol(col.id, name)}
                                 onDelete={() => deleteCustomCol(col.id)}
@@ -884,6 +890,8 @@ export default function BrokerCustomersPage() {
                               onSetOptions={opts => setOpts(col.def.key, opts)}
                               colType={col.def.hasOptions ? (settings.colTypes[col.def.key] ?? 'select') : undefined}
                               onChangeType={col.def.hasOptions ? type => changeFixedColType(col.def.key, type) : undefined}
+                              isMulti={settings.multi[col.def.key]}
+                              onChangeMulti={col.def.hasOptions ? m => setMulti(col.def.key, m) : undefined}
                               onHide={() => hideCol(col.def.key)}
                             />
                           )}
