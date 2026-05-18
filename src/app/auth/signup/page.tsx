@@ -112,10 +112,10 @@ function SignupForm() {
 
       <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
         {/* 역할 선택 */}
-        <div className="mb-6 grid grid-cols-2 gap-3">
+        <div className="mb-2 grid grid-cols-2 gap-3">
           {[
-            { value: 'user', label: '집 구하는 분', icon: User, desc: '매물 요청 · 무료' },
-            { value: 'broker', label: '공인중개사', icon: Building2, desc: '매물 제안 · 인증 필요' },
+            { value: 'user', label: '구하시는 분', icon: User, desc: '집·상가·토지·공장 등 · 무료' },
+            { value: 'broker', label: '중개사 · 직원', icon: Building2, desc: '매물 제안 · 사장님은 인증 필요' },
           ].map((option) => (
             <button
               key={option.value}
@@ -134,6 +134,9 @@ function SignupForm() {
             </button>
           ))}
         </div>
+        <p className="mb-6 text-xs text-gray-400 leading-relaxed">
+          소속 직원도 <span className="font-semibold text-gray-600">중개사·직원</span>을 선택하세요. 다음 단계에서 사장님께 받은 <span className="font-semibold text-gray-600">6자리 사무소 코드</span>로 합류할 수 있어요.
+        </p>
 
         <form onSubmit={handleSignup} className="space-y-4">
           <Input label="이름" placeholder="홍길동" value={name} onChange={(e) => setName(e.target.value)} required />
@@ -205,7 +208,7 @@ function SignupForm() {
             loading={loading}
             disabled={!agreeTerms}
           >
-            {role === 'broker' ? '중개사로 가입하기' : '회원가입'}
+            {role === 'broker' ? '중개사·직원으로 가입하기' : '회원가입'}
           </Button>
         </form>
 
