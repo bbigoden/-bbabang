@@ -59,6 +59,26 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full">
       <body className={`${geist.className} min-h-full bg-gray-50 text-gray-900 antialiased`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: '빠방',
+            alternateName: 'Ppabang',
+            url: BASE_URL,
+            logo: `${BASE_URL}/icon-512.png`,
+            description: '내 조건을 올리면 공인중개사가 먼저 제안하는 부동산 역경매 매칭 플랫폼',
+            sameAs: [],
+            contactPoint: {
+              '@type': 'ContactPoint',
+              email: 'bbigoden@gmail.com',
+              contactType: 'customer service',
+              areaServed: 'KR',
+              availableLanguage: ['Korean'],
+            },
+          }) }}
+        />
         <ServiceWorkerRegister />
         <AuthProvider>
           <NotificationsProvider>
