@@ -3,6 +3,7 @@ import { Geist } from 'next/font/google'
 import './globals.css'
 import { ServiceWorkerRegister } from '@/components/sw-register'
 import { AuthProvider } from '@/lib/auth-context'
+import { NotificationsProvider } from '@/lib/notifications-context'
 
 const geist = Geist({ subsets: ['latin'] })
 
@@ -60,7 +61,9 @@ export default function RootLayout({
       <body className={`${geist.className} min-h-full bg-gray-50 text-gray-900 antialiased`}>
         <ServiceWorkerRegister />
         <AuthProvider>
-          {children}
+          <NotificationsProvider>
+            {children}
+          </NotificationsProvider>
         </AuthProvider>
       </body>
     </html>

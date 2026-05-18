@@ -1,7 +1,18 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+/**
+ * 전역 알림 컨텍스트.
+ *
+ * 기존 useNotifications hook이 NotificationBell 안에서 호출되어 매 페이지 mount마다
+ * notifications fetch + realtime channel subscribe/unsubscribe가 반복됐다. root layout에서
+ * 한 번만 mount되도록 Context로 옮긴다.
+ *
+ * AuthProvider 안쪽에 wrap되며, auth.user 변화에 자동으로 재로드·재구독한다.
+ */
+
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuthOptional } from '@/lib/auth-context'
 
 export interface Notification {
   id: string
@@ -13,16 +24,27 @@ export interface Notification {
   created_at: string
 }
 
-export function useNotifications(userId: string | null) {
-  // supabase 클라이언트를 ref로 고정 → 렌더링마다 새 인스턴스 생성 방지
+interface NotificationsState {
+  notifications: Notification[]
+  unread: number
+  markAllRead: () => Promise<void>
+  markRead: (id: string) => Promise<void>
+  reload: () => Promise<void>
+}
+
+const NotificationsContext = createContext<NotificationsState | null>(null)
+
+export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const { user } = useAuthOptional()
+  const userId = user?.id ?? null
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unread, setUnread] = useState(0)
 
   const load = useCallback(async () => {
-    if (!userId) return
+    if (!userId) { setNotifications([]); setUnread(0); return }
     const { data } = await supabase
       .from('notifications')
       .select('*')
@@ -33,19 +55,16 @@ export function useNotifications(userId: string | null) {
     setUnread((data ?? []).filter(n => !n.is_read).length)
   }, [userId, supabase])
 
-  // 초기 로드 — userId 변경 시에만
-  useEffect(() => {
-    load()
-  }, [load])
+  // 초기 로드 + userId 변경 시
+  useEffect(() => { load() }, [load])
 
-  // 실시간 구독 — userId 변경 시에만 (load 의존성 제거)
+  // 실시간 구독 — userId 별 채널 1개, mount 시 1회
   useEffect(() => {
     if (!userId) return
-
     let channel: ReturnType<typeof supabase.channel> | null = null
     try {
       channel = supabase
-        .channel(`notifications:${userId}:${Date.now()}`)
+        .channel(`notifications:${userId}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -60,13 +79,10 @@ export function useNotifications(userId: string | null) {
     } catch (e) {
       console.warn('Notification realtime subscription failed:', e)
     }
-
     return () => {
-      if (channel) {
-        try { supabase.removeChannel(channel) } catch {}
-      }
+      if (channel) { try { supabase.removeChannel(channel) } catch {} }
     }
-  }, [userId])
+  }, [userId, supabase])
 
   const markAllRead = async () => {
     if (!userId) return
@@ -85,5 +101,21 @@ export function useNotifications(userId: string | null) {
     setUnread(prev => Math.max(0, prev - 1))
   }
 
-  return { notifications, unread, markAllRead, markRead, reload: load }
+  return (
+    <NotificationsContext.Provider value={{ notifications, unread, markAllRead, markRead, reload: load }}>
+      {children}
+    </NotificationsContext.Provider>
+  )
+}
+
+export function useNotificationsCtx(): NotificationsState {
+  const v = useContext(NotificationsContext)
+  if (v) return v
+  // Provider 없을 때 안전한 기본값 (예: 로그인 전 페이지)
+  return {
+    notifications: [], unread: 0,
+    markAllRead: async () => {},
+    markRead: async () => {},
+    reload: async () => {},
+  }
 }

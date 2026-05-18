@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Bell } from 'lucide-react'
-import { useNotifications } from '@/hooks/useNotifications'
+import { useNotificationsCtx } from '@/lib/notifications-context'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 
@@ -13,9 +13,10 @@ const TYPE_ICON: Record<string, string> = {
   new_message: '💬',
 }
 
-export function NotificationBell({ userId }: { userId: string }) {
+// userId prop은 호환성을 위해 받지만 NotificationsProvider가 AuthContext의 user를 사용한다.
+export function NotificationBell({ userId: _userId }: { userId?: string }) {
   const router = useRouter()
-  const { notifications, unread, markAllRead, markRead } = useNotifications(userId)
+  const { notifications, unread, markAllRead, markRead } = useNotificationsCtx()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
