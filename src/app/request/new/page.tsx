@@ -136,6 +136,13 @@ function RequestNewPageInner() {
         return
       }
 
+      // 매칭 중개사에게 알림 발송 (실패는 페이지 이동 막지 않음)
+      fetch('/api/requests/notify-brokers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: data.id }),
+      }).catch(() => {})
+
       router.push(`/request/${data.id}`)
     } catch {
       setError('등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')

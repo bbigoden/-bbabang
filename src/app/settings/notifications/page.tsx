@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Bell, BellOff, MessageCircle, Sparkles, Check, AlertCircle, Megaphone } from 'lucide-react'
+import { Bell, BellOff, MessageCircle, Sparkles, Check, AlertCircle, Megaphone, MapPin, X } from 'lucide-react'
 import { urlBase64ToUint8Array } from '@/lib/push'
+import { RegionPicker, type RegionValue } from '@/components/region-picker'
 
 type Prefs = {
   messages: boolean
@@ -35,6 +36,11 @@ export default function SettingsNotificationsPage() {
   const [pushSubscribed, setPushSubscribed] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
 
+  // 관심 지역 (중개사 전용)
+  const [brokerId, setBrokerId] = useState<string | null>(null)
+  const [regions, setRegions] = useState<RegionValue[]>([])
+  const [regionMsg, setRegionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
   useEffect(() => {
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -42,6 +48,18 @@ export default function SettingsNotificationsPage() {
       setUser({ id: user.id })
       const { data: p } = await supabase.from('profiles').select('notification_preferences').eq('id', user.id).single()
       if (p?.notification_preferences) setPrefs({ ...DEFAULT_PREFS, ...p.notification_preferences })
+
+      // 중개사면 broker_profile + alert_regions 가져오기
+      const { data: bp } = await supabase
+        .from('broker_profiles')
+        .select('id, alert_regions')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (bp) {
+        setBrokerId(bp.id)
+        if (Array.isArray(bp.alert_regions)) setRegions(bp.alert_regions as RegionValue[])
+      }
+
       setLoading(false)
     })()
 
@@ -66,6 +84,22 @@ export default function SettingsNotificationsPage() {
   }
 
   const toggle = (k: keyof Prefs) => saveAll({ ...prefs, [k]: !prefs[k] })
+
+  // 관심 지역 저장 (alert_regions JSONB 통째로 업데이트)
+  const saveRegions = async (next: RegionValue[]) => {
+    if (!brokerId) return
+    setRegions(next); setRegionMsg(null)
+    const { error } = await supabase.from('broker_profiles').update({ alert_regions: next }).eq('id', brokerId)
+    if (error) setRegionMsg({ type: 'err', text: '저장 중 오류가 발생했습니다.' })
+    else { setRegionMsg({ type: 'ok', text: '저장됐습니다.' }); setTimeout(() => setRegionMsg(null), 2000) }
+  }
+  const addRegion = (r: RegionValue) => {
+    const key = `${r.sido}|${r.sigungu}|${r.dong}`
+    if (regions.some(x => `${x.sido}|${x.sigungu}|${x.dong}` === key)) return
+    saveRegions([...regions, r])
+  }
+  const removeRegion = (idx: number) => saveRegions(regions.filter((_, i) => i !== idx))
+  const regionKeys = new Set(regions.map(r => `${r.sido}|${r.sigungu}|${r.dong}`))
 
   const enablePush = async () => {
     setPushBusy(true)
@@ -142,6 +176,50 @@ export default function SettingsNotificationsPage() {
           )}
         </div>
       </div>
+
+      {/* 관심 지역 (중개사 전용) */}
+      {brokerId && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-blue-500" /> 관심 지역
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">선택한 지역에서 새 고객 요청이 들어오면 알림을 받아요. 동·읍·면 단위까지 설정할 수 있어요.</p>
+
+          {regions.length > 0 && (
+            <ul className="mb-3 flex flex-wrap gap-2">
+              {regions.map((r, i) => (
+                <li key={`${r.sido}|${r.sigungu}|${r.dong}`}
+                    className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                  <MapPin className="h-3 w-3" />
+                  <span>{r.sido} {r.sigungu}{r.dong ? ` ${r.dong}` : ''}</span>
+                  <button type="button" onClick={() => removeRegion(i)} className="text-blue-500 hover:text-blue-700 ml-0.5">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <RegionPicker
+            placeholder="동·읍·면으로 검색해서 지역 추가 (예: 불당동, 강남, 영통)"
+            selectedKeys={regionKeys}
+            onPick={addRegion}
+          />
+
+          {regionMsg && (
+            <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${regionMsg.type === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+              {regionMsg.type === 'ok' ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              {regionMsg.text}
+            </div>
+          )}
+
+          {regions.length === 0 && (
+            <p className="mt-3 text-xs text-gray-400">
+              아직 관심 지역이 없어요. 위 검색창에 동 이름을 입력해서 추가해주세요.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* 카테고리별 토글 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">
