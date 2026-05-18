@@ -159,8 +159,8 @@ export default function SettingsNotificationsPage() {
               </div>
               <button onClick={() => toggle(key)} disabled={saving}
                 role="switch" aria-checked={prefs[key]}
-                className={`relative h-6 w-11 rounded-full transition-colors flex-shrink-0 ${prefs[key] ? 'bg-blue-600' : 'bg-gray-200'}`}>
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${prefs[key] ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                className={`relative h-6 w-11 rounded-full transition-colors flex-shrink-0 ${prefs[key] ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${prefs[key] ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </li>
           ))}
