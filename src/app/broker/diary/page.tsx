@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, ArrowUp, ArrowDown } from 'lucide-react'
@@ -403,6 +404,7 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
 export default function BrokerDiaryPage() {
   const supabase = createClient()
   const router = useRouter()
+  const auth = useAuth()
 
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
@@ -439,18 +441,19 @@ export default function BrokerDiaryPage() {
   const { settings, update, loaded } = useColSettings('diary_cust', broker?.id ?? null, DEFAULT_COL_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null)
 
-  useEffect(() => { init() }, [])
+  useEffect(() => {
+    if (auth.loading) return
+    if (!auth.user) { router.push('/auth/login'); return }
+    if (!auth.broker) { router.push('/broker/register'); return }
+    init()
+  }, [auth.loading, auth.user?.id, auth.broker?.id])
   useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id, viewingBrokerId])
 
   const init = async () => {
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) { router.push('/auth/login'); return }
+    const u = auth.user!
+    const b = auth.broker!
+    const prof = auth.profile
     setUser(u)
-    const [{ data: prof }, { data: b }] = await Promise.all([
-      supabase.from('profiles').select('name').eq('id', u.id).single(),
-      supabase.from('broker_profiles').select('*').eq('user_id', u.id).single(),
-    ])
-    if (!b) { router.push('/broker/register'); return }
     setProfile(prof); setBroker(b)
     const owner = b.is_owner !== false
     setIsOwner(owner)

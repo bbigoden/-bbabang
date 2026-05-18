@@ -5,26 +5,14 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Home, MessageCircle, User, Menu, X, Settings } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
+import { useAuthOptional } from '@/lib/auth-context'
 
 interface HeaderProps {
   user?: { id: string; email?: string } | null
   role?: string | null
   unreadCount?: number
-}
-
-const CACHE_KEY = 'bbabang_auth_cache_v1'
-
-function readCachedAuth(): { user: { id: string; email?: string }; role: string | null } | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = sessionStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const v = JSON.parse(raw)
-    if (!v?.user?.id) return null
-    return v
-  } catch { return null }
 }
 
 export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: HeaderProps) {
@@ -34,36 +22,13 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
   const supabase = supabaseRef.current
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  // SSR/hydration mismatch 방지를 위해 초기값은 SSR-safe하게 props 또는 null
-  const [user, setUser] = useState<any>(userProp ?? null)
-  const [role, setRole] = useState<string | null>(roleProp ?? null)
-
-  // 마운트 시: 캐시 있으면 즉시 setState (round-trip 없음), 없으면 fetch 1회 후 캐시 저장
-  useEffect(() => {
-    if (userProp !== undefined) return
-    const cached = readCachedAuth()
-    if (cached) {
-      setUser(cached.user)
-      setRole(cached.role)
-      return
-    }
-    ;(async () => {
-      try {
-        const { data } = await supabase.auth.getUser()
-        if (data.user) {
-          const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
-          const nextUser = { id: data.user.id, email: data.user.email ?? undefined }
-          const nextRole = profile?.role ?? null
-          setUser(nextUser)
-          setRole(nextRole)
-          try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ user: nextUser, role: nextRole })) } catch {}
-        }
-      } catch {}
-    })()
-  }, [])
+  // 1순위: props (점진적 마이그레이션을 위해 기존 호출 호환)
+  // 2순위: AuthContext — 페이지가 props 안 주면 root provider 값 사용
+  const auth = useAuthOptional()
+  const user = userProp !== undefined ? userProp : auth.user
+  const role = roleProp !== undefined ? roleProp : (auth.profile?.role ?? null)
 
   const handleLogout = async () => {
-    try { sessionStorage.removeItem(CACHE_KEY) } catch {}
     await supabase.auth.signOut()
     window.location.href = '/'
   }

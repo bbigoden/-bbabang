@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from 'rea
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
@@ -874,6 +875,7 @@ function BrokerPropertiesContent() {
   const searchParams = useSearchParams()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const auth = useAuth()
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
@@ -953,7 +955,14 @@ function BrokerPropertiesContent() {
     order: prev.order.includes(key) ? prev.order : [...prev.order, key],
   }))
 
-  useEffect(() => { init() }, [])
+  useEffect(() => {
+    // 어드민 뷰는 targetBrokerId 기반으로 별도 처리 — auth와 무관하게 mount 시 init
+    if (searchParams.get('broker_id')) { init(); return }
+    if (auth.loading) return
+    if (!auth.user) { router.push('/auth/login'); return }
+    if (!auth.broker) { router.push('/broker/register'); return }
+    init()
+  }, [auth.loading, auth.user?.id, auth.broker?.id])
   useEffect(() => { setPage(1) }, [filterDealType, filterRoomType, searchQuery, pageSize])
 
   // 카카오맵 SDK 로드
@@ -1001,15 +1010,13 @@ function BrokerPropertiesContent() {
   }, [])
 
   const init = async () => {
-    let u: any = null
-    try { const { data } = await supabase.auth.getUser(); u = data.user } catch { router.push('/auth/login'); return }
-    if (!u) { router.push('/auth/login'); return }
-    setUser(u)
-
     const targetBrokerId = searchParams.get('broker_id')
 
-    // 어드민이 다른 중개사 매물장을 보는 경우
+    // 어드민이 다른 중개사 매물장을 보는 경우 — auth 우회 (직접 fetch)
     if (targetBrokerId) {
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (!u) { router.push('/auth/login'); return }
+      setUser(u)
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', u.id).single()
       if (profile?.role !== 'admin') { router.push('/broker/properties'); return }
 
@@ -1020,7 +1027,6 @@ function BrokerPropertiesContent() {
       setAdminViewBrokerName((b.profiles as any)?.name || b.office_name || '(이름 없음)')
       const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
       setCustomColumns(cols)
-      // 어드민 본인의 broker profile ID로 settings 로드
       const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
       if (ownBroker) setSettingsBrokerId(ownBroker.id)
       const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
@@ -1029,9 +1035,10 @@ function BrokerPropertiesContent() {
       return
     }
 
-    // 일반 중개사 본인 매물장
-    const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns, is_owner, parent_broker_id, permissions, is_approved').eq('user_id', u.id).single()
-    if (!b) { router.push('/broker/register'); return }
+    // 일반 중개사 본인 매물장 — auth context에서
+    const u = auth.user!
+    const b = auth.broker!
+    setUser(u)
     setBroker(b)
     setSettingsBrokerId(b.id)
 
@@ -1061,7 +1068,8 @@ function BrokerPropertiesContent() {
     }
 
     // ── 커스텀 칼럼 로드 ───────────────────────────────
-    const cols: CustomColumn[] = b.custom_columns?.length > 0 ? b.custom_columns : DEFAULT_CUSTOM_COLS
+    const cc = b.custom_columns as CustomColumn[] | undefined
+    const cols: CustomColumn[] = cc && cc.length > 0 ? cc : DEFAULT_CUSTOM_COLS
     setCustomColumns(cols)
 
     // ── 데이터 범위 결정 ───────────────────────────────
