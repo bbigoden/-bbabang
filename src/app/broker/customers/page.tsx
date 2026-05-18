@@ -582,7 +582,14 @@ export default function BrokerCustomersPage() {
     if (assigneeFilter !== '전체' && c.assignee !== assigneeFilter) return false
     if (search) {
       const q = search.toLowerCase()
-      return c.request?.toLowerCase().includes(q) || c.contact?.includes(q) || c.assignee?.toLowerCase().includes(q)
+      const fields = [
+        c.request, c.contact, c.assignee, c.category, c.source, c.status, c.received_date,
+      ]
+      if (fields.some(f => f?.toLowerCase().includes(q))) return true
+      if (c.custom_fields) {
+        return Object.values(c.custom_fields).some(v => typeof v === 'string' && v.toLowerCase().includes(q))
+      }
+      return false
     }
     return true
   })
@@ -804,7 +811,7 @@ export default function BrokerCustomersPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="요청사항, 연락처, 담당자..."
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="전체 검색..."
               className="w-full rounded-xl border border-gray-200 bg-white pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
           </div>
           {isOwner && assignees.length > 1 && (
