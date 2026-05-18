@@ -115,7 +115,7 @@ function SignupForm() {
         <div className="mb-2 grid grid-cols-2 gap-3">
           {[
             { value: 'user', label: '고객', icon: User, desc: '주거·상가·토지·공장 등 · 무료' },
-            { value: 'broker', label: '중개사 · 직원', icon: Building2, desc: '매물 관리·제안 · 사장님 인증' },
+            { value: 'broker', label: '중개사 · 직원', icon: Building2, desc: '매물 제안·관리 · 사장님 인증' },
           ].map((option) => (
             <button
               key={option.value}
