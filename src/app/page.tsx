@@ -82,6 +82,15 @@ export default async function LandingPage() {
             <span className="flex items-center gap-1.5"><CheckCircle className="h-4 w-4 text-green-400" /> 인증 중개사만</span>
             <span className="flex items-center gap-1.5"><CheckCircle className="h-4 w-4 text-green-400" /> 24시간 이내 제안</span>
           </div>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm">
+            <Link href="/explore/requests" className="text-blue-100 hover:text-white underline-offset-4 hover:underline">
+              실시간 요청 둘러보기 →
+            </Link>
+            <Link href="/brokers" className="text-blue-100 hover:text-white underline-offset-4 hover:underline">
+              인증 중개사 찾기 →
+            </Link>
+          </div>
         </div>
       </section>
 

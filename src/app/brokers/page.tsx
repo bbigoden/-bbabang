@@ -1,0 +1,127 @@
+import type { Metadata } from 'next'
+import { createClient } from '@/lib/supabase/server'
+import { Header } from '@/components/layout/header'
+import Link from 'next/link'
+import { Star, ShieldCheck, MapPin, Filter } from 'lucide-react'
+
+export const metadata: Metadata = {
+  title: '인증 공인중개사 둘러보기',
+  description: '전국 인증 공인중개사를 한눈에. 지역·평점·후기로 필터링해서 신뢰할 수 있는 중개사를 찾으세요.',
+  alternates: { canonical: '/brokers' },
+}
+
+export const dynamic = 'force-dynamic'
+
+type Search = { sido?: string; sigungu?: string; verified?: string }
+
+export default async function BrokersPage({ searchParams }: { searchParams: Promise<Search> }) {
+  const sp = await searchParams
+  const supabase = await createClient()
+
+  const { data: rows, error } = await supabase.rpc('get_public_brokers', {
+    p_sido: sp.sido ?? null,
+    p_sigungu: sp.sigungu ?? null,
+    p_only_verified: sp.verified === '1',
+    p_limit: 60,
+    p_offset: 0,
+  })
+
+  const filterActive = !!(sp.sido || sp.sigungu || sp.verified === '1')
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="mx-auto max-w-5xl px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-gray-900">인증 공인중개사</h1>
+          <p className="mt-1 text-sm text-gray-500">지역·평점으로 신뢰할 수 있는 중개사를 찾아보세요</p>
+        </div>
+
+        <form action="/brokers" method="GET" className="mb-5 rounded-2xl border border-gray-200 bg-white p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <Field name="sido" label="시·도" defaultValue={sp.sido} placeholder="예: 충청남도" />
+            <Field name="sigungu" label="시·군·구" defaultValue={sp.sigungu} placeholder="예: 천안시 서북구" />
+            <div className="flex items-center gap-2">
+              <input type="checkbox" name="verified" value="1" defaultChecked={sp.verified === '1'}
+                className="h-4 w-4 rounded border-gray-300 accent-blue-600" id="verified-only" />
+              <label htmlFor="verified-only" className="text-sm text-gray-700">인증된 중개사만</label>
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                <Filter className="inline h-3.5 w-3.5 mr-1" /> 필터
+              </button>
+              {filterActive && (
+                <Link href="/brokers" className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                  초기화
+                </Link>
+              )}
+            </div>
+          </div>
+        </form>
+
+        <p className="mb-3 text-sm text-gray-500">총 <span className="font-bold text-gray-800">{rows?.length ?? 0}</span>명</p>
+
+        {error ? (
+          <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">데이터 조회 실패</div>
+        ) : !rows || rows.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-400">
+            조건에 맞는 중개사가 없어요
+          </div>
+        ) : (
+          <ul className="grid gap-3 md:grid-cols-2">
+            {rows.map((b: any) => (
+              <li key={b.id}>
+                <Link href={`/broker/${b.id}`}
+                  className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <h2 className="text-base font-bold text-gray-900 truncate">{b.office_name || '(상호 없음)'}</h2>
+                        {b.is_verified && (
+                          <span title="인증 중개사" className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                            <ShieldCheck className="h-3 w-3" /> 인증
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">
+                        <MapPin className="inline h-3 w-3 mr-0.5" /> {b.address || '주소 미공개'}
+                      </p>
+                      {b.user_name && <p className="text-xs text-gray-400 mt-0.5">대표: {b.user_name}</p>}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3 text-xs">
+                    <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
+                      <Star className="h-3.5 w-3.5 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
+                    </span>
+                    <span className="text-gray-500">후기 {b.review_count ?? 0}</span>
+                    <span className="text-gray-500">거래 {b.deal_count ?? 0}</span>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-10 rounded-2xl bg-blue-50 border border-blue-100 p-6 text-center">
+          <p className="text-sm text-blue-800 mb-2">중개사이신가요?</p>
+          <p className="text-xs text-blue-600 mb-4">빠방에서 고객 요청을 직접 받아보세요</p>
+          <Link href="/auth/signup?role=broker" className="inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            중개사 가입
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Field({ name, label, defaultValue, placeholder }: {
+  name: string; label: string; defaultValue?: string; placeholder?: string
+}) {
+  return (
+    <div className="flex-1 min-w-[140px]">
+      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
+      <input name={name} defaultValue={defaultValue ?? ''} placeholder={placeholder}
+        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
+    </div>
+  )
+}
