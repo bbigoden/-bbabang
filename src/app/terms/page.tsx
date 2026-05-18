@@ -50,7 +50,7 @@ const sections = [
   },
   {
     title: '부칙',
-    content: `이 약관은 2025년 1월 1일부터 적용됩니다.`,
+    content: `이 약관은 2026년 5월 18일부터 적용됩니다.`,
   },
 ]
 
@@ -65,7 +65,7 @@ export default function TermsPage() {
             홈으로
           </Link>
           <h1 className="mt-4 text-3xl font-black text-gray-900">이용약관</h1>
-          <p className="mt-2 text-sm text-gray-500">최종 수정일: 2025년 1월 1일</p>
+          <p className="mt-2 text-sm text-gray-500">최종 수정일: 2026년 5월 18일</p>
         </div>
 
         {/* 본문 */}
