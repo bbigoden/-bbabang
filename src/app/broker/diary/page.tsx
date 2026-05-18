@@ -252,47 +252,132 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
 }
 
 // ── CustomerPicker ────────────────────────────────────
-function CustomerPicker({ allCustomers, linkedIds, onAddExisting, onCreateNew, onClose }: {
+function CustomerPicker({ allCustomers, linkedIds, ownerName, onAddMultiple, onCreateNew, onClose }: {
   allCustomers: Customer[]; linkedIds: Set<string>
-  onAddExisting: (c: Customer) => void; onCreateNew: () => void; onClose: () => void
+  ownerName: string  // 일지 주인 이름 — 그 사람 담당 고객만 표시
+  onAddMultiple: (customers: Customer[]) => void
+  onCreateNew: () => void; onClose: () => void
 }) {
   const [search, setSearch] = useState('')
-  const filtered = allCustomers
-    .filter(c => !search || (c.request ?? '').toLowerCase().includes(search.toLowerCase()) || c.contact?.includes(search) || c.client_name?.toLowerCase().includes(search.toLowerCase()))
-    .slice(0, 20)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  // 본인 담당 + 아직 일지에 안 들어간 고객만
+  const eligible = allCustomers.filter(c =>
+    (!ownerName || c.assignee === ownerName) && !linkedIds.has(c.id)
+  )
+
+  const q = search.toLowerCase()
+  const filtered = !q ? eligible : eligible.filter(c =>
+    (c.request ?? '').toLowerCase().includes(q)
+    || c.contact?.includes(search)
+    || c.client_name?.toLowerCase().includes(q)
+    || c.assignee?.toLowerCase().includes(q)
+  )
+
+  const toggle = (id: string) => setSelected(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+  const toggleAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set())
+    else setSelected(new Set(filtered.map(c => c.id)))
+  }
+  const clearSelected = () => setSelected(new Set())
+
+  const addSelected = () => {
+    const picks = eligible.filter(c => selected.has(c.id))
+    if (picks.length === 0) return
+    onAddMultiple(picks)
+  }
+
+  const allChecked = filtered.length > 0 && selected.size === filtered.length
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-800">고객 등록</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="h-4 w-4" /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+          <div>
+            <h3 className="text-base font-bold text-gray-900">고객 등록</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{ownerName} 담당 고객 중 일지에 추가할 행 선택</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="h-5 w-5" /></button>
         </div>
-        <div className="px-3 py-2.5 border-b border-gray-100">
-          <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="고객 검색 (이름, 연락처...)" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+
+        {/* 검색 + 선택 상태 */}
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3 flex-shrink-0">
+          <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="요청사항, 연락처로 검색..."
+            className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+          {selected.size > 0 && (
+            <button onClick={clearSelected} className="text-xs text-gray-500 hover:text-gray-700 whitespace-nowrap">
+              선택 해제 ({selected.size})
+            </button>
+          )}
         </div>
-        <div className="max-h-60 overflow-y-auto">
+
+        {/* 테이블 */}
+        <div className="flex-1 overflow-auto">
           {filtered.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-400">검색 결과 없음</div>
-          ) : filtered.map(c => {
-            const isAdded = linkedIds.has(c.id)
-            return (
-              <button key={c.id} onClick={() => !isAdded && onAddExisting(c)} disabled={isAdded}
-                className={cn('w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left border-b border-gray-50 last:border-0', isAdded && 'opacity-40 cursor-default')}>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-800 truncate">{c.request || c.client_name || '이름 없음'}</div>
-                  <div className="text-xs text-gray-400">{c.contact || '연락처 없음'}</div>
-                </div>
-                {isAdded
-                  ? <span className="text-xs text-blue-400 font-medium flex-shrink-0">추가됨</span>
-                  : <span className="text-xs text-gray-300 flex-shrink-0">추가</span>
-                }
-              </button>
-            )
-          })}
+            <div className="py-16 text-center text-sm text-gray-400">
+              {search ? '검색 결과 없음' : (ownerName ? `${ownerName} 담당의 가능 고객이 없어요` : '추가 가능한 고객이 없어요')}
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-gray-50/95 backdrop-blur text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <tr className="border-b border-gray-100">
+                  <th className="px-3 py-2.5 text-center" style={{ width: 36 }}>
+                    <input type="checkbox" checked={allChecked} onChange={toggleAll}
+                      className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer" />
+                  </th>
+                  <th className="px-3 py-2.5 text-left">요청사항</th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap">접수일자</th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap">연락처</th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap">담당자</th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap">구분</th>
+                  <th className="px-3 py-2.5 text-left whitespace-nowrap">유입</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => {
+                  const checked = selected.has(c.id)
+                  return (
+                    <tr key={c.id} onClick={() => toggle(c.id)}
+                      className={cn('border-b border-gray-50 cursor-pointer transition-colors',
+                        checked ? 'bg-blue-50/70 hover:bg-blue-50' : 'hover:bg-gray-50/60')}>
+                      <td className="px-3 py-2 text-center">
+                        <input type="checkbox" checked={checked} readOnly tabIndex={-1}
+                          className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer pointer-events-none" />
+                      </td>
+                      <td className="px-3 py-2 text-gray-800 max-w-md truncate">{c.request || c.client_name || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.received_date ?? <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.contact ?? <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.assignee ?? <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.category || <span className="text-gray-300">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.source ?? <span className="text-gray-300">—</span>}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
-        <div className="p-3 border-t border-gray-100">
-          <button onClick={onCreateNew} className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-2.5 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
+
+        {/* 푸터 */}
+        <div className="border-t border-gray-100 px-5 py-3 flex items-center gap-3 flex-shrink-0 bg-gray-50/50">
+          <button onClick={onCreateNew}
+            className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
             <Plus className="h-4 w-4" />새 고객 만들기
+          </button>
+          <div className="flex-1" />
+          <button onClick={onClose}
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+            취소
+          </button>
+          <button onClick={addSelected} disabled={selected.size === 0}
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            {selected.size > 0 ? `${selected.size}명 추가` : '선택해서 추가'}
           </button>
         </div>
       </div>
@@ -472,18 +557,32 @@ export default function BrokerDiaryPage() {
     setDiaryLoading(false)
   }
 
-  // 고객 피커: 기존 고객 추가 (direction에 따라 위/아래)
-  const addExistingCustomer = async (c: Customer) => {
-    if (!broker) return
+  // 고객 피커: 여러 고객 한 번에 추가 (direction에 따라 위/아래)
+  const addMultipleCustomers = async (customers: Customer[]) => {
+    if (!broker || customers.length === 0) return
     const orders = diaryCustomers.map(d => d.sort_order)
-    const nextOrder = direction === 'up'
-      ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
-      : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
-    const { data, error } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: c.id, sort_order: nextOrder }).select('id').single()
+    const minOrder = orders.length > 0 ? Math.min(...orders) : 0
+    const maxOrder = orders.length > 0 ? Math.max(...orders) : 0
+    // 위로 쌓기: 첫 picked가 가장 위에 보이도록 sort_order는 descending
+    // 아래로 쌓기: 첫 picked가 가장 아래에 추가되도록 sort_order는 ascending
+    const inserts = customers.map((c, i) => ({
+      broker_id: broker.id,
+      diary_date: diaryDate,
+      customer_id: c.id,
+      sort_order: direction === 'up' ? minOrder - 1 - i : maxOrder + 1 + i,
+    }))
+    const { data, error } = await supabase.from('broker_diary_customers').insert(inserts).select('id, sort_order, customer_id')
     if (!error && data) {
+      // data 순서가 inserts 순서와 일치한다고 가정 (supabase 동작). 안전하게 customer_id 매칭.
+      const byCustId = new Map(data.map((d: any) => [d.customer_id, d]))
+      const newRows = customers.map(c => {
+        const d = byCustId.get(c.id) as { id: string; sort_order: number } | undefined
+        if (!d) return null
+        return { link_id: d.id, sort_order: d.sort_order, proposed_property_ids: [], ...c }
+      }).filter(Boolean) as DiaryCustomerRow[]
       setDiaryCustomers(prev => direction === 'up'
-        ? [{ link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }, ...prev]
-        : [...prev, { link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }])
+        ? [...newRows, ...prev]
+        : [...prev, ...newRows])
     }
     setShowPicker(false)
   }
@@ -845,8 +944,8 @@ export default function BrokerDiaryPage() {
 
       {/* 고객 피커 */}
       {showPicker && (
-        <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds}
-          onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
+        <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds} ownerName={viewingName}
+          onAddMultiple={addMultipleCustomers} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
       )}
 
       {/* 제안 매물 피커 */}
