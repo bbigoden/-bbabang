@@ -263,9 +263,10 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId, onA
 }) {
   const [search, setSearch] = useState('')
 
-  // 일지 주인의 broker_id 소유 고객 + 아직 일지에 안 들어간 것만
+  // 일지 주인 담당자(assignee) 매칭 + 아직 일지에 안 들어간 것만
+  // broker_id가 아니라 assignee 이름으로 매칭 — 봇 등 다른 계정이 등록해도 담당자 일지에 보임
   const eligible = allCustomers.filter(c =>
-    (!ownerBrokerId || (c as any).broker_id === ownerBrokerId) && !linkedIds.has(c.id)
+    (!ownerName || c.assignee === ownerName) && !linkedIds.has(c.id)
   )
 
   const q = search.toLowerCase()
