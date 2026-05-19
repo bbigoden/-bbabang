@@ -254,17 +254,18 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
 }
 
 // ── CustomerPicker ────────────────────────────────────
-function CustomerPicker({ allCustomers, linkedIds, ownerName, onAddExisting, onCreateNew, onClose }: {
+function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
   allCustomers: Customer[]; linkedIds: Set<string>
-  ownerName: string  // 일지 주인 이름 — 그 사람 담당 고객만 표시
+  ownerName: string  // 일지 주인 이름 — 표시용
+  ownerBrokerId: string | null  // 일지 주인 broker_id — 그 사람 소유 고객만 필터
   onAddExisting: (c: Customer) => void
   onCreateNew: () => void; onClose: () => void
 }) {
   const [search, setSearch] = useState('')
 
-  // 본인 담당 + 아직 일지에 안 들어간 고객만
+  // 일지 주인의 broker_id 소유 고객 + 아직 일지에 안 들어간 것만
   const eligible = allCustomers.filter(c =>
-    (!ownerName || c.assignee === ownerName) && !linkedIds.has(c.id)
+    (!ownerBrokerId || (c as any).broker_id === ownerBrokerId) && !linkedIds.has(c.id)
   )
 
   const q = search.toLowerCase()
@@ -534,7 +535,7 @@ export default function BrokerDiaryPage() {
     }
     const [{ data: custs }, { data: props }] = await Promise.all([
       supabase.from('broker_customers')
-        .select('id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields')
+        .select('id, broker_id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields')
         .in('broker_id', brokerIds).order('created_at', { ascending: false }),
       supabase.from('broker_properties')
         .select('id, address, deal_type, room_type, price, monthly_rent')
@@ -934,7 +935,7 @@ export default function BrokerDiaryPage() {
 
       {/* 고객 피커 */}
       {showPicker && (
-        <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds} ownerName={viewingName}
+        <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds} ownerName={viewingName} ownerBrokerId={viewingBrokerId ?? broker?.id ?? null}
           onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
       )}
 
