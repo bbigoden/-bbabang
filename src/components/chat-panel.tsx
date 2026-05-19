@@ -311,8 +311,15 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     if (!room || selectedPropIds.size === 0 || sendingProps) return
     setSendingProps(true)
     const toSend = brokerProperties.filter(p => selectedPropIds.has(p.id))
-    for (const prop of toSend) {
-      await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content: JSON.stringify(buildSnapshot(prop)), message_type: 'property', property_id: prop.id })
+    const rows = toSend.map(prop => ({
+      room_id: room.id,
+      sender_id: currentUser.id,
+      content: JSON.stringify(buildSnapshot(prop)),
+      message_type: 'property' as const,
+      property_id: prop.id,
+    }))
+    if (rows.length > 0) {
+      await supabase.from('chat_messages').insert(rows)
     }
     notifyRecipient(`🏠 매물 ${toSend.length}건을 공유했어요`)
     setSendingProps(false); setShowPicker(false); setSelectedPropIds(new Set()); setPickerSearch('')

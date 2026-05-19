@@ -506,19 +506,20 @@ export default function ChatPage() {
     property_id: property.id,
   })
 
-  // 선택된 매물 전체 전송
+  // 선택된 매물 전체 전송 (N개 → 1번 insert로 일괄)
   const sendSelectedProperties = async () => {
     if (!room || selectedPropIds.size === 0 || sendingProps) return
     setSendingProps(true)
     const toSend = brokerProperties.filter(p => selectedPropIds.has(p.id))
-    for (const property of toSend) {
-      await supabase.from('chat_messages').insert({
-        room_id: room.id,
-        sender_id: user.id,
-        content: JSON.stringify(buildSnapshot(property)),
-        message_type: 'property',
-        property_id: property.id,
-      })
+    const rows = toSend.map(property => ({
+      room_id: room.id,
+      sender_id: user.id,
+      content: JSON.stringify(buildSnapshot(property)),
+      message_type: 'property' as const,
+      property_id: property.id,
+    }))
+    if (rows.length > 0) {
+      await supabase.from('chat_messages').insert(rows)
     }
     setSendingProps(false)
     setShowPicker(false)

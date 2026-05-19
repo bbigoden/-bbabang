@@ -84,6 +84,7 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
         <img
           src={images[index]}
           alt=""
+          decoding="async"
           className="rounded-lg object-contain shadow-2xl"
           style={{
             maxWidth: '80vw',
@@ -117,7 +118,7 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
                 i === index ? 'border-white scale-110' : 'border-white/30 opacity-60 hover:opacity-90'
               }`}
             >
-              <img src={src} alt="" className="h-full w-full object-cover" />
+              <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             </button>
           ))}
         </div>

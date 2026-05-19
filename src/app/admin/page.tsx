@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -68,6 +68,8 @@ export default function AdminPage() {
   const [brokerModal, setBrokerModal] = useState<any>(null)
   const [brokerReviews, setBrokerReviews] = useState<any[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
+  // 같은 broker 모달을 다시 열어도 reviews 재조회 안 함 (broker_id → reviews 캐시)
+  const reviewsCacheRef = useRef<Map<string, any[]>>(new Map())
   const [userModal, setUserModal] = useState<any>(null)
   const [requestModal, setRequestModal] = useState<any>(null)
   const [propertyModal, setPropertyModal] = useState<any>(null)
@@ -177,13 +179,14 @@ export default function AdminPage() {
     if (type === 'users') setUserFilter('all')
     setLoadingModal(true)
     if (type === 'users' && allUsersAll.length === 0) {
-      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
+      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(500)
       setAllUsersAll(data ?? [])
     } else if (type === 'requests' && allRequestsAll.length === 0) {
       const { data } = await supabase
         .from('request_posts')
         .select('*, profiles(name, phone)')
         .order('created_at', { ascending: false })
+        .limit(500)
       setAllRequestsAll(data ?? [])
     } else if (type === 'proposals' && allProposals.length === 0) {
       const { data } = await supabase
@@ -301,10 +304,18 @@ export default function AdminPage() {
                       key={broker.id}
                       onClick={async () => {
                         setBrokerModal(broker)
+                        const cached = reviewsCacheRef.current.get(broker.id)
+                        if (cached) {
+                          setBrokerReviews(cached)
+                          setReviewsLoading(false)
+                          return
+                        }
                         setBrokerReviews([])
                         setReviewsLoading(true)
                         const { data } = await supabase.from('reviews').select('*, profiles(name)').eq('broker_id', broker.id).order('created_at', { ascending: false })
-                        setBrokerReviews(data ?? [])
+                        const rows = data ?? []
+                        reviewsCacheRef.current.set(broker.id, rows)
+                        setBrokerReviews(rows)
                         setReviewsLoading(false)
                       }}
                       className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
