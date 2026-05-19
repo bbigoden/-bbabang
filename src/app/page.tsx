@@ -1,6 +1,4 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,34 +8,16 @@ import {
   Shield, TrendingUp, Users, Clock, Home
 } from 'lucide-react'
 
-export default async function LandingPage() {
-  let user = null
-  let userRole: string | null = null
-  let unreadCount = 0
+// 공개 랜딩 페이지는 정적 렌더링 — 로그인 사용자 redirect는 proxy.ts가 처리
+// CDN 캐시 가능 → 첫 방문자 TTFB 대폭 단축
+export const dynamic = 'force-static'
+// 콘텐츠 자체는 거의 안 바뀌지만 메타/링크 정도는 배포 후 자동 갱신용
+export const revalidate = 3600
 
-  try {
-    const supabase = await createClient()
-    const { data } = await supabase.auth.getUser()
-    user = data.user
-
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      userRole = profile?.role ?? null
-    }
-  } catch {
-    // Supabase 미설정 시 공개 랜딩만 표시
-  }
-
-  // 로그인된 유저는 바로 대시보드로 (try-catch 밖에서 redirect)
-  if (user) {
-    if (userRole === 'admin') redirect('/admin')
-    if (userRole === 'broker') redirect('/dashboard/broker')
-    redirect('/dashboard/user')
-  }
+export default function LandingPage() {
+  const user = null
+  const userRole: string | null = null
+  const unreadCount = 0
 
   return (
     <div className="min-h-screen">

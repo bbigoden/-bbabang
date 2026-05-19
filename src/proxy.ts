@@ -10,6 +10,14 @@ export async function proxy(request: NextRequest) {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return NextResponse.next()
 
+  // 비로그인 + 비보호 경로면 auth 호출 없이 통과 (홈 등 공개 페이지 CDN 캐시 가능)
+  const isProtected = PROTECTED.some(p => pathname.startsWith(p))
+  const isRoot = pathname === '/'
+  const hasSessionCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
+  if (!isProtected && !isRoot && !hasSessionCookie) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
@@ -34,11 +42,19 @@ export async function proxy(request: NextRequest) {
   }
 
   // 보호된 경로: 로그인 필요
-  const isProtected = PROTECTED.some(p => pathname.startsWith(p))
   if (isProtected && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     url.searchParams.set('redirect', pathname)
+    return NextResponse.redirect(url)
+  }
+
+  // 홈(/): 로그인된 사용자는 적절한 대시보드로 redirect (page.tsx가 정적 캐시 가능하도록)
+  if (isRoot && user) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    const role = profile?.role
+    const url = request.nextUrl.clone()
+    url.pathname = role === 'admin' ? '/admin' : role === 'broker' ? '/dashboard/broker' : '/dashboard/user'
     return NextResponse.redirect(url)
   }
 
