@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
+import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 
 interface Property {
   id: string
@@ -895,12 +896,13 @@ function BrokerPropertiesContent() {
   const [pageSize, setPageSize] = useState(20)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [isMapView, setIsMapView] = useState(false)
-  const [mapReady, setMapReady] = useState(false)
+  const { status: mapStatus, errorReason: mapErr, ready: mapReady } = useKakaoMapSdk()
   const [geocoding, setGeocoding] = useState(false)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
-  const overlaysRef = useRef<any[]>([])
-  const infoOverlaysRef = useRef<any[]>([])
+  const markersRef = useRef<any[]>([])         // 카카오 Marker 인스턴스들
+  const clustererRef = useRef<any>(null)        // MarkerClusterer
+  const infoOverlaysRef = useRef<any[]>([])     // 클릭 시 뜨는 정보 카드
   const [addingId, setAddingId] = useState<string | null>(null)
   const [autoFillingId, setAutoFillingId] = useState<string | null>(null)
   const [autoFillToast, setAutoFillToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -965,36 +967,7 @@ function BrokerPropertiesContent() {
   }, [auth.loading, auth.user?.id, auth.broker?.id])
   useEffect(() => { setPage(1) }, [filterDealType, filterRoomType, searchQuery, pageSize])
 
-  // 카카오맵 SDK 로드
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const w = window as any
-
-    const KAKAO_KEY = '700a493a80faeb786caaa05bea56e4ad'
-
-    const onReady = () => {
-      w.kakao.maps.load(() => setMapReady(true))
-    }
-
-    // 이미 SDK 로드됨
-    if (w.kakao?.maps) { onReady(); return }
-
-    // 스크립트 태그 이미 있음 → 로드 완료 대기
-    if (document.querySelector('script[data-kakao-map]')) {
-      const poll = setInterval(() => {
-        if ((window as any).kakao?.maps) { clearInterval(poll); onReady() }
-      }, 200)
-      return () => clearInterval(poll)
-    }
-
-    const script = document.createElement('script')
-    script.setAttribute('data-kakao-map', 'true')
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_KEY}&libraries=services&autoload=false`
-    script.async = true
-    script.onload = onReady
-    script.onerror = (e) => console.error('[KakaoMap] SDK 로드 실패', { src: script.src, event: e })
-    document.head.appendChild(script)
-  }, [])
+  // 카카오맵 SDK는 useKakaoMapSdk 훅에서 로드
 
   // 다음 우편번호 SDK 로드 (소재지 검색용)
   useEffect(() => {
@@ -1315,17 +1288,18 @@ function BrokerPropertiesContent() {
     return list
   }, [properties, filterDealType, filterRoomType, searchQuery])
 
-  // 지도 뷰 전환 시 지도 초기화 & 마커 렌더링
+  // 지도 뷰 렌더링 — Marker(SVG 핀) + MarkerClusterer + 클릭 시 정보 오버레이
   useEffect(() => {
     if (!isMapView || !mapReady) return
     const timer = setTimeout(() => {
       if (!mapContainerRef.current) return
       const kakao = (window as any).kakao
 
+      // 지도 인스턴스 최초 생성
       if (!mapInstanceRef.current) {
         mapInstanceRef.current = new kakao.maps.Map(mapContainerRef.current, {
-          center: new kakao.maps.LatLng(37.5665, 126.9780),
-          level: 9,
+          center: new kakao.maps.LatLng(36.815, 127.114), // 천안 시청
+          level: 6,
         })
         kakao.maps.event.addListener(mapInstanceRef.current, 'click', () => {
           infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
@@ -1333,9 +1307,28 @@ function BrokerPropertiesContent() {
       }
 
       const map = mapInstanceRef.current
-      overlaysRef.current.forEach((o: any) => o.setMap(null))
+
+      // 기존 마커·정보창 정리
+      if (clustererRef.current) { clustererRef.current.clear() }
+      else {
+        clustererRef.current = new kakao.maps.MarkerClusterer({
+          map,
+          averageCenter: true,
+          minLevel: 8, // 줌 8 이하(축소)에서 클러스터링
+          disableClickZoom: false,
+          gridSize: 80,
+          styles: [{
+            width: '40px', height: '40px',
+            background: '#2563eb', color: '#fff',
+            borderRadius: '20px', textAlign: 'center', lineHeight: '40px',
+            fontSize: '13px', fontWeight: '700',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+            border: '2px solid #fff',
+          }],
+        })
+      }
+      markersRef.current = []
       infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
-      overlaysRef.current = []
       infoOverlaysRef.current = []
 
       const geocoder = new kakao.maps.services.Geocoder()
@@ -1357,39 +1350,60 @@ function BrokerPropertiesContent() {
       }
       const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+      // SVG 핀(알약 모양) data URI 생성
+      const makePillIcon = (dealType: string, price: string, color: string) => {
+        const label = `${dealType} ${price}`
+        const charCount = [...label].length
+        const width = Math.max(64, Math.min(140, charCount * 9 + 16))
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="32" viewBox="0 0 ${width} 32"><rect x="1" y="1" width="${width-2}" height="22" rx="11" ry="11" fill="${color}" stroke="white" stroke-width="2"/><text x="${width/2}" y="16" font-size="11" font-weight="700" text-anchor="middle" fill="white" font-family="-apple-system, BlinkMacSystemFont, sans-serif">${label}</text><path d="M${width/2-5} 22 L${width/2} 30 L${width/2+5} 22 Z" fill="${color}"/></svg>`
+        return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 32 }
+      }
+
+      const newMarkers: any[] = []
+      const bounds = new kakao.maps.LatLngBounds()
+
       targets.forEach(prop => {
         geocoder.addressSearch(prop.address!, (result: any, status: any) => {
           done++
-          if (done === targets.length) setGeocoding(false)
-          if (status !== kakao.maps.services.Status.OK) return
+          if (status === kakao.maps.services.Status.OK) {
+            const pos = new kakao.maps.LatLng(result[0].y, result[0].x)
+            const color = colorMap[prop.deal_type] ?? '#374151'
+            const icon = makePillIcon(prop.deal_type, fmtPrice(prop), color)
+            const markerImage = new kakao.maps.MarkerImage(
+              icon.url,
+              new kakao.maps.Size(icon.width, icon.height),
+              { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
+            )
+            const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
+            newMarkers.push(marker)
+            bounds.extend(pos)
 
-          const pos = new kakao.maps.LatLng(result[0].y, result[0].x)
-          const color = colorMap[prop.deal_type] ?? '#374151'
+            // 정보 카드
+            const infoEl = document.createElement('div')
+            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:180px;font-family:inherit"><div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${esc(prop.address)}</div><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(prop.deal_type)}</span><span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(prop))}</span></div><div style="font-size:10px;color:#6b7280">${esc(prop.room_type)}${prop.size_pyeong ? ' · ' + esc(prop.size_pyeong) + '평' : ''}${prop.total_floors ? ' · ' + esc(prop.total_floors) : ''}</div>${prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(prop.brief_memo)}</div>` : ''}</div>`
+            const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 1.4, zIndex: 5 })
+            infoOverlaysRef.current.push(infoOverlay)
 
-          const markerEl = document.createElement('div')
-          markerEl.innerHTML = `<div style="background:${color};color:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;border:2px solid #fff">${esc(prop.deal_type)} ${esc(fmtPrice(prop))}</div>`
-          const markerOverlay = new kakao.maps.CustomOverlay({ position: pos, content: markerEl, yAnchor: 1.2 })
-          markerOverlay.setMap(map)
-          overlaysRef.current.push(markerOverlay)
+            kakao.maps.event.addListener(marker, 'click', () => {
+              infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
+              infoOverlay.setMap(map)
+            })
+          }
 
-          const infoEl = document.createElement('div')
-          infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:170px;font-family:inherit">
-            <div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${esc(prop.address)}</div>
-            <div style="display:flex;gap:5px;align-items:center;margin-bottom:3px">
-              <span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(prop.deal_type)}</span>
-              <span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(prop))}</span>
-            </div>
-            <div style="font-size:10px;color:#6b7280">${esc(prop.room_type)}${prop.size_pyeong ? ' · ' + esc(prop.size_pyeong) : ''}${prop.total_floors ? ' · ' + esc(prop.total_floors) : ''}</div>
-            ${prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(prop.brief_memo)}</div>` : ''}
-          </div>`
-          const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 2.9, zIndex: 5 })
-          infoOverlaysRef.current.push(infoOverlay)
-
-          markerEl.addEventListener('click', (e) => {
-            e.stopPropagation()
-            infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
-            infoOverlay.setMap(map)
-          })
+          if (done === targets.length) {
+            setGeocoding(false)
+            clustererRef.current.addMarkers(newMarkers)
+            markersRef.current = newMarkers
+            // 모든 마커가 보이도록 bounds fit (1개면 그 위치 중심으로)
+            if (newMarkers.length > 0) {
+              if (newMarkers.length === 1) {
+                map.setCenter(newMarkers[0].getPosition())
+                map.setLevel(4)
+              } else {
+                map.setBounds(bounds)
+              }
+            }
+          }
         })
       })
     }, 100)
@@ -1535,8 +1549,19 @@ function BrokerPropertiesContent() {
         {isMapView && (
           <div className="relative rounded-xl border border-gray-200 overflow-hidden shadow-sm" style={{ height: 560 }}>
             <div ref={mapContainerRef} className="w-full h-full" />
-            {/* 로딩 오버레이 */}
-            {(!mapReady || geocoding) && (
+            {/* 로딩/에러 오버레이 */}
+            {mapStatus === 'error' && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 px-6 text-center">
+                <div className="text-4xl mb-3">🗺️</div>
+                <p className="text-sm font-bold text-gray-700 mb-1">지도를 불러올 수 없어요</p>
+                <p className="text-xs text-gray-500 max-w-md leading-relaxed">
+                  {mapErr === 'no-key'
+                    ? 'NEXT_PUBLIC_KAKAO_MAP_KEY 환경변수가 비어있어요. Vercel 환경변수 설정을 확인해주세요.'
+                    : '카카오 디벨로퍼스 콘솔에서 현재 도메인(이 페이지의 URL)이 [JavaScript 키 → 플랫폼 → Web]에 등록돼 있는지 확인해주세요.'}
+                </p>
+              </div>
+            )}
+            {mapStatus !== 'error' && (!mapReady || geocoding) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10">
                 <Loader2 className="h-7 w-7 animate-spin text-blue-600 mb-2" />
                 <p className="text-sm text-gray-500">{!mapReady ? '지도 불러오는 중...' : `주소 변환 중... (${filtered.filter(p=>p.address).length}건)`}</p>
