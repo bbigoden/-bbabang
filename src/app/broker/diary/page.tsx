@@ -534,7 +534,7 @@ export default function BrokerDiaryPage() {
     }
     const [{ data: custs }, { data: props }] = await Promise.all([
       supabase.from('broker_customers')
-        .select('id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields')
+        .select('id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields')
         .in('broker_id', brokerIds).order('created_at', { ascending: false }),
       supabase.from('broker_properties')
         .select('id, address, deal_type, room_type, price, monthly_rent')
@@ -551,7 +551,7 @@ export default function BrokerDiaryPage() {
     const targetId = viewingBrokerId ?? broker.id
     const [{ data: links }, { data: diaryRow }] = await Promise.all([
       supabase.from('broker_diary_customers')
-        .select('id, sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+        .select('id, sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
         .eq('broker_id', targetId).eq('diary_date', date).order('sort_order'),
       supabase.from('broker_diary').select('sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
     ])
@@ -709,7 +709,7 @@ export default function BrokerDiaryPage() {
     setImporting(true)
     const [{ data: sourceLinks }, { data: sourceDiary }] = await Promise.all([
       supabase.from('broker_diary_customers')
-        .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+        .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
         .eq('broker_id', broker.id).eq('diary_date', importDate).order('sort_order'),
       supabase.from('broker_diary').select('sections_content').eq('broker_id', broker.id).eq('date', importDate).maybeSingle(),
     ])
@@ -723,7 +723,7 @@ export default function BrokerDiaryPage() {
       }))
       const { data: newLinks } = await supabase.from('broker_diary_customers')
         .insert(inserts)
-        .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, custom_fields)')
+        .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
       setDiaryCustomers((newLinks ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
     } else {
       setDiaryCustomers([])
