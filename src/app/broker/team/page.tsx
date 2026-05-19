@@ -161,13 +161,24 @@ export default function BrokerTeamPage() {
 
   const rejectEmployee = async (empId: string) => {
     if (!confirm('이 신청을 거절할까요? 직원의 계정 자체는 유지됩니다.')) return
-    await supabase.from('broker_profiles').delete().eq('id', empId)
+    const { error } = await supabase.from('broker_profiles').delete().eq('id', empId)
+    if (error) {
+      console.error('[team] reject failed', error)
+      alert(`거절 실패: ${error.message}`)
+      return
+    }
     setPending(prev => prev.filter(e => e.id !== empId))
   }
 
   const saveEmployeePerms = async (empId: string) => {
     setSaving(true)
-    await supabase.from('broker_profiles').update({ permissions: editPerms }).eq('id', empId)
+    const { error } = await supabase.from('broker_profiles').update({ permissions: editPerms }).eq('id', empId)
+    if (error) {
+      console.error('[team] update perms failed', error)
+      alert(`권한 저장 실패: ${error.message}`)
+      setSaving(false)
+      return
+    }
     setApproved(prev => prev.map(e => e.id === empId ? { ...e, permissions: editPerms } : e))
     setEditingId(null)
     setSaving(false)
@@ -177,15 +188,26 @@ export default function BrokerTeamPage() {
     if (!confirm('이 직원을 팀에서 제거할까요?\n직원이 입력한 고객·매물·업무일지 데이터는 사무소에 귀속됩니다.')) return
     if (!broker) return
 
-    // 직원 데이터를 대표 broker_id로 이전
-    await Promise.all([
+    // 직원 데이터를 대표 broker_id로 이전 — 한 단계라도 실패하면 후속 차단(고아 데이터 방지)
+    const results = await Promise.all([
       supabase.from('broker_customers').update({ broker_id: broker.id }).eq('broker_id', empId),
       supabase.from('broker_properties').update({ broker_id: broker.id }).eq('broker_id', empId),
       supabase.from('broker_consultations').update({ broker_id: broker.id }).eq('broker_id', empId),
     ])
+    const transferErr = results.find(r => r.error)?.error
+    if (transferErr) {
+      console.error('[team] data transfer failed', transferErr)
+      alert(`데이터 이전 실패로 제거를 중단했어요: ${transferErr.message}`)
+      return
+    }
 
     // 직원 프로필 사무소 연결 해제
-    await supabase.from('broker_profiles').update({ parent_broker_id: null, is_approved: false }).eq('id', empId)
+    const { error } = await supabase.from('broker_profiles').update({ parent_broker_id: null, is_approved: false }).eq('id', empId)
+    if (error) {
+      console.error('[team] detach failed', error)
+      alert(`직원 분리 실패: ${error.message}`)
+      return
+    }
     setApproved(prev => prev.filter(e => e.id !== empId))
   }
 

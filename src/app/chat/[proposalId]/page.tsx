@@ -448,21 +448,30 @@ export default function ChatPage() {
     e.target.value = ''
 
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    if (!ALLOWED_TYPES.includes(file.type)) return
-    if (file.size > 10 * 1024 * 1024) return
+    if (!ALLOWED_TYPES.includes(file.type)) { alert('지원하지 않는 이미지 형식입니다 (jpg/png/webp/gif)'); return }
+    if (file.size > 10 * 1024 * 1024) { alert('이미지가 10MB를 초과합니다'); return }
+    if (file.size === 0) { alert('빈 파일입니다'); return }
 
     const ext = file.name.split('.').pop()
     const path = `chat/${room.id}/${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
-    if (error) return
+    const { error: uploadErr } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
+    if (uploadErr) {
+      console.error('[chat] image upload failed', uploadErr)
+      alert(`이미지 업로드 실패: ${uploadErr.message}`)
+      return
+    }
 
     const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
-    await supabase.from('chat_messages').insert({
+    const { error: msgErr } = await supabase.from('chat_messages').insert({
       room_id: room.id,
       sender_id: user.id,
       content: publicUrl,
       message_type: 'image',
     })
+    if (msgErr) {
+      console.error('[chat] image message insert failed', msgErr)
+      alert(`이미지 메시지 전송 실패: ${msgErr.message}`)
+    }
   }
 
   // 매물 피커 열기 (중개사만)
@@ -519,7 +528,13 @@ export default function ChatPage() {
       property_id: property.id,
     }))
     if (rows.length > 0) {
-      await supabase.from('chat_messages').insert(rows)
+      const { error } = await supabase.from('chat_messages').insert(rows)
+      if (error) {
+        console.error('[chat] sendSelectedProperties failed', error)
+        alert(`매물 발송 실패: ${error.message}`)
+        setSendingProps(false)
+        return
+      }
     }
     setSendingProps(false)
     setShowPicker(false)

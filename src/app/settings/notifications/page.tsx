@@ -85,12 +85,17 @@ export default function SettingsNotificationsPage() {
 
   const toggle = (k: keyof Prefs) => saveAll({ ...prefs, [k]: !prefs[k] })
 
-  // 관심 지역 저장 (alert_regions JSONB 통째로 업데이트)
+  // 관심 지역 저장 (alert_regions JSONB 통째로 업데이트) — 실패 시 이전 값으로 롤백
   const saveRegions = async (next: RegionValue[]) => {
     if (!brokerId) return
+    const prev = regions
     setRegions(next); setRegionMsg(null)
     const { error } = await supabase.from('broker_profiles').update({ alert_regions: next }).eq('id', brokerId)
-    if (error) setRegionMsg({ type: 'err', text: '저장 중 오류가 발생했습니다.' })
+    if (error) {
+      console.error('[notifications] saveRegions failed', error)
+      setRegions(prev)
+      setRegionMsg({ type: 'err', text: '저장 중 오류가 발생했습니다.' })
+    }
     else { setRegionMsg({ type: 'ok', text: '저장됐습니다.' }); setTimeout(() => setRegionMsg(null), 2000) }
   }
   const addRegion = (r: RegionValue) => {
