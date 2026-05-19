@@ -452,7 +452,9 @@ export default function BrokerDiaryPage() {
   const [diaryLoading, setDiaryLoading] = useState(false)
 
   // 칼럼 설정
-  const { settings, update, loaded } = useColSettings('diary_cust', broker?.id ?? null, DEFAULT_COL_SETTINGS)
+  // 일지의 customCols·옵션도 viewing 대상의 col_settings 사용 (직원별 다른 칼럼 지원)
+  const settingsBrokerId = viewingBrokerId ?? broker?.id ?? null
+  const { settings, update, loaded } = useColSettings('diary_cust', settingsBrokerId, DEFAULT_COL_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null)
 
   useEffect(() => {
