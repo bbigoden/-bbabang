@@ -1,6 +1,28 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RequestDetailClient } from './request-detail-client'
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('request_posts')
+    .select('city, district, dong, deal_type, room_type, min_price, max_price')
+    .eq('id', id)
+    .maybeSingle()
+  if (!data) return { title: '요청 | 빠방' }
+  const region = [data.city, data.district, data.dong].filter(Boolean).join(' ')
+  const title = `${region} ${data.deal_type ?? ''} ${data.room_type ?? ''} 요청 | 빠방`.replace(/\s+/g, ' ').trim()
+  const priceRange = data.min_price && data.max_price ? ` (${data.min_price}~${data.max_price}만원)` : ''
+  const description = `${region} ${data.room_type ?? ''} ${data.deal_type ?? ''}${priceRange} — 공인중개사 제안을 받아보세요.`
+  return {
+    title,
+    description,
+    alternates: { canonical: `/request/${id}` },
+    openGraph: { title, description, url: `/request/${id}` },
+  }
+}
 
 export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

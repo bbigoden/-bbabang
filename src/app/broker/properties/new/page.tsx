@@ -335,7 +335,7 @@ export default function NewPropertyPage() {
                 <div className="flex flex-wrap gap-3">
                   {imagePreviews.map((src, i) => (
                     <div key={i} className="relative h-24 w-24 rounded-xl overflow-hidden border border-gray-200">
-                      <img src={src} alt="" className="h-full w-full object-cover" />
+                      <img src={src} alt="매물 사진" className="h-full w-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeImage(i)}

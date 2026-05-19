@@ -428,7 +428,7 @@ export default function EditPropertyPage() {
                   {/* 기존 이미지 */}
                   {existingImages.map((src, i) => (
                     <div key={`existing-${i}`} className="relative h-24 w-24 rounded-xl overflow-hidden border border-gray-200">
-                      <img src={src} alt="" className="h-full w-full object-cover" />
+                      <img src={src} alt="매물 사진" className="h-full w-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeExistingImage(i)}
@@ -441,7 +441,7 @@ export default function EditPropertyPage() {
                   {/* 새 이미지 프리뷰 */}
                   {newImagePreviews.map((src, i) => (
                     <div key={`new-${i}`} className="relative h-24 w-24 rounded-xl overflow-hidden border border-blue-200">
-                      <img src={src} alt="" className="h-full w-full object-cover" />
+                      <img src={src} alt="매물 사진" className="h-full w-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeNewImage(i)}

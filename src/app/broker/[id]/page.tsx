@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
@@ -9,6 +10,30 @@ import { notFound } from 'next/navigation'
 
 interface Props {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('broker_profiles')
+    .select('office_name, district, rating, review_count, profiles(name)')
+    .eq('id', id)
+    .maybeSingle()
+  const profile = (data?.profiles as { name?: string } | null) ?? null
+  const name = profile?.name ?? '중개사'
+  const office = data?.office_name ?? '공인중개사사무소'
+  const district = data?.district ?? ''
+  const rating = data?.rating ?? null
+  const reviewCount = data?.review_count ?? 0
+  const title = `${name} (${office}) | 빠방`
+  const description = `${district ? district + ' ' : ''}${office} ${name} 중개사 — ${rating ? `평점 ${rating.toFixed(1)} (${reviewCount}개) · ` : ''}빠방 인증 부동산 중개사 프로필.`
+  return {
+    title,
+    description,
+    alternates: { canonical: `/broker/${id}` },
+    openGraph: { title, description, url: `/broker/${id}` },
+  }
 }
 
 function StarRating({ value }: { value: number }) {

@@ -565,7 +565,7 @@ function ImageCell({ images, onSave, onView }: {
           ? <span className="text-xs text-gray-300">사진</span>
           : <>
               <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 flex-shrink-0">
-                <img src={localImgs[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                <img src={localImgs[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </div>
               {localImgs.length > 1 && <span className="text-[10px] text-gray-400">+{localImgs.length - 1}</span>}
             </>
@@ -576,7 +576,7 @@ function ImageCell({ images, onSave, onView }: {
           <div className="flex flex-wrap gap-1.5 mb-2">
             {localImgs.map((src, i) => (
               <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 group">
-                <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover cursor-pointer" onClick={() => { setOpen(false); onView(i) }} />
+                <img src={src} alt="매물 사진" loading="lazy" decoding="async" className="h-full w-full object-cover cursor-pointer" onClick={() => { setOpen(false); onView(i) }} />
                 <button onClick={() => { const next = localImgs.filter((_, idx) => idx !== i); setLocalImgs(next) }}
                   className="absolute top-0.5 right-0.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white text-[9px]"
                 >✕</button>
@@ -584,7 +584,7 @@ function ImageCell({ images, onSave, onView }: {
             ))}
             {newPreviews.map((src, i) => (
               <div key={`n-${i}`} className="relative h-14 w-14 overflow-hidden rounded-lg border border-blue-200">
-                <img src={src} alt="" className="h-full w-full object-cover" />
+                <img src={src} alt="매물 사진" className="h-full w-full object-cover" />
                 <button onClick={() => { setNewFiles(p => p.filter((_, idx) => idx !== i)); setNewPreviews(p => p.filter((_, idx) => idx !== i)) }}
                   className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white text-[9px]"
                 >✕</button>
@@ -937,7 +937,7 @@ const PropertyRow = memo(function PropertyRow({
               }
               if (key === 'room_type') return <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{p.room_type}</span>
               if (key === 'images') return p.images?.length > 0
-                ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
+                ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
                 : <span className="text-xs text-gray-300">—</span>
               const raw: any = (p as any)[key]
               return raw != null && raw !== '' ? String(raw) : '—'

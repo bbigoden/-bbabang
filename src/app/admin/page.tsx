@@ -761,7 +761,7 @@ export default function AdminPage() {
             <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
               {propertyModal.images.map((url: string, i: number) => (
                 <div key={i} className="relative h-32 w-40 flex-shrink-0 overflow-hidden rounded-xl">
-                  <Image src={url} alt="" fill className="object-cover" sizes="160px" />
+                  <Image src={url} alt="매물 사진" fill className="object-cover" sizes="160px" />
                 </div>
               ))}
             </div>

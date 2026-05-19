@@ -53,6 +53,14 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
 }
 
+export const viewport: import('next').Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: '#2563EB',
+}
+
 export default function RootLayout({
   children,
 }: {
