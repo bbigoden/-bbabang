@@ -360,8 +360,17 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
   const [titleDraft, setTitleDraft] = useState(def.title)
   const [draft, setDraft] = useState(content ?? '')
   const [saving, setSaving] = useState(false)
+  const taRef = useRef<HTMLTextAreaElement>(null)
+  // textarea를 내용 줄 수에 맞춰 자동 늘어나게 (스크롤 없이)
+  const autoSize = () => {
+    const el = taRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }
   useEffect(() => { setDraft(content ?? '') }, [content])
   useEffect(() => { setTitleDraft(def.title) }, [def.title])
+  useEffect(() => { autoSize() }, [draft, readOnly])
   const commitRename = () => {
     if (titleDraft.trim() && titleDraft !== def.title) onRename(def.id, titleDraft.trim())
     setRenaming(false)
@@ -394,7 +403,12 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
       </div>
       {readOnly
         ? <div className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap min-h-[60px]">{content || <span className="text-gray-300">—</span>}</div>
-        : <textarea value={draft} onChange={e => setDraft(e.target.value)} onBlur={handleBlur} placeholder={`${def.title} 입력...`} rows={3} className="w-full px-4 py-3 text-sm text-gray-700 placeholder-gray-300 resize-none outline-none focus:ring-2 focus:ring-blue-400/20 focus:ring-inset" />
+        : <textarea ref={taRef} value={draft}
+            onChange={e => { setDraft(e.target.value); autoSize() }}
+            onBlur={handleBlur}
+            placeholder={`${def.title} 입력...`}
+            rows={1}
+            className="w-full px-4 py-3 text-sm text-gray-700 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
       }
     </div>
   )
@@ -609,17 +623,18 @@ export default function BrokerDiaryPage() {
     setPropertyPickerLinkId(null)
   }
 
-  // 섹션 내용 저장
+  // 섹션 내용 저장 — viewing 대상의 broker_id에 저장 (사장님이 직원 일지 편집 가능하도록)
   const saveSectionContent = useCallback(async (sectionId: string, value: string) => {
     if (!broker) return
+    const targetBrokerId = viewingBrokerId ?? broker.id
     const newContent = { ...sectionContent, [sectionId]: value || undefined }
     if (!value) delete newContent[sectionId]
     const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
-    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', broker.id).eq('date', diaryDate).maybeSingle()
+    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
     if (existing) await supabase.from('broker_diary').update(payload).eq('id', existing.id)
-    else await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
+    else await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
     setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
-  }, [broker, diaryDate, sectionContent])
+  }, [broker, diaryDate, sectionContent, viewingBrokerId])
 
   // 섹션 이름 변경
   const renameSection = (id: string, title: string) => {
