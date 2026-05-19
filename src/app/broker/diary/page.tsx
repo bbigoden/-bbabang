@@ -714,7 +714,8 @@ export default function BrokerDiaryPage() {
     ? (employees.find(e => e.id === viewingBrokerId)?.name ?? '직원')
     : (profile?.name ?? '')
   // 대표가 다른 직원 일지 보는 중이면 읽기 전용
-  const effectiveCanEdit = canEdit && !viewingBrokerId
+  // 사장님은 직원 일지도 편집 가능. 직원은 다른 사람 일지 보면 read-only.
+  const effectiveCanEdit = canEdit && (isOwner || !viewingBrokerId)
 
   // 활성 칼럼
   const fixedCols: ColDef[] = []
