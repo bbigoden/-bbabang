@@ -49,12 +49,14 @@ function SingleSelectCell({
   useClickOutside(ref, () => setOpen(false))
 
   if (readOnly) return (
-    <div
-      className={`rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center ${
-        value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'
-      }`}
-    >
-      {value || placeholder || '—'}
+    <div className="max-w-full overflow-hidden">
+      <div
+        className={`rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-full ${
+          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'
+        }`}
+      >
+        {value || placeholder || '—'}
+      </div>
     </div>
   )
 
@@ -70,11 +72,11 @@ function SingleSelectCell({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative max-w-full overflow-hidden">
       <div
         ref={btnRef}
         onClick={handleOpen}
-        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold inline-flex items-center gap-1 hover:opacity-80 ${
+        className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-full hover:opacity-80 ${
           value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-300'
         }`}
       >
