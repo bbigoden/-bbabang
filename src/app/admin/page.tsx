@@ -11,7 +11,7 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, Shield, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight, Table2, Flag
+  Hash, ChevronRight, Table2, Flag, Megaphone
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -246,28 +246,42 @@ export default function AdminPage() {
 
       <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
 
-        {/* ── 운영 진입 (신고·문의 큐) ── */}
-        <Link href="/admin/reports"
-          className={`flex items-center gap-4 rounded-2xl border p-5 transition-all hover:border-gray-600 ${
-            stats.openReports > 0
-              ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10'
-              : 'border-gray-800 bg-gray-900 hover:bg-gray-800/80'
-          }`}>
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-            stats.openReports > 0 ? 'bg-red-500/20 text-red-400' : 'bg-gray-800 text-gray-500'
-          }`}>
-            <Flag className="h-6 w-6" />
-          </div>
-          <div className="flex-1">
-            <p className="font-bold text-white">신고·문의 처리</p>
-            <p className="text-sm text-gray-400">
-              {stats.openReports > 0
-                ? <>미처리 <span className="font-bold text-red-400">{stats.openReports}</span>건이 대기 중이에요</>
-                : '대기 중인 항목이 없어요'}
-            </p>
-          </div>
-          <ChevronRight className="h-5 w-5 text-gray-600" />
-        </Link>
+        {/* ── 운영 진입 ── */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link href="/admin/reports"
+            className={`flex items-center gap-4 rounded-2xl border p-5 transition-all hover:border-gray-600 ${
+              stats.openReports > 0
+                ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10'
+                : 'border-gray-800 bg-gray-900 hover:bg-gray-800/80'
+            }`}>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+              stats.openReports > 0 ? 'bg-red-500/20 text-red-400' : 'bg-gray-800 text-gray-500'
+            }`}>
+              <Flag className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-white">신고·문의 처리</p>
+              <p className="text-sm text-gray-400">
+                {stats.openReports > 0
+                  ? <>미처리 <span className="font-bold text-red-400">{stats.openReports}</span>건이 대기 중이에요</>
+                  : '대기 중인 항목이 없어요'}
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-600" />
+          </Link>
+
+          <Link href="/admin/announcements"
+            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+              <Megaphone className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-white">공지 발행</p>
+              <p className="text-sm text-gray-400">전체·고객·중개사 대상 알림 전송</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-600" />
+          </Link>
+        </div>
 
         {/* ── 통계 ── */}
         <div className="grid grid-cols-3 gap-4">
