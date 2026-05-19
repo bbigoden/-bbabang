@@ -104,11 +104,15 @@ export default function NewPropertyPage() {
       return
     }
 
-    // 이미지 업로드
+    // 이미지 업로드 (잘못된 형식/크기/0바이트 파일 사용자에게 알림)
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    const MAX_SIZE = 10 * 1024 * 1024
+    const skipped: string[] = []
     const uploadedUrls: string[] = []
     for (const file of images) {
-      if (!ALLOWED_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) continue
+      if (!ALLOWED_TYPES.includes(file.type)) { skipped.push(`${file.name}: 지원 안 함`); continue }
+      if (file.size > MAX_SIZE) { skipped.push(`${file.name}: 10MB 초과`); continue }
+      if (file.size === 0) { skipped.push(`${file.name}: 빈 파일`); continue }
       const ext = file.name.split('.').pop()
       const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error: uploadError } = await supabase.storage
@@ -151,6 +155,9 @@ export default function NewPropertyPage() {
       return
     }
 
+    if (skipped.length > 0) {
+      alert(`일부 이미지가 업로드되지 않았어요:\n${skipped.join('\n')}`)
+    }
     router.push('/broker/properties')
   }
 
@@ -380,6 +387,7 @@ export default function NewPropertyPage() {
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   rows={4}
+                  maxLength={2000}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                 />
               </CardBody>
@@ -420,6 +428,7 @@ export default function NewPropertyPage() {
                   value={memo}
                   onChange={e => setMemo(e.target.value)}
                   rows={3}
+                  maxLength={2000}
                   className="w-full rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm placeholder-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/20 resize-none"
                 />
               </CardBody>

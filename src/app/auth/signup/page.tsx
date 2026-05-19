@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Home, User, Building2, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { validatePhoneKR } from '@/lib/validation'
 import { Suspense } from 'react'
 
 function SignupForm() {
@@ -36,6 +37,10 @@ function SignupForm() {
     if (!pwMatch) { setError('비밀번호가 일치하지 않습니다.'); return }
     if (!pwStrong) { setError('비밀번호는 8자 이상이어야 합니다.'); return }
     if (!agreeTerms) { setError('이용약관에 동의해주세요.'); return }
+    if (phone.trim()) {
+      const phoneCheck = validatePhoneKR(phone)
+      if (!phoneCheck.valid) { setError(phoneCheck.error); return }
+    }
 
     setLoading(true)
     setError('')

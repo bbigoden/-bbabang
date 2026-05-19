@@ -267,6 +267,7 @@ export default function ProposePage() {
                     onChange={(e) => setDescription(e.target.value)}
                     required
                     rows={6}
+                    maxLength={2000}
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                   />
                 </div>

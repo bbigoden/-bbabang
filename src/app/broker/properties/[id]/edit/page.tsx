@@ -161,11 +161,15 @@ export default function EditPropertyPage() {
     } catch { setError('오류가 발생했습니다. 다시 시도해주세요.'); setSaving(false); return }
     if (!user) { router.push('/auth/login'); return }
 
-    // 새 이미지 업로드
+    // 새 이미지 업로드 (skip 사유 사용자에게 알림)
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    const MAX_SIZE = 10 * 1024 * 1024
+    const skipped: string[] = []
     const uploadedUrls: string[] = []
     for (const file of newImages) {
-      if (!ALLOWED_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) continue
+      if (!ALLOWED_TYPES.includes(file.type)) { skipped.push(`${file.name}: 지원 안 함`); continue }
+      if (file.size > MAX_SIZE) { skipped.push(`${file.name}: 10MB 초과`); continue }
+      if (file.size === 0) { skipped.push(`${file.name}: 빈 파일`); continue }
       const ext = file.name.split('.').pop()
       const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error: uploadError } = await supabase.storage
@@ -178,6 +182,7 @@ export default function EditPropertyPage() {
         uploadedUrls.push(publicUrl)
       }
     }
+    if (skipped.length > 0) alert(`일부 이미지가 업로드되지 않았어요:\n${skipped.join('\n')}`)
 
     const allImages = [...existingImages, ...uploadedUrls]
 
@@ -486,6 +491,7 @@ export default function EditPropertyPage() {
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   rows={4}
+                  maxLength={2000}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                 />
               </CardBody>
@@ -526,6 +532,7 @@ export default function EditPropertyPage() {
                   value={memo}
                   onChange={e => setMemo(e.target.value)}
                   rows={3}
+                  maxLength={2000}
                   className="w-full rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm placeholder-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/20 resize-none"
                 />
               </CardBody>
