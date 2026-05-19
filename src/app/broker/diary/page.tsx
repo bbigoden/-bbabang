@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, ArrowUp, ArrowDown, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -605,6 +605,24 @@ export default function BrokerDiaryPage() {
     setDeleteConfirm(null)
   }
 
+  // 일지 행 복사 — 원본 고객 필드를 복제한 새 고객을 생성하고 같은 일지에 link 추가
+  const duplicateDiaryCustomer = async (row: any) => {
+    if (!broker) return
+    const targetBrokerId = viewingBrokerId ?? broker.id
+    const { link_id: _lid, sort_order: _so, proposed_property_ids: _ppi, id: _id, created_at: _ca, updated_at: _ua, ...rest } = row
+    const { data: newCust, error: ce } = await supabase.from('broker_customers').insert({ ...rest, broker_id: targetBrokerId }).select().single()
+    if (ce || !newCust) return
+    setAllCustomers(prev => [newCust, ...prev])
+    const orders = diaryCustomers.map(d => d.sort_order)
+    const nextOrder = direction === 'up'
+      ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
+      : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
+    const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: targetBrokerId, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
+    if (link) setDiaryCustomers(prev => direction === 'up'
+      ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
+      : [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
+  }
+
   // 고객 필드 수정 (broker_customers 업데이트)
   const saveCustomerField = useCallback(async (customerId: string, field: string, value: any) => {
     await supabase.from('broker_customers').update({ [field]: value }).eq('id', customerId)
@@ -893,7 +911,10 @@ export default function BrokerDiaryPage() {
                       ))}
                       <td className="px-2 py-1.5 border-r border-gray-100" />
                       <td className="px-2 py-1.5 text-center">
-                        {effectiveCanEdit && <button onClick={() => setDeleteConfirm(c.link_id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
+                        <div className="flex items-center justify-center gap-1.5">
+                          {effectiveCanEdit && <button onClick={() => duplicateDiaryCustomer(c)} title="복사" className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors"><Copy className="h-3.5 w-3.5" /></button>}
+                          {effectiveCanEdit && <button onClick={() => setDeleteConfirm(c.link_id)} title="삭제" className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
+                        </div>
                       </td>
                     </tr>
                   ))}

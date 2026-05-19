@@ -1616,15 +1616,18 @@ function BrokerPropertiesContent() {
                             const TOGGLE_COLS: Record<string, 'text' | 'select'> = { room_type: 'select', deal_type: 'select', direction: 'text', brief_memo: 'text', memo: 'text' }
                             const defaultType = TOGGLE_COLS[key]
                             const effectiveType = settings.colTypes[key] ?? defaultType
+                            // 담당자(assignee)는 select-like 동작(다중 토글)만 제공, 옵션 편집/text-select 토글은 숨김
+                            const isAssignee = key === 'assignee'
+                            const showMulti = effectiveType === 'select' || isAssignee
                             return (
                               <ColumnHeader label={fixedCol.label} isFixed
-                                colType={defaultType !== undefined ? effectiveType : undefined}
-                                onChangeType={defaultType !== undefined ? type => changeFixedColType(key, type) : undefined}
-                                hasOptions={effectiveType === 'select'}
+                                colType={defaultType !== undefined && !isAssignee ? effectiveType : undefined}
+                                onChangeType={defaultType !== undefined && !isAssignee ? type => changeFixedColType(key, type) : undefined}
+                                hasOptions={showMulti}
                                 options={settings.options[key] ?? []}
-                                onSetOptions={opts => setOpts(key, opts)}
+                                onSetOptions={isAssignee ? undefined : opts => setOpts(key, opts)}
                                 isMulti={settings.multi[key]}
-                                onChangeMulti={effectiveType === 'select' ? m => setMulti(key, m) : undefined}
+                                onChangeMulti={showMulti ? m => setMulti(key, m) : undefined}
                                 onHide={() => hideCol(key)}
                               />
                             )
@@ -1781,11 +1784,11 @@ function BrokerPropertiesContent() {
                   {!isAdminView && (
                     <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
                       <div className="flex items-center justify-center gap-1.5">
-                        {canEdit && <button onClick={() => duplicateProperty(p)} className="text-gray-300 hover:text-blue-400 transition-colors" title="복사">
+                        {canEdit && <button onClick={() => duplicateProperty(p)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors" title="복사">
                           <Copy className="h-3.5 w-3.5" />
                         </button>}
-                        {canEdit && <button onClick={() => deleteProperty(p.id)} className="text-gray-300 hover:text-red-400 transition-colors" title="삭제">
-                          <X className="h-3.5 w-3.5" />
+                        {canEdit && <button onClick={() => deleteProperty(p.id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors" title="삭제">
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>}
                       </div>
                     </td>

@@ -174,7 +174,7 @@ export function ColumnHeader({
             </div>
           )}
 
-          {hasOptions && options && (
+          {hasOptions && options && onSetOptions && (
             <>
               {(!isFixed || isCustom) && !onChangeMulti && <div className="border-t border-gray-100" />}
               <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check } from 'lucide-react'
+import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -27,7 +27,7 @@ const CUST_COLS: ColDef[] = [
   { key: 'request',        label: '요청사항', fixed: true, minWidth: 160 },
   { key: 'received_date',  label: '접수일자', fixed: true, minWidth: 100 },
   { key: 'contact',        label: '연락처',   fixed: true, minWidth: 130 },
-  { key: 'assignee',       label: '담당자',   fixed: true, minWidth: 90 },
+  { key: 'assignee',       label: '담당자',   fixed: true, minWidth: 90, hasOptions: true },
   { key: 'category',       label: '구분',     fixed: true, minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
   { key: 'source',         label: '유입',     fixed: true, minWidth: 90, hasOptions: true, defaultOpts: ['빠방', '당근', '플레이스', '네이버광고', '네이버블로그', '공동', '지인', '특톡', '기타'] },
 ]
@@ -438,6 +438,16 @@ export default function BrokerCustomersPage() {
     }).select().single()
     if (error || !data) return
     // customers 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
+    setCustomers(prev => [data, ...prev])
+    setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
+  }
+
+  // 고객 row 복사 — id/created_at 제외하고 모든 필드 동일하게 새 row 생성
+  const duplicateCustomer = async (c: Customer) => {
+    if (!broker) return
+    const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = c as Customer & { updated_at?: string }
+    const { data, error } = await supabase.from('broker_customers').insert(rest).select().single()
+    if (error || !data) return
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
   }
@@ -899,9 +909,9 @@ export default function BrokerCustomersPage() {
                               isFixed={col.def.fixed}
                               hasOptions={col.def.hasOptions && settings.colTypes[col.def.key] !== 'text'}
                               options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []}
-                              onSetOptions={opts => setOpts(col.def.key, opts)}
-                              colType={col.def.hasOptions ? (settings.colTypes[col.def.key] ?? 'select') : undefined}
-                              onChangeType={col.def.hasOptions ? type => changeFixedColType(col.def.key, type) : undefined}
+                              onSetOptions={col.def.key === 'assignee' ? undefined : opts => setOpts(col.def.key, opts)}
+                              colType={col.def.hasOptions && col.def.key !== 'assignee' ? (settings.colTypes[col.def.key] ?? 'select') : undefined}
+                              onChangeType={col.def.hasOptions && col.def.key !== 'assignee' ? type => changeFixedColType(col.def.key, type) : undefined}
                               isMulti={settings.multi[col.def.key]}
                               onChangeMulti={col.def.hasOptions ? m => setMulti(col.def.key, m) : undefined}
                               onHide={() => hideCol(col.def.key)}
@@ -945,12 +955,20 @@ export default function BrokerCustomersPage() {
                     ))}
                     <td className="px-2 py-1.5 border-r border-gray-100" />
                     <td className="px-2 py-1.5 text-center">
-                      {canEdit && (
-                        <button onClick={() => setDeleteConfirm(c.id)}
-                          className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      <div className="flex items-center justify-center gap-1.5">
+                        {canEdit && (
+                          <button onClick={() => duplicateCustomer(c)} title="복사"
+                            className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors">
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {canEdit && (
+                          <button onClick={() => setDeleteConfirm(c.id)} title="삭제"
+                            className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
