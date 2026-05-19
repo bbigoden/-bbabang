@@ -283,6 +283,18 @@ export default function AdminPage() {
           </Link>
         </div>
 
+        <Link href="/admin/properties"
+          className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+            <Home className="h-6 w-6" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-white">매물 검수</p>
+            <p className="text-sm text-gray-400">전체 매물 모니터링·강제 숨김·신고된 매물 처리</p>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-600" />
+        </Link>
+
         {/* ── 통계 ── */}
         <div className="grid grid-cols-3 gap-4">
           {[
