@@ -12,6 +12,8 @@ export interface ColSettings {
   colTypes: Record<string, 'text' | 'select'>
   /** 다중 선택 허용 여부 (select 칼럼 한정). true면 셀에 칩 여러 개 가능. */
   multi: Record<string, boolean>
+  /** 면적 칼럼 단위 (전체 매물에 일괄 적용). DB는 항상 평으로 저장. */
+  areaUnit?: '평' | 'm²'
 }
 
 type Page = 'properties' | 'customers' | 'diary' | 'diary_cust'
@@ -45,6 +47,7 @@ export function useColSettings(
           options:    { ...prev.options, ...(saved.options ?? {}) },
           colTypes:   { ...prev.colTypes, ...(saved.colTypes ?? {}) },
           multi:      { ...prev.multi,    ...(saved.multi    ?? {}) },
+          areaUnit:   saved.areaUnit ?? prev.areaUnit,
         }))
       }
       setLoaded(true)

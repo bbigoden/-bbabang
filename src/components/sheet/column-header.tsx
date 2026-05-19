@@ -35,11 +35,15 @@ export interface ColumnHeaderProps {
   onHide?: () => void
   onRename?: (name: string) => void
   onDelete?: () => void
+  /** 면적 칼럼 전용: 평/m² 단위 토글 (전체 매물 일괄). */
+  areaUnit?: '평' | 'm²'
+  onChangeAreaUnit?: (u: '평' | 'm²') => void
 }
 
 export function ColumnHeader({
   label, isFixed, isCustom, hasOptions, options, onSetOptions,
   colType, onChangeType, isMulti, onChangeMulti, onHide, onRename, onDelete,
+  areaUnit, onChangeAreaUnit,
 }: ColumnHeaderProps) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<React.CSSProperties>({})
@@ -50,7 +54,7 @@ export function ColumnHeader({
   const btnRef = useRef<HTMLDivElement>(null)
   useClickOutside(containerRef, () => { setOpen(false); setRenaming(false) })
 
-  const canOpen = !isFixed || hasOptions || isCustom || !!onHide
+  const canOpen = !isFixed || hasOptions || isCustom || !!onHide || !!onChangeAreaUnit
 
   const handleOpen = (e: React.MouseEvent) => {
     if (!canOpen) return
@@ -100,6 +104,20 @@ export function ColumnHeader({
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50 transition-colors">
               <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
             </button>
+          )}
+
+          {onChangeAreaUnit && (
+            <div className="px-3 py-2 border-t border-gray-100">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">면적 단위</div>
+              <div className="flex gap-1">
+                {(['평', 'm²'] as const).map(u => (
+                  <button key={u} onClick={() => onChangeAreaUnit(u)}
+                    className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${areaUnit === u ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    {u}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {isCustom && (

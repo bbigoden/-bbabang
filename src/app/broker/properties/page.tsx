@@ -114,6 +114,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
   options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS] },
   colTypes:   {},
   multi:      {},
+  areaUnit:   '평',
 }
 
 // ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
@@ -375,24 +376,39 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
 }
 
 // ── 팝오버 선택 셀 ──────────────────────────────────────────
-function AreaCell({ size, supplied, areaUnit, onSave }: {
-  size: string | null          // 전용 면적
-  supplied: number | null      // 공급 면적
-  areaUnit: string | null
-  onSave: (dedicated: string | null, supplied: string | null, unit: string) => void
+// 평 ↔ m² 환산 상수 (1평 = 3.305785 m²)
+const PYEONG_TO_M2 = 3.305785
+
+function AreaCell({ size, supplied, globalUnit, onSave }: {
+  size: string | null          // 전용 면적 (DB 저장값, 항상 평 단위)
+  supplied: number | null      // 공급 면적 (DB 저장값, 항상 평 단위)
+  globalUnit: '평' | 'm²'      // 칼럼 단위 (전체 통일)
+  onSave: (dedicatedPyeong: string | null, suppliedPyeong: string | null) => void
 }) {
+  const toDisplay = (pyeong: string | number | null | undefined): string => {
+    if (pyeong == null || pyeong === '') return ''
+    const n = Number(pyeong)
+    if (Number.isNaN(n)) return ''
+    return globalUnit === 'm²' ? (n * PYEONG_TO_M2).toFixed(2) : String(pyeong)
+  }
+  const toStorage = (input: string): string | null => {
+    if (!input.trim()) return null
+    const n = Number(input)
+    if (Number.isNaN(n)) return null
+    return globalUnit === 'm²' ? (n / PYEONG_TO_M2).toFixed(2) : input
+  }
+
   const [open, setOpen] = useState(false)
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
-  const [draftDedicated, setDraftDedicated] = useState(size ?? '')
-  const [draftSupplied, setDraftSupplied] = useState(supplied != null ? String(supplied) : '')
-  const [draftUnit, setDraftUnit] = useState<'평' | 'm²'>((areaUnit as any) ?? '평')
+  const [draftDedicated, setDraftDedicated] = useState(toDisplay(size))
+  const [draftSupplied, setDraftSupplied] = useState(toDisplay(supplied))
   const [hovered, setHovered] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const commit = () => {
-    onSave(draftDedicated || null, draftSupplied || null, draftUnit)
+    onSave(toStorage(draftDedicated), toStorage(draftSupplied))
     setOpen(false)
   }
 
@@ -400,9 +416,8 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
   useEffect(() => { if (open) inputRef.current?.focus() }, [open])
 
   const handleOpen = () => {
-    setDraftDedicated(size ?? '')
-    setDraftSupplied(supplied != null ? String(supplied) : '')
-    setDraftUnit((areaUnit as any) ?? '평')
+    setDraftDedicated(toDisplay(size))
+    setDraftSupplied(toDisplay(supplied))
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
       const openUp = window.innerHeight - rect.bottom < 180
@@ -416,13 +431,14 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
   }
 
   // 표시 텍스트 조합
-  const unit = areaUnit ?? '평'
-  const hasDed = !!size
-  const hasSup = supplied != null
+  const displaySize = toDisplay(size)
+  const displaySupplied = toDisplay(supplied)
+  const hasDed = !!displaySize
+  const hasSup = !!displaySupplied
   const displayText = hasDed && hasSup
-    ? `${size}/${supplied}${unit}`
-    : hasDed ? `${size}${unit}`
-    : hasSup ? `${supplied}${unit}`
+    ? `${displaySize}/${displaySupplied}${globalUnit}`
+    : hasDed ? `${displaySize}${globalUnit}`
+    : hasSup ? `${displaySupplied}${globalUnit}`
     : null
 
   return (
@@ -439,15 +455,6 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
       {hovered && displayText && <CellTooltip text={displayText} anchorRef={btnRef} />}
       {open && (
         <div className="w-44 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5" style={popupStyle}>
-          {/* 단위 토글 */}
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            {(['평', 'm²'] as const).map(u => (
-              <button key={u} type="button" onClick={() => setDraftUnit(u)}
-                className={cn('flex-1 py-1 text-xs font-semibold transition-colors',
-                  draftUnit === u ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
-                )}>{u}</button>
-            ))}
-          </div>
           {/* 전용 */}
           <div className="flex items-center gap-1">
             <span className="w-7 flex-shrink-0 text-xs text-gray-500">전용</span>
@@ -460,7 +467,7 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
               className="w-0 flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
-            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{draftUnit}</span>
+            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{globalUnit}</span>
           </div>
           {/* 공급 */}
           <div className="flex items-center gap-1">
@@ -473,7 +480,7 @@ function AreaCell({ size, supplied, areaUnit, onSave }: {
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
               className="w-0 flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
-            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{draftUnit}</span>
+            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{globalUnit}</span>
           </div>
         </div>
       )}
@@ -1107,8 +1114,9 @@ function BrokerPropertiesContent() {
       const updates: Record<string, any> = {}
       if (data.size_pyeong != null) {
         updates.size_pyeong = String(data.size_pyeong)
-        updates.area_unit = '평'
-        updates.area_type = '전용'
+      }
+      if (data.size_pyeong_supplied != null) {
+        updates.area_supplied = Number(data.size_pyeong_supplied)
       }
       if (data.total_floors != null) {
         updates.total_floors = data.floor != null
@@ -1640,6 +1648,7 @@ function BrokerPropertiesContent() {
                             // 담당자(assignee)는 select-like 동작(다중 토글)만 제공, 옵션 편집/text-select 토글은 숨김
                             const isAssignee = key === 'assignee'
                             const showMulti = effectiveType === 'select' || isAssignee
+                            const isAreaCol = key === 'size_pyeong'
                             return (
                               <ColumnHeader label={fixedCol.label} isFixed
                                 colType={defaultType !== undefined && !isAssignee ? effectiveType : undefined}
@@ -1650,6 +1659,8 @@ function BrokerPropertiesContent() {
                                 isMulti={settings.multi[key]}
                                 onChangeMulti={showMulti ? m => setMulti(key, m) : undefined}
                                 onHide={() => hideCol(key)}
+                                areaUnit={isAreaCol ? (settings.areaUnit ?? '평') : undefined}
+                                onChangeAreaUnit={isAreaCol ? u => update(prev => ({ ...prev, areaUnit: u })) : undefined}
                               />
                             )
                           })()}
@@ -1759,7 +1770,7 @@ function BrokerPropertiesContent() {
                       return (
                         <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
                           {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={autoFillingId === p.id} placeholder="소재지 입력" />}
-                          {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} areaUnit={p.area_unit} onSave={(ded, sup, unit) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null); saveField(p.id, 'area_unit', unit) }} />}
+                          {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
                           {key === 'price'           && (p.deal_type === '월세'
                             ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
                             : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}

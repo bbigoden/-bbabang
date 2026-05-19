@@ -97,7 +97,7 @@ async function callSeum(endpoint: string, params: Record<string, string>): Promi
   const PAGE_SIZE = 100
   const all: SeumItem[] = []
 
-  for (let page = 1; page <= 20; page++) {
+  for (let page = 1; page <= 100; page++) {
     const url = new URL(`${SEUM_BASE}/${endpoint}`)
     url.searchParams.set('serviceKey', process.env.SEUM_API_KEY ?? '')
     url.searchParams.set('numOfRows', String(PAGE_SIZE))
@@ -232,34 +232,45 @@ export async function POST(req: NextRequest) {
 
     let floor: number | null = null
     let areaM2 = 0
+    let areaSuppliedM2 = 0  // 공급 = 전용 + 주거공용
     let yongdoNm = ''
 
     let expos = await callSeum('getBrExposPubuseAreaInfo', { ...addr, regstrKindCd: '4' })
     if (expos.length === 0) expos = await callSeum('getBrExposPubuseAreaInfo', addr)
 
     if (expos.length > 0) {
-      const hoNorm = String(ho ?? '').replace(/호$/, '').trim()
-      const matchHo = (f: SeumItem) => String(f.hoNm ?? '').replace(/호$/, '').trim() === hoNorm
-      let matched = hoNorm
-        ? expos.filter(f => {
-            if (!matchHo(f)) return false
-            // 동번호가 지정된 경우 해당 동만 필터 (다동 건물 면적 중복 합산 방지)
-            if (dongFilter) return String(f.dongNm ?? '') === dongFilter
-            return true
-          })
-        : []
-      // 동필터 적용 후 매칭 없으면 동필터 제외 재시도 (단동 건물에 동번호 입력된 경우 대응)
-      if (matched.length === 0 && dongFilter && hoNorm) {
-        matched = expos.filter(matchHo)
+      const num = (s: unknown): number => {
+        const d = String(s ?? '').replace(/[^0-9]/g, '')
+        return d ? Number(d) : 0
       }
-      const target =
-        matched.length > 0
-          ? matched
-          : expos.filter(f => f.flrGbCd === '20' && Number(f.flrNo) === 1)
+      const hoInt = num(ho)
+      const dongInt = num(dongFilter)
+      const matchHo = (f: SeumItem) => num(f.hoNm) === hoInt
+      const matchDong = (f: SeumItem) => dongInt === 0 || num(f.dongNm) === dongInt
+      const RESIDENTIAL = ['벽체', '계단', '승강기', '복도', '현관', '엘리베이터']
+      const isResidentialPublic = (f: SeumItem) => {
+        if (String(f.exposPubuseGbCd ?? '') !== '2') return false
+        const txt = `${f.etcPurps ?? ''} ${f.mainPurpsCdNm ?? ''}`
+        return RESIDENTIAL.some(k => txt.includes(k))
+      }
+
+      let matched: SeumItem[] = []
+      if (hoInt) {
+        matched = expos.filter(f => matchHo(f) && matchDong(f))
+        // 동 미지정 시에만 호만으로 매칭 (동 지정됐는데 매칭 실패면 폴백 X — 잘못된 데이터 차단)
+        if (matched.length === 0 && dongInt === 0) {
+          matched = expos.filter(matchHo)
+        }
+      }
+      const target = matched.length > 0
+        ? matched
+        : expos.filter(f => f.flrGbCd === '20' && Number(f.flrNo) === 1 && matchDong(f))
 
       if (target.length > 0) {
         const exclusive = target.filter(f => f.exposPubuseGbCd === '1')
         areaM2 = exclusive.reduce((sum, f) => sum + (Number(f.area) || 0), 0)
+        const areaResidential = target.filter(isResidentialPublic).reduce((sum, f) => sum + (Number(f.area) || 0), 0)
+        areaSuppliedM2 = areaM2 + areaResidential
         // 층 정보는 전용면적 행 우선(공용 행은 flrNoNm이 "각층"으로 층수 미표기)
         const flrSource = exclusive.length > 0 ? exclusive[0] : target[0]
         floor = parseFloor(flrSource)
@@ -281,6 +292,7 @@ export async function POST(req: NextRequest) {
     }
 
     const sizePyeong = areaM2 > 0 ? m2ToPyeong(areaM2) : null
+    const sizePyeongSupplied = areaSuppliedM2 > 0 ? m2ToPyeong(areaSuppliedM2) : null
     // ho 지정 시 해당 유닛 용도 우선, ho 없으면 건물 전체 용도(mainPurps) 우선
     const roomType = ho
       ? mapRoomType(yongdoNm) || mapRoomType(mainPurps)
@@ -289,10 +301,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       size_m2: areaM2 > 0 ? +areaM2.toFixed(2) : null,
       size_pyeong: sizePyeong,
+      size_m2_supplied: areaSuppliedM2 > 0 ? +areaSuppliedM2.toFixed(2) : null,
+      size_pyeong_supplied: sizePyeongSupplied,
       floor,
       total_floors: totalFloors,
       approval_date: approvalDate,
-      parking: parkingTotal > 0 ? `${parkingTotal}대` : null,
+      parking: parkingTotal > 0 ? String(parkingTotal) : null,
       room_type: roomType,
       building_name: buildingName,
       main_purpose: mainPurps || null,
