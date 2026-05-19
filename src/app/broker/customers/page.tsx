@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check, Copy } from 'lucide-react'
+import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check, Copy, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -342,6 +342,8 @@ export default function BrokerCustomersPage() {
   const [assigneeFilter, setAssigneeFilter] = useState('전체')
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
   // 불러오기 모달
   const [showImport, setShowImport] = useState(false)
@@ -612,6 +614,38 @@ export default function BrokerCustomersPage() {
   })
   const thisMonth = new Date().toISOString().slice(0, 7)
   const newThisMonth = customers.filter(c => c.received_date?.startsWith(thisMonth)).length
+
+  // 페이지네이션 (filtered + 정렬 후 슬라이스)
+  const sortedFiltered = direction === 'up' ? filtered : [...filtered].reverse()
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize)
+  // 필터 변경 시 1페이지로 리셋
+  useEffect(() => { setPage(1) }, [monthFilter, assigneeFilter, search, pageSize])
+
+  // 새 행 추가 시 새 행이 있는 페이지로 이동 + 화면 스크롤 + 첫 셀 자동 편집
+  useEffect(() => {
+    if (!addingId) return
+    // 새 행 위치: 위로 쌓기 → page 1, 아래로 쌓기 → 마지막 페이지
+    const targetPage = direction === 'up' ? 1 : Math.max(1, Math.ceil(customers.length / pageSize))
+    setPage(targetPage)
+    // 페이지 전환 + 렌더링 후 스크롤 + 첫 셀 클릭
+    const t = setTimeout(() => {
+      const row = document.querySelector(`tr[data-row-id="${addingId}"]`) as HTMLElement | null
+      if (row) {
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        // 첫 편집 가능 셀 클릭 → 편집 모드 진입
+        setTimeout(() => {
+          const cells = row.querySelectorAll('td')
+          // td[0] = # 번호, td[1] 부터 데이터 셀
+          for (let i = 1; i < cells.length - 1; i++) {
+            const clickable = cells[i].querySelector('div[class*="cursor"], button:not([disabled])') as HTMLElement | null
+            if (clickable) { clickable.click(); break }
+          }
+        }, 400)
+      }
+    }, 80)
+    return () => clearTimeout(t)
+  }, [addingId, direction, customers.length, pageSize])
 
   // 도넛 분포 — 최대 8개. 9개 이상은 상위 7 + 기타.
   const distribute = (map: Record<string, number>): [string, number][] => {
@@ -944,9 +978,9 @@ export default function BrokerCustomersPage() {
                       {customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
                     </td>
                   </tr>
-                ) : (direction === 'up' ? filtered : [...filtered].reverse()).map((c, idx) => (
-                  <tr key={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? filtered.length - idx : idx + 1}</td>
+                ) : paginated.map((c, idx) => (
+                  <tr key={c.id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
+                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? filtered.length - ((page - 1) * pageSize + idx) : ((page - 1) * pageSize + idx + 1)}</td>
                     {activeCols.map(col => (
                       <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100"
                         style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
@@ -996,6 +1030,42 @@ export default function BrokerCustomersPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* 페이지네이션 */}
+          <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+            {totalPages > 1 && (
+              <>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                ><ChevronLeft className="h-4 w-4" /></button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                  .reduce<(number | '...')[]>((acc, n, i, arr) => {
+                    if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('...')
+                    acc.push(n); return acc
+                  }, [])
+                  .map((n, i) => n === '...'
+                    ? <span key={`e${i}`} className="px-1 text-gray-400">…</span>
+                    : <button key={n} onClick={() => setPage(n as number)}
+                        className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                      >{n}</button>
+                  )
+                }
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                ><ChevronRight className="h-4 w-4" /></button>
+              </>
+            )}
+            <div className="flex items-center gap-1 ml-3">
+              <span className="text-sm text-gray-400">페이지당</span>
+              {[10, 20, 50, 100].map(n => (
+                <button key={n} onClick={() => setPageSize(n)}
+                  className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                >{n}개</button>
+              ))}
+              <span className="text-sm text-gray-400 ml-1">| 총 {filtered.length}개</span>
+            </div>
           </div>
         </div>
       </div>

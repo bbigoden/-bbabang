@@ -434,6 +434,7 @@ export default function BrokerDiaryPage() {
 
   // Section 1 데이터
   const [diaryCustomers, setDiaryCustomers] = useState<DiaryCustomerRow[]>([])
+  const [addingId, setAddingId] = useState<string | null>(null)
   const [allCustomers, setAllCustomers] = useState<Customer[]>([])   // 고객 피커용
   const [allProperties, setAllProperties] = useState<Property[]>([]) // 매물 피커용
   const [showPicker, setShowPicker] = useState(false)
@@ -573,6 +574,8 @@ export default function BrokerDiaryPage() {
       setDiaryCustomers(prev => direction === 'up'
         ? [{ link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }, ...prev]
         : [...prev, { link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }])
+      setAddingId(c.id)
+      setTimeout(() => setAddingId(null), 3000)
     }
     setShowPicker(false)
   }
@@ -593,9 +596,13 @@ export default function BrokerDiaryPage() {
       ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
       : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
     const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
-    if (link) setDiaryCustomers(prev => direction === 'up'
-      ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
-      : [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
+    if (link) {
+      setDiaryCustomers(prev => direction === 'up'
+        ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
+        : [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
+      setAddingId(newCust.id)
+      setTimeout(() => setAddingId(null), 3000)
+    }
   }
 
   // 고객 행 삭제 (diary_customers 링크만 제거)
@@ -618,10 +625,33 @@ export default function BrokerDiaryPage() {
       ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
       : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
     const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: targetBrokerId, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
-    if (link) setDiaryCustomers(prev => direction === 'up'
-      ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
-      : [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
+    if (link) {
+      setDiaryCustomers(prev => direction === 'up'
+        ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
+        : [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
+      setAddingId(newCust.id)
+      setTimeout(() => setAddingId(null), 3000)
+    }
   }
+
+  // 새 행 추가 시: 스크롤 + 첫 셀 클릭 (일지는 페이지네이션 없음)
+  useEffect(() => {
+    if (!addingId) return
+    const t = setTimeout(() => {
+      const row = document.querySelector(`tr[data-row-id="${addingId}"]`) as HTMLElement | null
+      if (row) {
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        setTimeout(() => {
+          const cells = row.querySelectorAll('td')
+          for (let i = 1; i < cells.length - 1; i++) {
+            const clickable = cells[i].querySelector('div[class*="cursor"], button:not([disabled])') as HTMLElement | null
+            if (clickable) { clickable.click(); break }
+          }
+        }, 400)
+      }
+    }, 80)
+    return () => clearTimeout(t)
+  }, [addingId])
 
   // 고객 필드 수정 (broker_customers 업데이트)
   const saveCustomerField = useCallback(async (customerId: string, field: string, value: any) => {
@@ -904,7 +934,7 @@ export default function BrokerDiaryPage() {
                   {diaryCustomers.length === 0 ? (
                     <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
                   ) : diaryCustomers.map((c, idx) => (
-                    <tr key={c.link_id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                    <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
                       <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? diaryCustomers.length - idx : idx + 1}</td>
                       {activeCols.map(col => (
                         <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>

@@ -1420,6 +1420,27 @@ function BrokerPropertiesContent() {
   const sortedFiltered = direction === 'up' ? filtered : [...filtered].reverse()
   const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize)
 
+  // 새 행 추가 시: 페이지 이동 + 스크롤 + 첫 셀 클릭 (편집모드)
+  useEffect(() => {
+    if (!addingId) return
+    const targetPage = direction === 'up' ? 1 : Math.max(1, Math.ceil(properties.length / pageSize))
+    setPage(targetPage)
+    const t = setTimeout(() => {
+      const row = document.querySelector(`tr[data-row-id="${addingId}"]`) as HTMLElement | null
+      if (row) {
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        setTimeout(() => {
+          const cells = row.querySelectorAll('td')
+          for (let i = 1; i < cells.length - 1; i++) {
+            const clickable = cells[i].querySelector('div[class*="cursor"], button:not([disabled])') as HTMLElement | null
+            if (clickable) { clickable.click(); break }
+          }
+        }, 400)
+      }
+    }, 80)
+    return () => clearTimeout(t)
+  }, [addingId, direction, properties.length, pageSize])
+
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
@@ -1695,7 +1716,7 @@ function BrokerPropertiesContent() {
                   </td>
                 </tr>
               ) : paginated.map((p, idx) => (
-                <tr key={p.id}
+                <tr key={p.id} data-row-id={p.id}
                   className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
                 >
                   <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
