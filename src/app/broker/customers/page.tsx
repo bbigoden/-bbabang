@@ -611,19 +611,20 @@ export default function BrokerCustomersPage() {
     const restSum = entries.slice(7).reduce((s, [, v]) => s + v, 0)
     return [...top, ['기타', restSum]]
   }
+  // 도넛은 현재 필터(월/담당자/검색)에 맞춘 filtered 기준으로 계산
   const assigneeDist = (() => {
     const map: Record<string, number> = {}
-    customers.forEach(c => { if (c.assignee) map[c.assignee] = (map[c.assignee] ?? 0) + 1 })
+    filtered.forEach(c => { if (c.assignee) map[c.assignee] = (map[c.assignee] ?? 0) + 1 })
     return distribute(map)
   })()
   const categoryDist = (() => {
     const map: Record<string, number> = {}
-    customers.forEach(c => { if (c.category) map[c.category] = (map[c.category] ?? 0) + 1 })
+    filtered.forEach(c => { if (c.category) map[c.category] = (map[c.category] ?? 0) + 1 })
     return distribute(map)
   })()
   const sourceDist = (() => {
     const map: Record<string, number> = {}
-    customers.forEach(c => { if (c.source) map[c.source] = (map[c.source] ?? 0) + 1 })
+    filtered.forEach(c => { if (c.source) map[c.source] = (map[c.source] ?? 0) + 1 })
     return distribute(map)
   })()
 
@@ -736,8 +737,8 @@ export default function BrokerCustomersPage() {
                   <span className="text-xs font-semibold text-gray-500">신규</span>
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-blue-600 leading-none">{newThisMonth}<span className="text-sm font-normal text-gray-400 ml-1">명</span></div>
-                  <div className="text-[10px] text-gray-300 mt-1">이번달 신규 고객</div>
+                  <div className="text-3xl font-black text-blue-600 leading-none">{monthFilter === '전체' ? newThisMonth : filtered.length}<span className="text-sm font-normal text-gray-400 ml-1">명</span></div>
+                  <div className="text-[10px] text-gray-300 mt-1">{monthFilter === '전체' ? '이번달 신규 고객' : `${monthFilter.slice(2, 4)}년 ${parseInt(monthFilter.slice(5, 7), 10)}월 신규 고객`}</div>
                 </div>
               </div>
 
