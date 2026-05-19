@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
@@ -94,6 +95,16 @@ export function NotificationBell({ userId: _userId }: { userId?: string }) {
               ))
             )}
           </div>
+
+          {/* 푸터 — 전체 보기 */}
+          <Link
+            href="/notifications"
+            onClick={() => setOpen(false)}
+            className="flex items-center justify-center gap-1 border-t border-gray-100 py-2.5 text-xs font-semibold text-blue-600 hover:bg-gray-50 transition-colors rounded-b-2xl"
+          >
+            전체 알림 보기
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       )}
     </div>
