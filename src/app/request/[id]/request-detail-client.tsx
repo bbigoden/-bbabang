@@ -13,6 +13,7 @@ import {
 import { CloseRequestButton } from '@/components/close-request-button'
 import { ShareButton } from '@/components/share-button'
 import { ChatPanel } from '@/components/chat-panel'
+import { ReportButton } from '@/components/report-button'
 import Link from 'next/link'
 
 // ── 메인 클라이언트 컴포넌트 ────────────────────────
@@ -171,6 +172,13 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                     <Pencil className="mr-1 h-3.5 w-3.5" />수정
                   </Button>
                 </Link>
+              </div>
+            )}
+
+            {/* 본인 요청이 아닐 때만 신고 버튼 노출 */}
+            {!isOwner && user && (
+              <div className="mt-3 flex justify-end">
+                <ReportButton type="request" id={request.id} variant="text" />
               </div>
             )}
 

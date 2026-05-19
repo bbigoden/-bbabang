@@ -1,10 +1,9 @@
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Mail, MessageCircle, Home } from 'lucide-react'
+import { SupportForm } from './support-form'
 
-// 고객지원 안내는 정적. Header는 client component로 hydrate 시 auth 가져옴.
-export const dynamic = 'force-static'
-export const revalidate = 86400
+export const dynamic = 'force-dynamic'
 
 export const metadata = { title: '고객지원' }
 
@@ -13,25 +12,32 @@ export default function SupportPage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
-          <MessageCircle className="h-8 w-8 text-blue-600" />
+      <div className="mx-auto max-w-2xl px-4 py-12">
+        <div className="text-center mb-10">
+          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100">
+            <MessageCircle className="h-7 w-7 text-blue-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">고객지원</h1>
+          <p className="mt-2 text-gray-500 leading-relaxed">
+            이용 중 불편한 점이나 문의사항을 알려주세요.
+          </p>
         </div>
-        <h1 className="mb-3 text-3xl font-bold text-gray-900">고객지원</h1>
-        <p className="mb-10 text-gray-500 leading-relaxed">
-          빠방 이용 중 불편하신 점이 있으신가요?<br />
-          아래 이메일로 문의 주시면 빠르게 도움드리겠습니다.
-        </p>
 
-        <a
-          href="mailto:support@bbabang.kr"
-          className="inline-flex items-center gap-3 rounded-2xl bg-blue-600 px-8 py-4 text-base font-semibold text-white hover:bg-blue-700 transition-colors shadow-lg"
-        >
-          <Mail className="h-5 w-5" />
-          support@bbabang.kr
-        </a>
+        {/* 문의 폼 */}
+        <SupportForm />
 
-        <div className="mt-12 rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm">
+        {/* 이메일 안내 */}
+        <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
+          또는
+          <a href="mailto:support@bbabang.kr" className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700">
+            <Mail className="h-3.5 w-3.5" />
+            support@bbabang.kr
+          </a>
+          으로 메일
+        </div>
+
+        {/* FAQ */}
+        <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 font-bold text-gray-900">자주 묻는 질문</h2>
           <div className="space-y-4">
             {[
@@ -60,7 +66,7 @@ export default function SupportPage() {
           </div>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
             <Home className="h-4 w-4" />
             홈으로 돌아가기

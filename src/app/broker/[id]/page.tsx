@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FavoriteButton } from '@/components/favorite-button'
+import { ReportButton } from '@/components/report-button'
 import { Star, MapPin, Building2, Award } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
 import Image from 'next/image'
@@ -173,6 +174,10 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             {broker.description && (
               <p className="mt-4 text-sm text-gray-600 leading-relaxed">{broker.description}</p>
             )}
+
+            <div className="mt-4 flex justify-end">
+              <ReportButton type="broker" id={brokerId} variant="text" />
+            </div>
           </CardBody>
         </Card>
 

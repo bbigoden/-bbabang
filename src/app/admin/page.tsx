@@ -11,7 +11,7 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, Shield, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight, Table2
+  Hash, ChevronRight, Table2, Flag
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -57,7 +57,7 @@ export default function AdminPage() {
   const auth = useAuth()
 
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ users: 0, brokers: 0, requests: 0, proposals: 0 })
+  const [stats, setStats] = useState({ users: 0, brokers: 0, requests: 0, proposals: 0, openReports: 0 })
   const [brokers, setBrokers] = useState<any[]>([])
   const [recentUsers, setRecentUsers] = useState<any[]>([])
   const [recentRequests, setRecentRequests] = useState<any[]>([])
@@ -106,13 +106,15 @@ export default function AdminPage() {
       { count: brokers },
       { count: requests },
       { count: proposals },
+      { count: openReports },
     ] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('broker_profiles').select('*', { count: 'exact', head: true }),
       supabase.from('request_posts').select('*', { count: 'exact', head: true }),
       supabase.from('proposals').select('*', { count: 'exact', head: true }),
+      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'open'),
     ])
-    setStats({ users: users ?? 0, brokers: brokers ?? 0, requests: requests ?? 0, proposals: proposals ?? 0 })
+    setStats({ users: users ?? 0, brokers: brokers ?? 0, requests: requests ?? 0, proposals: proposals ?? 0, openReports: openReports ?? 0 })
   }
 
   const loadBrokers = async () => {
@@ -243,6 +245,29 @@ export default function AdminPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
+
+        {/* ── 운영 진입 (신고·문의 큐) ── */}
+        <Link href="/admin/reports"
+          className={`flex items-center gap-4 rounded-2xl border p-5 transition-all hover:border-gray-600 ${
+            stats.openReports > 0
+              ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10'
+              : 'border-gray-800 bg-gray-900 hover:bg-gray-800/80'
+          }`}>
+          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+            stats.openReports > 0 ? 'bg-red-500/20 text-red-400' : 'bg-gray-800 text-gray-500'
+          }`}>
+            <Flag className="h-6 w-6" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-white">신고·문의 처리</p>
+            <p className="text-sm text-gray-400">
+              {stats.openReports > 0
+                ? <>미처리 <span className="font-bold text-red-400">{stats.openReports}</span>건이 대기 중이에요</>
+                : '대기 중인 항목이 없어요'}
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 text-gray-600" />
+        </Link>
 
         {/* ── 통계 ── */}
         <div className="grid grid-cols-3 gap-4">
