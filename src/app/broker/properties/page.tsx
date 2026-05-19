@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef, useCallback, Suspense } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback, Suspense, memo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -879,6 +879,137 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
   )
 }
 
+// ── 매물 행 (React.memo로 셀 편집 시 다른 행 re-render 차단) ──────────
+interface PropertyRowProps {
+  p: Property
+  rowNumber: number
+  syncedOrder: readonly string[]
+  customColumns: CustomColumn[]
+  settings: ColSettings
+  isAdminView: boolean
+  canEdit: boolean
+  isOwner: boolean
+  brokerSelfId: string | null
+  isAdding: boolean
+  isAutoFilling: boolean
+  teamMembers: string[]
+  saveField: (id: string, field: string, value: any) => void
+  autoFillRow: (id: string, addr: string, bcode?: string) => void
+  saveCustomField: (propertyId: string, colId: string, value: string) => void
+  setLightbox: React.Dispatch<React.SetStateAction<{ images: string[]; index: number } | null>>
+  onDelete: (id: string) => void
+  onCopy: (p: Property) => void
+}
+
+const PropertyRow = memo(function PropertyRow({
+  p, rowNumber, syncedOrder, customColumns, settings,
+  isAdminView, canEdit, isOwner, brokerSelfId,
+  isAdding, isAutoFilling, teamMembers,
+  saveField, autoFillRow, saveCustomField, setLightbox,
+  onDelete, onCopy,
+}: PropertyRowProps) {
+  return (
+    <tr data-row-id={p.id}
+      className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
+    >
+      <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
+        {rowNumber}
+      </td>
+      {syncedOrder.map(key => {
+        const fixedCol = ALL_COLUMNS.find(c => c.key === key)
+        if (fixedCol) {
+          if (!settings.visible.includes(key)) return null
+          const w = settings.widths[key] ?? 100
+          // 읽기 전용 셀 (어드민 뷰 또는 편집 권한 없는 직원)
+          if (isAdminView || !canEdit) {
+            const readVal = (() => {
+              if (key === 'price') {
+                if (p.deal_type === '월세') {
+                  const dep = p.price != null ? `${p.price.toLocaleString()}만` : '—'
+                  const mo = p.monthly_rent != null ? `${p.monthly_rent.toLocaleString()}만` : '—'
+                  return `${dep}/${mo}`
+                }
+                return p.price != null ? `${p.price.toLocaleString()}만` : '—'
+              }
+              if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
+              if (key === 'deal_type') {
+                return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DEAL_TYPE_COLOR_MAP[p.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{p.deal_type}</span>
+              }
+              if (key === 'room_type') return <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{p.room_type}</span>
+              if (key === 'images') return p.images?.length > 0
+                ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
+                : <span className="text-xs text-gray-300">—</span>
+              const raw: any = (p as any)[key]
+              return raw != null && raw !== '' ? String(raw) : '—'
+            })()
+            return (
+              <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
+                <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{readVal}</div>
+              </td>
+            )
+          }
+          return (
+            <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
+              {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={isAutoFilling} placeholder="소재지 입력" />}
+              {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
+              {key === 'price'           && (p.deal_type === '월세'
+                ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
+                : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
+              {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
+              {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
+              {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
+              {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
+              {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
+              {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
+              {key === 'approval_date'   && <DateCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} />}
+              {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 1대" />}
+              {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} placeholder="관리비" />}
+              {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} multi={settings.multi['direction']} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
+              {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
+              {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
+              {key === 'memo'            && (() => {
+                const isMine = isOwner || isAdminView || p.broker_id === brokerSelfId
+                if (!isMine) return <span className="text-gray-200 text-xs select-none">—</span>
+                return settings.colTypes['memo'] === 'select'
+                  ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} multi={settings.multi['memo']} />
+                  : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
+              })()}
+              {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />}
+            </td>
+          )
+        }
+        const customCol = customColumns.find(c => c.id === key)
+        if (customCol && settings.visible.includes(key)) {
+          const w = settings.widths[key] ?? 120
+          return (
+            <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
+              {(isAdminView || !canEdit)
+                ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
+                : customCol.type === 'select'
+                  ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} multi={settings.multi[key]} />
+                  : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
+              }
+            </td>
+          )
+        }
+        return null
+      })}
+      {!isAdminView && (
+        <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
+          <div className="flex items-center justify-center gap-1.5">
+            {canEdit && <button onClick={() => onCopy(p)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors" title="복사">
+              <Copy className="h-3.5 w-3.5" />
+            </button>}
+            {canEdit && <button onClick={() => onDelete(p.id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors" title="삭제">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>}
+          </div>
+        </td>
+      )}
+    </tr>
+  )
+})
+
 // ── 메인 페이지 ──────────────────────────────────────────
 export default function BrokerPropertiesPage() {
   return (
@@ -1249,9 +1380,9 @@ function BrokerPropertiesContent() {
     setTimeout(() => setAddingId(null), 2000)
   }
 
-  const deleteProperty = (id: string) => {
+  const deleteProperty = useCallback((id: string) => {
     setDeleteConfirm({ type: 'property', id })
-  }
+  }, [])
 
   const confirmDelete = async () => {
     if (!deleteConfirm) return
@@ -1272,7 +1403,7 @@ function BrokerPropertiesContent() {
     setDeleteConfirm(null)
   }
 
-  const duplicateProperty = async (prop: Property) => {
+  const duplicateProperty = useCallback(async (prop: Property) => {
     if (!broker) return
     const { id, created_at, ...rest } = prop
     const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
@@ -1281,7 +1412,7 @@ function BrokerPropertiesContent() {
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
-  }
+  }, [broker])
 
   const filtered = useMemo(() => {
     let list = properties
@@ -1738,104 +1869,27 @@ function BrokerPropertiesContent() {
                   </td>
                 </tr>
               ) : paginated.map((p, idx) => (
-                <tr key={p.id} data-row-id={p.id}
-                  className={`border-b transition-colors ${p.id === addingId ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
-                >
-                  <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
-                    {direction === 'up' ? filtered.length - ((page - 1) * pageSize + idx) : ((page - 1) * pageSize + idx + 1)}
-                  </td>
-                  {syncedOrder.map(key => {
-                    const fixedCol = ALL_COLUMNS.find(c => c.key === key)
-                    if (fixedCol) {
-                      if (!settings.visible.includes(key)) return null
-                      const w = settings.widths[key] ?? 100
-                      // 읽기 전용 셀 (어드민 뷰 또는 편집 권한 없는 직원)
-                      if (isAdminView || !canEdit) {
-                        const readVal = (() => {
-                          if (key === 'price') {
-                            if (p.deal_type === '월세') {
-                              const dep = p.price != null ? `${p.price.toLocaleString()}만` : '—'
-                              const mo = p.monthly_rent != null ? `${p.monthly_rent.toLocaleString()}만` : '—'
-                              return `${dep}/${mo}`
-                            }
-                            return p.price != null ? `${p.price.toLocaleString()}만` : '—'
-                          }
-                          if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
-                          if (key === 'deal_type') {
-                            return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DEAL_TYPE_COLOR_MAP[p.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{p.deal_type}</span>
-                          }
-                          if (key === 'room_type') return <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{p.room_type}</span>
-                          if (key === 'images') return p.images?.length > 0
-                            ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
-                            : <span className="text-xs text-gray-300">—</span>
-                          const raw: any = (p as any)[key]
-                          return raw != null && raw !== '' ? String(raw) : '—'
-                        })()
-                        return (
-                          <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                            <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{readVal}</div>
-                          </td>
-                        )
-                      }
-                      return (
-                        <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                          {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={autoFillingId === p.id} placeholder="소재지 입력" />}
-                          {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
-                          {key === 'price'           && (p.deal_type === '월세'
-                            ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
-                            : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
-                          {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
-                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
-                          {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
-                          {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
-                          {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
-                          {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
-                          {key === 'approval_date'   && <DateCell value={p.approval_date} onSave={v => saveField(p.id, 'approval_date', v || null)} />}
-                          {key === 'parking'         && <TextCell value={p.parking} onSave={v => saveField(p.id, 'parking', v || null)} placeholder="예: 1대" />}
-                          {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} placeholder="관리비" />}
-                          {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} multi={settings.multi['direction']} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
-                          {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-                          {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
-                          {key === 'memo'            && (() => {
-                            const isMine = isOwner || isAdminView || p.broker_id === broker?.id
-                            if (!isMine) return <span className="text-gray-200 text-xs select-none">—</span>
-                            return settings.colTypes['memo'] === 'select'
-                              ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} multi={settings.multi['memo']} />
-                              : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
-                          })()}
-                          {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />}
-                        </td>
-                      )
-                    }
-                    const customCol = customColumns.find(c => c.id === key)
-                    if (customCol && settings.visible.includes(key)) {
-                      const w = settings.widths[key] ?? 120
-                      return (
-                        <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                          {(isAdminView || !canEdit)
-                            ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
-                            : customCol.type === 'select'
-                              ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} multi={settings.multi[key]} />
-                              : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
-                          }
-                        </td>
-                      )
-                    }
-                    return null
-                  })}
-                  {!isAdminView && (
-                    <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {canEdit && <button onClick={() => duplicateProperty(p)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors" title="복사">
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>}
-                        {canEdit && <button onClick={() => deleteProperty(p.id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors" title="삭제">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>}
-                      </div>
-                    </td>
-                  )}
-                </tr>
+                <PropertyRow
+                  key={p.id}
+                  p={p}
+                  rowNumber={direction === 'up' ? filtered.length - ((page - 1) * pageSize + idx) : ((page - 1) * pageSize + idx + 1)}
+                  syncedOrder={syncedOrder}
+                  customColumns={customColumns}
+                  settings={settings}
+                  isAdminView={isAdminView}
+                  canEdit={canEdit}
+                  isOwner={isOwner}
+                  brokerSelfId={broker?.id ?? null}
+                  isAdding={p.id === addingId}
+                  isAutoFilling={autoFillingId === p.id}
+                  teamMembers={teamMembers}
+                  saveField={saveField}
+                  autoFillRow={autoFillRow}
+                  saveCustomField={saveCustomField}
+                  setLightbox={setLightbox}
+                  onDelete={deleteProperty}
+                  onCopy={duplicateProperty}
+                />
               ))}
               {!isAdminView && canEdit && (
                 <tr>
