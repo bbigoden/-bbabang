@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
+import { validatePrice } from '@/lib/validation'
 import { Home, SendHorizonal, ArrowLeft, CheckCircle, BookOpen, X, MapPin, Check } from 'lucide-react'
 
 export default function ProposePage() {
@@ -73,6 +74,8 @@ export default function ProposePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const priceCheck = validatePrice(price, '제안 가격')
+    if (!priceCheck.valid) { setError(priceCheck.error); return }
     setLoading(true)
     setError('')
 

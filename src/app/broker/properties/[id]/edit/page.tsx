@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { ArrowLeft, Building2, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
+import { validatePrice, validateArea } from '@/lib/validation'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실']
@@ -141,6 +142,14 @@ export default function EditPropertyPage() {
       setError('거래유형, 매물유형, 주소, 가격은 필수입니다.')
       return
     }
+    const priceCheck = validatePrice(price, '가격')
+    if (!priceCheck.valid) { setError(priceCheck.error); return }
+    if (dealType === '월세' && monthlyRent) {
+      const rentCheck = validatePrice(monthlyRent, '월세')
+      if (!rentCheck.valid) { setError(rentCheck.error); return }
+    }
+    const areaCheck = validateArea(sizePyeong)
+    if (!areaCheck.valid) { setError(areaCheck.error); return }
 
     setSaving(true)
     setError('')

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Header } from '@/components/layout/header'
 import { cn } from '@/lib/utils'
+import { validateBudgetRange, validateArea } from '@/lib/validation'
 import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
 
 const DEAL_TYPES = ['매매', '월세', '전세']
@@ -109,6 +110,16 @@ export default function RequestEditPage() {
   }
 
   const handleSubmit = async () => {
+    const budgetCheck = validateBudgetRange(form.min_price, form.max_price)
+    if (!budgetCheck.valid) { setError(budgetCheck.error); return }
+    if (form.min_size) {
+      const sizeCheck = validateArea(form.min_size, '최소 평수')
+      if (!sizeCheck.valid) { setError(sizeCheck.error); return }
+    }
+    if (form.max_size) {
+      const sizeCheck = validateArea(form.max_size, '최대 평수')
+      if (!sizeCheck.valid) { setError(sizeCheck.error); return }
+    }
     setLoading(true)
     setError('')
 

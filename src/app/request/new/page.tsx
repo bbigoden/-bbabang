@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Header } from '@/components/layout/header'
 import { cn } from '@/lib/utils'
+import { validateBudgetRange, validateArea } from '@/lib/validation'
 import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
 import { RegionPicker, type RegionValue } from '@/components/region-picker'
 
@@ -89,6 +90,21 @@ function RequestNewPageInner() {
   }
 
   const handleSubmit = async () => {
+    // 예산·월세·평수 음수·역전 검증
+    const budgetCheck = validateBudgetRange(form.min_price, form.max_price)
+    if (!budgetCheck.valid) { setError(budgetCheck.error); return }
+    if (dealTypes.includes('월세')) {
+      const monthlyCheck = validateBudgetRange(form.min_monthly, form.max_monthly)
+      if (!monthlyCheck.valid) { setError(monthlyCheck.error); return }
+    }
+    if (form.min_size) {
+      const sizeCheck = validateArea(form.min_size, '최소 평수')
+      if (!sizeCheck.valid) { setError(sizeCheck.error); return }
+    }
+    if (form.max_size) {
+      const sizeCheck = validateArea(form.max_size, '최대 평수')
+      if (!sizeCheck.valid) { setError(sizeCheck.error); return }
+    }
     setLoading(true)
     setError('')
 
