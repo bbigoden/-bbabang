@@ -2,6 +2,10 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Home } from 'lucide-react'
 
+// 개인정보처리방침은 정적 (1일마다 재생성). CDN 캐시 가능
+export const dynamic = 'force-static'
+export const revalidate = 86400
+
 export const metadata: Metadata = {
   title: '개인정보처리방침',
   description: '빠방 개인정보처리방침',

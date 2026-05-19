@@ -2,6 +2,10 @@ import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { Mail, MessageCircle, Home } from 'lucide-react'
 
+// 고객지원 안내는 정적. Header는 client component로 hydrate 시 auth 가져옴.
+export const dynamic = 'force-static'
+export const revalidate = 86400
+
 export const metadata = { title: '고객지원' }
 
 export default function SupportPage() {
