@@ -125,9 +125,14 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
             {user ? (
               <>
                 {role !== 'admin' && (
-                  <Link href="/favorites" onClick={() => setMobileOpen(false)}>
-                    <Button variant="ghost" size="md" className="w-full justify-start">찜 목록</Button>
-                  </Link>
+                  <>
+                    <Link href="/favorites" onClick={() => setMobileOpen(false)}>
+                      <Button variant="ghost" size="md" className="w-full justify-start">찜 목록</Button>
+                    </Link>
+                    <Link href="/reviews" onClick={() => setMobileOpen(false)}>
+                      <Button variant="ghost" size="md" className="w-full justify-start">내 리뷰</Button>
+                    </Link>
+                  </>
                 )}
                 <Link href="/settings" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">설정</Button>

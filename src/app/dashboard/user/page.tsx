@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck } from 'lucide-react'
+import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -75,6 +75,37 @@ export default async function UserDashboardPage() {
           <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             <Plus className="h-4 w-4" />
             요청 등록
+          </Link>
+        </div>
+
+        {/* 빠른 진입 */}
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Link href="/favorites" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-pink-300 hover:bg-pink-50/30 transition-colors">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-500 flex-shrink-0">
+              <Heart className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">찜 목록</p>
+              <p className="text-xs text-gray-500 truncate">중개사·매물·요청</p>
+            </div>
+          </Link>
+          <Link href="/reviews" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-yellow-300 hover:bg-yellow-50/30 transition-colors">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 flex-shrink-0">
+              <Star className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">내 리뷰</p>
+              <p className="text-xs text-gray-500 truncate">작성한 후기 관리</p>
+            </div>
+          </Link>
+          <Link href="/notifications" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:bg-blue-50/30 transition-colors">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500 flex-shrink-0">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">알림함</p>
+              <p className="text-xs text-gray-500 truncate">{unreadCount > 0 ? `안 읽음 ${unreadCount}건` : '받은 알림'}</p>
+            </div>
           </Link>
         </div>
 
