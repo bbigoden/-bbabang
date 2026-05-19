@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { FavoriteButton } from '@/components/favorite-button'
 import { Star, MapPin, Building2, Award } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
 import Image from 'next/image'
@@ -88,6 +89,33 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
 
   if (!broker) notFound()
 
+  // 로그인 사용자의 broker·property 찜 상태 한 번에 fetch
+  let brokerFavorited = false
+  const propFavSet = new Set<string>()
+  if (user) {
+    const propIds = properties.map(p => p.id)
+    const targets = [
+      supabase
+        .from('favorites')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('target_type', 'broker')
+        .eq('target_id', brokerId)
+        .maybeSingle(),
+      propIds.length > 0
+        ? supabase
+            .from('favorites')
+            .select('target_id')
+            .eq('user_id', user.id)
+            .eq('target_type', 'property')
+            .in('target_id', propIds)
+        : Promise.resolve({ data: [] as { target_id: string }[] }),
+    ]
+    const [bf, pf] = await Promise.all(targets)
+    brokerFavorited = !!(bf as any).data
+    ;((pf as any).data ?? []).forEach((row: { target_id: string }) => propFavSet.add(row.target_id))
+  }
+
   const districts = broker.district?.split(',').map((d: string) => d.trim()).filter(Boolean) ?? []
 
   return (
@@ -112,8 +140,11 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             </div>
 
             <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{broker.profiles?.name}</h1>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl font-bold text-gray-900">{broker.profiles?.name}</h1>
+                  <FavoriteButton type="broker" id={brokerId} variant="pill" initialFavorited={brokerFavorited} />
+                </div>
                 <p className="text-gray-500">{broker.office_name}</p>
               </div>
               <div className="text-right">
@@ -153,9 +184,9 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {properties.map(p => (
-                <Card key={p.id}>
+                <Card key={p.id} className="relative">
                   <CardBody className="p-4">
-                    {p.images?.[0] && (
+                    {p.images?.[0] ? (
                       <div className="relative mb-3 h-32 w-full overflow-hidden rounded-xl">
                         <Image
                           src={p.images[0]}
@@ -164,6 +195,13 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                           className="object-cover"
                           sizes="(max-width: 640px) 100vw, 50vw"
                         />
+                        <div className="absolute right-2 top-2">
+                          <FavoriteButton type="property" id={p.id} initialFavorited={propFavSet.has(p.id)} />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="absolute right-3 top-3">
+                        <FavoriteButton type="property" id={p.id} initialFavorited={propFavSet.has(p.id)} />
                       </div>
                     )}
                     <div className="flex flex-wrap gap-1.5 mb-2">

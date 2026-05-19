@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
+import { FavoriteButton } from '@/components/favorite-button'
 import Link from 'next/link'
 import { Star, ShieldCheck, MapPin, Filter } from 'lucide-react'
 
@@ -25,6 +26,20 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
     p_limit: 60,
     p_offset: 0,
   })
+
+  // 로그인 사용자의 찜 목록을 한 번에 가져와 카드별 N+1 RTT 회피
+  const { data: { user } } = await supabase.auth.getUser()
+  let favSet = new Set<string>()
+  if (user && rows && rows.length > 0) {
+    const ids = rows.map((b: any) => b.id)
+    const { data: favs } = await supabase
+      .from('favorites')
+      .select('target_id')
+      .eq('user_id', user.id)
+      .eq('target_type', 'broker')
+      .in('target_id', ids)
+    favSet = new Set((favs ?? []).map(f => f.target_id))
+  }
 
   const filterActive = !!(sp.sido || sp.sigungu || sp.verified === '1')
 
@@ -70,11 +85,11 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">
             {rows.map((b: any) => (
-              <li key={b.id}>
+              <li key={b.id} className="relative">
                 <Link href={`/broker/${b.id}`}
                   className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 pr-8">
                       <div className="flex items-center gap-1.5 mb-1">
                         <h2 className="text-base font-bold text-gray-900 truncate">{b.office_name || '(상호 없음)'}</h2>
                         {b.is_verified && (
@@ -97,6 +112,9 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
                     <span className="text-gray-500">거래 {b.deal_count ?? 0}</span>
                   </div>
                 </Link>
+                <div className="absolute right-4 top-4">
+                  <FavoriteButton type="broker" id={b.id} initialFavorited={favSet.has(b.id)} />
+                </div>
               </li>
             ))}
           </ul>

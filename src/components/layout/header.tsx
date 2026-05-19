@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Home, MessageCircle, User, Menu, X, Settings } from 'lucide-react'
+import { Home, MessageCircle, User, Menu, X, Settings, Heart } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -67,6 +67,11 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
           )}
           {user ? (
             <>
+              {role !== 'admin' && (
+                <Link href="/favorites" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors" title="찜 목록">
+                  <Heart className="h-5 w-5 text-gray-600" />
+                </Link>
+              )}
               <NotificationBell userId={user.id} />
               <Link href="/settings" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors" title="설정">
                 <Settings className="h-5 w-5 text-gray-600" />
@@ -119,6 +124,11 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
             )}
             {user ? (
               <>
+                {role !== 'admin' && (
+                  <Link href="/favorites" onClick={() => setMobileOpen(false)}>
+                    <Button variant="ghost" size="md" className="w-full justify-start">찜 목록</Button>
+                  </Link>
+                )}
                 <Link href="/settings" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">설정</Button>
                 </Link>

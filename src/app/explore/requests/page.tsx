@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
+import { FavoriteButton } from '@/components/favorite-button'
 import Link from 'next/link'
 import { MapPin, Clock, Home as HomeIcon, Filter } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
@@ -49,6 +50,19 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
     p_offset: 0,
   })
 
+  const { data: { user } } = await supabase.auth.getUser()
+  let favSet = new Set<string>()
+  if (user && rows && rows.length > 0) {
+    const ids = rows.map((r: any) => r.id)
+    const { data: favs } = await supabase
+      .from('favorites')
+      .select('target_id')
+      .eq('user_id', user.id)
+      .eq('target_type', 'request')
+      .in('target_id', ids)
+    favSet = new Set((favs ?? []).map(f => f.target_id))
+  }
+
   const filterActive = !!(sp.city || sp.district || sp.dong || sp.deal_type)
   const total = (rows ?? []).length
 
@@ -93,10 +107,10 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">
             {(rows ?? []).map((r: any) => (
-              <li key={r.id}>
-                <Link href={`/auth/login?redirect=/request/${r.id}`}
+              <li key={r.id} className="relative">
+                <Link href={user ? `/request/${r.id}` : `/auth/login?redirect=/request/${r.id}`}
                   className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
-                  <div className="mb-2 flex items-center gap-2">
+                  <div className="mb-2 flex items-center gap-2 pr-8">
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{r.room_type || '매물'}</span>
                   </div>
@@ -119,6 +133,9 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
                     <span className="font-medium text-blue-600">{r.proposal_count ?? 0}개 제안</span>
                   </div>
                 </Link>
+                <div className="absolute right-4 top-4">
+                  <FavoriteButton type="request" id={r.id} initialFavorited={favSet.has(r.id)} />
+                </div>
               </li>
             ))}
           </ul>
