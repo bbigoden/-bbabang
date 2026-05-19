@@ -73,6 +73,18 @@ const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+// 거래형태 색상 (셀 라벨용 tailwind 클래스 — 매 렌더 재생성 방지하려 모듈 상수)
+const DEAL_TYPE_COLOR_MAP: Record<string, string> = {
+  매매: 'bg-blue-100 text-blue-700',
+  전세: 'bg-purple-100 text-purple-700',
+  월세: 'bg-orange-100 text-orange-700',
+  분양: 'bg-pink-100 text-pink-700',
+  분양권: 'bg-rose-100 text-rose-700',
+}
+// 지도용 거래형태 hex 색
+const DEAL_TYPE_HEX_MAP: Record<string, string> = {
+  매매: '#2563eb', 전세: '#7c3aed', 월세: '#ea580c', 분양: '#db2777', 분양권: '#e11d48',
+}
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
@@ -1347,7 +1359,6 @@ function BrokerPropertiesContent() {
 
       setGeocoding(true)
       let done = 0
-      const colorMap: Record<string, string> = { 매매: '#2563eb', 전세: '#7c3aed', 월세: '#ea580c', 분양: '#db2777', 분양권: '#e11d48' }
       // 거래형태가 "매매, 월세" 같은 멀티면 첫 번째 값 기준 색
       const pickPrimaryDeal = (d: string) => (d ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
 
@@ -1380,7 +1391,7 @@ function BrokerPropertiesContent() {
           if (status === kakao.maps.services.Status.OK) {
             const pos = new kakao.maps.LatLng(result[0].y, result[0].x)
             const primaryDeal = pickPrimaryDeal(prop.deal_type)
-            const color = colorMap[primaryDeal] ?? '#374151'
+            const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
             const icon = makePillIcon(primaryDeal, fmtPrice(prop), color)
             const markerImage = new kakao.maps.MarkerImage(
               icon.url,
@@ -1751,8 +1762,7 @@ function BrokerPropertiesContent() {
                           }
                           if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
                           if (key === 'deal_type') {
-                            const colorMap: Record<string, string> = { 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }
-                            return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${colorMap[p.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{p.deal_type}</span>
+                            return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DEAL_TYPE_COLOR_MAP[p.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{p.deal_type}</span>
                           }
                           if (key === 'room_type') return <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{p.room_type}</span>
                           if (key === 'images') return p.images?.length > 0
@@ -1775,7 +1785,7 @@ function BrokerPropertiesContent() {
                             ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
                             : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
                           {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
-                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700', 분양: 'bg-pink-100 text-pink-700', 분양권: 'bg-rose-100 text-rose-700' }} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
+                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
                           {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
                           {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
                           {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
