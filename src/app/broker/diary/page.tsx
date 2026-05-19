@@ -26,10 +26,10 @@ const CUST_COLS: ColDef[] = [
   { key: 'request',            label: '요청사항', fixed: true, minWidth: 160, isLong: true },
   { key: 'received_date',      label: '접수일자', fixed: true, minWidth: 100 },
   { key: 'contact',            label: '연락처',   fixed: true, minWidth: 130 },
-  { key: 'assignee',           label: '담당자',   fixed: true, minWidth: 90 },
-  { key: 'category',           label: '구분',     fixed: true, minWidth: 80,  hasOptions: true, defaultOpts: ['비주거','주거용'] },
+  { key: 'interest',           label: '관심물건', fixed: true, minWidth: 110, hasOptions: true, defaultOpts: ['상가','창고','오피스텔','건물','아파트','토지'] },
   { key: 'source',             label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
   { key: 'status',             label: '진행상황', fixed: true, minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
+  { key: 'consult_note',       label: '상담내용', fixed: true, minWidth: 260, isLong: true },
   { key: 'proposed_properties',label: '제안 매물', fixed: true, minWidth: 180 },
 ]
 
@@ -784,12 +784,10 @@ export default function BrokerDiaryPage() {
       case 'request':       return <LongTextCell value={c.request} onSave={v => saveCustomerField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
       case 'received_date': return <TextCell value={c.received_date} onSave={v => saveCustomerField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveCustomerField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
-      case 'assignee':
-        if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
-        return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveCustomerField(c.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />
+      case 'interest':      return <SelectCell value={(c as any).interest ?? ''} options={opts} onSave={v => saveCustomerField(c.id, 'interest', v || null)} colorMap={colorMap} readOnly={ro} placeholder="관심물건" multi={settings.multi['interest']} />
       case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" multi={settings.multi['source']} />
-      case 'category':      return <SelectCell value={c.category} options={opts} onSave={v => saveCustomerField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" multi={settings.multi['category']} />
       case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" multi={settings.multi['status']} />
+      case 'consult_note':  return <LongTextCell value={(c as any).consult_note ?? ''} onSave={v => saveCustomerField(c.id, 'consult_note', v || null)} placeholder="상담내용" readOnly={ro} />
       case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} allProperties={allProperties} onOpen={() => setPropertyPickerLinkId(c.link_id)} readOnly={ro} />
       default: return null
     }
