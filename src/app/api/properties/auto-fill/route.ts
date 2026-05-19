@@ -210,10 +210,12 @@ export async function POST(req: NextRequest) {
     bun: pad4(bun),
     ji: pad4(ji ?? '0'),
   }
+  // 동(棟)이 지정되면 세움터 API의 dongNm 파라미터로 직접 필터 → 페이지 fetching 대폭 감소
+  const dongParam: Record<string, string> = dongFilter ? { dongNm: dongFilter } : {}
 
   try {
-    let title = await callSeum('getBrTitleInfo', { ...addr, regstrKindCd: '4' })
-    if (title.length === 0) title = await callSeum('getBrTitleInfo', addr)
+    let title = await callSeum('getBrTitleInfo', { ...addr, ...dongParam, regstrKindCd: '4' })
+    if (title.length === 0) title = await callSeum('getBrTitleInfo', { ...addr, ...dongParam })
     if (title.length === 0) {
       return NextResponse.json({ error: '건축물대장을 찾을 수 없습니다' }, { status: 404 })
     }
@@ -235,8 +237,8 @@ export async function POST(req: NextRequest) {
     let areaSuppliedM2 = 0  // 공급 = 전용 + 주거공용
     let yongdoNm = ''
 
-    let expos = await callSeum('getBrExposPubuseAreaInfo', { ...addr, regstrKindCd: '4' })
-    if (expos.length === 0) expos = await callSeum('getBrExposPubuseAreaInfo', addr)
+    let expos = await callSeum('getBrExposPubuseAreaInfo', { ...addr, ...dongParam, regstrKindCd: '4' })
+    if (expos.length === 0) expos = await callSeum('getBrExposPubuseAreaInfo', { ...addr, ...dongParam })
 
     if (expos.length > 0) {
       const num = (s: unknown): number => {
