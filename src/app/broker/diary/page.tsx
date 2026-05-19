@@ -449,6 +449,26 @@ export default function BrokerDiaryPage() {
   }, [auth.loading, auth.user?.id, auth.broker?.id])
   useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id, viewingBrokerId])
 
+  // viewingBrokerId 변경 시 그 직원의 일지 섹션 정의를 로드 (직원별 다른 섹션 지원)
+  useEffect(() => {
+    if (!broker) return
+    const targetId = viewingBrokerId ?? broker.id
+    if (targetId === broker.id) {
+      const saved = (broker.col_settings as any)?.diary_sections?.sections
+      setSections(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SECTIONS)
+      return
+    }
+    ;(async () => {
+      const { data } = await supabase
+        .from('broker_profiles')
+        .select('col_settings')
+        .eq('id', targetId)
+        .maybeSingle()
+      const saved = (data?.col_settings as any)?.diary_sections?.sections
+      setSections(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SECTIONS)
+    })()
+  }, [broker?.id, viewingBrokerId, supabase])
+
   const init = async () => {
     const u = auth.user!
     const b = auth.broker!
@@ -464,7 +484,7 @@ export default function BrokerDiaryPage() {
       setCanEdit(perms ? perms.diary?.edit !== false : true)
     }
 
-    // 섹션 설정 로드 (broker_profiles.col_settings.diary_sections)
+    // 본인 섹션 초기 로드 — 직원 일지 viewing 시는 아래 useEffect가 덮어씀
     const savedSections = b.col_settings?.['diary_sections']?.sections
     if (Array.isArray(savedSections) && savedSections.length > 0) setSections(savedSections)
 
