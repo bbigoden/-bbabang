@@ -133,7 +133,7 @@ function MultiSelectCell({
     <>
       {chips.map(v => (
         <span key={v}
-          className={`inline-flex items-center gap-1 rounded ${small ? 'px-1.5 py-0' : 'px-2 py-0.5'} text-xs font-semibold ${colorMap?.[v] ?? 'bg-gray-100 text-gray-600'}`}>
+          className={`inline-flex items-center gap-1 rounded ${small ? 'px-1.5 py-0' : 'px-2 py-0.5'} text-xs font-semibold whitespace-nowrap flex-shrink-0 ${colorMap?.[v] ?? 'bg-gray-100 text-gray-600'}`}>
           {v}
           {allowRemove && (
             <button
@@ -150,8 +150,12 @@ function MultiSelectCell({
     </>
   )
 
+  // 한 줄 컨테이너: 칩이 가로로 정렬되고, 칸이 좁으면 우측은 잘려 보임(높이 늘어나지 않음).
+  // (텍스트의 "..."처럼 칩별 truncate는 chip 단위라 불가능 — 대신 overflow-hidden으로 짤림)
+  const containerCls = 'flex items-center gap-1 overflow-hidden'
+
   if (readOnly) return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className={containerCls}>
       {selected.length > 0
         ? renderChips(selected)
         : <div className="rounded px-2 py-0.5 text-xs font-semibold bg-gray-50 text-gray-300">{placeholder || '—'}</div>
@@ -175,7 +179,7 @@ function MultiSelectCell({
       <div
         ref={btnRef}
         onClick={handleOpen}
-        className="cursor-pointer min-h-[20px] flex flex-wrap items-center gap-1 hover:opacity-80"
+        className={`cursor-pointer min-h-[20px] hover:opacity-80 ${containerCls}`}
       >
         {selected.length > 0
           ? renderChips(selected, false, true)

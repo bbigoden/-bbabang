@@ -163,7 +163,7 @@ export function ColumnHeader({
           {hasOptions && onChangeMulti && (
             <div className="px-3 py-2 border-t border-gray-100">
               <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
-                <span className="text-xs font-medium text-gray-700">다중 선택 허용</span>
+                <span className="text-xs font-medium text-gray-700">다중 선택</span>
                 <button type="button"
                   onClick={() => onChangeMulti(!isMulti)}
                   role="switch" aria-checked={!!isMulti}
