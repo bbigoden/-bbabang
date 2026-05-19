@@ -917,7 +917,7 @@ function BrokerPropertiesContent() {
 
   // 칼럼 설정 (DB)
   const { settings, update, loaded: colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
-  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null)
+  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'properties')
 
   // 고정 칼럼이 settings.order에 없는 경우 추가 (첫 로드 또는 새 칼럼 추가시)
   const syncedOrder = useMemo(() => {

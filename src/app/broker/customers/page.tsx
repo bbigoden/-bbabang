@@ -357,7 +357,7 @@ export default function BrokerCustomersPage() {
 
   // 칼럼 설정 (DB)
   const { settings, update, loaded } = useColSettings('customers', broker?.id ?? null, DEFAULT_COL_SETTINGS)
-  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null)
+  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'customers')
 
   useEffect(() => {
     if (auth.loading) return
