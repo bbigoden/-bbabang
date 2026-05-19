@@ -51,6 +51,7 @@ interface Property {
   direction: string | null
   status: 'available' | 'contracted' | 'hidden'
   created_at: string
+  received_date: string | null
   custom_fields: Record<string, string> | null
 }
 
@@ -67,7 +68,7 @@ const STATUS_COLOR: Record<string, string> = {
   contracted: 'bg-gray-100 text-gray-600',
   hidden: 'bg-yellow-100 text-yellow-700',
 }
-const DEAL_TYPES = ['매매', '전세', '월세']
+const DEAL_TYPES = ['매매', '전세', '월세', '분양', '분양권']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '기타']
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const PARKING_OPTS = ['주차가능', '주차불가', '협의']
@@ -76,6 +77,7 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
   { key: 'address',         label: '소재지' },
+  { key: 'received_date',   label: '접수일자' },
   { key: 'size_pyeong',     label: '면적(전용/공급)' },
   { key: 'price',           label: '가격' },
   { key: 'room_type',       label: '중개대상물종류' },
@@ -103,7 +105,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
   visible:    [...FIXED_COLS],
   order:      [...FIXED_COLS],
   widths: {
-    address: 200, size_pyeong: 70, price: 96, room_type: 110, deal_type: 72,
+    address: 200, received_date: 95, size_pyeong: 70, price: 96, room_type: 110, deal_type: 110,
     total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
     approval_date: 90, parking: 72, management_fee: 72,
     direction: 68, images: 56, brief_memo: 140, memo: 140, assignee: 80,
@@ -1263,7 +1265,7 @@ function BrokerPropertiesContent() {
 
   const filtered = useMemo(() => {
     let list = properties
-    if (filterDealType) list = list.filter(p => p.deal_type === filterDealType)
+    if (filterDealType) list = list.filter(p => (p.deal_type ?? '').split(',').map(s => s.trim()).includes(filterDealType))
     if (filterRoomType) list = list.filter(p => p.room_type === filterRoomType)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
@@ -1337,7 +1339,9 @@ function BrokerPropertiesContent() {
 
       setGeocoding(true)
       let done = 0
-      const colorMap: Record<string, string> = { 매매: '#2563eb', 전세: '#7c3aed', 월세: '#ea580c' }
+      const colorMap: Record<string, string> = { 매매: '#2563eb', 전세: '#7c3aed', 월세: '#ea580c', 분양: '#db2777', 분양권: '#e11d48' }
+      // 거래형태가 "매매, 월세" 같은 멀티면 첫 번째 값 기준 색
+      const pickPrimaryDeal = (d: string) => (d ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
 
       const fmtPrice = (p: Property) => {
         if (p.price == null) return '미정'
@@ -1367,8 +1371,9 @@ function BrokerPropertiesContent() {
           done++
           if (status === kakao.maps.services.Status.OK) {
             const pos = new kakao.maps.LatLng(result[0].y, result[0].x)
-            const color = colorMap[prop.deal_type] ?? '#374151'
-            const icon = makePillIcon(prop.deal_type, fmtPrice(prop), color)
+            const primaryDeal = pickPrimaryDeal(prop.deal_type)
+            const color = colorMap[primaryDeal] ?? '#374151'
+            const icon = makePillIcon(primaryDeal, fmtPrice(prop), color)
             const markerImage = new kakao.maps.MarkerImage(
               icon.url,
               new kakao.maps.Size(icon.width, icon.height),
@@ -1735,7 +1740,8 @@ function BrokerPropertiesContent() {
                             ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
                             : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
                           {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
-                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700' }} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
+                          {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={{ 매매: 'bg-blue-100 text-blue-700', 전세: 'bg-purple-100 text-purple-700', 월세: 'bg-orange-100 text-orange-700', 분양: 'bg-pink-100 text-pink-700', 분양권: 'bg-rose-100 text-rose-700' }} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
+                          {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
                           {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
                           {key === 'move_in_date'    && <DateCell value={p.move_in_date} onSave={v => saveField(p.id, 'move_in_date', v || null)} />}
                           {key === 'rooms_bathrooms' && <TextCell value={p.rooms_bathrooms} onSave={v => saveField(p.id, 'rooms_bathrooms', v || null)} placeholder="예: 2/1" />}
