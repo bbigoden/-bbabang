@@ -603,20 +603,28 @@ export default function BrokerCustomersPage() {
   const thisMonth = new Date().toISOString().slice(0, 7)
   const newThisMonth = customers.filter(c => c.received_date?.startsWith(thisMonth)).length
 
+  // 도넛 분포 — 최대 8개. 9개 이상은 상위 7 + 기타.
+  const distribute = (map: Record<string, number>): [string, number][] => {
+    const entries = Object.entries(map).sort((a, b) => b[1] - a[1])
+    if (entries.length <= 8) return entries
+    const top = entries.slice(0, 7)
+    const restSum = entries.slice(7).reduce((s, [, v]) => s + v, 0)
+    return [...top, ['기타', restSum]]
+  }
   const assigneeDist = (() => {
     const map: Record<string, number> = {}
     customers.forEach(c => { if (c.assignee) map[c.assignee] = (map[c.assignee] ?? 0) + 1 })
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 4)
+    return distribute(map)
   })()
   const categoryDist = (() => {
     const map: Record<string, number> = {}
     customers.forEach(c => { if (c.category) map[c.category] = (map[c.category] ?? 0) + 1 })
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 4)
+    return distribute(map)
   })()
   const sourceDist = (() => {
     const map: Record<string, number> = {}
     customers.forEach(c => { if (c.source) map[c.source] = (map[c.source] ?? 0) + 1 })
-    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 4)
+    return distribute(map)
   })()
 
   // 활성 칼럼
@@ -746,9 +754,9 @@ export default function BrokerCustomersPage() {
                         <span className="text-[11px] font-bold text-gray-600">{aTotal}</span>
                       </div>
                     </div>
-                    <div className="flex-1 space-y-1.5 min-w-0">
+                    <div className={`flex-1 min-w-0 ${assigneeDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
                       {assigneeDist.map(([label, count], i) => (
-                        <div key={label} className="flex items-center gap-1.5">
+                        <div key={label} className="flex items-center gap-1.5 min-w-0">
                           <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: ASSIGNEE_COLORS[i % ASSIGNEE_COLORS.length] }} />
                           <span className="text-[11px] text-gray-600 truncate flex-1">{label}</span>
                           <span className="text-[11px] font-bold text-gray-700">{count}</span>
@@ -772,9 +780,9 @@ export default function BrokerCustomersPage() {
                         <span className="text-[11px] font-bold text-gray-600">{cTotal}</span>
                       </div>
                     </div>
-                    <div className="flex-1 space-y-1.5 min-w-0">
+                    <div className={`flex-1 min-w-0 ${categoryDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
                       {categoryDist.map(([label, count], i) => (
-                        <div key={label} className="flex items-center gap-1.5">
+                        <div key={label} className="flex items-center gap-1.5 min-w-0">
                           <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS_CHART[i % CATEGORY_COLORS_CHART.length] }} />
                           <span className="text-[11px] text-gray-600 truncate flex-1">{label}</span>
                           <span className="text-[11px] font-bold text-gray-700">{count}</span>
@@ -798,9 +806,9 @@ export default function BrokerCustomersPage() {
                         <span className="text-[11px] font-bold text-gray-600">{sTotal}</span>
                       </div>
                     </div>
-                    <div className="flex-1 space-y-1.5 min-w-0">
+                    <div className={`flex-1 min-w-0 ${sourceDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
                       {sourceDist.map(([label, count], i) => (
-                        <div key={label} className="flex items-center gap-1.5">
+                        <div key={label} className="flex items-center gap-1.5 min-w-0">
                           <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS_CHART[i % SOURCE_COLORS_CHART.length] }} />
                           <span className="text-[11px] text-gray-600 truncate flex-1">{label}</span>
                           <span className="text-[11px] font-bold text-gray-700">{count}</span>
