@@ -88,7 +88,7 @@ export function ColumnHeader({
         className={cn('flex items-center gap-1 select-none', canOpen && 'cursor-pointer group')}>
         {isFixed && <Lock className="h-2.5 w-2.5 text-gray-300 flex-shrink-0" />}
         <span className="text-xs font-semibold text-gray-500 truncate min-w-0">{label}</span>
-        {canOpen && !isFixed && <ChevronDown className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />}
+        {canOpen && !isFixed && <ChevronDown className="h-3 w-3 text-gray-300 opacity-50 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0" />}
       </div>
 
       {open && (
@@ -201,7 +201,7 @@ export function ColumnHeader({
                   <div key={opt} className="group/opt flex items-center gap-1.5 px-1.5 py-1 rounded-lg hover:bg-gray-50">
                     <span className="flex-1 text-xs text-gray-700">{opt}</span>
                     <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))}
-                      className="opacity-0 group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all">
+                      className="opacity-40 sm:opacity-0 sm:group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all">
                       <X className="h-3 w-3" />
                     </button>
                   </div>

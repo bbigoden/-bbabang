@@ -214,7 +214,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
           {value || placeholder}
         </span>
         <button type="button" onClick={openPostcode}
-          className="shrink-0 rounded p-0.5 text-gray-300 opacity-0 transition-opacity hover:text-blue-500 group-hover:opacity-100"
+          className="shrink-0 rounded p-0.5 text-gray-300 opacity-50 sm:opacity-0 transition-opacity hover:text-blue-500 sm:group-hover:opacity-100"
           title="주소 검색"
         >
           <Search className="h-3 w-3" />
