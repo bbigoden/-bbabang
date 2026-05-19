@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const SEUM_BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService'
 
@@ -166,6 +167,12 @@ export async function POST(req: NextRequest) {
   }
   if (!user) {
     return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+  }
+
+  // Rate limit: 사용자당 시간당 30회 (세움터 API quota 보호)
+  const allowed = await checkRateLimit(`user:${user.id}:auto-fill`, 30, 3600)
+  if (!allowed) {
+    return NextResponse.json({ error: '자동채움 호출 횟수 제한을 초과했습니다. 잠시 후 다시 시도해주세요.' }, { status: 429 })
   }
 
   let body: AutoFillBody

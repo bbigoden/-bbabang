@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendPushToUser } from '@/lib/push-server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * 새 고객 요청 등록 후 호출.
@@ -17,6 +18,12 @@ export async function POST(req: NextRequest) {
   let body: { requestId?: string }
   try { body = await req.json() } catch { return NextResponse.json({ error: '잘못된 요청' }, { status: 400 }) }
   if (!body.requestId) return NextResponse.json({ error: 'requestId 필요' }, { status: 400 })
+
+  // Rate limit: 사용자당 시간당 5회 (대량 푸시 스팸 방지)
+  const allowed = await checkRateLimit(`user:${user.id}:notify-brokers`, 5, 3600)
+  if (!allowed) {
+    return NextResponse.json({ error: '브로커 알림 발송 횟수 제한 초과 (시간당 5회)' }, { status: 429 })
+  }
 
   // 요청 본문 조회 + 소유권 확인
   const { data: post } = await supabase

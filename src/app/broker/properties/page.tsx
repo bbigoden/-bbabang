@@ -1213,10 +1213,20 @@ function BrokerPropertiesContent() {
     setLoading(false)
   }
 
-  // 단일 필드 저장
+  // 단일 필드 저장 (optimistic UI + 실패 시 롤백)
   const saveField = useCallback(async (id: string, field: string, value: any) => {
-    await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
-    setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
+    let prevValue: any = undefined
+    setProperties(prev => {
+      const row = prev.find(p => p.id === id) as any
+      if (row) prevValue = row[field]
+      return prev.map(p => p.id === id ? { ...p, [field]: value } : p)
+    })
+    const { error } = await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
+    if (error) {
+      console.error('[saveField] failed', error)
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: prevValue } : p))
+      alert(`저장 실패: ${error.message}`)
+    }
   }, [])
 
   // 행 자동 채움: 주소 → 카카오 지오코딩 → 세움터 API → 같은 행 다중 필드 일괄 업데이트
@@ -1296,13 +1306,23 @@ function BrokerPropertiesContent() {
     }
   }, [supabase])
 
-  // 커스텀 필드 값 저장
+  // 커스텀 필드 값 저장 (optimistic + 실패 시 롤백)
   const saveCustomField = useCallback(async (propertyId: string, colId: string, value: string) => {
-    const prop = properties.find(p => p.id === propertyId)
-    const updated = { ...(prop?.custom_fields ?? {}), [colId]: value }
-    await supabase.from('broker_properties').update({ custom_fields: updated }).eq('id', propertyId)
-    setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, custom_fields: updated } : p))
-  }, [properties])
+    let prevFields: Record<string, string> | null = null
+    let updated: Record<string, string> = {}
+    setProperties(prev => {
+      const prop = prev.find(p => p.id === propertyId)
+      prevFields = (prop?.custom_fields ?? null) as any
+      updated = { ...(prop?.custom_fields ?? {}), [colId]: value }
+      return prev.map(p => p.id === propertyId ? { ...p, custom_fields: updated } : p)
+    })
+    const { error } = await supabase.from('broker_properties').update({ custom_fields: updated }).eq('id', propertyId)
+    if (error) {
+      console.error('[saveCustomField] failed', error)
+      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, custom_fields: prevFields ?? {} } : p))
+      alert(`저장 실패: ${error.message}`)
+    }
+  }, [])
 
   // 커스텀 칼럼 추가
   const addCustomColumn = async (name: string, type: 'text' | 'select' = 'text') => {
@@ -1387,7 +1407,13 @@ function BrokerPropertiesContent() {
   const confirmDelete = async () => {
     if (!deleteConfirm) return
     if (deleteConfirm.type === 'property') {
-      await supabase.from('broker_properties').delete().eq('id', deleteConfirm.id)
+      const { error } = await supabase.from('broker_properties').delete().eq('id', deleteConfirm.id)
+      if (error) {
+        console.error('[deleteProperty] failed', error)
+        alert(`삭제 실패: ${error.message}`)
+        setDeleteConfirm(null)
+        return
+      }
       setProperties(prev => prev.filter(p => p.id !== deleteConfirm.id))
     } else if (deleteConfirm.type === 'column') {
       const id = deleteConfirm.id

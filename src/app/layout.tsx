@@ -4,6 +4,8 @@ import './globals.css'
 import { ServiceWorkerRegister } from '@/components/sw-register'
 import { AuthProvider } from '@/lib/auth-context'
 import { NotificationsProvider } from '@/lib/notifications-context'
+import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const geist = Geist({ subsets: ['latin'] })
 
@@ -85,6 +87,8 @@ export default function RootLayout({
             {children}
           </NotificationsProvider>
         </AuthProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )

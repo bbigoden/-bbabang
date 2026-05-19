@@ -22,10 +22,13 @@ function init() {
 /** 한 명의 모든 구독 디바이스로 알림 발송 */
 export async function sendPushToUser(userId: string, payload: PushPayload) {
   init()
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  // service-role이 있으면 사용, 없으면 anon (RLS 통과 안 될 수 있어 service-role 권장)
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const supa = createServerClient(url, key)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) {
+    console.error('[push-server] SUPABASE_SERVICE_ROLE_KEY 미설정 — 푸시 발송 불가')
+    return { sent: 0, failed: 0 }
+  }
+  const supa = createServerClient(url, serviceKey)
 
   const { data: subs } = await supa
     .from('push_subscriptions')

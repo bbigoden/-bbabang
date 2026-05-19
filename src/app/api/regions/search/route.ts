@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export type RegionHit = {
   sido: string          // 충청남도
@@ -28,6 +29,13 @@ const SIDO_FULL: Record<string, string> = {
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim()
   if (!q || q.length < 2) return NextResponse.json({ results: [] })
+
+  // Rate limit: IP당 분당 30회 (Kakao API quota 보호 + 봇 방지)
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
+  const allowed = await checkRateLimit(`ip:${ip}:regions-search`, 30, 60)
+  if (!allowed) {
+    return NextResponse.json({ error: '호출 횟수 제한' }, { status: 429 })
+  }
 
   const key = process.env.KAKAO_REST_KEY
   if (!key) return NextResponse.json({ error: 'KAKAO_REST_KEY 누락' }, { status: 500 })

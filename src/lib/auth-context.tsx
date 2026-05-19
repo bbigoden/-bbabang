@@ -93,10 +93,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
     setUser(data.user)
-    const [{ data: p }, { data: bp }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle(),
-      supabase.from('broker_profiles').select('*').eq('user_id', data.user.id).maybeSingle(),
+    // 한쪽 쿼리 실패해도 다른쪽은 진행 — 네트워크 일시 장애에 강건하게
+    const [profileRes, brokerRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle()
+        .then(r => r, () => ({ data: null })),
+      supabase.from('broker_profiles').select('*').eq('user_id', data.user.id).maybeSingle()
+        .then(r => r, () => ({ data: null })),
     ])
+    const p = profileRes.data
+    const bp = brokerRes.data
     setProfile(p as Profile | null)
     setBroker(bp as BrokerProfile | null)
     setLoading(false)

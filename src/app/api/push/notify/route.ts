@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendPushToUser } from '@/lib/push-server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * 다른 사용자에게 푸시 알림 발송.
@@ -26,6 +27,12 @@ export async function POST(req: NextRequest) {
   // 자기 자신에게는 알림 안 보냄 (불필요)
   if (body.targetUserId === user.id) {
     return NextResponse.json({ ok: true, sent: 0, skipped: 'self' })
+  }
+
+  // Rate limit: 사용자당 분당 30회 (스팸 방지)
+  const allowed = await checkRateLimit(`user:${user.id}:push-notify`, 30, 60)
+  if (!allowed) {
+    return NextResponse.json({ error: '알림 호출 제한 초과' }, { status: 429 })
   }
 
   try {

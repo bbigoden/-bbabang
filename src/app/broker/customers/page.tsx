@@ -419,16 +419,37 @@ export default function BrokerCustomersPage() {
   }
 
   const saveField = useCallback(async (id: string, field: string, value: any) => {
-    await supabase.from('broker_customers').update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id)
-    setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
+    let prevValue: any = undefined
+    setCustomers(prev => {
+      const row = prev.find(c => c.id === id) as any
+      if (row) prevValue = row[field]
+      return prev.map(c => c.id === id ? { ...c, [field]: value } : c)
+    })
+    const { error } = await supabase.from('broker_customers')
+      .update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id)
+    if (error) {
+      console.error('[saveField] failed', error)
+      setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: prevValue } : c))
+      alert(`저장 실패: ${error.message}`)
+    }
   }, [])
 
   const saveCustomField = useCallback(async (id: string, colId: string, value: string) => {
-    const row = customers.find(c => c.id === id)
-    const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
-    await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', id)
-    setCustomers(prev => prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c))
-  }, [customers])
+    let prevFields: Record<string, string> | null = null
+    setCustomers(prev => {
+      const row = prev.find(c => c.id === id)
+      prevFields = (row?.custom_fields ?? null) as any
+      const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
+      return prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c)
+    })
+    const newFields = { ...(prevFields ?? {}), [colId]: value }
+    const { error } = await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', id)
+    if (error) {
+      console.error('[saveCustomField] failed', error)
+      setCustomers(prev => prev.map(c => c.id === id ? { ...c, custom_fields: prevFields ?? {} } : c))
+      alert(`저장 실패: ${error.message}`)
+    }
+  }, [])
 
   const addRow = async () => {
     if (!broker) return
@@ -502,7 +523,13 @@ export default function BrokerCustomersPage() {
   }
 
   const deleteRow = async (id: string) => {
-    await supabase.from('broker_customers').delete().eq('id', id)
+    const { error } = await supabase.from('broker_customers').delete().eq('id', id)
+    if (error) {
+      console.error('[deleteRow] failed', error)
+      alert(`삭제 실패: ${error.message}`)
+      setDeleteConfirm(null)
+      return
+    }
     setCustomers(prev => prev.filter(c => c.id !== id))
     setDeleteConfirm(null)
   }
