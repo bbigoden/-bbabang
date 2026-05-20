@@ -11,7 +11,8 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, Shield, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight, Table2, Flag, Megaphone, BarChart3
+  Hash, ChevronRight, Table2, Flag, Megaphone, BarChart3,
+  AlertOctagon, Activity
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -346,6 +347,33 @@ export default function AdminPage() {
             <div className="flex-1">
               <p className="font-bold text-white">통계·분석</p>
               <p className="text-sm text-gray-400">7·30·90일 추이, 지역별 분포, 거래유형</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-600" />
+          </Link>
+        </div>
+
+        {/* 운영 진단 진입 */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link href="/admin/errors"
+            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/20 text-red-400">
+              <AlertOctagon className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-white">에러 로그</p>
+              <p className="text-sm text-gray-400">클라이언트 에러 자동 수집·처리</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-600" />
+          </Link>
+
+          <Link href="/admin/health"
+            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/20 text-green-400">
+              <Activity className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-white">시스템 상태</p>
+              <p className="text-sm text-gray-400">DB 카운트·24h 활동·외부 시스템</p>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-600" />
           </Link>

@@ -6,6 +6,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { NotificationsProvider } from '@/lib/notifications-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { InstallPrompt } from '@/components/install-prompt'
+import { ErrorBoundary, GlobalErrorListener } from '@/components/error-tracker'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
@@ -92,13 +93,16 @@ export default function RootLayout({
           }) }}
         />
         <ServiceWorkerRegister />
-        <AuthProvider>
-          <NotificationsProvider>
-            {children}
-            <BottomNav />
-            <InstallPrompt />
-          </NotificationsProvider>
-        </AuthProvider>
+        <GlobalErrorListener />
+        <ErrorBoundary>
+          <AuthProvider>
+            <NotificationsProvider>
+              {children}
+              <BottomNav />
+              <InstallPrompt />
+            </NotificationsProvider>
+          </AuthProvider>
+        </ErrorBoundary>
         <Analytics />
         <SpeedInsights />
       </body>
