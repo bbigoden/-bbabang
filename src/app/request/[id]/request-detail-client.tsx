@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice, maskAddress, cn } from '@/lib/utils'
 import {
   MapPin, Star, MessageCircle, Home, CheckCircle,
-  Pencil, Archive
+  Pencil, Archive, XCircle, X, AlertTriangle
 } from 'lucide-react'
 import { CloseRequestButton } from '@/components/close-request-button'
 import { ShareButton } from '@/components/share-button'
@@ -32,6 +32,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isCreatingProposal, setIsCreatingProposal] = useState(false)
   const [mobileTab, setMobileTab] = useState<'proposals' | 'chat'>('proposals')
+  const [rejectingProposal, setRejectingProposal] = useState<any>(null)
   const isOwner = user?.id === request.user_id
 
   const handleSelect = (id: string) => { setSelectedId(id); setMobileTab('chat') }
@@ -53,21 +54,33 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
     setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'accepted' } : p))
   }
 
-  const handleReject = async (e: React.MouseEvent, proposalId: string) => {
+  const handleReject = (e: React.MouseEvent, proposalId: string) => {
     e.stopPropagation()
     const proposal = proposals.find(p => p.id === proposalId)
-    await supabase.from('proposals').update({ status: 'rejected' }).eq('id', proposalId)
-    // 중개사에게 알림
-    if (proposal?.broker_profiles?.user_id) {
+    if (proposal) setRejectingProposal(proposal)
+  }
+
+  const confirmReject = async (reason: string) => {
+    if (!rejectingProposal) return
+    const proposalId = rejectingProposal.id
+    await supabase
+      .from('proposals')
+      .update({ status: 'rejected', reject_reason: reason || null, rejected_at: new Date().toISOString() })
+      .eq('id', proposalId)
+    // 중개사에게 알림 (사유 포함)
+    if (rejectingProposal.broker_profiles?.user_id) {
       await supabase.from('notifications').insert({
-        user_id: proposal.broker_profiles.user_id,
+        user_id: rejectingProposal.broker_profiles.user_id,
         type: 'proposal_rejected',
         title: '제안이 거절되었습니다 ❌',
-        body: '고객이 제안을 거절했습니다.',
+        body: reason ? `사유: ${reason}` : '고객이 제안을 거절했습니다.',
         link: `/chat/${proposalId}`,
       })
     }
-    setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'rejected' } : p))
+    setProposals(prev => prev.map(p =>
+      p.id === proposalId ? { ...p, status: 'rejected', reject_reason: reason || null } : p
+    ))
+    setRejectingProposal(null)
   }
 
   const handleProposeClick = async () => {
@@ -267,6 +280,10 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                         )}
                       </div>
 
+                      {proposal.status === 'rejected' && proposal.reject_reason && (
+                        <p className="mt-1.5 text-[11px] text-gray-500 italic">"{proposal.reject_reason}"</p>
+                      )}
+
                       {isOwner && proposal.status === 'pending' && (
                         <div className="mt-2 flex gap-1.5" onClick={e => e.stopPropagation()}>
                           <button
@@ -344,6 +361,105 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
         >
           {selectedId ? '대화' : '대화 (제안 선택)'}
         </button>
+      </div>
+
+      {rejectingProposal && (
+        <RejectModal
+          proposal={rejectingProposal}
+          onClose={() => setRejectingProposal(null)}
+          onConfirm={confirmReject}
+        />
+      )}
+    </div>
+  )
+}
+
+const REJECT_REASONS = [
+  '예산이 맞지 않아요',
+  '원하는 지역이 아니에요',
+  '매물 조건이 다르네요',
+  '이미 다른 곳과 계약했어요',
+  '소통이 어려워요',
+  '기타',
+]
+
+function RejectModal({ proposal, onClose, onConfirm }: {
+  proposal: any
+  onClose: () => void
+  onConfirm: (reason: string) => Promise<void>
+}) {
+  const [reason, setReason] = useState<string>('')
+  const [custom, setCustom] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async () => {
+    setBusy(true)
+    const finalReason = reason === '기타' ? custom.trim() : reason
+    await onConfirm(finalReason)
+    setBusy(false)
+  }
+
+  const brokerName = proposal.broker_profiles?.profiles?.name ?? proposal.broker_profiles?.office_name ?? '중개사'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <XCircle className="h-4 w-4 text-red-500" />
+            제안 거절
+          </h3>
+          <button onClick={onClose} disabled={busy}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-5 space-y-4">
+          <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5">
+            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 leading-relaxed">
+              {brokerName} 중개사에게 거절 사유를 알려주면, 다음 제안 시 더 잘 맞는 매물을 받을 수 있어요.
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-700">거절 사유 <span className="text-gray-400 font-normal">(선택)</span></p>
+            <div className="grid grid-cols-2 gap-2">
+              {REJECT_REASONS.map(r => (
+                <button key={r} type="button" onClick={() => setReason(r)}
+                  className={`rounded-xl border px-3 py-2.5 text-xs font-medium transition-all text-left ${
+                    reason === r ? 'border-red-300 bg-red-50 text-red-600' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {reason === '기타' && (
+            <textarea
+              value={custom}
+              onChange={e => setCustom(e.target.value)}
+              maxLength={200}
+              rows={3}
+              placeholder="직접 입력 (선택)"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+            />
+          )}
+        </div>
+
+        <div className="flex gap-2 border-t border-gray-100 px-5 py-4">
+          <button onClick={onClose} disabled={busy}
+            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            취소
+          </button>
+          <button onClick={submit} disabled={busy}
+            className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">
+            {busy ? '처리 중...' : '거절하기'}
+          </button>
+        </div>
       </div>
     </div>
   )
