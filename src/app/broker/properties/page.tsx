@@ -1144,9 +1144,18 @@ function BrokerPropertiesContent() {
       setCustomColumns(cols)
       const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
       if (ownBroker) setSettingsBrokerId(ownBroker.id)
-      // Supabase PostgREST 기본 max-rows=1000. 1000+ 매물 사용자 대응을 위해 range 명시.
-      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false }).range(0, 9999)
-      setProperties(data ?? [])
+      // Supabase PostgREST max-rows=1000. 1000+ 매물 대응 — 1000건씩 페이지네이션해서 전체 수집.
+      const PAGE = 1000
+      const collected: any[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data: page } = await supabase
+          .from('broker_properties').select('*').eq('broker_id', b.id)
+          .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
+        if (!page || page.length === 0) break
+        collected.push(...page)
+        if (page.length < PAGE) break
+      }
+      setProperties(collected)
       setLoading(false)
       return
     }
@@ -1199,8 +1208,18 @@ function BrokerPropertiesContent() {
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
-    const { data } = await supabase.from('broker_properties').select('*').in('broker_id', brokerIds).order('created_at', { ascending: false }).range(0, 9999)
-    setProperties(data ?? [])
+    // 1000건씩 페이지네이션 (PostgREST max-rows 우회)
+    const PAGE = 1000
+    const collected: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      const { data: page } = await supabase
+        .from('broker_properties').select('*').in('broker_id', brokerIds)
+        .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
+      if (!page || page.length === 0) break
+      collected.push(...page)
+      if (page.length < PAGE) break
+    }
+    setProperties(collected)
     setLoading(false)
   }
 
