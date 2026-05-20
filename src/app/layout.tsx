@@ -4,6 +4,7 @@ import './globals.css'
 import { ServiceWorkerRegister } from '@/components/sw-register'
 import { AuthProvider } from '@/lib/auth-context'
 import { NotificationsProvider } from '@/lib/notifications-context'
+import { BottomNav } from '@/components/layout/bottom-nav'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
@@ -93,6 +94,7 @@ export default function RootLayout({
         <AuthProvider>
           <NotificationsProvider>
             {children}
+            <BottomNav />
           </NotificationsProvider>
         </AuthProvider>
         <Analytics />
