@@ -4,6 +4,7 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History, Sparkles } from 'lucide-react'
+import { OnboardingModal } from '@/components/onboarding-modal'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -62,6 +63,8 @@ export default async function UserDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} role={profile?.role} unreadCount={unreadCount} />
+      {/* 신규 사용자 (활성 요청 0개)일 때만 가이드 모달 노출 */}
+      {activeRequests.length === 0 && <OnboardingModal />}
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         {/* 상단 인사 */}
