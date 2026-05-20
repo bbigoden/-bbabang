@@ -923,7 +923,7 @@ export default function BrokerDiaryPage() {
                         </th>
                       )
                     })}
-                    <th className="px-2 py-2.5 bg-gray-50" style={{ width: 56, minWidth: 56 }}>
+                    <th className="px-2 py-2.5 bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 64, minWidth: 64 }}>
                       <div className="flex items-center justify-end gap-0.5">
                         <AddColBtn onAdd={addCustomCol} />
                         <ColVisibility fixedCols={fixedCols} optionalCols={optionalCols} customCols={settings.customCols} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
@@ -933,14 +933,13 @@ export default function BrokerDiaryPage() {
                 </thead>
                 <tbody>
                   {diaryCustomers.length === 0 ? (
-                    <tr><td colSpan={activeCols.length + 3} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
+                    <tr><td colSpan={activeCols.length + 2} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
                   ) : diaryCustomers.map((c, idx) => (
                     <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
                       <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? diaryCustomers.length - idx : idx + 1}</td>
                       {activeCols.map(col => (
                         <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
                       ))}
-                      <td className="px-2 py-1.5 border-r border-gray-100" />
                       <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
                         <div className="flex items-center justify-center gap-1.5">
                           {effectiveCanEdit && <button onClick={() => duplicateDiaryCustomer(c)} title="복사" className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors"><Copy className="h-3.5 w-3.5" /></button>}
@@ -950,7 +949,7 @@ export default function BrokerDiaryPage() {
                     </tr>
                   ))}
                   {effectiveCanEdit && (
-                    <tr><td colSpan={activeCols.length + 3} className="border-t border-gray-100">
+                    <tr><td colSpan={activeCols.length + 2} className="border-t border-gray-100">
                       <div className="flex items-center divide-x divide-gray-100">
                         <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
                           <Plus className="h-3.5 w-3.5" />고객 등록
