@@ -301,8 +301,17 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                       </div>
                       <StarRating value={review.rating} />
                     </div>
-                    {review.comment && (
-                      <p className="mt-3 text-sm text-gray-600 leading-relaxed">{review.comment}</p>
+                    {review.content && (
+                      <p className="mt-3 text-sm text-gray-600 leading-relaxed">{review.content}</p>
+                    )}
+                    {Array.isArray(review.images) && review.images.length > 0 && (
+                      <div className="mt-3 flex gap-2 overflow-x-auto">
+                        {review.images.map((url: string, i: number) => (
+                          <div key={i} className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
+                            <Image src={url} alt={`리뷰 사진 ${i + 1}`} fill className="object-cover" sizes="80px" />
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </CardBody>
                 </Card>

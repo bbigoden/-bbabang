@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/layout/header'
-import { Star, CheckCircle } from 'lucide-react'
+import { Star, CheckCircle, ImagePlus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function ReviewPage() {
@@ -23,6 +24,34 @@ export default function ReviewPage() {
   const [brokerName, setBrokerName] = useState('')
   const [brokerId, setBrokerId] = useState('')
   const [error, setError] = useState('')
+  const [files, setFiles] = useState<File[]>([])
+  const [previews, setPreviews] = useState<string[]>([])
+  const MAX_IMAGES = 3
+
+  const onPickFiles = (list: FileList | null) => {
+    if (!list) return
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    const MAX_SIZE = 10 * 1024 * 1024
+    const room = MAX_IMAGES - files.length
+    const arr = Array.from(list).slice(0, Math.max(0, room))
+    const skipped: string[] = []
+    const next: File[] = []
+    for (const f of arr) {
+      if (!ALLOWED.includes(f.type)) { skipped.push(`${f.name}: 형식`); continue }
+      if (f.size > MAX_SIZE) { skipped.push(`${f.name}: 10MB 초과`); continue }
+      if (f.size === 0) { skipped.push(`${f.name}: 빈 파일`); continue }
+      next.push(f)
+    }
+    if (skipped.length > 0) setError(`일부 제외: ${skipped.join(', ')}`)
+    setFiles(prev => [...prev, ...next])
+    setPreviews(prev => [...prev, ...next.map(f => URL.createObjectURL(f))])
+  }
+
+  const removeFile = (idx: number) => {
+    URL.revokeObjectURL(previews[idx])
+    setPreviews(prev => prev.filter((_, i) => i !== idx))
+    setFiles(prev => prev.filter((_, i) => i !== idx))
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -77,11 +106,25 @@ export default function ReviewPage() {
     } catch { setError('오류가 발생했습니다. 다시 시도해주세요.'); setLoading(false); return }
     if (!user) return
 
+    // 이미지 업로드
+    const uploadedUrls: string[] = []
+    for (const file of files) {
+      const ext = file.name.split('.').pop()
+      const path = `${user.id}/review-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('property-images')
+        .upload(path, file, { upsert: false })
+      if (uploadError) continue
+      const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
+      uploadedUrls.push(publicUrl)
+    }
+
     const { error: insertError } = await supabase.from('reviews').insert({
       broker_id: brokerId,
       user_id: user.id,
       rating,
       content: comment || '',
+      images: uploadedUrls,
     })
 
     if (insertError) {
@@ -173,7 +216,7 @@ export default function ReviewPage() {
           </div>
 
           {/* 후기 */}
-          <div className="mb-6">
+          <div className="mb-5">
             <label className="mb-1.5 block text-sm font-medium text-gray-700">
               후기 <span className="text-gray-400 font-normal">(선택)</span>
             </label>
@@ -185,6 +228,33 @@ export default function ReviewPage() {
               maxLength={1000}
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
             />
+          </div>
+
+          {/* 사진 첨부 */}
+          <div className="mb-6">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              사진 첨부 <span className="text-gray-400 font-normal">(선택, 최대 {MAX_IMAGES}장)</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {previews.map((url, i) => (
+                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
+                  <Image src={url} alt="" fill className="object-cover" sizes="120px" unoptimized />
+                  <button type="button" onClick={() => removeFile(i)}
+                    className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {files.length < MAX_IMAGES && (
+                <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                  <ImagePlus className="h-5 w-5 text-gray-400" />
+                  <span className="text-[10px] text-gray-500">추가</span>
+                  <input type="file" accept="image/*" multiple className="hidden"
+                    onChange={e => { onPickFiles(e.target.files); e.target.value = '' }} />
+                </label>
+              )}
+            </div>
+            <p className="mt-1.5 text-xs text-gray-400">집·매물 사진으로 다른 고객에게 더 유익한 후기가 돼요</p>
           </div>
 
           {error && (

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
+import Image from 'next/image'
 import { Star, Edit2, Trash2, Check, X, AlertTriangle, Building2, ShieldCheck } from 'lucide-react'
 import { formatDate, cn } from '@/lib/utils'
 
@@ -14,6 +15,7 @@ interface Review {
   broker_id: string
   rating: number
   content: string | null
+  images: string[] | null
   created_at: string
   broker_profiles: {
     id: string
@@ -58,7 +60,7 @@ export default function MyReviewsPage() {
     setLoading(true)
     const { data } = await supabase
       .from('reviews')
-      .select('id, broker_id, rating, content, created_at, broker_profiles(id, office_name, is_verified, profiles(name))')
+      .select('id, broker_id, rating, content, images, created_at, broker_profiles(id, office_name, is_verified, profiles(name))')
       .eq('user_id', auth.user.id)
       .order('created_at', { ascending: false })
     setReviews((data ?? []) as any)
@@ -150,6 +152,16 @@ export default function MyReviewsPage() {
 
                 {r.content && (
                   <p className="mt-2 text-sm text-gray-600 leading-relaxed whitespace-pre-line">{r.content}</p>
+                )}
+
+                {Array.isArray(r.images) && r.images.length > 0 && (
+                  <div className="mt-3 flex gap-2 overflow-x-auto">
+                    {r.images.map((url, i) => (
+                      <div key={i} className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg">
+                        <Image src={url} alt={`리뷰 사진 ${i + 1}`} fill className="object-cover" sizes="80px" />
+                      </div>
+                    ))}
+                  </div>
                 )}
               </li>
             ))}
