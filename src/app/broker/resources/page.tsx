@@ -131,8 +131,11 @@ export default function BrokerResourcesPage() {
 
     try {
       if (file) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9.\-_가-힣]/g, '_')
-        const path = `${officeBrokerId}/${broker.id}/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`
+        // Supabase Storage 키는 ASCII만 허용 → 확장자만 살리고 경로는 영문으로.
+        // 원본 한글 파일명은 file_name 컬럼에 보존, 다운로드 시 그 이름으로 받음.
+        const extRaw = (file.name.includes('.') ? file.name.split('.').pop() : '') ?? ''
+        const ext = /^[a-zA-Z0-9]{1,8}$/.test(extRaw) ? `.${extRaw.toLowerCase()}` : ''
+        const path = `${officeBrokerId}/${broker.id}/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
         const { error: upErr } = await supabase.storage
           .from('office-resources')
           .upload(path, file, { upsert: false, contentType: file.type || undefined })
@@ -182,9 +185,10 @@ export default function BrokerResourcesPage() {
 
   const handleDownload = async (r: Resource) => {
     if (!r.storage_path) return
+    // 원본 한글 파일명으로 받게 download 옵션 지정
     const { data, error } = await supabase.storage
       .from('office-resources')
-      .createSignedUrl(r.storage_path, 60)
+      .createSignedUrl(r.storage_path, 60, r.file_name ? { download: r.file_name } : undefined)
     if (error || !data?.signedUrl) {
       alert(`다운로드 링크 생성 실패: ${error?.message ?? ''}`)
       return
