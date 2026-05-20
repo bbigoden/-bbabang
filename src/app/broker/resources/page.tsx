@@ -335,7 +335,7 @@ export default function BrokerResourcesPage() {
                   }`}
                 >
                   <Paperclip className="h-5 w-5" />
-                  <span>{isDragging ? '여기에 놓으세요' : '파일을 끌어놓거나 클릭해 선택 (여러 개 가능)'}</span>
+                  <span>{isDragging ? '여기에 놓으세요' : '파일을 끌어놓거나 클릭해 선택'}</span>
                 </div>
 
                 {/* 선택된 파일 목록 */}
