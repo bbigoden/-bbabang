@@ -56,14 +56,22 @@ export default function ProposePage() {
     if (!user) { setPropertiesLoading(false); return }
     const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).single()
     if (!broker) { setPropertiesLoading(false); return }
-    const { data } = await supabase
-      .from('broker_properties')
-      .select('id, address, deal_type, room_type, price, monthly_rent, brief_memo, status, images')
-      .eq('broker_id', broker.id)
-      .eq('status', 'available')
-      .order('created_at', { ascending: false })
-      .range(0, 9999)
-    setMyProperties(data ?? [])
+    // 1000건씩 페이지네이션 (PostgREST max-rows 우회)
+    const PAGE = 1000
+    const collected: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      const { data: page } = await supabase
+        .from('broker_properties')
+        .select('id, address, deal_type, room_type, price, monthly_rent, brief_memo, status, images')
+        .eq('broker_id', broker.id)
+        .eq('status', 'available')
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1)
+      if (!page || page.length === 0) break
+      collected.push(...page)
+      if (page.length < PAGE) break
+    }
+    setMyProperties(collected)
     setPropertiesLoading(false)
   }
 

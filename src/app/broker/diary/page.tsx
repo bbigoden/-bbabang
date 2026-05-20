@@ -536,16 +536,28 @@ export default function BrokerDiaryPage() {
       if (sibs) brokerIds = sibs.map((e: any) => e.id)
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
-    const [{ data: custs }, { data: props }] = await Promise.all([
+    // 매물은 1000건씩 페이지네이션 (PostgREST max-rows 우회)
+    const fetchAllProps = async () => {
+      const PAGE = 1000
+      const all: any[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data: page } = await supabase.from('broker_properties')
+          .select('id, address, deal_type, room_type, price, monthly_rent')
+          .in('broker_id', brokerIds).order('created_at', { ascending: false }).range(from, from + PAGE - 1)
+        if (!page || page.length === 0) break
+        all.push(...page)
+        if (page.length < PAGE) break
+      }
+      return all
+    }
+    const [{ data: custs }, props] = await Promise.all([
       supabase.from('broker_customers')
         .select('id, broker_id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields')
         .in('broker_id', brokerIds).order('created_at', { ascending: false }),
-      supabase.from('broker_properties')
-        .select('id, address, deal_type, room_type, price, monthly_rent')
-        .in('broker_id', brokerIds).order('created_at', { ascending: false }).range(0, 9999),
+      fetchAllProps(),
     ])
     setAllCustomers(custs ?? [])
-    setAllProperties(props ?? [])
+    setAllProperties(props)
     setLoading(false)
   }
 

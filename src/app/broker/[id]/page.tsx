@@ -74,7 +74,21 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   let reviews: any[] = []
   let properties: any[] = []
   try {
-    const [{ data: b }, { data: r }, { data: p }] = await Promise.all([
+    // 매물은 1000건씩 페이지네이션 (PostgREST max-rows 우회)
+    const fetchAllProps = async () => {
+      const PAGE = 1000
+      const all: any[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data: page } = await supabase
+          .from('broker_properties').select('*').eq('broker_id', brokerId).eq('status', 'available')
+          .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
+        if (!page || page.length === 0) break
+        all.push(...page)
+        if (page.length < PAGE) break
+      }
+      return all
+    }
+    const [{ data: b }, { data: r }, p] = await Promise.all([
       supabase
         .from('broker_profiles')
         .select('*, profiles(name, email)')
@@ -85,13 +99,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
         .select('*, profiles(name)')
         .eq('broker_id', brokerId)
         .order('created_at', { ascending: false }),
-      supabase
-        .from('broker_properties')
-        .select('*')
-        .eq('broker_id', brokerId)
-        .eq('status', 'available')
-        .order('created_at', { ascending: false })
-        .range(0, 9999),
+      fetchAllProps(),
     ])
     broker = b
     reviews = r ?? []
