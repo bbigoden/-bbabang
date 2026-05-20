@@ -6,7 +6,14 @@ import { Badge } from '@/components/ui/badge'
 import { FavoriteButton } from '@/components/favorite-button'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
-import { Star, MapPin, Building2, Award } from 'lucide-react'
+import { Star, MapPin, Building2, Award, Clock, Target, TrendingUp } from 'lucide-react'
+
+function formatHours(h: number | null | undefined): string | null {
+  if (h == null || h <= 0) return null
+  if (h < 1) return `${Math.round(h * 60)}분`
+  if (h < 24) return `${h.toFixed(1)}시간`
+  return `${(h / 24).toFixed(1)}일`
+}
 import { formatDate, formatPrice } from '@/lib/utils'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
@@ -175,6 +182,39 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
 
             {broker.description && (
               <p className="mt-4 text-sm text-gray-600 leading-relaxed">{broker.description}</p>
+            )}
+
+            {/* 신뢰 지표 */}
+            {(broker.acceptance_rate != null || broker.avg_response_hours != null || broker.deal_count > 0) && (
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {broker.acceptance_rate != null && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-center">
+                    <div className="mb-0.5 inline-flex items-center justify-center text-blue-500">
+                      <Target className="h-4 w-4" />
+                    </div>
+                    <p className="text-lg font-black text-blue-600">{broker.acceptance_rate}%</p>
+                    <p className="text-[10px] font-medium text-blue-700">제안 수락률</p>
+                  </div>
+                )}
+                {formatHours(broker.avg_response_hours) && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+                    <div className="mb-0.5 inline-flex items-center justify-center text-emerald-500">
+                      <Clock className="h-4 w-4" />
+                    </div>
+                    <p className="text-lg font-black text-emerald-600">{formatHours(broker.avg_response_hours)}</p>
+                    <p className="text-[10px] font-medium text-emerald-700">평균 응답</p>
+                  </div>
+                )}
+                {broker.deal_count > 0 && (
+                  <div className="rounded-xl border border-purple-100 bg-purple-50 p-3 text-center">
+                    <div className="mb-0.5 inline-flex items-center justify-center text-purple-500">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                    <p className="text-lg font-black text-purple-600">{broker.deal_count}건</p>
+                    <p className="text-[10px] font-medium text-purple-700">누적 거래</p>
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="mt-4 flex justify-end">

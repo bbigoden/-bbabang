@@ -3,7 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
 import Link from 'next/link'
-import { Star, ShieldCheck, MapPin, Filter } from 'lucide-react'
+import { Star, ShieldCheck, MapPin, Filter, Clock, Target } from 'lucide-react'
+
+function formatHours(h: number | null | undefined): string | null {
+  if (h == null || h <= 0) return null
+  if (h < 1) return `${Math.round(h * 60)}분`
+  if (h < 24) return `${h.toFixed(1)}시간`
+  return `${(h / 24).toFixed(1)}일`
+}
 
 export const metadata: Metadata = {
   title: '인증 공인중개사 둘러보기',
@@ -104,12 +111,22 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
                       {b.user_name && <p className="text-xs text-gray-400 mt-0.5">대표: {b.user_name}</p>}
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-3 text-xs">
+                  <div className="mt-3 flex items-center gap-2 text-xs flex-wrap">
                     <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
                       <Star className="h-3.5 w-3.5 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
                     </span>
                     <span className="text-gray-500">후기 {b.review_count ?? 0}</span>
                     <span className="text-gray-500">거래 {b.deal_count ?? 0}</span>
+                    {b.acceptance_rate != null && (
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+                        <Target className="h-3 w-3" /> 수락 {b.acceptance_rate}%
+                      </span>
+                    )}
+                    {formatHours(b.avg_response_hours) && (
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+                        <Clock className="h-3 w-3" /> 평균 {formatHours(b.avg_response_hours)}
+                      </span>
+                    )}
                   </div>
                 </Link>
                 <div className="absolute right-4 top-4">

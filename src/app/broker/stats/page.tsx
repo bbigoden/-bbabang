@@ -51,6 +51,9 @@ export default function BrokerStatsPage() {
     if (!broker) { setLoading(false); return }
     setBrokerId(broker.id)
 
+    // 백그라운드로 metrics 캐시 갱신 (실패해도 무시)
+    supabase.rpc('refresh_broker_metrics', { p_broker_id: broker.id }).then(() => {}, () => {})
+
     const since = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString()
 
     const [pAllRes, pRecentRes] = await Promise.all([
