@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings, FolderOpen } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings, FolderOpen, IdCard } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -216,6 +216,14 @@ export default async function BrokerDashboardPage() {
                 <BarChart2 className="h-5 w-5 text-emerald-600" />
               </div>
               <span className="text-sm font-bold text-gray-800">실적 분석</span>
+            </div>
+          </Link>
+          <Link href="/broker/card">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100">
+                <IdCard className="h-5 w-5 text-amber-600" />
+              </div>
+              <span className="text-sm font-bold text-gray-800">내 명함</span>
             </div>
           </Link>
           {broker.is_owner !== false && (
