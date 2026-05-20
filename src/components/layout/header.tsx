@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Home, MessageCircle, User, Menu, X, Settings, Heart } from 'lucide-react'
+import { Home, MessageCircle, User, Menu, X, Settings, Heart, Search } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -67,6 +67,9 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
           )}
           {user ? (
             <>
+              <Link href="/search" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors" title="통합 검색">
+                <Search className="h-5 w-5 text-gray-600" />
+              </Link>
               {role !== 'admin' && (
                 <Link href="/favorites" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors" title="찜 목록">
                   <Heart className="h-5 w-5 text-gray-600" />
@@ -92,6 +95,9 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
 
         {/* 모바일 메뉴 버튼 */}
         <div className="flex items-center gap-2 md:hidden">
+          <Link href="/search" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors" title="검색">
+            <Search className="h-5 w-5 text-gray-600" />
+          </Link>
           {user && <NotificationBell userId={user.id} />}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
