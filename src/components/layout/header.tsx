@@ -34,14 +34,14 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* 로고 — 로그인 유저는 대시보드로, 비로그인은 홈으로 */}
         <Link href={user ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user') : '/'} className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
             <Home className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-gray-900">
+          <span className="text-xl font-bold text-gray-900 dark:text-white">
             빠<span className="text-blue-600">방</span>
           </span>
         </Link>
@@ -49,18 +49,18 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
         {/* 데스크탑 네비 */}
         <nav className="hidden items-center gap-1 md:flex">
           {role !== 'broker' && role !== 'admin' && pathname !== '/request/new' && (
-            <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+            <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
               매물 요청하기
             </Link>
           )}
           {role === 'broker' && (
             <>
               {pathname !== '/request/new' && (
-                <Link href="/request/new?co_broker=true" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+                <Link href="/request/new?co_broker=true" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
                   공동중개 요청
                 </Link>
               )}
-              <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+              <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
                 중개사 대시보드
               </Link>
             </>
@@ -111,7 +111,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
 
       {/* 모바일 메뉴 */}
       {mobileOpen && (
-        <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden">
+        <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-2">
             {role !== 'broker' && role !== 'admin' && (
               <Link href="/request/new" onClick={() => setMobileOpen(false)}>

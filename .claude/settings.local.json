@@ -13,7 +13,9 @@
       "mcp__61c29316-4fd5-4a6e-818c-1d7511d8509c__get_deployment",
       "mcp__61c29316-4fd5-4a6e-818c-1d7511d8509c__get_deployment_build_logs",
       "mcp__c05fdee0-418d-4717-8286-ab2908175be4__list_projects",
-      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__get_publishable_keys"
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__get_publishable_keys",
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__list_tables",
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__get_advisors"
     ]
   }
 }

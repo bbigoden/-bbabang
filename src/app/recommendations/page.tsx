@@ -154,7 +154,7 @@ export default function RecommendationsPage() {
   const hasAnyContent = matches.length > 0 || favBrokerMatches.length > 0
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       <div className="mx-auto max-w-4xl px-4 py-8">

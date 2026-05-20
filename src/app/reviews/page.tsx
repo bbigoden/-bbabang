@@ -80,7 +80,7 @@ export default function MyReviewsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       <div className="mx-auto max-w-3xl px-4 py-8">

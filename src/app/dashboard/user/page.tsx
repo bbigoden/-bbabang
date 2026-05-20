@@ -61,7 +61,7 @@ export default async function UserDashboardPage() {
   const statusVariant = { active: 'success', closed: 'default' } as const
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role={profile?.role} unreadCount={unreadCount} />
       {/* 신규 사용자 (활성 요청 0개)일 때만 가이드 모달 노출 */}
       {activeRequests.length === 0 && <OnboardingModal />}
@@ -70,7 +70,7 @@ export default async function UserDashboardPage() {
         {/* 상단 인사 */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               안녕하세요, {profile?.name ?? '회원'}님 👋
             </h1>
             <p className="mt-1 text-sm text-gray-500">내 방 찾기 현황을 확인하세요</p>
@@ -83,7 +83,7 @@ export default async function UserDashboardPage() {
 
         {/* 빠른 진입 */}
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Link href="/favorites" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-pink-300 hover:bg-pink-50/30 transition-colors">
+          <Link href="/favorites" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 hover:border-pink-300 hover:bg-pink-50/30 transition-colors">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-500 flex-shrink-0">
               <Heart className="h-5 w-5" />
             </div>
@@ -92,7 +92,7 @@ export default async function UserDashboardPage() {
               <p className="text-xs text-gray-500 truncate">중개사·매물·요청</p>
             </div>
           </Link>
-          <Link href="/history" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors">
+          <Link href="/history" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-500 flex-shrink-0">
               <History className="h-5 w-5" />
             </div>
@@ -101,7 +101,7 @@ export default async function UserDashboardPage() {
               <p className="text-xs text-gray-500 truncate">방문 기록 모아보기</p>
             </div>
           </Link>
-          <Link href="/reviews" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-yellow-300 hover:bg-yellow-50/30 transition-colors">
+          <Link href="/reviews" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 hover:border-yellow-300 hover:bg-yellow-50/30 transition-colors">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 flex-shrink-0">
               <Star className="h-5 w-5" />
             </div>
@@ -110,7 +110,7 @@ export default async function UserDashboardPage() {
               <p className="text-xs text-gray-500 truncate">작성한 후기 관리</p>
             </div>
           </Link>
-          <Link href="/notifications" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:bg-blue-50/30 transition-colors">
+          <Link href="/notifications" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 hover:border-blue-300 hover:bg-blue-50/30 transition-colors">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-500 flex-shrink-0">
               <MessageCircle className="h-5 w-5" />
             </div>

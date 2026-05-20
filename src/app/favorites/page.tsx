@@ -98,7 +98,7 @@ export default function FavoritesPage() {
   const tabFavs = favs.filter(f => f.target_type === tab)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       <div className="mx-auto max-w-4xl px-4 py-8">

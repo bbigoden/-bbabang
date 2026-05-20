@@ -68,7 +68,7 @@ export function BottomNav() {
       {/* 본문 가림 방지용 spacer */}
       <div className="md:hidden h-16" aria-hidden />
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <ul className="flex">
           {items.map(it => {
             const active = isActive(it.href)
