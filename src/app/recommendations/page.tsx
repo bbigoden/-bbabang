@@ -108,23 +108,23 @@ export default function RecommendationsPage() {
       .eq('target_type', 'broker')
 
     const favBrokerIds = (favBrokers ?? []).map(f => f.target_id)
+    let brokerProps: any[] = []
     if (favBrokerIds.length > 0) {
-      const { data: brokerProps } = await supabase
+      const { data } = await supabase
         .from('broker_properties')
         .select('*, broker_profiles(office_name, is_verified, profiles(name))')
         .eq('status', 'available')
         .in('broker_id', favBrokerIds)
         .order('created_at', { ascending: false })
         .limit(12)
-      setFavBrokerMatches(brokerProps ?? [])
-    } else {
-      setFavBrokerMatches([])
+      brokerProps = data ?? []
     }
+    setFavBrokerMatches(brokerProps)
 
-    // 4) 매물 찜 상태 일괄 체크
+    // 4) 매물 찜 상태 일괄 체크 — setState 직전 로컬 값 사용 (stale state 회피)
     const allPropIds = [
       ...allMatches.slice(0, 30).map(m => m.property.id),
-      ...(favBrokerMatches ?? []).map(p => p.id),
+      ...brokerProps.map(p => p.id),
     ]
     if (allPropIds.length > 0) {
       const { data: favs } = await supabase
@@ -137,7 +137,6 @@ export default function RecommendationsPage() {
     }
 
     setLoading(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.user, supabase])
 
   useEffect(() => {

@@ -352,9 +352,10 @@ export default function AdminPage() {
         </div>
 
         {/* ── 통계 ── */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => openStatModal('users') },
+            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => openStatModal('users') },
             { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400', action: () => openStatModal('requests') },
             { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400', action: () => openStatModal('proposals') },
           ].map(stat => (
@@ -687,7 +688,7 @@ export default function AdminPage() {
                         ))}
                       </div>
                     </div>
-                    {r.comment && <p className="text-xs text-gray-400 leading-relaxed">{r.comment}</p>}
+                    {r.content && <p className="text-xs text-gray-400 leading-relaxed">{r.content}</p>}
                     <p className="mt-1 text-[10px] text-gray-600">{formatDate(r.created_at)}</p>
                   </div>
                 ))}
