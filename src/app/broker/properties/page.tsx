@@ -1946,7 +1946,14 @@ function BrokerPropertiesContent() {
                 <PropertyRow
                   key={p.id}
                   p={p}
-                  rowNumber={direction === 'up' ? filtered.length - ((page - 1) * pageSize + idx) : ((page - 1) * pageSize + idx + 1)}
+                  rowNumber={
+                    // 컬럼 정렬 중이면 정렬된 순서대로 1, 2, 3...
+                    sortKey
+                      ? (page - 1) * pageSize + idx + 1
+                      : (direction === 'up'
+                        ? filtered.length - ((page - 1) * pageSize + idx)
+                        : ((page - 1) * pageSize + idx + 1))
+                  }
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
                   settings={settings}
