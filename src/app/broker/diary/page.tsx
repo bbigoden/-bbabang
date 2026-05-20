@@ -11,6 +11,7 @@ import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { ColumnHeader } from '@/components/sheet/column-header'
+import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
@@ -923,12 +924,10 @@ export default function BrokerDiaryPage() {
                         </th>
                       )
                     })}
-                    <th className="px-2 py-2.5 bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 64, minWidth: 64 }}>
-                      <div className="flex items-center justify-end gap-0.5">
-                        <AddColBtn onAdd={addCustomCol} />
-                        <ColVisibility fixedCols={fixedCols} optionalCols={optionalCols} customCols={settings.customCols} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
-                      </div>
-                    </th>
+                    <SheetActionHeader>
+                      <AddColBtn onAdd={addCustomCol} />
+                      <ColVisibility fixedCols={fixedCols} optionalCols={optionalCols} customCols={settings.customCols} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
+                    </SheetActionHeader>
                   </tr>
                 </thead>
                 <tbody>
@@ -940,12 +939,7 @@ export default function BrokerDiaryPage() {
                       {activeCols.map(col => (
                         <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
                       ))}
-                      <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {effectiveCanEdit && <button onClick={() => duplicateDiaryCustomer(c)} title="복사" className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors"><Copy className="h-3.5 w-3.5" /></button>}
-                          {effectiveCanEdit && <button onClick={() => setDeleteConfirm(c.link_id)} title="삭제" className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
-                        </div>
-                      </td>
+                      <SheetActionCell canEdit={effectiveCanEdit} onCopy={() => duplicateDiaryCustomer(c)} onDelete={() => setDeleteConfirm(c.link_id)} />
                     </tr>
                   ))}
                   {effectiveCanEdit && (

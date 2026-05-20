@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { formatPrice, cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
+import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
@@ -994,18 +995,7 @@ const PropertyRow = memo(function PropertyRow({
         }
         return null
       })}
-      {!isAdminView && (
-        <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
-          <div className="flex items-center justify-center gap-1.5">
-            {canEdit && <button onClick={() => onCopy(p)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors" title="복사">
-              <Copy className="h-3.5 w-3.5" />
-            </button>}
-            {canEdit && <button onClick={() => onDelete(p.id)} className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors" title="삭제">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>}
-          </div>
-        </td>
-      )}
+      {!isAdminView && <SheetActionCell canEdit={canEdit} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)} />}
     </tr>
   )
 })
@@ -1873,17 +1863,15 @@ function BrokerPropertiesContent() {
                   return null
                 })}
                 {!isAdminView && (
-                  <th className="px-2 py-2.5 bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]" style={{ width: 64, minWidth: 64 }}>
-                    <div className="flex items-center justify-end gap-0.5">
-                      <AddColBtn onAdd={addCustomColumn} />
-                      <PropColVisibility
-                        allFixed={ALL_COLUMNS}
-                        customCols={customColumns}
-                        visible={settings.visible}
-                        onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)}
-                      />
-                    </div>
-                  </th>
+                  <SheetActionHeader>
+                    <AddColBtn onAdd={addCustomColumn} />
+                    <PropColVisibility
+                      allFixed={ALL_COLUMNS}
+                      customCols={customColumns}
+                      visible={settings.visible}
+                      onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)}
+                    />
+                  </SheetActionHeader>
                 )}
               </tr>
             </thead>
