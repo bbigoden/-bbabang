@@ -1055,6 +1055,15 @@ function BrokerPropertiesContent() {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const wasDragRef = useRef(false)
 
+  // 칼럼 정렬 (가격·평수 등 헤더 클릭)
+  const [sortKey, setSortKey] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const toggleSort = (key: string) => {
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc') }
+    else if (sortDir === 'asc') { setSortDir('desc') }
+    else { setSortKey(null); setSortDir('asc') }  // 3번째 클릭: 정렬 해제
+  }
+
   // 칼럼 설정 (DB)
   const { settings, update, loaded: colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'properties')
@@ -1603,7 +1612,34 @@ function BrokerPropertiesContent() {
 
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const sortedFiltered = direction === 'up' ? filtered : [...filtered].reverse()
+
+  // 정렬: sortKey 지정되면 그 컬럼 기준, 아니면 기존 created_at 정/역순
+  const sortedFiltered = useMemo(() => {
+    if (!sortKey) {
+      return direction === 'up' ? filtered : [...filtered].reverse()
+    }
+    const list = [...filtered]
+    const num = (v: any) => {
+      if (v == null || v === '') return null
+      const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.\-]/g, ''))
+      return isNaN(n) ? null : n
+    }
+    list.sort((a, b) => {
+      const av = (a as any)[sortKey]
+      const bv = (b as any)[sortKey]
+      // null은 항상 마지막
+      if (av == null || av === '') return bv == null || bv === '' ? 0 : 1
+      if (bv == null || bv === '') return -1
+      // 숫자 컬럼
+      const an = num(av), bn = num(bv)
+      if (an != null && bn != null) return sortDir === 'asc' ? an - bn : bn - an
+      // 문자열
+      const cmp = String(av).localeCompare(String(bv), 'ko')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return list
+  }, [filtered, sortKey, sortDir, direction])
+
   const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize)
 
   // 새 행 추가 시: 페이지 이동 + 스크롤 + 첫 셀 클릭 (편집모드)
@@ -1839,6 +1875,8 @@ function BrokerPropertiesContent() {
                                 onHide={() => hideCol(key)}
                                 areaUnit={isAreaCol ? (settings.areaUnit ?? '평') : undefined}
                                 onChangeAreaUnit={isAreaCol ? u => update(prev => ({ ...prev, areaUnit: u })) : undefined}
+                                sortDir={sortKey === key ? sortDir : null}
+                                onSort={key === 'images' ? undefined : () => toggleSort(key)}
                               />
                             )
                           })()}

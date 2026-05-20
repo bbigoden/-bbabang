@@ -8,7 +8,7 @@
  * 세 페이지가 같은 컴포넌트를 import 해서 사용한다.
  */
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, EyeOff, Lock, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, EyeOff, Lock, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
@@ -38,12 +38,15 @@ export interface ColumnHeaderProps {
   /** 면적 칼럼 전용: 평/m² 단위 토글 (전체 매물 일괄). */
   areaUnit?: '평' | 'm²'
   onChangeAreaUnit?: (u: '평' | 'm²') => void
+  /** 정렬: null=정렬 없음, 'asc'/'desc'=이 칼럼 기준 정렬 중 */
+  sortDir?: 'asc' | 'desc' | null
+  onSort?: () => void
 }
 
 export function ColumnHeader({
   label, isFixed, isCustom, hasOptions, options, onSetOptions,
   colType, onChangeType, isMulti, onChangeMulti, onHide, onRename, onDelete,
-  areaUnit, onChangeAreaUnit,
+  areaUnit, onChangeAreaUnit, sortDir, onSort,
 }: ColumnHeaderProps) {
   const [open, setOpen] = useState(false)
   const [style, setStyle] = useState<React.CSSProperties>({})
@@ -83,13 +86,27 @@ export function ColumnHeader({
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative flex items-center gap-1">
       <div ref={btnRef} onClick={handleOpen}
-        className={cn('flex items-center gap-1 select-none', canOpen && 'cursor-pointer group')}>
+        className={cn('flex items-center gap-1 select-none flex-1 min-w-0', canOpen && 'cursor-pointer group')}>
         {isFixed && <Lock className="h-2.5 w-2.5 text-gray-300 flex-shrink-0" />}
         <span className="text-xs font-semibold text-gray-500 truncate min-w-0">{label}</span>
         {canOpen && !isFixed && <ChevronDown className="h-3 w-3 text-gray-300 opacity-50 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0" />}
       </div>
+      {onSort && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onSort() }}
+          title={sortDir === 'asc' ? '오름차순 (다시 클릭하면 내림차순)' : sortDir === 'desc' ? '내림차순 (다시 클릭하면 해제)' : '정렬'}
+          className={cn(
+            'flex h-4 w-4 items-center justify-center rounded transition-colors flex-shrink-0',
+            sortDir ? 'text-blue-600' : 'text-gray-300 hover:text-gray-500',
+          )}
+        >
+          {sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> :
+           sortDir === 'desc' ? <ArrowDown className="h-3 w-3" /> :
+           <ArrowUpDown className="h-3 w-3" />}
+        </button>
+      )}
 
       {open && (
         <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
