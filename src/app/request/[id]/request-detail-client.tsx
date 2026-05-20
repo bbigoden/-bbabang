@@ -14,6 +14,7 @@ import { CloseRequestButton } from '@/components/close-request-button'
 import { ShareButton } from '@/components/share-button'
 import { ChatPanel } from '@/components/chat-panel'
 import { ReportButton } from '@/components/report-button'
+import { ViewTracker } from '@/components/view-tracker'
 import Link from 'next/link'
 
 // ── 메인 클라이언트 컴포넌트 ────────────────────────
@@ -111,6 +112,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
   return (
     <div className="flex flex-col bg-gray-50" style={{ height: '100dvh' }}>
       <Header user={user} role={userRole} />
+      <ViewTracker type="request" id={request.id} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── 왼쪽 패널: 요청 정보 + 제안 목록 ── */}

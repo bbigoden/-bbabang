@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star } from 'lucide-react'
+import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -79,7 +79,7 @@ export default async function UserDashboardPage() {
         </div>
 
         {/* 빠른 진입 */}
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Link href="/favorites" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-pink-300 hover:bg-pink-50/30 transition-colors">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-500 flex-shrink-0">
               <Heart className="h-5 w-5" />
@@ -87,6 +87,15 @@ export default async function UserDashboardPage() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">찜 목록</p>
               <p className="text-xs text-gray-500 truncate">중개사·매물·요청</p>
+            </div>
+          </Link>
+          <Link href="/history" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-cyan-300 hover:bg-cyan-50/30 transition-colors">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-50 text-cyan-500 flex-shrink-0">
+              <History className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">최근 본 항목</p>
+              <p className="text-xs text-gray-500 truncate">방문 기록 모아보기</p>
             </div>
           </Link>
           <Link href="/reviews" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 hover:border-yellow-300 hover:bg-yellow-50/30 transition-colors">

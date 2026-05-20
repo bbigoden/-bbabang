@@ -5,6 +5,7 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FavoriteButton } from '@/components/favorite-button'
 import { ReportButton } from '@/components/report-button'
+import { ViewTracker } from '@/components/view-tracker'
 import { Star, MapPin, Building2, Award } from 'lucide-react'
 import { formatDate, formatPrice } from '@/lib/utils'
 import Image from 'next/image'
@@ -122,6 +123,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} />
+      <ViewTracker type="broker" id={brokerId} />
 
       <div className="mx-auto max-w-3xl px-4 py-8">
         {/* 프로필 카드 */}
