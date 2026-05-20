@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History } from 'lucide-react'
+import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -117,6 +117,21 @@ export default async function UserDashboardPage() {
             </div>
           </Link>
         </div>
+
+        {/* 추천 매물 진입 — 활성 요청이 있을 때만 강조 */}
+        {activeRequests.length > 0 && (
+          <Link href="/recommendations"
+            className="mb-6 flex items-center gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 hover:border-amber-300 transition-colors">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-600 flex-shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-900">내 조건에 맞는 매물 보기</p>
+              <p className="text-xs text-amber-700">활성 요청 {activeRequests.length}건 기반 추천</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-amber-500 flex-shrink-0" />
+          </Link>
+        )}
 
         {/* 이용 흐름 안내 */}
         <div className="mb-8 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
