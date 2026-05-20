@@ -18,12 +18,14 @@ function SignupForm() {
   const supabase = createClient()
 
   const defaultRole = searchParams.get('role') === 'broker' ? 'broker' : 'user'
+  const refFromUrl = (searchParams.get('ref') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
   const [role, setRole] = useState<'user' | 'broker'>(defaultRole)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [phone, setPhone] = useState('')
+  const [referralCode, setReferralCode] = useState(refFromUrl)
   const [showPw, setShowPw] = useState(false)
   const [agreeTerms, setAgreeTerms] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -51,7 +53,10 @@ function SignupForm() {
       const result = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name, phone, role } },
+        options: { data: {
+          name, phone, role,
+          ...(referralCode.trim() && { referral_code_used: referralCode.trim().toUpperCase() }),
+        } },
       })
       if (result.error) {
         setError(result.error.message === 'User already registered'
@@ -188,6 +193,22 @@ function SignupForm() {
           </div>
 
           <Input label="휴대폰 번호" placeholder="010-1234-5678" value={phone} onChange={(e) => setPhone(e.target.value)} />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+              추천 코드 <span className="text-gray-400 font-normal">(선택)</span>
+            </label>
+            <input
+              type="text"
+              value={referralCode}
+              onChange={e => setReferralCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+              placeholder="친구에게 받은 8자 코드"
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-mono uppercase tracking-wider focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+            {refFromUrl && (
+              <p className="mt-1 text-xs text-blue-600">✓ 추천 링크로 진입했어요</p>
+            )}
+          </div>
 
           {/* 약관 동의 */}
           <label className="flex items-start gap-3 cursor-pointer">

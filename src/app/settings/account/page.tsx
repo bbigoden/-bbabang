@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { User, Mail, Calendar, Check, AlertCircle } from 'lucide-react'
+import { User, Mail, Calendar, Check, AlertCircle, Gift, Copy, Share2, Users } from 'lucide-react'
 
 export default function SettingsAccountPage() {
   const supabase = createClient()
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null)
-  const [profile, setProfile] = useState<{ name?: string; phone?: string; role?: string; created_at?: string } | null>(null)
+  const [profile, setProfile] = useState<{ name?: string; phone?: string; role?: string; created_at?: string; referral_code?: string } | null>(null)
+  const [referredCount, setReferredCount] = useState(0)
+  const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const [name, setName] = useState('')
@@ -22,9 +24,38 @@ export default function SettingsAccountPage() {
       setUser({ id: user.id, email: user.email })
       const { data: p } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (p) { setProfile(p); setName(p.name ?? ''); setPhone(p.phone ?? '') }
+
+      // 내 추천으로 가입한 사람 수
+      const { count } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('referred_by', user.id)
+      setReferredCount(count ?? 0)
+
       setLoading(false)
     })()
   }, [])
+
+  const copyReferralLink = async () => {
+    if (!profile?.referral_code) return
+    const link = `https://bbabang.vercel.app/auth/signup?ref=${profile.referral_code}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
+  const shareReferral = async () => {
+    if (!profile?.referral_code) return
+    const link = `https://bbabang.vercel.app/auth/signup?ref=${profile.referral_code}`
+    const text = `빠방에서 부동산 매물 찾는 거 추천! 내 코드로 가입하면 시작이 쉬워요.\n${link}`
+    if (navigator.share) {
+      try { await navigator.share({ title: '빠방 추천', text, url: link }) } catch {}
+    } else {
+      copyReferralLink()
+    }
+  }
 
   const save = async () => {
     if (!name.trim()) { setMsg({ type: 'err', text: '이름을 입력해주세요.' }); return }
@@ -97,6 +128,45 @@ export default function SettingsAccountPage() {
           {saving ? '저장 중...' : '저장'}
         </button>
       </div>
+
+      {/* 추천 코드 (admin은 제외) */}
+      {role !== 'admin' && profile?.referral_code && (
+        <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-yellow-50 p-6">
+          <h2 className="mb-1 flex items-center gap-2 font-bold text-gray-900">
+            <Gift className="h-4 w-4 text-amber-500" />
+            내 추천 코드
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">친구·동료에게 공유하면 빠방을 더 빠르게 사용하실 수 있어요</p>
+
+          <div className="mb-3 rounded-xl border-2 border-dashed border-amber-300 bg-white px-4 py-4 text-center">
+            <p className="font-mono text-2xl font-black tracking-widest text-amber-700">
+              {profile.referral_code}
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={copyReferralLink}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-white border border-amber-300 px-3 py-2.5 text-sm font-bold text-amber-700 hover:bg-amber-100 transition-colors">
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? '복사됨' : '링크 복사'}
+            </button>
+            <button onClick={shareReferral}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2.5 text-sm font-bold text-white hover:bg-amber-600 transition-colors">
+              <Share2 className="h-4 w-4" />
+              공유하기
+            </button>
+          </div>
+
+          {referredCount > 0 && (
+            <div className="mt-3 rounded-xl bg-white/60 px-4 py-3 flex items-center gap-2.5">
+              <Users className="h-4 w-4 text-amber-500" />
+              <p className="text-sm text-gray-700">
+                <span className="font-bold text-amber-600">{referredCount}명</span>이 회원님의 추천으로 가입했어요 🎉
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
