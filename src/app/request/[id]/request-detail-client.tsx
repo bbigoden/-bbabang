@@ -6,9 +6,10 @@ import { Header } from '@/components/layout/header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice, maskAddress, cn } from '@/lib/utils'
+import Image from 'next/image'
 import {
   MapPin, Star, MessageCircle, Home, CheckCircle,
-  Pencil, Archive, XCircle, X, AlertTriangle
+  Pencil, Archive, XCircle, X, AlertTriangle, GitCompare, Check
 } from 'lucide-react'
 import { CloseRequestButton } from '@/components/close-request-button'
 import { ShareButton } from '@/components/share-button'
@@ -33,7 +34,19 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
   const [isCreatingProposal, setIsCreatingProposal] = useState(false)
   const [mobileTab, setMobileTab] = useState<'proposals' | 'chat'>('proposals')
   const [rejectingProposal, setRejectingProposal] = useState<any>(null)
+  const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
+  const [showCompare, setShowCompare] = useState(false)
   const isOwner = user?.id === request.user_id
+
+  const toggleCompare = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setCompareIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else if (next.size < 3) next.add(id)
+      return next
+    })
+  }
 
   const handleSelect = (id: string) => { setSelectedId(id); setMobileTab('chat') }
 
@@ -231,13 +244,30 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                   const broker = proposal.broker_profiles
                   const brokerProfile = broker?.profiles
                   const isSelected = selectedId === proposal.id
+                  const isCompared = compareIds.has(proposal.id)
                   return (
                     <button key={proposal.id} onClick={() => handleSelect(proposal.id)}
                       className={cn(
-                        'w-full text-left rounded-xl border p-3 transition-all',
+                        'w-full text-left rounded-xl border p-3 transition-all relative',
                         isSelected ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/40'
                       )}
                     >
+                      {/* 비교 체크박스 (고객 본인만 노출) */}
+                      {isOwner && (
+                        <button
+                          type="button"
+                          onClick={(e) => toggleCompare(proposal.id, e)}
+                          aria-label={isCompared ? '비교에서 빼기' : '비교에 추가'}
+                          className={cn(
+                            'absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded border transition-colors',
+                            isCompared
+                              ? 'bg-amber-500 border-amber-500 text-white'
+                              : 'bg-white border-gray-300 text-transparent hover:border-amber-400'
+                          )}
+                        >
+                          <Check className="h-3 w-3" />
+                        </button>
+                      )}
                       <div className="flex items-center gap-2.5">
                         <Link href={`/broker/${broker?.id}`} onClick={e => e.stopPropagation()}>
                           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm hover:ring-2 hover:ring-blue-300 transition-all">
@@ -370,7 +400,137 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
           onConfirm={confirmReject}
         />
       )}
+
+      {/* 비교 fixed bar — 1개 이상 선택 시 노출 */}
+      {isOwner && compareIds.size > 0 && (
+        <div className="fixed bottom-14 md:bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-2xl border border-amber-200 bg-white px-4 py-2.5 shadow-xl">
+          <GitCompare className="h-4 w-4 text-amber-500" />
+          <span className="text-sm font-semibold text-gray-700">
+            <span className="text-amber-600">{compareIds.size}</span>개 선택 (최대 3개)
+          </span>
+          <button onClick={() => setShowCompare(true)} disabled={compareIds.size < 2}
+            className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50 transition-colors">
+            비교하기
+          </button>
+          <button onClick={() => setCompareIds(new Set())} aria-label="선택 해제"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {showCompare && (
+        <CompareModal
+          proposals={proposals.filter(p => compareIds.has(p.id))}
+          onClose={() => setShowCompare(false)}
+          onSelect={(id) => { setSelectedId(id); setMobileTab('chat'); setShowCompare(false) }}
+        />
+      )}
     </div>
+  )
+}
+
+function CompareModal({ proposals, onClose, onSelect }: {
+  proposals: any[]
+  onClose: () => void
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 md:p-4" onClick={onClose}>
+      <div className="w-full max-w-5xl max-h-[95vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 flex-shrink-0">
+          <h3 className="flex items-center gap-2 font-bold text-gray-900">
+            <GitCompare className="h-4 w-4 text-amber-500" />
+            제안 비교 ({proposals.length}개)
+          </h3>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto overflow-y-auto flex-1">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-white z-10 border-b border-gray-100">
+              <tr>
+                <th className="w-24 px-3 py-2 text-left text-xs font-semibold text-gray-500 align-top">항목</th>
+                {proposals.map(p => {
+                  const broker = p.broker_profiles
+                  return (
+                    <th key={p.id} className="px-3 py-2 text-left align-top min-w-[180px]">
+                      <button onClick={() => onSelect(p.id)} className="text-left w-full">
+                        <p className="font-bold text-gray-900 truncate hover:text-blue-600">{broker?.office_name ?? '(상호 없음)'}</p>
+                        <p className="text-xs text-gray-500 truncate">{broker?.profiles?.name}</p>
+                        {p.status === 'accepted' && <span className="mt-1 inline-block rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">수락됨</span>}
+                        {p.status === 'rejected' && <span className="mt-1 inline-block rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">거절됨</span>}
+                      </button>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              <Row label="가격" values={proposals.map(p => p.price ? formatPrice(p.price) : '협의')} highlight="lowest" raw={proposals.map(p => p.price || Number.MAX_SAFE_INTEGER)} />
+              <Row label="주소" values={proposals.map(p => p.property_address ? maskAddress(p.property_address) : '—')} />
+              <Row label="제안 내용" values={proposals.map(p => p.description || '—')} pre />
+              <Row label="평점" values={proposals.map(p => p.broker_profiles?.rating ? `★ ${Number(p.broker_profiles.rating).toFixed(1)}` : '신규')} />
+              <Row label="후기" values={proposals.map(p => `${p.broker_profiles?.review_count ?? 0}개`)} />
+              <Row label="누적 거래" values={proposals.map(p => `${p.broker_profiles?.deal_count ?? 0}건`)} />
+              <Row label="제안일" values={proposals.map(p => formatDate(p.created_at))} />
+              {proposals.some(p => p.property_images?.length > 0) && (
+                <tr className="border-t border-gray-100">
+                  <td className="px-3 py-2.5 text-xs font-semibold text-gray-500 align-top">사진</td>
+                  {proposals.map(p => (
+                    <td key={p.id} className="px-3 py-2.5 align-top">
+                      {p.property_images?.length > 0 ? (
+                        <div className="flex gap-1.5 overflow-x-auto">
+                          {p.property_images.slice(0, 3).map((url: string, i: number) => (
+                            <div key={i} className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
+                              <Image src={url} alt="" fill className="object-cover" sizes="56px" />
+                            </div>
+                          ))}
+                        </div>
+                      ) : <span className="text-xs text-gray-400">없음</span>}
+                    </td>
+                  ))}
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3 flex-shrink-0">
+          <button onClick={onClose} className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Row({ label, values, pre, highlight, raw }: {
+  label: string
+  values: string[]
+  pre?: boolean
+  highlight?: 'lowest' | 'highest'
+  raw?: number[]
+}) {
+  let bestIdx = -1
+  if (highlight && raw) {
+    bestIdx = raw.reduce((best, v, i) => {
+      if (highlight === 'lowest') return v < (raw[best] ?? Infinity) ? i : best
+      return v > (raw[best] ?? -Infinity) ? i : best
+    }, 0)
+  }
+  return (
+    <tr className="border-t border-gray-100">
+      <td className="px-3 py-2.5 text-xs font-semibold text-gray-500 align-top">{label}</td>
+      {values.map((v, i) => (
+        <td key={i} className={`px-3 py-2.5 align-top ${pre ? 'whitespace-pre-line text-xs text-gray-600' : 'text-sm text-gray-800'} ${i === bestIdx ? 'bg-amber-50 font-bold text-amber-700' : ''}`}>
+          {v}
+        </td>
+      ))}
+    </tr>
   )
 }
 
