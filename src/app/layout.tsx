@@ -4,6 +4,7 @@ import './globals.css'
 import { ServiceWorkerRegister } from '@/components/sw-register'
 import { AuthProvider } from '@/lib/auth-context'
 import { NotificationsProvider } from '@/lib/notifications-context'
+import { ThemeProvider } from '@/lib/theme-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { InstallPrompt } from '@/components/install-prompt'
 import { ErrorBoundary, GlobalErrorListener } from '@/components/error-tracker'
@@ -71,7 +72,23 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko" className="h-full">
-      <body className={`${geist.className} min-h-full bg-gray-50 text-gray-900 antialiased`}>
+      <head>
+        {/* FOUC 방지: hydration 전에 테마·글꼴 클래스 적용 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{
+              var t=localStorage.getItem('bbabang_theme')||'system';
+              var f=localStorage.getItem('bbabang_font_size')||'md';
+              var dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
+              var r=document.documentElement;
+              if(dark)r.classList.add('dark');
+              r.classList.add('font-'+f);
+            }catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className={`${geist.className} min-h-full antialiased`}>
+        <a href="#main" className="skip-link">본문으로 건너뛰기</a>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify({
@@ -95,13 +112,15 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <GlobalErrorListener />
         <ErrorBoundary>
-          <AuthProvider>
-            <NotificationsProvider>
-              {children}
-              <BottomNav />
-              <InstallPrompt />
-            </NotificationsProvider>
-          </AuthProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <NotificationsProvider>
+                <main id="main">{children}</main>
+                <BottomNav />
+                <InstallPrompt />
+              </NotificationsProvider>
+            </AuthProvider>
+          </ThemeProvider>
         </ErrorBoundary>
         <Analytics />
         <SpeedInsights />

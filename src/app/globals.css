@@ -1,9 +1,28 @@
 @import "tailwindcss";
 
+/* 다크 모드: 클래스 기반 (.dark) — ThemeProvider가 html에 클래스 토글 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f9fafb;
   --foreground: #111827;
 }
+
+html {
+  font-size: 16px;
+}
+
+html.dark {
+  --background: #0a0a0a;
+  --foreground: #e5e7eb;
+  color-scheme: dark;
+}
+
+/* 글꼴 크기 — 사용자 설정 */
+html.font-sm { font-size: 14px; }
+html.font-md { font-size: 16px; }
+html.font-lg { font-size: 18px; }
+html.font-xl { font-size: 20px; }
 
 body {
   background: var(--background);
@@ -13,4 +32,27 @@ body {
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 키보드 포커스 — 접근성 */
+*:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip-to-content (시각적 숨김, 포커스 시 노출) */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: #2563eb;
+  color: white;
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+.skip-link:focus {
+  top: 1rem;
 }
