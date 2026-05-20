@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
 import { validatePrice } from '@/lib/validation'
-import { Home, SendHorizonal, ArrowLeft, CheckCircle, BookOpen, X, MapPin, Check } from 'lucide-react'
+import { Home, SendHorizonal, ArrowLeft, CheckCircle, BookOpen, X, MapPin, Check, ImagePlus, Trash2 } from 'lucide-react'
 
 export default function ProposePage() {
   const router = useRouter()
@@ -29,6 +30,12 @@ export default function ProposePage() {
   const [myProperties, setMyProperties] = useState<any[]>([])
   const [propertiesLoading, setPropertiesLoading] = useState(false)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
+
+  // 이미지: 기존 URL(매물에서 가져온 것) + 새로 업로드할 File
+  const [existingImages, setExistingImages] = useState<string[]>([])
+  const [newFiles, setNewFiles] = useState<File[]>([])
+  const [filePreviews, setFilePreviews] = useState<string[]>([])
+  const MAX_IMAGES = 5
 
   useEffect(() => {
     const checkExisting = async () => {
@@ -50,12 +57,40 @@ export default function ProposePage() {
     if (!broker) { setPropertiesLoading(false); return }
     const { data } = await supabase
       .from('broker_properties')
-      .select('id, address, deal_type, room_type, price, monthly_rent, brief_memo, status')
+      .select('id, address, deal_type, room_type, price, monthly_rent, brief_memo, status, images')
       .eq('broker_id', broker.id)
       .eq('status', 'available')
       .order('created_at', { ascending: false })
     setMyProperties(data ?? [])
     setPropertiesLoading(false)
+  }
+
+  const onPickFiles = (files: FileList | null) => {
+    if (!files) return
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    const MAX_SIZE = 10 * 1024 * 1024
+    const remaining = MAX_IMAGES - existingImages.length - newFiles.length
+    const arr = Array.from(files).slice(0, Math.max(0, remaining))
+    const skipped: string[] = []
+    const next: File[] = []
+    for (const f of arr) {
+      if (!ALLOWED.includes(f.type)) { skipped.push(`${f.name}: 형식 미지원`); continue }
+      if (f.size > MAX_SIZE) { skipped.push(`${f.name}: 10MB 초과`); continue }
+      if (f.size === 0) { skipped.push(`${f.name}: 빈 파일`); continue }
+      next.push(f)
+    }
+    if (skipped.length > 0) setError(`일부 파일 제외: ${skipped.join(', ')}`)
+    setNewFiles(prev => [...prev, ...next])
+    setFilePreviews(prev => [...prev, ...next.map(f => URL.createObjectURL(f))])
+  }
+
+  const removeExistingImage = (idx: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== idx))
+  }
+  const removeNewFile = (idx: number) => {
+    URL.revokeObjectURL(filePreviews[idx])
+    setFilePreviews(prev => prev.filter((_, i) => i !== idx))
+    setNewFiles(prev => prev.filter((_, i) => i !== idx))
   }
 
   const openModal = () => {
@@ -68,6 +103,13 @@ export default function ProposePage() {
     setAddress(prop.address ?? '')
     // 메모가 있으면 description에 채워줌
     if (prop.brief_memo) setDescription(prop.brief_memo)
+    // 매물 이미지를 기존 이미지로 가져오기 (MAX_IMAGES 초과 시 잘라냄)
+    if (Array.isArray(prop.images) && prop.images.length > 0) {
+      const available = MAX_IMAGES - newFiles.length
+      setExistingImages(prop.images.slice(0, Math.max(0, available)))
+    } else {
+      setExistingImages([])
+    }
     setSelectedPropertyId(prop.id)
     setShowPropertyModal(false)
   }
@@ -89,13 +131,34 @@ export default function ProposePage() {
     const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).limit(1).single()
     if (!broker) { setError('중개사 등록이 필요합니다.'); setLoading(false); return }
 
+    // 새 파일 업로드 → property-images 버킷
+    const uploadedNew: string[] = []
+    const skipped: string[] = []
+    for (const file of newFiles) {
+      const ext = file.name.split('.').pop()
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('property-images')
+        .upload(path, file, { upsert: false })
+      if (uploadError) { skipped.push(file.name); continue }
+      const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
+      uploadedNew.push(publicUrl)
+    }
+    if (skipped.length > 0 && uploadedNew.length === 0 && existingImages.length === 0) {
+      setError('이미지 업로드에 실패했습니다. 다시 시도해주세요.')
+      setLoading(false)
+      return
+    }
+
+    const allImages = [...existingImages, ...uploadedNew]
+
     const { error: insertError } = await supabase.from('proposals').insert({
       request_id: requestId,
       broker_id: broker.id,
       price: Number(price),
       description,
       property_address: address || null,
-      property_images: [],
+      property_images: allImages,
       status: 'pending',
     })
 
@@ -270,6 +333,47 @@ export default function ProposePage() {
                     maxLength={2000}
                     className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                   />
+                </div>
+
+                {/* 매물 사진 */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    매물 사진 <span className="text-gray-400 font-normal">(최대 {MAX_IMAGES}장)</span>
+                  </label>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {existingImages.map((url, i) => (
+                      <div key={`ex-${i}`} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
+                        <Image src={url} alt="" fill className="object-cover" sizes="120px" />
+                        <button type="button" onClick={() => removeExistingImage(i)}
+                          className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {filePreviews.map((url, i) => (
+                      <div key={`new-${i}`} className="relative aspect-square rounded-xl overflow-hidden border border-blue-300 group">
+                        <Image src={url} alt="" fill className="object-cover" sizes="120px" unoptimized />
+                        <span className="absolute top-1 left-1 rounded bg-blue-600 px-1 py-0.5 text-[9px] font-bold text-white">NEW</span>
+                        <button type="button" onClick={() => removeNewFile(i)}
+                          className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {existingImages.length + newFiles.length < MAX_IMAGES && (
+                      <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                        <ImagePlus className="h-5 w-5 text-gray-400" />
+                        <span className="text-[10px] text-gray-500">추가</span>
+                        <input type="file" accept="image/*" multiple className="hidden"
+                          onChange={e => { onPickFiles(e.target.files); e.target.value = '' }} />
+                      </label>
+                    )}
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-400">
+                    {existingImages.length + newFiles.length === 0
+                      ? '사진이 있으면 매물 호소력이 크게 올라가요 (JPG/PNG/WEBP, 각 10MB)'
+                      : `${existingImages.length + newFiles.length}장 첨부 (최대 ${MAX_IMAGES}장)`}
+                  </p>
                 </div>
 
                 {error && (
