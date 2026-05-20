@@ -114,7 +114,7 @@ export default async function BrokerDashboardPage() {
       : 'text-red-500'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
@@ -122,24 +122,24 @@ export default async function BrokerDashboardPage() {
         <Card className="mb-8">
           <CardBody>
             <div className="flex items-center gap-5">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 text-2xl font-black">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 text-2xl font-black dark:bg-blue-500/20 dark:text-blue-400">
                 {profile?.name?.[0]}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-gray-900">{profile?.name}</h1>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">{profile?.name}</h1>
                   {broker.is_verified && (
                     <CheckCircle className="h-5 w-5 text-blue-500" />
                   )}
                 </div>
-                <p className="text-gray-500">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
+                <p className="text-gray-500 dark:text-gray-400">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
                 <div className="mt-2 flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1 text-yellow-600">
+                  <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
                     <Star className="h-4 w-4 fill-yellow-400" />
                     <strong>{broker.rating?.toFixed(1) ?? '0.0'}</strong>
-                    <span className="text-gray-400">({broker.review_count ?? 0})</span>
+                    <span className="text-gray-400 dark:text-gray-500">({broker.review_count ?? 0})</span>
                   </span>
-                  <span className="text-gray-500">성사 {broker.deal_count ?? 0}건</span>
+                  <span className="text-gray-500 dark:text-gray-400">성사 {broker.deal_count ?? 0}건</span>
                 </div>
               </div>
             </div>
@@ -171,78 +171,78 @@ export default async function BrokerDashboardPage() {
         {/* 빠른 메뉴 4타일 */}
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Link href="/broker/customers">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100">
                 <Users className="h-5 w-5 text-indigo-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">고객목록</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">고객목록</span>
             </div>
           </Link>
           <Link href="/broker/properties">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100">
                 <Building2 className="h-5 w-5 text-blue-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">매물목록</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">매물목록</span>
             </div>
           </Link>
           <Link href="/broker/diary">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100">
                 <ClipboardList className="h-5 w-5 text-green-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">업무일지</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">업무일지</span>
             </div>
           </Link>
           <Link href="/broker/chats">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100">
                 <MessageCircle className="h-5 w-5 text-orange-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">대화목록</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">대화목록</span>
             </div>
           </Link>
           <Link href="/broker/resources">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100">
                 <FolderOpen className="h-5 w-5 text-sky-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">자료실</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">자료실</span>
             </div>
           </Link>
           <Link href="/broker/stats">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100">
                 <BarChart2 className="h-5 w-5 text-emerald-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">실적 분석</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">실적 분석</span>
             </div>
           </Link>
           <Link href="/broker/card">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100">
                 <IdCard className="h-5 w-5 text-amber-600" />
               </div>
-              <span className="text-sm font-bold text-gray-800">내 명함</span>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">내 명함</span>
             </div>
           </Link>
           {broker.is_owner !== false && (
             <Link href="/broker/team">
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100">
                   <Users className="h-5 w-5 text-purple-600" />
                 </div>
-                <span className="text-sm font-bold text-gray-800">팀 관리</span>
+                <span className="text-sm font-bold text-gray-800 dark:text-gray-100">팀 관리</span>
               </div>
             </Link>
           )}
           {broker.is_owner !== false && (
             <Link href="/settings/office">
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 transition-colors cursor-pointer shadow-sm">
+              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
                   <Settings className="h-5 w-5 text-gray-600" />
                 </div>
-                <span className="text-sm font-bold text-gray-800">사무소 설정</span>
+                <span className="text-sm font-bold text-gray-800 dark:text-gray-100">사무소 설정</span>
               </div>
             </Link>
           )}
