@@ -48,6 +48,7 @@ export default function BrokerResourcesPage() {
   const [description, setDescription] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -77,16 +78,38 @@ export default function BrokerResourcesPage() {
     setLoading(false)
   }
 
-  const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
+  const acceptFile = (f: File | undefined | null) => {
     if (!f) return
     if (f.size > MAX_FILE_SIZE) {
       alert(`파일은 ${formatFileSize(MAX_FILE_SIZE)}까지 업로드 가능합니다.`)
-      e.target.value = ''
       return
     }
     setFile(f)
     if (!title) setTitle(f.name.replace(/\.[^.]+$/, ''))
+  }
+
+  const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (f.size > MAX_FILE_SIZE) {
+      e.target.value = ''
+    }
+    acceptFile(f)
+  }
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    if (!isDragging) setIsDragging(true)
+  }
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const f = e.dataTransfer.files?.[0]
+    acceptFile(f)
   }
 
   const resetForm = () => {
@@ -259,13 +282,24 @@ export default function BrokerResourcesPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
+                  <div
                     onClick={() => fileRef.current?.click()}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-3 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600 transition-colors"
+                    onDragOver={onDragOver}
+                    onDragEnter={onDragOver}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click() }}
+                    className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-3 py-5 text-sm font-medium cursor-pointer transition-colors ${
+                      isDragging
+                        ? 'border-blue-400 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600'
+                    }`}
                   >
-                    <Paperclip className="h-4 w-4" />
-                    파일 선택
-                  </button>
+                    <Paperclip className="h-5 w-5" />
+                    <span>{isDragging ? '여기에 놓으세요' : '파일을 끌어놓거나 클릭해 선택'}</span>
+                  </div>
                 )}
               </div>
               <div className="flex gap-2 pt-1">
