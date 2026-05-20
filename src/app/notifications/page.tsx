@@ -27,6 +27,7 @@ const TYPE_ICON: Record<string, string> = {
   stage_changed: '🚀',
   saved_search_match: '🔖',
   property_price_changed: '💰',
+  deal_completed: '🎉',
 }
 
 type Filter = 'all' | 'unread'

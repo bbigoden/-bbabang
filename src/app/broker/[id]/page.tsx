@@ -16,6 +16,7 @@ function formatHours(h: number | null | undefined): string | null {
 }
 import { formatDate, formatPrice } from '@/lib/utils'
 import Image from 'next/image'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 interface Props {
@@ -289,7 +290,8 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {properties.map(p => (
-                <Card key={p.id} className="relative">
+                <Link key={p.id} href={`/property/${p.id}`}>
+                <Card className="relative hover:border-blue-300 transition-colors">
                   <CardBody className="p-4">
                     {p.images?.[0] ? (
                       <div className="relative mb-3 h-32 w-full overflow-hidden rounded-xl">
@@ -329,6 +331,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                     </p>
                   </CardBody>
                 </Card>
+                </Link>
               ))}
             </div>
           </div>
