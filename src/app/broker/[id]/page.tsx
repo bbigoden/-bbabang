@@ -127,10 +127,50 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
 
   const districts = broker.district?.split(',').map((d: string) => d.trim()).filter(Boolean) ?? []
 
+  // JSON-LD 구조화 데이터
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: '홈', item: 'https://bbabang.vercel.app' },
+          { '@type': 'ListItem', position: 2, name: '중개사', item: 'https://bbabang.vercel.app/brokers' },
+          { '@type': 'ListItem', position: 3, name: broker.profiles?.name ?? '중개사', item: `https://bbabang.vercel.app/broker/${brokerId}` },
+        ],
+      },
+      {
+        '@type': 'RealEstateAgent',
+        name: broker.profiles?.name ?? '공인중개사',
+        url: `https://bbabang.vercel.app/broker/${brokerId}`,
+        ...(broker.office_name && { brand: { '@type': 'Organization', name: broker.office_name } }),
+        ...(broker.address && { address: { '@type': 'PostalAddress', streetAddress: broker.address, addressCountry: 'KR' } }),
+        ...(broker.rating > 0 && broker.review_count > 0 && {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: broker.rating,
+            reviewCount: broker.review_count,
+            bestRating: 5,
+          },
+        }),
+        ...(reviews.length > 0 && {
+          review: reviews.slice(0, 5).map((r: any) => ({
+            '@type': 'Review',
+            author: { '@type': 'Person', name: r.profiles?.name ?? '익명' },
+            datePublished: r.created_at,
+            reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 },
+            reviewBody: r.content,
+          })),
+        }),
+      },
+    ],
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header user={user} />
       <ViewTracker type="broker" id={brokerId} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <div className="mx-auto max-w-3xl px-4 py-8">
         {/* 프로필 카드 */}

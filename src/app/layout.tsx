@@ -93,6 +93,19 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify({
             '@context': 'https://schema.org',
+            '@graph': [
+              {
+                '@type': 'WebSite',
+                name: '빠방',
+                alternateName: 'Ppabang',
+                url: BASE_URL,
+                potentialAction: {
+                  '@type': 'SearchAction',
+                  target: { '@type': 'EntryPoint', urlTemplate: `${BASE_URL}/search?q={search_term_string}` },
+                  'query-input': 'required name=search_term_string',
+                },
+              },
+              {
             '@type': 'Organization',
             name: '빠방',
             alternateName: 'Ppabang',
@@ -107,6 +120,8 @@ export default function RootLayout({
               areaServed: 'KR',
               availableLanguage: ['Korean'],
             },
+              },
+            ],
           }) }}
         />
         <ServiceWorkerRegister />
