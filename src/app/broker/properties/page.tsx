@@ -323,7 +323,7 @@ function FloorCell({ floor, totalFloors, onSave }: {
   }
   return (
     <div onClick={() => { setDraft(display); setEditing(true) }}
-      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
       style={{ color: display ? '#374151' : '#d1d5db' }}>
       {display || '예: 3/15'}
     </div>
@@ -379,7 +379,7 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
   const dep = price != null ? `${price.toLocaleString()}만` : '—'
   const mo = rent != null ? `${rent.toLocaleString()}만` : '—'
   return (
-    <div className="w-full cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs overflow-hidden whitespace-nowrap text-ellipsis"
+    <div className="w-full cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs text-right overflow-hidden whitespace-nowrap text-ellipsis"
       onClick={() => { setDraftPrice(price != null ? String(price) : ''); setDraftRent(rent != null ? String(rent) : ''); setEditing(true) }}>
       <span className={`font-semibold ${price ? 'text-gray-800' : 'text-gray-300'}`}>{dep}</span>
       <span className="text-gray-400 mx-0.5">/</span>
@@ -460,7 +460,7 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
         onClick={handleOpen}
         onMouseEnter={() => { if (!open && displayText) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
         style={{ color: displayText ? '#374151' : '#d1d5db' }}
       >
         {displayText ?? '전용/공급'}
@@ -943,9 +943,11 @@ const PropertyRow = memo(function PropertyRow({
               const raw: any = (p as any)[key]
               return raw != null && raw !== '' ? String(raw) : '—'
             })()
+            const NUMERIC_RIGHT_COLS = ['price', 'size_pyeong', 'management_fee', 'premium', 'total_floors']
+            const isNum = NUMERIC_RIGHT_COLS.includes(key)
             return (
               <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{readVal}</div>
+                <div className={`w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px] ${isNum ? 'text-right' : ''}`}>{readVal}</div>
               </td>
             )
           }
