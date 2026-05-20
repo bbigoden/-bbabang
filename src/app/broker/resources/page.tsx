@@ -8,22 +8,28 @@ import { useRouter } from 'next/navigation'
 import { FolderOpen, Plus, FileText, Download, Trash2, Link as LinkIcon, Paperclip, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
+interface ResourceFile {
+  id: string
+  storage_path: string
+  file_name: string
+  file_size: number | null
+  file_type: string | null
+  sort_order: number
+}
+
 interface Resource {
   id: string
   office_broker_id: string
   uploader_broker_id: string | null
   title: string
   description: string | null
-  file_url: string | null
-  file_name: string | null
-  file_size: number | null
-  file_type: string | null
-  storage_path: string | null
   created_at: string
   uploader?: { profiles?: { name: string | null } | null } | null
+  files?: ResourceFile[] | null
 }
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB per file
+const MAX_FILES = 20
 
 function formatFileSize(bytes: number | null | undefined): string {
   if (!bytes) return ''
@@ -46,7 +52,7 @@ export default function BrokerResourcesPage() {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -70,31 +76,55 @@ export default function BrokerResourcesPage() {
 
     const { data } = await supabase
       .from('office_resources')
-      .select('*, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name))')
+      .select('*, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name)), files:office_resource_files(*)')
       .eq('office_broker_id', oid)
       .order('created_at', { ascending: false })
 
-    setResources((data ?? []) as unknown as Resource[])
+    // 첨부파일 sort_order로 정렬
+    const list = (data ?? []).map((r: any) => ({
+      ...r,
+      files: Array.isArray(r.files)
+        ? [...r.files].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        : [],
+    }))
+    setResources(list as Resource[])
     setLoading(false)
   }
 
-  const acceptFile = (f: File | undefined | null) => {
-    if (!f) return
-    if (f.size > MAX_FILE_SIZE) {
-      alert(`파일은 ${formatFileSize(MAX_FILE_SIZE)}까지 업로드 가능합니다.`)
-      return
+  const acceptFiles = (incoming: FileList | File[] | null | undefined) => {
+    if (!incoming) return
+    const arr = Array.from(incoming)
+    if (arr.length === 0) return
+
+    const oversized = arr.filter(f => f.size > MAX_FILE_SIZE)
+    if (oversized.length > 0) {
+      alert(`다음 파일은 20MB를 초과해서 제외됐습니다:\n${oversized.map(f => `· ${f.name}`).join('\n')}`)
     }
-    setFile(f)
-    if (!title) setTitle(f.name.replace(/\.[^.]+$/, ''))
+    const ok = arr.filter(f => f.size <= MAX_FILE_SIZE)
+    if (ok.length === 0) return
+
+    setFiles(prev => {
+      const merged = [...prev]
+      for (const f of ok) {
+        // 같은 이름+크기는 중복 제외
+        if (!merged.some(p => p.name === f.name && p.size === f.size)) merged.push(f)
+        if (merged.length >= MAX_FILES) break
+      }
+      if (merged.length >= MAX_FILES) {
+        alert(`한 자료에는 최대 ${MAX_FILES}개까지 첨부할 수 있습니다.`)
+      }
+      return merged.slice(0, MAX_FILES)
+    })
+    if (!title && ok[0]) setTitle(ok[0].name.replace(/\.[^.]+$/, ''))
   }
 
   const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    if (f.size > MAX_FILE_SIZE) {
-      e.target.value = ''
-    }
-    acceptFile(f)
+    acceptFiles(e.target.files)
+    e.target.value = ''
+  }
+
+  const removeFileAt = (idx: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== idx))
   }
 
   const onDragOver = (e: React.DragEvent) => {
@@ -108,74 +138,87 @@ export default function BrokerResourcesPage() {
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    const f = e.dataTransfer.files?.[0]
-    acceptFile(f)
+    acceptFiles(e.dataTransfer.files)
   }
 
   const resetForm = () => {
-    setTitle(''); setDescription(''); setFile(null)
+    setTitle(''); setDescription(''); setFiles([])
     if (fileRef.current) fileRef.current.value = ''
   }
 
   const save = async () => {
     if (!broker || !officeBrokerId) return
     if (!title.trim()) { alert('제목을 입력해주세요.'); return }
-    if (!file && !description.trim()) { alert('파일을 첨부하거나 메모 내용을 입력해주세요.'); return }
+    if (files.length === 0 && !description.trim()) { alert('파일을 첨부하거나 메모 내용을 입력해주세요.'); return }
 
     setSaving(true)
-    let file_url: string | null = null
-    let file_name: string | null = null
-    let file_size: number | null = null
-    let file_type: string | null = null
-    let storage_path: string | null = null
+    const uploadedPaths: string[] = []
 
     try {
-      if (file) {
-        // Supabase Storage 키는 ASCII만 허용 → 확장자만 살리고 경로는 영문으로.
-        // 원본 한글 파일명은 file_name 컬럼에 보존, 다운로드 시 그 이름으로 받음.
-        const extRaw = (file.name.includes('.') ? file.name.split('.').pop() : '') ?? ''
-        const ext = /^[a-zA-Z0-9]{1,8}$/.test(extRaw) ? `.${extRaw.toLowerCase()}` : ''
-        const path = `${officeBrokerId}/${broker.id}/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
-        const { error: upErr } = await supabase.storage
-          .from('office-resources')
-          .upload(path, file, { upsert: false, contentType: file.type || undefined })
-        if (upErr) {
-          alert(`파일 업로드 실패: ${upErr.message}`)
-          setSaving(false)
-          return
-        }
-        const { data: signed } = await supabase.storage
-          .from('office-resources')
-          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5)
-        file_url = signed?.signedUrl ?? null
-        file_name = file.name
-        file_size = file.size
-        file_type = file.type || null
-        storage_path = path
-      }
-
-      const { data: inserted, error } = await supabase
+      // 1) 자료 row 먼저 생성
+      const { data: inserted, error: insErr } = await supabase
         .from('office_resources')
         .insert({
           office_broker_id: officeBrokerId,
           uploader_broker_id: broker.id,
           title: title.trim(),
           description: description.trim() || null,
-          file_url, file_name, file_size, file_type, storage_path,
         })
         .select('*, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name))')
         .single()
 
-      if (error) {
-        alert(`저장 실패: ${error.message}`)
-        if (storage_path) {
-          await supabase.storage.from('office-resources').remove([storage_path])
-        }
+      if (insErr || !inserted) {
+        alert(`저장 실패: ${insErr?.message ?? '알 수 없는 오류'}`)
         setSaving(false)
         return
       }
 
-      setResources(prev => [inserted as unknown as Resource, ...prev])
+      // 2) 파일들 Storage 업로드 → DB row insert
+      const fileRows: ResourceFile[] = []
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i]
+        const extRaw = (f.name.includes('.') ? f.name.split('.').pop() : '') ?? ''
+        const ext = /^[a-zA-Z0-9]{1,8}$/.test(extRaw) ? `.${extRaw.toLowerCase()}` : ''
+        const path = `${officeBrokerId}/${broker.id}/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}${ext}`
+
+        const { error: upErr } = await supabase.storage
+          .from('office-resources')
+          .upload(path, f, { upsert: false, contentType: f.type || undefined })
+        if (upErr) {
+          alert(`"${f.name}" 업로드 실패: ${upErr.message}`)
+          // 롤백
+          if (uploadedPaths.length > 0) await supabase.storage.from('office-resources').remove(uploadedPaths)
+          await supabase.from('office_resources').delete().eq('id', inserted.id)
+          setSaving(false)
+          return
+        }
+        uploadedPaths.push(path)
+
+        const { data: fileRow, error: fileErr } = await supabase
+          .from('office_resource_files')
+          .insert({
+            resource_id: inserted.id,
+            storage_path: path,
+            file_name: f.name,
+            file_size: f.size,
+            file_type: f.type || null,
+            sort_order: i,
+          })
+          .select('*')
+          .single()
+
+        if (fileErr || !fileRow) {
+          alert(`첨부 메타 저장 실패: ${fileErr?.message ?? ''}`)
+          if (uploadedPaths.length > 0) await supabase.storage.from('office-resources').remove(uploadedPaths)
+          await supabase.from('office_resources').delete().eq('id', inserted.id)
+          setSaving(false)
+          return
+        }
+        fileRows.push(fileRow as ResourceFile)
+      }
+
+      const newResource: Resource = { ...(inserted as any), files: fileRows }
+      setResources(prev => [newResource, ...prev])
       resetForm()
       setShowForm(false)
     } finally {
@@ -183,12 +226,10 @@ export default function BrokerResourcesPage() {
     }
   }
 
-  const handleDownload = async (r: Resource) => {
-    if (!r.storage_path) return
-    // 원본 한글 파일명으로 받게 download 옵션 지정
+  const handleDownload = async (f: ResourceFile) => {
     const { data, error } = await supabase.storage
       .from('office-resources')
-      .createSignedUrl(r.storage_path, 60, r.file_name ? { download: r.file_name } : undefined)
+      .createSignedUrl(f.storage_path, 60, { download: f.file_name })
     if (error || !data?.signedUrl) {
       alert(`다운로드 링크 생성 실패: ${error?.message ?? ''}`)
       return
@@ -196,10 +237,11 @@ export default function BrokerResourcesPage() {
     window.open(data.signedUrl, '_blank')
   }
 
-  const remove = async (r: Resource) => {
-    if (!confirm(`"${r.title}" 자료를 삭제할까요?`)) return
-    if (r.storage_path) {
-      await supabase.storage.from('office-resources').remove([r.storage_path])
+  const removeResource = async (r: Resource) => {
+    if (!confirm(`"${r.title}" 자료를 삭제할까요? 첨부 파일도 함께 삭제됩니다.`)) return
+    const paths = (r.files ?? []).map(f => f.storage_path)
+    if (paths.length > 0) {
+      await supabase.storage.from('office-resources').remove(paths)
     }
     const { error } = await supabase.from('office_resources').delete().eq('id', r.id)
     if (error) {
@@ -253,7 +295,7 @@ export default function BrokerResourcesPage() {
                 <input
                   value={title}
                   onChange={e => setTitle(e.target.value.slice(0, 120))}
-                  placeholder="예: 2025 표준 임대차계약서"
+                  placeholder="예: 2025 표준 임대차계약서 패키지"
                   maxLength={120}
                   className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
@@ -271,38 +313,48 @@ export default function BrokerResourcesPage() {
                 <p className="mt-1 text-[11px] text-gray-400">{description.length}/2000</p>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600">파일 첨부 (선택, 최대 20MB)</label>
-                <input ref={fileRef} type="file" onChange={onFilePick} className="hidden" />
-                {file ? (
-                  <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                      <span className="truncate text-gray-700">{file.name}</span>
-                      <span className="flex-shrink-0 text-xs text-gray-400">({formatFileSize(file.size)})</span>
-                    </div>
-                    <button onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }}
-                      className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => fileRef.current?.click()}
-                    onDragOver={onDragOver}
-                    onDragEnter={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onDrop={onDrop}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click() }}
-                    className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-3 py-5 text-sm font-medium cursor-pointer transition-colors ${
-                      isDragging
-                        ? 'border-blue-400 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600'
-                    }`}
-                  >
-                    <Paperclip className="h-5 w-5" />
-                    <span>{isDragging ? '여기에 놓으세요' : '파일을 끌어놓거나 클릭해 선택'}</span>
+                <label className="mb-1 block text-xs font-semibold text-gray-600">
+                  파일 첨부 (선택, 최대 {MAX_FILES}개, 각 20MB)
+                </label>
+                <input ref={fileRef} type="file" multiple onChange={onFilePick} className="hidden" />
+
+                {/* 드롭존 — 파일 있어도 계속 보이게 해서 추가 첨부 가능 */}
+                <div
+                  onClick={() => fileRef.current?.click()}
+                  onDragOver={onDragOver}
+                  onDragEnter={onDragOver}
+                  onDragLeave={onDragLeave}
+                  onDrop={onDrop}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileRef.current?.click() }}
+                  className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-3 py-5 text-sm font-medium cursor-pointer transition-colors ${
+                    isDragging
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-blue-300 hover:bg-blue-50/40 hover:text-blue-600'
+                  }`}
+                >
+                  <Paperclip className="h-5 w-5" />
+                  <span>{isDragging ? '여기에 놓으세요' : '파일을 끌어놓거나 클릭해 선택 (여러 개 가능)'}</span>
+                </div>
+
+                {/* 선택된 파일 목록 */}
+                {files.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {files.map((f, i) => (
+                      <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <span className="truncate text-gray-700">{f.name}</span>
+                          <span className="flex-shrink-0 text-xs text-gray-400">({formatFileSize(f.size)})</span>
+                        </div>
+                        <button onClick={() => removeFileAt(i)}
+                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <p className="text-[11px] text-gray-400">총 {files.length}개</p>
                   </div>
                 )}
               </div>
@@ -336,17 +388,18 @@ export default function BrokerResourcesPage() {
             {resources.map(r => {
               const canDelete = r.uploader_broker_id === broker?.id || officeBrokerId === broker?.id
               const uploaderName = r.uploader?.profiles?.name ?? '—'
+              const attachmentCount = r.files?.length ?? 0
               return (
                 <div key={r.id} className="rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-200 hover:shadow-sm transition-all">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                      {r.storage_path ? <FileText className="h-5 w-5" /> : <LinkIcon className="h-5 w-5" />}
+                      {attachmentCount > 0 ? <FileText className="h-5 w-5" /> : <LinkIcon className="h-5 w-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="font-bold text-gray-900 break-keep">{r.title}</h3>
                         {canDelete && (
-                          <button onClick={() => remove(r)}
+                          <button onClick={() => removeResource(r)}
                             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -359,21 +412,29 @@ export default function BrokerResourcesPage() {
                         <span>{uploaderName}</span>
                         <span>·</span>
                         <span>{formatDate(r.created_at)}</span>
-                        {r.file_size != null && (
+                        {attachmentCount > 0 && (
                           <>
                             <span>·</span>
-                            <span>{formatFileSize(r.file_size)}</span>
+                            <span>첨부 {attachmentCount}개</span>
                           </>
                         )}
                       </div>
-                      {r.storage_path && (
-                        <button
-                          onClick={() => handleDownload(r)}
-                          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          {r.file_name ?? '파일'} 다운로드
-                        </button>
+                      {attachmentCount > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {r.files!.map(f => (
+                            <button
+                              key={f.id}
+                              onClick={() => handleDownload(f)}
+                              className="flex w-full items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                            >
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <Download className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span className="truncate">{f.file_name}</span>
+                              </span>
+                              <span className="flex-shrink-0 text-[11px] text-gray-400">{formatFileSize(f.file_size)}</span>
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
