@@ -11,7 +11,7 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, Shield, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight, Table2, Flag, Megaphone
+  Hash, ChevronRight, Table2, Flag, Megaphone, BarChart3
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -315,27 +315,41 @@ export default function AdminPage() {
           </Link>
         </div>
 
-        <Link href="/admin/brokers"
-          className={`flex items-center gap-4 rounded-2xl border p-5 transition-all hover:border-gray-600 ${
-            stats.unverifiedBrokers > 0
-              ? 'border-yellow-500/30 bg-yellow-500/5 hover:bg-yellow-500/10'
-              : 'border-gray-800 bg-gray-900 hover:bg-gray-800/80'
-          }`}>
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-            stats.unverifiedBrokers > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-purple-500/20 text-purple-400'
-          }`}>
-            <Building2 className="h-6 w-6" />
-          </div>
-          <div className="flex-1">
-            <p className="font-bold text-white">중개사 검수</p>
-            <p className="text-sm text-gray-400">
-              {stats.unverifiedBrokers > 0
-                ? <>미인증 대표 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>명 검수 대기</>
-                : '자격증·사업자 정보 검토 및 인증'}
-            </p>
-          </div>
-          <ChevronRight className="h-5 w-5 text-gray-600" />
-        </Link>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link href="/admin/brokers"
+            className={`flex items-center gap-4 rounded-2xl border p-5 transition-all hover:border-gray-600 ${
+              stats.unverifiedBrokers > 0
+                ? 'border-yellow-500/30 bg-yellow-500/5 hover:bg-yellow-500/10'
+                : 'border-gray-800 bg-gray-900 hover:bg-gray-800/80'
+            }`}>
+            <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+              stats.unverifiedBrokers > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-purple-500/20 text-purple-400'
+            }`}>
+              <Building2 className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-white">중개사 검수</p>
+              <p className="text-sm text-gray-400">
+                {stats.unverifiedBrokers > 0
+                  ? <>미인증 대표 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>명 검수 대기</>
+                  : '자격증·사업자 정보 검토 및 인증'}
+              </p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-600" />
+          </Link>
+
+          <Link href="/admin/stats"
+            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400">
+              <BarChart3 className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-white">통계·분석</p>
+              <p className="text-sm text-gray-400">7·30·90일 추이, 지역별 분포, 거래유형</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-gray-600" />
+          </Link>
+        </div>
 
         {/* ── 통계 ── */}
         <div className="grid grid-cols-3 gap-4">
