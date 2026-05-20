@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatPrice, maskAddress, cn } from '@/lib/utils'
 import {
   Building2, X, ChevronLeft, ChevronRight, Send,
-  ImagePlus, Phone, CheckCircle, Star, MapPin, Search
+  ImagePlus, Phone, CheckCircle, Star, MapPin, Search, Calendar, Clock
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -16,10 +16,17 @@ export interface Message {
   room_id: string
   sender_id: string
   content: string
-  message_type: 'text' | 'property' | 'image'
+  message_type: 'text' | 'property' | 'image' | 'event'
   property_id: string | null
   created_at: string
   is_read: boolean
+}
+
+export interface EventPayload {
+  title: string
+  datetime: string  // ISO
+  location?: string
+  note?: string
 }
 
 export interface PropertySnapshot {
@@ -56,6 +63,41 @@ export function PropertyCard({ snapshot, isMine, onClick }: { snapshot: Property
           탭하면 상세 정보 보기
         </div>
       )}
+    </div>
+  )
+}
+
+// ── 일정 카드 ──────────────────────────────────────
+export function EventCard({ event, isMine }: { event: EventPayload; isMine: boolean }) {
+  const dt = new Date(event.datetime)
+  const dateStr = dt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+  const timeStr = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+  const calendarUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${dt.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}/${new Date(dt.getTime() + 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}${event.location ? `&location=${encodeURIComponent(event.location)}` : ''}${event.note ? `&details=${encodeURIComponent(event.note)}` : ''}`
+  return (
+    <div className={cn('w-56 rounded-2xl border overflow-hidden shadow-sm', isMine ? 'border-emerald-200 bg-emerald-50' : 'border-gray-100 bg-white')}>
+      <div className={cn('flex items-center gap-2 px-3 py-2 border-b text-xs font-semibold', isMine ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-emerald-50 border-emerald-100 text-emerald-700')}>
+        <Calendar className="h-3.5 w-3.5" />일정 공유
+      </div>
+      <div className="px-3 py-2.5 space-y-1.5">
+        <p className={cn('text-sm font-bold leading-snug', isMine ? 'text-emerald-900' : 'text-gray-900')}>{event.title}</p>
+        <p className={cn('flex items-center gap-1 text-xs', isMine ? 'text-emerald-700' : 'text-gray-500')}>
+          <Clock className="h-3 w-3" />
+          {dateStr} · {timeStr}
+        </p>
+        {event.location && (
+          <p className={cn('flex items-center gap-1 text-xs', isMine ? 'text-emerald-700' : 'text-gray-500')}>
+            <MapPin className="h-3 w-3" />
+            {event.location}
+          </p>
+        )}
+        {event.note && (
+          <p className={cn('text-xs leading-relaxed line-clamp-2 mt-1', isMine ? 'text-emerald-800' : 'text-gray-600')}>{event.note}</p>
+        )}
+      </div>
+      <a href={calendarUrl} target="_blank" rel="noopener noreferrer"
+        className={cn('block px-3 py-1.5 text-center text-xs font-semibold border-t', isMine ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'border-gray-100 text-blue-600 hover:bg-gray-50')}>
+        구글 캘린더에 추가
+      </a>
     </div>
   )
 }
@@ -192,6 +234,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const [sendingProps, setSendingProps] = useState(false)
   const [viewingSnapshot, setViewingSnapshot] = useState<PropertySnapshot | null>(null)
   const [hasReview, setHasReview] = useState<boolean | null>(null)
+  const [showEventModal, setShowEventModal] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -286,6 +329,18 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content, message_type: 'text' })
     notifyRecipient(content)
     setSending(false); inputRef.current?.focus()
+  }
+
+  const sendEvent = async (payload: EventPayload) => {
+    if (!room) return
+    await supabase.from('chat_messages').insert({
+      room_id: room.id,
+      sender_id: currentUser.id,
+      content: JSON.stringify(payload),
+      message_type: 'event',
+    })
+    notifyRecipient(`📅 일정: ${payload.title}`)
+    setShowEventModal(false)
   }
 
   const sendImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -463,7 +518,9 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                   const showMeta = !prev || new Date(msg.created_at).getMinutes() !== new Date(prev.created_at).getMinutes() || prev.sender_id !== msg.sender_id
                   const isLast = idx === msgs.length - 1 || msgs[idx + 1].sender_id !== msg.sender_id
                   let snap: PropertySnapshot | null = null
+                  let event: EventPayload | null = null
                   if (msg.message_type === 'property') { try { snap = JSON.parse(msg.content) } catch { } }
+                  if (msg.message_type === 'event') { try { event = JSON.parse(msg.content) } catch { } }
                   return (
                     <div key={msg.id} className={cn('flex items-end gap-1.5', isMine ? 'justify-end' : 'justify-start')}>
                       {!isMine && (
@@ -474,6 +531,8 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                       <div className={cn('flex flex-col', isMine ? 'items-end' : 'items-start')}>
                         {msg.message_type === 'property' && snap ? (
                           <PropertyCard snapshot={snap} isMine={isMine} onClick={() => setViewingSnapshot(snap)} />
+                        ) : msg.message_type === 'event' && event ? (
+                          <EventCard event={event} isMine={isMine} />
                         ) : msg.message_type === 'image' ? (
                           <a href={msg.content} target="_blank" rel="noopener noreferrer">
                             <div className="relative overflow-hidden rounded-2xl border border-gray-100" style={{ width: '200px', height: '160px' }}>
@@ -607,11 +666,19 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       <div className="border-t border-gray-100 bg-white px-3 py-2.5 flex-shrink-0">
         <div className="flex items-end gap-1.5">
           {isBroker && (
-            <button onClick={showPicker ? () => setShowPicker(false) : openPropertyPicker}
-              className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border transition-all',
-                showPicker ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-600')}>
-              <Building2 className="h-4 w-4" />
-            </button>
+            <>
+              <button onClick={showPicker ? () => setShowPicker(false) : openPropertyPicker}
+                className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border transition-all',
+                  showPicker ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-blue-50 hover:text-blue-600')}
+                title="매물 공유">
+                <Building2 className="h-4 w-4" />
+              </button>
+              <button onClick={() => setShowEventModal(true)}
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
+                title="일정 공유">
+                <Calendar className="h-4 w-4" />
+              </button>
+            </>
           )}
           <label className="flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all">
             <ImagePlus className="h-4 w-4" />
@@ -628,6 +695,107 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-all',
               input.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}>
             <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {showEventModal && (
+        <EventComposeModal onClose={() => setShowEventModal(false)} onSend={sendEvent} />
+      )}
+    </div>
+  )
+}
+
+function EventComposeModal({ onClose, onSend }: {
+  onClose: () => void
+  onSend: (payload: EventPayload) => Promise<void>
+}) {
+  const now = new Date()
+  now.setMinutes(0, 0, 0)
+  now.setHours(now.getHours() + 1)
+  const defaultDate = now.toISOString().slice(0, 10)
+  const defaultTime = now.toISOString().slice(11, 16)
+
+  const [title, setTitle] = useState('')
+  const [date, setDate] = useState(defaultDate)
+  const [time, setTime] = useState(defaultTime)
+  const [location, setLocation] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const submit = async () => {
+    if (!title.trim()) { setErr('일정 제목을 입력해주세요'); return }
+    if (!date || !time) { setErr('일시를 입력해주세요'); return }
+    const dt = new Date(`${date}T${time}:00`)
+    if (isNaN(dt.getTime())) { setErr('올바른 일시를 입력해주세요'); return }
+    setBusy(true)
+    await onSend({
+      title: title.trim(),
+      datetime: dt.toISOString(),
+      location: location.trim() || undefined,
+      note: note.trim() || undefined,
+    })
+    setBusy(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <h3 className="flex items-center gap-2 font-bold text-gray-900">
+            <Calendar className="h-4 w-4 text-emerald-500" />
+            일정 공유
+          </h3>
+          <button onClick={onClose} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-5 space-y-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">제목 *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} maxLength={100}
+              placeholder="예: 매물 방문 일정, 계약 일정"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">날짜 *</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">시간 *</label>
+              <input type="time" value={time} onChange={e => setTime(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">장소 (선택)</label>
+            <input value={location} onChange={e => setLocation(e.target.value)} maxLength={200}
+              placeholder="주소 또는 만날 장소"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">메모 (선택)</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={300} rows={2}
+              placeholder="준비물·특이사항"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
+          </div>
+          {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
+        </div>
+
+        <div className="flex gap-2 border-t border-gray-100 px-5 py-4">
+          <button onClick={onClose} disabled={busy}
+            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            취소
+          </button>
+          <button onClick={submit} disabled={busy}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-50">
+            <Calendar className="h-4 w-4" />
+            {busy ? '전송 중...' : '일정 보내기'}
           </button>
         </div>
       </div>
