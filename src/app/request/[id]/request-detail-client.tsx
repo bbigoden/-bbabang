@@ -16,6 +16,7 @@ import { ShareButton } from '@/components/share-button'
 import { ChatPanel } from '@/components/chat-panel'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
+import { sendEmailNotification, absoluteUrl } from '@/lib/email-client'
 import Link from 'next/link'
 
 // ── 메인 클라이언트 컴포넌트 ────────────────────────
@@ -63,6 +64,15 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
         body: '고객이 회원님의 제안을 수락했습니다.',
         link: `/chat/${proposalId}`,
       })
+      // 이메일 알림
+      sendEmailNotification({
+        targetUserId: proposal.broker_profiles.user_id,
+        category: 'proposal',
+        title: '[빠방] 제안이 수락되었어요',
+        body: `축하합니다! 고객이 회원님의 제안을 수락했습니다.\n\n채팅으로 빠르게 협의를 시작해보세요.`,
+        ctaLabel: '채팅으로 이동',
+        ctaUrl: absoluteUrl(`/chat/${proposalId}`),
+      })
     }
     setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'accepted' } : p))
   }
@@ -88,6 +98,14 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
         title: '제안이 거절되었습니다 ❌',
         body: reason ? `사유: ${reason}` : '고객이 제안을 거절했습니다.',
         link: `/chat/${proposalId}`,
+      })
+      sendEmailNotification({
+        targetUserId: rejectingProposal.broker_profiles.user_id,
+        category: 'proposal',
+        title: '[빠방] 제안 결과 안내',
+        body: `고객이 회원님의 제안을 거절했습니다.${reason ? `\n\n사유: ${reason}` : ''}\n\n다른 요청에 더 잘 맞는 매물을 제안해보세요.`,
+        ctaLabel: '다른 요청 보기',
+        ctaUrl: absoluteUrl('/explore/requests'),
       })
     }
     setProposals(prev => prev.map(p =>
