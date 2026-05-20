@@ -16,9 +16,17 @@ export default function robots(): MetadataRoute.Robots {
           '/chat/',
           '/settings/',
           '/admin',
+          '/admin/',
           '/profile',
           '/request/',     // /request/[id] 등 사용자 데이터 포함
           '/review/',      // /review/[proposalId]
+          '/notifications',
+          '/favorites',
+          '/reviews',
+          '/history',
+          '/recommendations',
+          '/account-suspended',
+          '/search',       // 임의 검색어 무한 크롤 방지
         ],
       },
     ],
