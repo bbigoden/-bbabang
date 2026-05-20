@@ -25,6 +25,7 @@ const TYPE_ICON: Record<string, string> = {
   property_stale_reminder: '🏚️',
   referral_signup: '🎁',
   stage_changed: '🚀',
+  saved_search_match: '🔖',
 }
 
 type Filter = 'all' | 'unread'

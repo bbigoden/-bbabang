@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
+import { SaveSearchButton } from '@/components/save-search-button'
 import Link from 'next/link'
 import { Star, ShieldCheck, MapPin, Filter, Clock, Target } from 'lucide-react'
 
@@ -77,6 +78,11 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
                   초기화
                 </Link>
               )}
+              <SaveSearchButton
+                target="broker"
+                filters={{ sido: sp.sido ?? '', sigungu: sp.sigungu ?? '', verified: sp.verified === '1' }}
+                defaultLabel={sp.sigungu ? `${sp.sigungu} 중개사` : sp.sido ? `${sp.sido} 중개사` : '인증 중개사'}
+              />
             </div>
           </div>
         </form>

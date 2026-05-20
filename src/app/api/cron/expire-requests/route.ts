@@ -146,10 +146,57 @@ export async function GET(req: NextRequest) {
     } catch {}
   }
 
+  // ─────────────────────────────────────────────
+  // 저장된 검색 — last_checked_at 이후 매칭되는 새 데이터 있으면 알림
+  // ─────────────────────────────────────────────
+  const { data: searches } = await supa
+    .from('saved_searches')
+    .select('*')
+
+  let savedSearchNotified = 0
+  for (const s of searches ?? []) {
+    const since = s.last_checked_at
+    let matchCount = 0
+    let label = ''
+
+    if (s.target === 'broker') {
+      let q = supa.from('broker_profiles').select('id', { count: 'exact', head: true }).gte('created_at', since).eq('is_owner', true)
+      if (s.filters.sido) q = q.ilike('address', `${s.filters.sido}%`)
+      if (s.filters.sigungu) q = q.ilike('address', `%${s.filters.sigungu}%`)
+      if (s.filters.verified) q = q.eq('is_verified', true)
+      const { count } = await q
+      matchCount = count ?? 0
+      label = s.label || '저장된 중개사 검색'
+    } else if (s.target === 'request') {
+      let q = supa.from('request_posts').select('id', { count: 'exact', head: true }).gte('created_at', since).eq('status', 'active')
+      if (s.filters.city) q = q.eq('city', s.filters.city)
+      if (s.filters.district) q = q.eq('district', s.filters.district)
+      if (s.filters.dong) q = q.eq('dong', s.filters.dong)
+      if (s.filters.deal_type) q = q.ilike('deal_type', `%${s.filters.deal_type}%`)
+      const { count } = await q
+      matchCount = count ?? 0
+      label = s.label || '저장된 요청 검색'
+    }
+
+    if (matchCount > 0) {
+      await supa.from('notifications').insert({
+        user_id: s.user_id,
+        type: 'saved_search_match',
+        title: `'${label}' 새 매칭 ${matchCount}건`,
+        body: `저장한 조건에 맞는 ${s.target === 'broker' ? '중개사' : '요청'}가 새로 등록됐어요`,
+        link: '/saved-searches',
+      })
+      savedSearchNotified++
+    }
+    // 마지막 체크 시각 갱신
+    await supa.from('saved_searches').update({ last_checked_at: new Date().toISOString() }).eq('id', s.id)
+  }
+
   return NextResponse.json({
     ok: true,
     renewalReminders: { matched: renewalTargets?.length ?? 0, notified: renewalNotified, pushed: renewalPushed },
     expired,
     staleProperties: { matched: oldProperties?.length ?? 0, notified: propertyNotified },
+    savedSearches: { checked: searches?.length ?? 0, notified: savedSearchNotified },
   })
 }

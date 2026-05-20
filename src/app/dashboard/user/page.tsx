@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History, Sparkles } from 'lucide-react'
+import { Plus, Home, MessageCircle, Clock, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History, Sparkles, Bookmark } from 'lucide-react'
 import { OnboardingModal } from '@/components/onboarding-modal'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -117,6 +117,15 @@ export default async function UserDashboardPage() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-gray-900">알림함</p>
               <p className="text-xs text-gray-500 truncate">{unreadCount > 0 ? `안 읽음 ${unreadCount}건` : '받은 알림'}</p>
+            </div>
+          </Link>
+          <Link href="/saved-searches" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500 flex-shrink-0">
+              <Bookmark className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">저장한 검색</p>
+              <p className="text-xs text-gray-500 truncate">자동 매칭 알림</p>
             </div>
           </Link>
         </div>

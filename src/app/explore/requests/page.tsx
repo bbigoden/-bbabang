@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
+import { SaveSearchButton } from '@/components/save-search-button'
 import Link from 'next/link'
 import { MapPin, Clock, Home as HomeIcon, Filter } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
@@ -91,6 +92,11 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
                   초기화
                 </Link>
               )}
+              <SaveSearchButton
+                target="request"
+                filters={{ city: sp.city ?? '', district: sp.district ?? '', dong: sp.dong ?? '', deal_type: sp.deal_type ?? '' }}
+                defaultLabel={[sp.dong, sp.district, sp.city, sp.deal_type].filter(Boolean).join(' ') || '관심 요청'}
+              />
             </div>
           </div>
         </form>
