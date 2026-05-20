@@ -126,7 +126,7 @@ export default function NewPropertyPage() {
       }
     }
 
-    const { error: insertError } = await supabase.from('broker_properties').insert({
+    const { data: inserted, error: insertError } = await supabase.from('broker_properties').insert({
       broker_id: broker.id,
       deal_type: dealType,
       room_type: roomType,
@@ -147,7 +147,7 @@ export default function NewPropertyPage() {
       premium: premium ? Number(premium) : null,
       memo: memo || null,
       status: 'available',
-    })
+    }).select('id').single()
 
     if (insertError) {
       setError('등록 중 오류가 발생했습니다.')
@@ -158,6 +158,18 @@ export default function NewPropertyPage() {
     if (skipped.length > 0) {
       alert(`일부 이미지가 업로드되지 않았어요:\n${skipped.join('\n')}`)
     }
+
+    // 매칭 고객에게 푸시 발송 (트리거가 DB notifications는 이미 채움, 푸시만 추가)
+    if (inserted?.id) {
+      try {
+        await fetch('/api/properties/notify-matches', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ propertyId: inserted.id }),
+        })
+      } catch { /* 푸시 실패는 무시 */ }
+    }
+
     router.push('/broker/properties')
   }
 

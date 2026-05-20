@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { sendPushToUser } from '@/lib/push-server'
+import { checkRateLimit } from '@/lib/rate-limit'
+
+/**
+ * 매물 등록 후 호출 — 매칭되는 활성 요청 고객에게 푸시 발송.
+ * (DB notifications는 broker_properties INSERT 트리거가 이미 처리)
+ *
+ * POST { propertyId } — 인증된 broker 본인의 매물만 대상
+ */
+export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+
+  let body: { propertyId?: string }
+  try { body = await req.json() } catch { return NextResponse.json({ error: '잘못된 요청' }, { status: 400 }) }
+  if (!body.propertyId) return NextResponse.json({ error: 'propertyId 필요' }, { status: 400 })
+
+  // Rate limit
+  const allowed = await checkRateLimit(`user:${user.id}:notify-customers`, 10, 3600)
+  if (!allowed) {
+    return NextResponse.json({ error: '발송 횟수 제한 초과 (시간당 10회)' }, { status: 429 })
+  }
+
+  // 매물 + 본인 확인
+  const { data: prop } = await supabase
+    .from('broker_properties')
+    .select('id, broker_id, address, deal_type, room_type, price, status, broker_profiles(office_name, user_id)')
+    .eq('id', body.propertyId)
+    .single()
+  if (!prop) return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 })
+  const brokerUserId = (prop.broker_profiles as any)?.user_id
+  if (brokerUserId !== user.id) return NextResponse.json({ error: '본인 매물만 알림 발송 가능' }, { status: 403 })
+  if (prop.status !== 'available') return NextResponse.json({ ok: true, sent: 0, skipped: 'not_available' })
+
+  // notifications 테이블에서 이 매물 알림을 받은 사용자 id 목록 조회 (트리거가 이미 채움)
+  const link = `/broker/${prop.broker_id}`
+  const { data: notifs } = await supabase
+    .from('notifications')
+    .select('user_id')
+    .eq('type', 'new_matching_property')
+    .eq('link', link)
+    .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()) // 최근 5분 내 (이 매물 등록 직후 트리거된 것들)
+
+  const userIds = Array.from(new Set((notifs ?? []).map(n => n.user_id)))
+  if (userIds.length === 0) return NextResponse.json({ ok: true, sent: 0, matched: 0 })
+
+  const officeName = (prop.broker_profiles as any)?.office_name ?? '중개사'
+  const title = `${officeName} - 내 조건 매물 등록 🏠`
+  const region = prop.address ? prop.address.split(' ').slice(0, 2).join(' ') : ''
+  const bodyText = [prop.deal_type, region].filter(Boolean).join(' · ') || '조건에 맞는 매물이 등록됐어요'
+
+  let totalSent = 0
+  await Promise.all(userIds.map(async uid => {
+    try {
+      const r = await sendPushToUser(uid, {
+        title,
+        body: bodyText,
+        url: link,
+        tag: `property-match-${prop.id}`,
+      })
+      totalSent += r.sent
+    } catch (e) {
+      console.error('[notify-customers] send failed', uid, e)
+    }
+  }))
+
+  return NextResponse.json({ ok: true, matched: userIds.length, sent: totalSent })
+}

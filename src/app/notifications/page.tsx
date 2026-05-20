@@ -18,6 +18,8 @@ const TYPE_ICON: Record<string, string> = {
   new_message: '💬',
   new_review: '⭐',
   announcement: '📢',
+  new_matching_property: '🏠',
+  new_matching_request: '📨',
 }
 
 type Filter = 'all' | 'unread'
