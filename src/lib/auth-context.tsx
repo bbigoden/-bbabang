@@ -26,6 +26,8 @@ export interface Profile {
   role?: string | null
   created_at?: string | null
   notification_preferences?: Record<string, boolean> | null
+  account_status?: 'active' | 'suspended' | 'banned' | null
+  suspended_until?: string | null
 }
 
 export interface BrokerProfile {
@@ -100,12 +102,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabase.from('broker_profiles').select('*').eq('user_id', data.user.id).maybeSingle()
         .then(r => r, () => ({ data: null })),
     ])
-    const p = profileRes.data
+    const p = profileRes.data as Profile | null
     const bp = brokerRes.data
-    setProfile(p as Profile | null)
+
+    // 계정 상태 enforcement
+    if (p?.account_status === 'banned') {
+      // 차단된 계정 — 즉시 로그아웃
+      await supabase.auth.signOut()
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/account-suspended')) {
+        window.location.href = '/account-suspended?reason=banned'
+      }
+      return
+    }
+    if (p?.account_status === 'suspended') {
+      const until = p.suspended_until ? new Date(p.suspended_until).getTime() : 0
+      const now = Date.now()
+      if (until > now) {
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/account-suspended') && !window.location.pathname.startsWith('/auth')) {
+          window.location.href = `/account-suspended?reason=suspended&until=${encodeURIComponent(p.suspended_until ?? '')}`
+        }
+      }
+      // 정지 기간이 지났으면 정상 진행 (어드민이 수동으로 active 처리해야 함)
+    }
+
+    setProfile(p)
     setBroker(bp as BrokerProfile | null)
     setLoading(false)
-    writeCache(data.user, p as Profile | null, bp as BrokerProfile | null)
+    writeCache(data.user, p, bp as BrokerProfile | null)
   }, [supabase])
 
   // 마운트: 캐시가 있으면 즉시 hydrate, 그 다음 백그라운드 재조회
