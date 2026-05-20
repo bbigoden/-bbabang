@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { formatPrice, maskAddress, cn } from '@/lib/utils'
 import {
   Building2, X, ChevronLeft, ChevronRight, Send,
-  ImagePlus, Phone, CheckCircle, Star, MapPin, Search, Calendar, Clock
+  ImagePlus, Phone, CheckCircle, Star, MapPin, Search, Calendar, Clock,
+  Footprints, FileSignature, Coins, Home, PartyPopper, ChevronDown, XOctagon
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -462,6 +463,39 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
         </div>
       )}
 
+      {/* 거래 단계 트래커 (수락된 제안만) */}
+      {proposal?.status === 'accepted' && (
+        <StageTracker
+          proposalId={proposalId}
+          currentStage={(proposal.stage as Stage) ?? 'proposal'}
+          isBroker={isBroker}
+          onStageChange={async (newStage) => {
+            await supabase.from('proposals').update({ stage: newStage }).eq('id', proposalId)
+            // 시스템 메시지로 단계 변경 알림
+            await supabase.from('chat_messages').insert({
+              room_id: room?.id,
+              sender_id: currentUser.id,
+              content: `🔔 거래 단계가 '${STAGE_META[newStage].label}'로 변경됐어요`,
+              message_type: 'text',
+            })
+            // 상대방 notification
+            if (room) {
+              const recipientId = room.user_id === currentUser.id ? room.broker_id : room.user_id
+              if (recipientId) {
+                await supabase.from('notifications').insert({
+                  user_id: recipientId,
+                  type: 'stage_changed',
+                  title: `거래 단계 변경: ${STAGE_META[newStage].label}`,
+                  body: '채팅에서 자세한 내용을 확인하세요',
+                  link: `/chat/${proposalId}`,
+                })
+              }
+            }
+            setRoom((prev: any) => prev ? { ...prev, proposal: { ...prev.proposal, stage: newStage } } : prev)
+          }}
+        />
+      )}
+
       {/* 수락 후 안내 배너 — 고객 본인, 수락됨, 리뷰 미작성 */}
       {isOwner && proposal?.status === 'accepted' && hasReview === false && (
         <div className="border-b border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50 px-3 py-2 flex-shrink-0">
@@ -701,6 +735,105 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
 
       {showEventModal && (
         <EventComposeModal onClose={() => setShowEventModal(false)} onSend={sendEvent} />
+      )}
+    </div>
+  )
+}
+
+// ── 거래 단계 트래커 ───────────────────────────────
+type Stage = 'proposal' | 'visit' | 'contract' | 'deposit' | 'move_in' | 'completed' | 'canceled'
+
+export const STAGE_META: Record<Stage, { label: string; icon: any; color: string }> = {
+  proposal:  { label: '제안',        icon: CheckCircle,    color: 'bg-blue-500' },
+  visit:     { label: '현장 답상',   icon: Footprints,     color: 'bg-cyan-500' },
+  contract:  { label: '계약',        icon: FileSignature,  color: 'bg-purple-500' },
+  deposit:   { label: '잔금',        icon: Coins,          color: 'bg-amber-500' },
+  move_in:   { label: '입주',        icon: Home,           color: 'bg-emerald-500' },
+  completed: { label: '거래 완료',   icon: PartyPopper,    color: 'bg-green-600' },
+  canceled:  { label: '거래 취소',   icon: XOctagon,       color: 'bg-gray-500' },
+}
+
+const FLOW: Stage[] = ['proposal', 'visit', 'contract', 'deposit', 'move_in', 'completed']
+
+function StageTracker({ currentStage, isBroker, onStageChange }: {
+  proposalId: string
+  currentStage: Stage
+  isBroker: boolean
+  onStageChange: (s: Stage) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const cur = STAGE_META[currentStage]
+  const idx = FLOW.indexOf(currentStage)
+  const isCanceled = currentStage === 'canceled'
+
+  const change = async (s: Stage) => {
+    setBusy(true)
+    await onStageChange(s)
+    setBusy(false)
+    setOpen(false)
+  }
+
+  return (
+    <div className="border-b border-gray-100 bg-white px-3 py-2 flex-shrink-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+          {isCanceled ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600">
+              <XOctagon className="h-3 w-3" /> 취소된 거래
+            </span>
+          ) : (
+            <>
+              {/* 진행 단계 점들 */}
+              <div className="flex items-center gap-0.5">
+                {FLOW.map((s, i) => {
+                  const passed = i <= idx
+                  const m = STAGE_META[s]
+                  return (
+                    <div key={s} className="flex items-center">
+                      <div className={cn('h-2 w-2 rounded-full transition-colors', passed ? m.color : 'bg-gray-200')} />
+                      {i < FLOW.length - 1 && <div className={cn('h-px w-3', i < idx ? 'bg-blue-300' : 'bg-gray-200')} />}
+                    </div>
+                  )
+                })}
+              </div>
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-bold">
+                <cur.icon className={cn('h-3.5 w-3.5', cur.color.replace('bg-', 'text-'))} />
+                {cur.label}
+              </span>
+            </>
+          )}
+        </div>
+
+        {isBroker && !isCanceled && (
+          <button onClick={() => setOpen(o => !o)} disabled={busy}
+            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            단계 변경
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="mt-2 rounded-xl border border-gray-200 bg-white p-2 grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+          {FLOW.map((s, i) => {
+            const m = STAGE_META[s]
+            const active = s === currentStage
+            return (
+              <button key={s} onClick={() => change(s)} disabled={busy || active}
+                className={cn('flex flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-[10px] font-semibold transition-all',
+                  active ? `${m.color} text-white` : 'bg-gray-50 text-gray-600 hover:bg-gray-100',
+                  busy && 'opacity-50')}>
+                <m.icon className="h-3.5 w-3.5" />
+                <span className="leading-tight">{i + 1}. {m.label}</span>
+              </button>
+            )
+          })}
+          <button onClick={() => change('canceled')} disabled={busy}
+            className="col-span-3 sm:col-span-6 mt-1 flex items-center justify-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:opacity-50">
+            <XOctagon className="h-3 w-3" /> 거래 취소로 변경
+          </button>
+        </div>
       )}
     </div>
   )

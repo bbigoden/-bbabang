@@ -24,6 +24,7 @@ const TYPE_ICON: Record<string, string> = {
   request_expired: '📁',
   property_stale_reminder: '🏚️',
   referral_signup: '🎁',
+  stage_changed: '🚀',
 }
 
 type Filter = 'all' | 'unread'
