@@ -1015,7 +1015,7 @@ export default function BrokerCustomersPage() {
                       </td>
                     ))}
                     <td className="px-2 py-1.5 border-r border-gray-100" />
-                    <td className="px-2 py-1.5 text-center">
+                    <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
                       <div className="flex items-center justify-center gap-1.5">
                         {canEdit && (
                           <button onClick={() => duplicateCustomer(c)} title="복사"

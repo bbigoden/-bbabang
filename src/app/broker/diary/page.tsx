@@ -941,7 +941,7 @@ export default function BrokerDiaryPage() {
                         <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
                       ))}
                       <td className="px-2 py-1.5 border-r border-gray-100" />
-                      <td className="px-2 py-1.5 text-center">
+                      <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
                         <div className="flex items-center justify-center gap-1.5">
                           {effectiveCanEdit && <button onClick={() => duplicateDiaryCustomer(c)} title="복사" className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors"><Copy className="h-3.5 w-3.5" /></button>}
                           {effectiveCanEdit && <button onClick={() => setDeleteConfirm(c.link_id)} title="삭제" className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>}
