@@ -191,6 +191,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const [selectedPropIds, setSelectedPropIds] = useState<Set<string>>(new Set())
   const [sendingProps, setSendingProps] = useState(false)
   const [viewingSnapshot, setViewingSnapshot] = useState<PropertySnapshot | null>(null)
+  const [hasReview, setHasReview] = useState<boolean | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -231,6 +232,17 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     const { data: msgs } = await supabase.from('chat_messages').select('*').eq('room_id', chatRoom.id).order('created_at', { ascending: true })
     setMessages((msgs ?? []) as Message[])
     setLoading(false)
+
+    // 수락 상태이고 고객 본인일 때 리뷰 작성 여부 체크
+    if (isOwner && proposal.status === 'accepted' && proposal.broker_profiles?.id) {
+      const { data: existingReview } = await supabase
+        .from('reviews')
+        .select('id')
+        .eq('broker_id', proposal.broker_profiles.id)
+        .eq('user_id', currentUser.id)
+        .maybeSingle()
+      setHasReview(!!existingReview)
+    }
 
     await supabase.from('chat_messages').update({ is_read: true }).eq('room_id', chatRoom.id).neq('sender_id', currentUser.id).eq('is_read', false)
 
@@ -392,6 +404,33 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             </span>
           )}
           <span className="ml-auto text-sm font-bold text-blue-700">{formatPrice(proposal.price)}</span>
+        </div>
+      )}
+
+      {/* 수락 후 안내 배너 — 고객 본인, 수락됨, 리뷰 미작성 */}
+      {isOwner && proposal?.status === 'accepted' && hasReview === false && (
+        <div className="border-b border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50 px-3 py-2 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100 text-yellow-600 flex-shrink-0">
+              <Star className="h-4 w-4 fill-current" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-yellow-900">거래 마무리되셨나요?</p>
+              <p className="text-[11px] text-yellow-700">중개사를 평가해주시면 다른 고객에게 큰 도움이 돼요</p>
+            </div>
+            <Link href={`/review/${proposalId}`}
+              className="rounded-lg bg-yellow-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-yellow-600 transition-colors flex-shrink-0">
+              리뷰 작성
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* 리뷰 완료 표시 */}
+      {isOwner && proposal?.status === 'accepted' && hasReview === true && (
+        <div className="border-b border-green-100 bg-green-50 px-3 py-1.5 flex-shrink-0 flex items-center gap-2 justify-center">
+          <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+          <p className="text-[11px] font-semibold text-green-700">리뷰를 작성해주셨어요. 감사합니다!</p>
         </div>
       )}
 
