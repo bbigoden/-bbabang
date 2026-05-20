@@ -5,6 +5,7 @@ import { ServiceWorkerRegister } from '@/components/sw-register'
 import { AuthProvider } from '@/lib/auth-context'
 import { NotificationsProvider } from '@/lib/notifications-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
+import { InstallPrompt } from '@/components/install-prompt'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
@@ -95,6 +96,7 @@ export default function RootLayout({
           <NotificationsProvider>
             {children}
             <BottomNav />
+            <InstallPrompt />
           </NotificationsProvider>
         </AuthProvider>
         <Analytics />
