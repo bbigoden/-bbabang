@@ -100,9 +100,56 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  // ─────────────────────────────────────────────
+  // 매물 자동 정리 — 180일 이상 available인 매물에게 갱신 권유
+  // ─────────────────────────────────────────────
+  const propertyOldSince = new Date(now - 180 * day).toISOString()
+  const { data: oldProperties } = await supa
+    .from('broker_properties')
+    .select('id, broker_id, address, broker_profiles(user_id)')
+    .eq('status', 'available')
+    .lte('created_at', propertyOldSince)
+
+  let propertyNotified = 0
+  for (const p of oldProperties ?? []) {
+    const brokerUserId = (p.broker_profiles as any)?.user_id
+    if (!brokerUserId) continue
+
+    // 이미 알림 받은 적 있는지 (최근 30일)
+    const { data: existing } = await supa
+      .from('notifications')
+      .select('id')
+      .eq('user_id', brokerUserId)
+      .eq('type', 'property_stale_reminder')
+      .eq('link', `/broker/properties/${p.id}`)
+      .gte('created_at', new Date(now - 30 * day).toISOString())
+      .limit(1)
+      .maybeSingle()
+    if (existing) continue
+
+    await supa.from('notifications').insert({
+      user_id: brokerUserId,
+      type: 'property_stale_reminder',
+      title: '오래된 매물 확인 필요 🏚️',
+      body: `'${p.address ?? '주소 없음'}' 매물이 180일 넘게 활성 상태예요. 계약 완료됐다면 상태를 변경해주세요.`,
+      link: `/broker/properties/${p.id}`,
+    })
+    propertyNotified++
+
+    try {
+      await sendPushToUser(brokerUserId, {
+        title: '오래된 매물 확인',
+        body: `'${(p.address ?? '').slice(0, 30)}' 매물 상태를 확인해주세요`,
+        url: `/broker/properties/${p.id}`,
+        tag: `stale-prop-${p.id}`,
+      })
+    } catch {}
+  }
+
   return NextResponse.json({
     ok: true,
     renewalReminders: { matched: renewalTargets?.length ?? 0, notified: renewalNotified, pushed: renewalPushed },
     expired,
+    staleProperties: { matched: oldProperties?.length ?? 0, notified: propertyNotified },
   })
 }

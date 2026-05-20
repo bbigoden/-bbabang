@@ -22,6 +22,7 @@ const TYPE_ICON: Record<string, string> = {
   new_matching_request: '📨',
   request_renewal_reminder: '⏰',
   request_expired: '📁',
+  property_stale_reminder: '🏚️',
 }
 
 type Filter = 'all' | 'unread'
