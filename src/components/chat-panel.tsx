@@ -6,7 +6,8 @@ import { formatPrice, maskAddress, cn } from '@/lib/utils'
 import {
   Building2, X, ChevronLeft, ChevronRight, Send,
   ImagePlus, Phone, CheckCircle, Star, MapPin, Search, Calendar, Clock,
-  Footprints, FileSignature, Coins, Home, PartyPopper, ChevronDown, XOctagon
+  Footprints, FileSignature, Coins, Home, PartyPopper, ChevronDown, XOctagon,
+  Zap, Plus, Edit2, Trash2
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -236,6 +237,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const [viewingSnapshot, setViewingSnapshot] = useState<PropertySnapshot | null>(null)
   const [hasReview, setHasReview] = useState<boolean | null>(null)
   const [showEventModal, setShowEventModal] = useState(false)
+  const [showQuickReplies, setShowQuickReplies] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -712,6 +714,11 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                 title="일정 공유">
                 <Calendar className="h-4 w-4" />
               </button>
+              <button onClick={() => setShowQuickReplies(true)}
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-amber-50 hover:text-amber-600 transition-all"
+                title="빠른 답변">
+                <Zap className="h-4 w-4" />
+              </button>
             </>
           )}
           <label className="flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all">
@@ -736,6 +743,173 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       {showEventModal && (
         <EventComposeModal onClose={() => setShowEventModal(false)} onSend={sendEvent} />
       )}
+
+      {showQuickReplies && (
+        <QuickRepliesModal
+          onClose={() => setShowQuickReplies(false)}
+          onSelect={(content) => {
+            setInput(prev => prev ? prev + '\n' + content : content)
+            setShowQuickReplies(false)
+            setTimeout(() => inputRef.current?.focus(), 0)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── 빠른 답변 모달 ─────────────────────────────────
+function QuickRepliesModal({ onClose, onSelect }: {
+  onClose: () => void
+  onSelect: (content: string) => void
+}) {
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
+  const [items, setItems] = useState<Array<{ id: string; label: string; content: string; use_count: number }>>([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [label, setLabel] = useState('')
+  const [content, setContent] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [brokerId, setBrokerId] = useState<string | null>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: bp } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).single()
+      if (!bp) { setLoading(false); return }
+      setBrokerId(bp.id)
+      const { data } = await supabase
+        .from('quick_replies')
+        .select('id, label, content, use_count')
+        .eq('broker_id', bp.id)
+        .order('sort_order', { ascending: true })
+        .order('use_count', { ascending: false })
+      setItems((data ?? []) as any)
+      setLoading(false)
+    })()
+  }, [supabase])
+
+  const startAdd = () => {
+    setAdding(true); setEditingId(null); setLabel(''); setContent('')
+  }
+  const startEdit = (item: { id: string; label: string; content: string }) => {
+    setAdding(true); setEditingId(item.id); setLabel(item.label); setContent(item.content)
+  }
+  const cancelEdit = () => {
+    setAdding(false); setEditingId(null); setLabel(''); setContent('')
+  }
+
+  const save = async () => {
+    if (!brokerId || !label.trim() || !content.trim()) return
+    setBusy(true)
+    if (editingId) {
+      await supabase.from('quick_replies').update({ label: label.trim(), content: content.trim() }).eq('id', editingId)
+      setItems(prev => prev.map(it => it.id === editingId ? { ...it, label: label.trim(), content: content.trim() } : it))
+    } else {
+      const { data } = await supabase.from('quick_replies').insert({ broker_id: brokerId, label: label.trim(), content: content.trim() }).select('id, label, content, use_count').single()
+      if (data) setItems(prev => [...prev, data as any])
+    }
+    setBusy(false)
+    cancelEdit()
+  }
+
+  const remove = async (id: string) => {
+    if (!confirm('이 빠른 답변을 삭제할까요?')) return
+    await supabase.from('quick_replies').delete().eq('id', id)
+    setItems(prev => prev.filter(it => it.id !== id))
+  }
+
+  const pick = async (item: { id: string; content: string; use_count: number }) => {
+    // 사용 카운트 증가 (백그라운드)
+    supabase.from('quick_replies').update({ use_count: item.use_count + 1 }).eq('id', item.id).then(() => {}, () => {})
+    onSelect(item.content)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-md max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 flex-shrink-0">
+          <h3 className="flex items-center gap-2 font-bold text-gray-900">
+            <Zap className="h-4 w-4 text-amber-500" />
+            빠른 답변
+          </h3>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+            </div>
+          ) : items.length === 0 && !adding ? (
+            <div className="py-10 text-center">
+              <Zap className="mx-auto mb-2 h-10 w-10 text-gray-200" />
+              <p className="font-semibold text-gray-500">저장된 답변이 없어요</p>
+              <p className="mt-1 text-xs text-gray-400">자주 쓰는 답변을 미리 등록해두세요</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {items.map(item => (
+                <li key={item.id} className="rounded-xl border border-gray-200 bg-white p-3 hover:border-amber-300 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <button onClick={() => pick(item)} className="flex-1 text-left min-w-0">
+                      <p className="font-semibold text-sm text-gray-900 truncate">{item.label}</p>
+                      <p className="mt-1 text-xs text-gray-500 line-clamp-2">{item.content}</p>
+                      {item.use_count > 0 && (
+                        <p className="mt-1 text-[10px] text-gray-400">사용 {item.use_count}회</p>
+                      )}
+                    </button>
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      <button onClick={() => startEdit(item)} title="수정"
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                        <Edit2 className="h-3 w-3" />
+                      </button>
+                      <button onClick={() => remove(item.id)} title="삭제"
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-500">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {adding && (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <input value={label} onChange={e => setLabel(e.target.value)} maxLength={50}
+                placeholder="이름 (예: 인사말, 위치 안내)"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 mb-2" />
+              <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={500} rows={3}
+                placeholder="답변 내용"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none" />
+              <div className="mt-2 flex gap-2">
+                <button onClick={cancelEdit} disabled={busy}
+                  className="flex-1 rounded-lg border border-gray-200 bg-white py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">취소</button>
+                <button onClick={save} disabled={busy || !label.trim() || !content.trim()}
+                  className="flex-1 rounded-lg bg-amber-500 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50">
+                  {editingId ? '수정' : '추가'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!adding && (
+          <div className="border-t border-gray-100 px-4 py-3 flex-shrink-0">
+            <button onClick={startAdd}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-300 bg-amber-50 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100">
+              <Plus className="h-4 w-4" />
+              새 답변 추가
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

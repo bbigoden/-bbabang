@@ -99,6 +99,23 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
 
   if (!broker) notFound()
 
+  // 최근 7일 가격 인하 매물 ID 조회
+  const recentDropIds = new Set<string>()
+  if (properties.length > 0) {
+    const propIds = properties.map(p => p.id)
+    const sinceISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: drops } = await supabase
+      .from('property_price_history')
+      .select('property_id, old_price, new_price')
+      .in('property_id', propIds)
+      .gte('changed_at', sinceISO)
+    ;(drops ?? []).forEach((d: any) => {
+      if (d.new_price != null && d.old_price != null && d.new_price < d.old_price) {
+        recentDropIds.add(d.property_id)
+      }
+    })
+  }
+
   // 로그인 사용자의 broker·property 찜 상태 한 번에 fetch
   let brokerFavorited = false
   const propFavSet = new Set<string>()
@@ -295,6 +312,11 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {p.deal_type && <Badge variant="info">{p.deal_type}</Badge>}
                       {p.room_type && <Badge variant="default">{p.room_type}</Badge>}
+                      {recentDropIds.has(p.id) && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600 animate-pulse">
+                          ⬇️ 가격 인하
+                        </span>
+                      )}
                     </div>
                     <p className="font-semibold text-gray-800 text-sm truncate">{p.address || '주소 미입력'}</p>
                     <p className="text-blue-600 font-black mt-1">
