@@ -10,6 +10,7 @@ import { Home, User, Building2, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { validatePhoneKR } from '@/lib/validation'
 import { Suspense } from 'react'
+import { KakaoLoginButton } from '@/components/kakao-login-button'
 
 function SignupForm() {
   const router = useRouter()
@@ -216,6 +217,18 @@ function SignupForm() {
             {role === 'broker' ? '중개사·직원으로 가입하기' : '회원가입'}
           </Button>
         </form>
+
+        {/* 일반 사용자만 소셜 가입 노출 (중개사는 추가 정보 필요) */}
+        {role === 'user' && (
+          <>
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-gray-100" />
+              <span className="text-xs text-gray-400">또는</span>
+              <div className="h-px flex-1 bg-gray-100" />
+            </div>
+            <KakaoLoginButton label="카카오로 빠르게 가입하기" />
+          </>
+        )}
 
         <div className="mt-6 text-center text-sm text-gray-500">
           이미 계정이 있으신가요?{' '}
