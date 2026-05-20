@@ -70,7 +70,7 @@ const STATUS_COLOR: Record<string, string> = {
   hidden: 'bg-yellow-100 text-yellow-700',
 }
 const DEAL_TYPES = ['매매', '전세', '월세', '분양', '분양권']
-const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '기타']
+const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독', '숙박', '기타']
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
@@ -1144,7 +1144,8 @@ function BrokerPropertiesContent() {
       setCustomColumns(cols)
       const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
       if (ownBroker) setSettingsBrokerId(ownBroker.id)
-      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false })
+      // Supabase PostgREST 기본 max-rows=1000. 1000+ 매물 사용자 대응을 위해 range 명시.
+      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', b.id).order('created_at', { ascending: false }).range(0, 9999)
       setProperties(data ?? [])
       setLoading(false)
       return
@@ -1198,7 +1199,7 @@ function BrokerPropertiesContent() {
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
-    const { data } = await supabase.from('broker_properties').select('*').in('broker_id', brokerIds).order('created_at', { ascending: false })
+    const { data } = await supabase.from('broker_properties').select('*').in('broker_id', brokerIds).order('created_at', { ascending: false }).range(0, 9999)
     setProperties(data ?? [])
     setLoading(false)
   }

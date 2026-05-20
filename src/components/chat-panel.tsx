@@ -361,7 +361,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     setLoadingProps(true)
     const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', currentUser.id).single()
     if (broker) {
-      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', broker.id).eq('status', 'available').order('created_at', { ascending: false })
+      const { data } = await supabase.from('broker_properties').select('*').eq('broker_id', broker.id).eq('status', 'available').order('created_at', { ascending: false }).range(0, 9999)
       setBrokerProperties(data ?? [])
     }
     setLoadingProps(false)

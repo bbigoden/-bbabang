@@ -62,6 +62,7 @@ export default function ProposePage() {
       .eq('broker_id', broker.id)
       .eq('status', 'available')
       .order('created_at', { ascending: false })
+      .range(0, 9999)
     setMyProperties(data ?? [])
     setPropertiesLoading(false)
   }

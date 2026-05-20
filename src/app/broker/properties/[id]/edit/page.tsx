@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
-const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실']
+const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독', '숙박']
 const OPTIONS = [
   '풀옵션', '에어컨', '세탁기', '냉장고', '전자레인지', '인터넷',
   '주차 가능', '엘리베이터', '반려동물 허용', 'CCTV', '도시가스', '관리비 포함',

@@ -542,7 +542,7 @@ export default function BrokerDiaryPage() {
         .in('broker_id', brokerIds).order('created_at', { ascending: false }),
       supabase.from('broker_properties')
         .select('id, address, deal_type, room_type, price, monthly_rent')
-        .in('broker_id', brokerIds).order('created_at', { ascending: false }),
+        .in('broker_id', brokerIds).order('created_at', { ascending: false }).range(0, 9999),
     ])
     setAllCustomers(custs ?? [])
     setAllProperties(props ?? [])

@@ -89,7 +89,8 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
         .select('*')
         .eq('broker_id', brokerId)
         .eq('status', 'available')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .range(0, 9999),
     ])
     broker = b
     reviews = r ?? []
