@@ -23,7 +23,6 @@ interface BrokerData {
   review_count: number | null
   deal_count: number | null
   is_verified: boolean | null
-  bio: string | null
   profiles: { name: string | null; email: string | null; phone: string | null } | null
 }
 
@@ -49,7 +48,7 @@ export default function BrokerCardPage() {
     ;(async () => {
       const { data } = await supabase
         .from('broker_profiles')
-        .select('id, office_name, license_number, office_reg_number, address, district, rating, review_count, deal_count, is_verified, bio, profiles(name, email, phone)')
+        .select('id, office_name, license_number, office_reg_number, address, district, rating, review_count, deal_count, is_verified, profiles(name, email, phone)')
         .eq('user_id', auth.user!.id)
         .single()
       if (data) {
@@ -243,13 +242,6 @@ export default function BrokerCardPage() {
                   </div>
                 </div>
               ) : null}
-
-              {/* 소개글 */}
-              {broker.bio && (
-                <div className="mt-4 rounded-xl bg-white/80 px-3 py-2.5">
-                  <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">{broker.bio}</p>
-                </div>
-              )}
 
               <p className="mt-5 text-center text-[10px] text-gray-400 tracking-wider">
                 빠방 인증 공인중개사 · bbabang.vercel.app

@@ -21,7 +21,6 @@ export interface BrokerProfile {
   license_number: string
   address: string
   district: string  // 활동 지역 (예: 강남구)
-  bio: string | null
   rating: number
   review_count: number
   deal_count: number
