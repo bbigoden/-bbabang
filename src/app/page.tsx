@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardBody } from '@/components/ui/card'
+import { AutoRedirectHome } from '@/components/auto-redirect-home'
 import {
   Search, ArrowRight, CheckCircle, Star, MessageCircle,
   Shield, TrendingUp, Users, Clock, Home
@@ -15,13 +16,17 @@ export const dynamic = 'force-static'
 export const revalidate = 3600
 
 export default function LandingPage() {
+  // 정적 페이지라 user/role은 항상 null (비로그인용 콘텐츠).
+  // 로그인 사용자는 proxy.ts(서버) 또는 AutoRedirectHome(클라이언트)이 대시보드로 보냄.
   const user = null
   const userRole: string | null = null
-  const unreadCount = 0
 
   return (
     <div className="min-h-screen">
-      <Header user={user} role={userRole} unreadCount={unreadCount} />
+      {/* Header에 prop 안 넘김 → AuthContext에서 자동 인식 (bfcache 대응) */}
+      <Header />
+      {/* 로그인 사용자가 bfcache 등으로 / 로 돌아오면 적절한 대시보드로 자동 이동 */}
+      <AutoRedirectHome />
 
       {/* 히어로 섹션 */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 px-4 py-24 text-white">
