@@ -235,30 +235,30 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
               </div>
             </div>
 
-            {/* 사무소 정보 — 소재지·연락처·등록번호·대표 순 */}
-            <div className="mt-4 space-y-1.5 text-sm text-gray-600">
+            {/* 사무소 정보 — 2열 (모바일 1열) — 1행: 소재지·등록번호 / 2행: 연락처·대표 */}
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600">
               {broker.address && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 min-w-0">
                   <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <span>{broker.address}</span>
+                  <span className="break-keep">{broker.address}</span>
+                </div>
+              )}
+              {broker.office_reg_number && (
+                <div className="flex items-start gap-2 min-w-0">
+                  <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span>등록번호 <span className="font-mono text-gray-800">{broker.office_reg_number}</span></span>
                 </div>
               )}
               {broker.profiles?.phone && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 min-w-0">
                   <Phone className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
                   <a href={`tel:${broker.profiles.phone}`} className="text-blue-600 hover:underline">
                     {broker.profiles.phone}
                   </a>
                 </div>
               )}
-              {broker.office_reg_number && (
-                <div className="flex items-start gap-2">
-                  <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <span>등록번호 <span className="font-mono text-gray-800">{broker.office_reg_number}</span></span>
-                </div>
-              )}
               {broker.profiles?.name && (
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 min-w-0">
                   <User className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
                   <span>대표 <span className="font-semibold text-gray-800">{broker.profiles.name}</span></span>
                 </div>
