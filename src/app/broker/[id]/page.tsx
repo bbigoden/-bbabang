@@ -208,7 +208,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
               {broker.is_verified && (
                 <div className="mb-1 flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-600">
                   <Award className="h-3.5 w-3.5" />
-                  공인 인증 중개사
+                  인증 공인중개사
                 </div>
               )}
             </div>
@@ -216,10 +216,18 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-gray-900">{broker.profiles?.name}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 break-keep">{broker.office_name}</h1>
                   <FavoriteButton type="broker" id={brokerId} variant="pill" initialFavorited={brokerFavorited} />
                 </div>
-                <p className="text-gray-500">{broker.office_name}</p>
+                <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 flex-wrap">
+                  <span>대표 <span className="font-semibold text-gray-700">{broker.profiles?.name}</span></span>
+                  {districts[0] && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{districts[0]}</span>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="text-right">
                 {broker.review_count > 0 ? (
