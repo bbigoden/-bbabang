@@ -9,8 +9,10 @@ import { formatDate } from '@/lib/utils'
 import {
   Users, ArrowLeft, Search, X, Shield, Ban,
   CheckCircle2, AlertCircle, Mail, Phone, Calendar, Building2,
-  Pencil, Save, FileText, ChevronDown, ChevronRight
+  Pencil, Save, FileText, ChevronDown
 } from 'lucide-react'
+import { OfficeCard } from '@/components/office-card'
+import { EmployeeRow } from '@/components/employee-row'
 
 type AccountStatus = 'active' | 'suspended' | 'banned'
 type Role = 'user' | 'broker' | 'admin'
@@ -310,107 +312,63 @@ export default function AdminUsersPage() {
                 <p className="text-sm font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
               </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-3 list-none p-0">
                 {officeGroups.map(g => {
                   const isOpen = expandedOfficeKey === g.key
-                  const ownerSm = g.owner ? STATUS_META[g.owner.account_status] : null
                   return (
-                    <li key={g.key} className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
-                      {/* 사무소 헤더 (대표) */}
-                      {g.owner ? (
-                        <button
-                          onClick={() => setSelected(g.owner)}
-                          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-800/60 transition-colors"
-                        >
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400">
-                            <Building2 className="h-5 w-5" />
+                    <li key={g.key}>
+                      <OfficeCard
+                        variant="admin"
+                        onClick={g.owner ? () => setSelected(g.owner!) : undefined}
+                        office={{
+                          id: g.key,
+                          office_name: g.officeName,
+                          owner_name: g.owner?.name,
+                          owner_email: g.owner?.email,
+                          created_at: g.owner?.created_at,
+                          employee_count: g.employees.length,
+                        }}
+                      >
+                        {!g.owner && (
+                          <div className="border-t border-gray-800 px-5 py-2.5 text-xs text-gray-500">
+                            대표 정보 없음 · 직원 {g.employees.length}명
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                              <p className="text-sm font-bold text-white truncate">{g.officeName ?? '(사무소명 없음)'}</p>
-                              <span className="rounded-md bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-400">대표</span>
-                              {ownerSm && g.owner.account_status !== 'active' && (
-                                <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${ownerSm.color}`}>
-                                  <ownerSm.icon className="h-3 w-3" /> {ownerSm.label}
-                                </span>
-                              )}
-                              <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700 px-1.5 py-0.5 text-[10px] font-medium text-gray-300">
-                                <Users className="h-3 w-3" /> 직원 {g.employees.length}
+                        )}
+                        {g.employees.length > 0 && (
+                          <div className="border-t border-gray-800">
+                            <button
+                              onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
+                              className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <Users className="h-3.5 w-3.5" />
+                                소속 직원 {g.employees.length}명
                               </span>
-                            </div>
-                            <p className="text-xs text-gray-400 truncate">
-                              {g.owner.name ?? '(이름 없음)'}
-                              {g.owner.email && <span className="text-gray-500"> · {g.owner.email}</span>}
-                            </p>
-                          </div>
-                          <span className="text-xs text-gray-500 flex-shrink-0">{g.owner.created_at && formatDate(g.owner.created_at)}</span>
-                          <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                        </button>
-                      ) : (
-                        // 대표 없음 (검색·필터로 인해 결과에서 빠진 경우)
-                        <div className="flex items-center gap-3 px-5 py-4 bg-gray-900/60">
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gray-800 text-gray-500">
-                            <Building2 className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-gray-300 truncate">{g.officeName ?? '(사무소명 없음)'}</p>
-                            <p className="text-xs text-gray-500">대표 정보 없음 · 직원 {g.employees.length}명</p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 직원 펼침 */}
-                      {g.employees.length > 0 && (
-                        <div className="border-t border-gray-800">
-                          <button
-                            onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
-                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <Users className="h-3.5 w-3.5" />
-                              소속 직원 {g.employees.length}명
-                            </span>
-                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                          </button>
-                          {isOpen && (
-                            <ul className="border-t border-gray-800 divide-y divide-gray-800/50">
-                              {g.employees.map(e => {
-                                const esm = STATUS_META[e.account_status]
-                                return (
+                              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {isOpen && (
+                              <ul className="border-t border-gray-800 divide-y divide-gray-800/50 list-none p-0">
+                                {g.employees.map(e => (
                                   <li key={e.id}>
-                                    <button
+                                    <EmployeeRow
+                                      employee={{
+                                        id: e.id,
+                                        name: e.name,
+                                        email: e.email,
+                                        phone: e.phone,
+                                        account_status: e.account_status,
+                                        created_at: e.created_at,
+                                      }}
                                       onClick={() => setSelected(e)}
-                                      className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-gray-800/40 transition-colors"
-                                    >
-                                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-xs font-bold text-indigo-300">
-                                        {(e.name || e.email || '?')[0]?.toUpperCase()}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                          <p className="text-sm font-medium text-gray-200 truncate">
-                                            {e.name ?? '(이름 없음)'}
-                                          </p>
-                                          <span className="rounded-md bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">직원</span>
-                                          {e.account_status !== 'active' && (
-                                            <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${esm.color}`}>
-                                              <esm.icon className="h-3 w-3" /> {esm.label}
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="text-[11px] text-gray-500 truncate">
-                                          {e.email ?? '—'}
-                                          {e.phone && ` · ${e.phone}`}
-                                        </p>
-                                      </div>
-                                      <span className="text-[11px] text-gray-500 flex-shrink-0">{e.created_at && formatDate(e.created_at)}</span>
-                                    </button>
+                                      showApprovalBadge={false}
+                                    />
                                   </li>
-                                )
-                              })}
-                            </ul>
-                          )}
-                        </div>
-                      )}
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </OfficeCard>
                     </li>
                   )
                 })}

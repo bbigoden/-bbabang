@@ -9,8 +9,10 @@ import { formatDate } from '@/lib/utils'
 import {
   Building2, ArrowLeft, Search, X, ShieldCheck, ShieldOff,
   CheckCircle2, XCircle, AlertCircle, Hash, MapPin, ExternalLink,
-  Users, Phone, Mail, Calendar, FileText, ChevronDown, ChevronRight
+  Users, Phone, Mail, Calendar, FileText, ChevronDown
 } from 'lucide-react'
+import { OfficeCard } from '@/components/office-card'
+import { EmployeeRow } from '@/components/employee-row'
 
 type StatusFilter = 'all' | 'unverified' | 'verified'
 
@@ -232,97 +234,64 @@ export default function AdminBrokersPage() {
           </div>
         ) : (
           <>
-            <ul className="space-y-3">
+            <ul className="space-y-3 list-none p-0">
               {offices.map(g => {
                 const isOpen = expanded.has(g.owner.id)
+                const districts = g.owner.district?.split(',').map(d => d.trim()).filter(Boolean) ?? []
                 return (
-                  <li key={g.owner.id} className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
-                    {/* 사무소 헤더 (대표) */}
-                    <button
+                  <li key={g.owner.id}>
+                    <OfficeCard
+                      variant="admin"
                       onClick={() => setSelected(g.owner)}
-                      className="w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-gray-800/60 transition-colors"
+                      office={{
+                        id: g.owner.id,
+                        office_name: g.owner.office_name,
+                        owner_name: g.owner.profiles?.name,
+                        owner_email: g.owner.profiles?.email,
+                        license_number: g.owner.license_number,
+                        business_reg_number: g.owner.business_reg_number,
+                        office_reg_number: g.owner.office_reg_number,
+                        address: g.owner.address,
+                        districts,
+                        is_verified: g.owner.is_verified,
+                        created_at: g.owner.created_at,
+                        employee_count: g.employees.length,
+                      }}
                     >
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                          <p className="text-sm font-bold text-white truncate">
-                            {g.owner.office_name ?? '(사무소명 없음)'}
-                          </p>
-                          {g.owner.is_verified ? (
-                            <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
-                              <ShieldCheck className="h-3 w-3" /> 인증
+                      {g.employees.length > 0 && (
+                        <div className="border-t border-gray-800">
+                          <button
+                            onClick={() => toggleExpand(g.owner.id)}
+                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <Users className="h-3.5 w-3.5" />
+                              소속 직원 {g.employees.length}명
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-0.5 rounded-md bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400">
-                              <ShieldOff className="h-3 w-3" /> 미인증
-                            </span>
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isOpen && (
+                            <ul className="border-t border-gray-800 divide-y divide-gray-800/50 list-none p-0">
+                              {g.employees.map(e => (
+                                <li key={e.id}>
+                                  <EmployeeRow
+                                    employee={{
+                                      id: e.id,
+                                      name: e.profiles?.name,
+                                      email: e.profiles?.email,
+                                      phone: e.profiles?.phone,
+                                      is_approved: e.is_approved,
+                                      created_at: e.created_at,
+                                    }}
+                                    showStatusBadge={false}
+                                  />
+                                </li>
+                              ))}
+                            </ul>
                           )}
-                          <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700 px-1.5 py-0.5 text-[10px] font-medium text-gray-300">
-                            <Users className="h-3 w-3" /> 직원 {g.employees.length}
-                          </span>
                         </div>
-                        <p className="text-xs text-gray-400 truncate">
-                          대표 · {g.owner.profiles?.name ?? '(이름 없음)'}
-                        </p>
-                        <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500 flex-wrap">
-                          {g.owner.license_number && <span className="font-mono">자격 {g.owner.license_number}</span>}
-                          {g.owner.business_reg_number && <span className="font-mono">사업 {g.owner.business_reg_number}</span>}
-                          {g.owner.address && <span className="truncate max-w-[200px]">{g.owner.address}</span>}
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-500 flex-shrink-0">{g.owner.created_at && formatDate(g.owner.created_at)}</span>
-                      <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0 mt-1.5" />
-                    </button>
-
-                    {/* 직원 명단 (펼침) */}
-                    {g.employees.length > 0 && (
-                      <div className="border-t border-gray-800">
-                        <button
-                          onClick={() => toggleExpand(g.owner.id)}
-                          className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5" />
-                            소속 직원 {g.employees.length}명
-                          </span>
-                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        {isOpen && (
-                          <ul className="border-t border-gray-800 divide-y divide-gray-800/50">
-                            {g.employees.map(e => (
-                              <li key={e.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/30">
-                                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gray-800 text-xs font-bold text-gray-300">
-                                  {e.profiles?.name?.[0] ?? '?'}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <p className="text-sm font-medium text-gray-200 truncate">
-                                      {e.profiles?.name ?? '(이름 없음)'}
-                                    </p>
-                                    {e.is_approved ? (
-                                      <span className="inline-flex items-center gap-0.5 rounded-md bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-400">
-                                        <CheckCircle2 className="h-3 w-3" /> 승인
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-bold text-orange-400">
-                                        <AlertCircle className="h-3 w-3" /> 승인 대기
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-[11px] text-gray-500 truncate">
-                                    {e.profiles?.email ?? '—'}
-                                    {e.profiles?.phone && ` · ${e.profiles.phone}`}
-                                  </p>
-                                </div>
-                                <span className="text-[11px] text-gray-500 flex-shrink-0">{e.created_at && formatDate(e.created_at)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </OfficeCard>
                   </li>
                 )
               })}
