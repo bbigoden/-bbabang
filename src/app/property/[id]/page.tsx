@@ -6,7 +6,7 @@ import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddress } from '@/lib/utils'
 import {
   Building2, MapPin, Home, Hash, ShieldCheck, Calendar, Star,
   TrendingDown, TrendingUp, MessageCircle, Eye, ChevronRight
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq('id', id)
     .maybeSingle()
   if (!data) return { title: '매물 | 빠방' }
-  const region = data.address?.split(' ').slice(0, 3).join(' ') ?? ''
+  const region = maskAddress(data.address)
   const priceStr = data.deal_type === '월세'
     ? `보증금 ${data.price ? formatPrice(data.price) : '협의'}/월 ${data.monthly_rent ? formatPrice(data.monthly_rent) : '협의'}`
     : data.price ? formatPrice(data.price) : '가격 협의'
@@ -58,6 +58,18 @@ export default async function PropertyDetailPage({ params }: Props) {
     .maybeSingle()
 
   if (!prop) notFound()
+
+  // 본인(매물 등록 중개사) 여부 — 본인이면 풀 주소, 아니면 마스킹
+  const broker = prop.broker_profiles as any
+  const isOwnProperty = !!(user && broker?.profiles && (broker as any).user_id === user.id)
+  // user_id가 broker_profiles에서 안 select되어 별도 체크
+  let isMine = false
+  if (user && prop.broker_id) {
+    const { data: myBroker } = await supabase
+      .from('broker_profiles').select('id').eq('user_id', user.id).maybeSingle()
+    if (myBroker?.id === prop.broker_id) isMine = true
+  }
+  const displayAddress = isMine ? prop.address : (prop.address ? maskAddress(prop.address) : '주소 미입력')
 
   // 본인 찜 상태
   let isFavorited = false
@@ -90,7 +102,6 @@ export default async function PropertyDetailPage({ params }: Props) {
     .order('created_at', { ascending: false })
     .limit(4)
 
-  const broker = prop.broker_profiles
   const brokerProfile = broker?.profiles
   const priceText = prop.deal_type === '월세'
     ? `보증금 ${formatPrice(prop.price)} · 월 ${formatPrice(prop.monthly_rent ?? 0)}`
@@ -109,12 +120,12 @@ export default async function PropertyDetailPage({ params }: Props) {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: BASE_URL },
           { '@type': 'ListItem', position: 2, name: '매물', item: `${BASE_URL}/brokers` },
-          { '@type': 'ListItem', position: 3, name: prop.address ?? '매물', item: `${BASE_URL}/property/${id}` },
+          { '@type': 'ListItem', position: 3, name: maskAddress(prop.address) || '매물', item: `${BASE_URL}/property/${id}` },
         ],
       },
       {
         '@type': 'Product',
-        name: `${prop.address ?? ''} ${prop.deal_type ?? ''} ${prop.room_type ?? ''}`.trim(),
+        name: `${maskAddress(prop.address)} ${prop.deal_type ?? ''} ${prop.room_type ?? ''}`.trim(),
         description: prop.description ?? '',
         image: prop.images ?? [],
         offers: prop.price ? {
@@ -148,7 +159,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         {prop.images && prop.images.length > 0 ? (
           <div className="mb-5">
             <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-100">
-              <Image src={prop.images[0]} alt={prop.address ?? '매물'} fill className="object-cover" sizes="(max-width: 768px) 100vw, 768px" priority />
+              <Image src={prop.images[0]} alt={displayAddress} fill className="object-cover" sizes="(max-width: 768px) 100vw, 768px" priority />
               <div className="absolute right-3 top-3">
                 <FavoriteButton type="property" id={id} initialFavorited={isFavorited} />
               </div>
@@ -185,7 +196,10 @@ export default async function PropertyDetailPage({ params }: Props) {
             {prop.status === 'contracted' && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">계약 완료</span>}
             {prop.status === 'hidden' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-500">숨김</span>}
           </div>
-          <h1 className="text-xl font-bold text-gray-900">{prop.address ?? '주소 미입력'}</h1>
+          <h1 className="text-xl font-bold text-gray-900">{displayAddress}</h1>
+          {!isMine && (
+            <p className="mt-1 text-[11px] text-gray-400">상세 주소는 중개사를 통해 안내받으세요</p>
+          )}
           <p className="mt-1 text-2xl font-black text-blue-600">{priceText}</p>
           {prop.management_fee && <p className="mt-0.5 text-sm text-gray-500">관리비 {formatPrice(prop.management_fee)}</p>}
         </div>
@@ -195,6 +209,7 @@ export default async function PropertyDetailPage({ params }: Props) {
           <CardBody>
             <h2 className="mb-3 font-bold text-gray-900">매물 정보</h2>
             <dl className="grid grid-cols-2 gap-y-2.5 text-sm">
+              <Spec label="주소" value={displayAddress} />
               <Spec label="면적" value={prop.size_pyeong ? `${prop.size_pyeong}${prop.area_unit ?? '평'} (${prop.area_type ?? '전용'})` : null} />
               <Spec label="층" value={prop.floor != null ? `${prop.floor}층${prop.total_floors ? ` / 총 ${prop.total_floors}층` : ''}` : null} />
               <Spec label="방·욕실" value={prop.rooms_bathrooms} />
@@ -315,7 +330,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                           {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
                           {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
                         </div>
-                        <p className="text-sm font-semibold text-gray-800 truncate">{p.address}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">{maskAddress(p.address)}</p>
                         <p className="mt-0.5 text-sm font-black text-blue-600">
                           {!p.price ? '가격 협의'
                             : p.deal_type === '월세' ? `${formatPrice(p.price)}/월 ${formatPrice(p.monthly_rent ?? 0)}`

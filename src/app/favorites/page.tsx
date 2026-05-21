@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddress } from '@/lib/utils'
 import { Heart, Building2, Home as HomeIcon, FileText, Star, MapPin, ShieldCheck, Clock } from 'lucide-react'
 
 type Tab = 'broker' | 'property' | 'request'
@@ -210,7 +210,7 @@ export default function FavoritesPage() {
                         {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
                         {p.status !== 'available' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">{p.status === 'contracted' ? '계약완료' : '숨김'}</span>}
                       </div>
-                      <p className="font-semibold text-gray-800 text-sm truncate">{p.address || '주소 미입력'}</p>
+                      <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddress(p.address) : '주소 미입력'}</p>
                       <p className="text-blue-600 font-black mt-1 text-sm">
                         {!p.price ? '가격 협의'
                           : p.deal_type === '월세' ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`

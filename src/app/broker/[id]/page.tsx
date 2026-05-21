@@ -14,7 +14,7 @@ function formatHours(h: number | null | undefined): string | null {
   if (h < 24) return `${h.toFixed(1)}시간`
   return `${(h / 24).toFixed(1)}일`
 }
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddress } from '@/lib/utils'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -325,7 +325,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                         </span>
                       )}
                     </div>
-                    <p className="font-semibold text-gray-800 text-sm truncate">{p.address || '주소 미입력'}</p>
+                    <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddress(p.address) : '주소 미입력'}</p>
                     <p className="text-blue-600 font-black mt-1">
                       {!p.price
                         ? '가격 협의'
