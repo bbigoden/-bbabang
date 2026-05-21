@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -11,8 +11,8 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, Shield, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight, Table2, Flag, Megaphone, BarChart3,
-  AlertOctagon, Activity
+  Hash, ChevronRight, ChevronDown, Table2, Flag, Megaphone, BarChart3,
+  AlertOctagon, Activity, AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -60,6 +60,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ users: 0, brokers: 0, requests: 0, proposals: 0, openReports: 0, unverifiedBrokers: 0 })
   const [brokers, setBrokers] = useState<any[]>([])
+  // 사무실별 직원 명단 (대표 broker_profiles.id → 직원 배열)
+  const [employeesByOwner, setEmployeesByOwner] = useState<Map<string, any[]>>(new Map())
+  const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null)
   const [recentUsers, setRecentUsers] = useState<any[]>([])
   const [recentRequests, setRecentRequests] = useState<any[]>([])
   const [verifying, setVerifying] = useState<string | null>(null)
@@ -126,12 +129,32 @@ export default function AdminPage() {
 
   const loadBrokers = async () => {
     // 인증 관리는 대표(is_owner=true)만 대상. 직원 승인은 대표가 /broker/team에서 처리
-    const { data } = await supabase
+    const { data: owners } = await supabase
       .from('broker_profiles')
       .select('*, profiles(name, email, phone)')
       .eq('is_owner', true)
       .order('created_at', { ascending: false })
-    setBrokers(data ?? [])
+    const ownerRows = owners ?? []
+    setBrokers(ownerRows)
+
+    // 소속 직원 일괄 조회
+    const ownerIds = ownerRows.map(o => o.id)
+    if (ownerIds.length > 0) {
+      const { data: emps } = await supabase
+        .from('broker_profiles')
+        .select('*, profiles(name, email, phone)')
+        .in('parent_broker_id', ownerIds)
+        .order('created_at', { ascending: false })
+      const map = new Map<string, any[]>()
+      for (const e of emps ?? []) {
+        const arr = map.get(e.parent_broker_id) ?? []
+        arr.push(e)
+        map.set(e.parent_broker_id, arr)
+      }
+      setEmployeesByOwner(map)
+    } else {
+      setEmployeesByOwner(new Map())
+    }
   }
 
   const loadRecentUsers = async () => {
@@ -331,10 +354,10 @@ export default function AdminPage() {
               <Building2 className="h-6 w-6" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-white">사무소 검수</p>
+              <p className="font-bold text-white">사무실 검수</p>
               <p className="text-sm text-gray-400">
                 {stats.unverifiedBrokers > 0
-                  ? <>미인증 사무소 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 검수 대기</>
+                  ? <>미인증 사무실 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 검수 대기</>
                   : '대표 자격증·사업자 정보 검토 및 인증'}
               </p>
             </div>
@@ -406,27 +429,28 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* ── 중개사 인증 관리 ── */}
+        {/* ── 사무실 인증 관리 ── */}
         <div id="section-brokers">
           <div className="mb-4 flex items-center gap-3">
-            <h2 className="text-lg font-bold text-white">중개사 인증 관리</h2>
+            <h2 className="text-lg font-bold text-white">사무실 인증 관리</h2>
             {unverifiedBrokers.length > 0 && (
               <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-bold text-red-400">
-                미인증 {unverifiedBrokers.length}명
+                미인증 {unverifiedBrokers.length}곳
               </span>
             )}
-            <span className="ml-auto text-xs text-gray-500">행을 클릭하면 상세 정보를 볼 수 있어요</span>
+            <span className="ml-auto text-xs text-gray-500">대표 정보 클릭 시 상세 · 직원은 펼침으로 확인</span>
           </div>
 
           <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-800">
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">이름</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">사무소</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">대표</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">사무실</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">자격증 번호</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">담당 지역</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">가입일</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">직원</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">상태</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">액션</th>
                 </tr>
@@ -434,76 +458,135 @@ export default function AdminPage() {
               <tbody>
                 {brokers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-5 py-10 text-center text-gray-500">등록된 중개사가 없습니다</td>
+                    <td colSpan={8} className="px-5 py-10 text-center text-gray-500">등록된 사무실이 없습니다</td>
                   </tr>
                 ) : (
-                  brokers.map(broker => (
-                    <tr
-                      key={broker.id}
-                      onClick={async () => {
-                        setBrokerModal(broker)
-                        const cached = reviewsCacheRef.current.get(broker.id)
-                        if (cached) {
-                          setBrokerReviews(cached)
-                          setReviewsLoading(false)
-                          return
-                        }
-                        setBrokerReviews([])
-                        setReviewsLoading(true)
-                        const { data } = await supabase.from('reviews').select('*, profiles(name)').eq('broker_id', broker.id).order('created_at', { ascending: false })
-                        const rows = data ?? []
-                        reviewsCacheRef.current.set(broker.id, rows)
-                        setBrokerReviews(rows)
-                        setReviewsLoading(false)
-                      }}
-                      className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="font-semibold text-white">{broker.profiles?.name}</div>
-                          {broker.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-400" />}
-                        </div>
-                        <div className="text-xs text-gray-400">{broker.profiles?.email}</div>
-                      </td>
-                      <td className="px-5 py-4 text-gray-300">{broker.office_name}</td>
-                      <td className="px-5 py-4 text-gray-300 font-mono text-sm">{broker.license_number}</td>
-                      <td className="px-5 py-4">
-                        <div className="flex flex-wrap gap-1">
-                          {(broker.district?.split(',') ?? []).slice(0, 2).map((d: string) => (
-                            <span key={d} className="rounded-md bg-gray-700 px-2 py-0.5 text-xs text-gray-300">{d.trim()}</span>
-                          ))}
-                          {(broker.district?.split(',') ?? []).length > 2 && (
-                            <span className="text-xs text-gray-500">+{(broker.district?.split(',') ?? []).length - 2}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-gray-400">{formatDate(broker.created_at)}</td>
-                      <td className="px-5 py-4">
-                        {broker.is_verified ? (
-                          <span className="flex items-center gap-1.5 text-sm font-medium text-green-400">
-                            <CheckCircle className="h-4 w-4" /> 인증됨
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 text-sm font-medium text-yellow-400">
-                            <XCircle className="h-4 w-4" /> 미인증
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
-                        <button
-                          onClick={() => toggleVerify(broker.id, broker.is_verified)}
-                          disabled={verifying === broker.id}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                            broker.is_verified
-                              ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                              : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                          } disabled:opacity-50`}
+                  brokers.map(broker => {
+                    const employees = employeesByOwner.get(broker.id) ?? []
+                    const isOpen = expandedOwnerId === broker.id
+                    return (
+                      <Fragment key={broker.id}>
+                        <tr
+                          onClick={async () => {
+                            setBrokerModal(broker)
+                            const cached = reviewsCacheRef.current.get(broker.id)
+                            if (cached) {
+                              setBrokerReviews(cached)
+                              setReviewsLoading(false)
+                              return
+                            }
+                            setBrokerReviews([])
+                            setReviewsLoading(true)
+                            const { data } = await supabase.from('reviews').select('*, profiles(name)').eq('broker_id', broker.id).order('created_at', { ascending: false })
+                            const rows = data ?? []
+                            reviewsCacheRef.current.set(broker.id, rows)
+                            setBrokerReviews(rows)
+                            setReviewsLoading(false)
+                          }}
+                          className="border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors cursor-pointer"
                         >
-                          {verifying === broker.id ? '처리 중...' : broker.is_verified ? '인증 취소' : '인증 승인'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-white">{broker.profiles?.name}</div>
+                              {broker.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-400" />}
+                            </div>
+                            <div className="text-xs text-gray-400">{broker.profiles?.email}</div>
+                          </td>
+                          <td className="px-5 py-4 text-gray-300">{broker.office_name}</td>
+                          <td className="px-5 py-4 text-gray-300 font-mono text-sm">{broker.license_number}</td>
+                          <td className="px-5 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {(broker.district?.split(',') ?? []).slice(0, 2).map((d: string) => (
+                                <span key={d} className="rounded-md bg-gray-700 px-2 py-0.5 text-xs text-gray-300">{d.trim()}</span>
+                              ))}
+                              {(broker.district?.split(',') ?? []).length > 2 && (
+                                <span className="text-xs text-gray-500">+{(broker.district?.split(',') ?? []).length - 2}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-sm text-gray-400">{formatDate(broker.created_at)}</td>
+                          <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                            {employees.length > 0 ? (
+                              <button
+                                onClick={() => setExpandedOwnerId(isOpen ? null : broker.id)}
+                                className="inline-flex items-center gap-1 rounded-md bg-gray-800 px-2 py-1 text-xs font-medium text-gray-300 hover:bg-gray-700"
+                              >
+                                <Users className="h-3 w-3" />
+                                {employees.length}명
+                                <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-600">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4">
+                            {broker.is_verified ? (
+                              <span className="flex items-center gap-1.5 text-sm font-medium text-green-400">
+                                <CheckCircle className="h-4 w-4" /> 인증됨
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1.5 text-sm font-medium text-yellow-400">
+                                <XCircle className="h-4 w-4" /> 미인증
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
+                            <button
+                              onClick={() => toggleVerify(broker.id, broker.is_verified)}
+                              disabled={verifying === broker.id}
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                                broker.is_verified
+                                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                              } disabled:opacity-50`}
+                            >
+                              {verifying === broker.id ? '처리 중...' : broker.is_verified ? '인증 취소' : '인증 승인'}
+                            </button>
+                          </td>
+                        </tr>
+                        {isOpen && employees.length > 0 && (
+                          <tr className="border-b border-gray-800/50 bg-gray-950/60">
+                            <td colSpan={8} className="px-5 py-3">
+                              <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-400">
+                                <Users className="h-3.5 w-3.5" />
+                                {broker.office_name ?? '사무실'} 소속 직원 ({employees.length}명) · 승인은 대표가 처리
+                              </div>
+                              <ul className="divide-y divide-gray-800/60 rounded-xl border border-gray-800 bg-gray-900/60">
+                                {employees.map(e => (
+                                  <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+                                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gray-800 text-xs font-bold text-gray-300">
+                                      {e.profiles?.name?.[0] ?? '?'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <p className="text-sm font-medium text-gray-200 truncate">
+                                          {e.profiles?.name ?? '(이름 없음)'}
+                                        </p>
+                                        {e.is_approved ? (
+                                          <span className="inline-flex items-center gap-0.5 rounded-md bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-400">
+                                            <CheckCircle className="h-3 w-3" /> 승인
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-bold text-orange-400">
+                                            <AlertCircle className="h-3 w-3" /> 승인 대기
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[11px] text-gray-500 truncate">
+                                        {e.profiles?.email ?? '—'}
+                                        {e.profiles?.phone && ` · ${e.profiles.phone}`}
+                                      </p>
+                                    </div>
+                                    <span className="text-[11px] text-gray-500 flex-shrink-0">{formatDate(e.created_at)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })
                 )}
               </tbody>
             </table>
