@@ -9,10 +9,10 @@ import { formatDate } from '@/lib/utils'
 import {
   Building2, ArrowLeft, Search, X, ShieldCheck, ShieldOff,
   CheckCircle2, XCircle, AlertCircle, Hash, MapPin, ExternalLink,
-  UserPlus, Users, Phone, Mail, Calendar, FileText, ChevronDown
+  Users, Phone, Mail, Calendar, FileText, ChevronDown, ChevronRight
 } from 'lucide-react'
 
-type StatusFilter = 'all' | 'unverified' | 'verified' | 'pending_employee'
+type StatusFilter = 'all' | 'unverified' | 'verified'
 
 interface BrokerRow {
   id: string
@@ -35,7 +35,12 @@ interface BrokerRow {
   profiles: { name: string | null; email: string | null; phone: string | null } | null
 }
 
-const PAGE_SIZE = 50
+interface OfficeGroup {
+  owner: BrokerRow
+  employees: BrokerRow[]
+}
+
+const PAGE_SIZE = 30
 
 export default function AdminBrokersPage() {
   const router = useRouter()
@@ -43,7 +48,7 @@ export default function AdminBrokersPage() {
   const supabase = supabaseRef.current
   const auth = useAuth()
 
-  const [items, setItems] = useState<BrokerRow[]>([])
+  const [offices, setOffices] = useState<OfficeGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -52,7 +57,8 @@ export default function AdminBrokersPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<BrokerRow | null>(null)
   const [unverifiedCount, setUnverifiedCount] = useState(0)
-  const [pendingEmployeeCount, setPendingEmployeeCount] = useState(0)
+  const [verifiedCount, setVerifiedCount] = useState(0)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (auth.loading) return
@@ -61,12 +67,12 @@ export default function AdminBrokersPage() {
   }, [auth.loading, auth.user, auth.profile?.role, router])
 
   const loadCounts = useCallback(async () => {
-    const [u, e] = await Promise.all([
-      supabase.from('broker_profiles').select('*', { count: 'exact', head: true }).eq('is_verified', false).eq('is_owner', true),
-      supabase.from('broker_profiles').select('*', { count: 'exact', head: true }).eq('is_approved', false),
+    const [u, v] = await Promise.all([
+      supabase.from('broker_profiles').select('*', { count: 'exact', head: true }).eq('is_owner', true).eq('is_verified', false),
+      supabase.from('broker_profiles').select('*', { count: 'exact', head: true }).eq('is_owner', true).eq('is_verified', true),
     ])
     setUnverifiedCount(u.count ?? 0)
-    setPendingEmployeeCount(e.count ?? 0)
+    setVerifiedCount(v.count ?? 0)
   }, [supabase])
 
   const load = useCallback(async (reset = false) => {
@@ -74,14 +80,15 @@ export default function AdminBrokersPage() {
     if (reset) setLoading(true)
     else setLoadingMore(true)
 
+    // 1) 대표(사무소 단위) query — admin 인증 대상은 대표뿐
     let q = supabase
       .from('broker_profiles')
       .select('*, profiles(name, email, phone)')
+      .eq('is_owner', true)
       .order('created_at', { ascending: false })
 
-    if (status === 'unverified') q = q.eq('is_verified', false).eq('is_owner', true)
+    if (status === 'unverified') q = q.eq('is_verified', false)
     else if (status === 'verified') q = q.eq('is_verified', true)
-    else if (status === 'pending_employee') q = q.eq('is_approved', false)
 
     if (search.trim()) {
       const s = search.trim()
@@ -90,10 +97,29 @@ export default function AdminBrokersPage() {
 
     q = q.range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1)
 
-    const { data } = await q
-    const rows = (data ?? []) as any as BrokerRow[]
-    setItems(prev => reset ? rows : [...prev, ...rows])
-    setHasMore(rows.length === PAGE_SIZE)
+    const { data: owners } = await q
+    const ownerRows = (owners ?? []) as any as BrokerRow[]
+
+    // 2) 직원(parent_broker_id가 대표 id) 일괄 조회
+    const ownerIds = ownerRows.map(o => o.id)
+    let employees: BrokerRow[] = []
+    if (ownerIds.length > 0) {
+      const { data: emps } = await supabase
+        .from('broker_profiles')
+        .select('*, profiles(name, email, phone)')
+        .in('parent_broker_id', ownerIds)
+        .order('created_at', { ascending: false })
+      employees = (emps ?? []) as any as BrokerRow[]
+    }
+
+    // 3) 사무소 단위로 그룹화
+    const groups: OfficeGroup[] = ownerRows.map(owner => ({
+      owner,
+      employees: employees.filter(e => e.parent_broker_id === owner.id)
+    }))
+
+    setOffices(prev => reset ? groups : [...prev, ...groups])
+    setHasMore(ownerRows.length === PAGE_SIZE)
     setPage(targetPage + 1)
     if (reset) setLoading(false); else setLoadingMore(false)
   }, [supabase, page, status, search])
@@ -113,20 +139,23 @@ export default function AdminBrokersPage() {
     load(true)
   }
 
+  const toggleExpand = (ownerId: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(ownerId)) next.delete(ownerId)
+      else next.add(ownerId)
+      return next
+    })
+  }
+
   const toggleVerify = async (broker: BrokerRow) => {
     const next = !broker.is_verified
     const { error } = await supabase.from('broker_profiles').update({ is_verified: next }).eq('id', broker.id)
     if (error) { alert('변경 실패: ' + error.message); return }
-    setItems(prev => prev.map(b => b.id === broker.id ? { ...b, is_verified: next } : b))
+    setOffices(prev => prev.map(g =>
+      g.owner.id === broker.id ? { ...g, owner: { ...g.owner, is_verified: next } } : g
+    ))
     if (selected?.id === broker.id) setSelected({ ...selected, is_verified: next })
-    loadCounts()
-  }
-
-  const approveEmployee = async (broker: BrokerRow) => {
-    const { error } = await supabase.from('broker_profiles').update({ is_approved: true }).eq('id', broker.id)
-    if (error) { alert('승인 실패: ' + error.message); return }
-    setItems(prev => prev.map(b => b.id === broker.id ? { ...b, is_approved: true } : b))
-    if (selected?.id === broker.id) setSelected({ ...selected, is_approved: true })
     loadCounts()
   }
 
@@ -149,10 +178,10 @@ export default function AdminBrokersPage() {
             <Building2 className="h-5 w-5 text-purple-400" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">중개사 검수</h1>
+            <h1 className="text-lg font-bold text-white">사무소 검수</h1>
             <p className="text-xs text-gray-400">
-              미인증 <span className="font-bold text-yellow-400">{unverifiedCount}</span>명 ·
-              직원 대기 <span className="font-bold text-blue-400">{pendingEmployeeCount}</span>명
+              미인증 <span className="font-bold text-yellow-400">{unverifiedCount}</span>곳 ·
+              인증 <span className="font-bold text-blue-400">{verifiedCount}</span>곳
             </p>
           </div>
         </div>
@@ -178,9 +207,8 @@ export default function AdminBrokersPage() {
 
           <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1 flex-wrap">
             {([
-              { key: 'unverified', label: `미인증 대표 (${unverifiedCount})` },
-              { key: 'pending_employee', label: `직원 대기 (${pendingEmployeeCount})` },
-              { key: 'verified', label: '인증 완료' },
+              { key: 'unverified', label: `미인증 (${unverifiedCount})` },
+              { key: 'verified', label: `인증 (${verifiedCount})` },
               { key: 'all', label: '전체' },
             ] as const).map(t => (
               <button key={t.key} onClick={() => setStatus(t.key)}
@@ -197,57 +225,107 @@ export default function AdminBrokersPage() {
           <div className="flex items-center justify-center py-20">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
-        ) : items.length === 0 ? (
+        ) : offices.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
             <Building2 className="mx-auto mb-3 h-12 w-12 text-gray-700" />
-            <p className="font-semibold text-gray-400">조건에 맞는 중개사가 없어요</p>
+            <p className="font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
           </div>
         ) : (
           <>
-            <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
-              {items.map(b => (
-                <li key={b.id}>
-                  <button onClick={() => setSelected(b)}
-                    className="w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-gray-800/60 transition-colors">
-                    <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
-                      b.is_owner ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
-                    }`}>
-                      {b.is_owner ? <Building2 className="h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                        <p className="text-sm font-semibold text-white truncate">
-                          {b.profiles?.name ?? '(이름 없음)'}
+            <ul className="space-y-3">
+              {offices.map(g => {
+                const isOpen = expanded.has(g.owner.id)
+                return (
+                  <li key={g.owner.id} className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
+                    {/* 사무소 헤더 (대표) */}
+                    <button
+                      onClick={() => setSelected(g.owner)}
+                      className="w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-gray-800/60 transition-colors"
+                    >
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                          <p className="text-sm font-bold text-white truncate">
+                            {g.owner.office_name ?? '(사무소명 없음)'}
+                          </p>
+                          {g.owner.is_verified ? (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
+                              <ShieldCheck className="h-3 w-3" /> 인증
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 rounded-md bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400">
+                              <ShieldOff className="h-3 w-3" /> 미인증
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700 px-1.5 py-0.5 text-[10px] font-medium text-gray-300">
+                            <Users className="h-3 w-3" /> 직원 {g.employees.length}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 truncate">
+                          대표 · {g.owner.profiles?.name ?? '(이름 없음)'}
                         </p>
-                        {b.is_verified ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
-                            <ShieldCheck className="h-3 w-3" /> 인증
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500 flex-wrap">
+                          {g.owner.license_number && <span className="font-mono">자격 {g.owner.license_number}</span>}
+                          {g.owner.business_reg_number && <span className="font-mono">사업 {g.owner.business_reg_number}</span>}
+                          {g.owner.address && <span className="truncate max-w-[200px]">{g.owner.address}</span>}
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-500 flex-shrink-0">{g.owner.created_at && formatDate(g.owner.created_at)}</span>
+                      <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0 mt-1.5" />
+                    </button>
+
+                    {/* 직원 명단 (펼침) */}
+                    {g.employees.length > 0 && (
+                      <div className="border-t border-gray-800">
+                        <button
+                          onClick={() => toggleExpand(g.owner.id)}
+                          className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5" />
+                            소속 직원 {g.employees.length}명
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-0.5 rounded-md bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400">
-                            <ShieldOff className="h-3 w-3" /> 미인증
-                          </span>
-                        )}
-                        {!b.is_owner && (
-                          <span className="rounded-md bg-gray-700 px-1.5 py-0.5 text-[10px] font-medium text-gray-300">직원</span>
-                        )}
-                        {!b.is_approved && (
-                          <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-bold text-orange-400">
-                            <AlertCircle className="h-3 w-3" /> 승인 대기
-                          </span>
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isOpen && (
+                          <ul className="border-t border-gray-800 divide-y divide-gray-800/50">
+                            {g.employees.map(e => (
+                              <li key={e.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-800/30">
+                                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gray-800 text-xs font-bold text-gray-300">
+                                  {e.profiles?.name?.[0] ?? '?'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="text-sm font-medium text-gray-200 truncate">
+                                      {e.profiles?.name ?? '(이름 없음)'}
+                                    </p>
+                                    {e.is_approved ? (
+                                      <span className="inline-flex items-center gap-0.5 rounded-md bg-green-500/20 px-1.5 py-0.5 text-[10px] font-bold text-green-400">
+                                        <CheckCircle2 className="h-3 w-3" /> 승인
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-0.5 rounded-md bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-bold text-orange-400">
+                                        <AlertCircle className="h-3 w-3" /> 승인 대기
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-gray-500 truncate">
+                                    {e.profiles?.email ?? '—'}
+                                    {e.profiles?.phone && ` · ${e.profiles.phone}`}
+                                  </p>
+                                </div>
+                                <span className="text-[11px] text-gray-500 flex-shrink-0">{e.created_at && formatDate(e.created_at)}</span>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 truncate">{b.office_name ?? '—'}</p>
-                      <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
-                        {b.license_number && <span className="font-mono">자격 {b.license_number}</span>}
-                        {b.business_reg_number && <span className="font-mono">사업 {b.business_reg_number}</span>}
-                      </div>
-                    </div>
-                    <span className="text-xs text-gray-500 flex-shrink-0">{b.created_at && formatDate(b.created_at)}</span>
-                    <ChevronDown className="h-4 w-4 text-gray-600 rotate-[-90deg] flex-shrink-0 mt-1.5" />
-                  </button>
-                </li>
-              ))}
+                    )}
+                  </li>
+                )
+              })}
             </ul>
 
             {hasMore && (
@@ -267,23 +345,20 @@ export default function AdminBrokersPage() {
           broker={selected}
           onClose={() => setSelected(null)}
           onToggleVerify={() => toggleVerify(selected)}
-          onApproveEmployee={() => approveEmployee(selected)}
         />
       )}
     </div>
   )
 }
 
-function BrokerDetailModal({ broker, onClose, onToggleVerify, onApproveEmployee }: {
+function BrokerDetailModal({ broker, onClose, onToggleVerify }: {
   broker: BrokerRow
   onClose: () => void
   onToggleVerify: () => Promise<void>
-  onApproveEmployee: () => Promise<void>
 }) {
   const [busy, setBusy] = useState(false)
 
   const handleToggle = async () => { setBusy(true); await onToggleVerify(); setBusy(false) }
-  const handleApprove = async () => { setBusy(true); await onApproveEmployee(); setBusy(false) }
 
   const districts = broker.district?.split(',').map(d => d.trim()).filter(Boolean) ?? []
   const v = (broker.verification_info ?? {}) as Record<string, any>
@@ -295,7 +370,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onApproveEmployee 
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white">중개사 상세</h3>
+            <h3 className="font-bold text-white">사무소 상세</h3>
             {broker.is_verified ? (
               <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
                 <ShieldCheck className="h-3 w-3" /> 인증됨
@@ -305,7 +380,6 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onApproveEmployee 
                 <ShieldOff className="h-3 w-3" /> 미인증
               </span>
             )}
-            {!broker.is_owner && <span className="rounded-md bg-gray-700 px-1.5 py-0.5 text-[10px] font-bold text-gray-300">직원</span>}
           </div>
           <button onClick={onClose} disabled={busy}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
@@ -320,8 +394,8 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onApproveEmployee 
               {broker.profiles?.name?.[0] ?? '?'}
             </div>
             <div>
-              <p className="text-lg font-bold text-white">{broker.profiles?.name ?? '(이름 없음)'}</p>
-              <p className="text-sm text-gray-400">{broker.office_name ?? '—'}</p>
+              <p className="text-lg font-bold text-white">{broker.office_name ?? '—'}</p>
+              <p className="text-sm text-gray-400">대표 · {broker.profiles?.name ?? '(이름 없음)'}</p>
             </div>
           </div>
 
@@ -371,14 +445,6 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onApproveEmployee 
               {broker.is_verified ? <XCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
               {busy ? '처리 중...' : broker.is_verified ? '인증 취소' : '인증 승인'}
             </button>
-
-            {!broker.is_owner && !broker.is_approved && (
-              <button onClick={handleApprove} disabled={busy}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-500/20 text-blue-400 py-2.5 text-sm font-semibold hover:bg-blue-500/30 disabled:opacity-50">
-                <Users className="h-4 w-4" />
-                {busy ? '처리 중...' : '직원 가입 승인'}
-              </button>
-            )}
 
             <Link href={`/broker/${broker.id}`} target="_blank"
               className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-700 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800">

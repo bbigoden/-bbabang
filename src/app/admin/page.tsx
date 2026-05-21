@@ -125,9 +125,11 @@ export default function AdminPage() {
   }
 
   const loadBrokers = async () => {
+    // 인증 관리는 대표(is_owner=true)만 대상. 직원 승인은 대표가 /broker/team에서 처리
     const { data } = await supabase
       .from('broker_profiles')
       .select('*, profiles(name, email, phone)')
+      .eq('is_owner', true)
       .order('created_at', { ascending: false })
     setBrokers(data ?? [])
   }
@@ -329,11 +331,11 @@ export default function AdminPage() {
               <Building2 className="h-6 w-6" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-white">중개사 검수</p>
+              <p className="font-bold text-white">사무소 검수</p>
               <p className="text-sm text-gray-400">
                 {stats.unverifiedBrokers > 0
-                  ? <>미인증 대표 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>명 검수 대기</>
-                  : '자격증·사업자 정보 검토 및 인증'}
+                  ? <>미인증 사무소 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 검수 대기</>
+                  : '대표 자격증·사업자 정보 검토 및 인증'}
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-gray-600" />
