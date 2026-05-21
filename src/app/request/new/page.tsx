@@ -41,8 +41,9 @@ function RequestNewPageInner() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // 역할 체크 — 중개사/관리자는 요청 등록 불가
+  // 역할 체크 — 중개사/관리자는 일반 요청 등록 불가 (공동중개 요청은 중개사도 허용)
   useEffect(() => {
+    if (isCoBroker) return  // 공동중개 요청은 중개사 본인이 작성하는 게 정상
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
@@ -50,7 +51,7 @@ function RequestNewPageInner() {
         else if (data?.role === 'admin') router.replace('/admin')
       })
     })
-  }, [])
+  }, [isCoBroker])
 
   // 다중 선택
   const [dealTypes, setDealTypes] = useState<string[]>([])
