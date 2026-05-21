@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { X, Shield, Users, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { transferBrokerData } from '@/lib/leave-office'
 import { OfficeCodeCard } from '@/components/office-code-card'
 
 interface Permission {
@@ -185,16 +186,11 @@ export default function BrokerTeamPage() {
   }
 
   const removeEmployee = async (empId: string) => {
-    if (!confirm('이 직원을 팀에서 제거할까요?\n직원이 입력한 고객·매물·업무일지 데이터는 사무소에 귀속됩니다.')) return
+    if (!confirm('이 직원을 팀에서 제거할까요?\n직원이 입력한 고객·매물·업무일지·채팅·제안·리뷰 등 모든 영업 기록은 사무소(대표)에 귀속됩니다.')) return
     if (!broker) return
 
-    // 직원 데이터를 대표 broker_id로 이전 — 한 단계라도 실패하면 후속 차단(고아 데이터 방지)
-    const results = await Promise.all([
-      supabase.from('broker_customers').update({ broker_id: broker.id }).eq('broker_id', empId),
-      supabase.from('broker_properties').update({ broker_id: broker.id }).eq('broker_id', empId),
-      supabase.from('broker_consultations').update({ broker_id: broker.id }).eq('broker_id', empId),
-    ])
-    const transferErr = results.find(r => r.error)?.error
+    // 모든 영업 기록을 대표 broker_id로 이전 (법적 책임 보존)
+    const { error: transferErr } = await transferBrokerData(supabase, empId, broker.id)
     if (transferErr) {
       console.error('[team] data transfer failed', transferErr)
       alert(`데이터 이전 실패로 제거를 중단했어요: ${transferErr.message}`)

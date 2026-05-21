@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2 } from 'lucide-react'
+import { transferBrokerData } from '@/lib/leave-office'
 
 export default function SettingsAccountPage() {
   const router = useRouter()
@@ -68,6 +69,29 @@ export default function SettingsAccountPage() {
 
   const withdraw = async () => {
     setWithdrawing(true); setWithdrawErr(null)
+
+    // 직원이면 사무소 데이터를 대표에게 이전 (법적 책임 보존)
+    if (user) {
+      const { data: bp } = await supabase.from('broker_profiles')
+        .select('id, is_owner, parent_broker_id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (bp && bp.is_owner === false && bp.parent_broker_id) {
+        const { error: transferErr } = await transferBrokerData(supabase, bp.id, bp.parent_broker_id)
+        if (transferErr) {
+          setWithdrawErr(`데이터 이전 실패로 탈퇴를 중단했어요: ${transferErr.message}`)
+          setWithdrawing(false)
+          return
+        }
+      }
+      // 대표(owner)는 사무소 전체에 영향이 크므로 차단
+      if (bp && bp.is_owner === true) {
+        setWithdrawErr('대표 회원탈퇴는 직원·매물 정리가 필요합니다. 운영팀에 문의해주세요.')
+        setWithdrawing(false)
+        return
+      }
+    }
+
     const { data: { session } } = await supabase.auth.getSession()
     const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-user`, {
       method: 'POST',

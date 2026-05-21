@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
+import { transferBrokerData } from '@/lib/leave-office'
 
 export function BrokerChangeOffice({ brokerId, parentBrokerId }: { brokerId: string; parentBrokerId: string }) {
   const supabase = createClient()
@@ -11,22 +12,28 @@ export function BrokerChangeOffice({ brokerId, parentBrokerId }: { brokerId: str
   const [loading, setLoading] = useState(false)
 
   const handleLeave = async () => {
-    if (!confirm('사무소를 탈퇴할까요?\n입력하신 고객·매물·업무일지 데이터는 사무소에 귀속됩니다.\n탈퇴 후 새 사무소 코드로 재등록할 수 있습니다.')) return
+    if (!confirm('사무소를 탈퇴할까요?\n입력하신 고객·매물·업무일지·채팅·제안·리뷰 등 모든 영업 기록은 사무소(대표)에 귀속됩니다.\n탈퇴 후 새 사무소 코드로 재등록할 수 있습니다.')) return
     setLoading(true)
 
-    // 데이터를 대표 broker_id로 이전
-    await Promise.all([
-      supabase.from('broker_customers').update({ broker_id: parentBrokerId }).eq('broker_id', brokerId),
-      supabase.from('broker_properties').update({ broker_id: parentBrokerId }).eq('broker_id', brokerId),
-      supabase.from('broker_consultations').update({ broker_id: parentBrokerId }).eq('broker_id', brokerId),
-    ])
+    // 모든 영업 기록을 대표에게 이전 (법적 책임 보존)
+    const { error } = await transferBrokerData(supabase, brokerId, parentBrokerId)
+    if (error) {
+      alert(`데이터 이전 실패: ${error.message}\n탈퇴를 중단했어요. 잠시 후 다시 시도해주세요.`)
+      setLoading(false)
+      return
+    }
 
     // 사무소 연결 해제
-    await supabase.from('broker_profiles').update({
+    const { error: detachErr } = await supabase.from('broker_profiles').update({
       parent_broker_id: null,
       is_approved: false,
       permissions: null,
     }).eq('id', brokerId)
+    if (detachErr) {
+      alert(`사무소 분리 실패: ${detachErr.message}`)
+      setLoading(false)
+      return
+    }
 
     router.push('/broker/register')
     router.refresh()
