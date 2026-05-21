@@ -50,7 +50,9 @@ export async function proxy(request: NextRequest) {
   }
 
   // 홈(/): 로그인된 사용자는 적절한 대시보드로 redirect (page.tsx가 정적 캐시 가능하도록)
-  if (isRoot && user) {
+  // ?as_visitor=1 — 어드민이 일반 사용자 화면 미리보기 시 redirect 우회
+  const asVisitor = request.nextUrl.searchParams.get('as_visitor') === '1'
+  if (isRoot && user && !asVisitor) {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     const role = profile?.role
     const url = request.nextUrl.clone()

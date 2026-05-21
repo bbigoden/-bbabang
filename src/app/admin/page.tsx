@@ -234,7 +234,7 @@ export default function AdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/" target="_blank">
+            <Link href="/?as_visitor=1" target="_blank">
               <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800">
                 <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                 사이트 보기
