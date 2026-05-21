@@ -30,6 +30,50 @@ export function maskAddress(address: string | null | undefined): string {
   return tokens.slice(0, stopIdx + 1).join(' ')
 }
 
+/**
+ * 매물 유형별 주소 노출 정책
+ * - 아파트/오피스텔/빌라·연립: 읍·면·동 + "N동" 추가 노출 (호수 X)
+ * - 상가/사무실/건물 전체: 도로명·건물명까지 (동·호·층 제거)
+ * - 그 외 (원룸·투룸·쓰리룸·단독/다가구·토지·창고/공장·숙박/여관): 읍·면·동까지
+ */
+const APT_LIKE = new Set(['아파트', '오피스텔', '빌라/연립', '빌라', '연립'])
+const COMMERCIAL = new Set(['상가', '사무실', '건물 전체', '건물전체'])
+
+export function maskAddressByType(
+  address: string | null | undefined,
+  roomType: string | null | undefined,
+): string {
+  if (!address) return ''
+  const rt = (roomType ?? '').trim()
+  const base = maskAddress(address)
+  const tokens = address.trim().split(/\s+/)
+
+  // 아파트류: 동까지 + "N동" 추가
+  if (APT_LIKE.has(rt)) {
+    // "105동" 처럼 숫자+동 패턴, "동" 한 글자가 토큰 끝일 때만 (읍·면·동 토큰 제외)
+    const dongToken = tokens.find(t => /^\d+동$/.test(t))
+    if (dongToken) return `${base} ${dongToken}`
+    // "리더힐스 307-15" 같이 단지명이 있고 동 패턴 없는 경우 — 단지명 + N동만 추출
+    // 패턴: 단지명 뒤 "N-N" 또는 "N동" 같이 나오는데 동 번호 분리 어려운 경우 단지명만 일부 노출
+    // (단지명 노출이 본질이라 base만 반환)
+    return base
+  }
+
+  // 상업류: 동·호·층 제거하고 도로명+건물명 그대로
+  if (COMMERCIAL.has(rt)) {
+    const filtered = tokens.filter(t =>
+      !/^\d+호$/.test(t) &&        // 501호
+      !/^[Bb]?\d+층$/.test(t) &&   // 5층, B1층
+      !/^지하\d*$/.test(t) &&      // 지하, 지하1
+      !/^지상\d*$/.test(t)         // 지상
+    )
+    return filtered.join(' ')
+  }
+
+  // 그 외: 읍·면·동까지
+  return base
+}
+
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
   const now = new Date()

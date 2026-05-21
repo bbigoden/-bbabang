@@ -6,7 +6,7 @@ import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatDate, formatPrice, maskAddress } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddressByType } from '@/lib/utils'
 import {
   Building2, MapPin, Home, Hash, ShieldCheck, Calendar, Star,
   TrendingDown, TrendingUp, MessageCircle, Eye, ChevronRight
@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq('id', id)
     .maybeSingle()
   if (!data) return { title: '매물 | 빠방' }
-  const region = maskAddress(data.address)
+  const region = maskAddressByType(data.address, data.room_type)
   const priceStr = data.deal_type === '월세'
     ? `보증금 ${data.price ? formatPrice(data.price) : '협의'}/월 ${data.monthly_rent ? formatPrice(data.monthly_rent) : '협의'}`
     : data.price ? formatPrice(data.price) : '가격 협의'
@@ -69,7 +69,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       .from('broker_profiles').select('id').eq('user_id', user.id).maybeSingle()
     if (myBroker?.id === prop.broker_id) isMine = true
   }
-  const displayAddress = isMine ? prop.address : (prop.address ? maskAddress(prop.address) : '주소 미입력')
+  const displayAddress = isMine ? prop.address : (prop.address ? maskAddressByType(prop.address, prop.room_type) : '주소 미입력')
 
   // 본인 찜 상태
   let isFavorited = false
@@ -120,12 +120,12 @@ export default async function PropertyDetailPage({ params }: Props) {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: BASE_URL },
           { '@type': 'ListItem', position: 2, name: '매물', item: `${BASE_URL}/brokers` },
-          { '@type': 'ListItem', position: 3, name: maskAddress(prop.address) || '매물', item: `${BASE_URL}/property/${id}` },
+          { '@type': 'ListItem', position: 3, name: maskAddressByType(prop.address, prop.room_type) || '매물', item: `${BASE_URL}/property/${id}` },
         ],
       },
       {
         '@type': 'Product',
-        name: `${maskAddress(prop.address)} ${prop.deal_type ?? ''} ${prop.room_type ?? ''}`.trim(),
+        name: `${maskAddressByType(prop.address, prop.room_type)} ${prop.deal_type ?? ''} ${prop.room_type ?? ''}`.trim(),
         description: prop.description ?? '',
         image: prop.images ?? [],
         offers: prop.price ? {
@@ -197,9 +197,6 @@ export default async function PropertyDetailPage({ params }: Props) {
             {prop.status === 'hidden' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-500">숨김</span>}
           </div>
           <h1 className="text-xl font-bold text-gray-900">{displayAddress}</h1>
-          {!isMine && (
-            <p className="mt-1 text-[11px] text-gray-400">상세 주소는 중개사를 통해 안내받으세요</p>
-          )}
           <p className="mt-1 text-2xl font-black text-blue-600">{priceText}</p>
           {prop.management_fee && <p className="mt-0.5 text-sm text-gray-500">관리비 {formatPrice(prop.management_fee)}</p>}
         </div>
@@ -330,7 +327,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                           {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
                           {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
                         </div>
-                        <p className="text-sm font-semibold text-gray-800 truncate">{maskAddress(p.address)}</p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">{maskAddressByType(p.address, p.room_type)}</p>
                         <p className="mt-0.5 text-sm font-black text-blue-600">
                           {!p.price ? '가격 협의'
                             : p.deal_type === '월세' ? `${formatPrice(p.price)}/월 ${formatPrice(p.monthly_rent ?? 0)}`

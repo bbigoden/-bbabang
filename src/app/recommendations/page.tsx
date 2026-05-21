@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
-import { formatPrice, maskAddress } from '@/lib/utils'
+import { formatPrice, maskAddressByType } from '@/lib/utils'
 import { Sparkles, MapPin, Home, FileText, Heart, Building2, AlertCircle, Plus } from 'lucide-react'
 
 interface Match {
@@ -210,7 +210,7 @@ export default function RecommendationsPage() {
                             {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
                             {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
                           </div>
-                          <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddress(p.address) : '주소 미입력'}</p>
+                          <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}</p>
                           <p className="mt-1 text-sm font-black text-blue-600">
                             {!p.price ? '가격 협의'
                               : p.deal_type === '월세' ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
@@ -253,7 +253,7 @@ function PropertyMatchCard({ match, favorited }: { match: Match; favorited: bool
           </div>
           <p className="font-semibold text-gray-800 text-sm truncate">
             <MapPin className="inline h-3 w-3 mr-0.5 text-gray-400" />
-            {p.address ? maskAddress(p.address) : '주소 미입력'}
+            {p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}
           </p>
           <p className="mt-1 text-sm font-black text-blue-600">
             {!p.price ? '가격 협의'

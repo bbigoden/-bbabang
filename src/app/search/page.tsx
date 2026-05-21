@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
-import { formatPrice, formatDate, maskAddress } from '@/lib/utils'
+import { formatPrice, formatDate, maskAddressByType } from '@/lib/utils'
 import { Search as SearchIcon, X, Building2, Home, FileText, MapPin, Star, ShieldCheck } from 'lucide-react'
 
 interface BrokerHit {
@@ -202,7 +202,7 @@ function SearchInner() {
                             {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
                             {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
                           </div>
-                          <p className="text-sm font-semibold text-gray-800 truncate">{maskAddress(p.address)}</p>
+                          <p className="text-sm font-semibold text-gray-800 truncate">{maskAddressByType(p.address, p.room_type)}</p>
                           <p className="mt-1 text-sm font-black text-blue-600">
                             {!p.price ? '가격 협의'
                               : p.deal_type === '월세' ? `${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
