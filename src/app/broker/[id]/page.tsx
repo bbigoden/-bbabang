@@ -108,29 +108,30 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
 
   if (!broker) notFound()
 
-  // 최근 7일 가격 인하 매물 ID 조회
+  // 최근 7일 가격 인하 매물 ID 조회 — 1300+ 매물에서 .in() URL 길이 문제 회피하려 broker_id JOIN 사용
   const recentDropIds = new Set<string>()
   if (properties.length > 0) {
-    const propIds = properties.map(p => p.id)
-    const sinceISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    const { data: drops } = await supabase
-      .from('property_price_history')
-      .select('property_id, old_price, new_price')
-      .in('property_id', propIds)
-      .gte('changed_at', sinceISO)
-    ;(drops ?? []).forEach((d: any) => {
-      if (d.new_price != null && d.old_price != null && d.new_price < d.old_price) {
-        recentDropIds.add(d.property_id)
-      }
-    })
+    try {
+      const sinceISO = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: drops } = await supabase
+        .from('property_price_history')
+        .select('property_id, old_price, new_price, broker_properties!inner(broker_id)')
+        .eq('broker_properties.broker_id', brokerId)
+        .gte('changed_at', sinceISO)
+      ;(drops ?? []).forEach((d: any) => {
+        if (d.new_price != null && d.old_price != null && d.new_price < d.old_price) {
+          recentDropIds.add(d.property_id)
+        }
+      })
+    } catch {/* 가격 히스토리 실패는 무시 — 페이지 자체는 정상 */}
   }
 
   // 로그인 사용자의 broker·property 찜 상태 한 번에 fetch
+  // 매물 1300+ 인 경우 .in()이 URL 길이 초과 → 사용자의 모든 property 찜을 가져와 set으로 매칭
   let brokerFavorited = false
   const propFavSet = new Set<string>()
   if (user) {
-    const propIds = properties.map(p => p.id)
-    const targets = [
+    const [bf, pf] = await Promise.all([
       supabase
         .from('favorites')
         .select('id')
@@ -138,18 +139,14 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
         .eq('target_type', 'broker')
         .eq('target_id', brokerId)
         .maybeSingle(),
-      propIds.length > 0
-        ? supabase
-            .from('favorites')
-            .select('target_id')
-            .eq('user_id', user.id)
-            .eq('target_type', 'property')
-            .in('target_id', propIds)
-        : Promise.resolve({ data: [] as { target_id: string }[] }),
-    ]
-    const [bf, pf] = await Promise.all(targets)
-    brokerFavorited = !!(bf as any).data
-    ;((pf as any).data ?? []).forEach((row: { target_id: string }) => propFavSet.add(row.target_id))
+      supabase
+        .from('favorites')
+        .select('target_id')
+        .eq('user_id', user.id)
+        .eq('target_type', 'property'),
+    ])
+    brokerFavorited = !!bf.data
+    ;(pf.data ?? []).forEach((row: { target_id: string }) => propFavSet.add(row.target_id))
   }
 
   const districts = broker.district?.split(',').map((d: string) => d.trim()).filter(Boolean) ?? []
