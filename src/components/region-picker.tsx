@@ -66,7 +66,7 @@ export function RegionPicker({
       <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5">
         <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
         <span className="flex-1 text-sm font-semibold text-blue-900">
-          {value.sido} {value.sigungu}{value.dong ? ` ${value.dong}` : ''}
+          {value.sido} {value.sigungu}{value.dong ? ` ${value.dong}` : ' 전체'}
         </span>
         {onClear && (
           <button type="button" onClick={onClear} className="text-blue-600 hover:text-blue-800">

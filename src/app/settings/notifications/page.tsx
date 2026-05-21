@@ -198,7 +198,7 @@ export default function SettingsNotificationsPage() {
                 <li key={`${r.sido}|${r.sigungu}|${r.dong}`}
                     className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700">
                   <MapPin className="h-3 w-3" />
-                  <span>{r.sido} {r.sigungu}{r.dong ? ` ${r.dong}` : ''}</span>
+                  <span>{r.sido} {r.sigungu}{r.dong ? ` ${r.dong}` : ' 전체'}</span>
                   <button type="button" onClick={() => removeRegion(i)} className="text-blue-500 hover:text-blue-700 ml-0.5">
                     <X className="h-3.5 w-3.5" />
                   </button>

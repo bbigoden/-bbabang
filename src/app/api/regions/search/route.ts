@@ -4,8 +4,8 @@ import { checkRateLimit } from '@/lib/rate-limit'
 export type RegionHit = {
   sido: string          // 충청남도
   sigungu: string       // 천안시 서북구
-  dong: string | null   // 불당동 (sigungu만 검색 시 null)
-  label: string         // "충청남도 천안시 서북구 불당동" — UI 표시용
+  dong: string | null   // 불당동 (NULL=시·군·구 전체)
+  label: string         // "충청남도 천안시 서북구 불당동" 또는 "...전체"
 }
 
 // Kakao 응답의 약칭 sido → 빠방에서 쓰는 풀네임. request_posts.city와 일관성 유지.
@@ -59,7 +59,9 @@ export async function GET(req: NextRequest) {
   }
 
   const seen = new Set<string>()
-  const results: RegionHit[] = []
+  const seenSigungu = new Set<string>()
+  const sigunguHits: RegionHit[] = []
+  const dongHits: RegionHit[] = []
 
   for (const doc of json.documents ?? []) {
     const addr = (doc.address_name ?? '').trim()
@@ -77,10 +79,18 @@ export async function GET(req: NextRequest) {
     const sigungu = tokens.slice(1, dongIdx).join(' ')
     if (!sido || !sigungu || !dong) continue
     const key = `${sido}|${sigungu}|${dong}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    results.push({ sido, sigungu, dong, label: `${sido} ${sigungu} ${dong}` })
+    if (!seen.has(key)) {
+      seen.add(key)
+      dongHits.push({ sido, sigungu, dong, label: `${sido} ${sigungu} ${dong}` })
+    }
+    // 시·군·구 전체 후보 (dong=null) — 처음 등장하는 시군구마다 한 번씩
+    const sigunguKey = `${sido}|${sigungu}`
+    if (!seenSigungu.has(sigunguKey)) {
+      seenSigungu.add(sigunguKey)
+      sigunguHits.push({ sido, sigungu, dong: null, label: `${sido} ${sigungu} 전체` })
+    }
   }
 
-  return NextResponse.json({ results })
+  // "시·군·구 전체" 옵션을 상단으로 정렬 (시 전체로 받고 싶은 사용자 발견 쉽게)
+  return NextResponse.json({ results: [...sigunguHits, ...dongHits] })
 }
