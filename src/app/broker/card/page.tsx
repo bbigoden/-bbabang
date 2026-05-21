@@ -16,6 +16,7 @@ interface BrokerData {
   id: string
   office_name: string | null
   license_number: string | null
+  office_reg_number: string | null
   address: string | null
   district: string | null
   rating: number | null
@@ -48,7 +49,7 @@ export default function BrokerCardPage() {
     ;(async () => {
       const { data } = await supabase
         .from('broker_profiles')
-        .select('id, office_name, license_number, address, district, rating, review_count, deal_count, is_verified, bio, profiles(name, email, phone)')
+        .select('id, office_name, license_number, office_reg_number, address, district, rating, review_count, deal_count, is_verified, bio, profiles(name, email, phone)')
         .eq('user_id', auth.user!.id)
         .single()
       if (data) {
@@ -157,16 +158,15 @@ export default function BrokerCardPage() {
 
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <h1 className="text-2xl font-black text-gray-900">{broker.profiles?.name ?? '공인중개사'}</h1>
-                    {broker.is_verified && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                        <ShieldCheck className="h-3 w-3" /> 인증
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-semibold text-gray-600">공인중개사</p>
-                  <p className="mt-0.5 text-base font-bold text-blue-700">{broker.office_name ?? ''}</p>
+                  {broker.is_verified && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700 mb-1.5">
+                      <ShieldCheck className="h-3 w-3" /> 인증 공인중개사
+                    </span>
+                  )}
+                  <h1 className="text-xl font-black text-gray-900 break-keep">{broker.office_name ?? ''}</h1>
+                  <p className="mt-0.5 text-sm text-gray-600">
+                    대표 <span className="font-bold text-gray-800">{broker.profiles?.name ?? '—'}</span>
+                  </p>
                 </div>
 
                 {qrUrl && (
@@ -177,30 +177,36 @@ export default function BrokerCardPage() {
                 )}
               </div>
 
-              {/* 연락처 */}
+              {/* 사무소 정보 — 연락처·이메일·소재지·등록번호·자격증 순 */}
               <div className="mt-5 space-y-1.5 text-sm">
                 {broker.profiles?.phone && (
                   <p className="flex items-center gap-2 text-gray-700">
-                    <Phone className="h-3.5 w-3.5 text-blue-500" />
+                    <Phone className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                     <a href={`tel:${broker.profiles.phone}`} className="hover:underline">{broker.profiles.phone}</a>
                   </p>
                 )}
                 {broker.profiles?.email && (
                   <p className="flex items-center gap-2 text-gray-700">
-                    <Mail className="h-3.5 w-3.5 text-blue-500" />
-                    <a href={`mailto:${broker.profiles.email}`} className="hover:underline">{broker.profiles.email}</a>
+                    <Mail className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                    <a href={`mailto:${broker.profiles.email}`} className="hover:underline break-all">{broker.profiles.email}</a>
                   </p>
                 )}
                 {broker.address && (
+                  <p className="flex items-start gap-2 text-gray-700">
+                    <MapPin className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <span className="break-keep">{broker.address}</span>
+                  </p>
+                )}
+                {broker.office_reg_number && (
                   <p className="flex items-center gap-2 text-gray-700">
-                    <MapPin className="h-3.5 w-3.5 text-blue-500" />
-                    <span>{broker.address}</span>
+                    <Building2 className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                    <span className="text-xs">등록번호 <span className="font-mono">{broker.office_reg_number}</span></span>
                   </p>
                 )}
                 {broker.license_number && (
                   <p className="flex items-center gap-2 text-gray-700">
-                    <Building2 className="h-3.5 w-3.5 text-blue-500" />
-                    <span className="font-mono text-xs">자격증 {broker.license_number}</span>
+                    <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                    <span className="text-xs">자격증 <span className="font-mono">{broker.license_number}</span></span>
                   </p>
                 )}
               </div>
