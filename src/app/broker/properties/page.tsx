@@ -130,6 +130,47 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
   areaUnit:   '평',
 }
 
+// ── 다음 우편번호 검색 모달 (embed — 모바일 팝업 차단 회피) ──────────
+function PostcodeModal({ onComplete, onClose }: {
+  onComplete: (data: { addr: string; bcode: string }) => void
+  onClose: () => void
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const w = window as any
+    if (!w.daum?.Postcode || !containerRef.current) return
+    new w.daum.Postcode({
+      oncomplete: (data: any) => {
+        const addr = data.jibunAddress || data.roadAddress || data.address || ''
+        onComplete({ addr, bcode: data.bcode ?? '' })
+      },
+      width: '100%',
+      height: '100%',
+    }).embed(containerRef.current)
+  }, [onComplete])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div className="w-full max-w-md h-[520px] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-900">주소 검색</h3>
+          <button type="button" onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div ref={containerRef} className="flex-1 overflow-hidden" />
+      </div>
+    </div>
+  )
+}
+
 // ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
 function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placeholder = '소재지 입력' }: {
   value: string | null
@@ -141,6 +182,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [hovered, setHovered] = useState(false)
+  const [postcodeOpen, setPostcodeOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const cellRef = useRef<HTMLDivElement>(null)
   const skipBlurRef = useRef(false)
@@ -157,48 +199,51 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
   const openPostcode = () => {
     const w = window as any
     if (!w.daum?.Postcode) { alert('주소 검색 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return }
-    new w.daum.Postcode({
-      oncomplete: (data: any) => {
-        const addr = data.jibunAddress || data.roadAddress || data.address || ''
-        if (!addr) return
-        bcodeRef.current = data.bcode ?? ''
-        setDraft(addr)
-        setEditing(true)
-        setTimeout(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(addr.length, addr.length) }, 0)
-      },
-    }).open()
+    setPostcodeOpen(true)
   }
+
+  const handlePostcodeComplete = useCallback(({ addr, bcode }: { addr: string; bcode: string }) => {
+    if (!addr) return
+    bcodeRef.current = bcode
+    setDraft(addr)
+    setEditing(true)
+    setPostcodeOpen(false)
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(addr.length, addr.length) }, 0)
+  }, [])
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1">
-        <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
-          className="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
-        />
-        <button type="button"
-          onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
-          onClick={openPostcode}
-          className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-blue-600"
-          title="주소 검색"
-        >
-          <Search className="h-3 w-3" />
-        </button>
-        {onAutoFill && (
+      <>
+        <div className="flex items-center gap-1">
+          <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
+            className="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+          />
           <button type="button"
             onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
-            onClick={() => onAutoFill(bcodeRef.current || undefined)}
-            disabled={autoFilling || !value}
-            className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
-            title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
+            onClick={openPostcode}
+            className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-blue-600"
+            title="주소 검색"
           >
-            {autoFilling
-              ? <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
-              : <Wand2 className="h-3 w-3" />}
+            <Search className="h-3 w-3" />
           </button>
-        )}
-      </div>
+          {onAutoFill && (
+            <button type="button"
+              onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
+              onClick={() => onAutoFill(bcodeRef.current || undefined)}
+              disabled={autoFilling || !value}
+              className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
+              title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
+            >
+              {autoFilling
+                ? <Loader2 className="h-3 w-3 animate-spin text-indigo-500" />
+                : <Wand2 className="h-3 w-3" />}
+            </button>
+          )}
+        </div>
+        {postcodeOpen && <PostcodeModal onComplete={handlePostcodeComplete} onClose={() => setPostcodeOpen(false)} />}
+      </>
     )
   }
   return (
@@ -235,6 +280,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
         )}
       </div>
       {hovered && value && <CellTooltip text={value} anchorRef={cellRef} />}
+      {postcodeOpen && <PostcodeModal onComplete={handlePostcodeComplete} onClose={() => setPostcodeOpen(false)} />}
     </>
   )
 }
