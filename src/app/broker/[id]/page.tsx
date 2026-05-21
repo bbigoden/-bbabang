@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { FavoriteButton } from '@/components/favorite-button'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
-import { Star, MapPin, Building2, Award, Clock, Target, TrendingUp } from 'lucide-react'
+import { Star, MapPin, Building2, Award, Clock, Target, TrendingUp, Hash, Phone } from 'lucide-react'
 
 function formatHours(h: number | null | undefined): string | null {
   if (h == null || h <= 0) return null
@@ -91,7 +91,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
     const [{ data: b }, { data: r }, p] = await Promise.all([
       supabase
         .from('broker_profiles')
-        .select('*, profiles(name, email)')
+        .select('*, profiles(name, email, phone)')
         .eq('id', brokerId)
         .single(),
       supabase
@@ -242,6 +242,30 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                   <p className="text-sm text-gray-400">아직 리뷰가 없어요</p>
                 )}
               </div>
+            </div>
+
+            {/* 사무소 정보 (등록번호·주소·연락처) */}
+            <div className="mt-4 space-y-1.5 text-sm text-gray-600">
+              {broker.office_reg_number && (
+                <div className="flex items-start gap-2">
+                  <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span>등록번호 <span className="font-mono text-gray-800">{broker.office_reg_number}</span></span>
+                </div>
+              )}
+              {broker.address && (
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span>{broker.address}</span>
+                </div>
+              )}
+              {broker.profiles?.phone && (
+                <div className="flex items-start gap-2">
+                  <Phone className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <a href={`tel:${broker.profiles.phone}`} className="text-blue-600 hover:underline">
+                    {broker.profiles.phone}
+                  </a>
+                </div>
+              )}
             </div>
 
             {/* 담당 지역 */}
