@@ -80,7 +80,7 @@ export default function AdminBrokersPage() {
     if (reset) setLoading(true)
     else setLoadingMore(true)
 
-    // 1) 대표(사무실 단위) query — admin 인증 대상은 대표뿐
+    // 1) 대표(사무소 단위) query — admin 인증 대상은 대표뿐
     let q = supabase
       .from('broker_profiles')
       .select('*, profiles(name, email, phone)')
@@ -112,7 +112,7 @@ export default function AdminBrokersPage() {
       employees = (emps ?? []) as any as BrokerRow[]
     }
 
-    // 3) 사무실 단위로 그룹화
+    // 3) 사무소 단위로 그룹화
     const groups: OfficeGroup[] = ownerRows.map(owner => ({
       owner,
       employees: employees.filter(e => e.parent_broker_id === owner.id)
@@ -178,7 +178,7 @@ export default function AdminBrokersPage() {
             <Building2 className="h-5 w-5 text-purple-400" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-white">사무실 검수</h1>
+            <h1 className="text-lg font-bold text-white">사무소 검수</h1>
             <p className="text-xs text-gray-400">
               미인증 <span className="font-bold text-yellow-400">{unverifiedCount}</span>곳 ·
               인증 <span className="font-bold text-blue-400">{verifiedCount}</span>곳
@@ -196,7 +196,7 @@ export default function AdminBrokersPage() {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="사무실명·자격증번호·사업자번호 검색"
+                placeholder="사무소명·자격증번호·사업자번호 검색"
                 className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
@@ -228,7 +228,7 @@ export default function AdminBrokersPage() {
         ) : offices.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
             <Building2 className="mx-auto mb-3 h-12 w-12 text-gray-700" />
-            <p className="font-semibold text-gray-400">조건에 맞는 사무실가 없어요</p>
+            <p className="font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
           </div>
         ) : (
           <>
@@ -237,7 +237,7 @@ export default function AdminBrokersPage() {
                 const isOpen = expanded.has(g.owner.id)
                 return (
                   <li key={g.owner.id} className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
-                    {/* 사무실 헤더 (대표) */}
+                    {/* 사무소 헤더 (대표) */}
                     <button
                       onClick={() => setSelected(g.owner)}
                       className="w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-gray-800/60 transition-colors"
@@ -248,7 +248,7 @@ export default function AdminBrokersPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                           <p className="text-sm font-bold text-white truncate">
-                            {g.owner.office_name ?? '(사무실명 없음)'}
+                            {g.owner.office_name ?? '(사무소명 없음)'}
                           </p>
                           {g.owner.is_verified ? (
                             <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
@@ -370,7 +370,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify }: {
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white">사무실 상세</h3>
+            <h3 className="font-bold text-white">사무소 상세</h3>
             {broker.is_verified ? (
               <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
                 <ShieldCheck className="h-3 w-3" /> 인증됨

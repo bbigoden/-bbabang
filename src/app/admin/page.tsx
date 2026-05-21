@@ -60,7 +60,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ users: 0, brokers: 0, requests: 0, proposals: 0, openReports: 0, unverifiedBrokers: 0 })
   const [brokers, setBrokers] = useState<any[]>([])
-  // 사무실별 직원 명단 (대표 broker_profiles.id → 직원 배열)
+  // 사무소별 직원 명단 (대표 broker_profiles.id → 직원 배열)
   const [employeesByOwner, setEmployeesByOwner] = useState<Map<string, any[]>>(new Map())
   const [expandedOwnerId, setExpandedOwnerId] = useState<string | null>(null)
   const [recentUsers, setRecentUsers] = useState<any[]>([])
@@ -354,10 +354,10 @@ export default function AdminPage() {
               <Building2 className="h-6 w-6" />
             </div>
             <div className="flex-1">
-              <p className="font-bold text-white">사무실 검수</p>
+              <p className="font-bold text-white">사무소 검수</p>
               <p className="text-sm text-gray-400">
                 {stats.unverifiedBrokers > 0
-                  ? <>미인증 사무실 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 검수 대기</>
+                  ? <>미인증 사무소 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 검수 대기</>
                   : '대표 자격증·사업자 정보 검토 및 인증'}
               </p>
             </div>
@@ -429,10 +429,10 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* ── 사무실 인증 관리 ── */}
+        {/* ── 사무소 인증 관리 ── */}
         <div id="section-brokers">
           <div className="mb-4 flex items-center gap-3">
-            <h2 className="text-lg font-bold text-white">사무실 인증 관리</h2>
+            <h2 className="text-lg font-bold text-white">사무소 인증 관리</h2>
             {unverifiedBrokers.length > 0 && (
               <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-bold text-red-400">
                 미인증 {unverifiedBrokers.length}곳
@@ -446,7 +446,7 @@ export default function AdminPage() {
               <thead>
                 <tr className="border-b border-gray-800">
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">대표</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">사무실</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">사무소</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">자격증 번호</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">담당 지역</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">가입일</th>
@@ -458,7 +458,7 @@ export default function AdminPage() {
               <tbody>
                 {brokers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-10 text-center text-gray-500">등록된 사무실이 없습니다</td>
+                    <td colSpan={8} className="px-5 py-10 text-center text-gray-500">등록된 사무소가 없습니다</td>
                   </tr>
                 ) : (
                   brokers.map(broker => {
@@ -549,7 +549,7 @@ export default function AdminPage() {
                             <td colSpan={8} className="px-5 py-3">
                               <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-400">
                                 <Users className="h-3.5 w-3.5" />
-                                {broker.office_name ?? '사무실'} 소속 직원 ({employees.length}명) · 승인은 대표가 처리
+                                {broker.office_name ?? '사무소'} 소속 직원 ({employees.length}명) · 승인은 대표가 처리
                               </div>
                               <ul className="divide-y divide-gray-800/60 rounded-xl border border-gray-800 bg-gray-900/60">
                                 {employees.map(e => (
