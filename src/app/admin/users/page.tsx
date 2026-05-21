@@ -7,9 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
-  Users, ArrowLeft, Search, X, ShieldCheck, Shield, Ban,
+  Users, ArrowLeft, Search, X, Shield, Ban,
   CheckCircle2, AlertCircle, Mail, Phone, Calendar, Building2,
-  Pencil, Save, FileText
+  Pencil, Save, FileText, ChevronDown, ChevronRight
 } from 'lucide-react'
 
 type AccountStatus = 'active' | 'suspended' | 'banned'
@@ -30,7 +30,14 @@ interface UserRow {
   admin_note: string | null
   created_at: string | null
   // join된 broker_profiles 정보 (broker일 때만)
-  broker_profiles?: { is_owner: boolean | null; office_name: string | null }[] | null
+  broker_profiles?: { id: string; is_owner: boolean | null; office_name: string | null; parent_broker_id: string | null }[] | null
+}
+
+interface OfficeGroup {
+  key: string                     // 사무소 식별자 (대표의 broker_profile.id)
+  officeName: string | null
+  owner: UserRow | null           // 대표가 결과에 포함되지 않을 수도 있어 null 허용
+  employees: UserRow[]
 }
 
 const STATUS_META: Record<AccountStatus, { label: string; color: string; icon: any }> = {
@@ -70,7 +77,10 @@ export default function AdminUsersPage() {
   const supabase = supabaseRef.current
   const auth = useAuth()
 
+  // 고객·관리자 (페이지네이션)
   const [items, setItems] = useState<UserRow[]>([])
+  // broker (전체 한 번에) — 사무소 그룹화용
+  const [brokerItems, setBrokerItems] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -79,6 +89,12 @@ export default function AdminUsersPage() {
   const [status, setStatus] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<UserRow | null>(null)
+  const [expandedOfficeKey, setExpandedOfficeKey] = useState<string | null>(null)
+
+  // 사무소 섹션 표시 여부
+  const showOffices = role === 'all' || role === 'owner' || role === 'employee'
+  // 고객·관리자 섹션 표시 여부
+  const showFlatList = role === 'all' || role === 'user' || role === 'admin'
 
   useEffect(() => {
     if (auth.loading) return
@@ -86,29 +102,26 @@ export default function AdminUsersPage() {
     if (auth.profile?.role !== 'admin') { router.push('/'); return }
   }, [auth.loading, auth.user, auth.profile?.role, router])
 
+  // 고객·관리자만 페이지네이션으로 fetch
   const load = useCallback(async (reset = false) => {
+    if (!showFlatList) {
+      setItems([])
+      setHasMore(false)
+      if (reset) setLoading(false)
+      return
+    }
     const targetPage = reset ? 0 : page
     if (reset) setLoading(true)
     else setLoadingMore(true)
 
-    // 대표/직원 필터는 broker_profiles inner join + is_owner 조건으로 처리
-    const useInnerBroker = role === 'owner' || role === 'employee'
-    const select = useInnerBroker
-      ? 'id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles!inner(is_owner, office_name)'
-      : 'id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles(is_owner, office_name)'
-
     let q = supabase
       .from('profiles')
-      .select(select)
+      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at')
       .order('created_at', { ascending: false })
 
-    if (role === 'owner') {
-      q = q.eq('role', 'broker').eq('broker_profiles.is_owner', true)
-    } else if (role === 'employee') {
-      q = q.eq('role', 'broker').eq('broker_profiles.is_owner', false)
-    } else if (role === 'user' || role === 'admin') {
-      q = q.eq('role', role)
-    }
+    // role 필터: 고객/관리자 단일 또는 전체 시 둘 다
+    if (role === 'user' || role === 'admin') q = q.eq('role', role)
+    else q = q.in('role', ['user', 'admin'])
 
     if (status !== 'all') q = q.eq('account_status', status)
     if (search.trim()) {
@@ -124,12 +137,61 @@ export default function AdminUsersPage() {
     setHasMore(rows.length === PAGE_SIZE)
     setPage(targetPage + 1)
     if (reset) setLoading(false); else setLoadingMore(false)
-  }, [supabase, page, role, status, search])
+  }, [supabase, page, role, status, search, showFlatList])
+
+  // broker 사용자는 한 번에 가져옴 (사무소 그룹화 위해)
+  const loadBrokers = useCallback(async () => {
+    if (!showOffices) {
+      setBrokerItems([])
+      return
+    }
+    let q = supabase
+      .from('profiles')
+      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles(id, is_owner, office_name, parent_broker_id)')
+      .eq('role', 'broker')
+      .order('created_at', { ascending: false })
+      .limit(1000)
+
+    if (status !== 'all') q = q.eq('account_status', status)
+    if (search.trim()) {
+      const s = search.trim()
+      q = q.or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
+    }
+
+    const { data } = await q
+    setBrokerItems((data ?? []) as any as UserRow[])
+  }, [supabase, status, search, showOffices])
+
+  // brokerItems → 사무소별 그룹화
+  const officeGroups: OfficeGroup[] = (() => {
+    const map = new Map<string, OfficeGroup>()
+    for (const u of brokerItems) {
+      const bp = u.broker_profiles?.[0]
+      if (!bp) continue
+      const key = bp.is_owner ? bp.id : (bp.parent_broker_id ?? bp.id)
+      const g = map.get(key) ?? { key, officeName: bp.office_name, owner: null, employees: [] }
+      if (bp.is_owner) {
+        g.owner = u
+        g.officeName = bp.office_name ?? g.officeName
+      } else {
+        g.employees.push(u)
+        if (!g.officeName) g.officeName = bp.office_name
+      }
+      map.set(key, g)
+    }
+    // 대표 가입일 기준 정렬, 대표 없으면 첫 직원 기준
+    return Array.from(map.values()).sort((a, b) => {
+      const ad = a.owner?.created_at ?? a.employees[0]?.created_at ?? ''
+      const bd = b.owner?.created_at ?? b.employees[0]?.created_at ?? ''
+      return bd.localeCompare(ad)
+    })
+  })()
 
   useEffect(() => {
     if (auth.profile?.role === 'admin') {
       setPage(0); setHasMore(true)
       load(true)
+      loadBrokers()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.profile?.role, role, status])
@@ -138,6 +200,7 @@ export default function AdminUsersPage() {
     e.preventDefault()
     setPage(0); setHasMore(true)
     load(true)
+    loadBrokers()
   }
 
   if (auth.loading || auth.profile?.role !== 'admin') {
@@ -217,67 +280,193 @@ export default function AdminUsersPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <Users className="mx-auto mb-3 h-12 w-12 text-gray-700" />
-            <p className="font-semibold text-gray-400">조건에 맞는 사용자가 없어요</p>
-          </div>
-        ) : (
-          <>
-            <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
-              {items.map(u => {
-                const sm = STATUS_META[u.account_status]
-                const dr = getDisplayRole(u)
-                const rm = DISPLAY_ROLE_META[dr]
-                const SIcon = sm.icon
-                const officeName = u.broker_profiles?.[0]?.office_name
-                return (
-                  <li key={u.id}>
-                    <button onClick={() => setSelected(u)}
-                      className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/60 transition-colors">
-                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                        dr === 'admin' ? 'bg-red-500/20 text-red-400'
-                          : dr === 'owner' ? 'bg-purple-500/20 text-purple-400'
-                          : dr === 'employee' ? 'bg-indigo-500/20 text-indigo-300'
-                          : 'bg-gray-700 text-gray-300'
-                      }`}>
-                        {(u.name || u.email || '?')[0]?.toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-semibold text-white truncate">{u.name || '(이름 없음)'}</p>
-                          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${rm.color}`}>{rm.label}</span>
-                          {u.account_status !== 'active' && (
-                            <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${sm.color}`}>
-                              <SIcon className="h-3 w-3" /> {sm.label}
+        {/* ── 사무소별 중개사 ── */}
+        {showOffices && (
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-purple-400" />
+              <h2 className="text-sm font-bold text-white">사무소별 중개사</h2>
+              <span className="text-xs text-gray-500">{officeGroups.length}곳</span>
+            </div>
+            {officeGroups.length === 0 ? (
+              <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
+                <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700" />
+                <p className="text-sm font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {officeGroups.map(g => {
+                  const isOpen = expandedOfficeKey === g.key
+                  const ownerSm = g.owner ? STATUS_META[g.owner.account_status] : null
+                  return (
+                    <li key={g.key} className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
+                      {/* 사무소 헤더 (대표) */}
+                      {g.owner ? (
+                        <button
+                          onClick={() => setSelected(g.owner)}
+                          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-800/60 transition-colors"
+                        >
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-500/20 text-purple-400">
+                            <Building2 className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                              <p className="text-sm font-bold text-white truncate">{g.officeName ?? '(사무소명 없음)'}</p>
+                              <span className="rounded-md bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-400">대표</span>
+                              {ownerSm && g.owner.account_status !== 'active' && (
+                                <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${ownerSm.color}`}>
+                                  <ownerSm.icon className="h-3 w-3" /> {ownerSm.label}
+                                </span>
+                              )}
+                              <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700 px-1.5 py-0.5 text-[10px] font-medium text-gray-300">
+                                <Users className="h-3 w-3" /> 직원 {g.employees.length}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-400 truncate">
+                              {g.owner.name ?? '(이름 없음)'}
+                              {g.owner.email && <span className="text-gray-500"> · {g.owner.email}</span>}
+                            </p>
+                          </div>
+                          <span className="text-xs text-gray-500 flex-shrink-0">{g.owner.created_at && formatDate(g.owner.created_at)}</span>
+                          <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                        </button>
+                      ) : (
+                        // 대표 없음 (검색·필터로 인해 결과에서 빠진 경우)
+                        <div className="flex items-center gap-3 px-5 py-4 bg-gray-900/60">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gray-800 text-gray-500">
+                            <Building2 className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-300 truncate">{g.officeName ?? '(사무소명 없음)'}</p>
+                            <p className="text-xs text-gray-500">대표 정보 없음 · 직원 {g.employees.length}명</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 직원 펼침 */}
+                      {g.employees.length > 0 && (
+                        <div className="border-t border-gray-800">
+                          <button
+                            onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
+                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <Users className="h-3.5 w-3.5" />
+                              소속 직원 {g.employees.length}명
                             </span>
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {isOpen && (
+                            <ul className="border-t border-gray-800 divide-y divide-gray-800/50">
+                              {g.employees.map(e => {
+                                const esm = STATUS_META[e.account_status]
+                                return (
+                                  <li key={e.id}>
+                                    <button
+                                      onClick={() => setSelected(e)}
+                                      className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-gray-800/40 transition-colors"
+                                    >
+                                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-xs font-bold text-indigo-300">
+                                        {(e.name || e.email || '?')[0]?.toUpperCase()}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <p className="text-sm font-medium text-gray-200 truncate">
+                                            {e.name ?? '(이름 없음)'}
+                                          </p>
+                                          <span className="rounded-md bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">직원</span>
+                                          {e.account_status !== 'active' && (
+                                            <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${esm.color}`}>
+                                              <esm.icon className="h-3 w-3" /> {esm.label}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[11px] text-gray-500 truncate">
+                                          {e.email ?? '—'}
+                                          {e.phone && ` · ${e.phone}`}
+                                        </p>
+                                      </div>
+                                      <span className="text-[11px] text-gray-500 flex-shrink-0">{e.created_at && formatDate(e.created_at)}</span>
+                                    </button>
+                                  </li>
+                                )
+                              })}
+                            </ul>
                           )}
                         </div>
-                        <p className="text-xs text-gray-400 truncate">
-                          {u.email}
-                          {officeName && <span className="text-gray-500"> · {officeName}</span>}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-
-            {hasMore && (
-              <div className="flex justify-center">
-                <button onClick={() => load(false)} disabled={loadingMore}
-                  className="rounded-xl border border-gray-700 bg-gray-900 px-5 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50">
-                  {loadingMore ? '불러오는 중...' : '더 보기'}
-                </button>
-              </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
             )}
-          </>
+          </section>
+        )}
+
+        {/* ── 고객·관리자 ── */}
+        {showFlatList && (
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-blue-400" />
+              <h2 className="text-sm font-bold text-white">고객·관리자</h2>
+            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
+                <Users className="mx-auto mb-2 h-10 w-10 text-gray-700" />
+                <p className="text-sm font-semibold text-gray-400">조건에 맞는 사용자가 없어요</p>
+              </div>
+            ) : (
+              <>
+                <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
+                  {items.map(u => {
+                    const sm = STATUS_META[u.account_status]
+                    const dr = getDisplayRole(u)
+                    const rm = DISPLAY_ROLE_META[dr]
+                    const SIcon = sm.icon
+                    return (
+                      <li key={u.id}>
+                        <button onClick={() => setSelected(u)}
+                          className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/60 transition-colors">
+                          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                            dr === 'admin' ? 'bg-red-500/20 text-red-400'
+                              : 'bg-gray-700 text-gray-300'
+                          }`}>
+                            {(u.name || u.email || '?')[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-semibold text-white truncate">{u.name || '(이름 없음)'}</p>
+                              <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${rm.color}`}>{rm.label}</span>
+                              {u.account_status !== 'active' && (
+                                <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${sm.color}`}>
+                                  <SIcon className="h-3 w-3" /> {sm.label}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                          </div>
+                          <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+
+                {hasMore && (
+                  <div className="flex justify-center">
+                    <button onClick={() => load(false)} disabled={loadingMore}
+                      className="rounded-xl border border-gray-700 bg-gray-900 px-5 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50">
+                      {loadingMore ? '불러오는 중...' : '더 보기'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
         )}
       </div>
 
@@ -288,6 +477,7 @@ export default function AdminUsersPage() {
           onClose={() => setSelected(null)}
           onUpdated={async (updated) => {
             setItems(prev => prev.map(p => p.id === updated.id ? updated : p))
+            setBrokerItems(prev => prev.map(p => p.id === updated.id ? updated : p))
             setSelected(updated)
           }}
         />
