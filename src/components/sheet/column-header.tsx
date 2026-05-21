@@ -109,7 +109,7 @@ export function ColumnHeader({
       )}
 
       {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden min-w-[260px]" style={style}
           onClick={e => e.stopPropagation()}>
           <div className="px-3 py-2 border-b border-gray-100 text-xs font-bold text-gray-700 flex items-center gap-1.5">
             {isFixed && <Lock className="h-3 w-3 text-gray-400" />}
@@ -213,12 +213,12 @@ export function ColumnHeader({
             <>
               {(!isFixed || isCustom) && !onChangeMulti && <div className="border-t border-gray-100" />}
               <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
-              <div className="px-2 pb-1 max-h-44 overflow-y-auto">
+              <div className="px-2 pb-1 grid grid-cols-2 gap-1">
                 {options.map(opt => (
-                  <div key={opt} className="group/opt flex items-center gap-1.5 px-1.5 py-1 rounded-lg hover:bg-gray-50">
-                    <span className="flex-1 text-xs text-gray-700">{opt}</span>
+                  <div key={opt} className="group/opt flex items-center gap-1 px-1.5 py-1 rounded-lg hover:bg-gray-50 min-w-0">
+                    <span className="flex-1 text-xs text-gray-700 truncate">{opt}</span>
                     <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))}
-                      className="opacity-40 sm:opacity-0 sm:group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all">
+                      className="opacity-40 sm:opacity-0 sm:group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all flex-shrink-0">
                       <X className="h-3 w-3" />
                     </button>
                   </div>
