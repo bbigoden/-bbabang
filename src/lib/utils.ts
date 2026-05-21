@@ -16,6 +16,14 @@ export function formatPrice(price: number | null | undefined): string {
   return `${price.toLocaleString()}만`
 }
 
+// 주소 끝의 '동번호-호번호' (예: 307-1502)를 '307동 1502호'로 풀어 표시.
+// - 끝에 위치하고 호번호가 3~4자리일 때만 변환 (지번 '1421-3' 같은 패턴은 제외)
+// - 봇 extract_ho 와 동일 정규식
+export function formatAddress(address: string | null | undefined): string {
+  if (!address) return ''
+  return address.replace(/\s(\d{1,3})-(\d{3,4})(\s*)$/, ' $1동 $2호$3')
+}
+
 // 주소를 읍/면/동/리/가 수준까지만 표시 (지번·건물번호 숨김)
 // - 숫자로 시작하는 토큰(101동, 102동 등 아파트 동번호)은 건물번호로 간주해 제외
 // - 마지막 매칭 토큰 기준 — "구이면 덕천리 100" → "구이면 덕천리"

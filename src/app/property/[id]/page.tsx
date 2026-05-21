@@ -6,7 +6,7 @@ import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatDate, formatPrice, maskAddressByType } from '@/lib/utils'
+import { formatDate, formatPrice, maskAddressByType, formatAddress } from '@/lib/utils'
 import {
   Building2, MapPin, Home, Hash, ShieldCheck, Calendar, Star,
   TrendingDown, TrendingUp, MessageCircle, Eye, ChevronRight
@@ -69,7 +69,9 @@ export default async function PropertyDetailPage({ params }: Props) {
       .from('broker_profiles').select('id').eq('user_id', user.id).maybeSingle()
     if (myBroker?.id === prop.broker_id) isMine = true
   }
-  const displayAddress = isMine ? prop.address : (prop.address ? maskAddressByType(prop.address, prop.room_type) : '주소 미입력')
+  const displayAddress = isMine
+    ? formatAddress(prop.address)
+    : (prop.address ? formatAddress(maskAddressByType(prop.address, prop.room_type)) : '주소 미입력')
 
   // 본인 찜 상태
   let isFavorited = false
