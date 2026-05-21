@@ -192,11 +192,34 @@ export async function GET(req: NextRequest) {
     await supa.from('saved_searches').update({ last_checked_at: new Date().toISOString() }).eq('id', s.id)
   }
 
+  // ─────────────────────────────────────────────
+  // 빈 매물 자동 청소 — 24시간 이상 모든 핵심 필드가 빈 매물 삭제
+  // (+ 매물 등록 버튼만 누르고 떠난 잔존물)
+  // ─────────────────────────────────────────────
+  const emptyBefore = new Date(now - 24 * 60 * 60 * 1000).toISOString()
+  const { data: emptyRows } = await supa
+    .from('broker_properties')
+    .select('id')
+    .eq('status', 'available')
+    .or('address.is.null,address.eq.')
+    .or('deal_type.is.null,deal_type.eq.')
+    .or('room_type.is.null,room_type.eq.')
+    .eq('price', 0)
+    .lt('created_at', emptyBefore)
+
+  let emptyCleaned = 0
+  if (emptyRows && emptyRows.length > 0) {
+    const ids = emptyRows.map(r => r.id)
+    const { error } = await supa.from('broker_properties').delete().in('id', ids)
+    if (!error) emptyCleaned = ids.length
+  }
+
   return NextResponse.json({
     ok: true,
     renewalReminders: { matched: renewalTargets?.length ?? 0, notified: renewalNotified, pushed: renewalPushed },
     expired,
     staleProperties: { matched: oldProperties?.length ?? 0, notified: propertyNotified },
     savedSearches: { checked: searches?.length ?? 0, notified: savedSearchNotified },
+    emptyPropertiesCleaned: emptyCleaned,
   })
 }

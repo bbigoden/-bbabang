@@ -2022,7 +2022,7 @@ function BrokerPropertiesContent() {
                 <tr>
                   <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100">
                     <div className="flex items-center divide-x divide-gray-100">
-                      <button onClick={addNewRow}
+                      <button onClick={() => router.push('/broker/properties/new')}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
                         <Plus className="h-3.5 w-3.5" />매물 등록
                       </button>
