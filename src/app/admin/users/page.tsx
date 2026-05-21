@@ -14,7 +14,9 @@ import {
 
 type AccountStatus = 'active' | 'suspended' | 'banned'
 type Role = 'user' | 'broker' | 'admin'
-type RoleFilter = 'all' | Role
+// 표시·필터용 세분화 역할 (broker → owner/employee로 분리)
+type DisplayRole = 'user' | 'owner' | 'employee' | 'admin'
+type RoleFilter = 'all' | DisplayRole
 type StatusFilter = 'all' | AccountStatus
 
 interface UserRow {
@@ -27,6 +29,8 @@ interface UserRow {
   suspended_until: string | null
   admin_note: string | null
   created_at: string | null
+  // join된 broker_profiles 정보 (broker일 때만)
+  broker_profiles?: { is_owner: boolean | null; office_name: string | null }[] | null
 }
 
 const STATUS_META: Record<AccountStatus, { label: string; color: string; icon: any }> = {
@@ -35,10 +39,27 @@ const STATUS_META: Record<AccountStatus, { label: string; color: string; icon: a
   banned: { label: '영구 차단', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: Ban },
 }
 
+const DISPLAY_ROLE_META: Record<DisplayRole, { label: string; color: string }> = {
+  user: { label: '고객', color: 'bg-blue-500/20 text-blue-400' },
+  owner: { label: '대표', color: 'bg-purple-500/20 text-purple-400' },
+  employee: { label: '직원', color: 'bg-indigo-500/20 text-indigo-300' },
+  admin: { label: '관리자', color: 'bg-red-500/20 text-red-400' },
+}
+
+// 역할 변경 모달에서 쓰는 raw role meta (profiles.role 단위)
 const ROLE_META: Record<Role, { label: string; color: string }> = {
   user: { label: '고객', color: 'bg-blue-500/20 text-blue-400' },
   broker: { label: '중개사', color: 'bg-purple-500/20 text-purple-400' },
   admin: { label: '관리자', color: 'bg-red-500/20 text-red-400' },
+}
+
+// 사용자 row → 표시용 역할 (broker는 is_owner에 따라 분기)
+function getDisplayRole(u: UserRow): DisplayRole {
+  if (u.role === 'broker') {
+    const bp = u.broker_profiles?.[0]
+    return bp?.is_owner ? 'owner' : 'employee'
+  }
+  return u.role as DisplayRole
 }
 
 const PAGE_SIZE = 50
@@ -70,12 +91,25 @@ export default function AdminUsersPage() {
     if (reset) setLoading(true)
     else setLoadingMore(true)
 
+    // 대표/직원 필터는 broker_profiles inner join + is_owner 조건으로 처리
+    const useInnerBroker = role === 'owner' || role === 'employee'
+    const select = useInnerBroker
+      ? 'id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles!inner(is_owner, office_name)'
+      : 'id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles(is_owner, office_name)'
+
     let q = supabase
       .from('profiles')
-      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at')
+      .select(select)
       .order('created_at', { ascending: false })
 
-    if (role !== 'all') q = q.eq('role', role)
+    if (role === 'owner') {
+      q = q.eq('role', 'broker').eq('broker_profiles.is_owner', true)
+    } else if (role === 'employee') {
+      q = q.eq('role', 'broker').eq('broker_profiles.is_owner', false)
+    } else if (role === 'user' || role === 'admin') {
+      q = q.eq('role', role)
+    }
+
     if (status !== 'all') q = q.eq('account_status', status)
     if (search.trim()) {
       const s = search.trim()
@@ -85,7 +119,7 @@ export default function AdminUsersPage() {
     q = q.range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1)
 
     const { data } = await q
-    const rows = (data ?? []) as UserRow[]
+    const rows = (data ?? []) as any as UserRow[]
     setItems(prev => reset ? rows : [...prev, ...rows])
     setHasMore(rows.length === PAGE_SIZE)
     setPage(targetPage + 1)
@@ -149,11 +183,12 @@ export default function AdminUsersPage() {
             </button>
           </form>
 
-          <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1 flex-wrap">
             {([
               { key: 'all', label: '전체' },
               { key: 'user', label: '고객' },
-              { key: 'broker', label: '중개사' },
+              { key: 'owner', label: '대표' },
+              { key: 'employee', label: '직원' },
               { key: 'admin', label: '관리자' },
             ] as const).map(t => (
               <button key={t.key} onClick={() => setRole(t.key)}
@@ -196,15 +231,18 @@ export default function AdminUsersPage() {
             <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
               {items.map(u => {
                 const sm = STATUS_META[u.account_status]
-                const rm = ROLE_META[u.role]
+                const dr = getDisplayRole(u)
+                const rm = DISPLAY_ROLE_META[dr]
                 const SIcon = sm.icon
+                const officeName = u.broker_profiles?.[0]?.office_name
                 return (
                   <li key={u.id}>
                     <button onClick={() => setSelected(u)}
                       className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/60 transition-colors">
                       <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                        u.role === 'admin' ? 'bg-red-500/20 text-red-400'
-                          : u.role === 'broker' ? 'bg-purple-500/20 text-purple-400'
+                        dr === 'admin' ? 'bg-red-500/20 text-red-400'
+                          : dr === 'owner' ? 'bg-purple-500/20 text-purple-400'
+                          : dr === 'employee' ? 'bg-indigo-500/20 text-indigo-300'
                           : 'bg-gray-700 text-gray-300'
                       }`}>
                         {(u.name || u.email || '?')[0]?.toUpperCase()}
@@ -219,7 +257,10 @@ export default function AdminUsersPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                        <p className="text-xs text-gray-400 truncate">
+                          {u.email}
+                          {officeName && <span className="text-gray-500"> · {officeName}</span>}
+                        </p>
                       </div>
                       <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
                     </button>
@@ -279,14 +320,14 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
       .from('profiles')
       .update(patch as any)
       .eq('id', user.id)
-      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at')
+      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles(is_owner, office_name)')
       .single()
     setBusy(false)
     if (error || !data) {
       setErr('변경 실패: ' + (error?.message ?? 'unknown'))
       return
     }
-    await onUpdated(data as UserRow)
+    await onUpdated(data as any as UserRow)
     setOkMsg('저장됐어요')
     setTimeout(() => setOkMsg(null), 2500)
   }
@@ -313,7 +354,9 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
   }
 
   const sm = STATUS_META[user.account_status]
-  const rm = ROLE_META[user.role]
+  const dr = getDisplayRole(user)
+  const rm = DISPLAY_ROLE_META[dr]
+  const officeName = user.broker_profiles?.[0]?.office_name
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
@@ -335,14 +378,16 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
           {/* 헤더 */}
           <div className="flex items-center gap-4">
             <div className={`flex h-14 w-14 items-center justify-center rounded-2xl text-2xl font-black ${
-              user.role === 'admin' ? 'bg-red-500/20 text-red-400'
-                : user.role === 'broker' ? 'bg-purple-500/20 text-purple-400'
+              dr === 'admin' ? 'bg-red-500/20 text-red-400'
+                : dr === 'owner' ? 'bg-purple-500/20 text-purple-400'
+                : dr === 'employee' ? 'bg-indigo-500/20 text-indigo-300'
                 : 'bg-gray-700 text-gray-200'
             }`}>
               {(user.name || user.email || '?')[0]?.toUpperCase()}
             </div>
             <div>
               <p className="text-lg font-bold text-white">{user.name || '(이름 없음)'}</p>
+              {officeName && <p className="text-xs text-gray-400">{officeName}</p>}
               <div className="mt-1 flex items-center gap-1.5">
                 <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${rm.color}`}>{rm.label}</span>
                 <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${sm.color}`}>
@@ -422,7 +467,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
               })}
             </div>
             <p className="mt-2 text-[11px] text-gray-500">
-              ⚠️ 역할 변경은 신중히. broker는 broker_profiles 별도 필요.
+              ⚠️ 여기서는 고객·중개사·관리자 전환만. 중개사 내부의 대표↔직원 구분은 사무소 검수 페이지에서 처리해요.
             </p>
           </div>
 
