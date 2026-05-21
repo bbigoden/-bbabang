@@ -33,7 +33,7 @@ export function maskAddress(address: string | null | undefined): string {
 /**
  * 매물 유형별 주소 노출 정책
  * - 아파트/오피스텔/빌라·연립/상가/사무실/건물 전체:
- *   도로명·건물명까지 (동·호·층·지하·지상 토큰 제거)
+ *   도로명·건물명·동·층까지 노출, "N호"만 제거 (호실 특정 불가)
  * - 그 외 (원룸·투룸·쓰리룸·단독/다가구·토지·창고/공장·숙박/여관):
  *   읍·면·동까지
  */
@@ -50,16 +50,14 @@ export function maskAddressByType(
   const rt = (roomType ?? '').trim()
   const tokens = address.trim().split(/\s+/)
 
-  // 도로명·건물명까지 노출 (동·호·층·지하·지상 토큰 제거)
+  // 도로명·건물명·동·층까지 노출, 호수만 가림
   if (ADDRESS_DETAILED.has(rt)) {
     const filtered = tokens.filter(t =>
-      !/^\d+동$/.test(t) &&        // 105동, 307동 (아파트 동 번호)
-      !/^\d+호$/.test(t) &&        // 501호, 2404호
-      !/^[Bb]?\d+층$/.test(t) &&   // 5층, B1층
-      !/^지하\d*$/.test(t) &&      // 지하, 지하1
-      !/^지상\d*$/.test(t)         // 지상
+      !/^\d+호$/.test(t)           // 501호, 2404호 — 이것만 제거
     )
-    return filtered.join(' ')
+    // "105동 2404호"의 끝에 호만 제거 → "105동" 유지
+    // ",2404호" 처럼 콤마로 붙은 패턴은 콤마 제거 후 호 매칭
+    return filtered.map(t => t.replace(/,?\d+호$/, '').replace(/,$/, '')).filter(t => t.length > 0).join(' ')
   }
 
   // 그 외: 읍·면·동까지
