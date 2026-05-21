@@ -1,7 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-const PROTECTED = ['/dashboard', '/request/new', '/broker/register', '/broker/properties', '/chat', '/admin', '/profile', '/settings']
+// /broker/[id]는 공개 중개사 프로필이라 제외. 나머지 broker 하위는 모두 보호.
+const PROTECTED = [
+  '/dashboard', '/request/new',
+  '/broker/register', '/broker/properties', '/broker/customers', '/broker/diary',
+  '/broker/team', '/broker/settings', '/broker/resources', '/broker/stats',
+  '/broker/card', '/broker/chats', '/broker/trash',
+  '/chat', '/admin', '/profile', '/settings',
+]
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
