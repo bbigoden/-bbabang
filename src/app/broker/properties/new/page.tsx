@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
-const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독', '숙박']
+const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독/다가구', '숙박']
 
 export default function NewPropertyPage() {
   const router = useRouter()
