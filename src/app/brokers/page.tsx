@@ -4,7 +4,8 @@ import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
 import { SaveSearchButton } from '@/components/save-search-button'
 import Link from 'next/link'
-import { Star, ShieldCheck, MapPin, Filter, Clock, Target } from 'lucide-react'
+import { Filter, Clock, Target } from 'lucide-react'
+import { OfficeCard } from '@/components/office-card'
 
 function formatHours(h: number | null | undefined): string | null {
   if (h == null || h <= 0) return null
@@ -96,46 +97,41 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
             조건에 맞는 중개사가 없어요
           </div>
         ) : (
-          <ul className="grid gap-3 md:grid-cols-2">
+          <ul className="grid gap-3 md:grid-cols-2 list-none p-0">
             {rows.map((b: any) => (
               <li key={b.id} className="relative">
-                <Link href={`/broker/${b.id}`}
-                  className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0 pr-8">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <h2 className="text-base font-bold text-gray-900 truncate">{b.office_name || '(상호 없음)'}</h2>
-                        {b.is_verified && (
-                          <span title="인증 중개사" className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                            <ShieldCheck className="h-3 w-3" /> 인증
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 truncate">
-                        <MapPin className="inline h-3 w-3 mr-0.5" /> {b.address || '주소 미공개'}
-                      </p>
-                      {b.user_name && <p className="text-xs text-gray-400 mt-0.5">대표: {b.user_name}</p>}
+                <OfficeCard
+                  variant="public"
+                  theme="light"
+                  href={`/broker/${b.id}`}
+                  office={{
+                    id: b.id,
+                    office_name: b.office_name,
+                    owner_name: b.user_name,
+                    address: b.address,
+                    is_verified: b.is_verified,
+                    rating: b.rating,
+                    review_count: b.review_count,
+                  }}
+                  rightSlot={<span />}
+                  showChevron={false}
+                  actionSlot={
+                    <div className="flex items-center gap-2 text-xs flex-wrap">
+                      <span className="text-gray-500">거래 {b.deal_count ?? 0}</span>
+                      {b.acceptance_rate != null && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+                          <Target className="h-3 w-3" /> 수락 {b.acceptance_rate}%
+                        </span>
+                      )}
+                      {formatHours(b.avg_response_hours) && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+                          <Clock className="h-3 w-3" /> 평균 {formatHours(b.avg_response_hours)}
+                        </span>
+                      )}
                     </div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-xs flex-wrap">
-                    <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
-                      <Star className="h-3.5 w-3.5 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
-                    </span>
-                    <span className="text-gray-500">후기 {b.review_count ?? 0}</span>
-                    <span className="text-gray-500">거래 {b.deal_count ?? 0}</span>
-                    {b.acceptance_rate != null && (
-                      <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
-                        <Target className="h-3 w-3" /> 수락 {b.acceptance_rate}%
-                      </span>
-                    )}
-                    {formatHours(b.avg_response_hours) && (
-                      <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
-                        <Clock className="h-3 w-3" /> 평균 {formatHours(b.avg_response_hours)}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-                <div className="absolute right-4 top-4">
+                  }
+                />
+                <div className="absolute right-4 top-4 z-10">
                   <FavoriteButton type="broker" id={b.id} initialFavorited={favSet.has(b.id)} />
                 </div>
               </li>
