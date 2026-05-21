@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Home, Eye, EyeOff, Check } from 'lucide-react'
-import { KakaoLoginButton } from '@/components/kakao-login-button'
 
 const STORAGE_KEY = 'bbabang_saved_email'
 
@@ -162,16 +161,6 @@ function LoginForm() {
               로그인
             </Button>
           </form>
-
-          {/* 구분선 */}
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gray-100" />
-            <span className="text-xs text-gray-400">또는</span>
-            <div className="h-px flex-1 bg-gray-100" />
-          </div>
-
-          {/* 소셜 로그인 */}
-          <KakaoLoginButton />
 
           <div className="mt-6 text-center text-sm text-gray-500">
             아직 계정이 없으신가요?{' '}
