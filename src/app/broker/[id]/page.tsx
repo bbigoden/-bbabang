@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { FavoriteButton } from '@/components/favorite-button'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
-import { Star, MapPin, Building2, Award, Clock, Target, TrendingUp, Hash, Phone } from 'lucide-react'
+import { Star, MapPin, Building2, Award, Clock, Target, TrendingUp, Hash, Phone, User } from 'lucide-react'
 
 function formatHours(h: number | null | undefined): string | null {
   if (h == null || h <= 0) return null
@@ -219,15 +219,6 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                   <h1 className="text-2xl font-bold text-gray-900 break-keep">{broker.office_name}</h1>
                   <FavoriteButton type="broker" id={brokerId} variant="pill" initialFavorited={brokerFavorited} />
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 flex-wrap">
-                  <span>대표 <span className="font-semibold text-gray-700">{broker.profiles?.name}</span></span>
-                  {districts[0] && (
-                    <>
-                      <span className="text-gray-300">·</span>
-                      <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{districts[0]}</span>
-                    </>
-                  )}
-                </div>
               </div>
               <div className="text-right">
                 {broker.review_count > 0 ? (
@@ -244,8 +235,14 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
               </div>
             </div>
 
-            {/* 사무소 정보 (등록번호·주소·연락처) */}
+            {/* 사무소 정보 (대표·등록번호·주소·연락처) */}
             <div className="mt-4 space-y-1.5 text-sm text-gray-600">
+              {broker.profiles?.name && (
+                <div className="flex items-start gap-2">
+                  <User className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span>대표 <span className="font-semibold text-gray-800">{broker.profiles.name}</span></span>
+                </div>
+              )}
               {broker.office_reg_number && (
                 <div className="flex items-start gap-2">
                   <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
