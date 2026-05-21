@@ -354,7 +354,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                         </span>
                       )}
                     </div>
-                    <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? formatAddress(maskAddressByType(p.address, p.room_type)) : '주소 미입력'}</p>
+                    <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddressByType(formatAddress(p.address), p.room_type) : '주소 미입력'}</p>
                     <p className="text-blue-600 font-black mt-1">
                       {!p.price
                         ? '가격 협의'

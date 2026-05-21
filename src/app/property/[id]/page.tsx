@@ -69,9 +69,10 @@ export default async function PropertyDetailPage({ params }: Props) {
       .from('broker_profiles').select('id').eq('user_id', user.id).maybeSingle()
     if (myBroker?.id === prop.broker_id) isMine = true
   }
+  // 비본인: 먼저 '307-1502'→'307동 1502호'로 풀어쓴 다음 mask가 '1502호' 토큰을 제거하도록 순서를 뒤집음
   const displayAddress = isMine
     ? formatAddress(prop.address)
-    : (prop.address ? formatAddress(maskAddressByType(prop.address, prop.room_type)) : '주소 미입력')
+    : (prop.address ? maskAddressByType(formatAddress(prop.address), prop.room_type) : '주소 미입력')
 
   // 본인 찜 상태
   let isFavorited = false
