@@ -235,20 +235,8 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
               </div>
             </div>
 
-            {/* 사무소 정보 (대표·등록번호·주소·연락처) */}
+            {/* 사무소 정보 — 소재지·연락처·등록번호·대표 순 */}
             <div className="mt-4 space-y-1.5 text-sm text-gray-600">
-              {broker.profiles?.name && (
-                <div className="flex items-start gap-2">
-                  <User className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <span>대표 <span className="font-semibold text-gray-800">{broker.profiles.name}</span></span>
-                </div>
-              )}
-              {broker.office_reg_number && (
-                <div className="flex items-start gap-2">
-                  <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <span>등록번호 <span className="font-mono text-gray-800">{broker.office_reg_number}</span></span>
-                </div>
-              )}
               {broker.address && (
                 <div className="flex items-start gap-2">
                   <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -261,6 +249,18 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                   <a href={`tel:${broker.profiles.phone}`} className="text-blue-600 hover:underline">
                     {broker.profiles.phone}
                   </a>
+                </div>
+              )}
+              {broker.office_reg_number && (
+                <div className="flex items-start gap-2">
+                  <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span>등록번호 <span className="font-mono text-gray-800">{broker.office_reg_number}</span></span>
+                </div>
+              )}
+              {broker.profiles?.name && (
+                <div className="flex items-start gap-2">
+                  <User className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <span>대표 <span className="font-semibold text-gray-800">{broker.profiles.name}</span></span>
                 </div>
               )}
             </div>
