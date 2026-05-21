@@ -429,16 +429,18 @@ export default function AdminPage() {
           ))}
         </div>
 
-        {/* ── 사무소 인증 관리 ── */}
+        {/* ── 사무소 인증 대기 큐 (미인증만) ── */}
         <div id="section-brokers">
           <div className="mb-4 flex items-center gap-3">
-            <h2 className="text-lg font-bold text-white">사무소 인증 관리</h2>
+            <h2 className="text-lg font-bold text-white">사무소 인증 대기</h2>
             {unverifiedBrokers.length > 0 && (
               <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-bold text-red-400">
-                미인증 {unverifiedBrokers.length}곳
+                {unverifiedBrokers.length}곳 대기
               </span>
             )}
-            <span className="ml-auto text-xs text-gray-500">대표 정보 클릭 시 상세 · 직원은 펼침으로 확인</span>
+            <Link href="/admin/brokers" className="ml-auto inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+              전체 사무소 보기 <ChevronRight className="h-3 w-3" />
+            </Link>
           </div>
 
           <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
@@ -451,17 +453,24 @@ export default function AdminPage() {
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">담당 지역</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">가입일</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">직원</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">상태</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">액션</th>
                 </tr>
               </thead>
               <tbody>
-                {brokers.length === 0 ? (
+                {unverifiedBrokers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-10 text-center text-gray-500">등록된 사무소가 없습니다</td>
+                    <td colSpan={7} className="px-5 py-10 text-center">
+                      <div className="flex flex-col items-center gap-2 text-gray-500">
+                        <CheckCircle className="h-8 w-8 text-green-500/60" />
+                        <p className="font-semibold text-gray-400">인증 대기 중인 사무소가 없어요</p>
+                        <Link href="/admin/brokers" className="mt-1 text-xs text-blue-400 hover:underline">
+                          전체 사무소 보러 가기 →
+                        </Link>
+                      </div>
+                    </td>
                   </tr>
                 ) : (
-                  brokers.map(broker => {
+                  unverifiedBrokers.map((broker: any) => {
                     const employees = employeesByOwner.get(broker.id) ?? []
                     const isOpen = expandedOwnerId === broker.id
                     return (
@@ -519,34 +528,19 @@ export default function AdminPage() {
                               <span className="text-xs text-gray-600">—</span>
                             )}
                           </td>
-                          <td className="px-5 py-4">
-                            {broker.is_verified ? (
-                              <span className="flex items-center gap-1.5 text-sm font-medium text-green-400">
-                                <CheckCircle className="h-4 w-4" /> 인증됨
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1.5 text-sm font-medium text-yellow-400">
-                                <XCircle className="h-4 w-4" /> 미인증
-                              </span>
-                            )}
-                          </td>
                           <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                             <button
                               onClick={() => toggleVerify(broker.id, broker.is_verified)}
                               disabled={verifying === broker.id}
-                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                                broker.is_verified
-                                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                              } disabled:opacity-50`}
+                              className="rounded-lg bg-green-500/20 px-3 py-1.5 text-xs font-semibold text-green-400 transition-all hover:bg-green-500/30 disabled:opacity-50"
                             >
-                              {verifying === broker.id ? '처리 중...' : broker.is_verified ? '인증 취소' : '인증 승인'}
+                              {verifying === broker.id ? '처리 중...' : '인증 승인'}
                             </button>
                           </td>
                         </tr>
                         {isOpen && employees.length > 0 && (
                           <tr className="border-b border-gray-800/50 bg-gray-950/60">
-                            <td colSpan={8} className="px-5 py-3">
+                            <td colSpan={7} className="px-5 py-3">
                               <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-400">
                                 <Users className="h-3.5 w-3.5" />
                                 {broker.office_name ?? '사무소'} 소속 직원 ({employees.length}명) · 승인은 대표가 처리
