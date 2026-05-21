@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { User, Bell, Building2, Lock, Palette } from 'lucide-react'
+import { User, Bell, Building2, Palette } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ItemDef {
@@ -17,7 +17,6 @@ const ITEMS: ItemDef[] = [
   { href: '/settings/notifications', label: '알림', icon: Bell },
   { href: '/settings/appearance', label: '화면', icon: Palette },
   { href: '/settings/office', label: '사무소', icon: Building2, brokerOnly: true },
-  { href: '/settings/security', label: '보안', icon: Lock },
 ]
 
 export function SettingsSidebar({ isBroker }: { isBroker: boolean }) {
