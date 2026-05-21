@@ -140,26 +140,42 @@ export default function AdminUsersPage() {
   }, [supabase, page, role, status, search, showFlatList])
 
   // broker 사용자는 한 번에 가져옴 (사무소 그룹화 위해)
+  // broker_profiles 기준으로 fetch → profiles.role 무관하게 broker_profile이 있는 모든 사용자 포함
+  // (대표가 admin 역할을 갖고 있어도 사무소 그룹에 나타남)
   const loadBrokers = useCallback(async () => {
     if (!showOffices) {
       setBrokerItems([])
       return
     }
-    let q = supabase
-      .from('profiles')
-      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles(id, is_owner, office_name, parent_broker_id)')
-      .eq('role', 'broker')
+    const { data: bps } = await supabase
+      .from('broker_profiles')
+      .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
       .order('created_at', { ascending: false })
       .limit(1000)
 
-    if (status !== 'all') q = q.eq('account_status', status)
+    // 변환: 각 broker_profile row → UserRow (profile 정보 + broker_profiles 필드)
+    let rows: UserRow[] = (bps ?? []).map((bp: any) => ({
+      ...(bp.profiles as any),
+      broker_profiles: [{
+        id: bp.id,
+        is_owner: bp.is_owner,
+        office_name: bp.office_name,
+        parent_broker_id: bp.parent_broker_id,
+      }],
+    }))
+
+    // 상태·검색 필터 (클라이언트)
+    if (status !== 'all') rows = rows.filter(u => u.account_status === status)
     if (search.trim()) {
-      const s = search.trim()
-      q = q.or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
+      const s = search.trim().toLowerCase()
+      rows = rows.filter(u =>
+        (u.name?.toLowerCase().includes(s)) ||
+        (u.email?.toLowerCase().includes(s)) ||
+        (u.phone?.toLowerCase().includes(s))
+      )
     }
 
-    const { data } = await q
-    setBrokerItems((data ?? []) as any as UserRow[])
+    setBrokerItems(rows)
   }, [supabase, status, search, showOffices])
 
   // brokerItems → 사무소별 그룹화
@@ -476,9 +492,12 @@ export default function AdminUsersPage() {
           adminId={auth.user!.id}
           onClose={() => setSelected(null)}
           onUpdated={async (updated) => {
-            setItems(prev => prev.map(p => p.id === updated.id ? updated : p))
-            setBrokerItems(prev => prev.map(p => p.id === updated.id ? updated : p))
-            setSelected(updated)
+            setItems(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
+            setBrokerItems(prev => prev.map(p => p.id === updated.id
+              ? { ...updated, broker_profiles: p.broker_profiles }
+              : p
+            ))
+            setSelected(prev => prev ? { ...updated, broker_profiles: prev.broker_profiles } : updated)
           }}
         />
       )}
@@ -510,7 +529,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
       .from('profiles')
       .update(patch as any)
       .eq('id', user.id)
-      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at, broker_profiles(is_owner, office_name)')
+      .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at')
       .single()
     setBusy(false)
     if (error || !data) {
