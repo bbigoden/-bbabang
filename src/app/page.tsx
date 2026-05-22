@@ -136,7 +136,7 @@ export default function LandingPage() {
             {/* 기존 vs 빠방 비교 */}
             <Card className="border-red-100">
               <CardBody>
-                <h3 className="mb-4 font-bold text-red-500">😩 기존 플랫폼</h3>
+                <h3 className="mb-4 font-bold text-red-600 dark:text-red-400">😩 기존 플랫폼</h3>
                 <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
                   {[
                     '수백 개 매물을 직접 찾아다녀야 함',
@@ -253,11 +253,11 @@ export default function LandingPage() {
                         <span className="text-xs text-gray-500">{req.rooms} {req.type}</span>
                         <div className="mt-0.5 text-xs font-medium text-blue-600">{req.budget}</div>
                       </div>
-                      <span className="text-xs text-gray-400">{req.time}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{req.time}</span>
                     </div>
                   ))}
                 </div>
-                <p className="mt-4 text-center text-xs text-gray-400">* 예시 데이터입니다</p>
+                <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">* 예시 데이터입니다</p>
               </div>
             </div>
           </div>
@@ -286,13 +286,13 @@ export default function LandingPage() {
               </div>
               <span className="font-bold text-gray-900 dark:text-white">빠방</span>
             </div>
-            <div className="flex gap-6 text-sm text-gray-400">
-              <Link href="/terms" className="hover:text-gray-700 dark:text-gray-300">이용약관</Link>
-              <Link href="/privacy" className="hover:text-gray-700 dark:text-gray-300">개인정보처리방침</Link>
-              <Link href="/support" className="hover:text-gray-700 dark:text-gray-300">고객지원</Link>
+            <div className="flex gap-6 text-sm text-gray-600 dark:text-gray-400">
+              <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white">이용약관</Link>
+              <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white">개인정보처리방침</Link>
+              <Link href="/support" className="hover:text-gray-900 dark:hover:text-white">고객지원</Link>
             </div>
           </div>
-          <p className="mt-6 text-xs text-gray-400">© 2025 빠방. All rights reserved.</p>
+          <p className="mt-6 text-xs text-gray-500 dark:text-gray-400">© 2025 빠방. All rights reserved.</p>
         </div>
       </footer>
     </div>
