@@ -85,7 +85,7 @@ export function SupportForm() {
               placeholder="example@email.com"
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
-            <p className="mt-1 text-xs text-gray-400">비로그인 상태에서는 이메일이 필요해요</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">비로그인 상태에서는 이메일이 필요해요</p>
           </div>
         )}
 
@@ -99,7 +99,7 @@ export function SupportForm() {
             placeholder="문의하실 내용을 자세히 적어주세요 (최소 5자)"
             className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
           />
-          <p className="mt-1 text-right text-xs text-gray-400">{content.length}/2000</p>
+          <p className="mt-1 text-right text-xs text-gray-500 dark:text-gray-400">{content.length}/2000</p>
         </div>
 
         {err && (

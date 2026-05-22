@@ -12,9 +12,10 @@ type Prefs = {
   matches: boolean
   announcements: boolean
   email: boolean
+  marketing: boolean
 }
 
-const DEFAULT_PREFS: Prefs = { messages: true, proposals: true, matches: true, announcements: true, email: true }
+const DEFAULT_PREFS: Prefs = { messages: true, proposals: true, matches: true, announcements: true, email: true, marketing: false }
 
 const CATEGORIES: Array<{ key: keyof Prefs; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }> = [
   { key: 'messages',      label: '새 메시지',     desc: '채팅 메시지가 도착하면 알려요',         icon: MessageCircle },
@@ -22,6 +23,7 @@ const CATEGORIES: Array<{ key: keyof Prefs; label: string; desc: string; icon: R
   { key: 'matches',       label: '매칭 알림',     desc: '내 조건에 맞는 매물이 등록될 때',       icon: Bell },
   { key: 'announcements', label: '공지·이벤트',   desc: '빠방 공지·업데이트 소식',               icon: Megaphone },
   { key: 'email',         label: '이메일 알림',   desc: '핵심 알림(제안 수락·신규 제안)을 이메일로도 받기', icon: Mail },
+  { key: 'marketing',     label: '마케팅 수신',   desc: '할인·이벤트·신규 기능 등 광고성 소식 (선택)', icon: Sparkles },
 ]
 
 export default function SettingsNotificationsPage() {

@@ -25,6 +25,7 @@ function SignupForm() {
   const [phone, setPhone] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [agreeTerms, setAgreeTerms] = useState(false)
+  const [agreeMarketing, setAgreeMarketing] = useState(false) // 신규 #3: 마케팅 분리 동의 (선택)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -73,6 +74,14 @@ function SignupForm() {
         name,
         phone,
         role,
+        // 마케팅 수신 분리 동의 — 별도 체크박스 결과만 반영, 나머지는 DB 기본값
+        notification_preferences: {
+          matches: true,
+          messages: true,
+          proposals: true,
+          announcements: true,
+          marketing: agreeMarketing,
+        },
       })
     }
 
@@ -188,7 +197,7 @@ function SignupForm() {
 
           <Input label="휴대폰 번호" placeholder="010-1234-5678" value={phone} onChange={(e) => setPhone(e.target.value)} />
 
-          {/* 약관 동의 */}
+          {/* 약관 동의 — 필수 */}
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -198,7 +207,23 @@ function SignupForm() {
             />
             <span className="text-sm text-gray-600 dark:text-gray-400">
               <Link href="/terms" className="text-blue-600 hover:underline">이용약관</Link>과{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의합니다 <span className="text-red-500">*</span>
+              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의합니다 <span className="text-red-500">*</span> <span className="text-gray-400">(필수)</span>
+            </span>
+          </label>
+
+          {/* 마케팅 수신 동의 — 선택 (별도) */}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={agreeMarketing}
+              onChange={(e) => setAgreeMarketing(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-700 accent-blue-600"
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              마케팅 알림 수신에 동의합니다 <span className="text-gray-400">(선택)</span>
+              <span className="block text-xs text-gray-400 mt-0.5">
+                할인·이벤트·신규 기능 소식 등을 이메일·푸시로 받아요. 설정에서 언제든 변경 가능.
+              </span>
             </span>
           </label>
 
