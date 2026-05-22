@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Home, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
 
 export default function UpdatePasswordPage() {
   const router = useRouter()
@@ -28,6 +29,14 @@ export default function UpdatePasswordPage() {
 
     setLoading(true)
     setError('')
+
+    // P1-5: 유출된 비밀번호 차단 (HaveIBeenPwned)
+    const pwned = await isPasswordPwned(password)
+    if (pwned.pwned) {
+      setError(pwnedMessage(pwned.count ?? 0))
+      setLoading(false)
+      return
+    }
 
     const { error } = await supabase.auth.updateUser({ password })
 

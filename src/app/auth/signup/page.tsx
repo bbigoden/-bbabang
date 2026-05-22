@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Home, User, Building2, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { validatePhoneKR } from '@/lib/validation'
+import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
 import { Suspense } from 'react'
 
 function SignupForm() {
@@ -45,6 +46,14 @@ function SignupForm() {
 
     setLoading(true)
     setError('')
+
+    // 유출된 비밀번호 차단 (P1-5 — HaveIBeenPwned k-anonymity)
+    const pwned = await isPasswordPwned(password)
+    if (pwned.pwned) {
+      setError(pwnedMessage(pwned.count ?? 0))
+      setLoading(false)
+      return
+    }
 
     let data: any = null
     try {

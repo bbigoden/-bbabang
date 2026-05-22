@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2 } from 'lucide-react'
 import { transferBrokerData } from '@/lib/leave-office'
+import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
 
 export default function SettingsAccountPage() {
   const router = useRouter()
@@ -59,6 +60,15 @@ export default function SettingsAccountPage() {
     if (pwNew !== pwConfirm) { setPwMsg({ type: 'err', text: '새 비밀번호가 일치하지 않습니다.' }); return }
     if (pwNew.length < 6) { setPwMsg({ type: 'err', text: '비밀번호는 6자 이상이어야 합니다.' }); return }
     setPwSaving(true); setPwMsg(null)
+
+    // P1-5: 유출된 비밀번호 차단 (HaveIBeenPwned)
+    const pwned = await isPasswordPwned(pwNew)
+    if (pwned.pwned) {
+      setPwSaving(false)
+      setPwMsg({ type: 'err', text: pwnedMessage(pwned.count ?? 0) })
+      return
+    }
+
     const { error } = await supabase.auth.updateUser({ password: pwNew })
     setPwSaving(false)
     if (error) { setPwMsg({ type: 'err', text: '비밀번호 변경에 실패했습니다.' }); return }
