@@ -524,9 +524,8 @@ export default function BrokerCustomersPage() {
   }
 
   const deleteRow = async (id: string) => {
-    // 휴지통 이동(soft delete) — 30일 후 cron이 영구 삭제. 휴지통에서 복원 가능.
-    const { error } = await supabase.from('broker_customers')
-      .update({ deleted_at: new Date().toISOString() }).eq('id', id)
+    // 휴지통 이동(soft delete) — SECURITY DEFINER RPC (본인·대표만 가능)
+    const { error } = await supabase.rpc('soft_delete_customer', { cust_id: id })
     if (error) {
       console.error('[deleteRow] failed', error)
       alert(`삭제 실패: ${error.message}`)
