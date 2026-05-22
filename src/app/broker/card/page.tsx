@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import {
-  ArrowLeft, Building2, Phone, Mail, MapPin, Star, ShieldCheck,
+  ArrowLeft, Building2, Phone, MapPin, Star, ShieldCheck,
   Printer, Download, Share2, Copy, Check
 } from 'lucide-react'
 
@@ -22,7 +22,7 @@ interface BrokerData {
   review_count: number | null
   deal_count: number | null
   is_verified: boolean | null
-  profiles: { name: string | null; email: string | null; phone: string | null } | null
+  profiles: { name: string | null; phone: string | null } | null
 }
 
 export default function BrokerCardPage() {
@@ -47,7 +47,7 @@ export default function BrokerCardPage() {
     ;(async () => {
       const { data } = await supabase
         .from('broker_profiles')
-        .select('id, office_name, office_reg_number, address, district, rating, review_count, deal_count, is_verified, profiles(name, email, phone)')
+        .select('id, office_name, office_reg_number, address, district, rating, review_count, deal_count, is_verified, profiles(name, phone)')
         .eq('user_id', auth.user!.id)
         .single()
       if (data) {
@@ -181,12 +181,6 @@ export default function BrokerCardPage() {
                   <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <Phone className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                     <a href={`tel:${broker.profiles.phone}`} className="hover:underline">{broker.profiles.phone}</a>
-                  </p>
-                )}
-                {broker.profiles?.email && (
-                  <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                    <Mail className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
-                    <a href={`mailto:${broker.profiles.email}`} className="hover:underline break-all">{broker.profiles.email}</a>
                   </p>
                 )}
                 {broker.address && (
