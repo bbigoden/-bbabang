@@ -27,11 +27,13 @@ export async function POST(req: NextRequest) {
   const allowed = await checkRateLimit(`user:${user.id}:email-notify`, 30, 3600)
   if (!allowed) return NextResponse.json({ error: '발송 횟수 제한 초과' }, { status: 429 })
 
-  // 대상 사용자 email + preferences (service role로 조회 — 본인 이메일 외엔 RLS 막힘)
+  // 대상 사용자 email + preferences 조회 (서버 전용 키 사용 — 클라이언트 노출 X)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !serviceKey) {
-    return NextResponse.json({ ok: false, skipped: 'service_role_missing' })
+    // 내부 환경변수 이름 노출 금지
+    console.error('[email/notify] 서버 설정 누락')
+    return NextResponse.json({ ok: false, skipped: 'unavailable' })
   }
   const supa = createServiceClient(url, serviceKey)
   const { data: target } = await supa

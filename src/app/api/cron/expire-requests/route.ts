@@ -13,15 +13,18 @@ import { sendPushToUser } from '@/lib/push-server'
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization') ?? ''
   const secret = process.env.CRON_SECRET
-  // Vercel cron은 Authorization: Bearer <CRON_SECRET>를 자동 추가
-  if (secret && auth !== `Bearer ${secret}`) {
+  // Vercel cron은 Authorization: Bearer <CRON_SECRET>를 자동 추가.
+  // secret 미설정 시 호출 전부 차단 (서비스 가용성보다 보안 우선)
+  if (!secret || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !serviceKey) {
-    return NextResponse.json({ error: 'service role missing' }, { status: 500 })
+    // 내부 환경변수 이름 노출 금지
+    console.error('[cron/expire-requests] 서버 설정 누락')
+    return NextResponse.json({ error: 'configuration_error' }, { status: 500 })
   }
 
   const supa = createServerClient(url, serviceKey)
