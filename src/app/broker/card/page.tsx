@@ -15,7 +15,6 @@ import {
 interface BrokerData {
   id: string
   office_name: string | null
-  license_number: string | null
   office_reg_number: string | null
   address: string | null
   district: string | null
@@ -48,7 +47,7 @@ export default function BrokerCardPage() {
     ;(async () => {
       const { data } = await supabase
         .from('broker_profiles')
-        .select('id, office_name, license_number, office_reg_number, address, district, rating, review_count, deal_count, is_verified, profiles(name, email, phone)')
+        .select('id, office_name, office_reg_number, address, district, rating, review_count, deal_count, is_verified, profiles(name, email, phone)')
         .eq('user_id', auth.user!.id)
         .single()
       if (data) {
@@ -200,12 +199,6 @@ export default function BrokerCardPage() {
                   <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <Building2 className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                     <span className="text-xs">등록번호 <span className="font-mono">{broker.office_reg_number}</span></span>
-                  </p>
-                )}
-                {broker.license_number && (
-                  <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
-                    <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
-                    <span className="text-xs">자격증 <span className="font-mono">{broker.license_number}</span></span>
                   </p>
                 )}
               </div>
