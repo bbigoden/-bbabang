@@ -29,8 +29,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sent: 0, skipped: 'self' })
   }
 
-  // Rate limit: 사용자당 분당 30회 (스팸 방지)
-  const allowed = await checkRateLimit(`user:${user.id}:push-notify`, 30, 60)
+  // 화이트리스트 검증: chat_room/사무소/proposal 관계 있을 때만 허용 (P1-3)
+  const { data: allowedRelation } = await supabase.rpc('can_notify_user', {
+    p_target_user_id: body.targetUserId,
+  })
+  if (allowedRelation !== true) {
+    return NextResponse.json({ ok: true, sent: 0, skipped: 'no_relation' })
+  }
+
+  // Rate limit: 사용자당 분당 30회 (스팸 방지). 푸시는 strict — DB 장애 시 차단.
+  const allowed = await checkRateLimit(`user:${user.id}:push-notify`, 30, 60, true)
   if (!allowed) {
     return NextResponse.json({ error: '알림 호출 제한 초과' }, { status: 429 })
   }

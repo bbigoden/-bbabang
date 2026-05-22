@@ -15,7 +15,8 @@
       "mcp__c05fdee0-418d-4717-8286-ab2908175be4__list_projects",
       "mcp__c05fdee0-418d-4717-8286-ab2908175be4__get_publishable_keys",
       "mcp__c05fdee0-418d-4717-8286-ab2908175be4__list_tables",
-      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__get_advisors"
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__get_advisors",
+      "mcp__c05fdee0-418d-4717-8286-ab2908175be4__list_edge_functions"
     ]
   }
 }

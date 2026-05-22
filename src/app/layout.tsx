@@ -6,6 +6,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import { NotificationsProvider } from '@/lib/notifications-context'
 import { ThemeProvider } from '@/lib/theme-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
+import { Footer } from '@/components/layout/footer'
 import { InstallPrompt } from '@/components/install-prompt'
 import { ErrorBoundary, GlobalErrorListener } from '@/components/error-tracker'
 import { Analytics } from '@vercel/analytics/next'
@@ -131,6 +132,7 @@ export default function RootLayout({
             <AuthProvider>
               <NotificationsProvider>
                 <main id="main">{children}</main>
+                <Footer />
                 <BottomNav />
                 <InstallPrompt />
               </NotificationsProvider>

@@ -23,8 +23,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '필수 파라미터 누락' }, { status: 400 })
   }
 
-  // Rate limit
-  const allowed = await checkRateLimit(`user:${user.id}:email-notify`, 30, 3600)
+  // 본인에게 보낼 때(공지·이력 알림 등)는 관계 검증 스킵, 그 외에는 화이트리스트 적용
+  if (body.targetUserId !== user.id) {
+    const { data: allowedRelation } = await supabase.rpc('can_notify_user', {
+      p_target_user_id: body.targetUserId,
+    })
+    if (allowedRelation !== true) {
+      return NextResponse.json({ ok: false, skipped: 'no_relation' })
+    }
+  }
+
+  // Rate limit — 이메일은 발송 비용 + 스팸 위험으로 strict (DB 장애 시 차단)
+  const allowed = await checkRateLimit(`user:${user.id}:email-notify`, 30, 3600, true)
   if (!allowed) return NextResponse.json({ error: '발송 횟수 제한 초과' }, { status: 429 })
 
   // 대상 사용자 email + preferences 조회 (서버 전용 키 사용 — 클라이언트 노출 X)
