@@ -162,7 +162,7 @@ export default function BrokerTeamPage() {
 
   const rejectEmployee = async (empId: string) => {
     if (!confirm('이 신청을 거절할까요? 직원의 계정 자체는 유지됩니다.')) return
-    const { error } = await supabase.from('broker_profiles').delete().eq('id', empId)
+    const { error } = await supabase.rpc('reject_employee_application', { emp_broker_id: empId })
     if (error) {
       console.error('[team] reject failed', error)
       alert(`거절 실패: ${error.message}`)
@@ -197,8 +197,8 @@ export default function BrokerTeamPage() {
       return
     }
 
-    // 직원 프로필 사무소 연결 해제
-    const { error } = await supabase.from('broker_profiles').update({ parent_broker_id: null, is_approved: false }).eq('id', empId)
+    // 직원 프로필 사무소 연결 해제 (SECURITY DEFINER RPC — RLS WITH CHECK 우회)
+    const { error } = await supabase.rpc('remove_employee_from_office', { emp_broker_id: empId })
     if (error) {
       console.error('[team] detach failed', error)
       alert(`직원 분리 실패: ${error.message}`)
