@@ -31,7 +31,14 @@ export async function POST(req: NextRequest) {
     .eq('id', body.propertyId)
     .single()
   if (!prop) return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 })
-  const brokerUserId = (prop.broker_profiles as any)?.user_id
+
+  // P2-3: as any 캐스팅 제거. Supabase가 단일/배열로 다르게 반환할 수 있어 정규화.
+  type BrokerProfileMin = { office_name: string | null; user_id: string }
+  const brokerProfile = (Array.isArray(prop.broker_profiles)
+    ? prop.broker_profiles[0]
+    : prop.broker_profiles) as BrokerProfileMin | null
+  const brokerUserId = brokerProfile?.user_id
+
   if (brokerUserId !== user.id) return NextResponse.json({ error: '본인 매물만 알림 발송 가능' }, { status: 403 })
   if (prop.status !== 'available') return NextResponse.json({ ok: true, sent: 0, skipped: 'not_available' })
 
@@ -47,7 +54,7 @@ export async function POST(req: NextRequest) {
   const userIds = Array.from(new Set((notifs ?? []).map(n => n.user_id)))
   if (userIds.length === 0) return NextResponse.json({ ok: true, sent: 0, matched: 0 })
 
-  const officeName = (prop.broker_profiles as any)?.office_name ?? '중개사'
+  const officeName = brokerProfile?.office_name ?? '중개사'
   const title = `${officeName} - 내 조건 매물 등록 🏠`
   const region = prop.address ? prop.address.split(' ').slice(0, 2).join(' ') : ''
   const bodyText = [prop.deal_type, region].filter(Boolean).join(' · ') || '조건에 맞는 매물이 등록됐어요'
