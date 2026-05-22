@@ -120,7 +120,7 @@ function SignupForm() {
           </div>
           <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
         </Link>
-        <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">빠방에 오신 걸 환영해요 🏠</h1>
+        <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">빠방에 오신 걸 환영해요 🏠</p>
         <p className="mt-2 text-sm text-gray-500">무료로 시작하세요</p>
       </div>
 
@@ -255,6 +255,8 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-12">
       <div className="w-full max-w-md">
+        {/* SSR-rendered h1 for a11y (axe page-has-heading-one) */}
+        <h1 className="sr-only">빠방 회원가입</h1>
         <Suspense fallback={<div className="text-center text-gray-500">로딩 중...</div>}>
           <SignupForm />
         </Suspense>

@@ -112,7 +112,7 @@ export default function LandingPage() {
             ].map((item) => (
               <Card key={item.step} className="relative p-2" hover>
                 <CardBody>
-                  <span className="text-5xl font-black text-gray-100 absolute top-4 right-5">{item.step}</span>
+                  <span aria-hidden="true" className="text-5xl font-black text-gray-100 dark:text-gray-800 absolute top-4 right-5 pointer-events-none select-none">{item.step}</span>
                   <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${item.color}`}>
                     <item.icon className="h-6 w-6" />
                   </div>

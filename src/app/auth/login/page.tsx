@@ -92,7 +92,7 @@ function LoginForm() {
             </div>
             <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
           </Link>
-          <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">다시 만나서 반가워요 👋</h1>
+          <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">다시 만나서 반가워요 👋</p>
           <p className="mt-2 text-sm text-gray-500">로그인하고 내 방 찾기를 계속하세요</p>
         </div>
 
@@ -182,8 +182,12 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
+    <>
+      {/* SSR h1 — axe page-has-heading-one 통과용 */}
+      <h1 className="sr-only">빠방 로그인</h1>
+      <Suspense>
+        <LoginForm />
+      </Suspense>
+    </>
   )
 }
