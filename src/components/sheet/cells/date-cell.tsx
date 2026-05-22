@@ -101,17 +101,17 @@ export function DateCell({
         {value || '날짜'}
       </div>
       {open && (
-        <div ref={popupRef} className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={{ ...popStyle, width: 240 }}>
-          <div className="p-2 border-b border-gray-100">
+        <div ref={popupRef} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={{ ...popStyle, width: 240 }}>
+          <div className="p-2 border-b border-gray-100 dark:border-gray-800">
             <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
               placeholder="2026-05-13"
-              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
           </div>
           <div className="flex items-center justify-between px-3 py-2">
-            <button onClick={prevMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 text-gray-500 text-xs font-bold">‹</button>
-            <span className="text-xs font-semibold text-gray-700">{viewYear}년 {viewMonth + 1}월</span>
-            <button onClick={nextMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 text-gray-500 text-xs font-bold">›</button>
+            <button onClick={prevMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-500 text-xs font-bold">‹</button>
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{viewYear}년 {viewMonth + 1}월</span>
+            <button onClick={nextMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-500 text-xs font-bold">›</button>
           </div>
           <div className="grid grid-cols-7 px-2 pb-1">
             {['일','월','화','수','목','금','토'].map((d, i) => (

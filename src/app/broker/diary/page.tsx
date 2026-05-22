@@ -111,11 +111,11 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
     <div ref={containerRef} className="relative">
       <button ref={btnRef} onClick={handleOpen} className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">+</button>
       {open && (
-        <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white shadow-xl p-2.5" style={popStyle}>
-          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }} placeholder="칼럼 이름 입력" className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 w-44" />
+        <div className="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
+          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }} placeholder="칼럼 이름 입력" className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 w-44" />
           <div className="flex gap-1">
-            <button onClick={() => setType('text')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>텍스트</button>
-            <button onClick={() => setType('select')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>선택</button>
+            <button onClick={() => setType('text')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>텍스트</button>
+            <button onClick={() => setType('select')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>선택</button>
           </div>
           <button onClick={add} disabled={!name.trim()} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40">추가</button>
         </div>
@@ -144,13 +144,13 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
     <div ref={containerRef} className="relative">
       <button ref={btnRef} onClick={handleOpen} className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors"><MoreHorizontal className="h-3.5 w-3.5" /></button>
       {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={popStyle}>
-          <div className="p-2 border-b border-gray-100"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="속성을 검색하세요" autoFocus className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400" /></div>
-          <div className="px-3 py-2 border-b border-gray-100"><span className="text-xs font-medium text-gray-500">표에 표시하기</span></div>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
+          <div className="p-2 border-b border-gray-100 dark:border-gray-800"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="속성을 검색하세요" autoFocus className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400" /></div>
+          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800"><span className="text-xs font-medium text-gray-500">표에 표시하기</span></div>
           <div className="max-h-64 overflow-y-auto py-1">
             {rows.map(c => (
-              <div key={c.key} className={`flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !c.fixed && onToggle(c.key)}>
-                <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700' : 'text-gray-400'}`}>{c.label}</span>
+              <div key={c.key} className={`flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !c.fixed && onToggle(c.key)}>
+                <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>{c.label}</span>
                 <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${c.fixed || visible.includes(c.key) ? 'text-gray-400' : 'text-gray-200'}`} />
               </div>
             ))}
@@ -217,14 +217,14 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-800">제안 매물 선택</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">제안 매물 선택</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-400"><X className="h-4 w-4" /></button>
         </div>
-        <div className="px-3 py-2.5 border-b border-gray-100">
+        <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800">
           <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+            placeholder="주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
         </div>
         <div className="max-h-64 overflow-y-auto">
           {filtered.length === 0
@@ -232,19 +232,19 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
             : filtered.map(p => (
               <div key={p.id} onClick={() => toggle(p.id)}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0">
-                <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${selected.has(p.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${selected.has(p.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-gray-700'}`}>
                   {selected.has(p.id) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-800 truncate">{p.address}</div>
+                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.address}</div>
                   <div className="text-xs text-gray-400">{p.deal_type} · {p.room_type} · {formatPrice(p)}</div>
                 </div>
               </div>
             ))
           }
         </div>
-        <div className="p-3 border-t border-gray-100 flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+        <div className="p-3 border-t border-gray-100 dark:border-gray-800 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
           <button onClick={() => onConfirm(Array.from(selected))} className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
             확인 ({selected.size}개)
           </button>
@@ -280,21 +280,21 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId, onA
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl bg-white dark:bg-gray-900 shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
           <div>
-            <h3 className="text-base font-bold text-gray-900">고객 등록</h3>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">고객 등록</h3>
             <p className="text-xs text-gray-400 mt-0.5">{ownerName} 담당 고객 중 일지에 추가할 행을 클릭하세요</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors"><X className="h-5 w-5" /></button>
         </div>
 
         {/* 검색 */}
-        <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
+        <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
             placeholder="요청사항, 연락처로 검색..."
-            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
         </div>
 
         {/* 테이블 */}
@@ -306,7 +306,7 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId, onA
           ) : (
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-gray-50/95 backdrop-blur text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <tr className="border-b border-gray-100">
+                <tr className="border-b border-gray-100 dark:border-gray-800">
                   <th className="px-3 py-2.5 text-left">요청사항</th>
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">접수일자</th>
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">연락처</th>
@@ -320,7 +320,7 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId, onA
                 {filtered.map(c => (
                   <tr key={c.id} onClick={() => onAddExisting(c)}
                     className="group border-b border-gray-50 cursor-pointer hover:bg-blue-50/60 transition-colors">
-                    <td className="px-3 py-2 text-gray-800 max-w-md truncate">{c.request || c.client_name || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2 text-gray-800 dark:text-gray-100 max-w-md truncate">{c.request || c.client_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.received_date ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.contact ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.assignee ?? <span className="text-gray-300">—</span>}</td>
@@ -337,14 +337,14 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId, onA
         </div>
 
         {/* 푸터 */}
-        <div className="border-t border-gray-100 px-5 py-3 flex items-center gap-3 flex-shrink-0 bg-gray-50/50">
+        <div className="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex items-center gap-3 flex-shrink-0 bg-gray-50/50">
           <button onClick={onCreateNew}
-            className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 px-3 py-2 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
+            className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 px-3 py-2 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
             <Plus className="h-4 w-4" />새 고객 만들기
           </button>
           <div className="flex-1" />
           <button onClick={onClose}
-            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors">
+            className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
             닫기
           </button>
         </div>
@@ -383,13 +383,13 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
     setSaving(true); await onSave(draft); setSaving(false)
   }
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 bg-gray-50/50 group/header">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 group/header">
         <span className="text-sm font-bold text-gray-400 flex-shrink-0">{num}.</span>
         {renaming ? (
           <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
             onBlur={commitRename} onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setTitleDraft(def.title); setRenaming(false) } }}
-            className="flex-1 rounded-lg border border-blue-400 px-2 py-0.5 text-sm font-bold text-gray-800 outline-none" />
+            className="flex-1 rounded-lg border border-blue-400 px-2 py-0.5 text-sm font-bold text-gray-800 dark:text-gray-100 outline-none" />
         ) : (
           <span className={cn('text-sm font-bold text-gray-800', !readOnly && 'cursor-pointer hover:text-blue-600 transition-colors')}
             onClick={() => !readOnly && setRenaming(true)} title="클릭하여 이름 변경">
@@ -405,13 +405,13 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
         )}
       </div>
       {readOnly
-        ? <div className="px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap min-h-[60px]">{content || <span className="text-gray-300">—</span>}</div>
+        ? <div className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap min-h-[60px]">{content || <span className="text-gray-300">—</span>}</div>
         : <textarea ref={taRef} value={draft}
             onChange={e => { setDraft(e.target.value); autoSize() }}
             onBlur={handleBlur}
             placeholder={`${def.title} 입력...`}
             rows={1}
-            className="w-full px-4 py-3 text-sm text-gray-700 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
+            className="w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
       }
     </div>
   )
@@ -858,33 +858,33 @@ export default function BrokerDiaryPage() {
 
   const linkedIds = new Set(diaryCustomers.map(c => c.id))
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-400 text-sm">불러오는 중...</div></div>
+  if (loading) return <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center"><div className="text-gray-400 text-sm">불러오는 중...</div></div>
   if (accessDenied) return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="text-5xl">🔒</div>
-        <h2 className="text-lg font-bold text-gray-700">업무일지 접근 권한이 없어요</h2>
+        <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">업무일지 접근 권한이 없어요</h2>
         <p className="text-sm text-gray-400">대표에게 권한 설정을 요청해주세요.</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-screen-xl px-4 py-6 space-y-4">
 
         {/* 날짜 헤더 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-gray-900">{formatDateHeader(diaryDate)} 업무일지</h1>
+            <h1 className="text-2xl font-black text-gray-900 dark:text-white">{formatDateHeader(diaryDate)} 업무일지</h1>
             {/* 대표: 직원 선택 드롭다운 */}
             {isOwner && employees.length > 0 && (
               <select
                 value={viewingBrokerId ?? ''}
                 onChange={e => setViewingBrokerId(e.target.value || null)}
-                className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 outline-none focus:border-blue-400 cursor-pointer"
+                className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 cursor-pointer"
               >
                 <option value="">내 일지</option>
                 {employees.map(e => (
@@ -896,20 +896,20 @@ export default function BrokerDiaryPage() {
           <div className="flex items-center gap-2">
             {effectiveCanEdit && (
               <button onClick={() => { setImportDate(''); setShowImport(true) }}
-                className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
                 <Download className="h-3.5 w-3.5" />불러오기
               </button>
             )}
-            <button onClick={() => changeDate(-1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
-            <input type="date" value={diaryDate} onChange={e => { if (e.target.value) setDiaryDate(e.target.value) }} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 outline-none focus:border-blue-400 cursor-pointer" />
-            <button onClick={() => changeDate(1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
+            <button onClick={() => changeDate(-1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
+            <input type="date" value={diaryDate} onChange={e => { if (e.target.value) setDiaryDate(e.target.value) }} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 cursor-pointer" />
+            <button onClick={() => changeDate(1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
 
         {/* Section 1: 고객정보 */}
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gray-50/50">
-            <span className="text-sm font-bold text-gray-800">1. 고객정보({viewingName})</span>
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50">
+            <span className="text-sm font-bold text-gray-800 dark:text-gray-100">1. 고객정보({viewingName})</span>
             <span className="text-xs text-gray-400">{diaryCustomers.length}명</span>
           </div>
           {diaryLoading ? (
@@ -918,12 +918,12 @@ export default function BrokerDiaryPage() {
             <div className="overflow-x-auto">
               <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
                 <thead>
-                  <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                    <th className="px-3 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
+                  <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
+                    <th className="px-3 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 32 }}>#</th>
                     {activeCols.map(col => {
                       const key = getColKey(col); const w = getColWidth(col)
                       return (
-                        <th key={key} className={`px-2 py-2.5 text-left relative border-r border-gray-100 transition-colors ${dragOverCol === key ? 'bg-blue-50' : 'hover:bg-gray-100'} cursor-grab`}
+                        <th key={key} className={`px-2 py-2.5 text-left relative border-r border-gray-100 dark:border-gray-800 transition-colors ${dragOverCol === key ? 'bg-blue-50' : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800'} cursor-grab`}
                           style={{ width: w, maxWidth: w }} draggable
                           onDragStart={e => onColDragStart(key, e)} onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)} onDragEnd={onColDragEnd}>
                           <div className="pr-2">
@@ -947,15 +947,15 @@ export default function BrokerDiaryPage() {
                     <tr><td colSpan={activeCols.length + 2} className="py-12 text-center text-sm text-gray-400">아래 버튼으로 고객을 추가하세요</td></tr>
                   ) : diaryCustomers.map((c, idx) => (
                     <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                      <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100">{direction === 'up' ? diaryCustomers.length - idx : idx + 1}</td>
+                      <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100 dark:border-gray-800">{direction === 'up' ? diaryCustomers.length - idx : idx + 1}</td>
                       {activeCols.map(col => (
-                        <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
+                        <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
                       ))}
                       <SheetActionCell canEdit={effectiveCanEdit} onCopy={() => duplicateDiaryCustomer(c)} onDelete={() => setDeleteConfirm(c.link_id)} />
                     </tr>
                   ))}
                   {effectiveCanEdit && (
-                    <tr><td colSpan={activeCols.length + 2} className="border-t border-gray-100">
+                    <tr><td colSpan={activeCols.length + 2} className="border-t border-gray-100 dark:border-gray-800">
                       <div className="flex items-center divide-x divide-gray-100">
                         <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
                           <Plus className="h-3.5 w-3.5" />고객 등록
@@ -982,7 +982,7 @@ export default function BrokerDiaryPage() {
               onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!effectiveCanEdit} />
           ))}
           {effectiveCanEdit && (
-            <button onClick={addSection} className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-3 text-sm font-medium text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
+            <button onClick={addSection} className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
               <Plus className="h-4 w-4" />섹션 추가
             </button>
           )}
@@ -1012,17 +1012,17 @@ export default function BrokerDiaryPage() {
       {/* 불러오기 모달 */}
       {showImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">다른 날 업무일지 불러오기</h3>
-            <p className="text-sm text-gray-400 mb-5">선택한 날짜의 고객·내용을 <span className="font-semibold text-gray-700">{formatDateHeader(diaryDate)}</span>에 덮어씁니다.</p>
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">다른 날 업무일지 불러오기</h3>
+            <p className="text-sm text-gray-400 mb-5">선택한 날짜의 고객·내용을 <span className="font-semibold text-gray-700 dark:text-gray-300">{formatDateHeader(diaryDate)}</span>에 덮어씁니다.</p>
             <div className="mb-5">
               <label className="text-xs font-semibold text-gray-500 mb-1.5 block">불러올 날짜</label>
               <input type="date" value={importDate} max={diaryDate}
                 onChange={e => setImportDate(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 cursor-pointer" />
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 cursor-pointer" />
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setShowImport(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+              <button onClick={() => setShowImport(false)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={importFromDate} disabled={!importDate || importing}
                 className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
                 {importing ? '불러오는 중...' : '불러오기'}
@@ -1035,11 +1035,11 @@ export default function BrokerDiaryPage() {
       {/* 삭제 확인 */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">오늘 일지에서 제거할까요?</h3>
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">오늘 일지에서 제거할까요?</h3>
             <p className="text-sm text-gray-500 mb-6">고객 정보는 유지되고, 오늘 일지에서만 사라져요.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={() => unlinkCustomer(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">제거</button>
             </div>
           </div>

@@ -145,7 +145,7 @@ export default function RecommendationsPage() {
 
   if (auth.loading || !auth.user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
       </div>
     )
@@ -159,7 +159,7 @@ export default function RecommendationsPage() {
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
             <Sparkles className="h-6 w-6 text-amber-500" />
             추천 매물
           </h1>
@@ -177,7 +177,7 @@ export default function RecommendationsPage() {
             {/* 내 요청 매칭 */}
             {matches.length > 0 && (
               <section>
-                <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900">
+                <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900 dark:text-white">
                   <FileText className="h-4 w-4 text-blue-500" />
                   내 요청과 맞는 매물 <span className="text-blue-600">{matches.length}</span>
                 </h2>
@@ -192,13 +192,13 @@ export default function RecommendationsPage() {
             {/* 찜한 중개사 매물 */}
             {favBrokerMatches.length > 0 && (
               <section>
-                <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900">
+                <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900 dark:text-white">
                   <Heart className="h-4 w-4 text-pink-500 fill-current" />
                   찜한 중개사의 최신 매물 <span className="text-pink-600">{favBrokerMatches.length}</span>
                 </h2>
                 <ul className="grid gap-3 md:grid-cols-2">
                   {favBrokerMatches.map(p => (
-                    <li key={p.id} className="relative rounded-2xl border border-gray-200 bg-white overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
+                    <li key={p.id} className="relative rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
                       <Link href={`/broker/${p.broker_id}`}>
                         {p.images?.[0] && (
                           <div className="relative h-32 w-full">
@@ -208,9 +208,9 @@ export default function RecommendationsPage() {
                         <div className="p-4">
                           <div className="flex flex-wrap gap-1.5 mb-2">
                             {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-                            {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
+                            {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
                           </div>
-                          <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}</p>
+                          <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}</p>
                           <p className="mt-1 text-sm font-black text-blue-600">
                             {!p.price ? '가격 협의'
                               : p.deal_type === '월세' ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
@@ -239,7 +239,7 @@ export default function RecommendationsPage() {
 function PropertyMatchCard({ match, favorited }: { match: Match; favorited: boolean }) {
   const p = match.property
   return (
-    <li className="relative rounded-2xl border border-gray-200 bg-white overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
+    <li className="relative rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
       <Link href={`/broker/${p.broker_id}`}>
         {p.images?.[0] && (
           <div className="relative h-36 w-full">
@@ -249,9 +249,9 @@ function PropertyMatchCard({ match, favorited }: { match: Match; favorited: bool
         <div className="p-4">
           <div className="flex flex-wrap gap-1.5 mb-2">
             {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-            {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
+            {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
           </div>
-          <p className="font-semibold text-gray-800 text-sm truncate">
+          <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">
             <MapPin className="inline h-3 w-3 mr-0.5 text-gray-400" />
             {p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}
           </p>
@@ -284,13 +284,13 @@ function PropertyMatchCard({ match, favorited }: { match: Match; favorited: bool
 
 function EmptyState({ hasActiveRequests }: { hasActiveRequests: boolean }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white py-16 text-center">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50">
         <Sparkles className="h-7 w-7 text-amber-500" />
       </div>
       {!hasActiveRequests ? (
         <>
-          <p className="font-semibold text-gray-700">아직 추천할 매물이 없어요</p>
+          <p className="font-semibold text-gray-700 dark:text-gray-300">아직 추천할 매물이 없어요</p>
           <p className="mt-1 text-sm text-gray-500">매물 요청을 등록하면 조건에 맞는 매물을 추천해드려요</p>
           <Link href="/request/new"
             className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
@@ -300,7 +300,7 @@ function EmptyState({ hasActiveRequests }: { hasActiveRequests: boolean }) {
         </>
       ) : (
         <>
-          <p className="font-semibold text-gray-700">조건에 맞는 매물이 아직 없어요</p>
+          <p className="font-semibold text-gray-700 dark:text-gray-300">조건에 맞는 매물이 아직 없어요</p>
           <p className="mt-1 text-sm text-gray-500">중개사가 매물을 등록하면 자동으로 추천돼요. 중개사 둘러보고 ♡로 찜해두세요!</p>
           <div className="mt-5 flex justify-center gap-2">
             <Link href="/brokers"

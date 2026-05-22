@@ -155,13 +155,13 @@ export default async function PropertyDetailPage({ params }: Props) {
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <Link href={`/broker/${prop.broker_id}`} className="hover:text-blue-600">{broker?.office_name ?? '중개사'}</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
-          <span className="text-gray-700 font-medium">매물</span>
+          <span className="text-gray-700 dark:text-gray-300 font-medium">매물</span>
         </nav>
 
         {/* 이미지 영역 */}
         {prop.images && prop.images.length > 0 ? (
           <div className="mb-5">
-            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-100">
+            <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-gray-100 dark:bg-gray-800">
               <Image src={prop.images[0]} alt={displayAddress} fill className="object-cover" sizes="(max-width: 768px) 100vw, 768px" priority />
               <div className="absolute right-3 top-3">
                 <FavoriteButton type="property" id={id} initialFavorited={isFavorited} />
@@ -199,7 +199,7 @@ export default async function PropertyDetailPage({ params }: Props) {
             {prop.status === 'contracted' && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">계약 완료</span>}
             {prop.status === 'hidden' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-500">숨김</span>}
           </div>
-          <h1 className="text-xl font-bold text-gray-900">{displayAddress}</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">{displayAddress}</h1>
           <p className="mt-1 text-2xl font-black text-blue-600">{priceText}</p>
           {prop.management_fee && <p className="mt-0.5 text-sm text-gray-500">관리비 {formatPrice(prop.management_fee)}</p>}
         </div>
@@ -207,7 +207,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         {/* 상세 스펙 */}
         <Card className="mb-5">
           <CardBody>
-            <h2 className="mb-3 font-bold text-gray-900">매물 정보</h2>
+            <h2 className="mb-3 font-bold text-gray-900 dark:text-white">매물 정보</h2>
             <dl className="grid grid-cols-2 gap-y-2.5 text-sm">
               <Spec label="주소" value={displayAddress} />
               <Spec label="면적" value={prop.size_pyeong ? `${prop.size_pyeong}${prop.area_unit ?? '평'} (${prop.area_type ?? '전용'})` : null} />
@@ -226,10 +226,10 @@ export default async function PropertyDetailPage({ params }: Props) {
         {prop.options && prop.options.length > 0 && (
           <Card className="mb-5">
             <CardBody>
-              <h2 className="mb-3 font-bold text-gray-900">옵션</h2>
+              <h2 className="mb-3 font-bold text-gray-900 dark:text-white">옵션</h2>
               <div className="flex flex-wrap gap-1.5">
                 {prop.options.map((opt: string) => (
-                  <span key={opt} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">{opt}</span>
+                  <span key={opt} className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300">{opt}</span>
                 ))}
               </div>
             </CardBody>
@@ -240,8 +240,8 @@ export default async function PropertyDetailPage({ params }: Props) {
         {prop.description && (
           <Card className="mb-5">
             <CardBody>
-              <h2 className="mb-3 font-bold text-gray-900">매물 설명</h2>
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{prop.description}</p>
+              <h2 className="mb-3 font-bold text-gray-900 dark:text-white">매물 설명</h2>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">{prop.description}</p>
             </CardBody>
           </Card>
         )}
@@ -250,7 +250,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         {priceHistory && priceHistory.length > 0 && (
           <Card className="mb-5">
             <CardBody>
-              <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900">
+              <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900 dark:text-white">
                 {hasPriceDrop ? <TrendingDown className="h-4 w-4 text-red-500" /> : <TrendingUp className="h-4 w-4 text-gray-400" />}
                 가격 변동 내역
               </h2>
@@ -260,12 +260,12 @@ export default async function PropertyDetailPage({ params }: Props) {
                   const dropped = h.new_price < h.old_price
                   const diff = Math.abs(h.new_price - h.old_price)
                   return (
-                    <li key={i} className="flex items-center justify-between py-1 border-b border-gray-100 last:border-0">
+                    <li key={i} className="flex items-center justify-between py-1 border-b border-gray-100 dark:border-gray-800 last:border-0">
                       <span className="text-xs text-gray-500">{formatDate(h.changed_at)}</span>
                       <span className="flex items-center gap-2 text-xs">
                         <span className="text-gray-400 line-through">{formatPrice(h.old_price)}</span>
                         <span className="text-gray-400">→</span>
-                        <span className="font-bold text-gray-900">{formatPrice(h.new_price)}</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{formatPrice(h.new_price)}</span>
                         <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${dropped ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
                           {dropped ? '▼' : '▲'} {formatPrice(diff)}
                         </span>
@@ -289,7 +289,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <h3 className="font-bold text-gray-900 truncate">{brokerProfile?.name ?? '공인중개사'}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white truncate">{brokerProfile?.name ?? '공인중개사'}</h3>
                       {broker.is_verified && <ShieldCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />}
                     </div>
                     <p className="text-xs text-gray-500 truncate">{broker.office_name}</p>
@@ -314,7 +314,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         {/* 같은 중개사 다른 매물 */}
         {otherProps && otherProps.length > 0 && (
           <div className="mb-6">
-            <h2 className="mb-3 font-bold text-gray-900">{brokerProfile?.name} 중개사의 다른 매물</h2>
+            <h2 className="mb-3 font-bold text-gray-900 dark:text-white">{brokerProfile?.name} 중개사의 다른 매물</h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {otherProps.map((p: any) => (
                 <li key={p.id}>
@@ -328,9 +328,9 @@ export default async function PropertyDetailPage({ params }: Props) {
                       <CardBody className="p-3">
                         <div className="flex flex-wrap gap-1.5 mb-1">
                           {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-                          {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
+                          {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
                         </div>
-                        <p className="text-sm font-semibold text-gray-800 truncate">{maskAddressByType(p.address, p.room_type)}</p>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{maskAddressByType(p.address, p.room_type)}</p>
                         <p className="mt-0.5 text-sm font-black text-blue-600">
                           {!p.price ? '가격 협의'
                             : p.deal_type === '월세' ? `${formatPrice(p.price)}/월 ${formatPrice(p.monthly_rent ?? 0)}`
@@ -365,7 +365,7 @@ function Spec({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <>
       <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className="text-sm text-gray-800 text-right">{value}</dd>
+      <dd className="text-sm text-gray-800 dark:text-gray-100 text-right">{value}</dd>
     </>
   )
 }

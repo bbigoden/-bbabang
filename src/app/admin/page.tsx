@@ -301,7 +301,7 @@ export default function AdminPage() {
                   : '대기 중인 항목이 없어요'}
               </p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
 
           <Link href="/admin/announcements"
@@ -313,7 +313,7 @@ export default function AdminPage() {
               <p className="font-bold text-white">공지 발행</p>
               <p className="text-sm text-gray-400">전체·고객·중개사 대상 알림 전송</p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
         </div>
 
@@ -327,7 +327,7 @@ export default function AdminPage() {
               <p className="font-bold text-white">매물 검수</p>
               <p className="text-sm text-gray-400">전체 매물 모니터링·강제 숨김·신고된 매물 처리</p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
 
           <Link href="/admin/users"
@@ -339,7 +339,7 @@ export default function AdminPage() {
               <p className="font-bold text-white">사용자 관리</p>
               <p className="text-sm text-gray-400">계정 정지·차단, 역할 변경, 관리자 메모</p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
         </div>
 
@@ -363,7 +363,7 @@ export default function AdminPage() {
                   : '대표 자격증·사업자 정보 검토 및 인증'}
               </p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
 
           <Link href="/admin/stats"
@@ -375,7 +375,7 @@ export default function AdminPage() {
               <p className="font-bold text-white">통계·분석</p>
               <p className="text-sm text-gray-400">7·30·90일 추이, 지역별 분포, 거래유형</p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
         </div>
 
@@ -390,7 +390,7 @@ export default function AdminPage() {
               <p className="font-bold text-white">에러 로그</p>
               <p className="text-sm text-gray-400">클라이언트 에러 자동 수집·처리</p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
 
           <Link href="/admin/health"
@@ -402,7 +402,7 @@ export default function AdminPage() {
               <p className="font-bold text-white">시스템 상태</p>
               <p className="text-sm text-gray-400">DB 카운트·24h 활동·외부 시스템</p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600" />
+            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
         </div>
 
@@ -712,7 +712,7 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-0.5">
                     {[1,2,3,4,5].map(i => (
-                      <Star key={i} className={`h-3.5 w-3.5 ${i <= Math.round(brokerModal.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'}`} />
+                      <Star key={i} className={`h-3.5 w-3.5 ${i <= Math.round(brokerModal.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`} />
                     ))}
                   </div>
                   <span className="font-bold text-white">{brokerModal.rating.toFixed(1)}</span>
@@ -753,12 +753,12 @@ export default function AdminPage() {
                       <span className="text-sm font-semibold text-white">{r.profiles?.name ?? '(알 수 없음)'}</span>
                       <div className="flex items-center gap-0.5 flex-shrink-0">
                         {[1,2,3,4,5].map(i => (
-                          <Star key={i} className={`h-3 w-3 ${i <= r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'}`} />
+                          <Star key={i} className={`h-3 w-3 ${i <= r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`} />
                         ))}
                       </div>
                     </div>
                     {r.content && <p className="text-xs text-gray-400 leading-relaxed">{r.content}</p>}
-                    <p className="mt-1 text-[10px] text-gray-600">{formatDate(r.created_at)}</p>
+                    <p className="mt-1 text-[10px] text-gray-600 dark:text-gray-400">{formatDate(r.created_at)}</p>
                   </div>
                 ))}
               </div>

@@ -53,29 +53,29 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
   const filterActive = !!(sp.sido || sp.sigungu || sp.verified === '1')
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-900">인증 공인중개사</h1>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white">인증 공인중개사</h1>
           <p className="mt-1 text-sm text-gray-500">지역·평점으로 신뢰할 수 있는 중개사를 찾아보세요</p>
         </div>
 
-        <form action="/brokers" method="GET" className="mb-5 rounded-2xl border border-gray-200 bg-white p-4">
+        <form action="/brokers" method="GET" className="mb-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
           <div className="flex flex-wrap items-end gap-3">
             <Field name="sido" label="시·도" defaultValue={sp.sido} placeholder="예: 충청남도" />
             <Field name="sigungu" label="시·군·구" defaultValue={sp.sigungu} placeholder="예: 천안시 서북구" />
             <div className="flex items-center gap-2">
               <input type="checkbox" name="verified" value="1" defaultChecked={sp.verified === '1'}
-                className="h-4 w-4 rounded border-gray-300 accent-blue-600" id="verified-only" />
-              <label htmlFor="verified-only" className="text-sm text-gray-700">인증된 중개사만</label>
+                className="h-4 w-4 rounded border-gray-300 dark:border-gray-700 accent-blue-600" id="verified-only" />
+              <label htmlFor="verified-only" className="text-sm text-gray-700 dark:text-gray-300">인증된 중개사만</label>
             </div>
             <div className="flex gap-2">
               <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
                 <Filter className="inline h-3.5 w-3.5 mr-1" /> 필터
               </button>
               {filterActive && (
-                <Link href="/brokers" className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                <Link href="/brokers" className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
                   초기화
                 </Link>
               )}
@@ -88,12 +88,12 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
           </div>
         </form>
 
-        <p className="mb-3 text-sm text-gray-500">총 <span className="font-bold text-gray-800">{rows?.length ?? 0}</span>명</p>
+        <p className="mb-3 text-sm text-gray-500">총 <span className="font-bold text-gray-800 dark:text-gray-100">{rows?.length ?? 0}</span>명</p>
 
         {error ? (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">데이터 조회 실패</div>
         ) : !rows || rows.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-400">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
             조건에 맞는 중개사가 없어요
           </div>
         ) : (
@@ -158,7 +158,7 @@ function Field({ name, label, defaultValue, placeholder }: {
     <div className="flex-1 min-w-[140px]">
       <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <input name={name} defaultValue={defaultValue ?? ''} placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
+        className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
     </div>
   )
 }

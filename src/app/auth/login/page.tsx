@@ -83,20 +83,20 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
               <Home className="h-5 w-5 text-white" />
             </div>
-            <span className="text-2xl font-bold text-gray-900">빠방</span>
+            <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
           </Link>
-          <h1 className="mt-6 text-2xl font-bold text-gray-900">다시 만나서 반가워요 👋</h1>
+          <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">다시 만나서 반가워요 👋</h1>
           <p className="mt-2 text-sm text-gray-500">로그인하고 내 방 찾기를 계속하세요</p>
         </div>
 
-        <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
+        <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
           <form onSubmit={handleLogin} className="space-y-4">
             <Input
               label="이메일"
@@ -123,7 +123,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
-                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 dark:text-gray-400"
                 tabIndex={-1}
               >
                 {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -144,7 +144,7 @@ function LoginForm() {
                 }`}>
                   {rememberEmail && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                 </span>
-                <span className="text-xs text-gray-500 select-none group-hover:text-gray-700">아이디 저장</span>
+                <span className="text-xs text-gray-500 select-none group-hover:text-gray-700 dark:text-gray-300">아이디 저장</span>
               </button>
               <Link href="/auth/reset-password" className="text-xs text-gray-400 hover:text-blue-600">
                 비밀번호를 잊으셨나요?

@@ -96,7 +96,7 @@ export default function PendingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         {approved ? (
@@ -104,7 +104,7 @@ export default function PendingPage() {
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
               <CheckCircle className="h-10 w-10 text-green-500" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">승인되었습니다!</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">승인되었습니다!</h1>
             <p className="text-gray-500 text-sm leading-relaxed">
               잠시 후 대시보드로 이동합니다...
             </p>
@@ -114,7 +114,7 @@ export default function PendingPage() {
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100">
               <Clock className="h-10 w-10 text-yellow-500" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">승인 대기 중</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">승인 대기 중</h1>
             <p className="text-gray-500 text-sm leading-relaxed mb-6">
               등록 신청이 완료되었습니다.<br />
               대표가 승인하면 자동으로 대시보드로 이동해요.<br />

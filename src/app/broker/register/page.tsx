@@ -163,7 +163,7 @@ export default function BrokerRegisterPage() {
   const ownerReady = !!(form.office_name && form.license_number && form.office_reg_number && form.business_reg_number && form.address)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-xl px-4 py-10">
 
@@ -171,7 +171,7 @@ export default function BrokerRegisterPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600">
             <Shield className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">중개사 등록</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">중개사 등록</h1>
           <p className="mt-2 text-sm text-gray-500">등록 완료 후 서비스를 이용할 수 있습니다</p>
         </div>
 
@@ -205,11 +205,11 @@ export default function BrokerRegisterPage() {
               </div>
               <form onSubmit={handleEmployeeSubmit} className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">사무소 코드</label>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">사무소 코드</label>
                   <input type="text" value={officeCode}
                     onChange={(e) => handleCodeChange(e.target.value)}
                     placeholder="예: A1B2C3" maxLength={6}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-center text-xl font-mono font-bold tracking-widest text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-center text-xl font-mono font-bold tracking-widest text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
                   />
                   {codeChecking && <p className="mt-1.5 text-xs text-gray-400">조회 중...</p>}
                   {codeError && <p className="mt-1.5 text-xs text-red-500">⚠️ {codeError}</p>}
@@ -219,7 +219,7 @@ export default function BrokerRegisterPage() {
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <span className="text-sm font-semibold text-green-700">사무소 확인 완료</span>
                       </div>
-                      <p className="text-sm font-bold text-gray-900">{codePreview.office_name}</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{codePreview.office_name}</p>
                       <p className="text-xs text-gray-500">{codePreview.address}</p>
                     </div>
                   )}

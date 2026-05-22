@@ -81,10 +81,10 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-bold text-gray-900 flex items-center gap-2">
+        <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
           내 담당 지역 신규 요청
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">{filtered.length}</span>
+          <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-500">{filtered.length}</span>
         </h2>
         <button
           onClick={() => setShowFilter(o => !o)}
@@ -105,7 +105,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
           placeholder="지역, 유형으로 검색..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="w-full rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         />
         {search && (
           <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -116,7 +116,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
 
       {/* 상세 필터 */}
       {showFilter && (
-        <div className="mb-3 rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+        <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3">
           {/* 거래유형 */}
           <div>
             <p className="mb-2 text-xs font-semibold text-gray-500">거래 유형</p>
@@ -157,7 +157,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
               placeholder="예: 50000"
               value={maxPrice}
               onChange={e => setMaxPrice(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
           </div>
 

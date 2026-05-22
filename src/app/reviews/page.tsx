@@ -73,7 +73,7 @@ export default function MyReviewsPage() {
 
   if (auth.loading || !auth.user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
       </div>
     )
@@ -85,7 +85,7 @@ export default function MyReviewsPage() {
 
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
             <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
             내 리뷰
           </h1>
@@ -97,7 +97,7 @@ export default function MyReviewsPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : reviews.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white py-20 text-center">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
             <Star className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">작성한 리뷰가 없어요</p>
             <p className="mt-1 text-sm text-gray-400">중개사와 거래를 마치면 리뷰를 남길 수 있어요</p>
@@ -105,7 +105,7 @@ export default function MyReviewsPage() {
         ) : (
           <ul className="space-y-3">
             {reviews.map(r => (
-              <li key={r.id} className="rounded-2xl border border-gray-200 bg-white p-5">
+              <li key={r.id} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
                 <div className="flex items-start justify-between gap-3">
                   <Link href={`/broker/${r.broker_id}`} className="flex items-center gap-3 min-w-0 flex-1 group">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -113,7 +113,7 @@ export default function MyReviewsPage() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                        <p className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
                           {r.broker_profiles?.profiles?.name ?? '(알 수 없음)'}
                         </p>
                         {r.broker_profiles?.is_verified && (
@@ -128,7 +128,7 @@ export default function MyReviewsPage() {
                       onClick={() => setEditing(r)}
                       title="수정"
                       aria-label="수정"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
@@ -151,7 +151,7 @@ export default function MyReviewsPage() {
                 </div>
 
                 {r.content && (
-                  <p className="mt-2 text-sm text-gray-600 leading-relaxed whitespace-pre-line">{r.content}</p>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{r.content}</p>
                 )}
 
                 {Array.isArray(r.images) && r.images.length > 0 && (
@@ -226,10 +226,10 @@ function EditReviewModal({ review, onClose, onSaved, supabase }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !saving && onClose()}>
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h3 className="font-bold text-gray-900">리뷰 수정</h3>
-          <button onClick={onClose} disabled={saving} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-4">
+          <h3 className="font-bold text-gray-900 dark:text-white">리뷰 수정</h3>
+          <button onClick={onClose} disabled={saving} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -254,13 +254,13 @@ function EditReviewModal({ review, onClose, onSaved, supabase }: {
             rows={4}
             maxLength={1000}
             placeholder="후기를 자유롭게 작성해주세요 (선택)"
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
           />
           {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
         </div>
-        <div className="flex gap-2 border-t border-gray-100 px-5 py-4">
+        <div className="flex gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
           <button onClick={onClose} disabled={saving}
-            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             취소
           </button>
           <button onClick={save} disabled={saving}
@@ -295,12 +295,12 @@ function DeleteReviewModal({ review, onClose, onDeleted, supabase }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !deleting && onClose()}>
-      <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl p-6" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6" onClick={e => e.stopPropagation()}>
         <div className="flex flex-col items-center text-center">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
             <AlertTriangle className="h-6 w-6 text-red-500" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900">리뷰를 삭제할까요?</h3>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">리뷰를 삭제할까요?</h3>
           <p className="mt-2 text-sm text-gray-500 leading-relaxed">
             삭제하면 중개사 페이지에서 사라지고<br />다시 복구할 수 없어요.
           </p>
@@ -308,7 +308,7 @@ function DeleteReviewModal({ review, onClose, onDeleted, supabase }: {
         {err && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
         <div className="mt-5 flex gap-3">
           <button onClick={onClose} disabled={deleting}
-            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             취소
           </button>
           <button onClick={remove} disabled={deleting}

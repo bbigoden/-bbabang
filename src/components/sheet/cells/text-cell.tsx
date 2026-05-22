@@ -58,7 +58,7 @@ export function TextCell({
         if (e.key === 'Enter') commit()
         if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) }
       }}
-      className="w-full rounded border border-blue-400 bg-white px-2 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+      className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-2 py-0.5 text-xs outline-none focus:ring-2 focus:ring-blue-300"
     />
   )
 

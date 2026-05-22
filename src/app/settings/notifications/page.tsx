@@ -155,10 +155,10 @@ export default function SettingsNotificationsPage() {
   return (
     <div className="space-y-4">
       {/* 푸시 구독 마스터 토글 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
               {pushSubscribed ? <Bell className="h-4 w-4 text-blue-500" /> : <BellOff className="h-4 w-4 text-gray-400" />}
               브라우저 푸시 알림
             </h2>
@@ -173,7 +173,7 @@ export default function SettingsNotificationsPage() {
           {pushSupported && pushPermission !== 'denied' && (
             pushSubscribed
               ? <button onClick={disablePush} disabled={pushBusy}
-                  className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors flex-shrink-0">
+                  className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors flex-shrink-0">
                   {pushBusy ? '해제 중...' : '해제'}
                 </button>
               : <button onClick={enablePush} disabled={pushBusy}
@@ -186,8 +186,8 @@ export default function SettingsNotificationsPage() {
 
       {/* 관심 지역 (중개사 전용) */}
       {brokerId && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+          <h2 className="font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
             <MapPin className="h-4 w-4 text-blue-500" /> 관심 지역
           </h2>
           <p className="text-xs text-gray-500 mb-4">선택한 지역에서 새 고객 요청이 들어오면 알림을 받아요. 동·읍·면 단위까지 설정할 수 있어요.</p>
@@ -229,23 +229,23 @@ export default function SettingsNotificationsPage() {
       )}
 
       {/* 카테고리별 토글 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="font-bold text-gray-900 mb-1">카테고리</h2>
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <h2 className="font-bold text-gray-900 dark:text-white mb-1">카테고리</h2>
         <p className="text-xs text-gray-500 mb-4">어떤 종류의 알림을 받을지 선택해요</p>
         <ul className="divide-y divide-gray-100">
           {CATEGORIES.map(({ key, label, desc, icon: Icon }) => (
             <li key={key} className="flex items-center gap-4 py-3.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-50 text-gray-400 flex-shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-50 dark:bg-gray-950 text-gray-400 flex-shrink-0">
                 <Icon className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800">{label}</p>
+                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{label}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
               </div>
               <button onClick={() => toggle(key)} disabled={saving}
                 role="switch" aria-checked={prefs[key]}
                 className={`relative h-6 w-11 rounded-full transition-colors flex-shrink-0 ${prefs[key] ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${prefs[key] ? 'translate-x-5' : 'translate-x-0'}`} />
+                <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white dark:bg-gray-900 shadow transition-transform ${prefs[key] ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </li>
           ))}

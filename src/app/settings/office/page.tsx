@@ -87,10 +87,10 @@ export default function SettingsOfficePage() {
   if (loading) return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" /></div>
 
   if (forbidden) return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
       <div className="flex items-start gap-3">
         <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-gray-600">{forbidden}</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{forbidden}</p>
       </div>
     </div>
   )
@@ -117,8 +117,8 @@ export default function SettingsOfficePage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="mb-1 font-bold text-gray-900 flex items-center gap-2">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <h2 className="mb-1 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Building2 className="h-4 w-4 text-gray-400" /> 사무소 정보
         </h2>
         <p className="text-xs text-gray-500 mb-4">정보 변경 시 어드민 재승인이 필요해요</p>
@@ -150,9 +150,9 @@ export default function SettingsOfficePage() {
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">{label}</label>
+      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
       <input value={value} onChange={e => onChange(e.target.value)} required
-        className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+        className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
     </div>
   )
 }

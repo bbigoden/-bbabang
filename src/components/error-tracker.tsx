@@ -91,7 +91,7 @@ export class ErrorBoundary extends Component<{ children: React.ReactNode; fallba
       return this.props.fallback ?? (
         <div className="flex min-h-screen items-center justify-center p-6 text-center">
           <div>
-            <p className="text-lg font-bold text-gray-900">화면을 표시할 수 없어요</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">화면을 표시할 수 없어요</p>
             <p className="mt-2 text-sm text-gray-500">잠시 후 새로고침해주세요. 문제가 계속되면 고객지원으로 알려주세요.</p>
             <button onClick={() => location.reload()}
               className="mt-5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">

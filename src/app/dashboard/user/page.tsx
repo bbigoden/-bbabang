@@ -88,7 +88,7 @@ export default async function UserDashboardPage() {
               <Heart className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">찜 목록</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">찜 목록</p>
               <p className="text-xs text-gray-500 truncate">중개사·매물·요청</p>
             </div>
           </Link>
@@ -97,7 +97,7 @@ export default async function UserDashboardPage() {
               <History className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">최근 본 항목</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">최근 본 항목</p>
               <p className="text-xs text-gray-500 truncate">방문 기록 모아보기</p>
             </div>
           </Link>
@@ -106,7 +106,7 @@ export default async function UserDashboardPage() {
               <Star className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">내 리뷰</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">내 리뷰</p>
               <p className="text-xs text-gray-500 truncate">작성한 후기 관리</p>
             </div>
           </Link>
@@ -115,7 +115,7 @@ export default async function UserDashboardPage() {
               <MessageCircle className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">알림함</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">알림함</p>
               <p className="text-xs text-gray-500 truncate">{unreadCount > 0 ? `안 읽음 ${unreadCount}건` : '받은 알림'}</p>
             </div>
           </Link>
@@ -124,7 +124,7 @@ export default async function UserDashboardPage() {
               <Bookmark className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">저장한 검색</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">저장한 검색</p>
               <p className="text-xs text-gray-500 truncate">자동 매칭 알림</p>
             </div>
           </Link>
@@ -156,7 +156,7 @@ export default async function UserDashboardPage() {
               { icon: FileCheck, label: '계약', desc: '직접 진행', active: false },
             ].map((step, i) => (
               <div key={i} className="flex items-center gap-1 flex-shrink-0">
-                <div className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 ${step.active ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'}`}>
+                <div className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 ${step.active ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-900 text-gray-500'}`}>
                   <step.icon className="h-4 w-4" />
                   <span className="text-xs font-bold">{step.label}</span>
                   <span className={`text-[10px] ${step.active ? 'text-blue-100' : 'text-gray-400'}`}>{step.desc}</span>
@@ -168,7 +168,7 @@ export default async function UserDashboardPage() {
         </div>
 
         {/* 활성 요청 목록 */}
-        <h2 className="mb-4 font-bold text-gray-900">진행 중인 요청 ({activeRequests.length})</h2>
+        <h2 className="mb-4 font-bold text-gray-900 dark:text-white">진행 중인 요청 ({activeRequests.length})</h2>
 
         {activeRequests.length === 0 ? (
           <Card>
@@ -200,7 +200,7 @@ export default async function UserDashboardPage() {
                             <Badge key={t} variant="default">{t.trim()}</Badge>
                           ))}
                         </div>
-                        <h3 className="font-bold text-gray-900">
+                        <h3 className="font-bold text-gray-900 dark:text-white">
                           {req.city} {req.district}
                         </h3>
                         <div className="mt-1 text-sm text-blue-600 font-semibold">
@@ -214,7 +214,7 @@ export default async function UserDashboardPage() {
                           <span>{formatDate(req.created_at)}</span>
                         </div>
                       </div>
-                      <span className="flex-shrink-0 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">제안 보기</span>
+                      <span className="flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">제안 보기</span>
                     </div>
                   </CardBody>
                 </Card>
@@ -243,7 +243,7 @@ export default async function UserDashboardPage() {
                               <Badge key={t} variant="default">{t.trim()}</Badge>
                             ))}
                           </div>
-                          <h3 className="font-semibold text-gray-700">
+                          <h3 className="font-semibold text-gray-700 dark:text-gray-300">
                             {req.city} {req.district}
                           </h3>
                           <div className="mt-1 text-sm text-gray-500">

@@ -308,7 +308,7 @@ export default function AdminUsersPage() {
             </div>
             {officeGroups.length === 0 ? (
               <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
-                <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700" />
+                <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700 dark:text-gray-300" />
                 <p className="text-sm font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
               </div>
             ) : (
@@ -390,7 +390,7 @@ export default function AdminUsersPage() {
               </div>
             ) : items.length === 0 ? (
               <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
-                <Users className="mx-auto mb-2 h-10 w-10 text-gray-700" />
+                <Users className="mx-auto mb-2 h-10 w-10 text-gray-700 dark:text-gray-300" />
                 <p className="text-sm font-semibold text-gray-400">조건에 맞는 사용자가 없어요</p>
               </div>
             ) : (

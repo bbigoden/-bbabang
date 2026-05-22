@@ -32,7 +32,7 @@ export function CellTooltip({
 
   return (
     <div
-      className="pointer-events-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-xl leading-relaxed whitespace-pre-wrap"
+      className="pointer-events-none rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs text-gray-700 dark:text-gray-300 shadow-xl leading-relaxed whitespace-pre-wrap"
       style={style}
     >
       {text}

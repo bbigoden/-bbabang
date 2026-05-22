@@ -150,14 +150,14 @@ export default function RequestEditPage() {
 
   if (initialLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
         <div className="text-gray-400">불러오는 중...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-xl px-4 py-10">
         {/* 스텝 인디케이터 */}
@@ -179,17 +179,17 @@ export default function RequestEditPage() {
           </div>
           <div className="mt-4">
             <p className="text-xs text-gray-400">Step {step + 1} / {STEPS.length} · 요청 수정</p>
-            <h2 className="mt-1 text-xl font-bold text-gray-900">{STEPS[step]}</h2>
+            <h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{STEPS[step]}</h2>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
+        <div className="rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-800">
           {/* Step 0 */}
           {step === 0 && (
             <div className="space-y-6">
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">거래 유형</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">거래 유형</p>
                   <span className="text-xs text-gray-400">중복 선택 가능</span>
                 </div>
                 <div className="flex gap-3">
@@ -204,7 +204,7 @@ export default function RequestEditPage() {
               </div>
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">매물 유형</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">매물 유형</p>
                   <span className="text-xs text-gray-400">중복 선택 가능</span>
                 </div>
                 <div className="space-y-3">
@@ -231,15 +231,15 @@ export default function RequestEditPage() {
           {step === 1 && (
             <div className="space-y-4">
               <div>
-                <p className="mb-2 text-sm font-medium text-gray-700">시 / 도</p>
+                <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">시 / 도</p>
                 <select value={form.city} onChange={(e) => handleCityChange(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                   {CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
                 </select>
               </div>
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">구 / 군 / 시</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">구 / 군 / 시</p>
                   {form.district && <span className="text-xs font-semibold text-blue-600">✓ {form.district} 선택됨</span>}
                 </div>
                 <div className="grid grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
@@ -266,7 +266,7 @@ export default function RequestEditPage() {
                 </div>
               )}
               {dealTypes.includes('월세') && (
-                <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="space-y-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4">
                   <p className="text-xs font-semibold text-gray-500">월세 보증금</p>
                   <div className="grid grid-cols-2 gap-3">
                     <Input label="보증금 최소 (만원)" type="number" placeholder="500" value={form.min_price} onChange={(e) => update('min_price', e.target.value)} />
@@ -291,18 +291,18 @@ export default function RequestEditPage() {
               </div>
               <Input label="입주 희망일" type="date" value={form.move_in_date} onChange={(e) => update('move_in_date', e.target.value)} />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">추가 요청사항 <span className="text-gray-400 font-normal">(선택)</span></label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">추가 요청사항 <span className="text-gray-400 font-normal">(선택)</span></label>
                 <textarea placeholder="예: 반려동물 가능, 주차 필수, 역세권 선호" value={form.description}
                   onChange={(e) => update('description', e.target.value)} rows={4}
                   maxLength={1000}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
               </div>
-              <div className="rounded-xl bg-gray-50 p-4 text-sm space-y-1">
-                <p className="font-semibold text-gray-700 mb-2">수정 요약</p>
-                <p className="text-gray-600">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
-                <p className="text-gray-600">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
-                <p className="text-gray-600">📍 위치: <span className="font-medium">{form.city} {form.district}</span></p>
-                <p className="text-gray-600">💰 예산: <span className="font-medium">{Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원</span></p>
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-4 text-sm space-y-1">
+                <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">수정 요약</p>
+                <p className="text-gray-600 dark:text-gray-400">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-400">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-400">📍 위치: <span className="font-medium">{form.city} {form.district}</span></p>
+                <p className="text-gray-600 dark:text-gray-400">💰 예산: <span className="font-medium">{Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원</span></p>
               </div>
             </div>
           )}

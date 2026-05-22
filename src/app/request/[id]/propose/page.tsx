@@ -209,18 +209,18 @@ export default function ProposePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       {/* 내 매물 선택 모달 */}
       {showPropertyModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowPropertyModal(false)} />
-          <div className="relative w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[75vh] flex flex-col">
+          <div className="relative w-full sm:max-w-lg bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[75vh] flex flex-col">
             {/* 모달 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h2 className="font-bold text-gray-900">내 매물에서 가져오기</h2>
-              <button onClick={() => setShowPropertyModal(false)} className="text-gray-400 hover:text-gray-600">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+              <h2 className="font-bold text-gray-900 dark:text-white">내 매물에서 가져오기</h2>
+              <button onClick={() => setShowPropertyModal(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-400">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -252,7 +252,7 @@ export default function ProposePage() {
                             prop.deal_type === '전세' ? 'bg-purple-100 text-purple-700' :
                             'bg-orange-100 text-orange-700'
                           }`}>{prop.deal_type}</span>
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">{prop.room_type}</span>
+                          <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-400">{prop.room_type}</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-gray-500 truncate">
                           <MapPin className="h-3 w-3 flex-shrink-0" />
@@ -286,12 +286,12 @@ export default function ProposePage() {
         <div className="mb-6">
           <button
             onClick={() => router.push(`/request/${requestId}`)}
-            className="mb-4 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="mb-4 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-300 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             뒤로가기
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">매물 제안하기</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">매물 제안하기</h1>
           <p className="mt-1 text-sm text-gray-500">고객의 조건에 맞는 매물을 제안해보세요</p>
         </div>
 
@@ -299,7 +299,7 @@ export default function ProposePage() {
           <Card>
             <CardBody className="py-12 text-center">
               <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
-              <h2 className="text-lg font-bold text-gray-900">이미 제안을 보내셨어요</h2>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">이미 제안을 보내셨어요</h2>
               <p className="mt-2 text-sm text-gray-500">이 요청에는 제안을 한 번만 보낼 수 있습니다.</p>
               <button
                 onClick={() => router.push(`/request/${requestId}`)}
@@ -340,7 +340,7 @@ export default function ProposePage() {
                   onChange={(e) => setAddress(e.target.value)}
                 />
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     제안 내용 <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -350,18 +350,18 @@ export default function ProposePage() {
                     required
                     rows={6}
                     maxLength={2000}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                   />
                 </div>
 
                 {/* 매물 사진 */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     매물 사진 <span className="text-gray-400 font-normal">(최대 {MAX_IMAGES}장)</span>
                   </label>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {existingImages.map((url, i) => (
-                      <div key={`ex-${i}`} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
+                      <div key={`ex-${i}`} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 group">
                         <Image src={url} alt="" fill className="object-cover" sizes="120px" />
                         <button type="button" onClick={() => removeExistingImage(i)}
                           className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
@@ -380,7 +380,7 @@ export default function ProposePage() {
                       </div>
                     ))}
                     {existingImages.length + newFiles.length < MAX_IMAGES && (
-                      <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                      <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                         <ImagePlus className="h-5 w-5 text-gray-400" />
                         <span className="text-[10px] text-gray-500">추가</span>
                         <input type="file" accept="image/*" multiple className="hidden"

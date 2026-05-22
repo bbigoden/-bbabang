@@ -44,18 +44,18 @@ export function OfficeCodeCard({ brokerId, initialCode }: OfficeCodeCardProps) {
       <CardBody>
         <div className="flex items-center gap-2 mb-3">
           <Users className="h-4 w-4 text-indigo-500" />
-          <span className="text-sm font-semibold text-gray-700">직원 합류 코드</span>
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">직원 합류 코드</span>
         </div>
 
         {code ? (
           <>
             <div className="flex items-center gap-2 mb-2">
-              <span className="flex-1 rounded-xl bg-gray-100 px-4 py-3 text-center text-2xl font-mono font-black tracking-widest text-gray-900">
+              <span className="flex-1 rounded-xl bg-gray-100 dark:bg-gray-800 px-4 py-3 text-center text-2xl font-mono font-black tracking-widest text-gray-900 dark:text-white">
                 {code}
               </span>
               <button
                 onClick={handleCopy}
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors"
               >
                 {copied
                   ? <Check className="h-5 w-5 text-green-500" />
@@ -67,7 +67,7 @@ export function OfficeCodeCard({ brokerId, initialCode }: OfficeCodeCardProps) {
             <button
               onClick={handleGenerate}
               disabled={loading}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:text-gray-400 transition-colors"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
               코드 수동 재발급
@@ -79,7 +79,7 @@ export function OfficeCodeCard({ brokerId, initialCode }: OfficeCodeCardProps) {
             <button
               onClick={handleGenerate}
               disabled={loading}
-              className="w-full rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"
+              className="w-full rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"
             >
               {loading ? '발급 중...' : '+ 코드 발급하기'}
             </button>

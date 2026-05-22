@@ -52,7 +52,7 @@ export default async function RegionDongPage({ params }: { params: Promise<Param
     .contains('alert_regions', [{ sido: sidoN, sigungu: sigunguN, dong: dongN }])
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-5xl px-4 py-8">
         {/* breadcrumb */}
@@ -63,15 +63,15 @@ export default async function RegionDongPage({ params }: { params: Promise<Param
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <Link href={`/regions/${sido}/${sigungu}`} className="hover:text-blue-600">{sigunguN}</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
-          <span className="text-gray-700 font-medium">{dongN}</span>
+          <span className="text-gray-700 dark:text-gray-300 font-medium">{dongN}</span>
         </nav>
 
-        <h1 className="text-3xl font-black text-gray-900 flex items-center gap-2">
+        <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-2">
           <MapPin className="h-7 w-7 text-blue-600" />
           {sidoN} {sigunguN} {dongN}
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          이 지역의 부동산 매물 요청을 실시간으로 보세요. 활성 요청 <span className="font-bold text-gray-800">{requests?.length ?? 0}</span>건 · 관심 등록 중개사 <span className="font-bold text-gray-800">{brokerCount ?? 0}</span>명
+          이 지역의 부동산 매물 요청을 실시간으로 보세요. 활성 요청 <span className="font-bold text-gray-800 dark:text-gray-100">{requests?.length ?? 0}</span>건 · 관심 등록 중개사 <span className="font-bold text-gray-800 dark:text-gray-100">{brokerCount ?? 0}</span>명
         </p>
 
         {/* CTA */}
@@ -83,17 +83,17 @@ export default async function RegionDongPage({ params }: { params: Promise<Param
             <p className="text-xs opacity-80 mt-1">조건만 올리면 중개사가 먼저 제안</p>
           </Link>
           <Link href={`/auth/signup?role=broker`}
-            className="rounded-2xl border-2 border-blue-200 bg-white px-6 py-5 hover:border-blue-400 transition-colors">
+            className="rounded-2xl border-2 border-blue-200 bg-white dark:bg-gray-900 px-6 py-5 hover:border-blue-400 transition-colors">
             <p className="text-xs text-blue-600 mb-1">중개사</p>
-            <p className="text-lg font-bold text-gray-900">{dongN} 매물 등록·제안</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{dongN} 매물 등록·제안</p>
             <p className="text-xs text-gray-500 mt-1">관심 지역으로 등록하고 매칭 알림 받기</p>
           </Link>
         </div>
 
         {/* 요청 목록 */}
-        <h2 className="mt-10 mb-3 text-lg font-bold text-gray-900">{dongN} 최근 요청</h2>
+        <h2 className="mt-10 mb-3 text-lg font-bold text-gray-900 dark:text-white">{dongN} 최근 요청</h2>
         {(!requests || requests.length === 0) ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-400">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
             아직 이 지역에 활성 요청이 없어요. <Link href="/request/new" className="text-blue-600 hover:underline ml-1">첫 요청 등록하기</Link>
           </div>
         ) : (
@@ -101,12 +101,12 @@ export default async function RegionDongPage({ params }: { params: Promise<Param
             {requests.map((r: any) => (
               <li key={r.id}>
                 <Link href={`/auth/login?redirect=/request/${r.id}`}
-                  className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                  className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{r.room_type || '매물'}</span>
+                    <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">{r.room_type || '매물'}</span>
                   </div>
-                  <div className="mb-2 text-sm font-semibold text-gray-900">
+                  <div className="mb-2 text-sm font-semibold text-gray-900 dark:text-white">
                     {r.min_price != null && r.max_price != null
                       ? <>{formatPrice(r.min_price)} ~ {formatPrice(r.max_price)}
                           {r.min_monthly != null && r.max_monthly != null && r.min_monthly > 0 && (

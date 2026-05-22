@@ -84,14 +84,14 @@ export function InstallPrompt() {
   if (!show) return null
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-md rounded-2xl border border-blue-200 bg-white shadow-2xl p-4 md:bottom-6"
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-md rounded-2xl border border-blue-200 bg-white dark:bg-gray-900 shadow-2xl p-4 md:bottom-6"
       style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900">빠방 앱으로 설치하기</p>
+          <p className="text-sm font-bold text-gray-900 dark:text-white">빠방 앱으로 설치하기</p>
           <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
             {isIOS
               ? <>홈 화면에 추가하면 빠르게 접속할 수 있어요</>
@@ -100,8 +100,8 @@ export function InstallPrompt() {
           </p>
 
           {isIOS ? (
-            <div className="mt-3 rounded-lg bg-gray-50 p-2.5">
-              <p className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-700">
+            <div className="mt-3 rounded-lg bg-gray-50 dark:bg-gray-950 p-2.5">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-300">
                 <Share className="h-3.5 w-3.5 text-blue-500" /> 아래 공유 버튼
                 <span className="text-gray-400">→</span>
                 "홈 화면에 추가"
@@ -115,7 +115,7 @@ export function InstallPrompt() {
                 {installing ? '설치 중...' : '설치하기'}
               </button>
               <button onClick={dismiss}
-                className="rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 text-xs font-semibold px-3 transition-colors">
+                className="rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 text-gray-600 dark:text-gray-400 text-xs font-semibold px-3 transition-colors">
                 나중에
               </button>
             </div>

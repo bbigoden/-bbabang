@@ -86,11 +86,11 @@ function SignupForm() {
 
   if (success) {
     return (
-      <div className="rounded-2xl bg-white p-10 shadow-sm border border-gray-100 text-center">
+      <div className="rounded-2xl bg-white dark:bg-gray-900 p-10 shadow-sm border border-gray-100 dark:border-gray-800 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <CheckCircle className="h-8 w-8 text-green-600" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">가입 완료! 🎉</h2>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">가입 완료! 🎉</h2>
         <p className="text-gray-500 text-sm mb-6">
           입력하신 이메일로 인증 메일을 보냈어요.<br />
           이메일을 확인하고 인증을 완료해주세요.
@@ -109,13 +109,13 @@ function SignupForm() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
             <Home className="h-5 w-5 text-white" />
           </div>
-          <span className="text-2xl font-bold text-gray-900">빠방</span>
+          <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
         </Link>
-        <h1 className="mt-6 text-2xl font-bold text-gray-900">빠방에 오신 걸 환영해요 🏠</h1>
+        <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">빠방에 오신 걸 환영해요 🏠</h1>
         <p className="mt-2 text-sm text-gray-500">무료로 시작하세요</p>
       </div>
 
-      <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
+      <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
         {/* 역할 선택 */}
         <div className="mb-2 grid grid-cols-2 gap-3">
           {[
@@ -140,7 +140,7 @@ function SignupForm() {
           ))}
         </div>
         <p className="mb-6 text-xs text-gray-400 leading-relaxed">
-          소속 직원도 <span className="font-semibold text-gray-600">중개사·직원</span>을 선택하세요. 다음 단계에서 사장님께 받은 <span className="font-semibold text-gray-600">6자리 사무소 코드</span>로 합류할 수 있어요.
+          소속 직원도 <span className="font-semibold text-gray-600 dark:text-gray-400">중개사·직원</span>을 선택하세요. 다음 단계에서 사장님께 받은 <span className="font-semibold text-gray-600 dark:text-gray-400">6자리 사무소 코드</span>로 합류할 수 있어요.
         </p>
 
         <form onSubmit={handleSignup} className="space-y-4">
@@ -162,7 +162,7 @@ function SignupForm() {
             <button
               type="button"
               onClick={() => setShowPw(v => !v)}
-              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 dark:text-gray-400"
               tabIndex={-1}
             >
               {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -194,9 +194,9 @@ function SignupForm() {
               type="checkbox"
               checked={agreeTerms}
               onChange={(e) => setAgreeTerms(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-blue-600"
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-700 accent-blue-600"
             />
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
               <Link href="/terms" className="text-blue-600 hover:underline">이용약관</Link>과{' '}
               <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의합니다 <span className="text-red-500">*</span>
             </span>
@@ -228,7 +228,7 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-12">
       <div className="w-full max-w-md">
         <Suspense fallback={<div className="text-center text-gray-500">로딩 중...</div>}>
           <SignupForm />

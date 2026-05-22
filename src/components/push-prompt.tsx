@@ -94,13 +94,13 @@ export function PushPrompt({
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-gray-200 bg-white shadow-xl p-4">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-4">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
           <Bell className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 mb-0.5">알림 받기</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">알림 받기</p>
           <p className="text-xs text-gray-500 leading-relaxed">{message}</p>
           <div className="mt-3 flex gap-2">
             <button onClick={subscribe} disabled={state === 'subscribing'}
@@ -108,7 +108,7 @@ export function PushPrompt({
               {state === 'subscribing' ? '설정 중...' : '허용하기'}
             </button>
             <button onClick={dismiss}
-              className="rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 text-xs font-semibold px-3 transition-colors">
+              className="rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 text-gray-600 dark:text-gray-400 text-xs font-semibold px-3 transition-colors">
               나중에
             </button>
           </div>

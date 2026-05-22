@@ -29,7 +29,7 @@ export function ShareButton({ title, text, url }: Props) {
   return (
     <button
       onClick={handleShare}
-      className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-all"
+      className="flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-all"
     >
       {copied
         ? <><Check className="h-4 w-4 text-green-500" /> <span className="text-green-600">복사됨!</span></>

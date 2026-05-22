@@ -124,20 +124,20 @@ export function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertyS
   }
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-t-2xl bg-white shadow-xl md:rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 flex-shrink-0">
+      <div className="w-full max-w-sm rounded-t-2xl bg-white dark:bg-gray-900 shadow-xl md:rounded-2xl overflow-hidden flex flex-col" style={{ maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-blue-600" />
-            <span className="font-bold text-gray-900">매물 상세</span>
+            <span className="font-bold text-gray-900 dark:text-white">매물 상세</span>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 text-gray-400">
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-400">
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="overflow-y-auto flex-1">
           {/* 이미지 캐러셀 */}
           {images.length > 0 ? (
-            <div className="relative h-52 w-full overflow-hidden bg-gray-100 flex-shrink-0"
+            <div className="relative h-52 w-full overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0"
               onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
               onTouchEnd={e => {
                 if (touchStartX === null) return
@@ -175,39 +175,39 @@ export function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertyS
               )}
             </div>
           ) : (
-            <div className="h-20 flex items-center justify-center bg-gray-50 flex-shrink-0">
+            <div className="h-20 flex items-center justify-center bg-gray-50 dark:bg-gray-950 flex-shrink-0">
               <Building2 className="h-8 w-8 text-gray-200" />
             </div>
           )}
           <div className="p-5 space-y-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{snapshot.deal_type}</span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>{snapshot.deal_type}</span>
                 <span className="text-xs text-gray-500">{snapshot.room_type}</span>
               </div>
-              <p className="text-lg font-bold text-gray-900">{maskAddress(snapshot.address)}</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{maskAddress(snapshot.address)}</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-4">
               <p className="text-2xl font-black text-blue-600">{priceText}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {snapshot.size_pyeong && (
-                <div className="rounded-xl border border-gray-100 p-3">
+                <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
                   <p className="text-xs text-gray-400 mb-1">면적</p>
-                  <p className="text-sm font-semibold text-gray-900">{snapshot.size_pyeong}{snapshot.area_unit ?? '평'}<span className="ml-1 text-xs font-normal text-gray-400">({snapshot.area_type ?? '전용'})</span></p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{snapshot.size_pyeong}{snapshot.area_unit ?? '평'}<span className="ml-1 text-xs font-normal text-gray-400">({snapshot.area_type ?? '전용'})</span></p>
                 </div>
               )}
               {snapshot.floor && (
-                <div className="rounded-xl border border-gray-100 p-3">
+                <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
                   <p className="text-xs text-gray-400 mb-1">층수</p>
-                  <p className="text-sm font-semibold text-gray-900">{snapshot.floor}층{snapshot.total_floors ? ` / ${snapshot.total_floors}층` : ''}</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{snapshot.floor}층{snapshot.total_floors ? ` / ${snapshot.total_floors}층` : ''}</p>
                 </div>
               )}
             </div>
             {snapshot.description && (
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">매물설명</p>
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{snapshot.description}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{snapshot.description}</p>
               </div>
             )}
           </div>
@@ -435,18 +435,18 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   )
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-white dark:bg-gray-900">
       {/* 채팅 헤더 */}
-      <div className="flex items-center gap-2.5 border-b border-gray-100 px-3 py-2.5 flex-shrink-0">
-        <button onClick={onBack} className="md:hidden flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-          <ChevronLeft className="h-5 w-5 text-gray-600" />
+      <div className="flex items-center gap-2.5 border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 flex-shrink-0">
+        <button onClick={onBack} className="md:hidden flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
+          <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
         </button>
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex-shrink-0">
           {otherName[0]}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
-            <span className="font-bold text-gray-900 text-sm">{otherName}</span>
+            <span className="font-bold text-gray-900 dark:text-white text-sm">{otherName}</span>
             {isOwner && broker?.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-500" />}
           </div>
           {otherSubName && <p className="text-xs text-gray-400 truncate">{otherSubName}</p>}
@@ -536,11 +536,11 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       )}
 
       {/* 메시지 목록 */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50">
+      <div className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50 dark:bg-gray-950">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-3xl mb-2">👋</div>
-            <p className="text-sm font-semibold text-gray-600">{otherName}님과 대화를 시작하세요</p>
+            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">{otherName}님과 대화를 시작하세요</p>
             <p className="mt-1 text-xs text-gray-400">매물 정보, 계약 조건을 자유롭게 문의하세요</p>
             {isBroker && (
               <button onClick={openPropertyPicker} className="mt-3 flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
@@ -581,7 +581,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                           <EventCard event={event} isMine={isMine} />
                         ) : msg.message_type === 'image' ? (
                           <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                            <div className="relative overflow-hidden rounded-2xl border border-gray-100" style={{ width: '200px', height: '160px' }}>
+                            <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800" style={{ width: '200px', height: '160px' }}>
                               <Image src={msg.content} alt="사진" fill className="object-cover" sizes="200px" />
                             </div>
                           </a>
@@ -616,34 +616,34 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       {/* 매물 피커 모달 */}
       {showPicker && isBroker && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }}>
-          <div className="w-full max-w-xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-xl bg-white dark:bg-gray-900 rounded-t-2xl sm:rounded-2xl shadow-xl overflow-hidden flex flex-col" style={{ maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
             {/* 모달 헤더 */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-blue-600" />
-                <h3 className="font-bold text-gray-900">매물목록</h3>
+                <h3 className="font-bold text-gray-900 dark:text-white">매물목록</h3>
                 {!loadingProps && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{brokerProperties.length}</span>}
               </div>
-              <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
+              <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
                 <X className="h-4 w-4 text-gray-500" />
               </button>
             </div>
 
             {/* 검색창 */}
             {!loadingProps && brokerProperties.length > 0 && (
-              <div className="border-b border-gray-100 px-4 py-3 flex-shrink-0">
-                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white transition-colors">
+              <div className="border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white dark:bg-gray-900 transition-colors">
                   <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   <input type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
                     placeholder="주소, 거래유형, 방종류 검색..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400" autoFocus />
-                  {pickerSearch && <button onClick={() => setPickerSearch('')} className="text-gray-400 hover:text-gray-600"><X className="h-3.5 w-3.5" /></button>}
+                  {pickerSearch && <button onClick={() => setPickerSearch('')} className="text-gray-400 hover:text-gray-600 dark:text-gray-400"><X className="h-3.5 w-3.5" /></button>}
                 </div>
               </div>
             )}
 
             {/* 테이블 헤더 */}
             {!loadingProps && brokerProperties.length > 0 && (
-              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
+              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
                 <span></span><span>유형</span><span>소재지</span><span className="text-right">가격</span>
               </div>
             )}
@@ -682,7 +682,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                           </span>
                           <span className={cn('inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold', dealColors[p.deal_type] ?? 'bg-gray-100 text-gray-600')}>{p.deal_type}</span>
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{p.address}</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{p.address}</p>
                             <p className="text-xs text-gray-400 truncate">{p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}</p>
                           </div>
                           <div className="text-right">
@@ -698,7 +698,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             </div>
 
             {/* 하단 보내기 버튼 */}
-            <div className="border-t border-gray-100 px-4 py-3 flex-shrink-0">
+            <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
               <button onClick={sendSelectedProperties} disabled={selectedPropIds.size === 0 || sendingProps}
                 className={cn('w-full rounded-xl py-3 text-sm font-bold transition-colors', selectedPropIds.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}>
                 {sendingProps ? '전송 중...' : selectedPropIds.size > 0 ? `선택한 매물 ${selectedPropIds.size}건 보내기` : '매물을 선택하세요'}
@@ -709,7 +709,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       )}
 
       {/* 입력창 */}
-      <div className="border-t border-gray-100 bg-white px-3 py-2.5 flex-shrink-0">
+      <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2.5 flex-shrink-0">
         <div className="flex items-end gap-1.5">
           {isBroker && (
             <>
@@ -720,18 +720,18 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                 <Building2 className="h-4 w-4" />
               </button>
               <button onClick={() => setShowEventModal(true)}
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
                 title="일정 공유">
                 <Calendar className="h-4 w-4" />
               </button>
               <button onClick={() => setShowQuickReplies(true)}
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-amber-50 hover:text-amber-600 transition-all"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-500 hover:bg-amber-50 hover:text-amber-600 transition-all"
                 title="빠른 답변">
                 <Zap className="h-4 w-4" />
               </button>
             </>
           )}
-          <label className="flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all">
+          <label className="flex h-9 w-9 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-all">
             <ImagePlus className="h-4 w-4" />
             <input type="file" accept="image/*" className="hidden" onChange={sendImage} />
           </label>
@@ -739,7 +739,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px' }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
             placeholder="메시지 입력 (Enter 전송)" rows={1}
-            className="flex-1 resize-none overflow-hidden rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:bg-white transition-all"
+            className="flex-1 resize-none overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:bg-white dark:bg-gray-900 transition-all"
             style={{ minHeight: '38px', maxHeight: '100px' }}
           />
           <button onClick={sendMessage} disabled={!input.trim() || sending}
@@ -840,13 +840,13 @@ function QuickRepliesModal({ onClose, onSelect }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !busy && onClose()}>
-      <div className="w-full max-w-md max-h-[85vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 flex-shrink-0">
-          <h3 className="flex items-center gap-2 font-bold text-gray-900">
+      <div className="w-full max-w-md max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-900 shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-4 flex-shrink-0">
+          <h3 className="flex items-center gap-2 font-bold text-gray-900 dark:text-white">
             <Zap className="h-4 w-4 text-amber-500" />
             빠른 답변
           </h3>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -865,10 +865,10 @@ function QuickRepliesModal({ onClose, onSelect }: {
           ) : (
             <ul className="space-y-2">
               {items.map(item => (
-                <li key={item.id} className="rounded-xl border border-gray-200 bg-white p-3 hover:border-amber-300 transition-colors">
+                <li key={item.id} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-3 hover:border-amber-300 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <button onClick={() => pick(item)} className="flex-1 text-left min-w-0">
-                      <p className="font-semibold text-sm text-gray-900 truncate">{item.label}</p>
+                      <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{item.label}</p>
                       <p className="mt-1 text-xs text-gray-500 line-clamp-2">{item.content}</p>
                       {item.use_count > 0 && (
                         <p className="mt-1 text-[10px] text-gray-400">사용 {item.use_count}회</p>
@@ -876,7 +876,7 @@ function QuickRepliesModal({ onClose, onSelect }: {
                     </button>
                     <div className="flex flex-col gap-1 flex-shrink-0">
                       <button onClick={() => startEdit(item)} title="수정"
-                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300">
                         <Edit2 className="h-3 w-3" />
                       </button>
                       <button onClick={() => remove(item.id)} title="삭제"
@@ -894,13 +894,13 @@ function QuickRepliesModal({ onClose, onSelect }: {
             <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
               <input value={label} onChange={e => setLabel(e.target.value)} maxLength={50}
                 placeholder="이름 (예: 인사말, 위치 안내)"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 mb-2" />
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 mb-2" />
               <textarea value={content} onChange={e => setContent(e.target.value)} maxLength={500} rows={3}
                 placeholder="답변 내용"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none" />
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none" />
               <div className="mt-2 flex gap-2">
                 <button onClick={cancelEdit} disabled={busy}
-                  className="flex-1 rounded-lg border border-gray-200 bg-white py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">취소</button>
+                  className="flex-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">취소</button>
                 <button onClick={save} disabled={busy || !label.trim() || !content.trim()}
                   className="flex-1 rounded-lg bg-amber-500 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50">
                   {editingId ? '수정' : '추가'}
@@ -911,7 +911,7 @@ function QuickRepliesModal({ onClose, onSelect }: {
         </div>
 
         {!adding && (
-          <div className="border-t border-gray-100 px-4 py-3 flex-shrink-0">
+          <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
             <button onClick={startAdd}
               className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-300 bg-amber-50 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100">
               <Plus className="h-4 w-4" />
@@ -959,11 +959,11 @@ function StageTracker({ currentStage, isBroker, onStageChange }: {
   }
 
   return (
-    <div className="border-b border-gray-100 bg-white px-3 py-2 flex-shrink-0">
+    <div className="border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 flex-shrink-0">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {isCanceled ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600">
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-1 text-xs font-bold text-gray-600 dark:text-gray-400">
               <XOctagon className="h-3 w-3" /> 취소된 거래
             </span>
           ) : (
@@ -991,7 +991,7 @@ function StageTracker({ currentStage, isBroker, onStageChange }: {
 
         {isBroker && !isCanceled && (
           <button onClick={() => setOpen(o => !o)} disabled={busy}
-            className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-800 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             단계 변경
             <ChevronDown className="h-3 w-3" />
           </button>
@@ -999,7 +999,7 @@ function StageTracker({ currentStage, isBroker, onStageChange }: {
       </div>
 
       {open && (
-        <div className="mt-2 rounded-xl border border-gray-200 bg-white p-2 grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+        <div className="mt-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-2 grid grid-cols-3 sm:grid-cols-6 gap-1.5">
           {FLOW.map((s, i) => {
             const m = STAGE_META[s]
             const active = s === currentStage
@@ -1014,7 +1014,7 @@ function StageTracker({ currentStage, isBroker, onStageChange }: {
             )
           })}
           <button onClick={() => change('canceled')} disabled={busy}
-            className="col-span-3 sm:col-span-6 mt-1 flex items-center justify-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:opacity-50">
+            className="col-span-3 sm:col-span-6 mt-1 flex items-center justify-center gap-1 rounded-lg border border-red-200 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:opacity-50">
             <XOctagon className="h-3 w-3" /> 거래 취소로 변경
           </button>
         </div>
@@ -1059,54 +1059,54 @@ function EventComposeModal({ onClose, onSend }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={() => !busy && onClose()}>
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h3 className="flex items-center gap-2 font-bold text-gray-900">
+      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-4">
+          <h3 className="flex items-center gap-2 font-bold text-gray-900 dark:text-white">
             <Calendar className="h-4 w-4 text-emerald-500" />
             일정 공유
           </h3>
-          <button onClick={onClose} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+          <button onClick={onClose} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="px-5 py-5 space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">제목 *</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">제목 *</label>
             <input value={title} onChange={e => setTitle(e.target.value)} maxLength={100}
               placeholder="예: 매물 방문 일정, 계약 일정"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">날짜 *</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">날짜 *</label>
               <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700">시간 *</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">시간 *</label>
               <input type="time" value={time} onChange={e => setTime(e.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
             </div>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">장소 (선택)</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">장소 (선택)</label>
             <input value={location} onChange={e => setLocation(e.target.value)} maxLength={200}
               placeholder="주소 또는 만날 장소"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">메모 (선택)</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">메모 (선택)</label>
             <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={300} rows={2}
               placeholder="준비물·특이사항"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
           </div>
           {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
         </div>
 
-        <div className="flex gap-2 border-t border-gray-100 px-5 py-4">
+        <div className="flex gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
           <button onClick={onClose} disabled={busy}
-            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             취소
           </button>
           <button onClick={submit} disabled={busy}

@@ -107,7 +107,7 @@ export function FavoriteButton({ type, id, variant = 'icon', className = '', ini
       aria-pressed={isFav}
       aria-label={label}
       title={label}
-      className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur shadow-sm hover:bg-white transition-colors disabled:opacity-50 ${className}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur shadow-sm hover:bg-white dark:bg-gray-900 transition-colors disabled:opacity-50 ${className}`}
     >
       <Heart className={`h-4 w-4 ${isFav ? 'fill-pink-500 text-pink-500' : 'text-gray-500'}`} />
     </button>

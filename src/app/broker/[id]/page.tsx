@@ -191,7 +191,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} />
       <ViewTracker type="broker" id={brokerId} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -202,7 +202,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
           <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-400" />
           <CardBody className="-mt-8 pt-0">
             <div className="flex items-end gap-4 mb-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white border-4 border-white shadow-md">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white dark:bg-gray-900 border-4 border-white shadow-md">
                 <Building2 className="h-8 w-8 text-blue-600" />
               </div>
               {broker.is_verified && (
@@ -216,7 +216,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-gray-900 break-keep">{broker.office_name}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white break-keep">{broker.office_name}</h1>
                   <FavoriteButton type="broker" id={brokerId} variant="pill" initialFavorited={brokerFavorited} />
                 </div>
               </div>
@@ -225,7 +225,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                   <div>
                     <div className="flex items-center gap-2 justify-end">
                       <StarRating value={broker.rating} />
-                      <span className="text-2xl font-black text-gray-900">{broker.rating.toFixed(1)}</span>
+                      <span className="text-2xl font-black text-gray-900 dark:text-white">{broker.rating.toFixed(1)}</span>
                     </div>
                     <p className="text-sm text-gray-400">리뷰 {broker.review_count}개</p>
                   </div>
@@ -236,7 +236,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             </div>
 
             {/* 사무소 정보 — 2열 (모바일 1열) — 1행: 소재지·등록번호 / 2행: 연락처·대표 */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
               {broker.address && (
                 <div className="flex items-start gap-2 min-w-0">
                   <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -246,7 +246,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
               {broker.office_reg_number && (
                 <div className="flex items-start gap-2 min-w-0">
                   <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <span>등록번호 <span className="font-mono text-gray-800">{broker.office_reg_number}</span></span>
+                  <span>등록번호 <span className="font-mono text-gray-800 dark:text-gray-100">{broker.office_reg_number}</span></span>
                 </div>
               )}
               {broker.profiles?.phone && (
@@ -260,7 +260,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
               {broker.profiles?.name && (
                 <div className="flex items-start gap-2 min-w-0">
                   <User className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                  <span>대표 <span className="font-semibold text-gray-800">{broker.profiles.name}</span></span>
+                  <span>대표 <span className="font-semibold text-gray-800 dark:text-gray-100">{broker.profiles.name}</span></span>
                 </div>
               )}
             </div>
@@ -274,7 +274,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             </div>
 
             {broker.description && (
-              <p className="mt-4 text-sm text-gray-600 leading-relaxed">{broker.description}</p>
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{broker.description}</p>
             )}
 
             {/* 신뢰 지표 */}
@@ -319,7 +319,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
         {/* 매물 있음 목록 */}
         {properties && properties.length > 0 && (
           <div className="mb-6">
-            <h2 className="mb-3 text-lg font-bold text-gray-900">
+            <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-white">
               현재 매물 <span className="text-blue-600">{properties.length}</span>
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -354,7 +354,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                         </span>
                       )}
                     </div>
-                    <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddressByType(formatAddress(p.address), p.room_type) : '주소 미입력'}</p>
+                    <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{p.address ? maskAddressByType(formatAddress(p.address), p.room_type) : '주소 미입력'}</p>
                     <p className="text-blue-600 font-black mt-1">
                       {!p.price
                         ? '가격 협의'
@@ -373,7 +373,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
 
         {/* 리뷰 목록 */}
         <div>
-          <h2 className="mb-3 text-lg font-bold text-gray-900">
+          <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-white">
             고객 리뷰 <span className="text-blue-600">{reviews?.length ?? 0}</span>
           </h2>
 
@@ -391,18 +391,18 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                   <CardBody className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm font-bold text-gray-500">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-500">
                           {review.profiles?.name?.[0] ?? '?'}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">{review.profiles?.name}</p>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{review.profiles?.name}</p>
                           <p className="text-xs text-gray-400">{formatDate(review.created_at)}</p>
                         </div>
                       </div>
                       <StarRating value={review.rating} />
                     </div>
                     {review.content && (
-                      <p className="mt-3 text-sm text-gray-600 leading-relaxed">{review.content}</p>
+                      <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{review.content}</p>
                     )}
                     {Array.isArray(review.images) && review.images.length > 0 && (
                       <div className="mt-3 flex gap-2 overflow-x-auto">

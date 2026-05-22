@@ -193,7 +193,7 @@ export default function AdminAnnouncementsPage() {
               </div>
               <p className="mt-2 text-xs text-gray-500">
                 대상자 약 <span className="font-bold text-white">{targetCount ?? '...'}</span>명
-                <span className="text-gray-600"> (공지 알림을 끈 사용자는 자동 제외)</span>
+                <span className="text-gray-600 dark:text-gray-400"> (공지 알림을 끈 사용자는 자동 제외)</span>
               </p>
             </div>
 
@@ -261,7 +261,7 @@ export default function AdminAnnouncementsPage() {
               </div>
             ) : (
               <div className="rounded-xl border border-gray-700 bg-gray-800/30 py-8 text-center">
-                <EyeOff className="mx-auto mb-2 h-6 w-6 text-gray-600" />
+                <EyeOff className="mx-auto mb-2 h-6 w-6 text-gray-600 dark:text-gray-400" />
                 <p className="text-xs text-gray-500">제목을 입력하면 미리 볼 수 있어요</p>
               </div>
             )}

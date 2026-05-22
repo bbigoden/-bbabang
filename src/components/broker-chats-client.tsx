@@ -70,7 +70,7 @@ export function BrokerChatsClient({ user }: { user: any }) {
   }
 
   return (
-    <div className="flex flex-col bg-gray-50" style={{ height: '100dvh' }}>
+    <div className="flex flex-col bg-gray-50 dark:bg-gray-950" style={{ height: '100dvh' }}>
       <Header user={user} role="broker" />
 
       <div className="flex flex-1 overflow-hidden">
@@ -81,9 +81,9 @@ export function BrokerChatsClient({ user }: { user: any }) {
           mobileTab === 'chat' ? 'hidden md:flex' : 'flex'
         )}>
           {/* 헤더 */}
-          <div className="px-4 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-gray-900">대화목록</h1>
+              <h1 className="text-base font-bold text-gray-900 dark:text-white">대화목록</h1>
               {!loading && (
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
                   {chatRooms.length}
@@ -165,11 +165,11 @@ export function BrokerChatsClient({ user }: { user: any }) {
               onBack={() => setMobileTab('list')}
             />
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center text-center px-4 bg-gray-50">
+            <div className="flex flex-1 flex-col items-center justify-center text-center px-4 bg-gray-50 dark:bg-gray-950">
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100">
                 <MessageCircle className="h-8 w-8 text-blue-500" />
               </div>
-              <h3 className="text-base font-bold text-gray-800">대화를 선택하세요</h3>
+              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">대화를 선택하세요</h3>
               <p className="mt-1.5 text-sm text-gray-400">왼쪽 목록에서 대화를 클릭하면<br />채팅 내용을 확인할 수 있어요</p>
             </div>
           )}
@@ -177,7 +177,7 @@ export function BrokerChatsClient({ user }: { user: any }) {
       </div>
 
       {/* 모바일 하단 탭 */}
-      <div className="md:hidden flex border-t border-gray-200 bg-white flex-shrink-0">
+      <div className="md:hidden flex border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
         <button
           onClick={() => setMobileTab('list')}
           className={cn('flex-1 py-3 text-sm font-semibold transition-colors',

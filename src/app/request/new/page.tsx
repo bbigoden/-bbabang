@@ -168,7 +168,7 @@ function RequestNewPageInner() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       <div className="mx-auto max-w-xl px-4 py-10">
@@ -210,12 +210,12 @@ function RequestNewPageInner() {
           </div>
           <div className="mt-4">
             <p className="text-xs text-gray-400">Step {step + 1} / {STEPS.length}</p>
-            <h2 className="mt-1 text-xl font-bold text-gray-900">{STEPS[step]}</h2>
+            <h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{STEPS[step]}</h2>
           </div>
         </div>
 
         {/* 스텝 컨텐츠 */}
-        <div className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
+        <div className="rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-sm border border-gray-100 dark:border-gray-800">
 
           {/* ── Step 0: 거래·매물 유형 ── */}
           {step === 0 && (
@@ -223,7 +223,7 @@ function RequestNewPageInner() {
               {/* 거래 유형 - 중복 선택 */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">거래 유형</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">거래 유형</p>
                   <span className="text-xs text-gray-400">중복 선택 가능</span>
                 </div>
                 <div className="flex gap-3">
@@ -248,7 +248,7 @@ function RequestNewPageInner() {
               {/* 매물 유형 - 카테고리별 중복 선택 */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700">매물 유형</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">매물 유형</p>
                   <span className="text-xs text-gray-400">중복 선택 가능</span>
                 </div>
                 <div className="space-y-3">
@@ -281,7 +281,7 @@ function RequestNewPageInner() {
 
               {/* 선택 요약 */}
               {(dealTypes.length > 0 || propertyTypes.length > 0) && (
-                <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600">
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-3 text-xs text-gray-600 dark:text-gray-400">
                   {dealTypes.length > 0 && (
                     <p>거래: <span className="font-semibold text-blue-600">{dealTypes.join(' · ')}</span></p>
                   )}
@@ -297,9 +297,9 @@ function RequestNewPageInner() {
           {step === 1 && (
             <div className="space-y-4">
               <div>
-                <p className="mb-1.5 text-sm font-medium text-gray-700">관심 지역</p>
+                <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">관심 지역</p>
                 <p className="mb-3 text-xs text-gray-500">
-                  동·읍·면 단위까지 검색할 수 있어요. 예: <span className="font-medium text-gray-700">불당동</span>, <span className="font-medium text-gray-700">강남</span>, <span className="font-medium text-gray-700">수원 영통</span>
+                  동·읍·면 단위까지 검색할 수 있어요. 예: <span className="font-medium text-gray-700 dark:text-gray-300">불당동</span>, <span className="font-medium text-gray-700 dark:text-gray-300">강남</span>, <span className="font-medium text-gray-700 dark:text-gray-300">수원 영통</span>
                 </p>
                 <RegionPicker
                   value={region}
@@ -350,7 +350,7 @@ function RequestNewPageInner() {
 
               {/* 월세 */}
               {dealTypes.includes('월세') && (
-                <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="space-y-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">월세 보증금</p>
                   <div className="grid grid-cols-2 gap-3">
                     <Input
@@ -421,7 +421,7 @@ function RequestNewPageInner() {
                 onChange={(e) => update('move_in_date', e.target.value)}
               />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   추가 요청사항{' '}
                   <span className="text-gray-400 font-normal">(선택)</span>
                 </label>
@@ -431,17 +431,17 @@ function RequestNewPageInner() {
                   onChange={(e) => update('description', e.target.value)}
                   rows={4}
                   maxLength={1000}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                 />
               </div>
 
               {/* 최종 요약 */}
-              <div className="rounded-xl bg-gray-50 p-4 text-sm space-y-1">
-                <p className="font-semibold text-gray-700 mb-2">등록 요약</p>
-                <p className="text-gray-600">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
-                <p className="text-gray-600">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
-                <p className="text-gray-600">📍 위치: <span className="font-medium">{region ? `${region.sido} ${region.sigungu}${region.dong ? ` ${region.dong}` : ''}` : '-'}</span></p>
-                <p className="text-gray-600">💰 예산:&nbsp;
+              <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-4 text-sm space-y-1">
+                <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">등록 요약</p>
+                <p className="text-gray-600 dark:text-gray-400">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-400">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-400">📍 위치: <span className="font-medium">{region ? `${region.sido} ${region.sigungu}${region.dong ? ` ${region.dong}` : ''}` : '-'}</span></p>
+                <p className="text-gray-600 dark:text-gray-400">💰 예산:&nbsp;
                   <span className="font-medium">
                     {Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원
                     {dealTypes.includes('월세') && form.min_monthly && ` / 월세 ${Number(form.min_monthly).toLocaleString()}만~${Number(form.max_monthly).toLocaleString()}만`}

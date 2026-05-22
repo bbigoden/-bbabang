@@ -60,7 +60,7 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <div className="mx-auto max-w-3xl px-4 py-12">
         {/* 헤더 */}
         <div className="mb-8">
@@ -68,24 +68,24 @@ export default function TermsPage() {
             <Home className="h-4 w-4" />
             홈으로
           </Link>
-          <h1 className="mt-4 text-3xl font-black text-gray-900">이용약관</h1>
+          <h1 className="mt-4 text-3xl font-black text-gray-900 dark:text-white">이용약관</h1>
           <p className="mt-2 text-sm text-gray-500">최종 수정일: 2026년 5월 18일</p>
         </div>
 
         {/* 본문 */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-sm">
           <div className="space-y-8">
             {sections.map((section) => (
               <div key={section.title}>
-                <h2 className="mb-3 text-base font-bold text-gray-900">{section.title}</h2>
-                <p className="whitespace-pre-line text-sm leading-relaxed text-gray-600">
+                <h2 className="mb-3 text-base font-bold text-gray-900 dark:text-white">{section.title}</h2>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                   {section.content}
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="mt-10 border-t border-gray-100 pt-6">
+          <div className="mt-10 border-t border-gray-100 dark:border-gray-800 pt-6">
             <p className="text-xs text-gray-500">
               문의사항이 있으시면{' '}
               <a href="mailto:bbigoden@gmail.com" className="text-blue-600 underline">

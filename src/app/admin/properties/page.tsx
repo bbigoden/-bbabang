@@ -242,7 +242,7 @@ export default function AdminPropertiesPage() {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <Home className="mx-auto mb-3 h-12 w-12 text-gray-700" />
+            <Home className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
             <p className="font-semibold text-gray-400">조건에 맞는 매물이 없어요</p>
           </div>
         ) : (
@@ -300,7 +300,7 @@ export default function AdminPropertiesPage() {
                               <Flag className="h-3 w-3" /> {p.reportCount}
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-600">—</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-400">—</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5 hidden sm:table-cell">

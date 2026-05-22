@@ -159,9 +159,9 @@ export default async function BrokerDashboardPage() {
 
         {/* 사무소 탈퇴 버튼 — 승인된 직원에게만 표시 */}
         {broker.is_owner === false && broker.is_approved === true && broker.parent_broker_id && (
-          <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-5 py-4">
+          <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4">
             <div>
-              <p className="text-sm font-semibold text-gray-800">{broker.office_name}</p>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{broker.office_name}</p>
               <p className="text-xs text-gray-400 mt-0.5">소속 사무소</p>
             </div>
             <BrokerChangeOffice brokerId={broker.id} parentBrokerId={broker.parent_broker_id} />
@@ -239,8 +239,8 @@ export default async function BrokerDashboardPage() {
           {broker.is_owner !== false && (
             <Link href="/settings/office">
               <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
-                  <Settings className="h-5 w-5 text-gray-600" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
+                  <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </div>
                 <span className="text-sm font-bold text-gray-800 dark:text-gray-100">사무소 설정</span>
               </div>
@@ -256,8 +256,8 @@ export default async function BrokerDashboardPage() {
           </Link>
           {broker.is_owner !== false && (
             <Link href="/broker/archive">
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-gray-300 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-500/40 dark:hover:bg-gray-500/10 transition-colors cursor-pointer shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
+              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-500/40 dark:hover:bg-gray-500/10 transition-colors cursor-pointer shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
                   <Archive className="h-5 w-5 text-gray-500" />
                 </div>
                 <span className="text-sm font-bold text-gray-800 dark:text-gray-100">퇴사자 일지</span>
@@ -273,7 +273,7 @@ export default async function BrokerDashboardPage() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-purple-600" />
-                <h2 className="font-bold text-gray-900">관심 지역 매칭 요청</h2>
+                <h2 className="font-bold text-gray-900 dark:text-white">관심 지역 매칭 요청</h2>
                 <Badge variant="warning">추천</Badge>
               </div>
               <Link href="/settings/notifications" className="text-xs text-gray-500 hover:text-blue-600">
@@ -283,7 +283,7 @@ export default async function BrokerDashboardPage() {
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {recommendedRequests.map((r: any) => (
                 <Link key={r.request_id} href={`/request/${r.request_id}`}
-                  className="block rounded-2xl border border-purple-100 bg-white p-4 hover:border-purple-300 hover:shadow-sm transition-all">
+                  className="block rounded-2xl border border-purple-100 bg-white dark:bg-gray-900 p-4 hover:border-purple-300 hover:shadow-sm transition-all">
                   <div className="mb-2 flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <Badge variant="info">{r.deal_type || '거래'}</Badge>
@@ -291,7 +291,7 @@ export default async function BrokerDashboardPage() {
                     </div>
                     <span className="rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-bold text-purple-700">매칭 {r.score}</span>
                   </div>
-                  <p className="text-sm font-semibold text-gray-900 mb-1">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
                     {[r.city, r.district, r.dong].filter(Boolean).join(' ')}
                   </p>
                   <p className="text-xs text-gray-500 mb-2">
@@ -313,7 +313,7 @@ export default async function BrokerDashboardPage() {
         <div className="mb-8">
           <div className="mb-4 flex items-center gap-2">
             <BarChart2 className="h-5 w-5 text-blue-600" />
-            <h2 className="font-bold text-gray-900">성과 분석</h2>
+            <h2 className="font-bold text-gray-900 dark:text-white">성과 분석</h2>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3 mb-4">
@@ -331,7 +331,7 @@ export default async function BrokerDashboardPage() {
                   전체 {totalProposals}건 중 수락 {acceptedProposals}건 · 거절 {rejectedProposals}건
                 </div>
                 {/* 수락률 바 */}
-                <div className="mt-3 h-2 w-full rounded-full bg-gray-100">
+                <div className="mt-3 h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800">
                   <div
                     className={`h-2 rounded-full transition-all ${
                       acceptanceRate >= 50 ? 'bg-green-500' : acceptanceRate >= 25 ? 'bg-yellow-400' : 'bg-red-400'
@@ -366,7 +366,7 @@ export default async function BrokerDashboardPage() {
                   <ThumbsUp className="h-4 w-4 text-gray-400" />
                   <span className="text-xs font-medium text-gray-500">수락된 제안 평균가</span>
                 </div>
-                <div className="text-3xl font-black text-gray-900">
+                <div className="text-3xl font-black text-gray-900 dark:text-white">
                   {avgPrice > 0 ? formatPrice(avgPrice) : '-'}
                 </div>
                 <div className="mt-2 text-xs text-gray-400">
@@ -379,7 +379,7 @@ export default async function BrokerDashboardPage() {
           {/* 월별 제안 추이 */}
           <Card>
             <CardBody>
-              <p className="mb-4 text-sm font-semibold text-gray-700">최근 6개월 제안 추이</p>
+              <p className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">최근 6개월 제안 추이</p>
               <div className="flex items-end gap-3 h-28">
                 {monthlyStats.map((m) => (
                   <div key={m.label} className="flex flex-1 flex-col items-center gap-1.5">
@@ -422,7 +422,7 @@ export default async function BrokerDashboardPage() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
-                <h2 className="font-bold text-gray-900">최근 고객 리뷰</h2>
+                <h2 className="font-bold text-gray-900 dark:text-white">최근 고객 리뷰</h2>
               </div>
               <Link href={`/broker/${broker.id}`} className="text-xs text-blue-600 hover:underline">
                 전체 보기 →
@@ -444,7 +444,7 @@ export default async function BrokerDashboardPage() {
                       <span className="text-xs text-gray-400">{formatDate(review.created_at)}</span>
                     </div>
                     {review.content && (
-                      <p className="text-sm text-gray-600 line-clamp-2">{review.content}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{review.content}</p>
                     )}
                     <p className="mt-2 text-xs text-gray-400">{review.profiles?.name ?? '익명'}</p>
                   </CardBody>
@@ -462,7 +462,7 @@ export default async function BrokerDashboardPage() {
 
           {/* 내 제안 현황 */}
           <div id="my-proposals">
-            <h2 className="mb-4 font-bold text-gray-900">내 제안 현황</h2>
+            <h2 className="mb-4 font-bold text-gray-900 dark:text-white">내 제안 현황</h2>
             <div className="space-y-3">
               {(!proposals || proposals.length === 0) ? (
                 <Card>
@@ -482,7 +482,7 @@ export default async function BrokerDashboardPage() {
                               <Badge variant={statusVariant[proposal.status as keyof typeof statusVariant]}>
                                 {statusLabel[proposal.status as keyof typeof statusLabel]}
                               </Badge>
-                              <div className="mt-1 font-bold text-gray-900">
+                              <div className="mt-1 font-bold text-gray-900 dark:text-white">
                                 {formatPrice(proposal.price)}
                               </div>
                               {req && (

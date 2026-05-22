@@ -44,38 +44,38 @@ export default async function RegionSidoPage({ params }: { params: Promise<Param
   const sigungus = Array.from(bySigungu.entries()).sort((a, b) => b[1].count - a[1].count)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-5xl px-4 py-8">
         <nav className="mb-3 text-xs text-gray-400">
           <Link href="/" className="hover:text-blue-600">홈</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
-          <span className="text-gray-700 font-medium">{sidoN}</span>
+          <span className="text-gray-700 dark:text-gray-300 font-medium">{sidoN}</span>
         </nav>
 
-        <h1 className="text-3xl font-black text-gray-900 flex items-center gap-2">
+        <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-2">
           <MapPin className="h-7 w-7 text-blue-600" />
           {sidoN}
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          활성 요청 <span className="font-bold text-gray-800">{requests?.length ?? 0}</span>건이 진행 중. 시·군·구를 선택해 더 자세히 보세요.
+          활성 요청 <span className="font-bold text-gray-800 dark:text-gray-100">{requests?.length ?? 0}</span>건이 진행 중. 시·군·구를 선택해 더 자세히 보세요.
         </p>
 
         {sigungus.length === 0 ? (
-          <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-400">
+          <div className="mt-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
             아직 이 지역에 활성 요청이 없어요.
             <Link href="/request/new" className="text-blue-600 hover:underline ml-1">첫 요청 등록하기</Link>
           </div>
         ) : (
           <>
-            <h2 className="mt-8 mb-3 text-lg font-bold text-gray-900">시·군·구별 요청</h2>
+            <h2 className="mt-8 mb-3 text-lg font-bold text-gray-900 dark:text-white">시·군·구별 요청</h2>
             <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {sigungus.map(([sigunguName, info]) => (
                 <li key={sigunguName}>
                   <Link href={`/regions/${sido}/${encodeURIComponent(sigunguName)}`}
-                    className="block rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-base font-bold text-gray-900">{sigunguName}</h3>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white">{sigunguName}</h3>
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{info.count}건</span>
                     </div>
                     <p className="text-xs text-gray-500">{info.dongs.size}개 동·읍·면에서 요청</p>

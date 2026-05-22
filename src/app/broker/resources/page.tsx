@@ -252,18 +252,18 @@ export default function BrokerResourcesPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
       <div className="text-gray-400 text-sm">불러오는 중...</div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-black text-gray-900">
+            <h1 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
               <FolderOpen className="h-6 w-6 text-blue-600" />
               자료실
             </h1>
@@ -281,39 +281,39 @@ export default function BrokerResourcesPage() {
         </div>
 
         {showForm && (
-          <div className="mb-6 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+          <div className="mb-6 rounded-2xl border border-blue-100 bg-white dark:bg-gray-900 p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-gray-800">새 자료 올리기</h2>
+              <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">새 자료 올리기</h2>
               <button onClick={() => { setShowForm(false); resetForm() }}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-100 hover:text-gray-500">
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-500">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600">제목 *</label>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">제목 *</label>
                 <input
                   value={title}
                   onChange={e => setTitle(e.target.value.slice(0, 120))}
                   placeholder="예: 2025 표준 임대차계약서 패키지"
                   maxLength={120}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600">설명·메모 (선택)</label>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">설명·메모 (선택)</label>
                 <textarea
                   value={description}
                   onChange={e => setDescription(e.target.value.slice(0, 2000))}
                   placeholder="자료 설명, 링크, 메모 등을 자유롭게 입력하세요"
                   rows={4}
                   maxLength={2000}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
                 <p className="mt-1 text-[11px] text-gray-400">{description.length}/2000</p>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600">
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">
                   파일 첨부 (선택, 최대 {MAX_FILES}개, 각 20MB)
                 </label>
                 <input ref={fileRef} type="file" multiple onChange={onFilePick} className="hidden" />
@@ -342,14 +342,14 @@ export default function BrokerResourcesPage() {
                 {files.length > 0 && (
                   <div className="mt-2 space-y-1.5">
                     {files.map((f, i) => (
-                      <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+                      <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 text-sm">
                         <div className="flex items-center gap-2 min-w-0">
                           <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                          <span className="truncate text-gray-700">{f.name}</span>
+                          <span className="truncate text-gray-700 dark:text-gray-300">{f.name}</span>
                           <span className="flex-shrink-0 text-xs text-gray-400">({formatFileSize(f.size)})</span>
                         </div>
                         <button onClick={() => removeFileAt(i)}
-                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600">
+                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-400">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -361,7 +361,7 @@ export default function BrokerResourcesPage() {
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => { setShowForm(false); resetForm() }}
-                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950"
                 >
                   취소
                 </button>
@@ -378,7 +378,7 @@ export default function BrokerResourcesPage() {
         )}
 
         {resources.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-12 text-center">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center">
             <FolderOpen className="mx-auto h-10 w-10 text-gray-200 mb-3" />
             <p className="text-sm font-semibold text-gray-500">아직 올라온 자료가 없어요</p>
             <p className="mt-1 text-xs text-gray-400">같은 사무소 직원과 계약서 양식·매물지·교육자료를 공유해보세요</p>
@@ -390,14 +390,14 @@ export default function BrokerResourcesPage() {
               const uploaderName = r.uploader?.profiles?.name ?? '—'
               const attachmentCount = r.files?.length ?? 0
               return (
-                <div key={r.id} className="rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-200 hover:shadow-sm transition-all">
+                <div key={r.id} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-200 hover:shadow-sm transition-all">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                       {attachmentCount > 0 ? <FileText className="h-5 w-5" /> : <LinkIcon className="h-5 w-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-bold text-gray-900 break-keep">{r.title}</h3>
+                        <h3 className="font-bold text-gray-900 dark:text-white break-keep">{r.title}</h3>
                         {canDelete && (
                           <button onClick={() => removeResource(r)}
                             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
@@ -406,7 +406,7 @@ export default function BrokerResourcesPage() {
                         )}
                       </div>
                       {r.description && (
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{r.description}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400">{r.description}</p>
                       )}
                       <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
                         <span>{uploaderName}</span>
@@ -425,7 +425,7 @@ export default function BrokerResourcesPage() {
                             <button
                               key={f.id}
                               onClick={() => handleDownload(f)}
-                              className="flex w-full items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                              className="flex w-full items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-950 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                             >
                               <span className="flex min-w-0 items-center gap-1.5">
                                 <Download className="h-3.5 w-3.5 flex-shrink-0" />

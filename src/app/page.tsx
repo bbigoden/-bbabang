@@ -42,13 +42,13 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             {userRole === 'broker' ? (
-              <Link href="/dashboard/broker" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-bold text-blue-700 hover:bg-blue-50 shadow-lg transition-colors">
+              <Link href="/dashboard/broker" className="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 px-8 py-3.5 text-base font-bold text-blue-700 hover:bg-blue-50 shadow-lg transition-colors">
                 중개사 대시보드로 이동
                 <ArrowRight className="h-5 w-5" />
               </Link>
             ) : (
               <>
-                <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3.5 text-base font-bold text-blue-700 hover:bg-blue-50 shadow-lg transition-colors">
+                <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-gray-900 px-8 py-3.5 text-base font-bold text-blue-700 hover:bg-blue-50 shadow-lg transition-colors">
                   무료로 조건 등록하기
                   <ArrowRight className="h-5 w-5" />
                 </Link>
@@ -83,7 +83,7 @@ export default function LandingPage() {
       <section className="px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-gray-900">이렇게 작동해요</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">이렇게 작동해요</h2>
             <p className="mt-3 text-gray-500">3단계로 내 방 찾기 완성</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -116,7 +116,7 @@ export default function LandingPage() {
                   <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl ${item.color}`}>
                     <item.icon className="h-6 w-6" />
                   </div>
-                  <h3 className="mb-2 text-lg font-bold text-gray-900">{item.title}</h3>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900 dark:text-white">{item.title}</h3>
                   <p className="text-sm leading-relaxed text-gray-500">{item.desc}</p>
                 </CardBody>
               </Card>
@@ -126,10 +126,10 @@ export default function LandingPage() {
       </section>
 
       {/* 왜 빠방? */}
-      <section className="bg-white px-4 py-20">
+      <section className="bg-white dark:bg-gray-900 px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-gray-900">왜 빠방인가요?</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">왜 빠방인가요?</h2>
             <p className="mt-3 text-gray-500">기존 부동산 플랫폼과 완전히 다릅니다</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
@@ -137,7 +137,7 @@ export default function LandingPage() {
             <Card className="border-red-100">
               <CardBody>
                 <h3 className="mb-4 font-bold text-red-500">😩 기존 플랫폼</h3>
-                <ul className="space-y-3 text-sm text-gray-600">
+                <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
                   {[
                     '수백 개 매물을 직접 찾아다녀야 함',
                     '허위매물에 낚여 시간 낭비',
@@ -156,7 +156,7 @@ export default function LandingPage() {
             <Card className="border-blue-100 bg-blue-50/30">
               <CardBody>
                 <h3 className="mb-4 font-bold text-blue-600">✨ 빠방</h3>
-                <ul className="space-y-3 text-sm text-gray-700">
+                <ul className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
                   {[
                     '중개사가 먼저 내 조건에 맞는 매물 제안',
                     '인증된 중개사만 활동 (허위매물 차단)',
@@ -202,7 +202,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-center gap-10 md:flex-row">
             <div className="flex-1">
               <Badge variant="info" className="mb-4">공인중개사 전용</Badge>
-              <h2 className="mb-4 text-3xl font-bold text-gray-900">
+              <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
                 중개사님,<br />
                 고객이 먼저 찾아옵니다
               </h2>
@@ -216,7 +216,7 @@ export default function LandingPage() {
                   { icon: Shield, text: '자격증 인증으로 신뢰도 상승' },
                   { icon: Star, text: '리뷰 누적으로 자연스러운 홍보' },
                 ].map((item) => (
-                  <li key={item.text} className="flex items-center gap-3 text-gray-700">
+                  <li key={item.text} className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
                       <item.icon className="h-4 w-4 text-blue-600" />
                     </div>
@@ -237,8 +237,8 @@ export default function LandingPage() {
               ) : null}
             </div>
             <div className="flex-1">
-              <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-blue-50 p-8 border border-gray-100">
-                <h3 className="mb-6 font-bold text-gray-700 text-sm">실시간 요청 현황</h3>
+              <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-blue-50 p-8 border border-gray-100 dark:border-gray-800">
+                <h3 className="mb-6 font-bold text-gray-700 dark:text-gray-300 text-sm">실시간 요청 현황</h3>
                 <div className="space-y-3">
                   {[
                     { area: '강남구', type: '전세', budget: '5억~7억', time: '방금 전', rooms: '아파트' },
@@ -246,9 +246,9 @@ export default function LandingPage() {
                     { area: '송파구', type: '매매', budget: '9억~12억', time: '31분 전', rooms: '아파트' },
                     { area: '용산구', type: '전세', budget: '3억~4억', time: '1시간 전', rooms: '원룸' },
                   ].map((req, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-xl bg-white p-3 shadow-sm border border-gray-50">
+                    <div key={i} className="flex items-center justify-between rounded-xl bg-white dark:bg-gray-900 p-3 shadow-sm border border-gray-50">
                       <div>
-                        <span className="font-semibold text-sm text-gray-900">{req.area}</span>
+                        <span className="font-semibold text-sm text-gray-900 dark:text-white">{req.area}</span>
                         <span className="mx-2 text-gray-300">|</span>
                         <span className="text-xs text-gray-500">{req.rooms} {req.type}</span>
                         <div className="mt-0.5 text-xs font-medium text-blue-600">{req.budget}</div>
@@ -267,7 +267,7 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="px-4 py-20 text-center">
         <div className="mx-auto max-w-2xl">
-          <h2 className="mb-4 text-3xl font-bold text-gray-900">지금 바로 시작하세요</h2>
+          <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">지금 바로 시작하세요</h2>
           <p className="mb-8 text-gray-500">가입비, 광고비 없이 조건만 올리면 중개사가 찾아옵니다</p>
           <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-10 py-3.5 text-base font-semibold text-white hover:bg-blue-700 transition-colors">
             무료로 조건 등록하기
@@ -277,19 +277,19 @@ export default function LandingPage() {
       </section>
 
       {/* 푸터 */}
-      <footer className="border-t border-gray-100 bg-white px-4 py-10">
+      <footer className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-10">
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
                 <Home className="h-4 w-4 text-white" />
               </div>
-              <span className="font-bold text-gray-900">빠방</span>
+              <span className="font-bold text-gray-900 dark:text-white">빠방</span>
             </div>
             <div className="flex gap-6 text-sm text-gray-400">
-              <Link href="/terms" className="hover:text-gray-700">이용약관</Link>
-              <Link href="/privacy" className="hover:text-gray-700">개인정보처리방침</Link>
-              <Link href="/support" className="hover:text-gray-700">고객지원</Link>
+              <Link href="/terms" className="hover:text-gray-700 dark:text-gray-300">이용약관</Link>
+              <Link href="/privacy" className="hover:text-gray-700 dark:text-gray-300">개인정보처리방침</Link>
+              <Link href="/support" className="hover:text-gray-700 dark:text-gray-300">고객지원</Link>
             </div>
           </div>
           <p className="mt-6 text-xs text-gray-400">© 2025 빠방. All rights reserved.</p>

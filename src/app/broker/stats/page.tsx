@@ -169,7 +169,7 @@ export default function BrokerStatsPage() {
 
   if (auth.loading || auth.profile?.role !== 'broker') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
       </div>
     )
@@ -182,24 +182,24 @@ export default function BrokerStatsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       <div className="mx-auto max-w-5xl px-4 py-6">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Link href="/dashboard/broker" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white border border-gray-200 hover:bg-gray-100 transition-colors">
-              <ArrowLeft className="h-4 w-4 text-gray-600" />
+            <Link href="/dashboard/broker" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
+              <ArrowLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
             </Link>
             <div>
-              <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900">
+              <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
                 <BarChart3 className="h-5 w-5 text-blue-500" />
                 내 실적 분석
               </h1>
               <p className="text-xs text-gray-500 mt-0.5">제안·수락·응답 시간을 한눈에</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
             {([30, 90, 365] as const).map(d => (
               <button key={d} onClick={() => setRange(d)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
@@ -269,12 +269,12 @@ function fillSeries(map: Map<string, number>, days: number): Bucket[] {
 
 function Summary({ icon: Icon, label, value, sub, color }: { icon: any; label: string; value: string; sub: string; color: string }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
       <div className={`mb-2 inline-flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
         <Icon className="h-4 w-4" />
       </div>
       <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-xl font-black text-gray-900">{value}</p>
+      <p className="text-xl font-black text-gray-900 dark:text-white">{value}</p>
       <p className="mt-0.5 text-[11px] text-gray-400">{sub}</p>
     </div>
   )
@@ -291,10 +291,10 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
 
 function ChartCard({ title, icon: Icon, subtitle, children }: { title: string; icon: any; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
       <div className="mb-4 flex items-center gap-2">
         <Icon className="h-4 w-4 text-gray-400" />
-        <h2 className="font-bold text-gray-900">{title}</h2>
+        <h2 className="font-bold text-gray-900 dark:text-white">{title}</h2>
         {subtitle && <span className="text-xs text-gray-400">· {subtitle}</span>}
       </div>
       {children}
@@ -340,10 +340,10 @@ function RankBars({ rows, barColor }: { rows: Row[]; barColor: string }) {
       {rows.map((r, i) => (
         <li key={r.key}>
           <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-gray-700"><span className="text-gray-400 mr-1.5">{i + 1}.</span>{r.key}</span>
-            <span className="font-bold text-gray-900">{r.count}</span>
+            <span className="text-gray-700 dark:text-gray-300"><span className="text-gray-400 mr-1.5">{i + 1}.</span>{r.key}</span>
+            <span className="font-bold text-gray-900 dark:text-white">{r.count}</span>
           </div>
-          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
             <div className={`h-full ${barColor} rounded-full`} style={{ width: `${(r.count / max) * 100}%` }} />
           </div>
         </li>

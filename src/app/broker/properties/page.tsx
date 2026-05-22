@@ -154,13 +154,13 @@ function PostcodeModal({ onComplete, onClose }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={onClose}
     >
-      <div className="w-full max-w-md h-[520px] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col"
+      <div className="w-full max-w-md h-[520px] bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-900">주소 검색</h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">주소 검색</h3>
           <button type="button" onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800"
           >
             <X className="h-4 w-4" />
           </button>
@@ -218,12 +218,12 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
           <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
             onBlur={commit}
             onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) } }}
-            className="min-w-0 flex-1 rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+            className="min-w-0 flex-1 rounded border border-blue-400 bg-white dark:bg-gray-900 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
           />
           <button type="button"
             onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
             onClick={openPostcode}
-            className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-blue-600"
+            className="shrink-0 rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-1.5 py-1 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 hover:text-blue-600"
             title="주소 검색"
           >
             <Search className="h-3 w-3" />
@@ -233,7 +233,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
               onMouseDown={e => { e.preventDefault(); skipBlurRef.current = true }}
               onClick={() => onAutoFill(bcodeRef.current || undefined)}
               disabled={autoFilling || !value}
-              className="shrink-0 rounded border border-gray-200 bg-white px-1.5 py-1 text-gray-500 hover:bg-gray-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
+              className="shrink-0 rounded border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-1.5 py-1 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 hover:text-indigo-600 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-gray-500"
               title={value ? '건축물대장에서 면적·층·승인일·주차·유형 자동채움' : '주소를 먼저 입력하세요'}
             >
               {autoFilling
@@ -251,7 +251,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
       <div ref={cellRef}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="group flex w-full items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-gray-100 min-h-[22px]"
+        className="group flex w-full items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px]"
       >
         <span onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
           className="min-w-0 flex-1 cursor-pointer overflow-hidden whitespace-nowrap text-ellipsis"
@@ -308,7 +308,7 @@ function NumberCell({ value, onSave, suffix = '만', placeholder }: {
       <input ref={inputRef} type="number" value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value != null ? String(value) : ''); setEditing(false) } }}
-        className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs text-right outline-none focus:ring-2 focus:ring-blue-300"
+        className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-right outline-none focus:ring-2 focus:ring-blue-300"
       />
     )
   }
@@ -318,7 +318,7 @@ function NumberCell({ value, onSave, suffix = '만', placeholder }: {
       <div ref={cellRef} onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true); setHovered(false) }}
         onMouseEnter={() => { if (!!value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 font-semibold' : 'text-gray-300'}`}
+        className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 dark:text-gray-100 font-semibold' : 'text-gray-300'}`}
       >
         {displayText}
       </div>
@@ -362,14 +362,14 @@ function FloorCell({ floor, totalFloors, onSave }: {
       <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(display); setEditing(false) } }}
-        className="w-full rounded border border-blue-400 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
+        className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300"
         placeholder="예: 3/15"
       />
     )
   }
   return (
     <div onClick={() => { setDraft(display); setEditing(true) }}
-      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
       style={{ color: display ? '#374151' : '#d1d5db' }}>
       {display || '예: 3/15'}
     </div>
@@ -406,7 +406,7 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
             if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitPrice(true) }
             if (e.key === 'Escape') { setDraftPrice(price != null ? String(price) : ''); setEditing(false) }
           }}
-          className="w-0 flex-1 rounded border border-blue-400 bg-white px-1 py-1 text-xs text-right outline-none focus:ring-1 focus:ring-blue-300"
+          className="w-0 flex-1 rounded border border-blue-400 bg-white dark:bg-gray-900 px-1 py-1 text-xs text-right outline-none focus:ring-1 focus:ring-blue-300"
           placeholder="보증금"
         />
         <span className="text-gray-400 text-xs flex-shrink-0">/</span>
@@ -416,7 +416,7 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
             if (e.key === 'Enter') commitRent()
             if (e.key === 'Escape') { setDraftRent(rent != null ? String(rent) : ''); setEditing(false) }
           }}
-          className="w-0 flex-1 rounded border border-blue-400 bg-white px-1 py-1 text-xs text-right outline-none focus:ring-1 focus:ring-blue-300"
+          className="w-0 flex-1 rounded border border-blue-400 bg-white dark:bg-gray-900 px-1 py-1 text-xs text-right outline-none focus:ring-1 focus:ring-blue-300"
           placeholder="임차료"
         />
       </div>
@@ -427,9 +427,9 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
   return (
     <div className="w-full cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs text-right overflow-hidden whitespace-nowrap text-ellipsis"
       onClick={() => { setDraftPrice(price != null ? String(price) : ''); setDraftRent(rent != null ? String(rent) : ''); setEditing(true) }}>
-      <span className={`font-semibold ${price ? 'text-gray-800' : 'text-gray-300'}`}>{dep}</span>
+      <span className={`font-semibold ${price ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300'}`}>{dep}</span>
       <span className="text-gray-400 mx-0.5">/</span>
-      <span className={`font-semibold ${rent ? 'text-gray-800' : 'text-gray-300'}`}>{mo}</span>
+      <span className={`font-semibold ${rent ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300'}`}>{mo}</span>
     </div>
   )
 }
@@ -506,14 +506,14 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
         onClick={handleOpen}
         onMouseEnter={() => { if (!open && displayText) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
         style={{ color: displayText ? '#374151' : '#d1d5db' }}
       >
         {displayText ?? '전용/공급'}
       </div>
       {hovered && displayText && <CellTooltip text={displayText} anchorRef={btnRef} />}
       {open && (
-        <div className="w-44 rounded-xl border border-gray-200 bg-white shadow-lg p-2 space-y-1.5" style={popupStyle}>
+        <div className="w-44 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg p-2 space-y-1.5" style={popupStyle}>
           {/* 전용 */}
           <div className="flex items-center gap-1">
             <span className="w-7 flex-shrink-0 text-xs text-gray-500">전용</span>
@@ -524,7 +524,7 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
               placeholder=""
               onChange={e => setDraftDedicated(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
-              className="w-0 flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+              className="w-0 flex-1 rounded border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
             <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{globalUnit}</span>
           </div>
@@ -537,7 +537,7 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
               placeholder=""
               onChange={e => setDraftSupplied(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
-              className="w-0 flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
+              className="w-0 flex-1 rounded border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
             <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{globalUnit}</span>
           </div>
@@ -611,7 +611,7 @@ function ImageCell({ images, onSave, onView }: {
         {localImgs.length === 0
           ? <span className="text-xs text-gray-300">사진</span>
           : <>
-              <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 flex-shrink-0">
+              <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 dark:border-gray-800 flex-shrink-0">
                 <img src={localImgs[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </div>
               {localImgs.length > 1 && <span className="text-[10px] text-gray-400">+{localImgs.length - 1}</span>}
@@ -619,10 +619,10 @@ function ImageCell({ images, onSave, onView }: {
         }
       </div>
       {open && (
-        <div className="w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3" style={popupStyle}>
+        <div className="w-64 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg p-3" style={popupStyle}>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {localImgs.map((src, i) => (
-              <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 group">
+              <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800 group">
                 <img src={src} alt="매물 사진" loading="lazy" decoding="async" className="h-full w-full object-cover cursor-pointer" onClick={() => { setOpen(false); onView(i) }} />
                 <button onClick={() => { const next = localImgs.filter((_, idx) => idx !== i); setLocalImgs(next) }}
                   className="absolute top-0.5 right-0.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded-full bg-black/50 text-white text-[9px]"
@@ -638,7 +638,7 @@ function ImageCell({ images, onSave, onView }: {
               </div>
             ))}
             {localImgs.length + newFiles.length < 5 && (
-              <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-blue-400 transition-colors">
+              <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:border-blue-400 transition-colors">
                 <ImagePlus className="h-4 w-4" />
                 <input type="file" accept="image/*" multiple className="hidden" onChange={handleAdd} />
               </label>
@@ -744,15 +744,15 @@ function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onS
         }>
         {asHeaderButton ? <>헤더 추가</> : '+'}</div>
       {open && (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={style}
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={style}
           onClick={e => e.stopPropagation()}>
           {/* 고정 칼럼 섹션 */}
-          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
             <Lock className="h-2.5 w-2.5" />고정 칼럼
           </div>
           {hiddenFixed.length > 0 ? hiddenFixed.map(col => (
             <button key={col.key} onClick={() => { onShowFixed(col.key); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
               <span className="text-gray-300 font-bold">+</span>{col.label}
             </button>
           )) : (
@@ -760,16 +760,16 @@ function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onS
           )}
 
           {/* 내 칼럼 섹션 */}
-          <div className="border-t border-gray-100 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">내 칼럼</div>
+          <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">내 칼럼</div>
           {hiddenCustom.map(col => (
             <button key={col.id} onClick={() => { onShowCustom(col.id); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
               <span className="text-gray-300 font-bold">+</span>{col.name}
             </button>
           ))}
 
           {/* 새 칼럼 만들기 */}
-          <div className="border-t border-gray-100">
+          <div className="border-t border-gray-100 dark:border-gray-800">
             {showInput ? (
               <div className="flex items-center gap-1.5 px-2 py-2">
                 <input autoFocus value={addingName} onChange={e => setAddingName(e.target.value)}
@@ -831,18 +831,18 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
         +
       </button>
       {open && createPortal(
-        <div ref={popupRef} className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white shadow-xl p-2.5" style={popStyle}>
+        <div ref={popupRef} className="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
           <input ref={inputRef} value={name} onChange={e => setName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }}
             placeholder="칼럼 이름 입력"
-            className="rounded-lg border border-gray-200 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 w-44" />
+            className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 w-44" />
           <div className="flex gap-1">
             <button onClick={() => setType('text')}
-              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>
               텍스트
             </button>
             <button onClick={() => setType('select')}
-              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>
               선택
             </button>
           </div>
@@ -900,21 +900,21 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
         <MoreHorizontal className="h-3.5 w-3.5" />
       </button>
       {open && createPortal(
-        <div ref={popupRef} className="rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden" style={popStyle}>
-          <div className="p-2 border-b border-gray-100">
+        <div ref={popupRef} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
+          <div className="p-2 border-b border-gray-100 dark:border-gray-800">
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="속성을 검색하세요" autoFocus
-              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
           </div>
-          <div className="px-3 py-2 border-b border-gray-100">
+          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
             <span className="text-xs font-medium text-gray-500">표에 표시하기</span>
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
             {rows.map(c => (
               <div key={c.key}
-                className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 cursor-pointer"
+                className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 cursor-pointer"
                 onClick={() => onToggle(c.key)}>
-                <span className={`text-xs font-medium ${visible.includes(c.key) ? 'text-gray-700' : 'text-gray-400'}`}>{c.label}</span>
+                <span className={`text-xs font-medium ${visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>{c.label}</span>
                 <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${visible.includes(c.key) ? 'text-gray-400' : 'text-gray-200'}`} />
               </div>
             ))}
@@ -957,9 +957,9 @@ const PropertyRow = memo(function PropertyRow({
 }: PropertyRowProps) {
   return (
     <tr data-row-id={p.id}
-      className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
+      className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
-      <td className="px-2 py-1.5 border-r border-gray-100 text-center text-xs text-gray-300 select-none">
+      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs text-gray-300 select-none">
         {rowNumber}
       </td>
       {syncedOrder.map(key => {
@@ -980,11 +980,11 @@ const PropertyRow = memo(function PropertyRow({
               }
               if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
               if (key === 'deal_type') {
-                return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DEAL_TYPE_COLOR_MAP[p.deal_type] ?? 'bg-gray-100 text-gray-600'}`}>{p.deal_type}</span>
+                return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DEAL_TYPE_COLOR_MAP[p.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>{p.deal_type}</span>
               }
-              if (key === 'room_type') return <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{p.room_type}</span>
+              if (key === 'room_type') return <span className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400">{p.room_type}</span>
               if (key === 'images') return p.images?.length > 0
-                ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
+                ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
                 : <span className="text-xs text-gray-300">—</span>
               const raw: any = (p as any)[key]
               return raw != null && raw !== '' ? String(raw) : '—'
@@ -992,13 +992,13 @@ const PropertyRow = memo(function PropertyRow({
             const NUMERIC_RIGHT_COLS = ['price', 'size_pyeong', 'management_fee', 'premium', 'total_floors']
             const isNum = NUMERIC_RIGHT_COLS.includes(key)
             return (
-              <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
-                <div className={`w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px] ${isNum ? 'text-right' : ''}`}>{readVal}</div>
+              <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
+                <div className={`w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 dark:text-gray-300 px-1 min-h-[22px] ${isNum ? 'text-right' : ''}`}>{readVal}</div>
               </td>
             )
           }
           return (
-            <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
+            <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
               {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={isAutoFilling} placeholder="소재지 입력" />}
               {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
               {key === 'price'           && (p.deal_type === '월세'
@@ -1031,9 +1031,9 @@ const PropertyRow = memo(function PropertyRow({
         if (customCol && settings.visible.includes(key)) {
           const w = settings.widths[key] ?? 120
           return (
-            <td key={key} className="px-2 py-1.5 border-r border-gray-100" style={{ width: w, maxWidth: w }}>
+            <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
               {(isAdminView || !canEdit)
-                ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
+                ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 dark:text-gray-300 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
                 : customCol.type === 'select'
                   ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} multi={settings.multi[key]} />
                   : <TextCell value={(p.custom_fields ?? {})[key] ?? null} onSave={v => saveCustomField(p.id, key, v)} placeholder={customCol.name} />
@@ -1052,7 +1052,7 @@ const PropertyRow = memo(function PropertyRow({
 export default function BrokerPropertiesPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
       </div>
     }>
@@ -1714,24 +1714,24 @@ function BrokerPropertiesContent() {
   }, [addingId, direction, properties.length, pageSize])
 
   if (loading) return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
     </div>
   )
 
   if (accessDenied) return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="text-5xl">🔒</div>
-        <h2 className="text-lg font-bold text-gray-700">매물목록 접근 권한이 없어요</h2>
+        <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">매물목록 접근 권한이 없어요</h2>
         <p className="text-sm text-gray-400">대표에게 권한 설정을 요청해주세요.</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
 
       {lightbox && (
@@ -1755,7 +1755,7 @@ function BrokerPropertiesContent() {
             </div>
             <button
               onClick={() => router.push('/admin')}
-              className="flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white px-3 py-1.5 text-sm font-semibold text-orange-700 hover:bg-orange-50 transition-colors flex-shrink-0"
+              className="flex items-center gap-1.5 rounded-lg border border-orange-300 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-semibold text-orange-700 hover:bg-orange-50 transition-colors flex-shrink-0"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               어드민으로
@@ -1766,21 +1766,21 @@ function BrokerPropertiesContent() {
         {/* 상단 */}
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
           </div>
           <div className="flex items-center gap-2">
             {/* 목록/지도 토글 */}
-            <div className="flex rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
               <button
                 onClick={() => setIsMapView(false)}
-                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${!isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${!isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >
                 <List className="h-4 w-4" />목록
               </button>
               <button
                 onClick={() => setIsMapView(true)}
-                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >
                 <Map className="h-4 w-4" />지도
               </button>
@@ -1794,17 +1794,17 @@ function BrokerPropertiesContent() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input type="text" placeholder="전체 검색..." value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-400">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
           <button
             onClick={() => setShowFilter(v => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomType) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomType) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
           >
             <SlidersHorizontal className="h-4 w-4" />
             필터{(filterDealType || filterRoomType) ? ' · ON' : ''}
@@ -1813,13 +1813,13 @@ function BrokerPropertiesContent() {
 
         {/* 필터 패널 */}
         {showFilter && (
-          <div className="mb-3 rounded-xl border border-gray-200 bg-white p-4 space-y-3 shadow-sm">
+          <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3 shadow-sm">
             <div>
               <p className="mb-2 text-xs font-semibold text-gray-500">거래형태</p>
               <div className="flex flex-wrap gap-1.5">
                 {DEAL_TYPES.map(t => (
                   <button key={t} onClick={() => setFilterDealType(filterDealType === t ? '' : t)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterDealType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterDealType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:border-gray-700'}`}
                   >{t}</button>
                 ))}
               </div>
@@ -1829,7 +1829,7 @@ function BrokerPropertiesContent() {
               <div className="flex flex-wrap gap-1.5">
                 {ROOM_TYPES.map(t => (
                   <button key={t} onClick={() => setFilterRoomType(filterRoomType === t ? '' : t)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:border-gray-700'}`}
                   >{t}</button>
                 ))}
               </div>
@@ -1845,13 +1845,13 @@ function BrokerPropertiesContent() {
 
         {/* 지도 뷰 */}
         {isMapView && (
-          <div className="relative rounded-xl border border-gray-200 overflow-hidden shadow-sm" style={{ height: 560 }}>
+          <div className="relative rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm" style={{ height: 560 }}>
             <div ref={mapContainerRef} className="w-full h-full" />
             {/* 로딩/에러 오버레이 */}
             {mapStatus === 'error' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white z-10 px-6 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 z-10 px-6 text-center">
                 <div className="text-4xl mb-3">🗺️</div>
-                <p className="text-sm font-bold text-gray-700 mb-1">지도를 불러올 수 없어요</p>
+                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">지도를 불러올 수 없어요</p>
                 <p className="text-xs text-gray-500 max-w-md leading-relaxed">
                   {mapErr === 'no-key'
                     ? 'NEXT_PUBLIC_KAKAO_MAP_KEY 환경변수가 비어있어요. Vercel 환경변수 설정을 확인해주세요.'
@@ -1885,11 +1885,11 @@ function BrokerPropertiesContent() {
         )}
 
         {/* 테이블 */}
-        <div className={`overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm ${isMapView ? 'hidden' : ''}`}>
+        <div className={`overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm ${isMapView ? 'hidden' : ''}`}>
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
-              <tr className="border-b-2 border-gray-100 bg-gray-50 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                <th className="px-2 py-2.5 text-center border-r border-gray-100" style={{ width: 32 }}>#</th>
+              <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
+                <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 32 }}>#</th>
                 {syncedOrder.map(key => {
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1898,7 +1898,7 @@ function BrokerPropertiesContent() {
                     const w = settings.widths[key] ?? 100
                     return (
                       <th key={key}
-                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 hover:bg-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
                         style={{ width: w, maxWidth: w }}
                         draggable onDragStart={e => onColDragStart(key, e)}
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
@@ -1944,7 +1944,7 @@ function BrokerPropertiesContent() {
                     const w = settings.widths[key] ?? 120
                     return (
                       <th key={key}
-                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 hover:bg-gray-100 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
+                        className={`px-2 py-2.5 text-left relative cursor-grab transition-colors border-r border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 ${dragOverCol === key ? 'bg-blue-50' : ''}`}
                         style={{ width: w, maxWidth: w }}
                         draggable onDragStart={e => onColDragStart(key, e)}
                         onDragOver={e => onColDragOver(key, e)} onDrop={() => onColDrop(key)}
@@ -2022,10 +2022,10 @@ function BrokerPropertiesContent() {
               ))}
               {!isAdminView && canEdit && (
                 <tr>
-                  <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100">
+                  <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-center divide-x divide-gray-100">
                       <button onClick={() => router.push('/broker/properties/new')}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 hover:bg-gray-50/80 transition-colors">
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 dark:text-gray-400 hover:bg-gray-50/80 transition-colors">
                         <Plus className="h-3.5 w-3.5" />매물 등록
                       </button>
                       <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
@@ -2048,7 +2048,7 @@ function BrokerPropertiesContent() {
           {totalPages > 1 && (
             <>
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
               ><ChevronLeft className="h-4 w-4" /></button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
@@ -2059,12 +2059,12 @@ function BrokerPropertiesContent() {
                 .map((n, i) => n === '...'
                   ? <span key={`e${i}`} className="px-1 text-gray-400">…</span>
                   : <button key={n} onClick={() => setPage(n as number)}
-                      className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                      className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
                     >{n}</button>
                 )
               }
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
               ><ChevronRight className="h-4 w-4" /></button>
             </>
           )}
@@ -2073,7 +2073,7 @@ function BrokerPropertiesContent() {
             <span className="text-sm text-gray-400">페이지당</span>
             {PAGE_SIZE_OPTIONS.map(n => (
               <button key={n} onClick={() => setPageSize(n)}
-                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >{n}개</button>
             ))}
             <span className="text-sm text-gray-400 ml-1">| 총 {filtered.length}개</span>
@@ -2099,8 +2099,8 @@ function BrokerPropertiesContent() {
       {/* 삭제 확인 모달 */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
               {deleteConfirm.type === 'property' ? '매물을 삭제할까요?' : `'${deleteConfirm.label}' 칼럼을 삭제할까요?`}
             </h3>
             <p className="text-sm text-gray-500 mb-6">
@@ -2108,7 +2108,7 @@ function BrokerPropertiesContent() {
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">취소</button>
+                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={confirmDelete}
                 className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
             </div>

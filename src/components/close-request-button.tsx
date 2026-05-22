@@ -44,14 +44,14 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
           onClick={() => !loading && setShowModal(false)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4"
+            className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex flex-col items-center text-center">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
                 <AlertTriangle className="h-7 w-7 text-red-500" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">요청을 마감할까요?</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">요청을 마감할까요?</h3>
               <p className="mt-2 text-sm text-gray-500 leading-relaxed">
                 마감하면 새로운 제안을 받을 수 없어요.<br />
                 이미 받은 제안들은 계속 확인할 수 있습니다.
@@ -61,7 +61,7 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
               <button
                 onClick={() => setShowModal(false)}
                 disabled={loading}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors disabled:opacity-50"
               >
                 취소
               </button>

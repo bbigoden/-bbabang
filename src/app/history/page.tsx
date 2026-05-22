@@ -85,7 +85,7 @@ export default function HistoryPage() {
 
   if (auth.loading || !auth.user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
       </div>
     )
@@ -104,7 +104,7 @@ export default function HistoryPage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
               <Clock className="h-6 w-6 text-blue-500" />
               최근 본 항목
             </h1>
@@ -112,7 +112,7 @@ export default function HistoryPage() {
           </div>
           {history.length > 0 && (
             <button onClick={clearAll} disabled={clearing}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors">
+              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors">
               <Trash2 className="h-3.5 w-3.5" />
               {clearing ? '삭제 중...' : '전체 삭제'}
             </button>
@@ -139,7 +139,7 @@ export default function HistoryPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : tabRows.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white py-20 text-center">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
             <Clock className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">최근 본 기록이 없어요</p>
             <p className="mt-1 text-sm text-gray-400">중개사 또는 요청 페이지를 방문하면 여기에 기록돼요</p>
@@ -153,10 +153,10 @@ export default function HistoryPage() {
                 return (
                   <li key={h.id} className="relative">
                     <Link href={`/broker/${b.id}`}
-                      className="block rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                      className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <p className="text-base font-bold text-gray-900 truncate">{b.profiles?.name ?? '(이름 없음)'}</p>
+                          <p className="text-base font-bold text-gray-900 dark:text-white truncate">{b.profiles?.name ?? '(이름 없음)'}</p>
                           {b.is_verified && <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
                         </div>
                         <p className="text-xs text-gray-500 truncate">{b.office_name ?? '—'}</p>
@@ -170,7 +170,7 @@ export default function HistoryPage() {
                       </div>
                     </Link>
                     <button onClick={() => removeOne(h.id)} title="기록 삭제"
-                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </li>
@@ -181,14 +181,14 @@ export default function HistoryPage() {
                 return (
                   <li key={h.id} className="relative">
                     <Link href={`/request/${r.id}`}
-                      className="block rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                      className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
                           {r.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{r.deal_type}</span>}
-                          {r.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{r.room_type}</span>}
+                          {r.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{r.room_type}</span>}
                           {r.status === 'closed' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">마감</span>}
                         </div>
-                        <p className="text-sm font-semibold text-gray-900 flex items-center gap-1">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5 text-gray-400" />
                           {[r.city, r.district, r.dong].filter(Boolean).join(' ') || '지역 미지정'}
                         </p>
@@ -204,7 +204,7 @@ export default function HistoryPage() {
                       </div>
                     </Link>
                     <button onClick={() => removeOne(h.id)} title="기록 삭제"
-                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors">
+                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </li>
@@ -220,10 +220,10 @@ export default function HistoryPage() {
 
 function DeletedItem({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <li className="rounded-2xl border border-gray-200 bg-gray-50 p-4 flex items-center justify-between">
+    <li className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4 flex items-center justify-between">
       <p className="text-sm text-gray-500">삭제된 {label}</p>
       <button onClick={onRemove}
-        className="rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">
+        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
         목록에서 빼기
       </button>
     </li>

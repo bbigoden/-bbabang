@@ -120,13 +120,13 @@ export default function SettingsAccountPage() {
   return (
     <div className="space-y-4">
       {/* 프로필 헤더 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <div className="flex items-center gap-4 pb-5 border-b border-gray-100">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <div className="flex items-center gap-4 pb-5 border-b border-gray-100 dark:border-gray-800">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600 text-xl font-bold flex-shrink-0">
             {(name || user?.email || '?')[0].toUpperCase()}
           </div>
           <div>
-            <p className="font-bold text-gray-900 text-lg">{name || '이름 없음'}</p>
+            <p className="font-bold text-gray-900 dark:text-white text-lg">{name || '이름 없음'}</p>
             <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleLabel.color}`}>{roleLabel.text}</span>
           </div>
         </div>
@@ -134,29 +134,29 @@ export default function SettingsAccountPage() {
           <div className="flex items-center gap-3 py-3">
             <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
             <span className="text-sm text-gray-500 w-20 flex-shrink-0">이메일</span>
-            <span className="text-sm text-gray-800">{user?.email}</span>
+            <span className="text-sm text-gray-800 dark:text-gray-100">{user?.email}</span>
           </div>
           <div className="flex items-center gap-3 py-3">
             <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
             <span className="text-sm text-gray-500 w-20 flex-shrink-0">가입일</span>
-            <span className="text-sm text-gray-800">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ko-KR') : '—'}</span>
+            <span className="text-sm text-gray-800 dark:text-gray-100">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ko-KR') : '—'}</span>
           </div>
         </div>
       </div>
 
       {/* 정보 수정 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="mb-4 font-bold text-gray-900 flex items-center gap-2"><User className="h-4 w-4 text-gray-400" /> 정보 수정</h2>
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <h2 className="mb-4 font-bold text-gray-900 dark:text-white flex items-center gap-2"><User className="h-4 w-4 text-gray-400" /> 정보 수정</h2>
         <div className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">이름</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">이름</label>
             <input value={name} onChange={e => setName(e.target.value)} placeholder="이름"
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">전화번호</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">전화번호</label>
             <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="010-0000-0000"
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
         </div>
         {msg && (
@@ -172,20 +172,20 @@ export default function SettingsAccountPage() {
       </div>
 
       {/* 비밀번호 변경 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="mb-4 font-bold text-gray-900 flex items-center gap-2">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <h2 className="mb-4 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Lock className="h-4 w-4 text-gray-400" /> 비밀번호 변경
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">새 비밀번호</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">새 비밀번호</label>
             <input type="password" value={pwNew} onChange={e => setPwNew(e.target.value)} placeholder="6자 이상"
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">새 비밀번호 확인</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">새 비밀번호 확인</label>
             <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} placeholder="비밀번호 재입력"
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
         </div>
         {pwMsg && (
@@ -201,8 +201,8 @@ export default function SettingsAccountPage() {
       </div>
 
       {/* 회원탈퇴 */}
-      <div className="rounded-2xl border border-red-100 bg-white p-6">
-        <h2 className="mb-1 font-bold text-gray-900 flex items-center gap-2">
+      <div className="rounded-2xl border border-red-100 bg-white dark:bg-gray-900 p-6">
+        <h2 className="mb-1 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Trash2 className="h-4 w-4 text-red-400" /> 회원탈퇴
         </h2>
         <p className="mb-4 text-sm text-gray-400">탈퇴 시 모든 데이터가 삭제되며 복구할 수 없어요.</p>
@@ -214,11 +214,11 @@ export default function SettingsAccountPage() {
 
       {showWithdraw && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mx-auto">
               <Trash2 className="h-6 w-6 text-red-500" />
             </div>
-            <h3 className="text-center text-lg font-bold text-gray-900 mb-2">정말 탈퇴하시겠어요?</h3>
+            <h3 className="text-center text-lg font-bold text-gray-900 dark:text-white mb-2">정말 탈퇴하시겠어요?</h3>
             <p className="text-center text-sm text-gray-500 mb-5">
               계정과 모든 데이터가 즉시 삭제되며<br />되돌릴 수 없어요.
             </p>
@@ -230,7 +230,7 @@ export default function SettingsAccountPage() {
             )}
             <div className="flex gap-3">
               <button onClick={() => setShowWithdraw(false)} disabled={withdrawing}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
                 취소
               </button>
               <button onClick={withdraw} disabled={withdrawing}

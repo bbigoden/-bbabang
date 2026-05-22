@@ -223,23 +223,23 @@ export default function EditPropertyPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
 
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">
-          <Link href="/broker/properties" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 transition-colors">
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          <Link href="/broker/properties" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
+            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">매물 수정</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">매물 수정</h1>
             <p className="text-sm text-gray-500">매물 정보를 수정할 수 있어요</p>
           </div>
         </div>
@@ -250,7 +250,7 @@ export default function EditPropertyPage() {
             {/* 거래 유형 */}
             <Card>
               <CardBody>
-                <p className="mb-3 text-sm font-semibold text-gray-700">거래 유형 <span className="text-red-500">*</span></p>
+                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">거래 유형 <span className="text-red-500">*</span></p>
                 <div className="flex gap-2">
                   {DEAL_TYPES.map(t => (
                     <button
@@ -273,7 +273,7 @@ export default function EditPropertyPage() {
             {/* 매물 유형 */}
             <Card>
               <CardBody>
-                <p className="mb-3 text-sm font-semibold text-gray-700">매물 유형 <span className="text-red-500">*</span></p>
+                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">매물 유형 <span className="text-red-500">*</span></p>
                 <div className="grid grid-cols-4 gap-2">
                   {ROOM_TYPES.map(t => (
                     <button
@@ -309,7 +309,7 @@ export default function EditPropertyPage() {
             {/* 가격 */}
             <Card>
               <CardBody className="space-y-3">
-                <p className="text-sm font-semibold text-gray-700">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   {dealType === '월세' ? '보증금 (만원)' : dealType === '전세' ? '전세금 (만원)' : '매매가 (만원)'}
                   <span className="text-red-500"> *</span>
                 </p>
@@ -351,7 +351,7 @@ export default function EditPropertyPage() {
             {/* 크기·층수 */}
             <Card>
               <CardBody>
-                <p className="mb-3 text-sm font-semibold text-gray-700">크기 / 층수 (선택)</p>
+                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">크기 / 층수 (선택)</p>
                 <div className="space-y-3">
                   {/* 면적 입력 + 단위/구분 토글 */}
                   <div>
@@ -365,7 +365,7 @@ export default function EditPropertyPage() {
                         className="flex-1"
                       />
                       {/* 단위 토글: 평 / m² */}
-                      <div className="flex rounded-xl border border-gray-200 overflow-hidden flex-shrink-0">
+                      <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden flex-shrink-0">
                         {(['평', 'm²'] as const).map(u => (
                           <button key={u} type="button" onClick={() => setAreaUnit(u)}
                             className={cn('px-3 py-2 text-xs font-semibold transition-colors',
@@ -376,7 +376,7 @@ export default function EditPropertyPage() {
                         ))}
                       </div>
                       {/* 전용/공급 토글 */}
-                      <div className="flex rounded-xl border border-gray-200 overflow-hidden flex-shrink-0">
+                      <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden flex-shrink-0">
                         {(['전용', '공급'] as const).map(t => (
                           <button key={t} type="button" onClick={() => setAreaType(t)}
                             className={cn('px-3 py-2 text-xs font-semibold transition-colors',
@@ -412,7 +412,7 @@ export default function EditPropertyPage() {
             {/* 옵션 */}
             <Card>
               <CardBody>
-                <p className="mb-3 text-sm font-semibold text-gray-700">옵션 (선택)</p>
+                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">옵션 (선택)</p>
                 <div className="flex flex-wrap gap-2">
                   {OPTIONS.map(opt => (
                     <button
@@ -435,13 +435,13 @@ export default function EditPropertyPage() {
             {/* 사진 */}
             <Card>
               <CardBody>
-                <p className="mb-3 text-sm font-semibold text-gray-700">
+                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
                   매물 사진 <span className="text-gray-400 font-normal">(선택 · 최대 5장)</span>
                 </p>
                 <div className="flex flex-wrap gap-3">
                   {/* 기존 이미지 */}
                   {existingImages.map((src, i) => (
-                    <div key={`existing-${i}`} className="relative h-24 w-24 rounded-xl overflow-hidden border border-gray-200">
+                    <div key={`existing-${i}`} className="relative h-24 w-24 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
                       <img src={src} alt="매물 사진" className="h-full w-full object-cover" />
                       <button
                         type="button"
@@ -466,7 +466,7 @@ export default function EditPropertyPage() {
                     </div>
                   ))}
                   {totalImageCount < 5 && (
-                    <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors">
+                    <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors">
                       <ImagePlus className="h-6 w-6 mb-1" />
                       <span className="text-xs">사진 추가</span>
                       <input
@@ -485,14 +485,14 @@ export default function EditPropertyPage() {
             {/* 설명 */}
             <Card>
               <CardBody>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">매물 설명 (선택)</label>
+                <label className="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">매물 설명 (선택)</label>
                 <textarea
                   placeholder="매물의 특징, 장점 등을 자유롭게 적어주세요&#10;예: 역세권 도보 5분, 채광 좋음, 신축"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   rows={4}
                   maxLength={2000}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                 />
               </CardBody>
             </Card>
@@ -507,13 +507,13 @@ export default function EditPropertyPage() {
                   onChange={e => setAssignee(e.target.value)}
                 />
                 <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-gray-700">간단메모</label>
+                  <label className="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-300">간단메모</label>
                   <input
                     type="text"
                     placeholder="목록에서 바로 보이는 짧은 메모"
                     value={briefMemo}
                     onChange={e => setBriefMemo(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
                 <p className="text-xs text-gray-400">🔒 고객에게 노출되지 않습니다</p>
@@ -523,7 +523,7 @@ export default function EditPropertyPage() {
             {/* 중개사 메모 */}
             <Card>
               <CardBody>
-                <label className="mb-2 block text-sm font-semibold text-gray-700">
+                <label className="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">
                   중개사 메모
                   <span className="ml-2 text-xs font-normal text-orange-500">🔒 나만 볼 수 있어요</span>
                 </label>

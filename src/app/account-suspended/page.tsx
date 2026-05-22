@@ -20,8 +20,8 @@ export default function AccountSuspendedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg text-center">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-lg text-center">
         <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full ${
           isBanned ? 'bg-red-100' : 'bg-yellow-100'
         }`}>
@@ -32,7 +32,7 @@ export default function AccountSuspendedPage() {
           )}
         </div>
 
-        <h1 className="text-xl font-bold text-gray-900 mb-2">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
           {isBanned ? '계정이 차단되었어요' : '계정이 일시 정지되었어요'}
         </h1>
 
@@ -64,10 +64,10 @@ export default function AccountSuspendedPage() {
           </a>
           <div className="flex gap-2">
             <button onClick={signOut}
-              className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
               로그아웃
             </button>
-            <Link href="/" className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+            <Link href="/" className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
               <Home className="h-3.5 w-3.5" /> 홈
             </Link>
           </div>

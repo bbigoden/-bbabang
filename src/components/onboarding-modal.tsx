@@ -58,12 +58,12 @@ export function OnboardingModal() {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center p-0 md:p-4"
       onClick={() => close()}>
-      <div className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl bg-white shadow-2xl overflow-hidden"
+      <div className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
-        <div className="relative flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
+        <div className="relative flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-3.5">
           <span className="text-xs font-bold text-gray-400">빠방 사용 가이드</span>
           <button onClick={() => close()} aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -72,7 +72,7 @@ export function OnboardingModal() {
           <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${s.color}`}>
             <Icon className="h-8 w-8" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">{s.title}</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{s.title}</h2>
           <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
         </div>
 
@@ -86,16 +86,16 @@ export function OnboardingModal() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2 border-t border-gray-100 px-5 py-4">
+        <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
           {step > 0 ? (
             <button onClick={() => setStep(s => s - 1)}
-              className="flex items-center gap-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
               <ChevronLeft className="h-4 w-4" />
               이전
             </button>
           ) : (
             <button onClick={() => close()}
-              className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
               건너뛰기
             </button>
           )}

@@ -9,7 +9,7 @@ export const metadata = { title: '고객지원' }
 
 export default function SupportPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
       <div className="mx-auto max-w-2xl px-4 py-12">
@@ -17,7 +17,7 @@ export default function SupportPage() {
           <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100">
             <MessageCircle className="h-7 w-7 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">고객지원</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">고객지원</h1>
           <p className="mt-2 text-gray-500 leading-relaxed">
             이용 중 불편한 점이나 문의사항을 알려주세요.
           </p>
@@ -37,8 +37,8 @@ export default function SupportPage() {
         </div>
 
         {/* FAQ */}
-        <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 font-bold text-gray-900">자주 묻는 질문</h2>
+        <div className="mt-10 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
+          <h2 className="mb-4 font-bold text-gray-900 dark:text-white">자주 묻는 질문</h2>
           <div className="space-y-4">
             {[
               {
@@ -58,8 +58,8 @@ export default function SupportPage() {
                 a: '네, 고객의 상세 주소 및 연락처는 매칭된 중개사에게만 공개됩니다.',
               },
             ].map(({ q, a }) => (
-              <div key={q} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                <p className="font-semibold text-gray-800 mb-1">{q}</p>
+              <div key={q} className="border-b border-gray-100 dark:border-gray-800 pb-4 last:border-0 last:pb-0">
+                <p className="font-semibold text-gray-800 dark:text-gray-100 mb-1">{q}</p>
                 <p className="text-sm text-gray-500">{a}</p>
               </div>
             ))}
@@ -67,7 +67,7 @@ export default function SupportPage() {
         </div>
 
         <div className="mt-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-300 transition-colors">
             <Home className="h-4 w-4" />
             홈으로 돌아가기
           </Link>

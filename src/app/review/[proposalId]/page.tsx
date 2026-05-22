@@ -157,12 +157,12 @@ export default function ReviewPage() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <CheckCircle className="h-8 w-8 text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">리뷰 등록 완료!</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">리뷰 등록 완료!</h2>
           <p className="text-gray-500 text-sm mb-6">{brokerName} 중개사에게 소중한 리뷰가 전달됩니다</p>
           <Button variant="primary" onClick={() => router.push('/dashboard/user')}>
             대시보드로 돌아가기
@@ -173,21 +173,21 @@ export default function ReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-lg px-4 py-12">
-        <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
+        <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
           <div className="text-center mb-8">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 text-2xl font-black">
               {brokerName[0]}
             </div>
-            <h1 className="text-xl font-bold text-gray-900">{brokerName} 중개사</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">{brokerName} 중개사</h1>
             <p className="mt-1 text-sm text-gray-500">거래는 만족스러우셨나요? 솔직한 후기를 남겨주세요</p>
           </div>
 
           {/* 별점 */}
           <div className="mb-6 text-center">
-            <p className="mb-3 text-sm font-medium text-gray-700">별점</p>
+            <p className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">별점</p>
             <div className="flex justify-center gap-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
@@ -217,7 +217,7 @@ export default function ReviewPage() {
 
           {/* 후기 */}
           <div className="mb-5">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               후기 <span className="text-gray-400 font-normal">(선택)</span>
             </label>
             <textarea
@@ -226,18 +226,18 @@ export default function ReviewPage() {
               onChange={(e) => setComment(e.target.value)}
               rows={4}
               maxLength={1000}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
             />
           </div>
 
           {/* 사진 첨부 */}
           <div className="mb-6">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               사진 첨부 <span className="text-gray-400 font-normal">(선택, 최대 {MAX_IMAGES}장)</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               {previews.map((url, i) => (
-                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
+                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 group">
                   <Image src={url} alt="" fill className="object-cover" sizes="120px" unoptimized />
                   <button type="button" onClick={() => removeFile(i)}
                     className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity">
@@ -246,7 +246,7 @@ export default function ReviewPage() {
                 </div>
               ))}
               {files.length < MAX_IMAGES && (
-                <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                   <ImagePlus className="h-5 w-5 text-gray-400" />
                   <span className="text-[10px] text-gray-500">추가</span>
                   <input type="file" accept="image/*" multiple className="hidden"

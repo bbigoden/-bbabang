@@ -83,7 +83,7 @@ export default function FavoritesPage() {
 
   if (auth.loading || !auth.user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
       </div>
     )
@@ -103,7 +103,7 @@ export default function FavoritesPage() {
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
             <Heart className="h-6 w-6 fill-pink-500 text-pink-500" />
             찜 목록
           </h1>
@@ -137,7 +137,7 @@ export default function FavoritesPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : tabFavs.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white py-20 text-center">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
             <Heart className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">
               {tab === 'broker' && '찜한 중개사가 없어요'}
@@ -160,10 +160,10 @@ export default function FavoritesPage() {
               return (
                 <li key={f.id} className="relative">
                   <Link href={`/broker/${b.id}`}
-                    className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="flex-1 min-w-0 pr-8">
                       <div className="flex items-center gap-1.5 mb-1">
-                        <h2 className="text-base font-bold text-gray-900 truncate">{b.office_name || '(상호 없음)'}</h2>
+                        <h2 className="text-base font-bold text-gray-900 dark:text-white truncate">{b.office_name || '(상호 없음)'}</h2>
                         {b.is_verified && (
                           <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
                             <ShieldCheck className="h-3 w-3" /> 인증
@@ -197,7 +197,7 @@ export default function FavoritesPage() {
                 <DeletedCard key={f.id} type="property" id={f.target_id} onUnfav={load} />
               )
               return (
-                <li key={f.id} className="relative rounded-2xl border border-gray-200 bg-white overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
+                <li key={f.id} className="relative rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
                   <Link href={`/broker/${p.broker_id}`}>
                     {p.images?.[0] && (
                       <div className="relative h-32 w-full">
@@ -207,10 +207,10 @@ export default function FavoritesPage() {
                     <div className="p-4">
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-                        {p.room_type && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{p.room_type}</span>}
+                        {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
                         {p.status !== 'available' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">{p.status === 'contracted' ? '계약완료' : '숨김'}</span>}
                       </div>
-                      <p className="font-semibold text-gray-800 text-sm truncate">{p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}</p>
+                      <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}</p>
                       <p className="text-blue-600 font-black mt-1 text-sm">
                         {!p.price ? '가격 협의'
                           : p.deal_type === '월세' ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
@@ -236,17 +236,17 @@ export default function FavoritesPage() {
               return (
                 <li key={f.id} className="relative">
                   <Link href={`/request/${r.id}`}
-                    className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="mb-2 flex items-center gap-2 pr-8">
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{r.room_type || '매물'}</span>
+                      <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">{r.room_type || '매물'}</span>
                       {r.status === 'closed' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-500">마감</span>}
                     </div>
-                    <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+                    <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
                       <MapPin className="h-3.5 w-3.5 text-gray-400" />
                       {[r.city, r.district, r.dong].filter(Boolean).join(' ') || '지역 미지정'}
                     </div>
-                    <div className="mb-3 text-sm text-gray-700">
+                    <div className="mb-3 text-sm text-gray-700 dark:text-gray-300">
                       {r.min_price != null && r.max_price != null
                         ? <>{formatPrice(r.min_price)} ~ {formatPrice(r.max_price)}</>
                         : <span className="text-gray-400">가격 미지정</span>}
@@ -286,11 +286,11 @@ function DeletedCard({ type, id, onUnfav }: { type: Tab; id: string; onUnfav: ()
   }
 
   return (
-    <li className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+    <li className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-5">
       <p className="text-sm font-semibold text-gray-500">삭제된 {label}</p>
       <p className="mt-1 text-xs text-gray-400">원본이 삭제되어 표시할 수 없어요</p>
       <button onClick={remove} disabled={removing}
-        className="mt-3 rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50">
+        className="mt-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 disabled:opacity-50">
         {removing ? '삭제 중...' : '목록에서 빼기'}
       </button>
     </li>

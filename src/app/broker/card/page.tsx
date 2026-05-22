@@ -107,7 +107,7 @@ export default function BrokerCardPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 print:bg-white dark:bg-gray-950 print-hide-bg">
+      <div className="min-h-screen bg-gray-50 print:bg-white dark:bg-gray-900 dark:bg-gray-950 print-hide-bg">
         <div className="print:hidden">
           <Header />
         </div>
@@ -115,23 +115,23 @@ export default function BrokerCardPage() {
         <div className="mx-auto max-w-3xl px-4 py-8 print:max-w-none print:p-0">
           {/* 액션 바 — 인쇄 시 숨김 */}
           <div className="mb-5 flex items-center justify-between print:hidden">
-            <Link href="/dashboard/broker" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700">
+            <Link href="/dashboard/broker" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-300">
               <ArrowLeft className="h-4 w-4" />
               대시보드
             </Link>
             <div className="flex gap-2">
               <button onClick={copyLink}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
                 {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? '복사됨' : '링크'}
               </button>
               <button onClick={share}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
                 <Share2 className="h-3.5 w-3.5" />
                 공유
               </button>
               <button onClick={downloadQr}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
                 <Download className="h-3.5 w-3.5" />
                 QR 저장
               </button>
@@ -144,14 +144,14 @@ export default function BrokerCardPage() {
           </div>
 
           {/* 명함 (대형 — 디지털 명함) */}
-          <article className="business-card relative overflow-hidden rounded-3xl border border-gray-200 bg-gradient-to-br from-white to-blue-50 shadow-xl print:shadow-none print:rounded-none print:border-0">
+          <article className="business-card relative overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-white to-blue-50 shadow-xl print:shadow-none print:rounded-none print:border-0">
             {/* 헤더 그라데이션 */}
             <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-blue-600 to-indigo-700" />
             <div className="absolute top-3 right-4 text-white/80 text-xs font-bold tracking-widest">빠방</div>
 
             <div className="relative pt-12 pb-8 px-8">
               {/* 본인 사진 자리 */}
-              <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white border-4 border-white shadow-md text-3xl font-black text-blue-600">
+              <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-2xl bg-white dark:bg-gray-900 border-4 border-white shadow-md text-3xl font-black text-blue-600">
                 {broker.profiles?.name?.[0] ?? 'B'}
               </div>
 
@@ -162,15 +162,15 @@ export default function BrokerCardPage() {
                       <ShieldCheck className="h-3 w-3" /> 인증 공인중개사
                     </span>
                   )}
-                  <h1 className="text-xl font-black text-gray-900 break-keep">{broker.office_name ?? ''}</h1>
-                  <p className="mt-0.5 text-sm text-gray-600">
-                    대표 <span className="font-bold text-gray-800">{broker.profiles?.name ?? '—'}</span>
+                  <h1 className="text-xl font-black text-gray-900 dark:text-white break-keep">{broker.office_name ?? ''}</h1>
+                  <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                    대표 <span className="font-bold text-gray-800 dark:text-gray-100">{broker.profiles?.name ?? '—'}</span>
                   </p>
                 </div>
 
                 {qrUrl && (
                   <div className="flex flex-col items-center flex-shrink-0">
-                    <img src={qrUrl} alt="빠방 프로필 QR" className="h-24 w-24 rounded-lg bg-white p-1.5 border border-gray-200" />
+                    <img src={qrUrl} alt="빠방 프로필 QR" className="h-24 w-24 rounded-lg bg-white dark:bg-gray-900 p-1.5 border border-gray-200 dark:border-gray-800" />
                     <p className="mt-1 text-[10px] text-gray-500 text-center">스캔하여<br />프로필 보기</p>
                   </div>
                 )}
@@ -179,31 +179,31 @@ export default function BrokerCardPage() {
               {/* 사무소 정보 — 연락처·이메일·소재지·등록번호·자격증 순 */}
               <div className="mt-5 space-y-1.5 text-sm">
                 {broker.profiles?.phone && (
-                  <p className="flex items-center gap-2 text-gray-700">
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <Phone className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                     <a href={`tel:${broker.profiles.phone}`} className="hover:underline">{broker.profiles.phone}</a>
                   </p>
                 )}
                 {broker.profiles?.email && (
-                  <p className="flex items-center gap-2 text-gray-700">
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <Mail className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                     <a href={`mailto:${broker.profiles.email}`} className="hover:underline break-all">{broker.profiles.email}</a>
                   </p>
                 )}
                 {broker.address && (
-                  <p className="flex items-start gap-2 text-gray-700">
+                  <p className="flex items-start gap-2 text-gray-700 dark:text-gray-300">
                     <MapPin className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
                     <span className="break-keep">{broker.address}</span>
                   </p>
                 )}
                 {broker.office_reg_number && (
-                  <p className="flex items-center gap-2 text-gray-700">
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <Building2 className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                     <span className="text-xs">등록번호 <span className="font-mono">{broker.office_reg_number}</span></span>
                   </p>
                 )}
                 {broker.license_number && (
-                  <p className="flex items-center gap-2 text-gray-700">
+                  <p className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                     <span className="text-xs">자격증 <span className="font-mono">{broker.license_number}</span></span>
                   </p>
@@ -224,7 +224,7 @@ export default function BrokerCardPage() {
 
               {/* 실적 */}
               {(broker.rating || broker.review_count || broker.deal_count) ? (
-                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-gray-200 pt-4">
+                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-gray-200 dark:border-gray-800 pt-4">
                   <div className="text-center">
                     <p className="text-lg font-black text-blue-600 flex items-center justify-center gap-0.5">
                       <Star className="h-3 w-3 fill-current" />

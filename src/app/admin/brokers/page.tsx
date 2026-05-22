@@ -229,7 +229,7 @@ export default function AdminBrokersPage() {
           </div>
         ) : offices.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <Building2 className="mx-auto mb-3 h-12 w-12 text-gray-700" />
+            <Building2 className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
             <p className="font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
           </div>
         ) : (

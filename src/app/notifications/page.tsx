@@ -114,7 +114,7 @@ export default function NotificationsPage() {
 
   if (auth.loading || (!auth.user && !auth.loading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
       </div>
     )
@@ -129,7 +129,7 @@ export default function NotificationsPage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
+            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
               <Bell className="h-6 w-6 text-blue-600" />
               알림
             </h1>
@@ -139,7 +139,7 @@ export default function NotificationsPage() {
             <button
               onClick={markAllRead}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3.5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 disabled:opacity-50 transition-colors"
             >
               <CheckCheck className="h-4 w-4" />
               {busy ? '처리 중...' : '모두 읽음'}
@@ -171,7 +171,7 @@ export default function NotificationsPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white py-20 text-center">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
             <Bell className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">
               {filter === 'unread' ? '안 읽은 알림이 없어요' : '알림이 없어요'}
@@ -180,7 +180,7 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <>
-            <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
               {items.map(n => (
                 <li key={n.id}>
                   <button
@@ -191,7 +191,7 @@ export default function NotificationsPage() {
                   >
                     <span className="mt-0.5 text-xl flex-shrink-0">{TYPE_ICON[n.type] ?? '🔔'}</span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!n.is_read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                      <p className={`text-sm ${!n.is_read ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                         {n.title}
                       </p>
                       {n.body && <p className="mt-1 text-sm text-gray-500 line-clamp-2">{n.body}</p>}
@@ -212,7 +212,7 @@ export default function NotificationsPage() {
                 <button
                   onClick={() => load(false)}
                   disabled={loadingMore}
-                  className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors"
                 >
                   {loadingMore ? '불러오는 중...' : '더 보기'}
                 </button>

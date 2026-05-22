@@ -135,7 +135,7 @@ function MultiSelectCell({
     <>
       {chips.map(v => (
         <span key={v}
-          className={`inline-flex items-center gap-1 rounded ${small ? 'px-1.5 py-0' : 'px-2 py-0.5'} text-xs font-semibold whitespace-nowrap flex-shrink-0 ${colorMap?.[v] ?? 'bg-gray-100 text-gray-600'}`}>
+          className={`inline-flex items-center gap-1 rounded ${small ? 'px-1.5 py-0' : 'px-2 py-0.5'} text-xs font-semibold whitespace-nowrap flex-shrink-0 ${colorMap?.[v] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
           {v}
           {allowRemove && (
             <button
@@ -160,7 +160,7 @@ function MultiSelectCell({
     <div className={containerCls}>
       {selected.length > 0
         ? renderChips(selected)
-        : <div className="rounded px-2 py-0.5 text-xs font-semibold bg-gray-50 text-gray-300">{placeholder || '—'}</div>
+        : <div className="rounded px-2 py-0.5 text-xs font-semibold bg-gray-50 dark:bg-gray-950 text-gray-300">{placeholder || '—'}</div>
       }
     </div>
   )
@@ -209,7 +209,7 @@ function MultiSelectCell({
                   checked ? 'text-blue-600' : 'text-gray-700'
                 }`}
               >
-                <span className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded border ${checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300 bg-white'}`}>
+                <span className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded border ${checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900'}`}>
                   {checked && <span className="text-[10px] leading-none">✓</span>}
                 </span>
                 {opt}

@@ -100,7 +100,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
@@ -110,15 +110,15 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <Link href={`/regions/${sido}`} className="hover:text-blue-600">{sidoN}</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
-          <span className="text-gray-700 font-medium">{sigunguN}</span>
+          <span className="text-gray-700 dark:text-gray-300 font-medium">{sigunguN}</span>
         </nav>
 
-        <h1 className="text-3xl font-black text-gray-900 flex items-center gap-2">
+        <h1 className="text-3xl font-black text-gray-900 dark:text-white flex items-center gap-2">
           <MapPin className="h-7 w-7 text-blue-600" />
           {sidoN} {sigunguN}
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          활성 요청 <span className="font-bold text-gray-800">{requestsArr.length}</span>건 · 관심 등록 중개사 <span className="font-bold text-gray-800">{brokerCount ?? 0}</span>명
+          활성 요청 <span className="font-bold text-gray-800 dark:text-gray-100">{requestsArr.length}</span>건 · 관심 등록 중개사 <span className="font-bold text-gray-800 dark:text-gray-100">{brokerCount ?? 0}</span>명
         </p>
 
         {/* CTA */}
@@ -144,7 +144,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         {/* 인증 중개사 */}
         {brokers && brokers.length > 0 && (
           <section className="mt-10">
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-900">
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
               <ShieldCheck className="h-5 w-5 text-blue-500" />
               {sigunguN} 인증 공인중개사
             </h2>
@@ -152,9 +152,9 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
               {brokers.map((b: any) => (
                 <li key={b.id}>
                   <Link href={`/broker/${b.id}`}
-                    className="block rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <p className="font-bold text-gray-900 truncate flex-1">{b.user_name ?? '(이름 없음)'}</p>
+                      <p className="font-bold text-gray-900 dark:text-white truncate flex-1">{b.user_name ?? '(이름 없음)'}</p>
                       <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
                     </div>
                     <p className="text-xs text-gray-500 truncate">{b.office_name}</p>
@@ -180,21 +180,21 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         {/* 인기 거래 유형 */}
         {dealTypes.length > 0 && (
           <section className="mt-10">
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-900">
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
               <TrendingUp className="h-5 w-5 text-emerald-500" />
               {sigunguN} 인기 거래 유형
             </h2>
-            <div className="rounded-2xl border border-gray-200 bg-white p-5">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
               <ul className="space-y-2.5">
                 {dealTypes.map(([dt, count]) => {
                   const pct = Math.round((count / requestsArr.length) * 100)
                   return (
                     <li key={dt}>
                       <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-semibold text-gray-700">{dt}</span>
-                        <span className="text-gray-500">{count}건 · <span className="font-bold text-gray-800">{pct}%</span></span>
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">{dt}</span>
+                        <span className="text-gray-500">{count}건 · <span className="font-bold text-gray-800 dark:text-gray-100">{pct}%</span></span>
                       </div>
-                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
                     </li>
@@ -208,16 +208,16 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         {/* 동·읍·면 카드 */}
         {dongs.length > 0 && (
           <section className="mt-10">
-            <h2 className="mb-3 text-lg font-bold text-gray-900">동·읍·면별 요청</h2>
+            <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-white">동·읍·면별 요청</h2>
             <ul className="grid gap-3 md:grid-cols-3">
               {dongs.map(([dongName, info]) => (
                 <li key={dongName}>
                   <Link
                     href={`/regions/${sido}/${sigungu}/${encodeURIComponent(dongName)}`}
-                    className="block rounded-2xl border border-gray-200 bg-white p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-base font-bold text-gray-900">{dongName}</h3>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white">{dongName}</h3>
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{info.count}건</span>
                     </div>
                     <p className="text-xs text-gray-400">최근: {new Date(info.latest).toLocaleDateString('ko-KR')}</p>
@@ -230,9 +230,9 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
 
         {/* 최근 요청 */}
         <section className="mt-10">
-          <h2 className="mb-3 text-lg font-bold text-gray-900">{sigunguN} 최근 요청</h2>
+          <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-white">{sigunguN} 최근 요청</h2>
           {requestsArr.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-400">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
               아직 이 지역에 활성 요청이 없어요.
               <Link href={`/request/new?city=${encodeURIComponent(sidoN)}&district=${encodeURIComponent(sigunguN)}`} className="text-blue-600 hover:underline ml-1">
                 첫 요청 등록하기
@@ -243,13 +243,13 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
               {requestsArr.slice(0, 12).map(r => (
                 <li key={r.id}>
                   <Link href={`/auth/login?redirect=/request/${r.id}`}
-                    className="block rounded-2xl border border-gray-200 bg-white p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{r.room_type || '매물'}</span>
+                      <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">{r.room_type || '매물'}</span>
                       {r.dong && <span className="text-xs text-gray-500">{r.dong}</span>}
                     </div>
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
                       {r.min_price != null && r.max_price != null
                         ? `${formatPrice(r.min_price)} ~ ${formatPrice(r.max_price)}`
                         : <span className="text-gray-400">가격 미지정</span>}
@@ -262,23 +262,23 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         </section>
 
         {/* FAQ */}
-        <section className="mt-12 rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900">
+        <section className="mt-12 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
             <HelpCircle className="h-5 w-5 text-gray-400" />
             {sigunguN} 부동산 FAQ
           </h2>
           <dl className="space-y-4 text-sm">
             <div>
-              <dt className="font-semibold text-gray-800">Q. {sigunguN}에서 부동산 매물 어떻게 찾나요?</dt>
+              <dt className="font-semibold text-gray-800 dark:text-gray-100">Q. {sigunguN}에서 부동산 매물 어떻게 찾나요?</dt>
               <dd className="mt-1 text-gray-500">A. 빠방에서 조건만 등록하면 인증된 공인중개사가 직접 매물을 제안해드려요. 가입·요청 등록 모두 무료입니다.</dd>
             </div>
             <div>
-              <dt className="font-semibold text-gray-800">Q. {sigunguN}에 등록된 중개사는 몇 명인가요?</dt>
+              <dt className="font-semibold text-gray-800 dark:text-gray-100">Q. {sigunguN}에 등록된 중개사는 몇 명인가요?</dt>
               <dd className="mt-1 text-gray-500">A. 현재 {brokerCount ?? 0}명이 이 지역을 담당하고 있습니다.</dd>
             </div>
             {dealTypes.length > 0 && (
               <div>
-                <dt className="font-semibold text-gray-800">Q. {sigunguN}에서 가장 많이 요청되는 거래는?</dt>
+                <dt className="font-semibold text-gray-800 dark:text-gray-100">Q. {sigunguN}에서 가장 많이 요청되는 거래는?</dt>
                 <dd className="mt-1 text-gray-500">A. {dealTypes[0][0]}({dealTypes[0][1]}건)이 가장 많이 요청됐어요.</dd>
               </div>
             )}

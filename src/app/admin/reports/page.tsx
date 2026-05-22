@@ -163,7 +163,7 @@ export default function AdminReportsPage() {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <Flag className="mx-auto mb-3 h-12 w-12 text-gray-700" />
+            <Flag className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
             <p className="font-semibold text-gray-400">조건에 맞는 항목이 없어요</p>
           </div>
         ) : (
@@ -197,7 +197,7 @@ export default function AdminReportsPage() {
                         {r.reporter?.email && <span className="ml-1">({r.reporter.email})</span>}
                       </p>
                     </div>
-                    <ChevronDown className="h-4 w-4 text-gray-600 rotate-[-90deg] flex-shrink-0 mt-1" />
+                    <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-400 rotate-[-90deg] flex-shrink-0 mt-1" />
                   </button>
                 </li>
               )

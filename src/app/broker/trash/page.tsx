@@ -88,14 +88,14 @@ export default function TrashPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <main className="mx-auto max-w-4xl px-4 py-6">
         <div className="mb-4 flex items-center gap-2">
-          <Link href="/dashboard/broker" className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 hover:bg-white">
+          <Link href="/dashboard/broker" className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 hover:bg-white dark:bg-gray-900">
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Trash2 className="h-5 w-5 text-red-500" />휴지통
           </h1>
         </div>
@@ -106,13 +106,13 @@ export default function TrashPage() {
         </div>
 
         {/* 탭 */}
-        <div className="mb-4 flex rounded-xl border border-gray-200 bg-white p-1">
+        <div className="mb-4 flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
           <button onClick={() => setTab('properties')}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === 'properties' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === 'properties' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
             <Building2 className="h-4 w-4" />매물 {props.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{props.length}</span>}
           </button>
           <button onClick={() => setTab('customers')}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === 'customers' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}>
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === 'customers' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
             <Users className="h-4 w-4" />고객 {custs.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{custs.length}</span>}
           </button>
         </div>
@@ -125,10 +125,10 @@ export default function TrashPage() {
           ) : (
             <ul className="space-y-2">
               {props.map(p => (
-                <li key={p.id} className="rounded-xl border border-gray-200 bg-white p-4 flex items-center gap-3">
+                <li key={p.id} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-3">
                   <Building2 className="h-5 w-5 text-gray-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 truncate">{p.address || '주소 없음'}</p>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{p.address || '주소 없음'}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {p.deal_type || '-'} · {p.room_type || '-'} · {p.price ? `${p.price.toLocaleString()}만` : ''}
                     </p>
@@ -152,10 +152,10 @@ export default function TrashPage() {
           ) : (
             <ul className="space-y-2">
               {custs.map(c => (
-                <li key={c.id} className="rounded-xl border border-gray-200 bg-white p-4 flex items-center gap-3">
+                <li key={c.id} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex items-center gap-3">
                   <Users className="h-5 w-5 text-gray-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-gray-900 truncate">{c.client_name || c.contact || '이름 없음'}</p>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{c.client_name || c.contact || '이름 없음'}</p>
                     <p className="text-xs text-gray-500 mt-0.5 truncate">{c.request || '-'}</p>
                     <p className="text-xs text-amber-700 mt-1">{daysLeft(c.deleted_at)}일 후 영구 삭제</p>
                   </div>
