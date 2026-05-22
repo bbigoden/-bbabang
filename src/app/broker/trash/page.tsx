@@ -35,18 +35,13 @@ export default function TrashPage() {
 
   const load = async () => {
     setLoading(true)
+    // RLS active 정책이 deleted_at IS NULL만 노출하므로 휴지통은 SECURITY DEFINER 함수로 조회
     const [{ data: p }, { data: c }] = await Promise.all([
-      supabase.from('broker_properties')
-        .select('id, broker_id, address, deal_type, room_type, price, deleted_at')
-        .not('deleted_at', 'is', null)
-        .order('deleted_at', { ascending: false }),
-      supabase.from('broker_customers')
-        .select('id, broker_id, client_name, contact, request, deleted_at')
-        .not('deleted_at', 'is', null)
-        .order('deleted_at', { ascending: false }),
+      supabase.rpc('get_trash_properties'),
+      supabase.rpc('get_trash_customers'),
     ])
-    setProps(p ?? [])
-    setCusts(c ?? [])
+    setProps((p as any[]) ?? [])
+    setCusts((c as any[]) ?? [])
     setLoading(false)
   }
 

@@ -237,11 +237,17 @@ export async function POST(req: NextRequest) {
       + (Number(row.indrMechUtcnt) || 0)
       + (Number(row.oudrMechUtcnt) || 0)
     let parkingTotal = calcParking(t)
-    // 일부 동은 세움터에 주차 정보 0으로 등록 → 단지 전체 표제부에서 max 값 사용
+    // 일부 단지는 동별 표제부에 주차 정보 없음 → 단지 전체 표제부 max → 총괄표제부 순으로 fallback
     if (parkingTotal === 0 && dongFilter) {
       const allTitles = await callSeum('getBrTitleInfo', { ...addr, regstrKindCd: '4' })
       const allMax = allTitles.reduce((m, row) => Math.max(m, calcParking(row)), 0)
       if (allMax > 0) parkingTotal = allMax
+    }
+    if (parkingTotal === 0) {
+      // 아파트 단지는 총괄표제부에 단지 전체 주차(실내+옥외) 들어있음
+      const recap = await callSeum('getBrRecapTitleInfo', addr)
+      const recapMax = recap.reduce((m, row) => Math.max(m, calcParking(row)), 0)
+      if (recapMax > 0) parkingTotal = recapMax
     }
     const mainPurps = String(t.mainPurpsCdNm ?? '')
     const buildingName = String(t.bldNm ?? '').trim() || null
