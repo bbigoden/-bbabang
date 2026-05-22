@@ -231,11 +231,18 @@ export async function POST(req: NextRequest) {
     const t = (dongFilter ? title.find(x => String(x.dongNm ?? '') === dongFilter) : null) ?? title[0]
     const totalFloors = Number(t.grndFlrCnt) || null
     const approvalDate = formatDate(t.useAprDay)
-    const parkingTotal =
-      (Number(t.indrAutoUtcnt) || 0) +
-      (Number(t.oudrAutoUtcnt) || 0) +
-      (Number(t.indrMechUtcnt) || 0) +
-      (Number(t.oudrMechUtcnt) || 0)
+    const calcParking = (row: SeumItem) =>
+      (Number(row.indrAutoUtcnt) || 0)
+      + (Number(row.oudrAutoUtcnt) || 0)
+      + (Number(row.indrMechUtcnt) || 0)
+      + (Number(row.oudrMechUtcnt) || 0)
+    let parkingTotal = calcParking(t)
+    // 일부 동은 세움터에 주차 정보 0으로 등록 → 단지 전체 표제부에서 max 값 사용
+    if (parkingTotal === 0 && dongFilter) {
+      const allTitles = await callSeum('getBrTitleInfo', { ...addr, regstrKindCd: '4' })
+      const allMax = allTitles.reduce((m, row) => Math.max(m, calcParking(row)), 0)
+      if (allMax > 0) parkingTotal = allMax
+    }
     const mainPurps = String(t.mainPurpsCdNm ?? '')
     const buildingName = String(t.bldNm ?? '').trim() || null
 
