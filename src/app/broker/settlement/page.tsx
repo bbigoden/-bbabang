@@ -177,7 +177,7 @@ export default function SettlementPage() {
 
   // 정산 데이터 로드 — 월별 분류 기준은 '수수료 입금일'(payment_month)
   // 계약일이 12월이고 입금이 1월이면 1월에 잡힘. 정산 처리 월은 그 다음 달.
-  // 월 필터 기준은 '정산월(record_month)' — 사용자가 수동 분류
+  // 월 필터 기준은 '기록월(record_month)' — 사용자가 수동 분류 (계약일·입금일 무관)
   const loadRows = useCallback(async () => {
     if (!officeId) return
     setLoading(true)
@@ -279,7 +279,7 @@ export default function SettlementPage() {
       : Number(meBroker.default_settlement_rate ?? 0.5)
     const exempt = !!meBroker.withhold_exempt
 
-    // 정산월: 전체 모드면 오늘 기준, 월 모드면 보고 있는 월
+    // 기록월: 전체 모드면 오늘 기준, 월 모드면 보고 있는 월
     const recordMonth = allMode ? yyyymm(today) : month
 
     const { data, error } = await supabase
@@ -494,6 +494,7 @@ export default function SettlementPage() {
               <CardBody className="p-4">
                 <p className="text-[11px] font-medium text-gray-500">담당자 수수료 합</p>
                 <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.assigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
+                <p className="mt-0.5 text-[10px] text-gray-400">원천 {fmtComma(summary.assigneeSum - summary.takeHomeSum)}원 · 실수령 {fmtComma(summary.takeHomeSum)}원</p>
               </CardBody>
             </Card>
             <Card>
@@ -541,7 +542,16 @@ export default function SettlementPage() {
 
                   return (
                     <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/20">
-                      <td className="px-2 py-1 font-mono text-gray-500">{r.contract_no}</td>
+                      <td className="px-1 py-1">
+                        <TextCell
+                          value={String(r.contract_no)}
+                          readOnly={!canEditMoney}
+                          onSave={v => {
+                            const n = parseInt(v, 10)
+                            if (!isNaN(n) && n !== r.contract_no) updateRow(r.id, { contract_no: n })
+                          }}
+                        />
+                      </td>
                       <td className="px-1 py-1">
                         <DateCell value={r.contract_date} onSave={v => updateRow(r.id, { contract_date: v })} />
                       </td>
