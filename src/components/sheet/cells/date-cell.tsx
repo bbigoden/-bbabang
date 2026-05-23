@@ -33,8 +33,16 @@ export function DateCell({
   const inputRef = useRef<HTMLInputElement>(null)
   const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
 
+  // 6자리(YYMMDD) / 8자리(YYYYMMDD) 숫자 입력을 ISO(YYYY-MM-DD)로 정규화
+  const normalize = (raw: string): string => {
+    const t = raw.trim()
+    if (/^\d{6}$/.test(t)) return `20${t.slice(0, 2)}-${t.slice(2, 4)}-${t.slice(4, 6)}`
+    if (/^\d{8}$/.test(t)) return `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}`
+    return t
+  }
   const commit = () => {
-    if (draft && draft !== (value ?? '')) onSave(draft)
+    const v = normalize(draft)
+    if (v && v !== (value ?? '')) onSave(v)
     setOpen(false)
   }
 
