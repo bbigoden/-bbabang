@@ -194,7 +194,6 @@ export default function SettlementPage() {
       q = q.gte('contract_date', start).lte('contract_date', end)
     }
     const { data } = await q
-      .order('contract_date', { ascending: true, nullsFirst: false })
       .order('contract_no', { ascending: true })
     setRows((data ?? []) as Settlement[])
     setLoading(false)
