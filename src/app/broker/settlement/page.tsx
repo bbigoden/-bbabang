@@ -146,6 +146,7 @@ export default function SettlementPage() {
   const [meBroker, setMeBroker] = useState<Member | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [month, setMonth] = useState(() => yyyymm(new Date()))
+  const [allMode, setAllMode] = useState(false)
   const [rows, setRows] = useState<Settlement[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -183,18 +184,20 @@ export default function SettlementPage() {
   const loadRows = useCallback(async () => {
     if (!officeId) return
     setLoading(true)
-    const { start, end } = monthBounds(month)
-    const { data } = await supabase
+    let q = supabase
       .from('settlements')
       .select('*')
       .eq('office_broker_id', officeId)
-      .gte('contract_date', start)
-      .lte('contract_date', end)
+    if (!allMode) {
+      const { start, end } = monthBounds(month)
+      q = q.gte('contract_date', start).lte('contract_date', end)
+    }
+    const { data } = await q
       .order('contract_date', { ascending: true, nullsFirst: false })
       .order('contract_no', { ascending: true })
     setRows((data ?? []) as Settlement[])
     setLoading(false)
-  }, [officeId, month, supabase])
+  }, [officeId, month, allMode, supabase])
 
   useEffect(() => { loadMeta() }, [loadMeta])
   useEffect(() => { loadRows() }, [loadRows])
@@ -383,7 +386,7 @@ export default function SettlementPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${mode === 'employee' ? '직원정산' : '사무소정산'}_${month}.csv`
+    a.download = `${mode === 'employee' ? '직원정산' : '사무소정산'}_${allMode ? '전체' : month}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -427,17 +430,28 @@ export default function SettlementPage() {
         {/* 월 네비 + 액션 */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <button onClick={() => moveMonth(-1)} className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
+            <button onClick={() => { setAllMode(false); moveMonth(-1) }} disabled={allMode}
+              className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[8rem] text-center text-base font-bold text-gray-900 dark:text-white">
-              {month.split('-')[0]}년 {month.split('-')[1]}월
+            <span className={`min-w-[8rem] text-center text-base font-bold ${allMode ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+              {allMode ? '전체 보기' : `${month.split('-')[0]}년 ${month.split('-')[1]}월`}
             </span>
-            <button onClick={() => moveMonth(1)} className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
+            <button onClick={() => { setAllMode(false); moveMonth(1) }} disabled={allMode}
+              className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronRight className="h-4 w-4" />
             </button>
-            <button onClick={() => setMonth(yyyymm(new Date()))} className="ml-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+            <button onClick={() => { setAllMode(false); setMonth(yyyymm(new Date())) }}
+              className={`ml-1 rounded-lg border px-3 py-1.5 text-xs font-semibold ${!allMode && month === yyyymm(new Date())
+                ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}>
               이번 달
+            </button>
+            <button onClick={() => setAllMode(true)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${allMode
+                ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}>
+              전체
             </button>
           </div>
           <div className="flex items-center gap-2">
