@@ -32,8 +32,6 @@ interface Settlement {
   seller_payment_date: string | null
   buyer_payment_date: string | null
   record_month: string | null
-  is_settled: boolean
-  settled_at: string | null
   withhold_exempt: boolean
   memo: string | null
   created_by: string | null
@@ -175,8 +173,6 @@ export default function SettlementPage() {
     setMembers((mems ?? []).filter((m: any) => m.is_owner || m.is_approved) as any)
   }, [auth.user, supabase])
 
-  // 정산 데이터 로드 — 월별 분류 기준은 '수수료 입금일'(payment_month)
-  // 계약일이 12월이고 입금이 1월이면 1월에 잡힘. 정산 처리 월은 그 다음 달.
   // 월 필터 기준은 '기록월(record_month)' — 사용자가 수동 분류 (계약일·입금일 무관)
   const loadRows = useCallback(async () => {
     if (!officeId) return
@@ -263,24 +259,12 @@ export default function SettlementPage() {
     if (error) { alert('저장 실패: ' + error.message); loadRows() }
   }
 
-  // 새 빈 행 추가 — 시트 상단에 노출
+  // 새 빈 행 추가 — 보고 있는 월(전체면 오늘)로 record_month 자동
   const addNewRow = async () => {
     if (!officeId || !meBroker) return
     const { data: nextNoData } = await supabase.rpc('next_settlement_no', { p_office: officeId })
     const nextNo = (nextNoData as number) ?? 1
-    const today = new Date()
-    const dateInMonth = month === yyyymm(today)
-      ? today.toISOString().slice(0, 10)
-      : `${month}-01`
-
-    // 직원이 만들면 본인 할당, 대표면 일단 본인 (다른 사람으로 바꿀 수 있게)
-    const rate = isOwner
-      ? Number(meBroker.default_settlement_rate ?? 0.5)
-      : Number(meBroker.default_settlement_rate ?? 0.5)
-    const exempt = !!meBroker.withhold_exempt
-
-    // 기록월: 전체 모드면 오늘 기준, 월 모드면 보고 있는 월
-    const recordMonth = allMode ? yyyymm(today) : month
+    const recordMonth = allMode ? yyyymm(new Date()) : month
 
     const { data, error } = await supabase
       .from('settlements')
@@ -289,13 +273,11 @@ export default function SettlementPage() {
         assignee_broker_id: meBroker.id,
         assignee_name: meBroker.profiles?.name ?? null,
         contract_no: nextNo,
-        contract_date: dateInMonth,
         record_month: recordMonth,
-        settlement_rate: rate,
-        withhold_exempt: exempt,
+        settlement_rate: Number(meBroker.default_settlement_rate ?? 0.5),
+        withhold_exempt: !!meBroker.is_owner,
         seller_fee: 0,
         buyer_fee: 0,
-        is_settled: false,
         created_by: meBroker.id,
       })
       .select('*')
@@ -326,7 +308,6 @@ export default function SettlementPage() {
         seller_payment_date: r.seller_payment_date,
         buyer_payment_date: r.buyer_payment_date,
         record_month: r.record_month,
-        is_settled: false,
         withhold_exempt: r.withhold_exempt,
         memo: r.memo,
         created_by: meBroker.id,
@@ -348,7 +329,7 @@ export default function SettlementPage() {
   const downloadCsv = (mode: 'employee' | 'office') => {
     const head = mode === 'employee'
       ? ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','매도입금일','매수입금일']
-      : ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','지점수익','매도입금일','매수입금일','정산일']
+      : ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','지점수익','매도입금일','매수입금일']
 
     const lines: string[] = [head.join(',')]
     for (const r of visibleRows) {
@@ -378,7 +359,7 @@ export default function SettlementPage() {
         c.assignee,
         c.takeHome,
       ]
-      if (mode === 'office') row.push(officeShareForRow, r.seller_payment_date ?? '', r.buyer_payment_date ?? '', r.settled_at ?? (r.is_settled ? 'O' : ''))
+      if (mode === 'office') row.push(officeShareForRow, r.seller_payment_date ?? '', r.buyer_payment_date ?? '')
       else row.push(r.seller_payment_date ?? '', r.buyer_payment_date ?? '')
       lines.push(row.join(','))
     }
@@ -528,7 +509,7 @@ export default function SettlementPage() {
                   {isOwner && <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>지점수익</th>}
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매도입금일</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매수입금일</th>
-                  <SheetActionHeader width={56}>{null}</SheetActionHeader>
+                  <SheetActionHeader>{null}</SheetActionHeader>
                 </tr>
               </thead>
               <tbody>
@@ -536,7 +517,6 @@ export default function SettlementPage() {
                   const c = calcSettlement(r)
                   const group = groupedRows.get(r.contract_no) ?? []
                   const isFirstInGroup = group[0]?.id === r.id
-                  const isCoBroker = group.length > 1
                   const officeShareForRow = isFirstInGroup ? calcOfficeShare(group as SettlementRow[]) : null
                   const canEditMoney = isOwner || r.assignee_broker_id === meBroker?.id
 
@@ -574,7 +554,7 @@ export default function SettlementPage() {
                             updateRow(r.id, {
                               assignee_name: name,
                               assignee_broker_id: m?.id ?? null,
-                              withhold_exempt: !!m?.withhold_exempt,
+                              withhold_exempt: !!m?.is_owner,
                             })
                           }}
                         />
