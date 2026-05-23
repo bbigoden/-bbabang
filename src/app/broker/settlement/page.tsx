@@ -194,6 +194,7 @@ export default function SettlementPage() {
   const [members, setMembers] = useState<Member[]>([])
   const [month, setMonth] = useState(() => yyyymm(new Date()))
   const [allMode, setAllMode] = useState(false)
+  const [filterAssigneeId, setFilterAssigneeId] = useState<string>('') // 빈문자열=전체, broker_id=특정 직원
   const [rows, setRows] = useState<Settlement[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -247,12 +248,19 @@ export default function SettlementPage() {
   useEffect(() => { loadMeta() }, [loadMeta])
   useEffect(() => { loadRows() }, [loadRows])
 
-  // 내 행만 보는 직원 / 대표는 전체
+  // 직원: 본인 행만. 대표: 전체 (또는 선택한 직원).
   const visibleRows = useMemo(() => {
-    if (isOwner) return rows
-    if (!meBroker) return []
-    return rows.filter(r => r.assignee_broker_id === meBroker.id)
-  }, [rows, isOwner, meBroker])
+    let base: Settlement[]
+    if (isOwner) {
+      base = filterAssigneeId
+        ? rows.filter(r => r.assignee_broker_id === filterAssigneeId)
+        : rows
+    } else {
+      if (!meBroker) return []
+      base = rows.filter(r => r.assignee_broker_id === meBroker.id)
+    }
+    return base
+  }, [rows, isOwner, meBroker, filterAssigneeId])
 
   // 같은 contract_no 그룹 — 공동중개 시 지점수익 계산용 (사무소 전체 기준)
   const groupedRows = useMemo(() => {
@@ -469,6 +477,20 @@ export default function SettlementPage() {
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}>
               전체
             </button>
+            {isOwner && (
+              <select
+                value={filterAssigneeId}
+                onChange={e => setFilterAssigneeId(e.target.value)}
+                className={`ml-2 rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${filterAssigneeId
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}
+              >
+                <option value="">전체 직원</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.profiles?.name ?? '이름 없음'}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => downloadCsv('employee')} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
