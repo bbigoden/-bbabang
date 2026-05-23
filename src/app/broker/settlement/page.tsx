@@ -31,7 +31,6 @@ interface Settlement {
   buyer_fee: number
   seller_payment_date: string | null
   buyer_payment_date: string | null
-  payment_month: string | null
   is_settled: boolean
   settled_at: string | null
   withhold_exempt: boolean
@@ -50,6 +49,12 @@ interface Member {
 }
 
 const yyyymm = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+const monthBounds = (ym: string) => {
+  const [y, m] = ym.split('-').map(Number)
+  const start = `${y}-${String(m).padStart(2, '0')}-01`
+  const end = new Date(y, m, 0)
+  return { start, end: `${y}-${String(m).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}` }
+}
 
 // ── 인라인 숫자 셀 (정산 전용 — 원 단위, 콤마 표시) ─────────
 function MoneyCell({ value, onSave, readOnly, accent }: {
@@ -185,9 +190,11 @@ export default function SettlementPage() {
       .select('*')
       .eq('office_broker_id', officeId)
     if (!allMode) {
-      q = q.eq('payment_month', month)
+      const { start, end } = monthBounds(month)
+      q = q.gte('contract_date', start).lte('contract_date', end)
     }
     const { data } = await q
+      .order('contract_date', { ascending: true, nullsFirst: false })
       .order('contract_no', { ascending: true })
     setRows((data ?? []) as Settlement[])
     setLoading(false)
