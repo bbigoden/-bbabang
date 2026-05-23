@@ -605,8 +605,8 @@ export default function SettlementPage() {
                           }}
                         />
                       </td>
-                      <td className="px-1 py-1"><MoneyCell value={c.assignee} readOnly accent="blue" /></td>
-                      <td className="px-1 py-1"><MoneyCell value={c.takeHome} readOnly accent="emerald" /></td>
+                      <td className="px-1 py-1"><MoneyCell value={c.assignee} readOnly /></td>
+                      <td className="px-1 py-1"><MoneyCell value={c.takeHome} readOnly accent="blue" /></td>
                       {isOwner && (
                         <td className="px-1 py-1">
                           <MoneyCell value={officeShareForRow} readOnly accent="emerald" />
@@ -652,7 +652,7 @@ export default function SettlementPage() {
                     <td colSpan={12} className="px-2 py-2 text-right text-[11px] text-gray-600 dark:text-gray-300">
                       총 {summary.count}건 · 실수령 합계
                     </td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-emerald-700">
+                    <td className="px-2 py-2 text-right text-xs font-mono text-blue-700">
                       {fmtComma(isOwner ? summary.takeHomeSum : summary.myTakeHomeSum)}
                     </td>
                     <td colSpan={isOwner ? 4 : 3} />
