@@ -6,9 +6,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
-import { Card, CardBody } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, Plus, Download, Calculator,
+  ArrowLeft, ChevronLeft, ChevronRight, Plus, Download,
 } from 'lucide-react'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
@@ -452,55 +452,6 @@ export default function SettlementPage() {
           </div>
         </div>
 
-        {/* 요약 카드 */}
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Card>
-            <CardBody className="p-4">
-              <p className="text-[11px] font-medium text-gray-500">이번 달 총수수료</p>
-              <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.totalFee)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-              <p className="mt-0.5 text-[10px] text-gray-400">VAT 포함</p>
-            </CardBody>
-          </Card>
-          <Card>
-            <CardBody className="p-4">
-              <p className="text-[11px] font-medium text-gray-500">공급가 (VAT 별도)</p>
-              <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.supplySum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-              <p className="mt-0.5 text-[10px] text-gray-400">VAT {fmtComma(summary.totalFee - summary.supplySum)}원</p>
-            </CardBody>
-          </Card>
-          {isOwner ? (
-            <>
-              <Card>
-                <CardBody className="p-4">
-                  <p className="text-[11px] font-medium text-gray-500">담당자 수수료 합</p>
-                  <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.assigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <p className="text-[11px] font-medium text-gray-500">사무소 수익</p>
-                  <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-                </CardBody>
-              </Card>
-            </>
-          ) : (
-            <>
-              <Card>
-                <CardBody className="p-4">
-                  <p className="text-[11px] font-medium text-gray-500">내 담당자 수수료</p>
-                  <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.myAssigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-                </CardBody>
-              </Card>
-              <Card>
-                <CardBody className="p-4">
-                  <p className="text-[11px] font-medium text-gray-500">내 실수령 (원천후)</p>
-                  <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.myTakeHomeSum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-                </CardBody>
-              </Card>
-            </>
-          )}
-        </div>
-
         {/* 시트형 표 */}
         <Card>
           <div className="overflow-x-auto">
@@ -537,9 +488,7 @@ export default function SettlementPage() {
 
                   return (
                     <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/20">
-                      <td className="px-2 py-1 font-mono text-gray-500">
-                        {r.contract_no}{isCoBroker && <span className="ml-0.5 text-[10px] text-purple-500" title="공동중개">*</span>}
-                      </td>
+                      <td className="px-2 py-1 font-mono text-gray-500">{r.contract_no}</td>
                       <td className="px-1 py-1">
                         <DateCell value={r.contract_date} onSave={v => updateRow(r.id, { contract_date: v })} />
                       </td>
@@ -602,11 +551,24 @@ export default function SettlementPage() {
                       <SheetActionCell
                         canEdit={canEditMoney}
                         onCopy={() => copyRow(r)}
-                        onDelete={isOwner ? () => deleteRow(r) : undefined}
+                        onDelete={() => deleteRow(r)}
                       />
                     </tr>
                   )
                 })}
+                {visibleRows.length > 0 && (
+                  <tr className="border-t-2 border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/60 font-bold">
+                    <td colSpan={7} className="px-2 py-2 text-right text-[11px] text-gray-600 dark:text-gray-300">합계</td>
+                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-700">{fmtComma(visibleRows.reduce((s, r) => s + (r.seller_fee || 0), 0))}</td>
+                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-700">{fmtComma(visibleRows.reduce((s, r) => s + (r.buyer_fee || 0), 0))}</td>
+                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-900">{fmtComma(summary.totalFee)}</td>
+                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-700">{fmtComma(summary.supplySum)}</td>
+                    <td className="px-2 py-2 text-right text-xs font-mono text-blue-700">{fmtComma(isOwner ? summary.assigneeSum : summary.myAssigneeSum)}</td>
+                    <td className="px-2 py-2 text-right text-xs font-mono text-emerald-700">{fmtComma(isOwner ? summary.takeHomeSum : summary.myTakeHomeSum)}</td>
+                    {isOwner && <td className="px-2 py-2 text-right text-xs font-mono text-emerald-700">{fmtComma(summary.officeShare)}</td>}
+                    <td colSpan={3} />
+                  </tr>
+                )}
                 <tr>
                   <td colSpan={isOwner ? 17 : 16} className="border-t border-gray-100 dark:border-gray-800">
                     <button onClick={addNewRow}
@@ -618,20 +580,7 @@ export default function SettlementPage() {
               </tbody>
             </table>
           </div>
-          {visibleRows.length > 0 && (
-            <div className="border-t border-gray-100 px-4 py-3 text-[11px] text-gray-500 dark:border-gray-800">
-              총 {summary.count}건 ·
-              <span className="ml-2 text-purple-500">*</span> = 공동중개
-              {isOwner && visibleRows.some(r => (groupedRows.get(r.contract_no)?.length ?? 0) === 1) && (
-                <span className="ml-3 text-gray-400">• 행 복사 후 담당자 바꾸면 공동중개 분할 가능</span>
-              )}
-            </div>
-          )}
         </Card>
-
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-gray-400">
-          <Calculator className="h-3 w-3" /> 셀을 클릭해서 바로 수정하세요. 공급가·VAT·담당자수수료·실수령·지점수익은 자동 계산됩니다.
-        </p>
       </div>
     </div>
   )
