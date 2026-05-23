@@ -558,15 +558,13 @@ export default function SettlementPage() {
                 })}
                 {visibleRows.length > 0 && (
                   <tr className="border-t-2 border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/60 font-bold">
-                    <td colSpan={7} className="px-2 py-2 text-right text-[11px] text-gray-600 dark:text-gray-300">합계</td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-700">{fmtComma(visibleRows.reduce((s, r) => s + (r.seller_fee || 0), 0))}</td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-700">{fmtComma(visibleRows.reduce((s, r) => s + (r.buyer_fee || 0), 0))}</td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-900">{fmtComma(summary.totalFee)}</td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-gray-700">{fmtComma(summary.supplySum)}</td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-blue-700">{fmtComma(isOwner ? summary.assigneeSum : summary.myAssigneeSum)}</td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-emerald-700">{fmtComma(isOwner ? summary.takeHomeSum : summary.myTakeHomeSum)}</td>
-                    {isOwner && <td className="px-2 py-2 text-right text-xs font-mono text-emerald-700">{fmtComma(summary.officeShare)}</td>}
-                    <td colSpan={3} />
+                    <td colSpan={12} className="px-2 py-2 text-right text-[11px] text-gray-600 dark:text-gray-300">
+                      총 {summary.count}건 · 실수령 합계
+                    </td>
+                    <td className="px-2 py-2 text-right text-xs font-mono text-emerald-700">
+                      {fmtComma(isOwner ? summary.takeHomeSum : summary.myTakeHomeSum)}
+                    </td>
+                    <td colSpan={isOwner ? 4 : 3} />
                   </tr>
                 )}
                 <tr>
