@@ -16,28 +16,35 @@ const floorTo10 = (n: number) => Math.floor(n / 10) * 10
 
 /** 한 행의 자동 계산 */
 export interface SettlementInput {
-  seller_fee: number          // 매도/임대 수수료 (VAT 포함)
-  buyer_fee:  number          // 매수/임차 수수료 (VAT 포함)
-  settlement_rate: number     // 정산비 (예: 0.55)
-  withhold_exempt?: boolean   // 원천 면제 여부
+  seller_fee: number                  // 매도/임대 수수료 (기본: VAT 포함)
+  buyer_fee:  number                  // 매수/임차 수수료 (기본: VAT 포함)
+  settlement_rate: number             // 정산비 (예: 0.55)
+  withhold_exempt?: boolean           // 원천 면제 여부
+  vat_override?: number | null        // VAT 수동값. null/undefined면 total/11 자동. 0이면 현금(VAT 없음) 케이스
 }
 
 export interface SettlementCalc {
   total:    number   // 총수수료 (= H + I)
-  supply:   number   // 공급가  (= total / 1.1)
-  vat:      number   // VAT     (= total - supply)
+  supply:   number   // 공급가  (자동: total / 1.1, 수동: total - vat_override)
+  vat:      number   // VAT     (자동: total - supply, 수동: vat_override)
   assignee: number   // 담당자수수료 (= supply × rate)
   withhold: number   // 원천공제 (3.3%, 10원 단위 절사)
   takeHome: number   // 실수령액 (= assignee - withhold)
 }
 
 export function calcSettlement(input: SettlementInput): SettlementCalc {
-  const total    = Math.max(0, Math.round((input.seller_fee || 0) + (input.buyer_fee || 0)))
-  const supply   = Math.round(total / 1.1)
-  const vat      = total - supply
+  const total = Math.max(0, Math.round((input.seller_fee || 0) + (input.buyer_fee || 0)))
+  let supply: number, vat: number
+  if (input.vat_override != null) {
+    vat = Math.max(0, Math.round(input.vat_override))
+    supply = total - vat
+  } else {
+    supply = Math.round(total / 1.1)
+    vat = total - supply
+  }
   const assignee = Math.round(supply * (input.settlement_rate || 0))
-  const incomeTax    = floorTo10(assignee * 0.03)
-  const localTax     = floorTo10(assignee * 0.003)
+  const incomeTax = floorTo10(assignee * 0.03)
+  const localTax  = floorTo10(assignee * 0.003)
   const withhold = input.withhold_exempt ? 0 : (incomeTax + localTax)
   const takeHome = assignee - withhold
   return { total, supply, vat, assignee, withhold, takeHome }

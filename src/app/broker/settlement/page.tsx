@@ -29,6 +29,7 @@ interface Settlement {
   settlement_rate: number
   seller_fee: number
   buyer_fee: number
+  vat_override: number | null
   seller_payment_date: string | null
   buyer_payment_date: string | null
   record_month: string | null
@@ -93,6 +94,59 @@ function MoneyCell({ value, onSave, readOnly, accent }: {
     <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
       className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] ${value ? colorCls : 'text-gray-300'}`}>
       {value != null && value !== 0 ? value.toLocaleString() : '0'}
+    </div>
+  )
+}
+
+// ── 공급가 셀 — 자동(빈값)/수동(숫자) 토글
+// 수동 입력 시 vat_override = total − 공급가 로 역산 저장.
+// 빈 칸으로 만들면 자동(total/1.1)으로 복귀.
+function SupplyCell({ supply, isManual, readOnly, onSave }: {
+  supply: number
+  isManual: boolean
+  readOnly?: boolean
+  onSave: (newSupply: number | null) => void   // null = 자동
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(supply))
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    const t = draft.trim()
+    if (t === '') { if (isManual) onSave(null); return }
+    const num = Number(t)
+    if (!isNaN(num) && num !== supply) onSave(Math.max(0, Math.round(num)))
+  }
+
+  if (readOnly) {
+    return (
+      <div className={`w-full px-1 py-0.5 text-xs text-right font-mono min-h-[22px] ${isManual ? 'text-blue-700 font-semibold' : 'text-gray-700'}`}>
+        {supply ? supply.toLocaleString() : '0'}
+      </div>
+    )
+  }
+
+  if (editing) {
+    return (
+      <input ref={inputRef} type="number" value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(String(supply)); setEditing(false) } }}
+        placeholder="빈 값 = 자동"
+        className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-1 py-0.5 text-xs text-right font-mono outline-none focus:ring-2 focus:ring-blue-300"
+      />
+    )
+  }
+  return (
+    <div
+      onClick={() => { setDraft(String(supply)); setEditing(true) }}
+      title={isManual ? '수동 입력 (현금/VAT 0). 빈 칸으로 만들면 자동(총수수료÷1.1) 복귀' : '자동 계산. 클릭해서 직접 입력 가능 (현금 케이스)'}
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] ${isManual ? 'text-blue-700 font-semibold' : 'text-gray-700'}`}
+    >
+      {supply ? supply.toLocaleString() : '0'}
+      {isManual && <span className="ml-0.5 text-[9px] text-blue-500">●</span>}
     </div>
   )
 }
@@ -307,6 +361,7 @@ export default function SettlementPage() {
         buyer_fee: r.buyer_fee,
         seller_payment_date: r.seller_payment_date,
         buyer_payment_date: r.buyer_payment_date,
+        vat_override: r.vat_override,
         record_month: r.record_month,
         withhold_exempt: r.withhold_exempt,
         memo: r.memo,
@@ -569,7 +624,17 @@ export default function SettlementPage() {
                         <MoneyCell value={r.buyer_fee} readOnly={!canEditMoney} onSave={v => updateRow(r.id, { buyer_fee: v })} />
                       </td>
                       <td className="px-1 py-1"><MoneyCell value={c.total} readOnly /></td>
-                      <td className="px-1 py-1"><MoneyCell value={c.supply} readOnly /></td>
+                      <td className="px-1 py-1">
+                        <SupplyCell
+                          supply={c.supply}
+                          isManual={r.vat_override != null}
+                          readOnly={!canEditMoney}
+                          onSave={newSupply => {
+                            if (newSupply == null) updateRow(r.id, { vat_override: null })
+                            else updateRow(r.id, { vat_override: Math.max(0, c.total - newSupply) })
+                          }}
+                        />
+                      </td>
                       <td className="px-1 py-1"><MoneyCell value={c.assignee} readOnly accent="blue" /></td>
                       <td className="px-1 py-1"><MoneyCell value={c.takeHome} readOnly accent="emerald" /></td>
                       {isOwner && (
