@@ -8,12 +8,12 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, Plus, Download,
+  ArrowLeft, ChevronLeft, ChevronRight, Plus, Download, Trash2,
 } from 'lucide-react'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
-import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
+import { SheetActionHeader } from '@/components/sheet/action-cell'
 import { calcSettlement, calcOfficeShare, fmtComma, type SettlementRow } from '@/lib/settlement'
 
 interface Settlement {
@@ -346,39 +346,6 @@ export default function SettlementPage() {
     setRows(prev => [...prev, data as Settlement].sort((a, b) => a.contract_no - b.contract_no))
   }
 
-  // 행 복사 — 같은 내용을 새 NO로 복제 (담당자만 바꾸면 공동중개 분할)
-  const copyRow = async (r: Settlement) => {
-    if (!officeId || !meBroker) return
-    const { data: nextNoData } = await supabase.rpc('next_settlement_no', { p_office: officeId })
-    const nextNo = (nextNoData as number) ?? 1
-    const { data, error } = await supabase
-      .from('settlements')
-      .insert({
-        office_broker_id: officeId,
-        assignee_broker_id: r.assignee_broker_id,
-        assignee_name: r.assignee_name,
-        contract_no: nextNo,
-        contract_date: r.contract_date,
-        contract_address: r.contract_address,
-        seller: r.seller,
-        buyer: r.buyer,
-        settlement_rate: r.settlement_rate,
-        seller_fee: r.seller_fee,
-        buyer_fee: r.buyer_fee,
-        seller_payment_date: r.seller_payment_date,
-        buyer_payment_date: r.buyer_payment_date,
-        vat_override: r.vat_override,
-        record_month: r.record_month,
-        withhold_exempt: r.withhold_exempt,
-        memo: r.memo,
-        created_by: meBroker.id,
-      })
-      .select('*')
-      .single()
-    if (error) { alert('복사 실패: ' + error.message); return }
-    setRows(prev => [...prev, data as Settlement].sort((a, b) => a.contract_no - b.contract_no))
-  }
-
   const deleteRow = async (r: Settlement) => {
     if (!confirm(`#${r.contract_no} ${r.contract_address ?? ''} 삭제할까요?`)) return
     const { error } = await supabase.from('settlements').delete().eq('id', r.id)
@@ -570,7 +537,7 @@ export default function SettlementPage() {
                   {isOwner && <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>지점수익</th>}
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매도입금일</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매수입금일</th>
-                  <SheetActionHeader>{null}</SheetActionHeader>
+                  <SheetActionHeader width={140}>{null}</SheetActionHeader>
                 </tr>
               </thead>
               <tbody>
@@ -662,11 +629,24 @@ export default function SettlementPage() {
                           onSave={v => updateRow(r.id, { buyer_payment_date: v || null })}
                         />
                       </td>
-                      <SheetActionCell
-                        canEdit={canEditMoney}
-                        onCopy={() => copyRow(r)}
-                        onDelete={() => deleteRow(r)}
-                      />
+                      <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)] dark:bg-gray-900">
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="month"
+                            value={r.record_month ?? ''}
+                            disabled={!canEditMoney}
+                            onChange={e => { if (e.target.value) updateRow(r.id, { record_month: e.target.value }) }}
+                            title="다른 달로 옮기기"
+                            className="rounded border border-gray-200 bg-white px-1 py-0.5 text-[10px] text-gray-600 hover:border-blue-300 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900"
+                          />
+                          {canEditMoney && (
+                            <button onClick={() => deleteRow(r)} title="삭제"
+                              className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}
