@@ -30,7 +30,8 @@ interface Settlement {
   settlement_rate: number
   seller_fee: number
   buyer_fee: number
-  payment_date: string | null
+  seller_payment_date: string | null
+  buyer_payment_date: string | null
   is_settled: boolean
   settled_at: string | null
   withhold_exempt: boolean
@@ -329,7 +330,8 @@ export default function SettlementPage() {
         settlement_rate: r.settlement_rate,
         seller_fee: r.seller_fee,
         buyer_fee: r.buyer_fee,
-        payment_date: r.payment_date,
+        seller_payment_date: r.seller_payment_date,
+        buyer_payment_date: r.buyer_payment_date,
         is_settled: false,
         withhold_exempt: r.withhold_exempt,
         memo: r.memo,
@@ -358,7 +360,8 @@ export default function SettlementPage() {
         settlement_rate: 0.5,
         seller_fee: r.seller_fee,
         buyer_fee: r.buyer_fee,
-        payment_date: r.payment_date,
+        seller_payment_date: r.seller_payment_date,
+        buyer_payment_date: r.buyer_payment_date,
         is_settled: false,
         withhold_exempt: false,
         created_by: meBroker.id,
@@ -379,8 +382,8 @@ export default function SettlementPage() {
   // CSV 다운로드 (직원·사무소 두 양식)
   const downloadCsv = (mode: 'employee' | 'office') => {
     const head = mode === 'employee'
-      ? ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','수수료입금일']
-      : ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','지점수익','수수료입금일','정산일']
+      ? ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','매도입금일','매수입금일']
+      : ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','지점수익','매도입금일','매수입금일','정산일']
 
     const lines: string[] = [head.join(',')]
     for (const r of visibleRows) {
@@ -410,8 +413,8 @@ export default function SettlementPage() {
         c.assignee,
         c.takeHome,
       ]
-      if (mode === 'office') row.push(officeShareForRow, csv(r.payment_date ?? ''), r.settled_at ?? (r.is_settled ? 'O' : ''))
-      else row.push(csv(r.payment_date ?? ''))
+      if (mode === 'office') row.push(officeShareForRow, r.seller_payment_date ?? '', r.buyer_payment_date ?? '', r.settled_at ?? (r.is_settled ? 'O' : ''))
+      else row.push(r.seller_payment_date ?? '', r.buyer_payment_date ?? '')
       lines.push(row.join(','))
     }
     const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
@@ -559,7 +562,8 @@ export default function SettlementPage() {
                   <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 100 }}>담당자수수료</th>
                   <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 100 }}>실수령</th>
                   {isOwner && <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>지점수익</th>}
-                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>입금일</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매도입금일</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매수입금일</th>
                   <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-500" style={{ width: 70 }}>정산</th>
                   <SheetActionHeader width={70}>
                     <span className="text-[10px] text-gray-400">동작</span>
@@ -569,7 +573,7 @@ export default function SettlementPage() {
               <tbody>
                 {visibleRows.length === 0 && (
                   <tr>
-                    <td colSpan={isOwner ? 17 : 16} className="py-16 text-center text-sm text-gray-400">
+                    <td colSpan={isOwner ? 18 : 17} className="py-16 text-center text-sm text-gray-400">
                       이번 달에 등록된 계약이 없습니다. <button onClick={addNewRow} className="text-blue-600 underline">새 계약 추가</button>
                     </td>
                   </tr>
@@ -603,7 +607,7 @@ export default function SettlementPage() {
                         <SelectCell
                           value={r.assignee_name}
                           options={memberOptions}
-                          readOnly={!isOwner && r.assignee_broker_id !== meBroker?.id}
+                          readOnly={!isOwner}
                           onSave={name => {
                             const m = nameToBroker.get(name)
                             updateRow(r.id, {
@@ -633,7 +637,18 @@ export default function SettlementPage() {
                         </td>
                       )}
                       <td className="px-1 py-1">
-                        <TextCell value={r.payment_date} placeholder="—" onSave={v => updateRow(r.id, { payment_date: v })} />
+                        <DateCell
+                          value={r.seller_payment_date}
+                          readOnly={!canEditMoney}
+                          onSave={v => updateRow(r.id, { seller_payment_date: v || null })}
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <DateCell
+                          value={r.buyer_payment_date}
+                          readOnly={!canEditMoney}
+                          onSave={v => updateRow(r.id, { buyer_payment_date: v || null })}
+                        />
                       </td>
                       <td className="px-1 py-1">
                         <SelectCell
