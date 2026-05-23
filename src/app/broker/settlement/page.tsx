@@ -435,9 +435,16 @@ export default function SettlementPage() {
               className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className={`min-w-[8rem] text-center text-base font-bold ${allMode ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
-              {allMode ? '전체 보기' : `${month.split('-')[0]}년 ${month.split('-')[1]}월`}
-            </span>
+            {allMode ? (
+              <span className="min-w-[8rem] text-center text-base font-bold text-gray-400">전체 보기</span>
+            ) : (
+              <input
+                type="month"
+                value={month}
+                onChange={e => { if (e.target.value) setMonth(e.target.value) }}
+                className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-base font-bold text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+              />
+            )}
             <button onClick={() => { setAllMode(false); moveMonth(1) }} disabled={allMode}
               className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronRight className="h-4 w-4" />
