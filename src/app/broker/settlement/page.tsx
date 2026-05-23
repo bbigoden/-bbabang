@@ -537,7 +537,7 @@ export default function SettlementPage() {
                   {isOwner && <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>지점수익</th>}
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매도입금일</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매수입금일</th>
-                  <SheetActionHeader width={140}>{null}</SheetActionHeader>
+                  <SheetActionHeader width={72}>{null}</SheetActionHeader>
                 </tr>
               </thead>
               <tbody>
@@ -637,7 +637,7 @@ export default function SettlementPage() {
                             disabled={!canEditMoney}
                             onChange={e => { if (e.target.value) updateRow(r.id, { record_month: e.target.value }) }}
                             title="다른 달로 옮기기"
-                            className="rounded border border-gray-200 bg-white px-1 py-0.5 text-[10px] text-gray-600 hover:border-blue-300 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900"
+                            className="w-7 cursor-pointer rounded border border-gray-200 bg-white px-0 py-0.5 text-transparent hover:border-blue-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 [&::-webkit-datetime-edit]:hidden [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100"
                           />
                           {canEditMoney && (
                             <button onClick={() => deleteRow(r)} title="삭제"
