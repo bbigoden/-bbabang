@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings, FolderOpen, Trash2, Archive } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings, FolderOpen, Trash2, Archive, Calculator } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -216,6 +216,14 @@ export default async function BrokerDashboardPage() {
                 <BarChart2 className="h-5 w-5 text-emerald-600" />
               </div>
               <span className="text-sm font-bold text-gray-800 dark:text-gray-100">실적 분석</span>
+            </div>
+          </Link>
+          <Link href="/broker/settlement">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100">
+                <Calculator className="h-5 w-5 text-teal-600" />
+              </div>
+              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">정산</span>
             </div>
           </Link>
           {broker.is_owner !== false && (
