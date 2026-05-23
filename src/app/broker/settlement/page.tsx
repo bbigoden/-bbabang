@@ -1,15 +1,20 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import Link from 'next/link'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, Plus, Download, Trash2, Edit3, Calculator, X,
+  ArrowLeft, ChevronLeft, ChevronRight, Plus, Download, Calculator,
 } from 'lucide-react'
+import { TextCell } from '@/components/sheet/cells/text-cell'
+import { SelectCell } from '@/components/sheet/cells/select-cell'
+import { DateCell } from '@/components/sheet/cells/date-cell'
+import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
+import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { calcSettlement, calcOfficeShare, fmtComma, type SettlementRow } from '@/lib/settlement'
 
 interface Settlement {
@@ -51,6 +56,91 @@ const monthBounds = (ym: string) => {
   return { start, end: `${y}-${String(m).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}` }
 }
 
+const SETTLED_OPTS = ['완료', '대기']
+const SETTLED_COLORS: Record<string, string> = {
+  '완료': 'bg-emerald-100 text-emerald-700',
+  '대기': 'bg-gray-100 text-gray-500',
+}
+
+// ── 인라인 숫자 셀 (정산 전용 — 원 단위, 콤마 표시) ─────────
+function MoneyCell({ value, onSave, readOnly, accent }: {
+  value: number | null
+  onSave?: (v: number) => void
+  readOnly?: boolean
+  accent?: 'blue' | 'emerald' | 'gray'
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value != null ? String(value) : '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    const num = draft.trim() === '' ? 0 : Number(draft)
+    if (!isNaN(num) && num !== value) onSave?.(num)
+  }
+
+  const colorCls = accent === 'blue' ? 'text-blue-700 font-semibold'
+    : accent === 'emerald' ? 'text-emerald-700 font-semibold'
+    : 'text-gray-800'
+
+  if (readOnly) {
+    return (
+      <div className={`w-full px-1 py-0.5 text-xs text-right font-mono ${value ? colorCls : 'text-gray-300'} min-h-[22px]`}>
+        {value != null ? value.toLocaleString() : '—'}
+      </div>
+    )
+  }
+
+  if (editing) {
+    return (
+      <input ref={inputRef} type="number" value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value != null ? String(value) : ''); setEditing(false) } }}
+        className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-1 py-0.5 text-xs text-right font-mono outline-none focus:ring-2 focus:ring-blue-300"
+      />
+    )
+  }
+  return (
+    <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] ${value ? colorCls : 'text-gray-300'}`}>
+      {value != null && value !== 0 ? value.toLocaleString() : '0'}
+    </div>
+  )
+}
+
+// ── 정산비 셀 (0.50 / 0.55 / 0.60 / 0.70 ...) ─────────────
+function RateCell({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    const num = Number(draft)
+    if (!isNaN(num) && num !== value) onSave(num)
+  }
+
+  if (editing) {
+    return (
+      <input ref={inputRef} type="number" step="0.01" min="0" max="1" value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(String(value)); setEditing(false) } }}
+        className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-1 py-0.5 text-xs text-right font-mono outline-none focus:ring-2 focus:ring-blue-300"
+      />
+    )
+  }
+  return (
+    <div onClick={() => { setDraft(String(value)); setEditing(true) }}
+      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] text-gray-800">
+      {value.toFixed(2)}
+    </div>
+  )
+}
+
 export default function SettlementPage() {
   const router = useRouter()
   const supabaseRef = useRef(createClient())
@@ -64,8 +154,6 @@ export default function SettlementPage() {
   const [month, setMonth] = useState(() => yyyymm(new Date()))
   const [rows, setRows] = useState<Settlement[]>([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState<Settlement | null>(null)
 
   // 권한 게이트
   useEffect(() => {
@@ -90,7 +178,6 @@ export default function SettlementPage() {
     setIsOwner(!!me.is_owner)
     setOfficeId(office)
 
-    // 같은 사무소 멤버 전체 (대표 포함)
     const { data: mems } = await supabase
       .from('broker_profiles')
       .select('id, user_id, is_owner, parent_broker_id, default_settlement_rate, withhold_exempt, is_approved, profiles:user_id(name)')
@@ -109,7 +196,7 @@ export default function SettlementPage() {
       .eq('office_broker_id', officeId)
       .gte('contract_date', start)
       .lte('contract_date', end)
-      .order('contract_date', { ascending: true })
+      .order('contract_date', { ascending: true, nullsFirst: false })
       .order('contract_no', { ascending: true })
     setRows((data ?? []) as Settlement[])
     setLoading(false)
@@ -125,7 +212,7 @@ export default function SettlementPage() {
     return rows.filter(r => r.assignee_broker_id === meBroker.id)
   }, [rows, isOwner, meBroker])
 
-  // 한 계약(같은 contract_no) 그룹 — 공동중개 시 지점수익 계산용
+  // 같은 contract_no 그룹 — 공동중개 시 지점수익 계산용 (사무소 전체 기준)
   const groupedRows = useMemo(() => {
     const map = new Map<number, Settlement[]>()
     for (const r of rows) {
@@ -135,6 +222,14 @@ export default function SettlementPage() {
     }
     return map
   }, [rows])
+
+  // 멤버 이름 옵션 (SelectCell)
+  const memberOptions = useMemo(() => members.map(m => m.profiles?.name ?? '').filter(Boolean), [members])
+  const nameToBroker = useMemo(() => {
+    const m = new Map<string, Member>()
+    for (const x of members) if (x.profiles?.name) m.set(x.profiles.name, x)
+    return m
+  }, [members])
 
   // 요약 합계
   const summary = useMemo(() => {
@@ -154,7 +249,6 @@ export default function SettlementPage() {
       }
     }
 
-    // 사무소 수익 = 공급가 합 − 모든 담당자 수수료 합 (사무소뷰만 의미 있음)
     let officeShare = 0
     if (isOwner) {
       for (const arr of groupedRows.values()) {
@@ -162,13 +256,8 @@ export default function SettlementPage() {
       }
     }
 
-    return {
-      totalFee, supplySum, assigneeSum, takeHomeSum,
-      myAssigneeSum, myTakeHomeSum,
-      officeShare,
-      count: visibleRows.length,
-      settledCount,
-    }
+    return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum, officeShare,
+      count: visibleRows.length, settledCount }
   }, [visibleRows, isOwner, groupedRows, meBroker])
 
   const moveMonth = (delta: number) => {
@@ -177,47 +266,114 @@ export default function SettlementPage() {
     setMonth(yyyymm(d))
   }
 
-  // 새 계약 저장
-  const saveRow = async (payload: Partial<Settlement>) => {
+  // 한 셀 업데이트 — 즉시 DB 반영 + 낙관적 UI
+  const updateRow = async (id: string, patch: Partial<Settlement>) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
+    const { error } = await supabase.from('settlements').update(patch).eq('id', id)
+    if (error) { alert('저장 실패: ' + error.message); loadRows() }
+  }
+
+  // 새 빈 행 추가 — 시트 상단에 노출
+  const addNewRow = async () => {
     if (!officeId || !meBroker) return
-    if (editing) {
-      const { error } = await supabase
-        .from('settlements')
-        .update(payload)
-        .eq('id', editing.id)
-      if (error) { alert('저장 실패: ' + error.message); return }
-    } else {
-      // 새 contract_no 자동 부여 (같은 사무소 + 같은 contract_date 그룹은 같은 번호로 묶을 수 있게 추후 UI에서 조정)
-      const { data: nextNo } = await supabase.rpc('next_settlement_no', { p_office: officeId })
-      const { error } = await supabase
-        .from('settlements')
-        .insert({
-          ...payload,
-          office_broker_id: officeId,
-          contract_no: payload.contract_no ?? (nextNo as number) ?? 1,
-          created_by: meBroker.id,
-        })
-      if (error) { alert('저장 실패: ' + error.message); return }
-    }
-    setShowForm(false); setEditing(null)
-    loadRows()
+    const { data: nextNoData } = await supabase.rpc('next_settlement_no', { p_office: officeId })
+    const nextNo = (nextNoData as number) ?? 1
+    const today = new Date()
+    const dateInMonth = month === yyyymm(today)
+      ? today.toISOString().slice(0, 10)
+      : `${month}-01`
+
+    // 직원이 만들면 본인 할당, 대표면 일단 본인 (다른 사람으로 바꿀 수 있게)
+    const rate = isOwner
+      ? Number(meBroker.default_settlement_rate ?? 0.5)
+      : Number(meBroker.default_settlement_rate ?? 0.5)
+    const exempt = !!meBroker.withhold_exempt
+
+    const { data, error } = await supabase
+      .from('settlements')
+      .insert({
+        office_broker_id: officeId,
+        assignee_broker_id: meBroker.id,
+        assignee_name: meBroker.profiles?.name ?? null,
+        contract_no: nextNo,
+        contract_date: dateInMonth,
+        settlement_rate: rate,
+        withhold_exempt: exempt,
+        seller_fee: 0,
+        buyer_fee: 0,
+        is_settled: false,
+        created_by: meBroker.id,
+      })
+      .select('*')
+      .single()
+    if (error) { alert('추가 실패: ' + error.message); return }
+    setRows(prev => [...prev, data as Settlement])
+  }
+
+  // 행 복사 — 같은 NO로 두 줄 만들기(공동중개)일 수도, 전혀 새 NO일 수도. 기본은 새 NO.
+  const copyRow = async (r: Settlement) => {
+    if (!officeId || !meBroker) return
+    const { data: nextNoData } = await supabase.rpc('next_settlement_no', { p_office: officeId })
+    const nextNo = (nextNoData as number) ?? 1
+    const { data, error } = await supabase
+      .from('settlements')
+      .insert({
+        office_broker_id: officeId,
+        assignee_broker_id: r.assignee_broker_id,
+        assignee_name: r.assignee_name,
+        contract_no: nextNo,
+        contract_date: r.contract_date,
+        contract_address: r.contract_address,
+        seller: r.seller,
+        buyer: r.buyer,
+        settlement_rate: r.settlement_rate,
+        seller_fee: r.seller_fee,
+        buyer_fee: r.buyer_fee,
+        payment_date: r.payment_date,
+        is_settled: false,
+        withhold_exempt: r.withhold_exempt,
+        memo: r.memo,
+        created_by: meBroker.id,
+      })
+      .select('*')
+      .single()
+    if (error) { alert('복사 실패: ' + error.message); return }
+    setRows(prev => [...prev, data as Settlement])
+  }
+
+  // 공동중개 행 추가 — 같은 NO로 다른 담당자 한 줄 더
+  const addCoBroker = async (r: Settlement) => {
+    if (!officeId || !meBroker) return
+    const { data, error } = await supabase
+      .from('settlements')
+      .insert({
+        office_broker_id: officeId,
+        assignee_broker_id: null,        // 인라인 셀에서 담당자 고르기
+        assignee_name: null,
+        contract_no: r.contract_no,      // ★ 같은 NO
+        contract_date: r.contract_date,
+        contract_address: r.contract_address,
+        seller: r.seller,
+        buyer: r.buyer,
+        settlement_rate: 0.5,
+        seller_fee: r.seller_fee,
+        buyer_fee: r.buyer_fee,
+        payment_date: r.payment_date,
+        is_settled: false,
+        withhold_exempt: false,
+        created_by: meBroker.id,
+      })
+      .select('*')
+      .single()
+    if (error) { alert('공동중개 추가 실패: ' + error.message); return }
+    setRows(prev => [...prev, data as Settlement])
   }
 
   const deleteRow = async (r: Settlement) => {
-    if (!confirm(`계약 #${r.contract_no} (${r.contract_address ?? ''}) 삭제할까요?`)) return
+    if (!confirm(`#${r.contract_no} ${r.contract_address ?? ''} 삭제할까요?`)) return
     const { error } = await supabase.from('settlements').delete().eq('id', r.id)
     if (error) { alert('삭제 실패: ' + error.message); return }
-    loadRows()
-  }
-
-  const toggleSettled = async (r: Settlement) => {
-    const next = !r.is_settled
-    const { error } = await supabase
-      .from('settlements')
-      .update({ is_settled: next, settled_at: next ? new Date().toISOString().slice(0, 10) : null })
-      .eq('id', r.id)
-    if (error) { alert('변경 실패: ' + error.message); return }
-    loadRows()
+    setRows(prev => prev.filter(x => x.id !== r.id))
   }
 
   // CSV 다운로드 (직원·사무소 두 양식)
@@ -230,14 +386,15 @@ export default function SettlementPage() {
     for (const r of visibleRows) {
       const c = calcSettlement(r)
       const group = groupedRows.get(r.contract_no) ?? []
-      const officeShareForRow = group.length > 1
-        ? '' // 공동중개는 첫 행에만 표기하기 애매하니 빈칸. 합계로 표시.
-        : String(c.supply - c.assignee)
+      const isFirstInGroup = group[0]?.id === r.id
+      const officeShareForRow = mode === 'office'
+        ? (isFirstInGroup ? String(calcOfficeShare(group as SettlementRow[])) : '')
+        : ''
       const csv = (s: string | number | null | undefined) => {
         const v = s == null ? '' : String(s)
         return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v
       }
-      const row = [
+      const row: (string | number)[] = [
         r.contract_no,
         r.contract_date ?? '',
         csv(r.contract_address ?? ''),
@@ -257,7 +414,6 @@ export default function SettlementPage() {
       else row.push(csv(r.payment_date ?? ''))
       lines.push(row.join(','))
     }
-    // BOM 추가 → 엑셀 한글 안 깨짐
     const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -271,7 +427,7 @@ export default function SettlementPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         <Header />
-        <div className="mx-auto max-w-6xl px-4 py-8 text-center text-sm text-gray-500">불러오는 중…</div>
+        <div className="mx-auto max-w-7xl px-4 py-8 text-center text-sm text-gray-500">불러오는 중…</div>
       </div>
     )
   }
@@ -280,7 +436,7 @@ export default function SettlementPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
         <Header />
-        <div className="mx-auto max-w-6xl px-4 py-8 text-center text-sm text-gray-500">
+        <div className="mx-auto max-w-7xl px-4 py-8 text-center text-sm text-gray-500">
           사무소 정보를 찾을 수 없습니다. <Link href="/broker/register" className="text-blue-600 underline">사무소 등록</Link>이 필요합니다.
         </div>
       </div>
@@ -291,7 +447,7 @@ export default function SettlementPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
-      <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mx-auto max-w-7xl px-4 py-6">
         {/* 헤더 */}
         <div className="mb-4 flex items-center gap-3">
           <button onClick={() => router.back()} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -309,8 +465,8 @@ export default function SettlementPage() {
             <button onClick={() => moveMonth(-1)} className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[7rem] text-center text-base font-bold text-gray-900 dark:text-white">
-              {month.replace('-', '년 ')}월
+            <span className="min-w-[8rem] text-center text-base font-bold text-gray-900 dark:text-white">
+              {month.split('-')[0]}년 {month.split('-')[1]}월
             </span>
             <button onClick={() => moveMonth(1)} className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
               <ChevronRight className="h-4 w-4" />
@@ -328,7 +484,7 @@ export default function SettlementPage() {
                 <Download className="h-3.5 w-3.5" /> 사무소CSV
               </button>
             )}
-            <button onClick={() => { setEditing(null); setShowForm(true) }} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+            <button onClick={addNewRow} className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
               <Plus className="h-3.5 w-3.5" /> 새 계약
             </button>
           </div>
@@ -383,69 +539,118 @@ export default function SettlementPage() {
           )}
         </div>
 
-        {/* 표 */}
+        {/* 시트형 표 */}
         <Card>
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs">
-              <thead className="bg-gray-50 text-[11px] font-semibold text-gray-500 dark:bg-gray-800/50">
-                <tr>
-                  <th className="px-2 py-2 text-left">#</th>
-                  <th className="px-2 py-2 text-left">계약일</th>
-                  <th className="px-2 py-2 text-left">주소</th>
-                  <th className="px-2 py-2 text-left">담당자</th>
-                  <th className="px-2 py-2 text-right">정산비</th>
-                  <th className="px-2 py-2 text-right">총수수료</th>
-                  <th className="px-2 py-2 text-right">공급가</th>
-                  <th className="px-2 py-2 text-right">담당자수수료</th>
-                  <th className="px-2 py-2 text-right">실수령</th>
-                  {isOwner && <th className="px-2 py-2 text-right">지점수익</th>}
-                  <th className="px-2 py-2 text-center">정산</th>
-                  <th className="px-2 py-2"></th>
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-800/50">
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 40 }}>NO</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 100 }}>계약일</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ minWidth: 200 }}>계약주소</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 100 }}>매도인(임대)</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 100 }}>매수인(임차)</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 80 }}>담당자</th>
+                  <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 60 }}>정산비</th>
+                  <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>매도수수료</th>
+                  <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>매수수수료</th>
+                  <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>총수수료</th>
+                  <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>공급가</th>
+                  <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 100 }}>담당자수수료</th>
+                  <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 100 }}>실수령</th>
+                  {isOwner && <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>지점수익</th>}
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>입금일</th>
+                  <th className="px-2 py-2 text-center text-[11px] font-bold text-gray-500" style={{ width: 70 }}>정산</th>
+                  <SheetActionHeader width={70}>
+                    <span className="text-[10px] text-gray-400">동작</span>
+                  </SheetActionHeader>
                 </tr>
               </thead>
               <tbody>
                 {visibleRows.length === 0 && (
-                  <tr><td colSpan={isOwner ? 12 : 11} className="py-12 text-center text-sm text-gray-400">이번 달에 등록된 계약이 없습니다</td></tr>
+                  <tr>
+                    <td colSpan={isOwner ? 17 : 16} className="py-16 text-center text-sm text-gray-400">
+                      이번 달에 등록된 계약이 없습니다. <button onClick={addNewRow} className="text-blue-600 underline">새 계약 추가</button>
+                    </td>
+                  </tr>
                 )}
                 {visibleRows.map(r => {
                   const c = calcSettlement(r)
                   const group = groupedRows.get(r.contract_no) ?? []
                   const isFirstInGroup = group[0]?.id === r.id
+                  const isCoBroker = group.length > 1
                   const officeShareForRow = isFirstInGroup ? calcOfficeShare(group as SettlementRow[]) : null
+                  const canEditMoney = isOwner || r.assignee_broker_id === meBroker?.id
+
                   return (
-                    <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800/30">
-                      <td className="px-2 py-2 font-mono text-gray-500">{r.contract_no}{group.length > 1 ? '*' : ''}</td>
-                      <td className="px-2 py-2 text-gray-700 dark:text-gray-300">{r.contract_date ?? '-'}</td>
-                      <td className="px-2 py-2 text-gray-900 dark:text-white max-w-[18rem] truncate" title={r.contract_address ?? ''}>{r.contract_address ?? '-'}</td>
-                      <td className="px-2 py-2 text-gray-700 dark:text-gray-300">{r.assignee_name ?? '-'}</td>
-                      <td className="px-2 py-2 text-right font-mono text-gray-700 dark:text-gray-300">{r.settlement_rate}</td>
-                      <td className="px-2 py-2 text-right font-mono text-gray-900 dark:text-white">{fmtComma(c.total)}</td>
-                      <td className="px-2 py-2 text-right font-mono text-gray-700 dark:text-gray-300">{fmtComma(c.supply)}</td>
-                      <td className="px-2 py-2 text-right font-mono font-semibold text-blue-700 dark:text-blue-300">{fmtComma(c.assignee)}</td>
-                      <td className="px-2 py-2 text-right font-mono font-semibold text-emerald-700 dark:text-emerald-300">{fmtComma(c.takeHome)}</td>
+                    <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/20">
+                      <td className="px-2 py-1 font-mono text-gray-500">
+                        {r.contract_no}{isCoBroker && <span className="ml-0.5 text-[10px] text-purple-500" title="공동중개">*</span>}
+                      </td>
+                      <td className="px-1 py-1">
+                        <DateCell value={r.contract_date} onSave={v => updateRow(r.id, { contract_date: v })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <TextCell value={r.contract_address} placeholder="주소" onSave={v => updateRow(r.id, { contract_address: v })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <TextCell value={r.seller} placeholder="—" onSave={v => updateRow(r.id, { seller: v })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <TextCell value={r.buyer} placeholder="—" onSave={v => updateRow(r.id, { buyer: v })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <SelectCell
+                          value={r.assignee_name}
+                          options={memberOptions}
+                          readOnly={!isOwner && r.assignee_broker_id !== meBroker?.id}
+                          onSave={name => {
+                            const m = nameToBroker.get(name)
+                            updateRow(r.id, {
+                              assignee_name: name,
+                              assignee_broker_id: m?.id ?? null,
+                              withhold_exempt: !!m?.withhold_exempt,
+                            })
+                          }}
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <RateCell value={Number(r.settlement_rate)} onSave={v => updateRow(r.id, { settlement_rate: v })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <MoneyCell value={r.seller_fee} readOnly={!canEditMoney} onSave={v => updateRow(r.id, { seller_fee: v })} />
+                      </td>
+                      <td className="px-1 py-1">
+                        <MoneyCell value={r.buyer_fee} readOnly={!canEditMoney} onSave={v => updateRow(r.id, { buyer_fee: v })} />
+                      </td>
+                      <td className="px-1 py-1"><MoneyCell value={c.total} readOnly /></td>
+                      <td className="px-1 py-1"><MoneyCell value={c.supply} readOnly /></td>
+                      <td className="px-1 py-1"><MoneyCell value={c.assignee} readOnly accent="blue" /></td>
+                      <td className="px-1 py-1"><MoneyCell value={c.takeHome} readOnly accent="emerald" /></td>
                       {isOwner && (
-                        <td className="px-2 py-2 text-right font-mono text-emerald-700 dark:text-emerald-300">
-                          {officeShareForRow != null ? fmtComma(officeShareForRow) : ''}
+                        <td className="px-1 py-1">
+                          <MoneyCell value={officeShareForRow} readOnly accent="emerald" />
                         </td>
                       )}
-                      <td className="px-2 py-2 text-center">
-                        <button onClick={() => toggleSettled(r)}
-                          className={`rounded-md px-2 py-1 text-[10px] font-bold ${r.is_settled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
-                          {r.is_settled ? '완료' : '대기'}
-                        </button>
+                      <td className="px-1 py-1">
+                        <TextCell value={r.payment_date} placeholder="—" onSave={v => updateRow(r.id, { payment_date: v })} />
                       </td>
-                      <td className="px-2 py-2 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button onClick={() => { setEditing(r); setShowForm(true) }} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-800">
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </button>
-                          {isOwner && (
-                            <button onClick={() => deleteRow(r)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
+                      <td className="px-1 py-1">
+                        <SelectCell
+                          value={r.is_settled ? '완료' : '대기'}
+                          options={SETTLED_OPTS}
+                          colorMap={SETTLED_COLORS}
+                          onSave={v => updateRow(r.id, {
+                            is_settled: v === '완료',
+                            settled_at: v === '완료' ? new Date().toISOString().slice(0, 10) : null,
+                          })}
+                        />
                       </td>
+                      <SheetActionCell
+                        canEdit
+                        onCopy={() => copyRow(r)}
+                        onDelete={isOwner ? () => deleteRow(r) : undefined}
+                      />
                     </tr>
                   )
                 })}
@@ -454,260 +659,19 @@ export default function SettlementPage() {
           </div>
           {visibleRows.length > 0 && (
             <div className="border-t border-gray-100 px-4 py-3 text-[11px] text-gray-500 dark:border-gray-800">
-              총 {summary.count}건 · 정산 완료 {summary.settledCount}건 · <span className="text-gray-400">* 표시 = 공동중개</span>
+              총 {summary.count}건 · 정산 완료 {summary.settledCount}건 ·
+              <span className="ml-2 text-purple-500">*</span> = 공동중개
+              {isOwner && visibleRows.some(r => (groupedRows.get(r.contract_no)?.length ?? 0) === 1) && (
+                <span className="ml-3 text-gray-400">• 행 복사 후 담당자 바꾸면 공동중개 분할 가능</span>
+              )}
             </div>
           )}
         </Card>
+
+        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-gray-400">
+          <Calculator className="h-3 w-3" /> 셀을 클릭해서 바로 수정하세요. 공급가·VAT·담당자수수료·실수령·지점수익은 자동 계산됩니다.
+        </p>
       </div>
-
-      {showForm && (
-        <SettlementForm
-          editing={editing}
-          members={members}
-          meBroker={meBroker}
-          isOwner={isOwner}
-          officeId={officeId}
-          defaultMonth={month}
-          onCancel={() => { setShowForm(false); setEditing(null) }}
-          onSave={saveRow}
-        />
-      )}
-    </div>
-  )
-}
-
-// ─── 입력 모달 ──────────────────────────────────────────────
-function SettlementForm({
-  editing, members, meBroker, isOwner, officeId, defaultMonth, onCancel, onSave,
-}: {
-  editing: Settlement | null
-  members: Member[]
-  meBroker: Member | null
-  isOwner: boolean
-  officeId: string
-  defaultMonth: string
-  onCancel: () => void
-  onSave: (payload: Partial<Settlement>) => Promise<void>
-}) {
-  // 직원은 본인 행만 등록/수정 가능
-  const editable = members.filter(m => isOwner || m.id === meBroker?.id)
-
-  const defaultAssignee = editing
-    ? members.find(m => m.id === editing.assignee_broker_id) ?? meBroker
-    : meBroker
-
-  const [assigneeId, setAssigneeId] = useState<string>(editing?.assignee_broker_id ?? defaultAssignee?.id ?? '')
-  const [contractDate, setContractDate] = useState<string>(
-    editing?.contract_date ?? `${defaultMonth}-${String(new Date().getDate()).padStart(2, '0')}`
-  )
-  const [address, setAddress] = useState(editing?.contract_address ?? '')
-  const [seller, setSeller] = useState(editing?.seller ?? '')
-  const [buyer, setBuyer] = useState(editing?.buyer ?? '')
-  const initialAssignee = members.find(m => m.id === (editing?.assignee_broker_id ?? defaultAssignee?.id))
-  const [rate, setRate] = useState<number>(editing?.settlement_rate ?? (initialAssignee?.default_settlement_rate ?? 0.5))
-  const [sellerFee, setSellerFee] = useState<number>(editing?.seller_fee ?? 0)
-  const [buyerFee, setBuyerFee] = useState<number>(editing?.buyer_fee ?? 0)
-  const [paymentDate, setPaymentDate] = useState(editing?.payment_date ?? '')
-  const [withholdExempt, setWithholdExempt] = useState<boolean>(
-    editing?.withhold_exempt ?? (initialAssignee?.withhold_exempt ?? false)
-  )
-  const [memo, setMemo] = useState(editing?.memo ?? '')
-  const [coBroker, setCoBroker] = useState(false) // 공동중개 추가 행 자동 생성
-  const [coBrokerId, setCoBrokerId] = useState<string>('')
-  const [coRate, setCoRate] = useState<number>(0.5)
-  const [saving, setSaving] = useState(false)
-
-  // 담당자 바뀌면 기본 정산비 / 원천 면제 자동 채움 (편집 모드가 아닐 때만)
-  useEffect(() => {
-    if (editing) return
-    const m = members.find(x => x.id === assigneeId)
-    if (m) {
-      setRate(Number(m.default_settlement_rate ?? 0.5))
-      setWithholdExempt(!!m.withhold_exempt)
-    }
-  }, [assigneeId, editing, members])
-
-  const calc = calcSettlement({ seller_fee: sellerFee, buyer_fee: buyerFee, settlement_rate: rate, withhold_exempt: withholdExempt })
-  const coCalc = coBroker && coBrokerId
-    ? calcSettlement({
-        seller_fee: sellerFee, buyer_fee: buyerFee, settlement_rate: coRate,
-        withhold_exempt: !!members.find(m => m.id === coBrokerId)?.withhold_exempt,
-      })
-    : null
-
-  const handleSubmit = async () => {
-    if (!assigneeId) { alert('담당자를 선택하세요'); return }
-    if (!address.trim()) { alert('계약 주소를 입력하세요'); return }
-    setSaving(true)
-    const assigneeMember = members.find(m => m.id === assigneeId)
-
-    const payload: Partial<Settlement> = {
-      assignee_broker_id: assigneeId,
-      assignee_name: assigneeMember?.profiles?.name ?? null,
-      contract_date: contractDate || null,
-      contract_address: address.trim(),
-      seller: seller || null,
-      buyer: buyer || null,
-      settlement_rate: rate,
-      seller_fee: Math.max(0, Math.round(sellerFee)),
-      buyer_fee: Math.max(0, Math.round(buyerFee)),
-      payment_date: paymentDate || null,
-      withhold_exempt: withholdExempt,
-      memo: memo || null,
-    }
-    await onSave(payload)
-
-    // 공동중개 — 같은 계약번호로 추가 행 자동 생성 (편집 모드에선 안 함)
-    if (!editing && coBroker && coBrokerId) {
-      try {
-        const supabase = createClient()
-        // 방금 저장된 행에서 contract_no 가져오기
-        const { data: just } = await supabase
-          .from('settlements')
-          .select('contract_no')
-          .eq('office_broker_id', officeId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-        const lastNo = just?.[0]?.contract_no ?? 1
-        const coMember = members.find(m => m.id === coBrokerId)
-        await supabase.from('settlements').insert({
-          office_broker_id: officeId,
-          assignee_broker_id: coBrokerId,
-          assignee_name: coMember?.profiles?.name ?? null,
-          contract_no: lastNo,
-          contract_date: contractDate || null,
-          contract_address: address.trim(),
-          seller: seller || null,
-          buyer: buyer || null,
-          settlement_rate: coRate,
-          seller_fee: Math.max(0, Math.round(sellerFee)),
-          buyer_fee: Math.max(0, Math.round(buyerFee)),
-          payment_date: paymentDate || null,
-          withhold_exempt: !!coMember?.withhold_exempt,
-          created_by: meBroker?.id ?? null,
-        })
-      } catch {}
-    }
-    setSaving(false)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onCancel}>
-      <div onClick={e => e.stopPropagation()} className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 dark:bg-gray-900 sm:rounded-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">{editing ? '계약 수정' : '새 계약 등록'}</h2>
-          <button onClick={onCancel} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X className="h-5 w-5" /></button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="계약일">
-            <input type="date" value={contractDate} onChange={e => setContractDate(e.target.value)} className={inp} />
-          </Field>
-          <Field label="담당자">
-            <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className={inp} disabled={!!editing && !isOwner}>
-              {editable.map(m => <option key={m.id} value={m.id}>{m.profiles?.name ?? '이름 없음'}</option>)}
-            </select>
-          </Field>
-          <Field label="계약 주소" full>
-            <input type="text" value={address} onChange={e => setAddress(e.target.value)} className={inp} placeholder="예: 불당동 1421 중흥 1차101-2301" />
-          </Field>
-          <Field label="매도인 (임대)">
-            <input type="text" value={seller} onChange={e => setSeller(e.target.value)} className={inp} />
-          </Field>
-          <Field label="매수인 (임차)">
-            <input type="text" value={buyer} onChange={e => setBuyer(e.target.value)} className={inp} />
-          </Field>
-          <Field label="매도 수수료 (VAT 포함)">
-            <input type="number" value={sellerFee} onChange={e => setSellerFee(Number(e.target.value))} className={inp} />
-          </Field>
-          <Field label="매수 수수료 (VAT 포함)">
-            <input type="number" value={buyerFee} onChange={e => setBuyerFee(Number(e.target.value))} className={inp} />
-          </Field>
-          <Field label="정산비">
-            <input type="number" step="0.01" min="0" max="1" value={rate} onChange={e => setRate(Number(e.target.value))} className={inp} />
-          </Field>
-          <Field label="수수료 입금일">
-            <input type="text" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className={inp} placeholder="예: 250411 또는 250411/250430" />
-          </Field>
-          <Field label="원천 면제" full>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={withholdExempt} onChange={e => setWithholdExempt(e.target.checked)} />
-              <span className="text-gray-700 dark:text-gray-300">3.3% 원천징수를 떼지 않음 (대표·외주 등)</span>
-            </label>
-          </Field>
-          <Field label="메모" full>
-            <textarea value={memo} onChange={e => setMemo(e.target.value)} className={inp} rows={2} />
-          </Field>
-
-          {!editing && (
-            <Field label="공동중개" full>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={coBroker} onChange={e => setCoBroker(e.target.checked)} />
-                <span className="text-gray-700 dark:text-gray-300">같은 계약을 다른 담당자와 분배</span>
-              </label>
-              {coBroker && (
-                <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
-                  <select value={coBrokerId} onChange={e => {
-                    setCoBrokerId(e.target.value)
-                    const m = members.find(x => x.id === e.target.value)
-                    if (m) setCoRate(Number(m.default_settlement_rate ?? 0.5))
-                  }} className={inp}>
-                    <option value="">담당자 선택</option>
-                    {members.filter(m => m.id !== assigneeId).map(m => (
-                      <option key={m.id} value={m.id}>{m.profiles?.name ?? '이름 없음'}</option>
-                    ))}
-                  </select>
-                  <input type="number" step="0.01" min="0" max="1" value={coRate} onChange={e => setCoRate(Number(e.target.value))} className={inp} placeholder="정산비" />
-                </div>
-              )}
-            </Field>
-          )}
-        </div>
-
-        {/* 자동 계산 미리보기 */}
-        <div className="mt-4 rounded-xl bg-blue-50 p-4 text-sm dark:bg-blue-500/10">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-blue-700 dark:text-blue-300">
-            <Calculator className="h-3.5 w-3.5" /> 자동 계산
-          </div>
-          <div className="grid grid-cols-2 gap-1 text-[12px] md:grid-cols-4">
-            <Info label="총수수료" v={calc.total} />
-            <Info label="공급가" v={calc.supply} />
-            <Info label="VAT" v={calc.vat} />
-            <Info label="담당자 수수료" v={calc.assignee} accent />
-            <Info label="원천공제" v={calc.withhold} />
-            <Info label="실수령" v={calc.takeHome} accent />
-            {coCalc && <Info label={`공동 ${members.find(m=>m.id===coBrokerId)?.profiles?.name ?? ''} 수수료`} v={coCalc.assignee} />}
-            {coCalc && <Info label={`공동 실수령`} v={coCalc.takeHome} />}
-          </div>
-        </div>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onCancel} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">취소</button>
-          <button onClick={handleSubmit} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
-            {saving ? '저장 중…' : (editing ? '저장' : '등록')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const inp = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-400 dark:border-gray-700 dark:bg-gray-800 dark:text-white'
-
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
-  return (
-    <div className={full ? 'col-span-2' : ''}>
-      <label className="mb-1 block text-[11px] font-bold text-gray-600 dark:text-gray-400">{label}</label>
-      {children}
-    </div>
-  )
-}
-
-function Info({ label, v, accent }: { label: string; v: number; accent?: boolean }) {
-  return (
-    <div>
-      <div className="text-[10px] text-blue-700/70 dark:text-blue-300/70">{label}</div>
-      <div className={`font-mono font-bold ${accent ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}>{fmtComma(v)}<span className="ml-0.5 text-[10px] font-normal text-gray-400">원</span></div>
     </div>
   )
 }
