@@ -31,6 +31,7 @@ interface Settlement {
   buyer_fee: number
   seller_payment_date: string | null
   buyer_payment_date: string | null
+  record_month: string | null
   is_settled: boolean
   settled_at: string | null
   withhold_exempt: boolean
@@ -49,12 +50,6 @@ interface Member {
 }
 
 const yyyymm = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-const monthBounds = (ym: string) => {
-  const [y, m] = ym.split('-').map(Number)
-  const start = `${y}-${String(m).padStart(2, '0')}-01`
-  const end = new Date(y, m, 0)
-  return { start, end: `${y}-${String(m).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}` }
-}
 
 // ── 인라인 숫자 셀 (정산 전용 — 원 단위, 콤마 표시) ─────────
 function MoneyCell({ value, onSave, readOnly, accent }: {
@@ -182,6 +177,7 @@ export default function SettlementPage() {
 
   // 정산 데이터 로드 — 월별 분류 기준은 '수수료 입금일'(payment_month)
   // 계약일이 12월이고 입금이 1월이면 1월에 잡힘. 정산 처리 월은 그 다음 달.
+  // 월 필터 기준은 '정산월(record_month)' — 사용자가 수동 분류
   const loadRows = useCallback(async () => {
     if (!officeId) return
     setLoading(true)
@@ -190,8 +186,7 @@ export default function SettlementPage() {
       .select('*')
       .eq('office_broker_id', officeId)
     if (!allMode) {
-      const { start, end } = monthBounds(month)
-      q = q.gte('contract_date', start).lte('contract_date', end)
+      q = q.eq('record_month', month)
     }
     const { data } = await q
       .order('contract_no', { ascending: true })
@@ -284,6 +279,9 @@ export default function SettlementPage() {
       : Number(meBroker.default_settlement_rate ?? 0.5)
     const exempt = !!meBroker.withhold_exempt
 
+    // 정산월: 전체 모드면 오늘 기준, 월 모드면 보고 있는 월
+    const recordMonth = allMode ? yyyymm(today) : month
+
     const { data, error } = await supabase
       .from('settlements')
       .insert({
@@ -292,6 +290,7 @@ export default function SettlementPage() {
         assignee_name: meBroker.profiles?.name ?? null,
         contract_no: nextNo,
         contract_date: dateInMonth,
+        record_month: recordMonth,
         settlement_rate: rate,
         withhold_exempt: exempt,
         seller_fee: 0,
@@ -326,6 +325,7 @@ export default function SettlementPage() {
         buyer_fee: r.buyer_fee,
         seller_payment_date: r.seller_payment_date,
         buyer_payment_date: r.buyer_payment_date,
+        record_month: r.record_month,
         is_settled: false,
         withhold_exempt: r.withhold_exempt,
         memo: r.memo,
