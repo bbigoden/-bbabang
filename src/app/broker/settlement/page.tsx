@@ -31,6 +31,7 @@ interface Settlement {
   buyer_fee: number
   seller_payment_date: string | null
   buyer_payment_date: string | null
+  payment_month: string | null
   is_settled: boolean
   settled_at: string | null
   withhold_exempt: boolean
@@ -49,12 +50,6 @@ interface Member {
 }
 
 const yyyymm = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-const monthBounds = (ym: string) => {
-  const [y, m] = ym.split('-').map(Number)
-  const start = `${y}-${String(m).padStart(2, '0')}-01`
-  const end = new Date(y, m, 0)
-  return { start, end: `${y}-${String(m).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}` }
-}
 
 // ── 인라인 숫자 셀 (정산 전용 — 원 단위, 콤마 표시) ─────────
 function MoneyCell({ value, onSave, readOnly, accent }: {
@@ -180,7 +175,8 @@ export default function SettlementPage() {
     setMembers((mems ?? []).filter((m: any) => m.is_owner || m.is_approved) as any)
   }, [auth.user, supabase])
 
-  // 정산 데이터 로드
+  // 정산 데이터 로드 — 월별 분류 기준은 '수수료 입금일'(payment_month)
+  // 계약일이 12월이고 입금이 1월이면 1월에 잡힘. 정산 처리 월은 그 다음 달.
   const loadRows = useCallback(async () => {
     if (!officeId) return
     setLoading(true)
@@ -189,11 +185,9 @@ export default function SettlementPage() {
       .select('*')
       .eq('office_broker_id', officeId)
     if (!allMode) {
-      const { start, end } = monthBounds(month)
-      q = q.gte('contract_date', start).lte('contract_date', end)
+      q = q.eq('payment_month', month)
     }
     const { data } = await q
-      .order('contract_date', { ascending: true, nullsFirst: false })
       .order('contract_no', { ascending: true })
     setRows((data ?? []) as Settlement[])
     setLoading(false)
