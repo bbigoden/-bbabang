@@ -13,6 +13,7 @@ import { useClickOutside } from '@/lib/use-click-outside'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
+import { DateCell } from '@/components/sheet/cells/date-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
@@ -901,7 +902,9 @@ export default function BrokerDiaryPage() {
               </button>
             )}
             <button onClick={() => changeDate(-1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
-            <input type="date" value={diaryDate} onChange={e => { if (e.target.value) setDiaryDate(e.target.value) }} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 cursor-pointer" />
+            <div className="min-w-[8rem] rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium">
+              <DateCell value={diaryDate} onSave={v => { if (v) setDiaryDate(v) }} />
+            </div>
             <button onClick={() => changeDate(1)} className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
