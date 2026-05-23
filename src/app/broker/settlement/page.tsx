@@ -307,8 +307,14 @@ export default function SettlementPage() {
   }
 
   // 한 셀 업데이트 — 즉시 DB 반영 + 낙관적 UI
+  // NO 바뀌면 그 자리에서 contract_no 오름차순 재정렬
   const updateRow = async (id: string, patch: Partial<Settlement>) => {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
+    setRows(prev => {
+      const next = prev.map(r => r.id === id ? { ...r, ...patch } : r)
+      return 'contract_no' in patch
+        ? [...next].sort((a, b) => a.contract_no - b.contract_no)
+        : next
+    })
     const { error } = await supabase.from('settlements').update(patch).eq('id', id)
     if (error) { alert('저장 실패: ' + error.message); loadRows() }
   }
@@ -337,7 +343,7 @@ export default function SettlementPage() {
       .select('*')
       .single()
     if (error) { alert('추가 실패: ' + error.message); return }
-    setRows(prev => [...prev, data as Settlement])
+    setRows(prev => [...prev, data as Settlement].sort((a, b) => a.contract_no - b.contract_no))
   }
 
   // 행 복사 — 같은 내용을 새 NO로 복제 (담당자만 바꾸면 공동중개 분할)
@@ -370,7 +376,7 @@ export default function SettlementPage() {
       .select('*')
       .single()
     if (error) { alert('복사 실패: ' + error.message); return }
-    setRows(prev => [...prev, data as Settlement])
+    setRows(prev => [...prev, data as Settlement].sort((a, b) => a.contract_no - b.contract_no))
   }
 
   const deleteRow = async (r: Settlement) => {
