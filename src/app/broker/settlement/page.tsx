@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
-import { Card } from '@/components/ui/card'
+import { Card, CardBody } from '@/components/ui/card'
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Plus, Download,
 } from 'lucide-react'
@@ -451,6 +451,38 @@ export default function SettlementPage() {
             )}
           </div>
         </div>
+
+        {/* 대표용 요약 카드 — 직원은 표 하단 합계 줄만 봄 */}
+        {isOwner && (
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Card>
+              <CardBody className="p-4">
+                <p className="text-[11px] font-medium text-gray-500">이번 달 총수수료</p>
+                <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.totalFee)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
+                <p className="mt-0.5 text-[10px] text-gray-400">VAT 포함</p>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="p-4">
+                <p className="text-[11px] font-medium text-gray-500">공급가 (VAT 별도)</p>
+                <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.supplySum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
+                <p className="mt-0.5 text-[10px] text-gray-400">VAT {fmtComma(summary.totalFee - summary.supplySum)}원</p>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="p-4">
+                <p className="text-[11px] font-medium text-gray-500">담당자 수수료 합</p>
+                <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.assigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody className="p-4">
+                <p className="text-[11px] font-medium text-gray-500">사무소 수익</p>
+                <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
+              </CardBody>
+            </Card>
+          </div>
+        )}
 
         {/* 시트형 표 */}
         <Card>
