@@ -347,10 +347,13 @@ export default function SettlementPage() {
       }
     }
 
+    // 사무실 수익: visibleRows(직원 필터 적용 후)에 등장하는 계약만 합산.
+    // 공동중개라 같은 계약에 다른 담당자가 있으면 그 계약 전체의 사무실 수익 한 번 카운트.
     let officeShare = 0
     if (isOwner) {
-      for (const arr of groupedRows.values()) {
-        officeShare += calcOfficeShare(arr as SettlementRow[])
+      const visibleNos = new Set(visibleRows.map(r => r.contract_no))
+      for (const [no, arr] of groupedRows) {
+        if (visibleNos.has(no)) officeShare += calcOfficeShare(arr as SettlementRow[])
       }
     }
 
