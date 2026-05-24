@@ -651,24 +651,31 @@ export default function AdminPage() {
         </div>
 
         {/* ── Supabase 바로가기 ── */}
-        <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
-          <h3 className="mb-3 font-bold text-white">🔗 Supabase 직접 관리</h3>
-          <p className="mb-4 text-sm text-gray-400">데이터 직접 수정, 삭제 등 세부 작업은 Supabase Table Editor를 사용하세요</p>
-          <div className="flex flex-wrap gap-3">
-            {[
-              { label: 'Table Editor', url: 'https://supabase.com/dashboard/project/wovxcdfxxnsljdhrgonh/editor' },
-              { label: 'Auth Users', url: 'https://supabase.com/dashboard/project/wovxcdfxxnsljdhrgonh/auth/users' },
-              { label: 'SQL Editor', url: 'https://supabase.com/dashboard/project/wovxcdfxxnsljdhrgonh/sql' },
-              { label: 'Logs', url: 'https://supabase.com/dashboard/project/wovxcdfxxnsljdhrgonh/logs/explorer' },
-            ].map(link => (
-              <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
-                <ExternalLink className="h-3.5 w-3.5" />
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </div>
+        {(() => {
+          const projectId = process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1]
+          if (!projectId) return null
+          const base = `https://supabase.com/dashboard/project/${projectId}`
+          return (
+            <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
+              <h3 className="mb-3 font-bold text-white">🔗 Supabase 직접 관리</h3>
+              <p className="mb-4 text-sm text-gray-400">데이터 직접 수정, 삭제 등 세부 작업은 Supabase Table Editor를 사용하세요</p>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { label: 'Table Editor', url: `${base}/editor` },
+                  { label: 'Auth Users', url: `${base}/auth/users` },
+                  { label: 'SQL Editor', url: `${base}/sql` },
+                  { label: 'Logs', url: `${base}/logs/explorer` },
+                ].map(link => (
+                  <a key={link.label} href={link.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
       </div>
 

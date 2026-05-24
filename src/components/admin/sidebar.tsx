@@ -6,6 +6,7 @@ import {
   LayoutDashboard, Users, Building2, Home, Flag,
   Megaphone, BarChart3, AlertOctagon, Activity, Shield,
 } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 import { cn } from '@/lib/utils'
 
 interface ItemDef {
@@ -28,6 +29,10 @@ const ITEMS: ItemDef[] = [
 
 export function AdminSidebar() {
   const pathname = usePathname() ?? ''
+  const auth = useAuth()
+
+  // admin 권한 없으면 사이드바 자체를 렌더하지 않음 (page.tsx의 가드와 별개로 UI 노출 차단)
+  if (auth.loading || auth.profile?.role !== 'admin') return null
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin'
