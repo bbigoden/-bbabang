@@ -955,6 +955,8 @@ const PropertyRow = memo(function PropertyRow({
   saveField, autoFillRow, saveCustomField, setLightbox,
   onDelete, onCopy,
 }: PropertyRowProps) {
+  // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
+  const isMine = isOwner || p.broker_id === brokerSelfId
   return (
     <tr data-row-id={p.id}
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
@@ -967,8 +969,8 @@ const PropertyRow = memo(function PropertyRow({
         if (fixedCol) {
           if (!settings.visible.includes(key)) return null
           const w = settings.widths[key] ?? 100
-          // 읽기 전용 셀 (어드민 뷰 또는 편집 권한 없는 직원)
-          if (isAdminView || !canEdit) {
+          // 읽기 전용 셀 (어드민 뷰 / 편집 권한 없음 / 본인 매물 아님)
+          if (isAdminView || !canEdit || !isMine) {
             const readVal = (() => {
               if (key === 'price') {
                 if (p.deal_type === '월세') {
@@ -986,6 +988,8 @@ const PropertyRow = memo(function PropertyRow({
               if (key === 'images') return p.images?.length > 0
                 ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
                 : <span className="text-xs text-gray-300">—</span>
+              // 중개사 메모는 본인 매물 아니면 숨김
+              if (key === 'memo' && !isMine) return <span className="text-gray-200 select-none">—</span>
               const raw: any = (p as any)[key]
               return raw != null && raw !== '' ? String(raw) : '—'
             })()
@@ -1016,13 +1020,9 @@ const PropertyRow = memo(function PropertyRow({
               {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} multi={settings.multi['direction']} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
               {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
               {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
-              {key === 'memo'            && (() => {
-                const isMine = isOwner || isAdminView || p.broker_id === brokerSelfId
-                if (!isMine) return <span className="text-gray-200 text-xs select-none">—</span>
-                return settings.colTypes['memo'] === 'select'
-                  ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} multi={settings.multi['memo']} />
-                  : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />
-              })()}
+              {key === 'memo'            && (settings.colTypes['memo'] === 'select'
+                ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} multi={settings.multi['memo']} />
+                : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />)}
               {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />}
             </td>
           )
@@ -1032,7 +1032,7 @@ const PropertyRow = memo(function PropertyRow({
           const w = settings.widths[key] ?? 120
           return (
             <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
-              {(isAdminView || !canEdit)
+              {(isAdminView || !canEdit || !isMine)
                 ? <div className="w-full overflow-hidden whitespace-nowrap text-ellipsis text-xs text-gray-700 dark:text-gray-300 px-1 min-h-[22px]">{(p.custom_fields ?? {})[key] || '—'}</div>
                 : customCol.type === 'select'
                   ? <SelectCell value={(p.custom_fields ?? {})[key] ?? ''} options={settings.options[key] ?? []} onSave={v => saveCustomField(p.id, key, v)} multi={settings.multi[key]} />
@@ -1043,11 +1043,7 @@ const PropertyRow = memo(function PropertyRow({
         }
         return null
       })}
-      {!isAdminView && (() => {
-        // 직원은 본인 매물만 복사·삭제 가능. 대표·관리자뷰는 전체 가능
-        const isMine = isOwner || p.broker_id === brokerSelfId
-        return <SheetActionCell canEdit={canEdit && isMine} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)} />
-      })()}
+      {!isAdminView && <SheetActionCell canEdit={canEdit && isMine} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)} />}
     </tr>
   )
 })
