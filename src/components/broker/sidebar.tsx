@@ -34,7 +34,7 @@ interface ItemDef {
 const ITEMS: ItemDef[] = [
   { id: 'home',       href: '/', label: '홈', icon: Home },
   { id: 'dashboard',  href: '/dashboard/broker', label: '대시보드', icon: LayoutDashboard },
-  { id: 'co-broker',  href: '/request/new?co_broker=true', label: '공동중개 요청', icon: Handshake },
+  { id: 'co-broker',  href: '/request/new?co_broker=true', label: '공동요청', icon: Handshake },
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2 },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },

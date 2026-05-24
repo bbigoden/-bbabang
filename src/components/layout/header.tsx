@@ -28,7 +28,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
   const user = userProp !== undefined ? userProp : auth.user
   const role = roleProp !== undefined ? roleProp : (auth.profile?.role ?? null)
 
-  // BrokerSidebar가 보이는 영역에선 헤더의 공동중개 요청·알림 숨김 (사이드바로 이전)
+  // BrokerSidebar가 보이는 영역에선 헤더의 공동요청·알림 숨김 (사이드바로 이전)
   const BROKER_SIDEBAR_SEGS = ['customers','properties','diary','chats','resources','settlement','team','trash','register','settings']
   const isBrokerSidebarArea = role === 'broker' && (
     pathname === '/dashboard/broker'
@@ -65,7 +65,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
             <>
               {!isBrokerSidebarArea && pathname !== '/request/new' && (
                 <Link href="/request/new?co_broker=true" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
-                  공동중개 요청
+                  공동요청
                 </Link>
               )}
               <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
@@ -129,7 +129,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
             {role === 'broker' && (
               <>
                 <Link href="/request/new?co_broker=true" onClick={() => setMobileOpen(false)}>
-                  <Button variant="ghost" size="md" className="w-full justify-start">공동중개 요청</Button>
+                  <Button variant="ghost" size="md" className="w-full justify-start">공동요청</Button>
                 </Link>
                 <Link href="/dashboard/broker" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">중개사 대시보드</Button>
