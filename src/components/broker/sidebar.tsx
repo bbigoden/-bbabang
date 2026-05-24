@@ -45,10 +45,10 @@ const ITEMS: ItemDef[] = [
     id: 'settings', label: '설정', icon: Settings,
     children: [
       { href: '/settings/account',       label: '내 계정', icon: User },
-      { href: '/settings/notifications', label: '알림',   icon: Bell },
-      { href: '/settings/appearance',    label: '화면',   icon: Palette },
-      { href: '/settings/office',        label: '사무소', icon: Building2, ownerOnly: true },
       { href: '/broker/team',            label: '팀 관리', icon: UserCog, ownerOnly: true },
+      { href: '/settings/office',        label: '사무소', icon: Building2, ownerOnly: true },
+      { href: '/settings/appearance',    label: '화면',   icon: Palette },
+      { href: '/settings/notifications', label: '알림',   icon: Bell },
     ],
   },
   { id: 'trash', href: '/broker/trash', label: '휴지통', icon: Trash2 },
