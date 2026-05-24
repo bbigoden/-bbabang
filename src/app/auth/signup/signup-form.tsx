@@ -205,7 +205,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
 
           <Input label="휴대폰 번호" type="tel" inputMode="tel" autoComplete="tel" placeholder="010-1234-5678" value={phone} onChange={(e) => setPhone(e.target.value)} />
 
-          {/* 약관 동의 — 필수 */}
+          {/* 약관 동의 — 필수 + 만 14세 이상 자기확인 */}
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -215,7 +215,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
             />
             <span className="text-sm text-gray-600 dark:text-gray-400">
               <Link href="/terms" className="text-blue-600 hover:underline">이용약관</Link>과{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의합니다 <span className="text-red-500">*</span> <span className="text-gray-400">(필수)</span>
+              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의하며, <span className="font-medium">만 14세 이상</span>입니다 <span className="text-red-500">*</span> <span className="text-gray-400">(필수)</span>
             </span>
           </label>
 
