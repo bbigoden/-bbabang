@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
+import { useToast } from '@/components/toast'
 
 type StatusFilter = 'all' | 'unverified' | 'verified'
 
@@ -49,6 +50,7 @@ export default function AdminBrokersPage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  const toast = useToast()
 
   const [offices, setOffices] = useState<OfficeGroup[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,11 +155,12 @@ export default function AdminBrokersPage() {
   const toggleVerify = async (broker: BrokerRow) => {
     const next = !broker.is_verified
     const { error } = await supabase.from('broker_profiles').update({ is_verified: next }).eq('id', broker.id)
-    if (error) { alert('변경 실패: ' + error.message); return }
+    if (error) { toast.error('변경 실패: ' + error.message); return }
     setOffices(prev => prev.map(g =>
       g.owner.id === broker.id ? { ...g, owner: { ...g.owner, is_verified: next } } : g
     ))
     if (selected?.id === broker.id) setSelected({ ...selected, is_verified: next })
+    toast.success(next ? '인증 승인됨' : '인증 취소됨')
     loadCounts()
   }
 

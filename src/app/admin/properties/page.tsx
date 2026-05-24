@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/toast'
 import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Home, ArrowLeft, Search, X, MapPin, Building2, Flag,
@@ -52,6 +53,7 @@ export default function AdminPropertiesPage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  const toast = useToast()
 
   const [items, setItems] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
@@ -145,11 +147,12 @@ export default function AdminPropertiesPage() {
   const updateStatus = async (id: string, newStatus: Property['status']) => {
     const { error } = await supabase.from('broker_properties').update({ status: newStatus }).eq('id', id)
     if (error) {
-      alert('상태 변경 실패: ' + error.message)
+      toast.error('상태 변경 실패: ' + error.message)
       return
     }
     setItems(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p))
     if (selected?.id === id) setSelected({ ...selected, status: newStatus })
+    toast.success('상태 변경됨')
   }
 
   const deleteProperty = async (id: string) => {
@@ -158,10 +161,11 @@ export default function AdminPropertiesPage() {
     if (!window.confirm(`${label}을(를) 영구 삭제할까요?\n복구할 수 없습니다.`)) return false
     const { error } = await supabase.from('broker_properties').delete().eq('id', id)
     if (error) {
-      alert('삭제 실패: ' + error.message)
+      toast.error('삭제 실패: ' + error.message)
       return false
     }
     setItems(prev => prev.filter(p => p.id !== id))
+    toast.success('매물 삭제됨')
     return true
   }
 

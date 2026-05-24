@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/toast'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
@@ -58,6 +59,7 @@ export default function AdminPage() {
   const router = useRouter()
   const supabase = createClient()
   const auth = useAuth()
+  const toast = useToast()
 
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ users: 0, brokers: 0, requests: 0, proposals: 0, openReports: 0, unverifiedBrokers: 0 })
@@ -200,7 +202,7 @@ export default function AdminPage() {
         setBrokerModal((prev: any) => ({ ...prev, is_verified: !current }))
       }
     } else {
-      alert('처리에 실패했어요. 다시 시도해주세요.')
+      toast.error('처리에 실패했어요. 다시 시도해주세요.')
     }
     setVerifying(null)
   }

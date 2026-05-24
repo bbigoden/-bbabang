@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/toast'
 import { formatDate } from '@/lib/utils'
 import {
   AlertOctagon, ArrowLeft, X, CheckCircle2, Clock, EyeOff, Search,
@@ -40,6 +41,7 @@ export default function AdminErrorsPage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  const toast = useToast()
 
   const [items, setItems] = useState<ErrLog[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,7 +109,7 @@ export default function AdminErrorsPage() {
 
   const updateStatus = async (id: string, newStatus: ErrLog['status']) => {
     const { error } = await supabase.from('error_logs').update({ status: newStatus }).eq('id', id)
-    if (error) { alert('변경 실패: ' + error.message); return }
+    if (error) { toast.error('변경 실패: ' + error.message); return }
     setItems(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e))
     if (selected?.id === id) setSelected({ ...selected, status: newStatus })
     loadCounts()

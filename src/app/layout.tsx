@@ -10,6 +10,7 @@ import { Footer } from '@/components/layout/footer'
 import { InstallPrompt } from '@/components/install-prompt'
 import { ErrorBoundary, GlobalErrorListener } from '@/components/error-tracker'
 import { BrokerGlobalLayout } from '@/components/broker/global-layout'
+import { ToastProvider } from '@/components/toast'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
@@ -132,12 +133,14 @@ export default function RootLayout({
           <ThemeProvider>
             <AuthProvider>
               <NotificationsProvider>
-                <BrokerGlobalLayout>
-                  <main id="main">{children}</main>
-                </BrokerGlobalLayout>
-                <Footer />
-                <BottomNav />
-                <InstallPrompt />
+                <ToastProvider>
+                  <BrokerGlobalLayout>
+                    <main id="main">{children}</main>
+                  </BrokerGlobalLayout>
+                  <Footer />
+                  <BottomNav />
+                  <InstallPrompt />
+                </ToastProvider>
               </NotificationsProvider>
             </AuthProvider>
           </ThemeProvider>
