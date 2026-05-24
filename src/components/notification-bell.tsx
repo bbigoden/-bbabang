@@ -51,7 +51,8 @@ export function NotificationBell({ userId: _userId }: { userId?: string }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors"
+        className="relative flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors"
+        aria-label="알림"
       >
         <Bell className="h-5 w-5 text-gray-600 dark:text-gray-400" />
         {unread > 0 && (

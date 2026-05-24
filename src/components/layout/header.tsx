@@ -72,16 +72,16 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
           )}
           {user ? (
             <>
-              <Link href="/search" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="통합 검색">
+              <Link href="/search" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="통합 검색">
                 <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </Link>
               {role !== 'admin' && (
-                <Link href="/favorites" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="찜 목록">
+                <Link href="/favorites" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="찜 목록">
                   <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </Link>
               )}
               {!isBrokerSidebarArea && <NotificationBell userId={user.id} />}
-              <Link href="/settings" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="설정">
+              <Link href="/settings" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="설정">
                 <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>로그아웃</Button>
@@ -100,7 +100,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
 
         {/* 모바일 메뉴 버튼 */}
         <div className="flex items-center gap-2 md:hidden">
-          <Link href="/search" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="검색">
+          <Link href="/search" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="검색">
             <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </Link>
           {user && <NotificationBell userId={user.id} />}
@@ -108,6 +108,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? '메뉴 닫기' : '메뉴 열기'}
             aria-expanded={mobileOpen}
+            className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
