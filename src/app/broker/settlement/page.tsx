@@ -723,7 +723,7 @@ export default function SettlementPage() {
                             disabled={!canEditMoney}
                             onChange={e => { if (e.target.value) updateRow(r.id, { record_month: e.target.value }) }}
                             title="다른 달로 옮기기"
-                            className="w-7 cursor-pointer rounded border border-gray-200 bg-white px-0 py-0.5 text-transparent hover:border-blue-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-900 [&::-webkit-datetime-edit]:hidden [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-100"
+                            className="h-6 w-6 cursor-pointer rounded border-none bg-transparent p-0 text-transparent text-gray-300 hover:bg-blue-50 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-40 [&::-webkit-datetime-edit]:hidden [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                           />
                           {canEditMoney && (
                             <button onClick={() => deleteRow(r)} title="삭제"
