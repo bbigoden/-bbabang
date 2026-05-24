@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
+import { logAdminAction } from '@/lib/audit'
 import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Home, ArrowLeft, Search, X, MapPin, Building2, Flag,
@@ -145,6 +146,7 @@ export default function AdminPropertiesPage() {
   }
 
   const updateStatus = async (id: string, newStatus: Property['status']) => {
+    const prev = items.find(p => p.id === id)?.status
     const { error } = await supabase.from('broker_properties').update({ status: newStatus }).eq('id', id)
     if (error) {
       toast.error('상태 변경 실패: ' + error.message)
@@ -153,6 +155,14 @@ export default function AdminPropertiesPage() {
     setItems(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p))
     if (selected?.id === id) setSelected({ ...selected, status: newStatus })
     toast.success('상태 변경됨')
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: 'property.status_change',
+        targetType: 'property',
+        targetId: id,
+        metadata: { prev, next: newStatus },
+      })
+    }
   }
 
   const deleteProperty = async (id: string) => {
@@ -166,6 +176,14 @@ export default function AdminPropertiesPage() {
     }
     setItems(prev => prev.filter(p => p.id !== id))
     toast.success('매물 삭제됨')
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: 'property.delete',
+        targetType: 'property',
+        targetId: id,
+        metadata: { address: target?.address },
+      })
+    }
     return true
   }
 

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { formatDate } from '@/lib/utils'
+import { logAdminAction } from '@/lib/audit'
 import {
   AlertOctagon, ArrowLeft, X, CheckCircle2, Clock, EyeOff, Search,
   Globe, AlertCircle, RefreshCw
@@ -108,10 +109,19 @@ export default function AdminErrorsPage() {
   }
 
   const updateStatus = async (id: string, newStatus: ErrLog['status']) => {
+    const prev = items.find(e => e.id === id)?.status
     const { error } = await supabase.from('error_logs').update({ status: newStatus }).eq('id', id)
     if (error) { toast.error('변경 실패: ' + error.message); return }
     setItems(prev => prev.map(e => e.id === id ? { ...e, status: newStatus } : e))
     if (selected?.id === id) setSelected({ ...selected, status: newStatus })
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: 'error.status_change',
+        targetType: 'error',
+        targetId: id,
+        metadata: { prev, next: newStatus },
+      })
+    }
     loadCounts()
   }
 

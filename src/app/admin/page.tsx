@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
+import { logAdminAction } from '@/lib/audit'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
@@ -200,6 +201,13 @@ export default function AdminPage() {
       ))
       if (brokerModal?.id === brokerId) {
         setBrokerModal((prev: any) => ({ ...prev, is_verified: !current }))
+      }
+      if (auth.user) {
+        void logAdminAction(supabase, auth.user.id, {
+          action: !current ? 'broker.verify' : 'broker.unverify',
+          targetType: 'broker',
+          targetId: brokerId,
+        })
       }
     } else {
       toast.error('처리에 실패했어요. 다시 시도해주세요.')

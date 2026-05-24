@@ -14,6 +14,7 @@ import {
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
 import { useToast } from '@/components/toast'
+import { logAdminAction } from '@/lib/audit'
 
 type StatusFilter = 'all' | 'unverified' | 'verified'
 
@@ -161,6 +162,14 @@ export default function AdminBrokersPage() {
     ))
     if (selected?.id === broker.id) setSelected({ ...selected, is_verified: next })
     toast.success(next ? '인증 승인됨' : '인증 취소됨')
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: next ? 'broker.verify' : 'broker.unverify',
+        targetType: 'broker',
+        targetId: broker.id,
+        metadata: { office_name: broker.office_name },
+      })
+    }
     loadCounts()
   }
 

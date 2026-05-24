@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
+import { logAdminAction } from '@/lib/audit'
 
 type AccountStatus = 'active' | 'suspended' | 'banned'
 type Role = 'user' | 'broker' | 'admin'
@@ -515,6 +516,12 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
       patch.suspended_until = null
     }
     update(patch)
+    void logAdminAction(supabase, adminId, {
+      action: s === 'suspended' ? 'user.suspend' : s === 'banned' ? 'user.ban' : 'user.unsuspend',
+      targetType: 'user',
+      targetId: user.id,
+      metadata: { prev: user.account_status, next: s, suspend_days: s === 'suspended' ? suspendDays : undefined },
+    })
   }
 
   const setRole = (r: Role) => {
@@ -523,6 +530,12 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
     const roleLabel = r === 'admin' ? '관리자' : r === 'broker' ? '중개사' : '일반 사용자'
     if (!window.confirm(`${targetLabel}의 역할을 "${roleLabel}"(으)로 변경할까요?`)) return
     update({ role: r })
+    void logAdminAction(supabase, adminId, {
+      action: 'user.role_change',
+      targetType: 'user',
+      targetId: user.id,
+      metadata: { prev: user.role, next: r },
+    })
   }
 
   const saveNote = () => {
