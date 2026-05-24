@@ -3,13 +3,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
-import { formatPrice, maskAddressByType } from '@/lib/utils'
-import { Sparkles, MapPin, Home, FileText, Heart, Building2, AlertCircle, Plus } from 'lucide-react'
+import { PropertyCard } from '@/components/property-card'
+import { formatPrice } from '@/lib/utils'
+import { Sparkles, Home, FileText, Heart, Building2, AlertCircle, Plus } from 'lucide-react'
 
 interface Match {
   property: any
@@ -198,32 +198,13 @@ export default function RecommendationsPage() {
                 </h2>
                 <ul className="grid gap-3 md:grid-cols-2">
                   {favBrokerMatches.map(p => (
-                    <li key={p.id} className="relative rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
-                      <Link href={`/broker/${p.broker_id}`}>
-                        {p.images?.[0] && (
-                          <div className="relative h-32 w-full">
-                            <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
-                          </div>
-                        )}
-                        <div className="p-4">
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-                            {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
-                          </div>
-                          <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}</p>
-                          <p className="mt-1 text-sm font-black text-blue-600">
-                            {!p.price ? '가격 협의'
-                              : p.deal_type === '월세' ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
-                              : formatPrice(p.price)}
-                          </p>
-                          <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400">
-                            <Building2 className="h-3 w-3" /> {p.broker_profiles?.profiles?.name}
-                          </p>
-                        </div>
-                      </Link>
-                      <div className="absolute right-3 top-3">
-                        <FavoriteButton type="property" id={p.id} initialFavorited={favSet.has(p.id)} />
-                      </div>
+                    <li key={p.id}>
+                      <PropertyCard
+                        property={p}
+                        href={`/broker/${p.broker_id}`}
+                        size="md"
+                        overlay={<FavoriteButton type="property" id={p.id} initialFavorited={favSet.has(p.id)} />}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -239,33 +220,14 @@ export default function RecommendationsPage() {
 function PropertyMatchCard({ match, favorited }: { match: Match; favorited: boolean }) {
   const p = match.property
   return (
-    <li className="relative rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
-      <Link href={`/broker/${p.broker_id}`}>
-        {p.images?.[0] && (
-          <div className="relative h-36 w-full">
-            <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
-          </div>
-        )}
-        <div className="p-4">
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-            {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
-          </div>
-          <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">
-            <MapPin className="inline h-3 w-3 mr-0.5 text-gray-400" />
-            {p.address ? maskAddressByType(p.address, p.room_type) : '주소 미입력'}
-          </p>
-          <p className="mt-1 text-sm font-black text-blue-600">
-            {!p.price ? '가격 협의'
-              : p.deal_type === '월세' ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
-              : formatPrice(p.price)}
-          </p>
-          <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400">
-            <Building2 className="h-3 w-3" /> {p.broker_profiles?.profiles?.name} · {p.broker_profiles?.office_name}
-          </p>
-
-          {/* 매칭 이유 */}
-          <div className="mt-2 flex flex-wrap gap-1">
+    <li>
+      <PropertyCard
+        property={p}
+        href={`/broker/${p.broker_id}`}
+        size="lg"
+        overlay={<FavoriteButton type="property" id={p.id} initialFavorited={favorited} />}
+        footer={match.reasons.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
             {match.reasons.slice(0, 3).map((r, i) => (
               <span key={i} className="inline-flex items-center gap-0.5 rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
                 <Sparkles className="h-2.5 w-2.5" />
@@ -273,11 +235,8 @@ function PropertyMatchCard({ match, favorited }: { match: Match; favorited: bool
               </span>
             ))}
           </div>
-        </div>
-      </Link>
-      <div className="absolute right-3 top-3">
-        <FavoriteButton type="property" id={p.id} initialFavorited={favorited} />
-      </div>
+        ) : undefined}
+      />
     </li>
   )
 }

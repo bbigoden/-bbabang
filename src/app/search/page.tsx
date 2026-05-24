@@ -3,10 +3,10 @@
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
-import { formatPrice, formatDate, maskAddressByType } from '@/lib/utils'
+import { PropertyCard } from '@/components/property-card'
+import { formatPrice, formatDate } from '@/lib/utils'
 import { Search as SearchIcon, X, Building2, Home, FileText, MapPin, Star, ShieldCheck } from 'lucide-react'
 
 interface BrokerHit {
@@ -190,27 +190,7 @@ function SearchInner() {
                 <ul className="grid gap-2 md:grid-cols-2">
                   {properties.map(p => (
                     <li key={p.id}>
-                      <Link href={`/broker/${p.broker_id}`}
-                        className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-emerald-300 hover:shadow-sm transition-all">
-                        {p.images?.[0] && (
-                          <div className="relative h-28 w-full">
-                            <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
-                          </div>
-                        )}
-                        <div className="p-4">
-                          <div className="flex flex-wrap gap-1.5 mb-1.5">
-                            {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-                            {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
-                          </div>
-                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{maskAddressByType(p.address, p.room_type)}</p>
-                          <p className="mt-1 text-sm font-black text-blue-600">
-                            {!p.price ? '가격 협의'
-                              : p.deal_type === '월세' ? `${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
-                              : formatPrice(p.price)}
-                          </p>
-                          <p className="mt-0.5 text-xs text-gray-400 truncate">{p.broker_profiles?.profiles?.name} · {p.broker_profiles?.office_name}</p>
-                        </div>
-                      </Link>
+                      <PropertyCard property={p} href={`/broker/${p.broker_id}`} size="sm" />
                     </li>
                   ))}
                 </ul>

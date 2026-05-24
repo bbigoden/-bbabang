@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { FavoriteButton } from '@/components/favorite-button'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
+import { PropertyCard } from '@/components/property-card'
 import { Star, MapPin, Building2, Award, Clock, Target, TrendingUp, Hash, Phone, User } from 'lucide-react'
 
 function formatHours(h: number | null | undefined): string | null {
@@ -14,7 +15,7 @@ function formatHours(h: number | null | undefined): string | null {
   if (h < 24) return `${h.toFixed(1)}시간`
   return `${(h / 24).toFixed(1)}일`
 }
-import { formatDate, formatPrice, maskAddressByType, formatAddress } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -324,48 +325,19 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {properties.map(p => (
-                <Link key={p.id} href={`/property/${p.id}`}>
-                <Card className="relative hover:border-blue-300 transition-colors">
-                  <CardBody className="p-4">
-                    {p.images?.[0] ? (
-                      <div className="relative mb-3 h-32 w-full overflow-hidden rounded-xl">
-                        <Image
-                          src={p.images[0]}
-                          alt={p.address}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 50vw"
-                        />
-                        <div className="absolute right-2 top-2">
-                          <FavoriteButton type="property" id={p.id} initialFavorited={propFavSet.has(p.id)} />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="absolute right-3 top-3">
-                        <FavoriteButton type="property" id={p.id} initialFavorited={propFavSet.has(p.id)} />
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {p.deal_type && <Badge variant="info">{p.deal_type}</Badge>}
-                      {p.room_type && <Badge variant="default">{p.room_type}</Badge>}
-                      {recentDropIds.has(p.id) && (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600 animate-pulse">
-                          ⬇️ 가격 인하
-                        </span>
-                      )}
-                    </div>
-                    <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm truncate">{p.address ? maskAddressByType(formatAddress(p.address), p.room_type) : '주소 미입력'}</p>
-                    <p className="text-blue-600 font-black mt-1">
-                      {!p.price
-                        ? '가격 협의'
-                        : p.deal_type === '월세'
-                          ? `보증금 ${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
-                          : formatPrice(p.price)
-                      }
-                    </p>
-                  </CardBody>
-                </Card>
-                </Link>
+                <PropertyCard
+                  key={p.id}
+                  property={p}
+                  href={`/property/${p.id}`}
+                  size="md"
+                  showBroker={false}
+                  badge={recentDropIds.has(p.id) ? (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow animate-pulse">
+                      ⬇️ 가격 인하
+                    </span>
+                  ) : undefined}
+                  overlay={<FavoriteButton type="property" id={p.id} initialFavorited={propFavSet.has(p.id)} />}
+                />
               ))}
             </div>
           </div>

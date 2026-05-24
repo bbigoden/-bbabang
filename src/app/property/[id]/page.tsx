@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
+import { PropertyCard } from '@/components/property-card'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice, maskAddressByType, formatAddress } from '@/lib/utils'
@@ -318,27 +319,12 @@ export default async function PropertyDetailPage({ params }: Props) {
             <ul className="grid gap-3 sm:grid-cols-2">
               {otherProps.map((p: any) => (
                 <li key={p.id}>
-                  <Link href={`/property/${p.id}`}>
-                    <Card className="overflow-hidden hover:border-blue-300 transition-colors">
-                      {p.images?.[0] && (
-                        <div className="relative h-32 w-full">
-                          <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
-                        </div>
-                      )}
-                      <CardBody className="p-3">
-                        <div className="flex flex-wrap gap-1.5 mb-1">
-                          {p.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{p.deal_type}</span>}
-                          {p.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{p.room_type}</span>}
-                        </div>
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{maskAddressByType(p.address, p.room_type)}</p>
-                        <p className="mt-0.5 text-sm font-black text-blue-600">
-                          {!p.price ? '가격 협의'
-                            : p.deal_type === '월세' ? `${formatPrice(p.price)}/월 ${formatPrice(p.monthly_rent ?? 0)}`
-                            : formatPrice(p.price)}
-                        </p>
-                      </CardBody>
-                    </Card>
-                  </Link>
+                  <PropertyCard
+                    property={p}
+                    href={`/property/${p.id}`}
+                    size="md"
+                    showBroker={false}
+                  />
                 </li>
               ))}
             </ul>
