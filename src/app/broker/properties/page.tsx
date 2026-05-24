@@ -1766,6 +1766,7 @@ function BrokerPropertiesContent() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
+            <p className="mt-0.5 text-xs text-gray-400 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>
           </div>
           <div className="flex items-center gap-2">
             {/* 목록/지도 토글 */}

@@ -484,7 +484,7 @@ export default function SettlementPage() {
 
       <div className="px-4 py-6">
         {/* 헤더 */}
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-2 flex items-center gap-3">
           <button onClick={() => router.back()} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -493,6 +493,9 @@ export default function SettlementPage() {
             {isOwner ? '사무소 보기' : '직원 보기'}
           </span>
         </div>
+        <p className="mb-4 ml-11 text-xs text-gray-500 dark:text-gray-400">
+          셀을 클릭해 수정하면 자동 저장됩니다. 회계 데이터이니 신중히 입력하세요.
+        </p>
 
         {/* 월 네비 + 액션 */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
