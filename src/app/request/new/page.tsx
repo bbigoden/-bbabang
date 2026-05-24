@@ -232,7 +232,7 @@ function RequestNewPageInner() {
                       key={type}
                       onClick={() => toggleDealType(type)}
                       className={cn(
-                        'flex-1 rounded-xl border-2 py-3 text-sm font-semibold transition-all',
+                        'flex-1 rounded-xl border-2 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                         dealTypes.includes(type)
                           ? 'border-blue-500 bg-blue-50 text-blue-700'
                           : 'border-gray-200 text-gray-600 hover:border-gray-300'
@@ -263,7 +263,7 @@ function RequestNewPageInner() {
                             key={type}
                             onClick={() => togglePropertyType(type)}
                             className={cn(
-                              'rounded-xl border-2 px-3 py-2 text-sm font-medium transition-all',
+                              'rounded-xl border-2 px-3 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                               propertyTypes.includes(type)
                                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                                 : 'border-gray-200 text-gray-600 hover:border-gray-300'

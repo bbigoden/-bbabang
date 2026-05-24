@@ -176,7 +176,7 @@ export default async function PropertyDetailPage({ params }: Props) {
               <div className="mt-2 grid grid-cols-4 gap-1.5">
                 {prop.images.slice(1, 5).map((url: string, i: number) => (
                   <div key={i} className="relative aspect-square overflow-hidden rounded-lg">
-                    <Image src={url} alt="" fill className="object-cover" sizes="200px" />
+                    <Image src={url} alt={`${displayAddress} 사진 ${i + 2}`} fill className="object-cover" sizes="200px" />
                   </div>
                 ))}
               </div>
@@ -322,7 +322,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                     <Card className="overflow-hidden hover:border-blue-300 transition-colors">
                       {p.images?.[0] && (
                         <div className="relative h-32 w-full">
-                          <Image src={p.images[0]} alt="" fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
+                          <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
                         </div>
                       )}
                       <CardBody className="p-3">

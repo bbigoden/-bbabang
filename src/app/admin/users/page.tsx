@@ -501,6 +501,12 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
 
   const setStatus = (s: AccountStatus) => {
     if (isSelf && s !== 'active') { setErr('본인 계정의 상태는 변경할 수 없어요'); return }
+    const targetLabel = user.name || user.email || '이 사용자'
+    if (s === 'suspended') {
+      if (!window.confirm(`${targetLabel} 계정을 ${suspendDays}일 동안 정지할까요?`)) return
+    } else if (s === 'banned') {
+      if (!window.confirm(`${targetLabel} 계정을 영구 차단할까요?\n로그인이 차단되며 되돌리려면 다시 상태를 변경해야 합니다.`)) return
+    }
     const patch: Partial<UserRow> = { account_status: s }
     if (s === 'suspended') {
       const until = new Date(Date.now() + suspendDays * 24 * 60 * 60 * 1000).toISOString()
@@ -513,6 +519,9 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
 
   const setRole = (r: Role) => {
     if (isSelf && r !== 'admin') { setErr('본인의 admin 권한은 해제할 수 없어요'); return }
+    const targetLabel = user.name || user.email || '이 사용자'
+    const roleLabel = r === 'admin' ? '관리자' : r === 'broker' ? '중개사' : '일반 사용자'
+    if (!window.confirm(`${targetLabel}의 역할을 "${roleLabel}"(으)로 변경할까요?`)) return
     update({ role: r })
   }
 

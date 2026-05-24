@@ -131,14 +131,14 @@ export default async function BrokerDashboardPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 text-2xl font-black dark:bg-blue-500/20 dark:text-blue-400">
                 {profile?.name?.[0]}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">{profile?.name}</h1>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">{profile?.name}</h1>
                   {broker.is_verified && (
-                    <CheckCircle className="h-5 w-5 text-blue-500" />
+                    <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
                   )}
                 </div>
-                <p className="text-gray-500 dark:text-gray-400">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
+                <p className="text-gray-500 dark:text-gray-400 truncate">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
                 <div className="mt-2 flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
                     <Star className="h-4 w-4 fill-yellow-400" />

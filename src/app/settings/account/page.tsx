@@ -58,7 +58,7 @@ export default function SettingsAccountPage() {
   const changePassword = async () => {
     if (!pwNew || !pwConfirm) { setPwMsg({ type: 'err', text: '새 비밀번호를 입력해주세요.' }); return }
     if (pwNew !== pwConfirm) { setPwMsg({ type: 'err', text: '새 비밀번호가 일치하지 않습니다.' }); return }
-    if (pwNew.length < 6) { setPwMsg({ type: 'err', text: '비밀번호는 6자 이상이어야 합니다.' }); return }
+    if (pwNew.length < 8) { setPwMsg({ type: 'err', text: '비밀번호는 8자 이상이어야 합니다.' }); return }
     setPwSaving(true); setPwMsg(null)
 
     // P1-5: 유출된 비밀번호 차단 (HaveIBeenPwned)
@@ -189,7 +189,7 @@ export default function SettingsAccountPage() {
         <div className="space-y-3">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">새 비밀번호</label>
-            <input type="password" value={pwNew} onChange={e => setPwNew(e.target.value)} placeholder="6자 이상"
+            <input type="password" value={pwNew} onChange={e => setPwNew(e.target.value)} placeholder="8자 이상"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>

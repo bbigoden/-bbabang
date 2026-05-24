@@ -153,6 +153,9 @@ export default function AdminPropertiesPage() {
   }
 
   const deleteProperty = async (id: string) => {
+    const target = items.find(p => p.id === id)
+    const label = target?.address ? `"${target.address}"` : '이 매물'
+    if (!window.confirm(`${label}을(를) 영구 삭제할까요?\n복구할 수 없습니다.`)) return false
     const { error } = await supabase.from('broker_properties').delete().eq('id', id)
     if (error) {
       alert('삭제 실패: ' + error.message)
@@ -244,6 +247,14 @@ export default function AdminPropertiesPage() {
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
             <Home className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
             <p className="font-semibold text-gray-400">조건에 맞는 매물이 없어요</p>
+            {(search || status !== 'all' || showReportedOnly) && (
+              <button
+                onClick={() => { setSearch(''); setStatus('all'); setShowReportedOnly(false) }}
+                className="mt-4 rounded-xl border border-gray-700 bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-700"
+              >
+                필터 초기화
+              </button>
+            )}
           </div>
         ) : (
           <>

@@ -202,7 +202,7 @@ export default function RecommendationsPage() {
                       <Link href={`/broker/${p.broker_id}`}>
                         {p.images?.[0] && (
                           <div className="relative h-32 w-full">
-                            <Image src={p.images[0]} alt="" fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
+                            <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
                           </div>
                         )}
                         <div className="p-4">
@@ -243,7 +243,7 @@ function PropertyMatchCard({ match, favorited }: { match: Match; favorited: bool
       <Link href={`/broker/${p.broker_id}`}>
         {p.images?.[0] && (
           <div className="relative h-36 w-full">
-            <Image src={p.images[0]} alt="" fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
+            <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
           </div>
         )}
         <div className="p-4">

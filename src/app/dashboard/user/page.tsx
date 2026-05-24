@@ -68,14 +68,14 @@ export default async function UserDashboardPage() {
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         {/* 상단 인사 */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
               안녕하세요, {profile?.name ?? '회원'}님 👋
             </h1>
             <p className="mt-1 text-sm text-gray-500">내 방 찾기 현황을 확인하세요</p>
           </div>
-          <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+          <Link href="/request/new" className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             <Plus className="h-4 w-4" />
             요청 등록
           </Link>
@@ -148,22 +148,26 @@ export default async function UserDashboardPage() {
         {/* 이용 흐름 안내 */}
         <div className="mb-8 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
           <p className="mb-3 text-xs font-bold text-blue-500 uppercase tracking-wide">빠방 이용 흐름</p>
-          <div className="flex items-center gap-1 overflow-x-auto">
-            {[
-              { icon: FileText, label: '요청 등록', desc: '조건 입력', active: activeRequests.length === 0 },
-              { icon: Users, label: '제안 받기', desc: '중개사 제안', active: activeRequests.length > 0 && requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) === 0 },
-              { icon: MessageSquare, label: '대화목록', desc: '매물 협의', active: (requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) ?? 0) > 0 },
-              { icon: FileCheck, label: '계약', desc: '직접 진행', active: false },
-            ].map((step, i) => (
-              <div key={i} className="flex items-center gap-1 flex-shrink-0">
-                <div className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 ${step.active ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-900 text-gray-500'}`}>
-                  <step.icon className="h-4 w-4" />
-                  <span className="text-xs font-bold">{step.label}</span>
-                  <span className={`text-[10px] ${step.active ? 'text-blue-100' : 'text-gray-400'}`}>{step.desc}</span>
+          <div className="relative">
+            <div className="flex items-center gap-1 overflow-x-auto pr-4">
+              {[
+                { icon: FileText, label: '요청 등록', desc: '조건 입력', active: activeRequests.length === 0 },
+                { icon: Users, label: '제안 받기', desc: '중개사 제안', active: activeRequests.length > 0 && requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) === 0 },
+                { icon: MessageSquare, label: '대화목록', desc: '매물 협의', active: (requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) ?? 0) > 0 },
+                { icon: FileCheck, label: '계약', desc: '직접 진행', active: false },
+              ].map((step, i) => (
+                <div key={i} className="flex items-center gap-1 flex-shrink-0">
+                  <div className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 ${step.active ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-900 text-gray-500'}`}>
+                    <step.icon className="h-4 w-4" />
+                    <span className="text-xs font-bold">{step.label}</span>
+                    <span className={`text-[10px] ${step.active ? 'text-blue-100' : 'text-gray-400'}`}>{step.desc}</span>
+                  </div>
+                  {i < 3 && <ChevronRight className="h-4 w-4 text-blue-300 flex-shrink-0" />}
                 </div>
-                {i < 3 && <ChevronRight className="h-4 w-4 text-blue-300 flex-shrink-0" />}
-              </div>
-            ))}
+              ))}
+            </div>
+            {/* 모바일: 우측 페이드로 가로 스크롤 가능 표시 */}
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-blue-50 to-transparent sm:hidden" aria-hidden="true" />
           </div>
         </div>
 

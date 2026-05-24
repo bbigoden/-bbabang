@@ -192,6 +192,7 @@ export default function NotificationsPage() {
                     <span className="mt-0.5 text-xl flex-shrink-0">{TYPE_ICON[n.type] ?? '🔔'}</span>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm ${!n.is_read ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                        {!n.is_read && <span className="sr-only">안 읽음 알림: </span>}
                         {n.title}
                       </p>
                       {n.body && <p className="mt-1 text-sm text-gray-500 line-clamp-2">{n.body}</p>}

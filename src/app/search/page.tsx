@@ -194,7 +194,7 @@ function SearchInner() {
                         className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-emerald-300 hover:shadow-sm transition-all">
                         {p.images?.[0] && (
                           <div className="relative h-28 w-full">
-                            <Image src={p.images[0]} alt="" fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
+                            <Image src={p.images[0]} alt={`${p.deal_type ?? ''} ${p.room_type ?? '매물'} ${p.address ?? ''}`.trim()} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
                           </div>
                         )}
                         <div className="p-4">
