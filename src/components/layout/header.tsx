@@ -28,15 +28,9 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
   const user = userProp !== undefined ? userProp : auth.user
   const role = roleProp !== undefined ? roleProp : (auth.profile?.role ?? null)
 
-  // BrokerSidebar가 보이는 영역에선 헤더 자체를 숨김 (사이드바가 모든 기능 처리)
-  const BROKER_SIDEBAR_SEGS = ['customers','properties','diary','chats','resources','settlement','team','trash','register','settings']
-  const isBrokerSidebarArea = role === 'broker' && (
-    pathname === '/dashboard/broker'
-    || (pathname?.startsWith('/dashboard/broker/') ?? false)
-    || (pathname?.startsWith('/broker/') && BROKER_SIDEBAR_SEGS.includes(pathname.split('/')[2] ?? ''))
-  )
-
-  // broker 영역에선 헤더 전체 숨김 — 사이드바가 홈/대시보드/공동요청/알림/로그아웃 모두 처리
+  // broker는 BrokerGlobalLayout이 모든 페이지에 사이드바를 표시하므로 헤더 항상 숨김
+  // (사이드바가 홈/대시보드/공동요청/알림/로그아웃 모두 처리)
+  const isBrokerSidebarArea = role === 'broker'
   if (isBrokerSidebarArea) return null
 
   const handleLogout = async () => {
