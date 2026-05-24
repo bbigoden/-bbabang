@@ -1,48 +1,65 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, ClipboardList, MessageCircle,
   FolderOpen, BarChart2, Calculator, UserCog, Settings, Trash2,
+  User, Bell, Palette, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthOptional } from '@/lib/auth-context'
 
-interface ItemDef {
+interface SubItemDef {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
   ownerOnly?: boolean
 }
 
+interface ItemDef {
+  id: string
+  href?: string  // children 있으면 생략 가능
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  ownerOnly?: boolean
+  children?: SubItemDef[]
+}
+
 // 대시보드 빠른 메뉴 4×3 그리드 순서와 일치
 const ITEMS: ItemDef[] = [
-  { href: '/dashboard/broker', label: '대시보드', icon: LayoutDashboard },
-  { href: '/broker/customers', label: '고객목록', icon: Users },
-  { href: '/broker/properties', label: '매물목록', icon: Building2 },
-  { href: '/broker/diary', label: '업무일지', icon: ClipboardList },
-  { href: '/broker/chats', label: '대화목록', icon: MessageCircle },
-  { href: '/broker/resources', label: '자료실', icon: FolderOpen },
-  { href: '/broker/stats', label: '실적 분석', icon: BarChart2 },
-  { href: '/broker/settlement', label: '정산', icon: Calculator },
-  { href: '/broker/team', label: '팀 관리', icon: UserCog, ownerOnly: true },
-  { href: '/settings/office', label: '사무소 설정', icon: Settings, ownerOnly: true },
-  { href: '/broker/trash', label: '휴지통', icon: Trash2 },
+  { id: 'dashboard',  href: '/dashboard/broker', label: '대시보드', icon: LayoutDashboard },
+  { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users },
+  { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2 },
+  { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },
+  { id: 'chats',      href: '/broker/chats', label: '대화목록', icon: MessageCircle },
+  { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
+  { id: 'stats',      href: '/broker/stats', label: '실적 분석', icon: BarChart2 },
+  { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },
+  { id: 'team',       href: '/broker/team', label: '팀 관리', icon: UserCog, ownerOnly: true },
+  {
+    id: 'settings', label: '설정', icon: Settings,
+    children: [
+      { href: '/settings/account',       label: '내 계정', icon: User },
+      { href: '/settings/notifications', label: '알림',   icon: Bell },
+      { href: '/settings/appearance',    label: '화면',   icon: Palette },
+      { href: '/settings/office',        label: '사무소', icon: Building2, ownerOnly: true },
+    ],
+  },
+  { id: 'trash', href: '/broker/trash', label: '휴지통', icon: Trash2 },
 ]
 
 export function BrokerSidebar() {
   const pathname = usePathname() ?? ''
   const { profile, broker, loading } = useAuthOptional()
+  const [manualOpen, setManualOpen] = useState<Set<string>>(new Set())
 
   // 권한 가드: 중개사 본인만 노출
-  // - 로딩 중이거나 비-broker → 사이드바 숨김 (일반 사용자가 보는 /broker/[id] 보호)
   if (loading) return null
   if (profile?.role !== 'broker') return null
 
   // /broker/[id] 패턴(중개사 프로필 페이지)에서는 숨김
-  // - /broker/customers 같은 영역 페이지는 'customers' 등 정해진 단어
-  // - /broker/abc-uuid 처럼 알 수 없는 슬러그면 [id] 페이지로 간주
   const knownTopLevel = new Set([
     'customers', 'properties', 'diary', 'chats', 'resources',
     'stats', 'settlement', 'team', 'trash',
@@ -59,18 +76,73 @@ export function BrokerSidebar() {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
+  // 아코디언 펼침: 자식 중 active 있으면 자동, 아니면 사용자가 토글한 상태
+  const isExpanded = (item: ItemDef) => {
+    if (!item.children) return false
+    if (item.children.some(c => isActive(c.href))) return true
+    return manualOpen.has(item.id)
+  }
+  const toggleExpand = (id: string) => setManualOpen(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
   return (
     <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-gray-200 md:bg-white dark:md:border-gray-800 dark:md:bg-gray-900 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
-      {/* 메뉴 */}
       <nav className="flex-1 px-3 py-4">
         <ul className="flex flex-col gap-0.5">
           {items.map(item => {
-            const active = isActive(item.href)
             const Icon = item.icon
+            if (item.children) {
+              const expanded = isExpanded(item)
+              const subItems = item.children.filter(s => !s.ownerOnly || isOwner)
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(item.id)}
+                    className={cn(
+                      'flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
+                      'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
+                    )}
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                    <ChevronDown className={cn('h-4 w-4 flex-shrink-0 transition-transform', expanded && 'rotate-180')} />
+                  </button>
+                  {expanded && (
+                    <ul className="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-gray-200 dark:border-gray-700 pl-2">
+                      {subItems.map(sub => {
+                        const SubIcon = sub.icon
+                        const subActive = isActive(sub.href)
+                        return (
+                          <li key={sub.href}>
+                            <Link
+                              href={sub.href}
+                              className={cn(
+                                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                                subActive
+                                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
+                              )}
+                            >
+                              <SubIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                              {sub.label}
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </li>
+              )
+            }
+            const active = isActive(item.href!)
             return (
-              <li key={item.href}>
+              <li key={item.id}>
                 <Link
-                  href={item.href}
+                  href={item.href!}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
                     active
