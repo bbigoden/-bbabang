@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr'
 const PROTECTED = [
   '/dashboard', '/request/new',
   '/broker/register', '/broker/properties', '/broker/customers', '/broker/diary',
-  '/broker/team', '/broker/settings', '/broker/resources', '/broker/stats',
+  '/broker/team', '/broker/settings', '/broker/resources',
   '/broker/chats', '/broker/trash',
   '/chat', '/admin', '/profile', '/settings',
 ]

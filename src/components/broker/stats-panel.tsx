@@ -1,14 +1,11 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
-import { Header } from '@/components/layout/header'
 import {
-  BarChart3, ArrowLeft, TrendingUp, MapPin, Calendar,
-  Target, Clock, Star
+  BarChart3, TrendingUp, MapPin, Calendar,
+  Target, Clock, Star,
 } from 'lucide-react'
 
 type Range = 30 | 90 | 365
@@ -16,15 +13,13 @@ type Range = 30 | 90 | 365
 interface Bucket { date: string; count: number }
 interface Row { key: string; count: number }
 
-export default function BrokerStatsPage() {
-  const router = useRouter()
+export function BrokerStatsPanel() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
 
   const [range, setRange] = useState<Range>(90)
   const [loading, setLoading] = useState(true)
-  const [brokerId, setBrokerId] = useState<string | null>(null)
   const [proposalSeries, setProposalSeries] = useState<{ all: Bucket[]; accepted: Bucket[] }>({ all: [], accepted: [] })
   const [byDealType, setByDealType] = useState<Row[]>([])
   const [byRegion, setByRegion] = useState<Row[]>([])
@@ -32,12 +27,6 @@ export default function BrokerStatsPage() {
     proposals: 0, accepted: 0, rejected: 0, pending: 0,
     acceptanceRate: 0, avgResponseHours: 0, deals: 0, rating: 0, reviewCount: 0,
   })
-
-  useEffect(() => {
-    if (auth.loading) return
-    if (!auth.user) { router.push('/auth/login'); return }
-    if (auth.profile?.role !== 'broker') { router.push('/'); return }
-  }, [auth.loading, auth.user, auth.profile?.role, router])
 
   const load = useCallback(async () => {
     if (!auth.user) return
@@ -49,20 +38,16 @@ export default function BrokerStatsPage() {
       .eq('user_id', auth.user.id)
       .single()
     if (!broker) { setLoading(false); return }
-    setBrokerId(broker.id)
 
-    // 백그라운드로 metrics 캐시 갱신 (실패해도 무시)
     supabase.rpc('refresh_broker_metrics', { p_broker_id: broker.id }).then(() => {}, () => {})
 
     const since = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString()
 
     const [pAllRes, pRecentRes] = await Promise.all([
-      // 전체 — 수락률 계산용 (range 무관)
       supabase
         .from('proposals')
         .select('id, status, created_at, request_id, request_posts(city, district, deal_type)')
         .eq('broker_id', broker.id),
-      // 최근 range 일 — 시계열·분석용
       supabase
         .from('proposals')
         .select('id, status, created_at, request_id, request_posts(city, district, deal_type)')
@@ -78,7 +63,6 @@ export default function BrokerStatsPage() {
     const pending = allProps.filter(p => p.status === 'pending').length
     const acceptanceRate = allProps.length > 0 ? Math.round((accepted / allProps.length) * 100) : 0
 
-    // 평균 응답 시간 — 채팅에서 첫 broker 메시지까지의 시간 (proposal.created_at → 첫 메시지)
     const proposalIds = recent.map(p => p.id)
     let avgResponseHours = 0
     if (proposalIds.length > 0) {
@@ -96,12 +80,10 @@ export default function BrokerStatsPage() {
           .eq('sender_id', brokerUserId)
           .order('created_at', { ascending: true })
 
-        // room별 첫 broker 메시지
         const firstMsgByRoom = new Map<string, string>()
         ;(msgs ?? []).forEach(m => {
           if (!firstMsgByRoom.has(m.room_id)) firstMsgByRoom.set(m.room_id, m.created_at)
         })
-        // proposal → first message hours 차이
         const roomToProposal = new Map<string, string>()
         ;(rooms ?? []).forEach(r => { if (r.proposal_id) roomToProposal.set(r.id, r.proposal_id) })
         const proposalCreated = new Map(recent.map(p => [p.id, p.created_at]))
@@ -131,7 +113,6 @@ export default function BrokerStatsPage() {
       reviewCount: broker.review_count ?? 0,
     })
 
-    // 일별 시계열 (최근 range 일)
     const allMap = new Map<string, number>()
     const accMap = new Map<string, number>()
     recent.forEach(p => {
@@ -144,7 +125,6 @@ export default function BrokerStatsPage() {
       accepted: fillSeries(accMap, range),
     })
 
-    // 거래 유형별
     const dtMap = new Map<string, number>()
     recent.forEach(p => {
       const dt = p.request_posts?.deal_type?.split(',')?.[0]?.trim() || '기타'
@@ -152,7 +132,6 @@ export default function BrokerStatsPage() {
     })
     setByDealType(Array.from(dtMap.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count))
 
-    // 지역별
     const regMap = new Map<string, number>()
     recent.forEach(p => {
       const region = [p.request_posts?.city, p.request_posts?.district].filter(Boolean).join(' ') || '미지정'
@@ -167,13 +146,7 @@ export default function BrokerStatsPage() {
     if (auth.profile?.role === 'broker') load()
   }, [auth.profile?.role, load])
 
-  if (auth.loading || auth.profile?.role !== 'broker') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-      </div>
-    )
-  }
+  if (auth.loading || auth.profile?.role !== 'broker') return null
 
   const formatHours = (h: number) => {
     if (h < 1) return `${Math.round(h * 60)}분`
@@ -182,78 +155,61 @@ export default function BrokerStatsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Header />
-
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard/broker" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
-              <ArrowLeft className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            </Link>
-            <div>
-              <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
-                <BarChart3 className="h-5 w-5 text-blue-500" />
-                내 실적 분석
-              </h1>
-              <p className="text-xs text-gray-500 mt-0.5">제안·수락·응답 시간을 한눈에</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
-            {([30, 90, 365] as const).map(d => (
-              <button key={d} onClick={() => setRange(d)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  range === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-                }`}>
-                {d === 365 ? '1년' : `${d}일`}
-              </button>
-            ))}
-          </div>
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-blue-600" />
+          <h2 className="font-bold text-gray-900 dark:text-white">실적 분석</h2>
+          <span className="text-xs text-gray-400">· 제안·수락·응답 시간을 한눈에</span>
         </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <Summary icon={Target} label="수락률" value={`${totals.acceptanceRate}%`} sub={`전체 ${totals.proposals}건`} color="bg-blue-50 text-blue-500" />
-              <Summary icon={Clock} label="평균 응답" value={totals.avgResponseHours > 0 ? formatHours(totals.avgResponseHours) : '—'} sub={`${range}일 기준`} color="bg-emerald-50 text-emerald-500" />
-              <Summary icon={Star} label="평점" value={totals.rating > 0 ? totals.rating.toFixed(1) : '신규'} sub={`리뷰 ${totals.reviewCount}개`} color="bg-amber-50 text-amber-500" />
-              <Summary icon={TrendingUp} label="총 거래" value={`${totals.deals}건`} sub="누적" color="bg-purple-50 text-purple-500" />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <MiniStat label="대기 중" value={totals.pending} color="text-yellow-600 bg-yellow-50" />
-              <MiniStat label="수락됨" value={totals.accepted} color="text-green-600 bg-green-50" />
-              <MiniStat label="거절됨" value={totals.rejected} color="text-red-600 bg-red-50" />
-            </div>
-
-            {/* 시계열 */}
-            <ChartCard title="제안 추이" icon={TrendingUp} subtitle={`최근 ${range}일`}>
-              <DualBars
-                primary={proposalSeries.all}
-                primaryLabel="전체"
-                primaryColor="bg-blue-500"
-                secondary={proposalSeries.accepted}
-                secondaryLabel="수락됨"
-                secondaryColor="bg-green-500"
-              />
-            </ChartCard>
-
-            {/* 분포 */}
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <ChartCard title="거래 유형별" icon={Calendar}>
-                <RankBars rows={byDealType} barColor="bg-blue-400" />
-              </ChartCard>
-              <ChartCard title="지역별 활동" icon={MapPin}>
-                <RankBars rows={byRegion} barColor="bg-purple-400" />
-              </ChartCard>
-            </div>
-          </>
-        )}
+        <div className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
+          {([30, 90, 365] as const).map(d => (
+            <button key={d} onClick={() => setRange(d)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                range === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}>
+              {d === 365 ? '1년' : `${d}일`}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <Summary icon={Target} label="수락률" value={`${totals.acceptanceRate}%`} sub={`전체 ${totals.proposals}건`} color="bg-blue-50 text-blue-500" />
+            <Summary icon={Clock} label="평균 응답" value={totals.avgResponseHours > 0 ? formatHours(totals.avgResponseHours) : '—'} sub={`${range}일 기준`} color="bg-emerald-50 text-emerald-500" />
+            <Summary icon={Star} label="평점" value={totals.rating > 0 ? totals.rating.toFixed(1) : '신규'} sub={`리뷰 ${totals.reviewCount}개`} color="bg-amber-50 text-amber-500" />
+            <Summary icon={TrendingUp} label="총 거래" value={`${totals.deals}건`} sub="누적" color="bg-purple-50 text-purple-500" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <MiniStat label="대기 중" value={totals.pending} color="text-yellow-600 bg-yellow-50" />
+            <MiniStat label="수락됨" value={totals.accepted} color="text-green-600 bg-green-50" />
+            <MiniStat label="거절됨" value={totals.rejected} color="text-red-600 bg-red-50" />
+          </div>
+
+          <ChartCard title="제안 추이" icon={TrendingUp} subtitle={`최근 ${range}일`}>
+            <DualBars
+              primary={proposalSeries.all} primaryLabel="전체" primaryColor="bg-blue-500"
+              secondary={proposalSeries.accepted} secondaryLabel="수락됨" secondaryColor="bg-green-500"
+            />
+          </ChartCard>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <ChartCard title="거래 유형별" icon={Calendar}>
+              <RankBars rows={byDealType} barColor="bg-blue-400" />
+            </ChartCard>
+            <ChartCard title="지역별 활동" icon={MapPin}>
+              <RankBars rows={byRegion} barColor="bg-purple-400" />
+            </ChartCard>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -294,7 +250,7 @@ function ChartCard({ title, icon: Icon, subtitle, children }: { title: string; i
     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
       <div className="mb-4 flex items-center gap-2">
         <Icon className="h-4 w-4 text-gray-400" />
-        <h2 className="font-bold text-gray-900 dark:text-white">{title}</h2>
+        <h3 className="font-bold text-gray-900 dark:text-white">{title}</h3>
         {subtitle && <span className="text-xs text-gray-400">· {subtitle}</span>}
       </div>
       {children}

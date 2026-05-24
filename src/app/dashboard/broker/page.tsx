@@ -3,13 +3,14 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings, FolderOpen, Trash2, Calculator } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, Users, ClipboardList, Clock, Settings, FolderOpen, Trash2, Calculator } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
 import { OfficeCodeCard } from '@/components/office-code-card'
 import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { PushPrompt } from '@/components/push-prompt'
+import { BrokerStatsPanel } from '@/components/broker/stats-panel'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -70,48 +71,6 @@ export default async function BrokerDashboardPage() {
 
   const statusLabel = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
   const statusVariant = { pending: 'warning', accepted: 'success', rejected: 'danger' } as const
-
-  // ── 성과 지표 계산 ──────────────────────────────────
-  const totalProposals = proposals.length
-  const acceptedProposals = proposals.filter(p => p.status === 'accepted').length
-  const rejectedProposals = proposals.filter(p => p.status === 'rejected').length
-  const acceptanceRate = totalProposals > 0
-    ? Math.round((acceptedProposals / totalProposals) * 100)
-    : 0
-
-  const now = new Date()
-  const thisMonthProposals = proposals.filter(p => {
-    const d = new Date(p.created_at)
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  }).length
-
-  const acceptedWithPrice = proposals.filter(p => p.status === 'accepted' && p.price)
-  const avgPrice = acceptedWithPrice.length > 0
-    ? Math.round(acceptedWithPrice.reduce((sum, p) => sum + p.price, 0) / acceptedWithPrice.length)
-    : 0
-
-  // 최근 6개월 월별 제안 현황
-  const monthlyStats = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
-    const month = d.getMonth()
-    const year = d.getFullYear()
-    const total = proposals.filter(p => {
-      const pd = new Date(p.created_at)
-      return pd.getMonth() === month && pd.getFullYear() === year
-    }).length
-    const accepted = proposals.filter(p => {
-      const pd = new Date(p.created_at)
-      return pd.getMonth() === month && pd.getFullYear() === year && p.status === 'accepted'
-    }).length
-    return { label: `${d.getMonth() + 1}월`, total, accepted }
-  })
-  const maxMonthly = Math.max(...monthlyStats.map(m => m.total), 1)
-
-  const rateColor = acceptanceRate >= 50
-    ? 'text-green-600'
-    : acceptanceRate >= 25
-      ? 'text-yellow-600'
-      : 'text-red-500'
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -210,14 +169,6 @@ export default async function BrokerDashboardPage() {
               <span className="text-sm font-bold text-gray-800 dark:text-gray-100">자료실</span>
             </div>
           </Link>
-          <Link href="/broker/stats">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100">
-                <BarChart2 className="h-5 w-5 text-emerald-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">실적 분석</span>
-            </div>
-          </Link>
           <Link href="/broker/settlement">
             <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100">
@@ -299,111 +250,9 @@ export default async function BrokerDashboardPage() {
           </div>
         )}
 
-        {/* ── 성과 분석 ─────────────────────────────────── */}
+        {/* ── 실적 분석 (구 '성과 분석' + '실적 분석' 통합) ──── */}
         <div className="mb-8">
-          <div className="mb-4 flex items-center gap-2">
-            <BarChart2 className="h-5 w-5 text-blue-600" />
-            <h2 className="font-bold text-gray-900 dark:text-white">성과 분석</h2>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3 mb-4">
-            {/* 수락률 */}
-            <Card>
-              <CardBody>
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="h-4 w-4 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-500">제안 수락률</span>
-                </div>
-                <div className={`text-4xl font-black ${rateColor}`}>
-                  {acceptanceRate}%
-                </div>
-                <div className="mt-2 text-xs text-gray-400">
-                  전체 {totalProposals}건 중 수락 {acceptedProposals}건 · 거절 {rejectedProposals}건
-                </div>
-                {/* 수락률 바 */}
-                <div className="mt-3 h-2 w-full rounded-full bg-gray-100 dark:bg-gray-800">
-                  <div
-                    className={`h-2 rounded-full transition-all ${
-                      acceptanceRate >= 50 ? 'bg-green-500' : acceptanceRate >= 25 ? 'bg-yellow-400' : 'bg-red-400'
-                    }`}
-                    style={{ width: `${acceptanceRate}%` }}
-                  />
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* 이번 달 제안 */}
-            <Card>
-              <CardBody>
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageCircle className="h-4 w-4 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-500">이번 달 제안</span>
-                </div>
-                <div className="text-4xl font-black text-blue-600">
-                  {thisMonthProposals}
-                  <span className="text-lg font-medium text-gray-400">건</span>
-                </div>
-                <div className="mt-2 text-xs text-gray-400">
-                  {now.getMonth() + 1}월 기준
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* 평균 성사가 */}
-            <Card>
-              <CardBody>
-                <div className="flex items-center gap-2 mb-2">
-                  <ThumbsUp className="h-4 w-4 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-500">수락된 제안 평균가</span>
-                </div>
-                <div className="text-3xl font-black text-gray-900 dark:text-white">
-                  {avgPrice > 0 ? formatPrice(avgPrice) : '-'}
-                </div>
-                <div className="mt-2 text-xs text-gray-400">
-                  수락된 {acceptedProposals}건 기준
-                </div>
-              </CardBody>
-            </Card>
-          </div>
-
-          {/* 월별 제안 추이 */}
-          <Card>
-            <CardBody>
-              <p className="mb-4 text-sm font-semibold text-gray-700 dark:text-gray-300">최근 6개월 제안 추이</p>
-              <div className="flex items-end gap-3 h-28">
-                {monthlyStats.map((m) => (
-                  <div key={m.label} className="flex flex-1 flex-col items-center gap-1.5">
-                    <span className="text-xs font-bold text-gray-500">
-                      {m.total > 0 ? m.total : ''}
-                    </span>
-                    <div className="relative w-full flex flex-col justify-end" style={{ height: '80px' }}>
-                      {/* 전체 제안 (연한 색) */}
-                      <div
-                        className="w-full rounded-t-lg bg-blue-100 absolute bottom-0"
-                        style={{ height: `${Math.round((m.total / maxMonthly) * 80)}px` }}
-                      />
-                      {/* 수락된 제안 (진한 색) */}
-                      <div
-                        className="w-full rounded-t-lg bg-blue-500 absolute bottom-0"
-                        style={{ height: `${Math.round((m.accepted / maxMonthly) * 80)}px` }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-400">{m.label}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-500" />
-                  수락된 제안
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-100" />
-                  전체 제안
-                </span>
-              </div>
-            </CardBody>
-          </Card>
+          <BrokerStatsPanel />
         </div>
 
         {/* ── 최근 리뷰 ─────────────────────────────────── */}

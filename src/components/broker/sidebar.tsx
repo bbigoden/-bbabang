@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, ClipboardList, MessageCircle,
-  FolderOpen, BarChart2, Calculator, UserCog, Settings, Trash2,
+  FolderOpen, Calculator, UserCog, Settings, Trash2,
   User, Bell, Palette, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -35,7 +35,6 @@ const ITEMS: ItemDef[] = [
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },
   { id: 'chats',      href: '/broker/chats', label: '대화목록', icon: MessageCircle },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
-  { id: 'stats',      href: '/broker/stats', label: '실적 분석', icon: BarChart2 },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },
   { id: 'team',       href: '/broker/team', label: '팀 관리', icon: UserCog, ownerOnly: true },
   {
@@ -76,7 +75,7 @@ export function BrokerSidebar() {
   // /broker/[id] 패턴(중개사 프로필 페이지)에서는 숨김
   const knownTopLevel = new Set([
     'customers', 'properties', 'diary', 'chats', 'resources',
-    'stats', 'settlement', 'team', 'trash',
+    'settlement', 'team', 'trash',
     'register', 'settings',
   ])
   const brokerSeg = pathname.startsWith('/broker/') ? pathname.split('/')[2] : null
