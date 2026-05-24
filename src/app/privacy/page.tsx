@@ -42,7 +42,7 @@ const sections = [
   },
   {
     title: '8. 개인정보 보호책임자',
-    content: `빠방은 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 이용자의 불만처리 및 피해구제 등을 위하여 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.\n\n개인정보 보호책임자\n- 이메일: bbigoden@gmail.com\n\n기타 개인정보침해에 대한 신고나 상담이 필요하신 경우에는 아래 기관에 문의하시기 바랍니다.\n- 개인정보침해신고센터: privacy.kisa.or.kr / 국번없이 118\n- 대검찰청 사이버범죄수사단: www.spo.go.kr / 02-3480-3573`,
+    content: `빠방은 개인정보 처리에 관한 업무를 총괄해서 책임지고, 개인정보 처리와 관련한 이용자의 불만처리 및 피해구제 등을 위하여 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.\n\n개인정보 보호책임자\n- 이메일: bigodennn@gmail.com\n\n기타 개인정보침해에 대한 신고나 상담이 필요하신 경우에는 아래 기관에 문의하시기 바랍니다.\n- 개인정보침해신고센터: privacy.kisa.or.kr / 국번없이 118\n- 대검찰청 사이버범죄수사단: www.spo.go.kr / 02-3480-3573`,
   },
   {
     title: '9. 쿠키의 운영 및 거부',
@@ -93,8 +93,8 @@ export default function PrivacyPage() {
           <div className="mt-10 border-t border-gray-100 dark:border-gray-800 pt-6">
             <p className="text-xs text-gray-500">
               개인정보와 관련한 문의사항은{' '}
-              <a href="mailto:bbigoden@gmail.com" className="text-blue-600 underline">
-                bbigoden@gmail.com
+              <a href="mailto:bigodennn@gmail.com" className="text-blue-600 underline">
+                bigodennn@gmail.com
               </a>
               으로 연락주세요.
             </p>

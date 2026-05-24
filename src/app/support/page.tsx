@@ -29,9 +29,9 @@ export default function SupportPage() {
         {/* 이메일 안내 */}
         <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
           또는
-          <a href="mailto:support@bbabang.kr" className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700">
+          <a href="mailto:bigodennn@gmail.com" className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700">
             <Mail className="h-3.5 w-3.5" />
-            support@bbabang.kr
+            bigodennn@gmail.com
           </a>
           으로 메일
         </div>

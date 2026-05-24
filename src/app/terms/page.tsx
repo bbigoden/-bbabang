@@ -88,8 +88,8 @@ export default function TermsPage() {
           <div className="mt-10 border-t border-gray-100 dark:border-gray-800 pt-6">
             <p className="text-xs text-gray-500">
               문의사항이 있으시면{' '}
-              <a href="mailto:bbigoden@gmail.com" className="text-blue-600 underline">
-                bbigoden@gmail.com
+              <a href="mailto:bigodennn@gmail.com" className="text-blue-600 underline">
+                bigodennn@gmail.com
               </a>
               으로 연락주세요.
             </p>

@@ -117,7 +117,7 @@ export default function RootLayout({
             sameAs: [],
             contactPoint: {
               '@type': 'ContactPoint',
-              email: 'bbigoden@gmail.com',
+              email: 'bigodennn@gmail.com',
               contactType: 'customer service',
               areaServed: 'KR',
               availableLanguage: ['Korean'],

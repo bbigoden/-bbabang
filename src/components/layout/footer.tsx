@@ -29,7 +29,7 @@ export function Footer() {
   const bizNumber = process.env.NEXT_PUBLIC_BUSINESS_REG_NUMBER
   const officeRegNumber = process.env.NEXT_PUBLIC_OFFICE_REG_NUMBER
   const address = process.env.NEXT_PUBLIC_BUSINESS_ADDRESS
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'bbigoden@gmail.com'
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'bigodennn@gmail.com'
   const phone = process.env.NEXT_PUBLIC_BUSINESS_PHONE
 
   return (
