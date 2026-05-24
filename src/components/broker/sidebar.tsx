@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -53,7 +53,21 @@ const ITEMS: ItemDef[] = [
 export function BrokerSidebar() {
   const pathname = usePathname() ?? ''
   const { profile, broker, loading } = useAuthOptional()
-  const [manualOpen, setManualOpen] = useState<Set<string>>(new Set())
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+
+  // settings 경로 진입 시 '설정' 아코디언 자동 펼침 (사용자가 접으면 다시 안 펼침)
+  useEffect(() => {
+    setOpenIds(prev => {
+      let changed = false
+      const next = new Set(prev)
+      for (const item of ITEMS) {
+        if (item.children?.some(c => pathname === c.href || pathname.startsWith(c.href + '/'))) {
+          if (!next.has(item.id)) { next.add(item.id); changed = true }
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [pathname])
 
   // 권한 가드: 중개사 본인만 노출
   if (loading) return null
@@ -76,13 +90,9 @@ export function BrokerSidebar() {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  // 아코디언 펼침: 자식 중 active 있으면 자동, 아니면 사용자가 토글한 상태
-  const isExpanded = (item: ItemDef) => {
-    if (!item.children) return false
-    if (item.children.some(c => isActive(c.href))) return true
-    return manualOpen.has(item.id)
-  }
-  const toggleExpand = (id: string) => setManualOpen(prev => {
+  // 아코디언 펼침/접힘: 사용자 토글 우선, settings 진입 시 위 useEffect가 자동 펼침
+  const isExpanded = (item: ItemDef) => !!item.children && openIds.has(item.id)
+  const toggleExpand = (id: string) => setOpenIds(prev => {
     const next = new Set(prev)
     next.has(id) ? next.delete(id) : next.add(id)
     return next
