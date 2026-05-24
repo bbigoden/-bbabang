@@ -429,8 +429,10 @@ export default function BrokerDiaryPage() {
   const [broker, setBroker] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
+  const [exEmployees, setExEmployees] = useState<Array<{ id: string; name: string }>>([])
   const [teamMembers, setTeamMembers] = useState<string[]>([])
   const [viewingBrokerId, setViewingBrokerId] = useState<string | null>(null) // null = 자기 자신
+  const [viewingExEmployee, setViewingExEmployee] = useState(false) // true면 archive에서 읽음
   const [canEdit, setCanEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -458,7 +460,8 @@ export default function BrokerDiaryPage() {
 
   // 칼럼 설정
   // 일지의 customCols·옵션도 viewing 대상의 col_settings 사용 (직원별 다른 칼럼 지원)
-  const settingsBrokerId = viewingBrokerId ?? broker?.id ?? null
+  // 퇴사자는 col_settings 없으므로 대표 본인 설정으로 fallback
+  const settingsBrokerId = viewingExEmployee ? (broker?.id ?? null) : (viewingBrokerId ?? broker?.id ?? null)
   const { settings, update, loaded } = useColSettings('diary_cust', settingsBrokerId, DEFAULT_COL_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'diary')
 
@@ -468,11 +471,16 @@ export default function BrokerDiaryPage() {
     if (!auth.broker) { router.push('/broker/register'); return }
     init()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
-  useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id, viewingBrokerId])
+  useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id, viewingBrokerId, viewingExEmployee])
 
   // viewingBrokerId 변경 시 그 직원의 일지 섹션 정의를 로드 (직원별 다른 섹션 지원)
   useEffect(() => {
     if (!broker) return
+    // 퇴사자는 broker_profiles 행이 없을 수 있고 col_settings도 의미 없음 — 기본 섹션 사용
+    if (viewingExEmployee) {
+      setSections(DEFAULT_SECTIONS)
+      return
+    }
     const targetId = viewingBrokerId ?? broker.id
     if (targetId === broker.id) {
       const saved = (broker.col_settings as any)?.diary_sections?.sections
@@ -488,7 +496,7 @@ export default function BrokerDiaryPage() {
       const saved = (data?.col_settings as any)?.diary_sections?.sections
       setSections(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SECTIONS)
     })()
-  }, [broker?.id, viewingBrokerId, supabase])
+  }, [broker?.id, viewingBrokerId, viewingExEmployee, supabase])
 
   const init = async () => {
     const u = auth.user!
@@ -509,7 +517,7 @@ export default function BrokerDiaryPage() {
     const savedSections = b.col_settings?.['diary_sections']?.sections
     if (Array.isArray(savedSections) && savedSections.length > 0) setSections(savedSections)
 
-    // 대표: 직원 목록 로드
+    // 대표: 직원 목록 + 퇴사자 목록 로드
     if (owner) {
       const { data: emps } = await supabase
         .from('broker_profiles')
@@ -523,6 +531,25 @@ export default function BrokerDiaryPage() {
       } else {
         setTeamMembers(prof?.name ? [prof.name] : [])
       }
+      // archive에서 distinct 퇴사자 목록 — diary archive · customer archive 양쪽 합집합
+      const [{ data: archAuthors1 }, { data: archAuthors2 }] = await Promise.all([
+        supabase.from('broker_diary_archive')
+          .select('author_broker_id, author_name')
+          .eq('office_broker_id', b.id),
+        supabase.from('broker_diary_customers_archive')
+          .select('author_broker_id, author_name')
+          .eq('office_broker_id', b.id),
+      ])
+      const seen = new Set<string>()
+      const exList: Array<{ id: string; name: string }> = []
+      for (const a of [...(archAuthors1 ?? []), ...(archAuthors2 ?? [])]) {
+        const aid = (a as any).author_broker_id
+        if (aid && !seen.has(aid)) {
+          seen.add(aid)
+          exList.push({ id: aid, name: (a as any).author_name ?? '퇴사자' })
+        }
+      }
+      setExEmployees(exList)
     } else {
       setTeamMembers(prof?.name ? [prof.name] : [])
     }
@@ -565,6 +592,53 @@ export default function BrokerDiaryPage() {
   const loadDiaryData = async (date: string) => {
     if (!broker) return
     setDiaryLoading(true)
+
+    // 퇴사자 archive 모드 — 사무소 archive 테이블에서 읽기 전용 로드
+    if (viewingExEmployee && viewingBrokerId) {
+      const [{ data: archLinks }, { data: archDiary }] = await Promise.all([
+        supabase.from('broker_diary_customers_archive')
+          .select('id, sort_order, proposed_property_ids, customer_id, customer_name, customer_contact')
+          .eq('office_broker_id', broker.id)
+          .eq('author_broker_id', viewingBrokerId)
+          .eq('diary_date', date)
+          .order('sort_order'),
+        supabase.from('broker_diary_archive')
+          .select('sections_content, work_summary, ad_status, suggestions, delivery_notes')
+          .eq('office_broker_id', broker.id)
+          .eq('author_broker_id', viewingBrokerId)
+          .eq('date', date)
+          .maybeSingle(),
+      ])
+      setDiaryCustomers((archLinks ?? []).map((l: any) => ({
+        link_id: l.id,
+        sort_order: l.sort_order,
+        proposed_property_ids: l.proposed_property_ids ?? [],
+        id: l.customer_id ?? l.id,
+        client_name: l.customer_name ?? '',
+        contact: l.customer_contact ?? null,
+        received_date: null,
+        assignee: null,
+        category: '',
+        source: null,
+        status: '',
+        request: null,
+        custom_fields: null,
+      })))
+      // sections_content 우선, 없으면 레거시 4개 컬럼을 기본 섹션 키로 매핑
+      let content: Record<string, string> = (archDiary?.sections_content as any) ?? {}
+      if (Object.keys(content).length === 0 && archDiary) {
+        const fallback: Record<string, string> = {}
+        if ((archDiary as any).work_summary) fallback['s_work'] = (archDiary as any).work_summary
+        if ((archDiary as any).ad_status) fallback['s_ad'] = (archDiary as any).ad_status
+        if ((archDiary as any).suggestions) fallback['s_suggest'] = (archDiary as any).suggestions
+        if ((archDiary as any).delivery_notes) fallback['s_delivery'] = (archDiary as any).delivery_notes
+        content = fallback
+      }
+      setSectionContent(content)
+      setDiaryLoading(false)
+      return
+    }
+
     const targetId = viewingBrokerId ?? broker.id
     const [{ data: links }, { data: diaryRow }] = await Promise.all([
       supabase.from('broker_diary_customers')
@@ -816,7 +890,8 @@ export default function BrokerDiaryPage() {
     : (profile?.name ?? '')
   // 대표가 다른 직원 일지 보는 중이면 읽기 전용
   // 사장님은 직원 일지도 편집 가능. 직원은 다른 사람 일지 보면 read-only.
-  const effectiveCanEdit = canEdit && (isOwner || !viewingBrokerId)
+  // 퇴사자 archive는 법적 보존 기록이라 누구도 편집 불가.
+  const effectiveCanEdit = canEdit && (isOwner || !viewingBrokerId) && !viewingExEmployee
 
   // 활성 칼럼
   const fixedCols: ColDef[] = []
@@ -880,18 +955,39 @@ export default function BrokerDiaryPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black text-gray-900 dark:text-white">{formatDateHeader(diaryDate)} 업무일지</h1>
-            {/* 대표: 직원 선택 드롭다운 */}
-            {isOwner && employees.length > 0 && (
+            {/* 대표: 직원/퇴사자 선택 드롭다운 */}
+            {isOwner && (employees.length > 0 || exEmployees.length > 0) && (
               <select
-                value={viewingBrokerId ?? ''}
-                onChange={e => setViewingBrokerId(e.target.value || null)}
+                value={viewingExEmployee ? `ex:${viewingBrokerId}` : (viewingBrokerId ?? '')}
+                onChange={e => {
+                  const v = e.target.value
+                  if (!v) { setViewingBrokerId(null); setViewingExEmployee(false) }
+                  else if (v.startsWith('ex:')) { setViewingBrokerId(v.slice(3)); setViewingExEmployee(true) }
+                  else { setViewingBrokerId(v); setViewingExEmployee(false) }
+                }}
                 className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 cursor-pointer"
               >
                 <option value="">내 일지</option>
-                {employees.map(e => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
+                {employees.length > 0 && (
+                  <optgroup label="재직 직원">
+                    {employees.map(e => (
+                      <option key={e.id} value={e.id}>{e.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {exEmployees.length > 0 && (
+                  <optgroup label="퇴사자">
+                    {exEmployees.map(e => (
+                      <option key={e.id} value={`ex:${e.id}`}>{e.name} (퇴사)</option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
+            )}
+            {viewingExEmployee && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                퇴사자 일지 · 읽기 전용
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
