@@ -7,10 +7,11 @@ import {
   LayoutDashboard, Users, Building2, ClipboardList, MessageCircle,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
   User, Bell, Palette, ChevronDown, Home,
-  PanelLeftClose, PanelLeftOpen, LogOut,
+  PanelLeftClose, PanelLeftOpen, LogOut, Handshake,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthOptional } from '@/lib/auth-context'
+import { useNotificationsCtx } from '@/lib/notifications-context'
 import { createClient } from '@/lib/supabase/client'
 
 interface SubItemDef {
@@ -33,6 +34,7 @@ interface ItemDef {
 const ITEMS: ItemDef[] = [
   { id: 'home',       href: '/', label: '홈', icon: Home },
   { id: 'dashboard',  href: '/dashboard/broker', label: '대시보드', icon: LayoutDashboard },
+  { id: 'co-broker',  href: '/request/new?co_broker=true', label: '공동중개 요청', icon: Handshake },
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2 },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },
@@ -57,6 +59,7 @@ const COLLAPSED_KEY = 'bbabang_broker_sidebar_collapsed'
 export function BrokerSidebar() {
   const pathname = usePathname() ?? ''
   const { profile, broker, loading } = useAuthOptional()
+  const { unread } = useNotificationsCtx()
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState(false)
 
@@ -228,8 +231,35 @@ export function BrokerSidebar() {
         </ul>
       </nav>
 
-      {/* 하단: 로그아웃 */}
-      <div className="border-t border-gray-200 dark:border-gray-800 p-3">
+      {/* 하단: 알림 + 로그아웃 */}
+      <div className="border-t border-gray-200 dark:border-gray-800 p-3 flex flex-col gap-0.5">
+        {/* 알림 */}
+        <Link
+          href="/notifications"
+          title={collapsed ? `알림${unread > 0 ? ` (${unread})` : ''}` : undefined}
+          className={cn(
+            'flex items-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-colors',
+            isActive('/notifications')
+              ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
+            collapsed ? 'justify-center px-0' : 'px-3',
+          )}
+        >
+          <span className="relative flex-shrink-0">
+            <Bell className="h-4 w-4" />
+            {unread > 0 && (
+              <span className={cn(
+                'absolute flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white',
+                collapsed ? '-top-1 -right-1.5' : '-top-1.5 -right-2',
+              )}>
+                {unread > 9 ? '9+' : unread}
+              </span>
+            )}
+          </span>
+          {!collapsed && '알림'}
+        </Link>
+
+        {/* 로그아웃 */}
         <button
           type="button"
           onClick={handleLogout}

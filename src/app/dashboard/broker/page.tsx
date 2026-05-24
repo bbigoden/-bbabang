@@ -3,14 +3,14 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, Users, ClipboardList, Clock, Settings, FolderOpen, Trash2, Calculator } from 'lucide-react'
+import { Star, MapPin, CheckCircle, Target, Clock, Calculator, MessageCircle, ThumbsUp, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
-import { OfficeCodeCard } from '@/components/office-code-card'
 import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { PushPrompt } from '@/components/push-prompt'
 import { BrokerStatsPanel } from '@/components/broker/stats-panel'
+import { calcSettlement, fmtComma } from '@/lib/settlement'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -46,9 +46,13 @@ export default async function BrokerDashboardPage() {
   let proposals: any[] = []
   let recentReviews: any[] = []
   let recommendedRequests: any[] = []
+  let settlements: any[] = []
+
+  const now = new Date()
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
   try {
-    const [{ data: pr }, { data: rv }, { data: rec }] = await Promise.all([
+    const [{ data: pr }, { data: rv }, { data: rec }, { data: st }] = await Promise.all([
       supabase
         .from('proposals')
         .select('*, request_posts(*, profiles(*))')
@@ -61,16 +65,59 @@ export default async function BrokerDashboardPage() {
         .order('created_at', { ascending: false })
         .limit(3),
       supabase.rpc('recommend_requests_for_broker', { p_broker_id: broker.id, p_limit: 6 }),
+      supabase
+        .from('settlements')
+        .select('contract_no, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override')
+        .eq('assignee_broker_id', broker.id)
+        .eq('record_month', thisMonth),
     ])
     proposals = pr ?? []
     recentReviews = rv ?? []
     recommendedRequests = rec ?? []
+    settlements = st ?? []
   } catch {
     // 부가 데이터 로드 실패 시 빈 상태로 렌더링
   }
 
   const statusLabel = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
   const statusVariant = { pending: 'warning', accepted: 'success', rejected: 'danger' } as const
+
+  // ── 이번 달 정산 요약 ─────────────────────────────────
+  const settlementSummary = settlements.reduce((acc, s) => {
+    const c = calcSettlement(s)
+    acc.total += c.total
+    acc.assignee += c.assignee
+    acc.contracts.add(s.contract_no)
+    return acc
+  }, { total: 0, assignee: 0, contracts: new Set<number>() })
+
+  // ── 성과분석 보조 지표 (이번 달 제안·평균 성사가·6개월 추이) ──
+  const thisMonthProposals = proposals.filter(p => {
+    const d = new Date(p.created_at)
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  }).length
+
+  const acceptedWithPrice = proposals.filter(p => p.status === 'accepted' && p.price)
+  const avgPrice = acceptedWithPrice.length > 0
+    ? Math.round(acceptedWithPrice.reduce((sum, p) => sum + p.price, 0) / acceptedWithPrice.length)
+    : 0
+  const acceptedProposals = proposals.filter(p => p.status === 'accepted').length
+
+  const monthlyStats = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+    const month = d.getMonth()
+    const year = d.getFullYear()
+    const total = proposals.filter(p => {
+      const pd = new Date(p.created_at)
+      return pd.getMonth() === month && pd.getFullYear() === year
+    }).length
+    const accepted = proposals.filter(p => {
+      const pd = new Date(p.created_at)
+      return pd.getMonth() === month && pd.getFullYear() === year && p.status === 'accepted'
+    }).length
+    return { label: `${d.getMonth() + 1}월`, total, accepted }
+  })
+  const maxMonthly = Math.max(...monthlyStats.map(m => m.total), 1)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -127,86 +174,114 @@ export default async function BrokerDashboardPage() {
           </div>
         )}
 
-        {/* 빠른 메뉴 4타일 */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Link href="/broker/customers">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100">
-                <Users className="h-5 w-5 text-indigo-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">고객목록</span>
+        {/* ── 이번 달 정산 요약 ─────────────────────────────── */}
+        <div className="mb-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-teal-600" />
+              <h2 className="font-bold text-gray-900 dark:text-white">{now.getMonth() + 1}월 정산</h2>
+              <span className="text-xs text-gray-400">· 내 담당 기준</span>
             </div>
-          </Link>
-          <Link href="/broker/properties">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100">
-                <Building2 className="h-5 w-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">매물목록</span>
-            </div>
-          </Link>
-          <Link href="/broker/diary">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100">
-                <ClipboardList className="h-5 w-5 text-green-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">업무일지</span>
-            </div>
-          </Link>
-          <Link href="/broker/chats">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-100">
-                <MessageCircle className="h-5 w-5 text-orange-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">대화목록</span>
-            </div>
-          </Link>
-          <Link href="/broker/resources">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100">
-                <FolderOpen className="h-5 w-5 text-sky-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">자료실</span>
-            </div>
-          </Link>
-          <Link href="/broker/settlement">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100">
-                <Calculator className="h-5 w-5 text-teal-600" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">정산</span>
-            </div>
-          </Link>
-          {broker.is_owner !== false && (
-            <Link href="/broker/team">
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-100">
-                  <Users className="h-5 w-5 text-purple-600" />
+            <Link href="/broker/settlement" className="text-xs text-blue-600 hover:underline">정산 전체 보기 →</Link>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">계약 건수</span>
                 </div>
-                <span className="text-sm font-bold text-gray-800 dark:text-gray-100">팀 관리</span>
-              </div>
-            </Link>
-          )}
-          {broker.is_owner !== false && (
-            <Link href="/settings/office">
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-blue-200 hover:bg-blue-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-500/40 dark:hover:bg-blue-500/10 transition-colors cursor-pointer shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
-                  <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <div className="text-3xl font-black text-gray-900 dark:text-white">
+                  {settlementSummary.contracts.size}
+                  <span className="text-lg font-medium text-gray-400">건</span>
                 </div>
-                <span className="text-sm font-bold text-gray-800 dark:text-gray-100">사무소 설정</span>
-              </div>
-            </Link>
-          )}
-          <Link href="/broker/trash">
-            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-red-200 hover:bg-red-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-red-500/40 dark:hover:bg-red-500/10 transition-colors cursor-pointer shadow-sm">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50">
-                <Trash2 className="h-5 w-5 text-red-500" />
-              </div>
-              <span className="text-sm font-bold text-gray-800 dark:text-gray-100">휴지통</span>
-            </div>
-          </Link>
+                <div className="mt-2 text-xs text-gray-400">정산월 {thisMonth} 기준</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <Calculator className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">총수수료</span>
+                </div>
+                <div className="text-3xl font-black text-teal-600">
+                  {fmtComma(settlementSummary.total)}
+                  <span className="text-lg font-medium text-gray-400">원</span>
+                </div>
+                <div className="mt-2 text-xs text-gray-400">매도+매수 합계</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <ThumbsUp className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">내 수수료</span>
+                </div>
+                <div className="text-3xl font-black text-blue-600">
+                  {fmtComma(settlementSummary.assignee)}
+                  <span className="text-lg font-medium text-gray-400">원</span>
+                </div>
+                <div className="mt-2 text-xs text-gray-400">담당자 몫 (원천 전)</div>
+              </CardBody>
+            </Card>
+          </div>
         </div>
 
+        {/* ── 이번 달 영업 활동 (제안 건수·평균 성사가·6개월 추이) ── */}
+        <div className="mb-8">
+          <div className="mb-4 flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-blue-600" />
+            <h2 className="font-bold text-gray-900 dark:text-white">이번 달 영업 활동</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3 mb-4">
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageCircle className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">이번 달 제안</span>
+                </div>
+                <div className="text-4xl font-black text-blue-600">
+                  {thisMonthProposals}
+                  <span className="text-lg font-medium text-gray-400">건</span>
+                </div>
+                <div className="mt-2 text-xs text-gray-400">{now.getMonth() + 1}월 기준</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody>
+                <div className="flex items-center gap-2 mb-2">
+                  <ThumbsUp className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">수락된 제안 평균가</span>
+                </div>
+                <div className="text-3xl font-black text-gray-900 dark:text-white">
+                  {avgPrice > 0 ? formatPrice(avgPrice) : '-'}
+                </div>
+                <div className="mt-2 text-xs text-gray-400">수락된 {acceptedProposals}건 기준</div>
+              </CardBody>
+            </Card>
+            <Card>
+              <CardBody>
+                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">최근 6개월 제안 추이</p>
+                <div className="flex items-end gap-2 h-20">
+                  {monthlyStats.map((m) => (
+                    <div key={m.label} className="flex flex-1 flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-gray-500">{m.total > 0 ? m.total : ''}</span>
+                      <div className="relative w-full flex flex-col justify-end" style={{ height: '52px' }}>
+                        <div className="w-full rounded-t bg-blue-100 absolute bottom-0" style={{ height: `${Math.round((m.total / maxMonthly) * 52)}px` }} />
+                        <div className="w-full rounded-t bg-blue-500 absolute bottom-0" style={{ height: `${Math.round((m.accepted / maxMonthly) * 52)}px` }} />
+                      </div>
+                      <span className="text-[10px] text-gray-400">{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400">
+                  <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-blue-500" />수락</span>
+                  <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-blue-100" />전체</span>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+        </div>
 
         {/* ── 추천 요청 (AI 매칭) ─────────────────────────── */}
         {recommendedRequests.length > 0 && (
