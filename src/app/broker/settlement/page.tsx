@@ -192,11 +192,15 @@ export default function SettlementPage() {
   const [isOwner, setIsOwner] = useState(false)
   const [meBroker, setMeBroker] = useState<Member | null>(null)
   const [members, setMembers] = useState<Member[]>([])
-  const [exEmployees, setExEmployees] = useState<Array<{ id: string; name: string }>>([])
+  // 퇴사자 = settlements에 등장하지만 현재 사무소 멤버가 아닌 assignee (broker_id 또는 이름 기준)
+  const [exAssignees, setExAssignees] = useState<Array<{ key: string; name: string }>>([])
   const [month, setMonth] = useState(() => yyyymm(new Date()))
   const [allMode, setAllMode] = useState(false)
-  const [filterAssigneeId, setFilterAssigneeId] = useState<string>('') // 빈문자열=전체, broker_id=특정 직원
-  const [viewingExEmployeeId, setViewingExEmployeeId] = useState<string | null>(null) // archive 모드면 author_broker_id
+  // 필터 값:
+  //   ''             = 전체
+  //   '<broker_id>'  = 재직 직원
+  //   'ex:<key>'     = 퇴사자 (key = broker_id 또는 'name:<이름>' 가입 전 퇴사자)
+  const [filterAssigneeId, setFilterAssigneeId] = useState<string>('')
   const [rows, setRows] = useState<Settlement[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -229,22 +233,34 @@ export default function SettlementPage() {
       .or(`id.eq.${office},parent_broker_id.eq.${office}`)
     setMembers((mems ?? []).filter((m: any) => m.is_owner || m.is_approved) as any)
 
-    // 대표일 때만 archive에서 퇴사자 목록 distinct 로드
+    // 대표일 때만 퇴사자 목록 distinct 로드
+    // = settlements에 등장한 assignee 중 현재 사무소 멤버(재직 직원)가 아닌 사람
+    // 박세련·송영욱처럼 broker_id NULL(가입 전 퇴사)도 자동 포함
     if (me.is_owner) {
-      const { data: archAuthors } = await supabase
-        .from('settlements_archive')
-        .select('author_broker_id, author_name')
+      const memberIds = new Set<string>((mems ?? []).map((m: any) => m.id))
+      const memberNames = new Set<string>(
+        (mems ?? []).map((m: any) => m.profiles?.name).filter(Boolean)
+      )
+      const { data: dist } = await supabase
+        .from('settlements')
+        .select('assignee_broker_id, assignee_name')
         .eq('office_broker_id', office)
-      if (archAuthors) {
+      if (dist) {
         const seen = new Set<string>()
-        const exList: Array<{ id: string; name: string }> = []
-        for (const a of archAuthors as any[]) {
-          if (a.author_broker_id && !seen.has(a.author_broker_id)) {
-            seen.add(a.author_broker_id)
-            exList.push({ id: a.author_broker_id, name: a.author_name ?? '퇴사자' })
-          }
+        const exList: Array<{ key: string; name: string }> = []
+        for (const r of dist as any[]) {
+          const aid: string | null = r.assignee_broker_id
+          const aname: string | null = r.assignee_name
+          // broker_id 있고 사무소 멤버면 skip
+          if (aid && memberIds.has(aid)) continue
+          // broker_id 없는데 이름이 사무소 멤버 이름과 일치하면 skip (혼합 케이스)
+          if (!aid && aname && memberNames.has(aname)) continue
+          const key = aid ? aid : (aname ? `name:${aname}` : '')
+          if (!key || seen.has(key)) continue
+          seen.add(key)
+          exList.push({ key, name: aname ?? '퇴사자' })
         }
-        setExEmployees(exList)
+        setExAssignees(exList)
       }
     }
   }, [auth.user, supabase])
@@ -253,42 +269,6 @@ export default function SettlementPage() {
   const loadRows = useCallback(async () => {
     if (!officeId) return
     setLoading(true)
-
-    // 퇴사자 archive 모드 — settlements_archive에서 읽기 전용 로드
-    if (viewingExEmployeeId) {
-      let qa = supabase
-        .from('settlements_archive')
-        .select('id, office_broker_id, author_broker_id, contract_no, contract_date, contract_address, seller, buyer, assignee_name, settlement_rate, seller_fee, buyer_fee, vat_override, seller_payment_date, buyer_payment_date, record_month, withhold_exempt, memo')
-        .eq('office_broker_id', officeId)
-        .eq('author_broker_id', viewingExEmployeeId)
-      if (!allMode) qa = qa.eq('record_month', month)
-      const { data } = await qa.order('contract_no', { ascending: true })
-      // archive 행을 Settlement 형태로 매핑 (assignee_broker_id 자리에 author_broker_id 사용)
-      setRows(((data ?? []) as any[]).map(a => ({
-        id: a.id,
-        office_broker_id: a.office_broker_id,
-        assignee_broker_id: a.author_broker_id,
-        contract_no: a.contract_no,
-        contract_date: a.contract_date,
-        contract_address: a.contract_address,
-        seller: a.seller,
-        buyer: a.buyer,
-        assignee_name: a.assignee_name,
-        settlement_rate: a.settlement_rate,
-        seller_fee: a.seller_fee,
-        buyer_fee: a.buyer_fee,
-        vat_override: a.vat_override,
-        seller_payment_date: a.seller_payment_date,
-        buyer_payment_date: a.buyer_payment_date,
-        record_month: a.record_month,
-        withhold_exempt: a.withhold_exempt,
-        memo: a.memo,
-        created_by: null,
-      })) as Settlement[])
-      setLoading(false)
-      return
-    }
-
     let q = supabase
       .from('settlements')
       .select('*')
@@ -300,18 +280,31 @@ export default function SettlementPage() {
       .order('contract_no', { ascending: true })
     setRows((data ?? []) as Settlement[])
     setLoading(false)
-  }, [officeId, month, allMode, viewingExEmployeeId, supabase])
+  }, [officeId, month, allMode, supabase])
 
   useEffect(() => { loadMeta() }, [loadMeta])
   useEffect(() => { loadRows() }, [loadRows])
 
-  // 직원: 본인 행만. 대표: 전체 (또는 선택한 직원).
+  // 직원: 본인 행만. 대표: 전체 / 재직 직원 / 퇴사자 필터 적용
   const visibleRows = useMemo(() => {
     let base: Settlement[]
     if (isOwner) {
-      base = filterAssigneeId
-        ? rows.filter(r => r.assignee_broker_id === filterAssigneeId)
-        : rows
+      if (!filterAssigneeId) {
+        base = rows
+      } else if (filterAssigneeId.startsWith('ex:')) {
+        const key = filterAssigneeId.slice(3)
+        if (key.startsWith('name:')) {
+          // 가입 전 퇴사자 — assignee_broker_id NULL + 이름 매칭
+          const targetName = key.slice(5)
+          base = rows.filter(r => !r.assignee_broker_id && r.assignee_name === targetName)
+        } else {
+          // 가입 후 퇴사자 — assignee_broker_id 매칭
+          base = rows.filter(r => r.assignee_broker_id === key)
+        }
+      } else {
+        // 재직 직원
+        base = rows.filter(r => r.assignee_broker_id === filterAssigneeId)
+      }
     } else {
       if (!meBroker) return []
       base = rows.filter(r => r.assignee_broker_id === meBroker.id)
@@ -374,7 +367,6 @@ export default function SettlementPage() {
   // 한 셀 업데이트 — 즉시 DB 반영 + 낙관적 UI
   // NO 바뀌면 그 자리에서 contract_no 오름차순 재정렬
   const updateRow = async (id: string, patch: Partial<Settlement>) => {
-    if (viewingExEmployeeId) return // 퇴사자 archive 모드는 읽기 전용
     setRows(prev => {
       const next = prev.map(r => r.id === id ? { ...r, ...patch } : r)
       return 'contract_no' in patch
@@ -387,7 +379,6 @@ export default function SettlementPage() {
 
   // 새 빈 행 추가 — 보고 있는 월(전체면 오늘)로 record_month 자동
   const addNewRow = async () => {
-    if (viewingExEmployeeId) return // 퇴사자 archive 모드는 추가 불가
     if (!officeId || !meBroker) return
     const { data: nextNoData } = await supabase.rpc('next_settlement_no', { p_office: officeId })
     const nextNo = (nextNoData as number) ?? 1
@@ -414,7 +405,6 @@ export default function SettlementPage() {
   }
 
   const deleteRow = async (r: Settlement) => {
-    if (viewingExEmployeeId) return // 퇴사자 archive 모드는 삭제 불가
     if (!confirm(`#${r.contract_no} ${r.contract_address ?? ''} 삭제할까요?`)) return
     const { error } = await supabase.from('settlements').delete().eq('id', r.id)
     if (error) { alert('삭제 실패: ' + error.message); return }
@@ -539,18 +529,9 @@ export default function SettlementPage() {
             </button>
             {isOwner && (
               <select
-                value={viewingExEmployeeId ? `ex:${viewingExEmployeeId}` : filterAssigneeId}
-                onChange={e => {
-                  const v = e.target.value
-                  if (v.startsWith('ex:')) {
-                    setViewingExEmployeeId(v.slice(3))
-                    setFilterAssigneeId('')
-                  } else {
-                    setViewingExEmployeeId(null)
-                    setFilterAssigneeId(v)
-                  }
-                }}
-                className={`ml-2 rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${(filterAssigneeId || viewingExEmployeeId)
+                value={filterAssigneeId}
+                onChange={e => setFilterAssigneeId(e.target.value)}
+                className={`ml-2 rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${filterAssigneeId
                   ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                   : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}
               >
@@ -562,19 +543,14 @@ export default function SettlementPage() {
                     ))}
                   </optgroup>
                 )}
-                {exEmployees.length > 0 && (
+                {exAssignees.length > 0 && (
                   <optgroup label="퇴사자">
-                    {exEmployees.map(e => (
-                      <option key={e.id} value={`ex:${e.id}`}>{e.name} (퇴사)</option>
+                    {exAssignees.map(e => (
+                      <option key={e.key} value={`ex:${e.key}`}>{e.name} (퇴사)</option>
                     ))}
                   </optgroup>
                 )}
               </select>
-            )}
-            {viewingExEmployeeId && (
-              <span className="ml-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                퇴사자 정산 · 읽기 전용
-              </span>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -765,16 +741,14 @@ export default function SettlementPage() {
                     <td colSpan={isOwner ? 4 : 3} />
                   </tr>
                 )}
-                {!viewingExEmployeeId && (
-                  <tr>
-                    <td colSpan={isOwner ? 17 : 16} className="border-t border-gray-100 dark:border-gray-800">
-                      <button onClick={addNewRow}
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-400 transition-colors">
-                        <Plus className="h-3.5 w-3.5" />계약 등록
-                      </button>
-                    </td>
-                  </tr>
-                )}
+                <tr>
+                  <td colSpan={isOwner ? 17 : 16} className="border-t border-gray-100 dark:border-gray-800">
+                    <button onClick={addNewRow}
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-400 transition-colors">
+                      <Plus className="h-3.5 w-3.5" />계약 등록
+                    </button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

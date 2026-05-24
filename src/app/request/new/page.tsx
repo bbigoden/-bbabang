@@ -230,6 +230,8 @@ function RequestNewPageInner() {
                   {DEAL_TYPES.map((type) => (
                     <button
                       key={type}
+                      type="button"
+                      aria-pressed={dealTypes.includes(type)}
                       onClick={() => toggleDealType(type)}
                       className={cn(
                         'flex-1 rounded-xl border-2 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
@@ -261,6 +263,8 @@ function RequestNewPageInner() {
                         {cat.types.map((type) => (
                           <button
                             key={type}
+                            type="button"
+                            aria-pressed={propertyTypes.includes(type)}
                             onClick={() => togglePropertyType(type)}
                             className={cn(
                               'rounded-xl border-2 px-3 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',

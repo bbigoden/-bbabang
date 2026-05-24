@@ -119,12 +119,12 @@ export default function HistoryPage() {
           )}
         </div>
 
-        <div className="mb-6 flex gap-2">
+        <div className="mb-6 flex gap-2" role="tablist" aria-label="최근 본 기록 카테고리">
           {([
             { key: 'broker', label: '중개사', icon: Building2 },
             { key: 'request', label: '요청', icon: FileText },
           ] as const).map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
                 tab === t.key ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}>

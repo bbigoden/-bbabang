@@ -111,7 +111,7 @@ export default function FavoritesPage() {
         </div>
 
         {/* 탭 */}
-        <div className="mb-6 flex gap-2 overflow-x-auto">
+        <div className="mb-6 flex gap-2 overflow-x-auto" role="tablist" aria-label="찜 카테고리">
           {([
             { key: 'broker', label: '중개사', icon: Building2 },
             { key: 'property', label: '매물', icon: HomeIcon },
@@ -119,6 +119,9 @@ export default function FavoritesPage() {
           ] as const).map(t => (
             <button
               key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-all flex-shrink-0 ${
                 tab === t.key
