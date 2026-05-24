@@ -41,7 +41,6 @@ const ITEMS: ItemDef[] = [
   { id: 'chats',      href: '/broker/chats', label: '대화목록', icon: MessageCircle },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },
-  { id: 'team',       href: '/broker/team', label: '팀 관리', icon: UserCog, ownerOnly: true },
   {
     id: 'settings', label: '설정', icon: Settings,
     children: [
@@ -49,6 +48,7 @@ const ITEMS: ItemDef[] = [
       { href: '/settings/notifications', label: '알림',   icon: Bell },
       { href: '/settings/appearance',    label: '화면',   icon: Palette },
       { href: '/settings/office',        label: '사무소', icon: Building2, ownerOnly: true },
+      { href: '/broker/team',            label: '팀 관리', icon: UserCog, ownerOnly: true },
     ],
   },
   { id: 'trash', href: '/broker/trash', label: '휴지통', icon: Trash2 },
