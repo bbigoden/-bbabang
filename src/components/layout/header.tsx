@@ -28,6 +28,14 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
   const user = userProp !== undefined ? userProp : auth.user
   const role = roleProp !== undefined ? roleProp : (auth.profile?.role ?? null)
 
+  // BrokerSidebar가 보이는 영역에선 헤더의 공동중개 요청·알림 숨김 (사이드바로 이전)
+  const BROKER_SIDEBAR_SEGS = ['customers','properties','diary','chats','resources','settlement','team','trash','register','settings']
+  const isBrokerSidebarArea = role === 'broker' && (
+    pathname === '/dashboard/broker'
+    || (pathname?.startsWith('/dashboard/broker/') ?? false)
+    || (pathname?.startsWith('/broker/') && BROKER_SIDEBAR_SEGS.includes(pathname.split('/')[2] ?? ''))
+  )
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     window.location.href = '/'
@@ -55,7 +63,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
           )}
           {role === 'broker' && (
             <>
-              {pathname !== '/request/new' && (
+              {!isBrokerSidebarArea && pathname !== '/request/new' && (
                 <Link href="/request/new?co_broker=true" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
                   공동중개 요청
                 </Link>
@@ -75,7 +83,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: Head
                   <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                 </Link>
               )}
-              <NotificationBell userId={user.id} />
+              {!isBrokerSidebarArea && <NotificationBell userId={user.id} />}
               <Link href="/settings" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="설정">
                 <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </Link>
