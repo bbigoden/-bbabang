@@ -570,7 +570,10 @@ export default function SettlementPage() {
           <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
             <Card>
               <CardBody className="p-4">
-                <p className="text-[11px] font-medium text-gray-500">전체</p>
+                <div className="flex items-baseline justify-between">
+                  <p className="text-[11px] font-medium text-gray-500">전체</p>
+                  <p className="text-[11px] font-semibold text-gray-400">총 {summary.count}건</p>
+                </div>
                 <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.totalFee)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
                 <p className="mt-0.5 text-[10px] text-gray-400">
                   공급가 {fmtComma(summary.supplySum)}원 · VAT {fmtComma(summary.totalFee - summary.supplySum)}원
@@ -730,17 +733,6 @@ export default function SettlementPage() {
                     </tr>
                   )
                 })}
-                {visibleRows.length > 0 && (
-                  <tr className="border-t-2 border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/60 font-bold">
-                    <td colSpan={12} className="px-2 py-2 text-right text-[11px] text-gray-600 dark:text-gray-300">
-                      총 {summary.count}건 · 실수령 합계
-                    </td>
-                    <td className="px-2 py-2 text-right text-xs font-mono text-blue-700">
-                      {fmtComma(isOwner ? summary.takeHomeSum : summary.myTakeHomeSum)}
-                    </td>
-                    <td colSpan={isOwner ? 4 : 3} />
-                  </tr>
-                )}
                 <tr>
                   <td colSpan={isOwner ? 17 : 16} className="border-t border-gray-100 dark:border-gray-800">
                     <button onClick={addNewRow}
