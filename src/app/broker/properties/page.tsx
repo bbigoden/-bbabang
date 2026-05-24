@@ -1255,14 +1255,13 @@ function BrokerPropertiesContent() {
     setCustomColumns(cols)
 
     // ── 데이터 범위 결정 ───────────────────────────────
+    // 룰: 대표=사무소 전체, 직원=본인+대표만 (매물은 대표 공유, 동료 직원 매물은 제외)
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
-    } else if (b.permissions?.can_see_others !== false && b.parent_broker_id) {
-      const { data: siblings } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
-      if (siblings) brokerIds = siblings.map((e: any) => e.id)
-      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
+    } else if (b.parent_broker_id) {
+      brokerIds = [b.id, b.parent_broker_id]
     }
 
     // 1000건씩 페이지네이션 (PostgREST max-rows 우회)

@@ -401,17 +401,12 @@ export default function BrokerCustomersPage() {
     }
 
     // ── 데이터 범위 결정 ───────────────────────────────
+    // 룰: 대표=사무소 전체, 직원=본인 고객만 (고객은 개인 정보·영업 비밀로 분리)
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
-    } else if (b.permissions?.can_see_others !== false && b.parent_broker_id) {
-      // 직원이지만 타직원 공유 허용 → 같은 팀 전체 + 대표
-      const { data: siblings } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
-      if (siblings) brokerIds = siblings.map((e: any) => e.id)
-      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
-    // can_see_others=false 이면 brokerIds = [b.id] 그대로 (본인 데이터만)
 
     const { data } = await supabase.from('broker_customers').select('*')
       .in('broker_id', brokerIds).order('received_date', { ascending: false }).order('created_at', { ascending: false })
