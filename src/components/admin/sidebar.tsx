@@ -16,12 +16,12 @@ interface ItemDef {
 
 const ITEMS: ItemDef[] = [
   { href: '/admin', label: '대시보드', icon: LayoutDashboard },
-  { href: '/admin/users', label: '사용자', icon: Users },
-  { href: '/admin/brokers', label: '중개사', icon: Building2 },
-  { href: '/admin/properties', label: '매물', icon: Home },
-  { href: '/admin/reports', label: '신고·문의', icon: Flag },
-  { href: '/admin/announcements', label: '공지', icon: Megaphone },
-  { href: '/admin/stats', label: '통계', icon: BarChart3 },
+  { href: '/admin/reports', label: '신고·문의 처리', icon: Flag },
+  { href: '/admin/announcements', label: '공지 발행', icon: Megaphone },
+  { href: '/admin/properties', label: '매물 검수', icon: Home },
+  { href: '/admin/users', label: '사용자 관리', icon: Users },
+  { href: '/admin/brokers', label: '사무소 검수', icon: Building2 },
+  { href: '/admin/stats', label: '통계·분석', icon: BarChart3 },
   { href: '/admin/errors', label: '에러 로그', icon: AlertOctagon },
   { href: '/admin/health', label: '시스템 상태', icon: Activity },
 ]
