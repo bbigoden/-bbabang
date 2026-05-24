@@ -573,7 +573,7 @@ function ImageCell({ images, onSave, onView }: {
   }
 
   const saveAndClose = async () => {
-    let uploaded: string[] = []
+    const uploaded: string[] = []
     if (newFiles.length > 0) {
       const { data } = await supabase.auth.getUser()
       const uid = data.user?.id ?? 'unknown'

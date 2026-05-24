@@ -1,9 +1,12 @@
-'use client'
-
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, ArrowLeft } from 'lucide-react'
+import { GoBackButton } from '@/components/go-back-button'
 
+/**
+ * 서버 컴포넌트로 유지 → Next.js가 HTTP 404 status를 정확히 응답.
+ * 뒤로가기 버튼은 client component(GoBackButton)로 분리.
+ */
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 text-center">
@@ -20,10 +23,7 @@ export default function NotFound() {
             홈으로
           </Button>
         </Link>
-        <Button variant="secondary" size="lg" onClick={() => window.history.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          뒤로가기
-        </Button>
+        <GoBackButton />
       </div>
     </div>
   )
