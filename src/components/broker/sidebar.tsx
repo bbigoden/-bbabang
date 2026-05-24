@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, ClipboardList, MessageCircle,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
-  User, Bell, Palette, ChevronDown, Home,
+  User, Bell, Palette, ChevronDown,
   PanelLeftClose, PanelLeftOpen, LogOut, Handshake,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -32,7 +32,6 @@ interface ItemDef {
 
 // 대시보드 빠른 메뉴 4×3 그리드 순서와 일치
 const ITEMS: ItemDef[] = [
-  { id: 'home',       href: '/', label: '홈', icon: Home },
   { id: 'dashboard',  href: '/dashboard/broker', label: '대시보드', icon: LayoutDashboard },
   { id: 'co-broker',  href: '/request/new?co_broker=true', label: '공동요청', icon: Handshake },
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users },
