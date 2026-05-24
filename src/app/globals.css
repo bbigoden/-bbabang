@@ -27,6 +27,9 @@ html.font-xl { font-size: 20px; }
 body {
   background: var(--background);
   color: var(--foreground);
+  /* 한국어 자동 줄바꿈: 단어(어절) 단위로 끊어 '제안합니/다' 같은 깨짐 방지 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 * {
