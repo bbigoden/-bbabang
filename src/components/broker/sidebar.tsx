@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, ClipboardList, MessageCircle,
-  FolderOpen, BarChart2, Calculator, UserCog, Settings, Trash2, Archive,
+  FolderOpen, BarChart2, Calculator, UserCog, Settings, Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -29,7 +29,6 @@ const ITEMS: ItemDef[] = [
   { href: '/broker/team', label: '팀 관리', icon: UserCog, ownerOnly: true },
   { href: '/settings/office', label: '사무소 설정', icon: Settings, ownerOnly: true },
   { href: '/broker/trash', label: '휴지통', icon: Trash2 },
-  { href: '/broker/archive', label: '퇴사자 일지', icon: Archive, ownerOnly: true },
 ]
 
 export function BrokerSidebar() {
@@ -46,7 +45,7 @@ export function BrokerSidebar() {
   // - /broker/abc-uuid 처럼 알 수 없는 슬러그면 [id] 페이지로 간주
   const knownTopLevel = new Set([
     'customers', 'properties', 'diary', 'chats', 'resources',
-    'stats', 'settlement', 'team', 'trash', 'archive',
+    'stats', 'settlement', 'team', 'trash',
     'register', 'settings',
   ])
   const brokerSeg = pathname.startsWith('/broker/') ? pathname.split('/')[2] : null

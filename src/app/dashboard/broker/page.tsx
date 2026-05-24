@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings, FolderOpen, Trash2, Archive, Calculator } from 'lucide-react'
+import { Star, MessageCircle, MapPin, CheckCircle, Building2, Target, BarChart2, ThumbsUp, Users, ClipboardList, Clock, Settings, FolderOpen, Trash2, Calculator } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -254,16 +254,6 @@ export default async function BrokerDashboardPage() {
               <span className="text-sm font-bold text-gray-800 dark:text-gray-100">휴지통</span>
             </div>
           </Link>
-          {broker.is_owner !== false && (
-            <Link href="/broker/archive">
-              <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white px-4 py-5 hover:border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-500/40 dark:hover:bg-gray-500/10 transition-colors cursor-pointer shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
-                  <Archive className="h-5 w-5 text-gray-500" />
-                </div>
-                <span className="text-sm font-bold text-gray-800 dark:text-gray-100">퇴사자 일지</span>
-              </div>
-            </Link>
-          )}
         </div>
 
 

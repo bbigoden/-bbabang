@@ -6,7 +6,7 @@ const PROTECTED = [
   '/dashboard', '/request/new',
   '/broker/register', '/broker/properties', '/broker/customers', '/broker/diary',
   '/broker/team', '/broker/settings', '/broker/resources', '/broker/stats',
-  '/broker/chats', '/broker/trash', '/broker/archive',
+  '/broker/chats', '/broker/trash',
   '/chat', '/admin', '/profile', '/settings',
 ]
 
