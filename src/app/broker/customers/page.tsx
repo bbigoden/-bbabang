@@ -64,7 +64,7 @@ const COL_COLORS: Record<string, Record<string, string>> = {
 }
 
 interface Customer {
-  id: string; client_name: string; contact: string | null; received_date: string | null
+  id: string; no: number | null; client_name: string; contact: string | null; received_date: string | null
   assignee: string | null; category: string; source: string | null; status: string
   request: string | null; created_at: string; custom_fields: Record<string, string> | null
 }
@@ -450,8 +450,10 @@ export default function BrokerCustomersPage() {
   const addRow = async () => {
     if (!broker) return
     const today = new Date().toISOString().split('T')[0]
+    const { data: nextNoData } = await supabase.rpc('next_customer_no', { p_broker_id: broker.id })
+    const nextNo = (nextNoData as number) ?? null
     const { data, error } = await supabase.from('broker_customers').insert({
-      broker_id: broker.id, client_name: '', received_date: today,
+      broker_id: broker.id, no: nextNo, client_name: '', received_date: today,
       assignee: profile?.name ?? null,
       category: '', status: '',
     }).select().single()
@@ -461,11 +463,13 @@ export default function BrokerCustomersPage() {
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
   }
 
-  // 고객 row 복사 — id/created_at 제외하고 모든 필드 동일하게 새 row 생성
+  // 고객 row 복사 — id/created_at/no 제외하고 새 NO 부여
   const duplicateCustomer = async (c: Customer) => {
     if (!broker) return
-    const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = c as Customer & { updated_at?: string }
-    const { data, error } = await supabase.from('broker_customers').insert(rest).select().single()
+    const { id: _id, created_at: _ca, no: _no, updated_at: _ua, ...rest } = c as Customer & { updated_at?: string }
+    const { data: nextNoData } = await supabase.rpc('next_customer_no', { p_broker_id: broker.id })
+    const nextNo = (nextNoData as number) ?? null
+    const { data, error } = await supabase.from('broker_customers').insert({ ...rest, no: nextNo }).select().single()
     if (error || !data) return
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
@@ -929,7 +933,7 @@ export default function BrokerCustomersPage() {
             <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
               <thead>
                 <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                  <th className="px-3 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 32 }}>#</th>
+                  <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 48 }}>NO</th>
                   {activeCols.map(col => {
                     const key = getColKey(col)
                     const w = getColWidth(col)
@@ -1002,7 +1006,18 @@ export default function BrokerCustomersPage() {
                   </tr>
                 ) : paginated.map((c, idx) => (
                   <tr key={c.id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100 dark:border-gray-800">{direction === 'up' ? filtered.length - ((page - 1) * pageSize + idx) : ((page - 1) * pageSize + idx + 1)}</td>
+                    <td className="px-1 py-1.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 48 }}>
+                      <TextCell
+                        value={c.no != null ? String(c.no) : null}
+                        onSave={v => {
+                          const n = v ? Number(v) : null
+                          if (n != null && Number.isNaN(n)) return
+                          saveField(c.id, 'no', n)
+                        }}
+                        placeholder="—"
+                        readOnly={!canEdit}
+                      />
+                    </td>
                     {activeCols.map(col => (
                       <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800"
                         style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>

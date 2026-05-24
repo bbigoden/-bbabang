@@ -765,17 +765,46 @@ export default function BrokerDiaryPage() {
   }
 
   // 섹션 내용 저장 — viewing 대상의 broker_id에 저장 (사장님이 직원 일지 편집 가능하도록)
+  // 퇴사자 archive 모드면 broker_diary_archive에 update (대표 권한 필요)
   const saveSectionContent = useCallback(async (sectionId: string, value: string) => {
     if (!broker) return
-    const targetBrokerId = viewingBrokerId ?? broker.id
     const newContent = { ...sectionContent, [sectionId]: value || undefined }
     if (!value) delete newContent[sectionId]
+
+    if (viewingExEmployee && viewingBrokerId) {
+      const payload = { sections_content: newContent }
+      const { data: existing } = await supabase.from('broker_diary_archive')
+        .select('id')
+        .eq('office_broker_id', broker.id)
+        .eq('author_broker_id', viewingBrokerId)
+        .eq('date', diaryDate)
+        .maybeSingle()
+      if (existing) await supabase.from('broker_diary_archive').update(payload).eq('id', existing.id)
+      // archive에 해당 날짜 일지 없으면 신규 생성 — author_name도 같이
+      else {
+        const { data: prof } = await supabase.from('broker_profiles').select('user_id').eq('id', viewingBrokerId).maybeSingle()
+        const { data: nameRow } = prof?.user_id
+          ? await supabase.from('profiles').select('name').eq('id', prof.user_id).maybeSingle()
+          : { data: null }
+        await supabase.from('broker_diary_archive').insert({
+          office_broker_id: broker.id,
+          author_broker_id: viewingBrokerId,
+          author_name: (nameRow as any)?.name ?? null,
+          date: diaryDate,
+          sections_content: newContent,
+        })
+      }
+      setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
+      return
+    }
+
+    const targetBrokerId = viewingBrokerId ?? broker.id
     const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
     const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
     if (existing) await supabase.from('broker_diary').update(payload).eq('id', existing.id)
     else await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
     setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
-  }, [broker, diaryDate, sectionContent, viewingBrokerId])
+  }, [broker, diaryDate, sectionContent, viewingBrokerId, viewingExEmployee])
 
   // 섹션 이름 변경
   const renameSection = (id: string, title: string) => {
@@ -893,6 +922,9 @@ export default function BrokerDiaryPage() {
   // 사장님은 직원 일지도 편집 가능. 직원은 다른 사람 일지 보면 read-only.
   // 퇴사자 archive는 법적 보존 기록이라 누구도 편집 불가.
   const effectiveCanEdit = canEdit && (isOwner || !viewingBrokerId) && !viewingExEmployee
+  // 퇴사자 archive 모드에서도 대표는 섹션 텍스트(업무요약·광고현황 등)는 편집 가능
+  // 고객 행 셀은 본체 broker_customers 데이터라 archive 스냅샷 화면에서 직접 편집은 차단 (위 effectiveCanEdit가 false)
+  const canEditSections = effectiveCanEdit || (viewingExEmployee && isOwner)
 
   // 활성 칼럼
   const fixedCols: ColDef[] = []
@@ -1079,7 +1111,7 @@ export default function BrokerDiaryPage() {
         {!diaryLoading && (<>
           {sections.map((def, idx) => (
             <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
-              onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!effectiveCanEdit} />
+              onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!canEditSections} />
           ))}
           {effectiveCanEdit && (
             <button onClick={addSection} className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
