@@ -554,12 +554,13 @@ export default function BrokerDiaryPage() {
       setTeamMembers(prof?.name ? [prof.name] : [])
     }
 
-    // 고객 피커용 전체 고객 로드
+    // 일지 피커용 매물·고객 로드 — 대표는 사무소 전체, 직원도 사무소 전체 fetch
+    // (고객 피커는 UI에서 ownerName으로 다시 필터링되므로 본인 것만 노출됨)
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: emps } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (emps) brokerIds = [b.id, ...emps.map((e: any) => e.id)]
-    } else if (b.permissions?.can_see_others !== false && b.parent_broker_id) {
+    } else if (b.parent_broker_id) {
       const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
       if (sibs) brokerIds = sibs.map((e: any) => e.id)
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)

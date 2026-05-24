@@ -18,14 +18,12 @@ interface Permissions {
   customers: Permission
   diary: Permission
   properties: Permission
-  can_see_others: boolean
 }
 
 const DEFAULT_PERMISSIONS: Permissions = {
   customers:  { view: true, edit: true },
   diary:      { view: true, edit: true },
   properties: { view: true, edit: true },
-  can_see_others: true,
 }
 
 interface Employee {
@@ -76,15 +74,6 @@ function PermissionEditor({ perms, onChange }: {
           </div>
         </div>
       ))}
-      <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-800">
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">타직원 데이터 공유</span>
-        <button onClick={() => onChange({ ...perms, can_see_others: !perms.can_see_others })}
-          className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors',
-            perms.can_see_others ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-          )}>
-          {perms.can_see_others ? '공유' : '비공개'}
-        </button>
-      </div>
     </div>
   )
 }
