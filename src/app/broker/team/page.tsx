@@ -161,6 +161,7 @@ export default function BrokerTeamPage() {
   }
 
   const saveEmployeePerms = async (empId: string) => {
+    if (!confirm('이 직원의 권한을 변경할까요?\n변경 즉시 직원의 화면에 반영됩니다.')) return
     setSaving(true)
     const { error } = await supabase.from('broker_profiles').update({ permissions: editPerms }).eq('id', empId)
     if (error) {

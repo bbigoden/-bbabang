@@ -64,7 +64,7 @@ function PropertyCard({ snapshot, isMine, onClick }: { snapshot: PropertySnapsho
     <div
       onClick={onClick}
       className={cn(
-        'w-64 rounded-2xl border overflow-hidden shadow-sm transition-shadow',
+        'w-64 max-w-[calc(100vw-3rem)] rounded-2xl border overflow-hidden shadow-sm transition-shadow',
         isMine ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-white',
         onClick && 'cursor-pointer hover:shadow-md'
       )}

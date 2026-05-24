@@ -236,6 +236,16 @@ export default function AdminPropertiesPage() {
             <Flag className="h-3.5 w-3.5" />
             신고된 매물만 {reportedCount > 0 && <span className="ml-1 rounded-md bg-red-500/30 px-1.5 text-[10px]">{reportedCount}</span>}
           </button>
+
+          {(search || status !== 'all' || showReportedOnly) && (
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setStatus('all'); setShowReportedOnly(false) }}
+              className="flex items-center gap-1.5 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs font-semibold text-gray-400 hover:bg-gray-800"
+            >
+              필터 초기화
+            </button>
+          )}
         </div>
 
         {/* 목록 */}
