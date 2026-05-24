@@ -9,6 +9,7 @@ import { BottomNav } from '@/components/layout/bottom-nav'
 import { Footer } from '@/components/layout/footer'
 import { InstallPrompt } from '@/components/install-prompt'
 import { ErrorBoundary, GlobalErrorListener } from '@/components/error-tracker'
+import { BrokerGlobalLayout } from '@/components/broker/global-layout'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 
@@ -131,7 +132,9 @@ export default function RootLayout({
           <ThemeProvider>
             <AuthProvider>
               <NotificationsProvider>
-                <main id="main">{children}</main>
+                <BrokerGlobalLayout>
+                  <main id="main">{children}</main>
+                </BrokerGlobalLayout>
                 <Footer />
                 <BottomNav />
                 <InstallPrompt />

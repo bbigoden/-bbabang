@@ -85,17 +85,9 @@ export function BrokerSidebar() {
   }, [pathname])
 
   // 권한 가드: 중개사 본인만 노출
+  // (글로벌 wrapper에서도 한 번 더 체크하지만 컴포넌트 직접 import 대비 자체 가드 유지)
   if (loading) return null
   if (profile?.role !== 'broker') return null
-
-  // /broker/[id] 패턴(중개사 프로필 페이지)에서는 숨김
-  const knownTopLevel = new Set([
-    'customers', 'properties', 'diary', 'chats', 'resources',
-    'settlement', 'team', 'trash',
-    'register', 'settings',
-  ])
-  const brokerSeg = pathname.startsWith('/broker/') ? pathname.split('/')[2] : null
-  if (brokerSeg && !knownTopLevel.has(brokerSeg)) return null
 
   const isOwner = broker?.is_owner !== false
   const items = ITEMS.filter(i => !i.ownerOnly || isOwner)
