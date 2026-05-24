@@ -540,16 +540,16 @@ export default function SettlementPage() {
               >
                 <option value="">전체 직원</option>
                 {members.length > 0 && (
-                  <optgroup label="재직 직원">
+                  <optgroup label="재직">
                     {members.map(m => (
                       <option key={m.id} value={m.id}>{m.profiles?.name ?? '이름 없음'}</option>
                     ))}
                   </optgroup>
                 )}
                 {exAssignees.length > 0 && (
-                  <optgroup label="퇴사자">
+                  <optgroup label="퇴사">
                     {exAssignees.map(e => (
-                      <option key={e.key} value={`ex:${e.key}`}>{e.name} (퇴사)</option>
+                      <option key={e.key} value={`ex:${e.key}`}>{e.name}</option>
                     ))}
                   </optgroup>
                 )}

@@ -970,16 +970,16 @@ export default function BrokerDiaryPage() {
               >
                 <option value="">내 일지</option>
                 {employees.length > 0 && (
-                  <optgroup label="재직 직원">
+                  <optgroup label="재직">
                     {employees.map(e => (
                       <option key={e.id} value={e.id}>{e.name}</option>
                     ))}
                   </optgroup>
                 )}
                 {exEmployees.length > 0 && (
-                  <optgroup label="퇴사자">
+                  <optgroup label="퇴사">
                     {exEmployees.map(e => (
-                      <option key={e.id} value={`ex:${e.id}`}>{e.name} (퇴사)</option>
+                      <option key={e.id} value={`ex:${e.id}`}>{e.name}</option>
                     ))}
                   </optgroup>
                 )}
