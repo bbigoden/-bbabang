@@ -167,6 +167,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
             <Input
               label="비밀번호"
               type={showPw ? 'text' : 'password'}
+              autoComplete="new-password"
               placeholder="8자 이상"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -189,6 +190,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
             <Input
               label="비밀번호 확인"
               type={showPw ? 'text' : 'password'}
+              autoComplete="new-password"
               placeholder="비밀번호 재입력"
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
@@ -201,7 +203,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
             )}
           </div>
 
-          <Input label="휴대폰 번호" placeholder="010-1234-5678" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input label="휴대폰 번호" type="tel" inputMode="tel" autoComplete="tel" placeholder="010-1234-5678" value={phone} onChange={(e) => setPhone(e.target.value)} />
 
           {/* 약관 동의 — 필수 */}
           <label className="flex items-start gap-3 cursor-pointer">

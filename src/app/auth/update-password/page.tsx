@@ -87,6 +87,7 @@ export default function UpdatePasswordPage() {
               <Input
                 label="새 비밀번호"
                 type={showPw ? 'text' : 'password'}
+                autoComplete="new-password"
                 placeholder="8자 이상"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -108,6 +109,7 @@ export default function UpdatePasswordPage() {
               <Input
                 label="새 비밀번호 확인"
                 type={showPw ? 'text' : 'password'}
+                autoComplete="new-password"
                 placeholder="비밀번호 재입력"
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}

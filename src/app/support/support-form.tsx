@@ -80,6 +80,8 @@ export function SupportForm() {
             <label className="mb-1.5 block text-sm font-medium text-gray-700">답변받을 이메일</label>
             <input
               type="email"
+              autoComplete="email"
+              inputMode="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="example@email.com"
