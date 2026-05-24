@@ -1043,7 +1043,11 @@ const PropertyRow = memo(function PropertyRow({
         }
         return null
       })}
-      {!isAdminView && <SheetActionCell canEdit={canEdit} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)} />}
+      {!isAdminView && (() => {
+        // 직원은 본인 매물만 복사·삭제 가능. 대표·관리자뷰는 전체 가능
+        const isMine = isOwner || p.broker_id === brokerSelfId
+        return <SheetActionCell canEdit={canEdit && isMine} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)} />
+      })()}
     </tr>
   )
 })
