@@ -25,7 +25,6 @@ import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 
 interface Property {
   id: string
-  no: number | null
   broker_id: string
   deal_type: string
   room_type: string
@@ -962,17 +961,8 @@ const PropertyRow = memo(function PropertyRow({
     <tr data-row-id={p.id}
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
-      <td className="px-1 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center" style={{ width: 48 }}>
-        <TextCell
-          value={p.no != null ? String(p.no) : null}
-          onSave={v => {
-            const n = v ? Number(v) : null
-            if (n != null && Number.isNaN(n)) return
-            saveField(p.id, 'no', n)
-          }}
-          placeholder="—"
-          readOnly={!canEdit || !isMine}
-        />
+      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs text-gray-300 select-none">
+        {rowNumber}
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1458,11 +1448,8 @@ function BrokerPropertiesContent() {
 
   const addNewRow = async () => {
     if (!broker) return
-    const { data: nextNoData } = await supabase.rpc('next_property_no', { p_broker_id: broker.id })
-    const nextNo = (nextNoData as number) ?? null
     const { data, error } = await supabase.from('broker_properties').insert({
       broker_id: broker.id,
-      no: nextNo,
       deal_type: '',
       room_type: '',
       address: '',
@@ -1511,10 +1498,8 @@ function BrokerPropertiesContent() {
 
   const duplicateProperty = useCallback(async (prop: Property) => {
     if (!broker) return
-    const { id, created_at, no: _no, ...rest } = prop
-    const { data: nextNoData } = await supabase.rpc('next_property_no', { p_broker_id: broker.id })
-    const nextNo = (nextNoData as number) ?? null
-    const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id, no: nextNo }).select().single()
+    const { id, created_at, ...rest } = prop
+    const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
     if (error || !data) return
     setProperties(prev => [data, ...prev])
     setAddingId(data.id)
@@ -1903,7 +1888,7 @@ function BrokerPropertiesContent() {
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 48 }}>NO</th>
+                <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 32 }}>#</th>
                 {syncedOrder.map(key => {
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
