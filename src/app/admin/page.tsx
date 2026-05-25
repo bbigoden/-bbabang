@@ -13,8 +13,7 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight, ChevronDown, Table2, Flag, Megaphone, BarChart3,
-  AlertOctagon, Activity, AlertCircle
+  Hash, ChevronRight, ChevronDown, Table2, Flag
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -351,31 +350,6 @@ export default function AdminPage() {
           </Link>
         </div>
 
-        {/* ── 운영 메뉴 진입 ── */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {[
-            { href: '/admin/announcements', label: '공지 발행', desc: '전체·고객·중개사 알림', icon: Megaphone, color: 'bg-amber-500/20 text-amber-400' },
-            { href: '/admin/properties', label: '매물 검수', desc: '강제 숨김·신고 처리', icon: Home, color: 'bg-emerald-500/20 text-emerald-400' },
-            { href: '/admin/users', label: '사용자 관리', desc: '정지·역할·메모', icon: Users, color: 'bg-blue-500/20 text-blue-400' },
-            { href: '/admin/stats', label: '통계·분석', desc: '추이·지역·유형', icon: BarChart3, color: 'bg-cyan-500/20 text-cyan-400' },
-            { href: '/admin/errors', label: '에러 로그', desc: '클라이언트 에러 수집', icon: AlertOctagon, color: 'bg-red-500/20 text-red-400' },
-            { href: '/admin/health', label: '시스템 상태', desc: 'DB·24h 활동', icon: Activity, color: 'bg-green-500/20 text-green-400' },
-          ].map(item => {
-            const Icon = item.icon
-            return (
-              <Link key={item.href} href={item.href}
-                className="flex items-center gap-3 rounded-2xl border border-gray-800 bg-gray-900 p-4 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
-                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${item.color}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{item.label}</p>
-                  <p className="text-xs text-gray-400 truncate">{item.desc}</p>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
 
         {/* ── 통계 ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
