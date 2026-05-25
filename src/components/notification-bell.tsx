@@ -24,6 +24,7 @@ const TYPE_ICON: Record<string, string> = {
   saved_search_match: '🔖',
   property_price_changed: '💰',
   deal_completed: '🎉',
+  admin_property_status_changed: '🛡️',
 }
 
 // userId prop은 호환성을 위해 받지만 NotificationsProvider가 AuthContext의 user를 사용한다.

@@ -32,6 +32,7 @@ interface Property {
   created_at: string
   broker_profiles: {
     id: string
+    user_id: string | null
     office_name: string | null
     is_verified: boolean | null
     profiles: { name: string | null } | null
@@ -98,7 +99,7 @@ export default function AdminPropertiesPage() {
 
     let q = supabase
       .from('broker_properties')
-      .select('*, broker_profiles(id, office_name, is_verified, profiles(name))')
+      .select('*, broker_profiles(id, user_id, office_name, is_verified, profiles(name))')
       .order('created_at', { ascending: false })
 
     if (status !== 'all') q = q.eq('status', status)
@@ -146,7 +147,9 @@ export default function AdminPropertiesPage() {
   }
 
   const updateStatus = async (id: string, newStatus: Property['status']) => {
-    const prev = items.find(p => p.id === id)?.status
+    const target = items.find(p => p.id === id)
+    const prev = target?.status
+    if (prev === newStatus) return
     const { error } = await supabase.from('broker_properties').update({ status: newStatus }).eq('id', id)
     if (error) {
       toast.error('상태 변경 실패: ' + error.message)
@@ -161,6 +164,19 @@ export default function AdminPropertiesPage() {
         targetType: 'property',
         targetId: id,
         metadata: { prev, next: newStatus },
+      })
+    }
+    // 중개사에게 알림 (왜 바뀌었는지 알 수 있도록)
+    const brokerUserId = target?.broker_profiles?.user_id
+    if (brokerUserId) {
+      const nextLabel = STATUS_META[newStatus].label
+      const addr = target?.address ?? '매물'
+      void supabase.from('notifications').insert({
+        user_id: brokerUserId,
+        type: 'admin_property_status_changed',
+        title: `관리자가 매물 상태를 변경했어요`,
+        body: `${addr} → ${nextLabel}${newStatus === 'hidden' ? ' (공개 페이지에서 숨겨짐)' : ''}`,
+        link: '/broker/properties',
       })
     }
   }

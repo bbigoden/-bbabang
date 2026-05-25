@@ -28,6 +28,7 @@ const TYPE_ICON: Record<string, string> = {
   saved_search_match: '🔖',
   property_price_changed: '💰',
   deal_completed: '🎉',
+  admin_property_status_changed: '🛡️',
 }
 
 type Filter = 'all' | 'unread'
