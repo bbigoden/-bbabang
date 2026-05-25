@@ -16,8 +16,6 @@ import { EmployeeRow } from '@/components/employee-row'
 import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
 
-type StatusFilter = 'all' | 'unverified' | 'verified'
-
 interface BrokerRow {
   id: string
   user_id: string
@@ -58,7 +56,6 @@ export default function AdminBrokersPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
-  const [status, setStatus] = useState<StatusFilter>('unverified')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<BrokerRow | null>(null)
   const [unverifiedCount, setUnverifiedCount] = useState(0)
@@ -92,9 +89,6 @@ export default function AdminBrokersPage() {
       .eq('is_owner', true)
       .order('created_at', { ascending: false })
 
-    if (status === 'unverified') q = q.eq('is_verified', false)
-    else if (status === 'verified') q = q.eq('is_verified', true)
-
     if (search.trim()) {
       const s = search.trim()
       q = q.or(`office_name.ilike.%${s}%,license_number.ilike.%${s}%,business_reg_number.ilike.%${s}%`)
@@ -127,7 +121,7 @@ export default function AdminBrokersPage() {
     setHasMore(ownerRows.length === PAGE_SIZE)
     setPage(targetPage + 1)
     if (reset) setLoading(false); else setLoadingMore(false)
-  }, [supabase, page, status, search])
+  }, [supabase, page, search])
 
   useEffect(() => {
     if (auth.profile?.role === 'admin') {
@@ -136,7 +130,7 @@ export default function AdminBrokersPage() {
       loadCounts()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.profile?.role, status])
+  }, [auth.profile?.role])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -202,38 +196,21 @@ export default function AdminBrokersPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-6 py-8 space-y-5">
-        <div className="flex flex-wrap gap-3">
-          <form onSubmit={handleSearch} className="flex-1 min-w-[280px] flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="사무소명·자격증번호·사업자번호 검색"
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-            <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-              검색
-            </button>
-          </form>
-
-          <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1 flex-wrap">
-            {([
-              { key: 'unverified', label: `미인증 (${unverifiedCount})` },
-              { key: 'verified', label: `인증 (${verifiedCount})` },
-              { key: 'all', label: '전체' },
-            ] as const).map(t => (
-              <button key={t.key} onClick={() => setStatus(t.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}>
-                {t.label}
-              </button>
-            ))}
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="사무소명·자격증번호·사업자번호 검색"
+              className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
           </div>
-        </div>
+          <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            검색
+          </button>
+        </form>
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
