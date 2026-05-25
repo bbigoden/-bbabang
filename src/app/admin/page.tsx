@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Users, Building2, FileText, MessageCircle,
-  CheckCircle, XCircle, Shield, LogOut, ExternalLink,
+  CheckCircle, XCircle, LogOut, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
   Hash, ChevronRight, ChevronDown, Table2, Flag, Megaphone, BarChart3,
   AlertOctagon, Activity, AlertCircle
@@ -80,6 +80,7 @@ export default function AdminPage() {
   // 같은 broker 모달을 다시 열어도 reviews 재조회 안 함 (broker_id → reviews 캐시)
   const reviewsCacheRef = useRef<Map<string, any[]>>(new Map())
   const [userModal, setUserModal] = useState<any>(null)
+  const [userRequestCount, setUserRequestCount] = useState<number | null>(null)
   const [requestModal, setRequestModal] = useState<any>(null)
   const [propertyModal, setPropertyModal] = useState<any>(null)
 
@@ -97,6 +98,21 @@ export default function AdminPage() {
     if (auth.profile?.role !== 'admin') { router.push('/'); return }
     init()
   }, [auth.loading, auth.user?.id, auth.profile?.role])
+
+  // 회원 모달 열릴 때 실제 요청 수 조회 (일반 회원만)
+  useEffect(() => {
+    if (!userModal || userModal.role !== 'user') { setUserRequestCount(null); return }
+    let cancelled = false
+    setUserRequestCount(null)
+    void (async () => {
+      const { count } = await supabase
+        .from('request_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userModal.id)
+      if (!cancelled) setUserRequestCount(count ?? 0)
+    })()
+    return () => { cancelled = true }
+  }, [userModal?.id, userModal?.role])
 
   const init = async () => {
 
@@ -220,9 +236,12 @@ export default function AdminPage() {
     window.location.href = '/'
   }
 
-  const openStatModal = async (type: 'users' | 'requests' | 'proposals') => {
+  const openStatModal = async (
+    type: 'users' | 'requests' | 'proposals',
+    userFilterInit: 'all' | 'broker' | 'user' = 'all',
+  ) => {
     setStatModal(type)
-    if (type === 'users') setUserFilter('all')
+    if (type === 'users') setUserFilter(userFilterInit)
     setLoadingModal(true)
     if (type === 'users' && allUsersAll.length === 0) {
       const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(500)
@@ -259,16 +278,11 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
 
       {/* ── 헤더 ── */}
-      <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
+      <header className="border-b border-gray-800 bg-gray-900/60 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
-              <Shield className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">빠방 관리자</h1>
-              <p className="text-xs text-gray-400">Admin Dashboard</p>
-            </div>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-white">대시보드</h1>
+            <p className="text-xs text-gray-400 truncate">{auth.profile?.name ?? auth.user?.email} 님 환영합니다</p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/?as_visitor=1" target="_blank" rel="noopener noreferrer">
@@ -290,7 +304,7 @@ export default function AdminPage() {
 
       <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
 
-        {/* ── 운영 진입 ── */}
+        {/* ── 액션 필요 큐 (카운트 있는 항목만 강조) ── */}
         <div className="grid gap-4 md:grid-cols-2">
           <Link href="/admin/reports"
             className={`flex items-center gap-4 rounded-2xl border p-5 transition-all hover:border-gray-600 ${
@@ -311,49 +325,9 @@ export default function AdminPage() {
                   : '대기 중인 항목이 없어요'}
               </p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <ChevronRight className="h-5 w-5 text-gray-500" />
           </Link>
 
-          <Link href="/admin/announcements"
-            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
-              <Megaphone className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white">공지 발행</p>
-              <p className="text-sm text-gray-400">전체·고객·중개사 대상 알림 전송</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </Link>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Link href="/admin/properties"
-            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
-              <Home className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white">매물 검수</p>
-              <p className="text-sm text-gray-400">전체 매물 모니터링·강제 숨김·신고된 매물 처리</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </Link>
-
-          <Link href="/admin/users"
-            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400">
-              <Users className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white">사용자 관리</p>
-              <p className="text-sm text-gray-400">계정 정지·차단, 역할 변경, 관리자 메모</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </Link>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
           <Link href="/admin/brokers"
             className={`flex items-center gap-4 rounded-2xl border p-5 transition-all hover:border-gray-600 ${
               stats.unverifiedBrokers > 0
@@ -361,7 +335,7 @@ export default function AdminPage() {
                 : 'border-gray-800 bg-gray-900 hover:bg-gray-800/80'
             }`}>
             <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-              stats.unverifiedBrokers > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-purple-500/20 text-purple-400'
+              stats.unverifiedBrokers > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-800 text-gray-500'
             }`}>
               <Building2 className="h-6 w-6" />
             </div>
@@ -369,58 +343,45 @@ export default function AdminPage() {
               <p className="font-bold text-white">사무소 검수</p>
               <p className="text-sm text-gray-400">
                 {stats.unverifiedBrokers > 0
-                  ? <>미인증 사무소 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 검수 대기</>
+                  ? <>미인증 사무소 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 대기</>
                   : '대표 자격증·사업자 정보 검토 및 인증'}
               </p>
             </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </Link>
-
-          <Link href="/admin/stats"
-            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400">
-              <BarChart3 className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white">통계·분석</p>
-              <p className="text-sm text-gray-400">7·30·90일 추이, 지역별 분포, 거래유형</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <ChevronRight className="h-5 w-5 text-gray-500" />
           </Link>
         </div>
 
-        {/* 운영 진단 진입 */}
-        <div className="grid gap-4 md:grid-cols-2">
-          <Link href="/admin/errors"
-            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/20 text-red-400">
-              <AlertOctagon className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white">에러 로그</p>
-              <p className="text-sm text-gray-400">클라이언트 에러 자동 수집·처리</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </Link>
-
-          <Link href="/admin/health"
-            className="flex items-center gap-4 rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/20 text-green-400">
-              <Activity className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-white">시스템 상태</p>
-              <p className="text-sm text-gray-400">DB 카운트·24h 활동·외부 시스템</p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-          </Link>
+        {/* ── 운영 메뉴 진입 ── */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {[
+            { href: '/admin/announcements', label: '공지 발행', desc: '전체·고객·중개사 알림', icon: Megaphone, color: 'bg-amber-500/20 text-amber-400' },
+            { href: '/admin/properties', label: '매물 검수', desc: '강제 숨김·신고 처리', icon: Home, color: 'bg-emerald-500/20 text-emerald-400' },
+            { href: '/admin/users', label: '사용자 관리', desc: '정지·역할·메모', icon: Users, color: 'bg-blue-500/20 text-blue-400' },
+            { href: '/admin/stats', label: '통계·분석', desc: '추이·지역·유형', icon: BarChart3, color: 'bg-cyan-500/20 text-cyan-400' },
+            { href: '/admin/errors', label: '에러 로그', desc: '클라이언트 에러 수집', icon: AlertOctagon, color: 'bg-red-500/20 text-red-400' },
+            { href: '/admin/health', label: '시스템 상태', desc: 'DB·24h 활동', icon: Activity, color: 'bg-green-500/20 text-green-400' },
+          ].map(item => {
+            const Icon = item.icon
+            return (
+              <Link key={item.href} href={item.href}
+                className="flex items-center gap-3 rounded-2xl border border-gray-800 bg-gray-900 p-4 hover:border-gray-600 hover:bg-gray-800/80 transition-all">
+                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${item.color}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{item.label}</p>
+                  <p className="text-xs text-gray-400 truncate">{item.desc}</p>
+                </div>
+              </Link>
+            )
+          })}
         </div>
 
         {/* ── 통계 ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => openStatModal('users') },
-            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => openStatModal('users') },
+            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => openStatModal('users', 'all') },
+            { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => openStatModal('users', 'broker') },
             { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400', action: () => openStatModal('requests') },
             { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400', action: () => openStatModal('proposals') },
           ].map(stat => (
@@ -643,11 +604,11 @@ export default function AdminPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                            req.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                            
-                            'bg-gray-500/20 text-gray-400'
+                            req.status === 'active'
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-gray-500/20 text-gray-400'
                           }`}>
-                            {req.status === 'active' ? '모집 중' :  '종료'}
+                            {req.status === 'active' ? '모집 중' : '종료'}
                           </span>
                         </td>
                       </tr>
@@ -729,7 +690,7 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-0.5">
                     {[1,2,3,4,5].map(i => (
-                      <Star key={i} className={`h-3.5 w-3.5 ${i <= Math.round(brokerModal.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                      <Star key={i} className={`h-3.5 w-3.5 ${i <= Math.round(brokerModal.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-500'}`} />
                     ))}
                   </div>
                   <span className="font-bold text-white">{brokerModal.rating.toFixed(1)}</span>
@@ -770,12 +731,12 @@ export default function AdminPage() {
                       <span className="text-sm font-semibold text-white">{r.profiles?.name ?? '(알 수 없음)'}</span>
                       <div className="flex items-center gap-0.5 flex-shrink-0">
                         {[1,2,3,4,5].map(i => (
-                          <Star key={i} className={`h-3 w-3 ${i <= r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                          <Star key={i} className={`h-3 w-3 ${i <= r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-500'}`} />
                         ))}
                       </div>
                     </div>
                     {r.content && <p className="text-xs text-gray-400 leading-relaxed">{r.content}</p>}
-                    <p className="mt-1 text-[10px] text-gray-600 dark:text-gray-400">{formatDate(r.created_at)}</p>
+                    <p className="mt-1 text-[10px] text-gray-500">{formatDate(r.created_at)}</p>
                   </div>
                 ))}
               </div>
@@ -879,7 +840,11 @@ export default function AdminPage() {
             <InfoRow icon={Phone} label="연락처" value={userModal.phone || '미등록'} />
             <InfoRow icon={Calendar} label="가입일" value={formatDate(userModal.created_at)} />
             {userModal.role === 'user' && (
-              <InfoRow icon={FileText} label="매물 요청" value={`${recentRequests.filter(r => r.user_id === userModal.id).length}건 (최근 20개 기준)`} />
+              <InfoRow
+                icon={FileText}
+                label="매물 요청"
+                value={userRequestCount === null ? '집계 중…' : `${userRequestCount}건`}
+              />
             )}
           </div>
         </Modal>
@@ -898,11 +863,11 @@ export default function AdminPage() {
               {requestModal.profiles?.phone && <p className="text-xs text-gray-400">{requestModal.profiles.phone}</p>}
             </div>
             <span className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
-              requestModal.status === 'active' ? 'bg-green-500/20 text-green-400' :
-              
-              'bg-gray-500/20 text-gray-400'
+              requestModal.status === 'active'
+                ? 'bg-green-500/20 text-green-400'
+                : 'bg-gray-500/20 text-gray-400'
             }`}>
-              {requestModal.status === 'active' ? '모집 중' :  '종료'}
+              {requestModal.status === 'active' ? '모집 중' : '종료'}
             </span>
           </div>
 
@@ -1112,11 +1077,11 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="font-semibold text-white">{req.profiles?.name || '(알 수 없음)'}</span>
                             <span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${
-                              req.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                              
-                              'bg-gray-500/20 text-gray-400'
+                              req.status === 'active'
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-gray-500/20 text-gray-400'
                             }`}>
-                              {req.status === 'active' ? '모집 중' :  '종료'}
+                              {req.status === 'active' ? '모집 중' : '종료'}
                             </span>
                           </div>
                           <div className="text-xs text-gray-400">{req.city} {req.district} · {req.deal_type?.split(',')?.[0]}</div>
