@@ -385,9 +385,6 @@ export default function AdminPage() {
                 {unverifiedBrokers.length}곳 대기
               </span>
             )}
-            <Link href="/admin/brokers" className="ml-auto inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
-              전체 사무소 보기 <ChevronRight className="h-3 w-3" />
-            </Link>
           </div>
 
           {unverifiedBrokers.length === 0 ? (
