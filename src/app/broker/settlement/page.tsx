@@ -610,7 +610,6 @@ export default function SettlementPage() {
             <table className="min-w-full text-xs">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800/50">
-                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 40 }}>NO</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 100 }}>계약일</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ minWidth: 200 }}>계약주소</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 100 }}>매도인(임대)</th>
@@ -639,16 +638,6 @@ export default function SettlementPage() {
 
                   return (
                     <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/20">
-                      <td className="px-1 py-1">
-                        <TextCell
-                          value={String(r.contract_no)}
-                          readOnly={!canEditMoney}
-                          onSave={v => {
-                            const n = parseInt(v, 10)
-                            if (!isNaN(n) && n !== r.contract_no) updateRow(r.id, { contract_no: n })
-                          }}
-                        />
-                      </td>
                       <td className="px-1 py-1">
                         <DateCell value={r.contract_date} onSave={v => updateRow(r.id, { contract_date: v })} />
                       </td>
@@ -740,7 +729,7 @@ export default function SettlementPage() {
                   )
                 })}
                 <tr>
-                  <td colSpan={isOwner ? 17 : 16} className="border-t border-gray-100 dark:border-gray-800">
+                  <td colSpan={isOwner ? 16 : 15} className="border-t border-gray-100 dark:border-gray-800">
                     <button onClick={addNewRow}
                       className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-400 transition-colors">
                       <Plus className="h-3.5 w-3.5" />계약 등록
