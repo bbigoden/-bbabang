@@ -50,22 +50,6 @@ export function calcSettlement(input: SettlementInput): SettlementCalc {
   return { total, supply, vat, assignee, withhold, takeHome }
 }
 
-/** 공동중개 — 같은 계약(같은 contract_no) 여러 행을 받아 지점 수익 계산 */
-export interface SettlementRow extends SettlementInput {
-  id?: string
-  contract_no: number
-}
-
-export function calcOfficeShare(rows: SettlementRow[]): number {
-  if (rows.length === 0) return 0
-  // 한 계약의 공급가는 모든 행이 같지만 안전하게 첫 행 기준
-  const first = rows[0]
-  const total  = Math.max(0, Math.round((first.seller_fee || 0) + (first.buyer_fee || 0)))
-  const supply = Math.round(total / 1.1)
-  const assigneeSum = rows.reduce((s, r) => s + calcSettlement(r).assignee, 0)
-  return supply - assigneeSum
-}
-
 /** 통화 표시 — 천 단위 콤마 + 원 */
 export function fmtWon(n: number): string {
   if (!Number.isFinite(n)) return '-'

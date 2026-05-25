@@ -14,13 +14,12 @@ import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { SheetActionHeader } from '@/components/sheet/action-cell'
-import { calcSettlement, calcOfficeShare, fmtComma, type SettlementRow } from '@/lib/settlement'
+import { calcSettlement, fmtComma } from '@/lib/settlement'
 
 interface Settlement {
   id: string
   office_broker_id: string
   assignee_broker_id: string | null
-  contract_no: number
   contract_date: string | null
   contract_address: string | null
   seller: string | null
@@ -277,7 +276,8 @@ export default function SettlementPage() {
       q = q.eq('record_month', month)
     }
     const { data } = await q
-      .order('contract_no', { ascending: true })
+      .order('contract_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
     setRows((data ?? []) as Settlement[])
     setLoading(false)
   }, [officeId, month, allMode, supabase])
@@ -312,16 +312,7 @@ export default function SettlementPage() {
     return base
   }, [rows, isOwner, meBroker, filterAssigneeId])
 
-  // 같은 contract_no 그룹 — 공동중개 시 지점수익 계산용 (사무소 전체 기준)
-  const groupedRows = useMemo(() => {
-    const map = new Map<number, Settlement[]>()
-    for (const r of rows) {
-      const k = r.contract_no
-      if (!map.has(k)) map.set(k, [])
-      map.get(k)!.push(r)
-    }
-    return map
-  }, [rows])
+  // 공동중개(contract_no) 그룹화 폐기 — 1계약 1행 구조로 단순화
 
   // 멤버 이름 옵션 (SelectCell)
   const memberOptions = useMemo(() => members.map(m => m.profiles?.name ?? '').filter(Boolean), [members])
@@ -347,19 +338,12 @@ export default function SettlementPage() {
       }
     }
 
-    // 사무실 수익: visibleRows(직원 필터 적용 후)에 등장하는 계약만 합산.
-    // 공동중개라 같은 계약에 다른 담당자가 있으면 그 계약 전체의 사무실 수익 한 번 카운트.
-    let officeShare = 0
-    if (isOwner) {
-      const visibleNos = new Set(visibleRows.map(r => r.contract_no))
-      for (const [no, arr] of groupedRows) {
-        if (visibleNos.has(no)) officeShare += calcOfficeShare(arr as SettlementRow[])
-      }
-    }
+    // 사무실 수익: 공급가 합 − 담당자 수수료 합 (1계약 1행 구조)
+    const officeShare = isOwner ? (supplySum - assigneeSum) : 0
 
     return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum, officeShare,
       count: visibleRows.length }
-  }, [visibleRows, isOwner, groupedRows, meBroker])
+  }, [visibleRows, isOwner, meBroker])
 
   const moveMonth = (delta: number) => {
     const [y, m] = month.split('-').map(Number)
@@ -368,14 +352,8 @@ export default function SettlementPage() {
   }
 
   // 한 셀 업데이트 — 즉시 DB 반영 + 낙관적 UI
-  // NO 바뀌면 그 자리에서 contract_no 오름차순 재정렬
   const updateRow = async (id: string, patch: Partial<Settlement>) => {
-    setRows(prev => {
-      const next = prev.map(r => r.id === id ? { ...r, ...patch } : r)
-      return 'contract_no' in patch
-        ? [...next].sort((a, b) => a.contract_no - b.contract_no)
-        : next
-    })
+    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
     const { error } = await supabase.from('settlements').update(patch).eq('id', id)
     if (error) { alert('저장 실패: ' + error.message); loadRows() }
   }
@@ -383,8 +361,6 @@ export default function SettlementPage() {
   // 새 빈 행 추가 — 보고 있는 월(전체면 오늘)로 record_month 자동
   const addNewRow = async () => {
     if (!officeId || !meBroker) return
-    const { data: nextNoData } = await supabase.rpc('next_settlement_no', { p_office: officeId })
-    const nextNo = (nextNoData as number) ?? 1
     const recordMonth = allMode ? yyyymm(new Date()) : month
 
     const { data, error } = await supabase
@@ -393,7 +369,6 @@ export default function SettlementPage() {
         office_broker_id: officeId,
         assignee_broker_id: meBroker.id,
         assignee_name: meBroker.profiles?.name ?? null,
-        contract_no: nextNo,
         record_month: recordMonth,
         settlement_rate: Number(meBroker.default_settlement_rate ?? 0.5),
         withhold_exempt: !!meBroker.is_owner,
@@ -404,11 +379,11 @@ export default function SettlementPage() {
       .select('*')
       .single()
     if (error) { alert('추가 실패: ' + error.message); return }
-    setRows(prev => [...prev, data as Settlement].sort((a, b) => a.contract_no - b.contract_no))
+    setRows(prev => [...prev, data as Settlement])
   }
 
   const deleteRow = async (r: Settlement) => {
-    if (!confirm(`#${r.contract_no} ${r.contract_address ?? ''} 삭제할까요?`)) return
+    if (!confirm(`${r.contract_address ?? r.contract_date ?? '이 계약'} 삭제할까요?`)) return
     const { error } = await supabase.from('settlements').delete().eq('id', r.id)
     if (error) { alert('삭제 실패: ' + error.message); return }
     setRows(prev => prev.filter(x => x.id !== r.id))
@@ -416,24 +391,16 @@ export default function SettlementPage() {
 
   // CSV 다운로드 (직원·사무소 두 양식)
   const downloadCsv = (mode: 'employee' | 'office') => {
-    const head = mode === 'employee'
-      ? ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','매도입금일','매수입금일']
-      : ['NO','계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','지점수익','매도입금일','매수입금일']
+    const head = ['계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','매도입금일','매수입금일']
 
     const lines: string[] = [head.join(',')]
     for (const r of visibleRows) {
       const c = calcSettlement(r)
-      const group = groupedRows.get(r.contract_no) ?? []
-      const isFirstInGroup = group[0]?.id === r.id
-      const officeShareForRow = mode === 'office'
-        ? (isFirstInGroup ? String(calcOfficeShare(group as SettlementRow[])) : '')
-        : ''
       const csv = (s: string | number | null | undefined) => {
         const v = s == null ? '' : String(s)
         return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v
       }
       const row: (string | number)[] = [
-        r.contract_no,
         r.contract_date ?? '',
         csv(r.contract_address ?? ''),
         csv(r.seller ?? ''),
@@ -447,9 +414,9 @@ export default function SettlementPage() {
         c.supply,
         c.assignee,
         c.takeHome,
+        r.seller_payment_date ?? '',
+        r.buyer_payment_date ?? '',
       ]
-      if (mode === 'office') row.push(officeShareForRow, r.seller_payment_date ?? '', r.buyer_payment_date ?? '')
-      else row.push(r.seller_payment_date ?? '', r.buyer_payment_date ?? '')
       lines.push(row.join(','))
     }
     const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
@@ -622,7 +589,6 @@ export default function SettlementPage() {
                   <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>공급가</th>
                   <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 100 }}>담당자수수료</th>
                   <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 100 }}>실수령</th>
-                  {isOwner && <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 90 }}>지점수익</th>}
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매도입금일</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매수입금일</th>
                   <SheetActionHeader width={72}>{null}</SheetActionHeader>
@@ -631,9 +597,6 @@ export default function SettlementPage() {
               <tbody>
                 {visibleRows.map(r => {
                   const c = calcSettlement(r)
-                  const group = groupedRows.get(r.contract_no) ?? []
-                  const isFirstInGroup = group[0]?.id === r.id
-                  const officeShareForRow = isFirstInGroup ? calcOfficeShare(group as SettlementRow[]) : null
                   const canEditMoney = isOwner || r.assignee_broker_id === meBroker?.id
 
                   return (
@@ -688,11 +651,6 @@ export default function SettlementPage() {
                       </td>
                       <td className="px-1 py-1"><MoneyCell value={c.assignee} readOnly /></td>
                       <td className="px-1 py-1"><MoneyCell value={c.takeHome} readOnly accent="blue" /></td>
-                      {isOwner && (
-                        <td className="px-1 py-1">
-                          <MoneyCell value={officeShareForRow} readOnly accent="emerald" />
-                        </td>
-                      )}
                       <td className="px-1 py-1">
                         <DateCell
                           value={r.seller_payment_date}
@@ -729,7 +687,7 @@ export default function SettlementPage() {
                   )
                 })}
                 <tr>
-                  <td colSpan={isOwner ? 16 : 15} className="border-t border-gray-100 dark:border-gray-800">
+                  <td colSpan={15} className="border-t border-gray-100 dark:border-gray-800">
                     <button onClick={addNewRow}
                       className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-400 transition-colors">
                       <Plus className="h-3.5 w-3.5" />계약 등록

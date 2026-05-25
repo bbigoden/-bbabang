@@ -67,7 +67,7 @@ export default async function BrokerDashboardPage() {
       supabase.rpc('recommend_requests_for_broker', { p_broker_id: broker.id, p_limit: 6 }),
       supabase
         .from('settlements')
-        .select('contract_no, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override')
+        .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override')
         .eq('assignee_broker_id', broker.id)
         .eq('record_month', thisMonth),
     ])
@@ -87,9 +87,9 @@ export default async function BrokerDashboardPage() {
     const c = calcSettlement(s)
     acc.total += c.total
     acc.assignee += c.assignee
-    acc.contracts.add(s.contract_no)
+    acc.count += 1
     return acc
-  }, { total: 0, assignee: 0, contracts: new Set<number>() })
+  }, { total: 0, assignee: 0, count: 0 })
 
   // ── 성과분석 보조 지표 (이번 달 제안·평균 성사가·6개월 추이) ──
   const thisMonthProposals = proposals.filter(p => {
@@ -192,7 +192,7 @@ export default async function BrokerDashboardPage() {
                   <span className="text-xs font-medium text-gray-500">계약 건수</span>
                 </div>
                 <div className="text-3xl font-black text-gray-900 dark:text-white">
-                  {settlementSummary.contracts.size}
+                  {settlementSummary.count}
                   <span className="text-lg font-medium text-gray-400">건</span>
                 </div>
                 <div className="mt-2 text-xs text-gray-400">정산월 {thisMonth} 기준</div>
