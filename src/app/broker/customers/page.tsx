@@ -929,7 +929,6 @@ export default function BrokerCustomersPage() {
             <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
               <thead>
                 <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                  <th className="px-3 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 32 }}>#</th>
                   {activeCols.map(col => {
                     const key = getColKey(col)
                     const w = getColWidth(col)
@@ -996,13 +995,12 @@ export default function BrokerCustomersPage() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={activeCols.length + 2} className="py-16 text-center text-sm text-gray-400">
+                    <td colSpan={activeCols.length + 1} className="py-16 text-center text-sm text-gray-400">
                       {customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
                     </td>
                   </tr>
                 ) : paginated.map((c, idx) => (
                   <tr key={c.id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                    <td className="px-3 py-1.5 text-center text-xs text-gray-300 font-mono border-r border-gray-100 dark:border-gray-800">{direction === 'up' ? filtered.length - ((page - 1) * pageSize + idx) : ((page - 1) * pageSize + idx + 1)}</td>
                     {activeCols.map(col => (
                       <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800"
                         style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
@@ -1014,7 +1012,7 @@ export default function BrokerCustomersPage() {
                 ))}
                 {canEdit && (
                   <tr>
-                    <td colSpan={activeCols.length + 2} className="border-t border-gray-100 dark:border-gray-800">
+                    <td colSpan={activeCols.length + 1} className="border-t border-gray-100 dark:border-gray-800">
                       <div className="flex items-center divide-x divide-gray-100">
                         <button onClick={addRow}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 dark:text-gray-400 hover:bg-gray-50/80 transition-colors">

@@ -961,9 +961,6 @@ const PropertyRow = memo(function PropertyRow({
     <tr data-row-id={p.id}
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
-      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs text-gray-300 select-none">
-        {rowNumber}
-      </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
         if (fixedCol) {
@@ -1888,7 +1885,6 @@ function BrokerPropertiesContent() {
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 32 }}>#</th>
                 {syncedOrder.map(key => {
                   // 고정 칼럼
                   const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1985,7 +1981,7 @@ function BrokerPropertiesContent() {
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={syncedOrder.length + 2} className="py-20 text-center text-sm text-gray-400">
+                  <td colSpan={syncedOrder.length + 1} className="py-20 text-center text-sm text-gray-400">
                     {searchQuery || filterDealType || filterRoomType ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
@@ -2021,7 +2017,7 @@ function BrokerPropertiesContent() {
               ))}
               {!isAdminView && canEdit && (
                 <tr>
-                  <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100 dark:border-gray-800">
+                  <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 1} className="border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-center divide-x divide-gray-100">
                       <button onClick={() => router.push('/broker/properties/new')}
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 dark:text-gray-400 hover:bg-gray-50/80 transition-colors">
