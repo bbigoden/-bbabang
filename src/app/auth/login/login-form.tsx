@@ -64,6 +64,16 @@ export function LoginForm({ redirectTo }: { redirectTo: string | null }) {
       return
     }
 
+    // 2FA: AAL2가 필요하면 MFA 검증 페이지로 이동
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (aal?.nextLevel === 'aal2' && aal.nextLevel !== aal.currentLevel) {
+      const dest = redirectTo
+        ? `/auth/mfa?next=${encodeURIComponent(redirectTo)}`
+        : '/auth/mfa'
+      router.replace(dest)
+      return
+    }
+
     // role에 따라 리다이렉트
     const { data: profile } = await supabase
       .from('profiles')
