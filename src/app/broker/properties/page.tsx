@@ -1563,6 +1563,10 @@ function BrokerPropertiesContent() {
         kakao.maps.event.addListener(mapInstanceRef.current, 'click', () => {
           infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
         })
+      } else {
+        // 컨테이너가 hidden→visible로 다시 보일 때, 검색·필터로 페이지 height가 변했을 때
+        // 지도 타일/마커가 옛 사이즈 기준으로 그려져 빈 화면처럼 보이는 문제 방지
+        mapInstanceRef.current.relayout()
       }
 
       const map = mapInstanceRef.current
