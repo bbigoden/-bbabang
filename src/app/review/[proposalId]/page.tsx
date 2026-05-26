@@ -106,9 +106,15 @@ export default function ReviewPage() {
     } catch { setError('오류가 발생했습니다. 다시 시도해주세요.'); setLoading(false); return }
     if (!user) return
 
-    // 이미지 업로드
+    // 이미지 업로드 (잘못된 형식/크기/0바이트 파일 사용자에게 알림)
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    const MAX_SIZE = 10 * 1024 * 1024
+    const skipped: string[] = []
     const uploadedUrls: string[] = []
     for (const file of files) {
+      if (!ALLOWED_TYPES.includes(file.type)) { skipped.push(`${file.name}: 지원 안 함`); continue }
+      if (file.size > MAX_SIZE) { skipped.push(`${file.name}: 10MB 초과`); continue }
+      if (file.size === 0) { skipped.push(`${file.name}: 빈 파일`); continue }
       const ext = file.name.split('.').pop()
       const path = `${user.id}/review-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error: uploadError } = await supabase.storage
@@ -117,6 +123,9 @@ export default function ReviewPage() {
       if (uploadError) continue
       const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
       uploadedUrls.push(publicUrl)
+    }
+    if (skipped.length > 0) {
+      setError(`일부 이미지 제외: ${skipped.join(', ')}`)
     }
 
     const { error: insertError } = await supabase.from('reviews').insert({

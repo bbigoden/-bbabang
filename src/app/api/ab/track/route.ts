@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * A/B 이벤트 기록 API.
  * 클라이언트의 trackAb() 유틸이 호출.
  * service_role key 사용 (RLS bypass) — 인증 없는 노출 실험도 기록 가능.
+ * IP 기반 rate-limit (분당 60회)로 abuse 방지.
  */
 export async function POST(req: NextRequest) {
+  // Rate limit: IP당 분당 60회 (이벤트 트래킹용으로 여유롭게)
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
+  const allowed = await checkRateLimit(`ip:${ip}:ab-track`, 60, 60)
+  if (!allowed) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
+  }
+
   let body: Record<string, unknown>
   try {
     body = await req.json()

@@ -140,10 +140,15 @@ export default function ProposePage() {
     const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).limit(1).single()
     if (!broker) { setError('중개사 등록이 필요합니다.'); setLoading(false); return }
 
-    // 새 파일 업로드 → property-images 버킷
+    // 새 파일 업로드 → property-images 버킷 (잘못된 형식/크기 검증)
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    const MAX_SIZE = 10 * 1024 * 1024
     const uploadedNew: string[] = []
     const skipped: string[] = []
     for (const file of newFiles) {
+      if (!ALLOWED_TYPES.includes(file.type)) { skipped.push(`${file.name}: 지원 안 함`); continue }
+      if (file.size > MAX_SIZE) { skipped.push(`${file.name}: 10MB 초과`); continue }
+      if (file.size === 0) { skipped.push(`${file.name}: 빈 파일`); continue }
       const ext = file.name.split('.').pop()
       const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error: uploadError } = await supabase.storage
