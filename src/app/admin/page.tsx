@@ -9,7 +9,7 @@ import { logAdminAction } from '@/lib/audit'
 import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Users, Building2, FileText, MessageCircle,
-  CheckCircle, XCircle,
+  CheckCircle, XCircle, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
   Hash, ChevronRight, ChevronDown, Table2, Flag
 } from 'lucide-react'
