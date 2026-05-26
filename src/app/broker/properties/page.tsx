@@ -966,7 +966,7 @@ const PropertyRow = memo(function PropertyRow({
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
       <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 tabular-nums select-all" style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
-        {p.seq_no ?? '—'}
+        {p.seq_no ?? ''}
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1211,7 +1211,7 @@ function BrokerPropertiesContent() {
       const collected: any[] = []
       for (let from = 0; ; from += PAGE) {
         const { data: page } = await supabase
-          .from('broker_properties').select('id, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields').eq('broker_id', b.id)
+          .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields').eq('broker_id', b.id)
           .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
         if (!page || page.length === 0) break
         collected.push(...page)
@@ -1274,7 +1274,7 @@ function BrokerPropertiesContent() {
     const collected: any[] = []
     for (let from = 0; ; from += PAGE) {
       const { data: page } = await supabase
-        .from('broker_properties').select('id, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields').in('broker_id', brokerIds)
+        .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields').in('broker_id', brokerIds)
         .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
       if (!page || page.length === 0) break
       collected.push(...page)
