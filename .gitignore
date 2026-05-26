@@ -45,3 +45,6 @@ next-env.d.ts
 # Claude Code worktrees & local settings
 .claude/worktrees/
 .claude/settings.local.json
+
+# 임시 파일
+*.tmp
