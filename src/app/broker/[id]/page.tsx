@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { User as AuthUser } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
@@ -63,7 +64,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   const { id: brokerId } = await params
   const supabase = await createClient()
 
-  let user: any = null
+  let user: AuthUser | null = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user

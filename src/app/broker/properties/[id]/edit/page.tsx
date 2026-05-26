@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
@@ -57,7 +58,7 @@ export default function EditPropertyPage() {
   }, [propertyId])
 
   const loadProperty = async () => {
-    let user: any = null
+    let user: User | null = null
     try {
       const { data } = await supabase.auth.getUser()
       user = data.user
@@ -156,7 +157,7 @@ export default function EditPropertyPage() {
     setSaving(true)
     setError('')
 
-    let user: any = null
+    let user: User | null = null
     try {
       const { data } = await supabase.auth.getUser()
       user = data.user

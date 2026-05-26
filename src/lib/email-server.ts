@@ -43,7 +43,7 @@ export async function sendEmail(params: SendEmailParams): Promise<{ ok: boolean;
  * - preferences[`email_${type}`]: 카테고리별 (없으면 기본 ON)
  */
 export function shouldSendEmail(
-  preferences: Record<string, any> | null,
+  preferences: Record<string, unknown> | null,
   category: string,
 ): boolean {
   if (!preferences) return true

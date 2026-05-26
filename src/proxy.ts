@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import type { User } from '@supabase/supabase-js'
 import { EXPERIMENTS, pickVariant, AB_COOKIE_PREFIX, AB_COOKIE_MAX_AGE } from '@/lib/ab-experiments'
 
 // /broker/[id]는 공개 중개사 프로필이라 제외. 나머지 broker 하위는 모두 보호.
@@ -58,7 +59,7 @@ export async function proxy(request: NextRequest) {
   })
 
   // 세션 갱신 (토큰 만료 시 자동 재발급)
-  let user: any = null
+  let user: User | null = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user

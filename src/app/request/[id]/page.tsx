@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RequestDetailClient } from './request-detail-client'
@@ -28,7 +29,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
 
-  let user: any = null
+  let user: User | null = null
   let userRole: string | null = null
   let request: any = null
   let proposals: any[] = []

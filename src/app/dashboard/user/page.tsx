@@ -1,3 +1,4 @@
+import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
@@ -12,7 +13,7 @@ export default async function UserDashboardPage() {
   const supabase = await createClient()
 
   // ── 인증 확인 (redirect는 try/catch 밖에서 호출) ──────────
-  let user: any = null
+  let user: User | null = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user

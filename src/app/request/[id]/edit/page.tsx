@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -61,7 +62,7 @@ export default function RequestEditPage() {
 
   useEffect(() => {
     const load = async () => {
-      let user: any = null
+      let user: User | null = null
       try {
         const { data } = await supabase.auth.getUser()
         user = data.user

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
@@ -46,7 +47,7 @@ export default async function PropertyDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  let user: any = null
+  let user: User | null = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user

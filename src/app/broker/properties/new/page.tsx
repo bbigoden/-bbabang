@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
@@ -88,7 +89,7 @@ export default function NewPropertyPage() {
     setLoading(true)
     setError('')
 
-    let user: any = null
+    let user: User | null = null
     try {
       const { data } = await supabase.auth.getUser()
       user = data.user

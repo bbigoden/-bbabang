@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
@@ -130,7 +131,7 @@ export default function ProposePage() {
     setLoading(true)
     setError('')
 
-    let user: any = null
+    let user: User | null = null
     try {
       const { data } = await supabase.auth.getUser()
       user = data.user
