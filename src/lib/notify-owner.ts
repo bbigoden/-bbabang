@@ -9,17 +9,17 @@ import { createClient } from '@/lib/supabase/client'
 
 type ActionKind = 'property' | 'customer' | 'diary' | 'settlement'
 
-const META: Record<ActionKind, { icon: string; label: string; link: string }> = {
-  property:   { icon: '🏠', label: '매물',     link: '/broker/properties' },
-  customer:   { icon: '👤', label: '고객',     link: '/broker/customers' },
-  diary:      { icon: '📝', label: '업무일지', link: '/broker/diary' },
-  settlement: { icon: '💰', label: '정산',     link: '/broker/settlement' },
+const META: Record<ActionKind, { icon: string; title: string; link: string }> = {
+  property:   { icon: '🏠', title: '신규 매물이 등록되었습니다',   link: '/broker/properties' },
+  customer:   { icon: '👤', title: '신규 고객이 등록되었습니다',   link: '/broker/customers' },
+  diary:      { icon: '📝', title: '신규 업무일지가 등록되었습니다', link: '/broker/diary' },
+  settlement: { icon: '💰', title: '신규 정산이 등록되었습니다',   link: '/broker/settlement' },
 }
 
 export async function notifyOwnerOfBrokerAction(
   brokerId: string | null | undefined,
   kind: ActionKind,
-  detail?: string,
+  _detail?: string,  // 호환성 유지용 (현재 미사용 — 메시지 단순화)
 ): Promise<void> {
   if (!brokerId) return
   try {
@@ -43,15 +43,9 @@ export async function notifyOwnerOfBrokerAction(
       .maybeSingle()
     if (!owner?.user_id || owner.user_id === me.user_id) return
 
-    // 직원 이름
-    const { data: meName } = me.user_id
-      ? await supabase.from('profiles').select('name').eq('id', me.user_id).maybeSingle()
-      : { data: null as { name: string | null } | null }
-    const staffName = (meName as any)?.name ?? '직원'
-
     const meta = META[kind]
-    const title = `${meta.icon} ${staffName} 님이 ${meta.label} 등록`
-    const body  = detail || `${meta.label}이(가) 새로 추가됐어요.`
+    const title = `${meta.icon} ${meta.title}`
+    const body  = ''
 
     // 인앱 알림 (종 아이콘)
     await supabase.from('notifications').insert({
@@ -88,9 +82,9 @@ export async function notifyOwnerOfBrokerAction(
  * - assignee가 콤마 구분 다중값일 수 있으므로 "새로 추가된 이름"만 알림
  * - 대표 본인 이름이거나 사무소 직원과 매칭 안 되면 무시
  */
-const ASSIGN_META: Record<'property' | 'customer', { icon: string; label: string; link: string }> = {
-  property: { icon: '🏠', label: '매물', link: '/broker/properties' },
-  customer: { icon: '👤', label: '고객', link: '/broker/customers' },
+const ASSIGN_META: Record<'property' | 'customer', { icon: string; title: string; link: string }> = {
+  property: { icon: '🏠', title: '매물 담당으로 지정되었습니다', link: '/broker/properties' },
+  customer: { icon: '👤', title: '고객 담당으로 지정되었습니다', link: '/broker/customers' },
 }
 
 export async function notifyAssigneeOfAssignment(
@@ -98,7 +92,7 @@ export async function notifyAssigneeOfAssignment(
   kind: 'property' | 'customer',
   newAssigneeRaw: string | null | undefined,
   prevAssigneeRaw: string | null | undefined,
-  detail?: string,
+  _detail?: string,  // 호환성 유지용 (현재 미사용 — 메시지 단순화)
 ): Promise<void> {
   if (!actorBrokerId) return
   const parse = (s: string | null | undefined) =>
@@ -132,8 +126,8 @@ export async function notifyAssigneeOfAssignment(
       const target = (members as any[]).find(m => (m.profiles as any)?.name === name)
       if (!target?.user_id || target.user_id === actor.user_id) continue
 
-      const title = `${meta.icon} 대표님이 ${meta.label} 담당으로 지정`
-      const body  = detail || `대표님이 회원님을 ${meta.label} 담당자로 지정했어요.`
+      const title = `${meta.icon} ${meta.title}`
+      const body  = ''
 
       await supabase.from('notifications').insert({
         user_id: target.user_id,
