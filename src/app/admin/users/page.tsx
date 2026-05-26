@@ -730,7 +730,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
                     </button>
                   ))}
                 </div>
-                <p className="mt-1.5 text-[11px] text-gray-500">'일시 정지' 클릭 시 위에서 선택한 기간만큼 정지됩니다</p>
+                <p className="mt-1.5 text-[11px] text-gray-500">&apos;일시 정지&apos; 클릭 시 위에서 선택한 기간만큼 정지됩니다</p>
               </div>
             )}
           </div>

@@ -146,7 +146,7 @@ function SearchInner() {
         ) : total === 0 ? (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
-            <p className="font-semibold text-gray-500">"{debounced}"에 대한 결과가 없어요</p>
+            <p className="font-semibold text-gray-500">&quot;{debounced}&quot;에 대한 결과가 없어요</p>
             <p className="mt-1 text-sm text-gray-400">다른 키워드로 검색해보세요</p>
           </div>
         ) : (

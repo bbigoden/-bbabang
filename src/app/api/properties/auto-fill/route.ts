@@ -182,7 +182,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '잘못된 요청 형식' }, { status: 400 })
   }
 
-  let { sigunguCd, bjdongCd, bun, ji, ho, platGbCd } = body
+  const { ho, platGbCd } = body
+  let { sigunguCd, bjdongCd, bun, ji } = body
 
   if (body.bcode && body.bcode.length === 10 && !sigunguCd) {
     sigunguCd = body.bcode.slice(0, 5)

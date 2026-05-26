@@ -104,7 +104,7 @@ export function InstallPrompt() {
               <p className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-300">
                 <Share className="h-3.5 w-3.5 text-blue-500" /> 아래 공유 버튼
                 <span className="text-gray-400">→</span>
-                "홈 화면에 추가"
+                &quot;홈 화면에 추가&quot;
               </p>
             </div>
           ) : (

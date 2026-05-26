@@ -311,7 +311,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                       </div>
 
                       {proposal.status === 'rejected' && proposal.reject_reason && (
-                        <p className="mt-1.5 text-[11px] text-gray-500 italic">"{proposal.reject_reason}"</p>
+                        <p className="mt-1.5 text-[11px] text-gray-500 italic">&quot;{proposal.reject_reason}&quot;</p>
                       )}
 
                       {isOwner && proposal.status === 'pending' && (

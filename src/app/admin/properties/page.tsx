@@ -517,7 +517,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
               })}
             </div>
             <p className="mt-3 text-[11px] text-gray-500">
-              ⚠️ '숨김'으로 변경하면 공개 페이지에서 보이지 않아요. 중개사 본인 매물장에는 계속 표시됩니다.
+              ⚠️ &apos;숨김&apos;으로 변경하면 공개 페이지에서 보이지 않아요. 중개사 본인 매물장에는 계속 표시됩니다.
             </p>
           </div>
 
@@ -533,7 +533,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
                 <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-semibold text-red-400">정말 삭제할까요?</p>
-                  <p className="mt-1 text-xs text-red-300">복구할 수 없습니다. 보통은 '숨김' 처리가 안전해요.</p>
+                  <p className="mt-1 text-xs text-red-300">복구할 수 없습니다. 보통은 &apos;숨김&apos; 처리가 안전해요.</p>
                 </div>
               </div>
               <div className="flex gap-2">
