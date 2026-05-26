@@ -317,7 +317,6 @@ export default function AdminUsersPage() {
               </h2>
               <span className="text-xs text-gray-500">
                 {role === 'owner' ? `${flatOwners.length}명`
-                  : role === 'employee' ? `${flatEmployees.length}명`
                   : `${officeGroups.length}곳`}
               </span>
             </div>
@@ -363,49 +362,8 @@ export default function AdminUsersPage() {
               )
             )}
 
-            {/* 직원 필터: 직원만 평면 목록 */}
-            {role === 'employee' && (
-              flatEmployees.length === 0 ? (
-                <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
-                  <Users className="mx-auto mb-2 h-10 w-10 text-gray-700" />
-                  <p className="text-sm font-semibold text-gray-400">조건에 맞는 직원이 없어요</p>
-                </div>
-              ) : (
-                <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800 list-none p-0">
-                  {flatEmployees.map(({ u, officeName }) => {
-                    const sm = STATUS_META[u.account_status]
-                    const SIcon = sm.icon
-                    return (
-                      <li key={u.id}>
-                        <button onClick={() => setSelected(u)}
-                          className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/60 transition-colors">
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-300 text-sm font-bold">
-                            {(u.name || u.email || '?')[0]?.toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="text-sm font-semibold text-white truncate">{u.name || '(이름 없음)'}</p>
-                              <span className="rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300">직원</span>
-                              {u.account_status !== 'active' && (
-                                <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${sm.color}`}>
-                                  <SIcon className="h-3 w-3" /> {sm.label}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-400 truncate">{u.email}</p>
-                            {officeName && <p className="text-xs text-gray-500 truncate">{officeName}</p>}
-                          </div>
-                          <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )
-            )}
-
-            {/* 전체(all): 사무소 그룹 카드 */}
-            {role === 'all' && (
+            {/* 직원/전체 필터: 사무소 그룹 카드 */}
+            {(role === 'employee' || role === 'all') && (
               officeGroups.length === 0 ? (
                 <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
                   <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700" />
@@ -414,7 +372,8 @@ export default function AdminUsersPage() {
               ) : (
                 <ul className="space-y-3 list-none p-0">
                   {officeGroups.map(g => {
-                    const isOpen = expandedOfficeKey === g.key
+                    // 직원 필터: 항상 펼침 / 전체: 토글
+                    const isOpen = role === 'employee' || expandedOfficeKey === g.key
                     return (
                       <li key={g.key}>
                         <OfficeCard
@@ -436,18 +395,20 @@ export default function AdminUsersPage() {
                           )}
                           {g.employees.length > 0 && (
                             <div className="border-t border-gray-800">
-                              <button
-                                onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
-                                className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
-                              >
-                                <span className="flex items-center gap-1.5">
-                                  <Users className="h-3.5 w-3.5" />
-                                  소속 직원 {g.employees.length}명
-                                </span>
-                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                              </button>
+                              {role !== 'employee' && (
+                                <button
+                                  onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
+                                  className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    <Users className="h-3.5 w-3.5" />
+                                    소속 직원 {g.employees.length}명
+                                  </span>
+                                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                              )}
                               {isOpen && (
-                                <ul className="border-t border-gray-800 divide-y divide-gray-800/50 list-none p-0">
+                                <ul className={`${role !== 'employee' ? 'border-t border-gray-800' : ''} divide-y divide-gray-800/50 list-none p-0`}>
                                   {g.employees.map(e => (
                                     <li key={e.id}>
                                       <EmployeeRow
