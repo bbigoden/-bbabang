@@ -199,11 +199,15 @@ export default function AdminUsersPage() {
       map.set(key, g)
     }
     // 대표 가입일 기준 정렬, 대표 없으면 첫 직원 기준
-    return Array.from(map.values()).sort((a, b) => {
+    let groups = Array.from(map.values()).sort((a, b) => {
       const ad = a.owner?.created_at ?? a.employees[0]?.created_at ?? ''
       const bd = b.owner?.created_at ?? b.employees[0]?.created_at ?? ''
       return bd.localeCompare(ad)
     })
+    // 역할 필터: 대표 → 대표 있는 사무소만 / 직원 → 직원 있는 사무소만
+    if (role === 'owner') groups = groups.filter(g => g.owner)
+    if (role === 'employee') groups = groups.filter(g => g.employees.length > 0)
+    return groups
   })()
 
   useEffect(() => {
@@ -315,7 +319,10 @@ export default function AdminUsersPage() {
             ) : (
               <ul className="space-y-3 list-none p-0">
                 {officeGroups.map(g => {
-                  const isOpen = expandedOfficeKey === g.key
+                  // 직원 필터일 땐 펼치기 버튼 없이 항상 펼친 상태
+                  const isOpen = role === 'employee' || expandedOfficeKey === g.key
+                  // 대표 필터일 땐 직원 영역 자체를 숨김
+                  const showEmployees = role !== 'owner'
                   return (
                     <li key={g.key}>
                       <OfficeCard
@@ -330,25 +337,27 @@ export default function AdminUsersPage() {
                           employee_count: g.employees.length,
                         }}
                       >
-                        {!g.owner && (
+                        {showEmployees && !g.owner && (
                           <div className="border-t border-gray-800 px-5 py-2.5 text-xs text-gray-500">
                             대표 정보 없음 · 직원 {g.employees.length}명
                           </div>
                         )}
-                        {g.employees.length > 0 && (
+                        {showEmployees && g.employees.length > 0 && (
                           <div className="border-t border-gray-800">
-                            <button
-                              onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
-                              className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
-                            >
-                              <span className="flex items-center gap-1.5">
-                                <Users className="h-3.5 w-3.5" />
-                                소속 직원 {g.employees.length}명
-                              </span>
-                              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                            </button>
+                            {role !== 'employee' && (
+                              <button
+                                onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
+                                className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                              >
+                                <span className="flex items-center gap-1.5">
+                                  <Users className="h-3.5 w-3.5" />
+                                  소속 직원 {g.employees.length}명
+                                </span>
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                              </button>
+                            )}
                             {isOpen && (
-                              <ul className="border-t border-gray-800 divide-y divide-gray-800/50 list-none p-0">
+                              <ul className={`${role !== 'employee' ? 'border-t border-gray-800' : ''} divide-y divide-gray-800/50 list-none p-0`}>
                                 {g.employees.map(e => (
                                   <li key={e.id}>
                                     <EmployeeRow
