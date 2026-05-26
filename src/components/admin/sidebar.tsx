@@ -89,10 +89,6 @@ export function AdminSidebar() {
 
       {/* 하단: 사용자 정보 + 사이트 보기 + 로그아웃 */}
       <div className="border-t border-gray-800 px-3 py-3 flex flex-col gap-0.5">
-        <div className="mb-1 px-3 py-2">
-          <p className="truncate text-xs font-semibold text-white">{auth.profile?.name || '관리자'}</p>
-          <p className="truncate text-[11px] text-gray-500">{auth.user?.email}</p>
-        </div>
         <Link
           href="/?as_visitor=1"
           target="_blank"
