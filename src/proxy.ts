@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { EXPERIMENTS, pickVariant, AB_COOKIE_PREFIX, AB_COOKIE_MAX_AGE } from '@/lib/ab-experiments'
 
 // /broker/[id]는 공개 중개사 프로필이라 제외. 나머지 broker 하위는 모두 보호.
 const PROTECTED = [
@@ -12,6 +13,23 @@ const PROTECTED = [
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // A/B 실험 쿠키 자동 배정 (active 실험이 있을 때만 동작)
+  const activeExperiments = EXPERIMENTS.filter(e => e.active)
+  const abResponse = NextResponse.next()
+  for (const exp of activeExperiments) {
+    const cookieName = `${AB_COOKIE_PREFIX}${exp.id}`
+    const existing = request.cookies.get(cookieName)?.value
+    if (!existing || !exp.variants.some(v => v.id === existing)) {
+      abResponse.cookies.set(cookieName, pickVariant(exp), {
+        maxAge: AB_COOKIE_MAX_AGE,
+        path: '/',
+        sameSite: 'lax',
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+      })
+    }
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
