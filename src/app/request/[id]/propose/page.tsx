@@ -181,9 +181,9 @@ export default function ProposePage() {
       return
     }
 
-    const { data: reqData } = await supabase.from('request_posts').select('proposal_count, user_id, city, district').eq('id', requestId).single()
+    // proposal_count는 DB 트리거(trg_sync_proposal_count)가 원자적으로 동기화 — 수동 +1 제거
+    const { data: reqData } = await supabase.from('request_posts').select('user_id, city, district').eq('id', requestId).single()
     if (reqData) {
-      await supabase.from('request_posts').update({ proposal_count: (reqData.proposal_count ?? 0) + 1 }).eq('id', requestId)
       if (reqData.user_id) {
         await supabase.from('notifications').insert({
           user_id: reqData.user_id,
