@@ -199,16 +199,20 @@ export default function AdminUsersPage() {
       map.set(key, g)
     }
     // 대표 가입일 기준 정렬, 대표 없으면 첫 직원 기준
-    let groups = Array.from(map.values()).sort((a, b) => {
+    return Array.from(map.values()).sort((a, b) => {
       const ad = a.owner?.created_at ?? a.employees[0]?.created_at ?? ''
       const bd = b.owner?.created_at ?? b.employees[0]?.created_at ?? ''
       return bd.localeCompare(ad)
     })
-    // 역할 필터: 대표 → 대표 있는 사무소만 / 직원 → 직원 있는 사무소만
-    if (role === 'owner') groups = groups.filter(g => g.owner)
-    if (role === 'employee') groups = groups.filter(g => g.employees.length > 0)
-    return groups
   })()
+
+  // 대표/직원 필터용 평면 목록
+  const flatOwners = role === 'owner'
+    ? officeGroups.flatMap(g => g.owner ? [{ u: g.owner, officeName: g.officeName }] : [])
+    : []
+  const flatEmployees = role === 'employee'
+    ? officeGroups.flatMap(g => g.employees.map(e => ({ u: e, officeName: g.officeName })))
+    : []
 
   useEffect(() => {
     if (auth.profile?.role === 'admin') {
@@ -308,43 +312,130 @@ export default function AdminUsersPage() {
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-purple-400" />
-              <h2 className="text-sm font-bold text-white">사무소별 중개사</h2>
-              <span className="text-xs text-gray-500">{officeGroups.length}곳</span>
+              <h2 className="text-sm font-bold text-white">
+                {role === 'owner' ? '대표' : role === 'employee' ? '직원' : '사무소별 중개사'}
+              </h2>
+              <span className="text-xs text-gray-500">
+                {role === 'owner' ? `${flatOwners.length}명`
+                  : role === 'employee' ? `${flatEmployees.length}명`
+                  : `${officeGroups.length}곳`}
+              </span>
             </div>
-            {officeGroups.length === 0 ? (
-              <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
-                <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700 dark:text-gray-300" />
-                <p className="text-sm font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
-              </div>
-            ) : (
-              <ul className="space-y-3 list-none p-0">
-                {officeGroups.map(g => {
-                  // 직원 필터일 땐 펼치기 버튼 없이 항상 펼친 상태
-                  const isOpen = role === 'employee' || expandedOfficeKey === g.key
-                  // 대표 필터일 땐 직원 영역 자체를 숨김
-                  const showEmployees = role !== 'owner'
-                  return (
-                    <li key={g.key}>
-                      <OfficeCard
-                        variant="admin"
-                        onClick={g.owner ? () => setSelected(g.owner!) : undefined}
-                        office={{
-                          id: g.key,
-                          office_name: g.officeName,
-                          owner_name: g.owner?.name,
-                          owner_email: g.owner?.email,
-                          created_at: g.owner?.created_at,
-                          employee_count: g.employees.length,
-                        }}
-                      >
-                        {showEmployees && !g.owner && (
-                          <div className="border-t border-gray-800 px-5 py-2.5 text-xs text-gray-500">
-                            대표 정보 없음 · 직원 {g.employees.length}명
+
+            {/* 대표 필터: 대표만 평면 목록 */}
+            {role === 'owner' && (
+              flatOwners.length === 0 ? (
+                <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
+                  <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700" />
+                  <p className="text-sm font-semibold text-gray-400">조건에 맞는 대표가 없어요</p>
+                </div>
+              ) : (
+                <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800 list-none p-0">
+                  {flatOwners.map(({ u, officeName }) => {
+                    const sm = STATUS_META[u.account_status]
+                    const SIcon = sm.icon
+                    return (
+                      <li key={u.id}>
+                        <button onClick={() => setSelected(u)}
+                          className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/60 transition-colors">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-purple-500/20 text-purple-400 text-sm font-bold">
+                            {(u.name || u.email || '?')[0]?.toUpperCase()}
                           </div>
-                        )}
-                        {showEmployees && g.employees.length > 0 && (
-                          <div className="border-t border-gray-800">
-                            {role !== 'employee' && (
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-semibold text-white truncate">{u.name || '(이름 없음)'}</p>
+                              <span className="rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/20 text-purple-400">대표</span>
+                              {u.account_status !== 'active' && (
+                                <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${sm.color}`}>
+                                  <SIcon className="h-3 w-3" /> {sm.label}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                            {officeName && <p className="text-xs text-gray-500 truncate">{officeName}</p>}
+                          </div>
+                          <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )
+            )}
+
+            {/* 직원 필터: 직원만 평면 목록 */}
+            {role === 'employee' && (
+              flatEmployees.length === 0 ? (
+                <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
+                  <Users className="mx-auto mb-2 h-10 w-10 text-gray-700" />
+                  <p className="text-sm font-semibold text-gray-400">조건에 맞는 직원이 없어요</p>
+                </div>
+              ) : (
+                <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800 list-none p-0">
+                  {flatEmployees.map(({ u, officeName }) => {
+                    const sm = STATUS_META[u.account_status]
+                    const SIcon = sm.icon
+                    return (
+                      <li key={u.id}>
+                        <button onClick={() => setSelected(u)}
+                          className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-gray-800/60 transition-colors">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-300 text-sm font-bold">
+                            {(u.name || u.email || '?')[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-semibold text-white truncate">{u.name || '(이름 없음)'}</p>
+                              <span className="rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500/20 text-indigo-300">직원</span>
+                              {u.account_status !== 'active' && (
+                                <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${sm.color}`}>
+                                  <SIcon className="h-3 w-3" /> {sm.label}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                            {officeName && <p className="text-xs text-gray-500 truncate">{officeName}</p>}
+                          </div>
+                          <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )
+            )}
+
+            {/* 전체(all): 사무소 그룹 카드 */}
+            {role === 'all' && (
+              officeGroups.length === 0 ? (
+                <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
+                  <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700" />
+                  <p className="text-sm font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
+                </div>
+              ) : (
+                <ul className="space-y-3 list-none p-0">
+                  {officeGroups.map(g => {
+                    const isOpen = expandedOfficeKey === g.key
+                    return (
+                      <li key={g.key}>
+                        <OfficeCard
+                          variant="admin"
+                          onClick={g.owner ? () => setSelected(g.owner!) : undefined}
+                          office={{
+                            id: g.key,
+                            office_name: g.officeName,
+                            owner_name: g.owner?.name,
+                            owner_email: g.owner?.email,
+                            created_at: g.owner?.created_at,
+                            employee_count: g.employees.length,
+                          }}
+                        >
+                          {!g.owner && (
+                            <div className="border-t border-gray-800 px-5 py-2.5 text-xs text-gray-500">
+                              대표 정보 없음 · 직원 {g.employees.length}명
+                            </div>
+                          )}
+                          {g.employees.length > 0 && (
+                            <div className="border-t border-gray-800">
                               <button
                                 onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
                                 className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
@@ -355,34 +446,34 @@ export default function AdminUsersPage() {
                                 </span>
                                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                               </button>
-                            )}
-                            {isOpen && (
-                              <ul className={`${role !== 'employee' ? 'border-t border-gray-800' : ''} divide-y divide-gray-800/50 list-none p-0`}>
-                                {g.employees.map(e => (
-                                  <li key={e.id}>
-                                    <EmployeeRow
-                                      employee={{
-                                        id: e.id,
-                                        name: e.name,
-                                        email: e.email,
-                                        phone: e.phone,
-                                        account_status: e.account_status,
-                                        created_at: e.created_at,
-                                      }}
-                                      onClick={() => setSelected(e)}
-                                      showApprovalBadge={false}
-                                    />
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        )}
-                      </OfficeCard>
-                    </li>
-                  )
-                })}
-              </ul>
+                              {isOpen && (
+                                <ul className="border-t border-gray-800 divide-y divide-gray-800/50 list-none p-0">
+                                  {g.employees.map(e => (
+                                    <li key={e.id}>
+                                      <EmployeeRow
+                                        employee={{
+                                          id: e.id,
+                                          name: e.name,
+                                          email: e.email,
+                                          phone: e.phone,
+                                          account_status: e.account_status,
+                                          created_at: e.created_at,
+                                        }}
+                                        onClick={() => setSelected(e)}
+                                        showApprovalBadge={false}
+                                      />
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                        </OfficeCard>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )
             )}
           </section>
         )}
