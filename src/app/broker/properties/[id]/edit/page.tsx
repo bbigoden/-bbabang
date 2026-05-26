@@ -75,7 +75,7 @@ export default function EditPropertyPage() {
 
     const { data: property, error } = await supabase
       .from('broker_properties')
-      .select('*')
+      .select('deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, floor, total_floors, description, options, assignee, brief_memo, memo, images')
       .eq('id', propertyId)
       .eq('broker_id', broker.id)
       .single()

@@ -492,7 +492,7 @@ export default function ChatPage() {
     if (broker) {
       const { data } = await supabase
         .from('broker_properties')
-        .select('*')
+        .select('id, deal_type, room_type, address, price, monthly_rent, size_pyeong, floor, total_floors, options, description, images, status')
         .eq('broker_id', broker.id)
         .eq('status', 'available')
         .order('created_at', { ascending: false })

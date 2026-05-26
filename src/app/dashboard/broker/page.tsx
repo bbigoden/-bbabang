@@ -30,7 +30,7 @@ export default async function BrokerDashboardPage() {
 
   const { data: brokerData } = await supabase
     .from('broker_profiles')
-    .select('*')
+    .select('id, district, is_verified, office_name, rating, review_count, deal_count, is_owner, is_approved, parent_broker_id')
     .eq('user_id', user.id)
     .single()
   if (!brokerData) redirect('/broker/register')

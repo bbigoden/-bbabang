@@ -368,7 +368,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       const collected: any[] = []
       for (let from = 0; ; from += PAGE) {
         const { data: page } = await supabase
-          .from('broker_properties').select('*').eq('broker_id', broker.id).eq('status', 'available')
+          .from('broker_properties').select('id, deal_type, room_type, address, price, monthly_rent, size_pyeong, area_type, area_unit, floor, total_floors, options, description, images, brief_memo').eq('broker_id', broker.id).eq('status', 'available')
           .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
         if (!page || page.length === 0) break
         collected.push(...page)

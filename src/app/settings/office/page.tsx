@@ -48,7 +48,7 @@ export default function SettingsOfficePage() {
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth/login'); return }
-      const { data: b } = await supabase.from('broker_profiles').select('*').eq('user_id', user.id).single()
+      const { data: b } = await supabase.from('broker_profiles').select('id, user_id, office_name, address, license_number, office_reg_number, business_reg_number, is_owner, is_verified').eq('user_id', user.id).single()
       if (!b) { setForbidden('중개사 프로필이 없어요. 중개사 등록을 먼저 진행해주세요.'); setLoading(false); return }
       if (b.is_owner === false) { setForbidden('소속 직원은 사무소 정보를 수정할 수 없어요. 사장님께 문의해주세요.'); setLoading(false); return }
       setBroker(b)
