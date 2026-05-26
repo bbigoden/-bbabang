@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, Home, Flag,
-  Megaphone, BarChart3, AlertOctagon, Activity, Shield, LogOut,
+  Megaphone, BarChart3, AlertOctagon, Activity, Shield, LogOut, ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -86,12 +86,21 @@ export function AdminSidebar() {
         </ul>
       </nav>
 
-      {/* 로그아웃 */}
-      <div className="border-t border-gray-800 px-3 py-3">
-        <div className="mb-2 px-3 py-2">
+      {/* 하단: 사용자 정보 + 사이트 보기 + 로그아웃 */}
+      <div className="border-t border-gray-800 px-3 py-3 flex flex-col gap-0.5">
+        <div className="mb-1 px-3 py-2">
           <p className="truncate text-xs font-semibold text-white">{auth.profile?.name || '관리자'}</p>
           <p className="truncate text-[11px] text-gray-500">{auth.user?.email}</p>
         </div>
+        <Link
+          href="/?as_visitor=1"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+        >
+          <ExternalLink className="h-4 w-4 flex-shrink-0" />
+          사이트 보기
+        </Link>
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"

@@ -6,12 +6,10 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Users, Building2, FileText, MessageCircle,
-  CheckCircle, XCircle, LogOut, ExternalLink,
+  CheckCircle, XCircle,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
   Hash, ChevronRight, ChevronDown, Table2, Flag
 } from 'lucide-react'
@@ -230,11 +228,6 @@ export default function AdminPage() {
     setVerifying(null)
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/'
-  }
-
   const openStatModal = async (
     type: 'users' | 'requests' | 'proposals',
     userFilterInit: 'all' | 'broker' | 'user' = 'all',
@@ -275,31 +268,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-
-      {/* ── 헤더 ── */}
-      <header className="border-b border-gray-800 bg-gray-900/60 px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-white">대시보드</h1>
-            <p className="text-xs text-gray-400 truncate">{auth.profile?.name ?? auth.user?.email} 님 환영합니다</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/?as_visitor=1" target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                사이트 보기
-              </Button>
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              로그아웃
-            </button>
-          </div>
-        </div>
-      </header>
 
       <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
 
