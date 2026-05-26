@@ -48,7 +48,7 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-gray-800 md:bg-gray-900">
+    <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-gray-800 md:bg-gray-900 sticky top-0 h-screen">
       {/* 브랜드 */}
       <div className="flex h-16 items-center gap-2.5 border-b border-gray-800 px-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
