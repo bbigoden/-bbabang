@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { FavoriteButton } from '@/components/favorite-button'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
@@ -17,7 +16,6 @@ function formatHours(h: number | null | undefined): string | null {
 }
 import { formatDate } from '@/lib/utils'
 import Image from 'next/image'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 interface Props {

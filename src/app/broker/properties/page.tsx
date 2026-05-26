@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
-import { formatPrice, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -17,7 +17,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Trash2, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, Copy, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, EyeOff, ChevronDown, Wand2, ArrowUp, ArrowDown,
+  Plus, Search, ChevronLeft, ChevronRight, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -27,6 +27,7 @@ import { useToast } from '@/components/toast'
 
 interface Property {
   id: string
+  seq_no: number | null
   broker_id: string
   deal_type: string
   room_type: string
@@ -64,9 +65,9 @@ interface CustomColumn {
   type?: 'text' | 'select'
 }
 
-const STATUS_OPTS = ['available', 'contracted', 'hidden'] as const
-const STATUS_LABEL: Record<string, string> = { available: '매물있음', contracted: '계약완료', hidden: '숨김' }
-const STATUS_COLOR: Record<string, string> = {
+const _STATUS_OPTS = ['available', 'contracted', 'hidden'] as const
+const _STATUS_LABEL: Record<string, string> = { available: '매물있음', contracted: '계약완료', hidden: '숨김' }
+const _STATUS_COLOR: Record<string, string> = {
   available: 'bg-green-100 text-green-700',
   contracted: 'bg-gray-100 text-gray-600',
   hidden: 'bg-yellow-100 text-yellow-700',
@@ -74,7 +75,7 @@ const STATUS_COLOR: Record<string, string> = {
 const DEAL_TYPES = ['매매', '전세', '월세', '분양', '분양권']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독/다가구', '숙박', '기타']
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
-const PARKING_OPTS = ['주차가능', '주차불가', '협의']
+const _PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 // 거래형태 색상 (셀 라벨용 tailwind 클래스 — 매 렌더 재생성 방지하려 모듈 상수)
 const DEAL_TYPE_COLOR_MAP: Record<string, string> = {
@@ -111,7 +112,7 @@ const ALL_COLUMNS = [
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
-const DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
+const _DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
 
 // 초기 커스텀 칼럼 (기본값 없음)
 const DEFAULT_CUSTOM_COLS: CustomColumn[] = []
@@ -705,6 +706,7 @@ function TooltipIcon({ text }: { text: string }) {
 // ── ColumnHeader (헤더 클릭 설정) ────────────────────────
 
 // ── ColAdder (숨김 복원 + 새 칼럼) ───────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onShowCustom, onAddCustom, asHeaderButton }: {
   hiddenFixed: Array<{ key: string; label: string }>
   customCols: CustomColumn[]
@@ -932,7 +934,6 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
 // ── 매물 행 (React.memo로 셀 편집 시 다른 행 re-render 차단) ──────────
 interface PropertyRowProps {
   p: Property
-  rowNumber: number
   syncedOrder: readonly string[]
   customColumns: CustomColumn[]
   settings: ColSettings
@@ -952,7 +953,7 @@ interface PropertyRowProps {
 }
 
 const PropertyRow = memo(function PropertyRow({
-  p, rowNumber, syncedOrder, customColumns, settings,
+  p, syncedOrder, customColumns, settings,
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers,
   saveField, autoFillRow, saveCustomField, setLightbox,
@@ -964,8 +965,8 @@ const PropertyRow = memo(function PropertyRow({
     <tr data-row-id={p.id}
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
-      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 tabular-nums select-all" style={{ width: 44, maxWidth: 44 }}>
-        {rowNumber}
+      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 tabular-nums select-all" style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
+        {p.seq_no ?? '—'}
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1117,7 +1118,7 @@ function BrokerPropertiesContent() {
   }
 
   // 칼럼 설정 (DB)
-  const { settings, update, loaded: colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
+  const { settings, update, loaded: _colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'properties')
 
   // 고정 칼럼이 settings.order에 없는 경우 추가 (첫 로드 또는 새 칼럼 추가시)
@@ -1373,8 +1374,9 @@ function BrokerPropertiesContent() {
           ? `자동채움: ${filledNames.join(' · ')}${data.building_name ? ` (${data.building_name})` : ''}`
           : '건축물대장 조회됨 (변경 없음)',
       })
-    } catch (e: any) {
-      setAutoFillToast({ type: 'error', text: e?.message ?? '자동채움 실패' })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '자동채움 실패'
+      setAutoFillToast({ type: 'error', text: msg })
     } finally {
       setAutoFillingId(null)
       setTimeout(() => setAutoFillToast(null), 3500)
@@ -1508,7 +1510,7 @@ function BrokerPropertiesContent() {
 
   const duplicateProperty = useCallback(async (prop: Property) => {
     if (!broker) return
-    const { id, created_at, ...rest } = prop
+    const { id: _id, created_at: _created_at, seq_no: _seq_no, ...rest } = prop
     const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
     if (error || !data) return
     setProperties(prev => [data, ...prev])
@@ -1899,8 +1901,8 @@ function BrokerPropertiesContent() {
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
-                <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 44, maxWidth: 44 }}>
-                  #
+                <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
+                  번호
                 </th>
                 {syncedOrder.map(key => {
                   // 고정 칼럼
@@ -2002,18 +2004,10 @@ function BrokerPropertiesContent() {
                     {searchQuery || filterDealType || filterRoomType ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
-              ) : paginated.map((p, idx) => (
+              ) : paginated.map((p) => (
                 <PropertyRow
                   key={p.id}
                   p={p}
-                  rowNumber={
-                    // 컬럼 정렬 중이면 정렬된 순서대로 1, 2, 3...
-                    sortKey
-                      ? (page - 1) * pageSize + idx + 1
-                      : (direction === 'up'
-                        ? filtered.length - ((page - 1) * pageSize + idx)
-                        : ((page - 1) * pageSize + idx + 1))
-                  }
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
                   settings={settings}

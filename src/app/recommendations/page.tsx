@@ -9,7 +9,7 @@ import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
 import { PropertyCard } from '@/components/property-card'
 import { formatPrice } from '@/lib/utils'
-import { Sparkles, Home, FileText, Heart, Building2, AlertCircle, Plus } from 'lucide-react'
+import { Sparkles, FileText, Heart, Building2, Plus } from 'lucide-react'
 
 interface Match {
   property: any

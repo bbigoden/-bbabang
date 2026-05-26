@@ -43,7 +43,7 @@ interface RequestHit {
 }
 
 function SearchInner() {
-  const router = useRouter()
+  const _router = useRouter()
   const sp = useSearchParams()
   const initialQ = sp.get('q') ?? ''
   const supabaseRef = useRef(createClient())

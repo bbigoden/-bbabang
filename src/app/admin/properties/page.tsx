@@ -13,6 +13,7 @@ import {
   Home, ArrowLeft, Search, X, MapPin, Building2, Flag,
   EyeOff, Eye, Trash2, AlertTriangle, ExternalLink, StickyNote, Calendar, Hash
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 interface Property {
   id: string
@@ -554,7 +555,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
   )
 }
 
-function Row({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
+function Row({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3 py-2.5">
       <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-500" />

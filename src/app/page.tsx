@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardBody } from '@/components/ui/card'
 import { AutoRedirectHome } from '@/components/auto-redirect-home'

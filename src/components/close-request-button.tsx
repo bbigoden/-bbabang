@@ -9,7 +9,7 @@ import { useToast } from '@/components/toast'
 export function CloseRequestButton({ requestId }: { requestId: string }) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
-  const router = useRouter()
+  const _router = useRouter()
   const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)

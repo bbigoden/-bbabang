@@ -8,9 +8,10 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
   Building2, ArrowLeft, Search, X, ShieldCheck, ShieldOff,
-  CheckCircle2, XCircle, AlertCircle, Hash, MapPin, ExternalLink,
+  CheckCircle2, XCircle, Hash, MapPin, ExternalLink,
   Users, Phone, Mail, Calendar, FileText, ChevronDown
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
 import { useToast } from '@/components/toast'
@@ -439,7 +440,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify }: {
   )
 }
 
-function Row({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
+function Row({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3 py-2.5">
       <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-500" />

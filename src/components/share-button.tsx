@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Share2, Copy, Check } from 'lucide-react'
+import { Share2, Check } from 'lucide-react'
 
 interface Props {
   title: string
@@ -16,7 +16,7 @@ export function ShareButton({ title, text, url }: Props) {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ title, text, url })
-      } catch (e) {
+      } catch {
         // 사용자가 취소한 경우 무시
       }
     } else {

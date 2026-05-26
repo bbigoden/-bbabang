@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { formatDate } from '@/lib/utils'
-import { Bookmark, Trash2, Building2, FileText, Home, ExternalLink, Search } from 'lucide-react'
+import { Bookmark, Trash2, Building2, FileText, Home, ExternalLink } from 'lucide-react'
 
 interface SavedSearch {
   id: string

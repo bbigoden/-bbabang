@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
-  Shield, Flag, MessageCircle, ArrowLeft, ExternalLink, Check, X,
+  Flag, MessageCircle, ArrowLeft, ExternalLink, Check, X,
   AlertCircle, Clock, CheckCircle2, XCircle, ChevronDown, Mail
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 interface Report {
   id: string
@@ -31,7 +32,7 @@ interface Report {
 type StatusFilter = 'all' | 'open' | 'in_progress' | 'resolved' | 'rejected'
 type KindFilter = 'all' | 'report' | 'inquiry'
 
-const STATUS_META: Record<Report['status'], { label: string; color: string; icon: any }> = {
+const STATUS_META: Record<Report['status'], { label: string; color: string; icon: LucideIcon }> = {
   open: { label: '미처리', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: AlertCircle },
   in_progress: { label: '처리 중', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: Clock },
   resolved: { label: '완료', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: CheckCircle2 },
@@ -141,9 +142,9 @@ export default function AdminReportsPage() {
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
             {([
-              { key: 'all' as KindFilter, label: '전체 종류', icon: null as any },
-              { key: 'report' as KindFilter, label: '신고', icon: Flag },
-              { key: 'inquiry' as KindFilter, label: '문의', icon: MessageCircle },
+              { key: 'all' as KindFilter, label: '전체 종류', icon: null as LucideIcon | null },
+              { key: 'report' as KindFilter, label: '신고', icon: Flag as LucideIcon | null },
+              { key: 'inquiry' as KindFilter, label: '문의', icon: MessageCircle as LucideIcon | null },
             ]).map(t => (
               <button key={t.key} onClick={() => setKind(t.key)}
                 className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${

@@ -31,8 +31,9 @@ export async function sendEmail(params: SendEmailParams): Promise<{ ok: boolean;
     })
     if (error) return { ok: false, error: error.message }
     return { ok: !!data }
-  } catch (e: any) {
-    return { ok: false, error: e?.message ?? 'unknown' }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'unknown'
+    return { ok: false, error: msg }
   }
 }
 

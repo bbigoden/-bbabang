@@ -13,6 +13,7 @@ import {
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
   Hash, ChevronRight, ChevronDown, Table2, Flag
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { OfficeCard } from '@/components/office-card'
@@ -40,7 +41,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 // ── 정보 행 ──────────────────────────────────────────
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
+function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: React.ReactNode }) {
   if (!value) return null
   return (
     <div className="flex items-start gap-3 py-2.5 border-b border-gray-800 last:border-0">

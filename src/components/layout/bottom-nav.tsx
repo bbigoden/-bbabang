@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useAuthOptional } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
-  Home, Search, Bell, Heart, User, Building2, MessageCircle, Briefcase,
+  Home, Search, Bell, Heart, User, Building2, Briefcase,
   Users, ClipboardList, MoreHorizontal, X, ChevronDown, LogOut,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -84,7 +84,7 @@ export function BottomNav() {
   const drawerItems = BROKER_ITEMS.filter(i => !i.ownerOnly || isOwner)
   const toggleExpand = (id: string) => setOpenIds(prev => {
     const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
+    if (next.has(id)) next.delete(id); else next.add(id)
     return next
   })
 
@@ -103,7 +103,7 @@ export function BottomNav() {
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <ul className="flex">
-          {items.map((it, idx) => {
+          {items.map((it, _idx) => {
             const Icon = it.icon
             const isMore = it.action === 'more'
             const active = !isMore && isActive(it.href!)

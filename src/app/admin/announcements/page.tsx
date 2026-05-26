@@ -7,23 +7,14 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
-  Megaphone, ArrowLeft, Send, X, AlertCircle, Check, Users, Building2,
-  Globe, Trash2, ExternalLink, Eye, EyeOff
+  Megaphone, ArrowLeft, Send, AlertCircle, Check, Users, Building2,
+  Globe, ExternalLink, Eye, EyeOff
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 type Audience = 'all' | 'user' | 'broker'
 
-interface Announcement {
-  id: string
-  user_id: string
-  title: string
-  body: string | null
-  link: string | null
-  is_read: boolean
-  created_at: string
-}
-
-const AUDIENCE_META: Record<Audience, { label: string; icon: any; color: string }> = {
+const AUDIENCE_META: Record<Audience, { label: string; icon: LucideIcon; color: string }> = {
   all: { label: '전체', icon: Globe, color: 'bg-blue-500/20 text-blue-400' },
   user: { label: '고객', icon: Users, color: 'bg-emerald-500/20 text-emerald-400' },
   broker: { label: '중개사', icon: Building2, color: 'bg-purple-500/20 text-purple-400' },

@@ -406,7 +406,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   }
 
   const togglePropSelection = (id: string) => {
-    setSelectedPropIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelectedPropIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
 
   const proposal = room?.proposal

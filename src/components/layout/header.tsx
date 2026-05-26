@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Home, MessageCircle, User, Menu, X, Settings, Heart, Search } from 'lucide-react'
+import { Home, Menu, X, Settings, Heart, Search } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -15,8 +15,8 @@ interface HeaderProps {
   unreadCount?: number
 }
 
-export function Header({ user: userProp, role: roleProp, unreadCount = 0 }: HeaderProps) {
-  const router = useRouter()
+export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCount = 0 }: HeaderProps) {
+  const _router = useRouter()
   const pathname = usePathname()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current

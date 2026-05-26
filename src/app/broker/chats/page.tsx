@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Header } from '@/components/layout/header'
 import { BrokerChatsClient } from '@/components/broker-chats-client'
 
 export default async function BrokerChatsPage() {

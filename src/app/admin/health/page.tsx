@@ -10,6 +10,7 @@ import {
   Activity, ArrowLeft, RefreshCw, AlertOctagon, Database,
   Users, FileText, Building2, MessageCircle, Bell, Heart, Eye, Flag, CheckCircle2
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 interface Health {
   tables: Record<string, number>
@@ -215,7 +216,7 @@ export default function AdminHealthPage() {
   )
 }
 
-function Activity24h({ icon: Icon, label, value, color }: { icon: any; label: string; value: number; color: string }) {
+function Activity24h({ icon: Icon, label, value, color }: { icon: LucideIcon; label: string; value: number; color: string }) {
   return (
     <div className="rounded-2xl border border-gray-800 bg-gray-900 p-4">
       <div className={`mb-2 inline-flex h-8 w-8 items-center justify-center rounded-lg ${color}`}>
@@ -227,7 +228,7 @@ function Activity24h({ icon: Icon, label, value, color }: { icon: any; label: st
   )
 }
 
-function TableRow({ icon: Icon, label, value }: { icon: any; label: string; value: number }) {
+function TableRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 px-4 py-3 flex items-center gap-3">
       <Icon className="h-4 w-4 text-gray-500" />

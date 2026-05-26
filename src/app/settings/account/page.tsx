@@ -36,7 +36,7 @@ export default function SettingsAccountPage() {
   const [mfaStep, setMfaStep] = useState<'idle' | 'enroll' | 'confirm' | 'unenroll'>('idle')
   const [mfaQr, setMfaQr] = useState('')          // SVG QR 코드
   const [mfaSecret, setMfaSecret] = useState('')  // 수동 입력용 base32 secret
-  const [mfaUri, setMfaUri] = useState('')         // otpauth:// URI
+  const [_mfaUri, setMfaUri] = useState('')         // otpauth:// URI
   const [mfaEnrollId, setMfaEnrollId] = useState('')
   const [mfaCode, setMfaCode] = useState('')
   const [mfaBusy, setMfaBusy] = useState(false)

@@ -9,8 +9,8 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice, maskAddressByType, formatAddress } from '@/lib/utils'
 import {
-  Building2, MapPin, Home, Hash, ShieldCheck, Calendar, Star,
-  TrendingDown, TrendingUp, MessageCircle, Eye, ChevronRight
+  Home, ShieldCheck, Star,
+  TrendingDown, TrendingUp, ChevronRight
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -62,7 +62,7 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   // 본인(매물 등록 중개사) 여부 — 본인이면 풀 주소, 아니면 마스킹
   const broker = prop.broker_profiles as any
-  const isOwnProperty = !!(user && broker?.profiles && (broker as any).user_id === user.id)
+  const _isOwnProperty = !!(user && broker?.profiles && (broker as any).user_id === user.id)
   // user_id가 broker_profiles에서 안 select되어 별도 체크
   let isMine = false
   if (user && prop.broker_id) {

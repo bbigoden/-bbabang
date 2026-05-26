@@ -218,7 +218,7 @@ export default function AdminUsersPage() {
   const flatOwners = role === 'owner'
     ? officeGroups.flatMap(g => g.owner ? [{ u: g.owner, officeName: g.officeName }] : [])
     : []
-  const flatEmployees = role === 'employee'
+  const _flatEmployees = role === 'employee'
     ? officeGroups.flatMap(g => g.employees.map(e => ({ u: e, officeName: g.officeName })))
     : []
 

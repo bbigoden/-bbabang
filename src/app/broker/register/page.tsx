@@ -50,8 +50,9 @@ export default function BrokerRegisterPage() {
       const j = await r.json()
       if (!r.ok) setBizResult({ ok: false, error: j.error ?? '검증 실패' })
       else setBizResult({ ok: true, isActive: j.isActive, status: j.status })
-    } catch (e: any) {
-      setBizResult({ ok: false, error: e?.message ?? '네트워크 오류' })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '네트워크 오류'
+      setBizResult({ ok: false, error: msg })
     }
     setBizVerifying(false)
   }

@@ -5,14 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, ArrowUp, ArrowDown, Copy } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Eye, MoreHorizontal, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
-import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
@@ -127,7 +126,7 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
 }
 
 // ── ColVisibility ─────────────────────────────────────
-function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle }: {
+function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visible, onToggle }: {
   fixedCols: ColDef[]; optionalCols: ColDef[]; customCols: Array<{ id: string; name: string }>; visible: string[]; onToggle: (key: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -211,7 +210,7 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
     p.deal_type.includes(search) || p.room_type.includes(search)
   ).slice(0, 30)
   const toggle = (id: string) => {
-    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+    setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
   const formatPrice = (p: Property) => {
     if (p.deal_type === '월세') return `${(p.price/10000).toFixed(0)}/${(p.monthly_rent??0)/10000}만`
@@ -257,7 +256,7 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
 }
 
 // ── CustomerPicker ────────────────────────────────────
-function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
+function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId: _ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
   allCustomers: Customer[]; linkedIds: Set<string>
   ownerName: string  // 일지 주인 이름 — 표시용
   ownerBrokerId: string | null  // 일지 주인 broker_id — 그 사람 소유 고객만 필터
@@ -431,7 +430,7 @@ export default function BrokerDiaryPage() {
   const [isOwner, setIsOwner] = useState(false)
   const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
   const [exEmployees, setExEmployees] = useState<Array<{ id: string; name: string }>>([])
-  const [teamMembers, setTeamMembers] = useState<string[]>([])
+  const [_teamMembers, setTeamMembers] = useState<string[]>([])
   const [viewingBrokerId, setViewingBrokerId] = useState<string | null>(null) // null = 자기 자신
   const [viewingExEmployee, setViewingExEmployee] = useState(false) // true면 archive에서 읽음
   const [canEdit, setCanEdit] = useState(true)

@@ -59,7 +59,7 @@ export function BrokerSidebar() {
   const isExpanded = (item: ItemDef) => !!item.children && openIds.has(item.id)
   const toggleExpand = (id: string) => setOpenIds(prev => {
     const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
+    if (next.has(id)) next.delete(id); else next.add(id)
     return next
   })
 

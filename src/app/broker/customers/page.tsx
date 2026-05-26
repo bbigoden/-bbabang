@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Search, Users, ChevronDown, EyeOff, Eye, MoreHorizontal, X, Lock, Download, Check, Copy, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, Users, Eye, MoreHorizontal, X, Lock, Download, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -14,7 +14,6 @@ import { useToast } from '@/components/toast'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
-import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
@@ -74,6 +73,7 @@ interface Customer {
 
 
 // ── ColAdder (숨김 칼럼 복원 + 커스텀 칼럼 추가) ────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddCustom, asHeaderButton }: {
   fixedCols: ColDef[]
   optionalCols: ColDef[]
@@ -233,7 +233,7 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
 }
 
 // ── ColVisibility ─────────────────────────────────────
-function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle }: {
+function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visible, onToggle }: {
   fixedCols: ColDef[]
   optionalCols: ColDef[]
   customCols: Array<{ id: string; name: string }>
@@ -260,7 +260,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols, visible, onToggle 
     ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false })),
   ]
   const rows = search ? all.filter(c => c.label.includes(search)) : all
-  const hideAll = () => all.filter(c => !c.fixed && visible.includes(c.key)).forEach(c => onToggle(c.key))
+  const _hideAll = () => all.filter(c => !c.fixed && visible.includes(c.key)).forEach(c => onToggle(c.key))
 
   return (
     <div ref={containerRef} className="relative">
@@ -1010,7 +1010,7 @@ export default function BrokerCustomersPage() {
                       {customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
                     </td>
                   </tr>
-                ) : paginated.map((c, idx) => (
+                ) : paginated.map((c, _idx) => (
                   <tr key={c.id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
                     {activeCols.map(col => (
                       <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800"

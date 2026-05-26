@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle2, AlertCircle, Ban, ShieldCheck, ShieldOff } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Ban } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 /**

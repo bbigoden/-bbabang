@@ -40,7 +40,7 @@ export default function NewPropertyPage() {
   const [memo, setMemo] = useState('')
   const [images, setImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
-  const [user, setUser] = useState<any>(null)
+  const [_user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 

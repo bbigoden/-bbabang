@@ -12,6 +12,7 @@ import {
   AlertOctagon, ArrowLeft, X, CheckCircle2, Clock, EyeOff, Search,
   Globe, AlertCircle, RefreshCw
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 type StatusFilter = 'open' | 'investigating' | 'resolved' | 'ignored' | 'all'
 
@@ -28,7 +29,7 @@ interface ErrLog {
   created_at: string
 }
 
-const STATUS_META: Record<ErrLog['status'], { label: string; color: string; icon: any }> = {
+const STATUS_META: Record<ErrLog['status'], { label: string; color: string; icon: LucideIcon }> = {
   open: { label: '미처리', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: AlertCircle },
   investigating: { label: '조사 중', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: Clock },
   resolved: { label: '해결', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: CheckCircle2 },
