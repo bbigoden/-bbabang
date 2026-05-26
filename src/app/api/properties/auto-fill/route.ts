@@ -36,7 +36,7 @@ async function geocodeAddress(address: string): Promise<{ sigunguCd: string; bjd
     const key = (process.env.KAKAO_REST_KEY ?? '').trim()
     if (!key) return null
     const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&analyze_type=similar`
-    const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` } })
+    const res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` }, next: { revalidate: 86400 } })
     if (!res.ok) {
       console.error('[geocode] kakao api error', res.status, res.statusText)
       return null

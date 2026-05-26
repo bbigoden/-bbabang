@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user)
     // 한쪽 쿼리 실패해도 다른쪽은 진행 — 네트워크 일시 장애에 강건하게
     const [profileRes, brokerRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', data.user.id).maybeSingle()
+      supabase.from('profiles').select('id,email,name,phone,role,created_at,notification_preferences,account_status,suspended_until').eq('id', data.user.id).maybeSingle()
         .then(r => r, () => ({ data: null })),
       supabase.from('broker_profiles').select('*').eq('user_id', data.user.id).maybeSingle()
         .then(r => r, () => ({ data: null })),

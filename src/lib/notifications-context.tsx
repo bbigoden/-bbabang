@@ -47,7 +47,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     if (!userId) { setNotifications([]); setUnread(0); return }
     const { data } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id,type,title,body,link,is_read,created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(30)
