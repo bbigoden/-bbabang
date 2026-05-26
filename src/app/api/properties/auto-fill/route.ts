@@ -62,7 +62,7 @@ interface SeumItem {
   [k: string]: string | number | undefined
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
+async function fetchWithTimeout(url: string, timeoutMs = 20000): Promise<Response> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -77,18 +77,18 @@ async function callSeumPage(url: string, retries = 2): Promise<{ items?: { item?
     try {
       const res = await fetchWithTimeout(url)
       if (!res.ok) {
-        if (attempt < retries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+        if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
         continue
       }
       const json = await res.json().catch(() => null)
       const body = json?.response?.body
       if (!body) {
-        if (attempt < retries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+        if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
         continue
       }
       return body
     } catch {
-      if (attempt < retries) await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+      if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
     }
   }
   return null
@@ -304,7 +304,8 @@ export async function POST(req: NextRequest) {
         ? flrs.filter(f => String(f.flrNoNm ?? '').includes(ho))
         : flrs.filter(f => Number(f.flrNo) === 1)
       if (target.length > 0) {
-        areaM2 = Number(target[0].area) || 0
+        // 같은 지번에 여러 동이 있는 일반건축물: 면적 합산 (예: 1동 912㎡ + 2동 96㎡ = 1008㎡)
+        areaM2 = target.reduce((sum, f) => sum + (Number(f.area) || 0), 0)
         floor = parseFloor(target[0])
         yongdoNm = String(target[0].mainPurpsCdNm ?? '')
       } else if (flrs.length > 0) {
