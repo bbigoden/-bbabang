@@ -19,10 +19,11 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500',
     }
 
+    // min-h로 iOS HIG 44px 터치 영역 보장 (시각 padding은 size별 유지)
     const sizes = {
-      sm: 'px-3 py-1.5 text-sm',
-      md: 'px-5 py-2.5 text-sm',
-      lg: 'px-7 py-3.5 text-base',
+      sm: 'px-3 py-1.5 text-sm min-h-[44px]',
+      md: 'px-5 py-2.5 text-sm min-h-[44px]',
+      lg: 'px-7 py-3.5 text-base min-h-[48px]',
     }
 
     return (
