@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, Home, Flag,
-  Megaphone, BarChart3, AlertOctagon, Activity, Shield,
+  Megaphone, BarChart3, AlertOctagon, Activity, Shield, LogOut,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 interface ItemDef {
@@ -29,7 +30,14 @@ const ITEMS: ItemDef[] = [
 
 export function AdminSidebar() {
   const pathname = usePathname() ?? ''
+  const router = useRouter()
   const auth = useAuth()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+  }
 
   // admin 권한 없으면 사이드바 자체를 렌더하지 않음 (page.tsx의 가드와 별개로 UI 노출 차단)
   if (auth.loading || auth.profile?.role !== 'admin') return null
@@ -77,6 +85,21 @@ export function AdminSidebar() {
           })}
         </ul>
       </nav>
+
+      {/* 로그아웃 */}
+      <div className="border-t border-gray-800 px-3 py-3">
+        <div className="mb-2 px-3 py-2">
+          <p className="truncate text-xs font-semibold text-white">{auth.profile?.name || '관리자'}</p>
+          <p className="truncate text-[11px] text-gray-500">{auth.user?.email}</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          로그아웃
+        </button>
+      </div>
     </aside>
   )
 }
