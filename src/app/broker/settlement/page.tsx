@@ -201,6 +201,7 @@ export default function SettlementPage() {
   //   'ex:<key>'     = 퇴사자 (key = broker_id 또는 'name:<이름>' 가입 전 퇴사자)
   const [filterAssigneeId, setFilterAssigneeId] = useState<string>('')
   const [rows, setRows] = useState<Settlement[]>([])
+  const [prevMonthTakeHome, setPrevMonthTakeHome] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   // 권한 게이트
@@ -284,6 +285,24 @@ export default function SettlementPage() {
 
   useEffect(() => { loadMeta() }, [loadMeta])
   useEffect(() => { loadRows() }, [loadRows])
+
+  // 직원 전용: 전월 실수령 합 fetch (전월 대비 증감율 카드용)
+  useEffect(() => {
+    if (isOwner || allMode || !officeId || !meBroker) { setPrevMonthTakeHome(null); return }
+    const [y, m] = month.split('-').map(Number)
+    const prev = yyyymm(new Date(y, m - 2, 1))
+    supabase
+      .from('settlements')
+      .select('seller_fee, buyer_fee, settlement_rate, withhold_exempt, vat_override')
+      .eq('office_broker_id', officeId)
+      .eq('assignee_broker_id', meBroker.id)
+      .eq('record_month', prev)
+      .then(({ data }) => {
+        if (!data) { setPrevMonthTakeHome(0); return }
+        const sum = data.reduce((s, r: any) => s + calcSettlement(r).takeHome, 0)
+        setPrevMonthTakeHome(sum)
+      })
+  }, [isOwner, allMode, officeId, meBroker, month, supabase])
 
   // 직원: 본인 행만. 대표: 전체 / 재직 직원 / 퇴사자 필터 적용
   const visibleRows = useMemo(() => {
@@ -538,9 +557,8 @@ export default function SettlementPage() {
           </div>
         </div>
 
-        {/* 대표용 요약 카드 — 전체 / 담당자 / 사무실 */}
-        {isOwner && (
-          <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+        {/* 요약 카드 — 전체 / 담당자 / (대표: 사무실 / 직원: 전월 대비) */}
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
             <Card>
               <CardBody className="p-4">
                 <div className="flex items-baseline justify-between">
@@ -562,14 +580,35 @@ export default function SettlementPage() {
                 </p>
               </CardBody>
             </Card>
-            <Card>
-              <CardBody className="p-4">
-                <p className="text-[11px] font-medium text-gray-500">사무실</p>
-                <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-              </CardBody>
-            </Card>
+            {isOwner ? (
+              <Card>
+                <CardBody className="p-4">
+                  <p className="text-[11px] font-medium text-gray-500">사무실</p>
+                  <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
+                </CardBody>
+              </Card>
+            ) : (
+              <Card>
+                <CardBody className="p-4">
+                  <p className="text-[11px] font-medium text-gray-500">전월 대비</p>
+                  {(() => {
+                    if (allMode) return <p className="mt-1 text-xl font-black text-gray-400">전체 모드</p>
+                    if (prevMonthTakeHome == null) return <p className="mt-1 text-xl font-black text-gray-400">—</p>
+                    if (prevMonthTakeHome === 0) return (<>
+                      <p className="mt-1 text-xl font-black text-gray-500">신규</p>
+                      <p className="mt-0.5 text-[10px] text-gray-400">전월 데이터 없음</p>
+                    </>)
+                    const pct = Math.round((summary.takeHomeSum - prevMonthTakeHome) / prevMonthTakeHome * 100)
+                    const cls = pct >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'
+                    return (<>
+                      <p className={`mt-1 text-xl font-black ${cls}`}>{pct >= 0 ? '+' : ''}{pct}<span className="ml-0.5 text-xs font-medium text-gray-400">%</span></p>
+                      <p className="mt-0.5 text-[10px] text-gray-400">전월 실수령 {fmtComma(prevMonthTakeHome)}원</p>
+                    </>)
+                  })()}
+                </CardBody>
+              </Card>
+            )}
           </div>
-        )}
 
         {/* 시트형 표 */}
         <Card>
