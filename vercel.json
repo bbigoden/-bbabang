@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/error-alert",
-      "schedule": "0,30 * * * *"
+      "schedule": "0 9 * * *"
     }
   ]
 }
