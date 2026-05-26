@@ -112,11 +112,19 @@ export async function GET(req: NextRequest) {
   const ids = unalerted.map(e => e.id)
   await supa.from('error_logs').update({ alerted_at: new Date().toISOString() }).in('id', ids)
 
+  // 보관 정책: 90일 경과 로그 자동 삭제 (무한 적재 방지)
+  const retentionCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+  const { count: deletedCount } = await supa
+    .from('error_logs')
+    .delete({ count: 'exact' })
+    .lt('created_at', retentionCutoff)
+
   return NextResponse.json({
     ok: true,
     errors: unalerted.length,
     groups: groups.size,
     sentTo: alertTo,
+    purged: deletedCount ?? 0,
   })
 }
 
