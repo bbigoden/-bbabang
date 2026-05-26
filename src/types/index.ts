@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'broker'
+export type UserRole = 'user' | 'broker' | 'admin'
 
 export type DealType = '전세' | '월세' | '매매'
 
