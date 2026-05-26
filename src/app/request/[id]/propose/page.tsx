@@ -11,7 +11,6 @@ import { Card, CardBody } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
 import { validatePrice } from '@/lib/validation'
 import { Home, SendHorizonal, ArrowLeft, CheckCircle, BookOpen, X, MapPin, Check, ImagePlus, Trash2 } from 'lucide-react'
-import { sendEmailNotification, absoluteUrl } from '@/lib/email-client'
 
 export default function ProposePage() {
   const router = useRouter()
@@ -192,15 +191,6 @@ export default function ProposePage() {
           title: '새 제안이 도착했어요! 📨',
           body: `중개사가 새로운 매물을 제안했습니다. 지금 확인해보세요.`,
           link: `/request/${requestId}`,
-        })
-        // 이메일 알림 (비차단)
-        sendEmailNotification({
-          targetUserId: reqData.user_id,
-          category: 'proposal',
-          title: `[빠방] 새 제안이 도착했어요`,
-          body: `중개사가 회원님의 '${reqData.city ?? ''} ${reqData.district ?? ''}' 요청에 매물을 제안했습니다.\n\n빠방에서 제안 상세와 매물 사진을 확인하고 채팅으로 협의해보세요.`,
-          ctaLabel: '제안 확인하기',
-          ctaUrl: absoluteUrl(`/request/${requestId}`),
         })
       }
     }

@@ -11,6 +11,7 @@ import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { ColumnHeader } from '@/components/sheet/column-header'
+import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
 import { TextCell } from '@/components/sheet/cells/text-cell'
@@ -459,6 +460,7 @@ export default function BrokerCustomersPage() {
     // customers 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
+    notifyOwnerOfBrokerAction(broker.id, 'customer', '새 고객 행을 추가했어요.')
   }
 
   // 고객 row 복사 — id/created_at 제외하고 모든 필드 동일하게 새 row 생성
@@ -469,6 +471,7 @@ export default function BrokerCustomersPage() {
     if (error || !data) return
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
+    notifyOwnerOfBrokerAction(broker.id, 'customer', `고객을 복제했어요${c.client_name ? ` (${c.client_name})` : ''}.`)
   }
 
   const openImport = async () => {
@@ -514,6 +517,7 @@ export default function BrokerCustomersPage() {
     if (!error && data) {
       setCustomers(prev => [...data, ...prev])
       setShowImport(false)
+      notifyOwnerOfBrokerAction(broker.id, 'customer', `빠방 채팅에서 고객 ${data.length}명을 가져왔어요.`)
     }
     setImporting(false)
   }

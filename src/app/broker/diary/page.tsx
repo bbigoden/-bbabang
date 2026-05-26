@@ -17,6 +17,7 @@ import { DateCell } from '@/components/sheet/cells/date-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
+import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -802,7 +803,11 @@ export default function BrokerDiaryPage() {
     const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
     const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
     if (existing) await supabase.from('broker_diary').update(payload).eq('id', existing.id)
-    else await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
+    else {
+      await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
+      // 그날 첫 일지 작성 시 대표에게 알림 (이후 셀 update는 알림 없음)
+      notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `${diaryDate} 업무일지를 작성하기 시작했어요.`)
+    }
     setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
   }, [broker, diaryDate, sectionContent, viewingBrokerId, viewingExEmployee])
 
@@ -901,7 +906,10 @@ export default function BrokerDiaryPage() {
     const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
     const { data: existingDiary } = await supabase.from('broker_diary').select('id').eq('broker_id', broker.id).eq('date', diaryDate).maybeSingle()
     if (existingDiary) await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
-    else await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
+    else {
+      await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
+      notifyOwnerOfBrokerAction(broker.id, 'diary', `${importDate} 일지를 ${diaryDate}로 불러왔어요.`)
+    }
     setSectionContent(newContent)
     setImporting(false)
     setShowImport(false)

@@ -15,6 +15,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { SheetActionHeader } from '@/components/sheet/action-cell'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
+import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 
 interface Settlement {
   id: string
@@ -399,6 +400,7 @@ export default function SettlementPage() {
       .single()
     if (error) { alert('추가 실패: ' + error.message); return }
     setRows(prev => [...prev, data as Settlement])
+    notifyOwnerOfBrokerAction(meBroker.id, 'settlement', `${recordMonth} 정산 행을 추가했어요.`)
   }
 
   const deleteRow = async (r: Settlement) => {

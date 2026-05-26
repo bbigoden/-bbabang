@@ -22,6 +22,7 @@ import {
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
+import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 
 interface Property {
   id: string
@@ -1461,6 +1462,7 @@ function BrokerPropertiesContent() {
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
+    notifyOwnerOfBrokerAction(broker.id, 'property', '새 매물 행을 추가했어요.')
   }
 
   const deleteProperty = useCallback((id: string) => {
@@ -1502,6 +1504,7 @@ function BrokerPropertiesContent() {
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
+    notifyOwnerOfBrokerAction(broker.id, 'property', `매물을 복제했어요${prop.address ? ` (${prop.address})` : ''}.`)
   }, [broker])
 
   const filtered = useMemo(() => {
