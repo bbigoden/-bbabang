@@ -13,6 +13,7 @@ import { BrokerGlobalLayout } from '@/components/broker/global-layout'
 import { ToastProvider } from '@/components/toast'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import { ConsentGate } from '@/components/consent-gate'
 
 const geist = Geist({ subsets: ['latin'] })
 
@@ -137,6 +138,7 @@ export default function RootLayout({
                   <BrokerGlobalLayout>
                     <main id="main">{children}</main>
                   </BrokerGlobalLayout>
+                  <ConsentGate />
                   <Footer />
                   <BottomNav />
                   <InstallPrompt />

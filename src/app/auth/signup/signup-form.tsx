@@ -89,6 +89,13 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
           marketing: agreeMarketing,
         },
       })
+
+      // 신규 가입 시 현재 유효한 모든 약관 버전 동의 기록
+      await fetch('/api/consent/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: data.user.id, marketing: agreeMarketing }),
+      })
     }
 
     if (role === 'broker') {
