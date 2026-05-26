@@ -241,6 +241,14 @@ export default function AdminShortsPage() {
             </div>
 
             <div className="p-6 space-y-4">
+              {/* 음성 더빙 */}
+              <VoiceBox
+                script={script}
+                state={voiceMap[script.id]}
+                onGenerate={() => generateVoice(script)}
+                onDownload={(url) => downloadVoice(script, url)}
+              />
+
               {/* 제목 */}
               <ScriptRow icon={Tag} label="유튜브 제목" copyKey={`title-${script.id}`} copyText={script.title} copy={copy} copiedKey={copiedKey}>
                 <p className="text-base font-bold text-white">{script.title}</p>
@@ -292,6 +300,66 @@ export default function AdminShortsPage() {
         )}
 
       </div>
+    </div>
+  )
+}
+
+function VoiceBox({
+  script, state, onGenerate, onDownload,
+}: {
+  script: ShortScript
+  state: VoiceState | undefined
+  onGenerate: () => void
+  onDownload: (url: string) => void
+}) {
+  const loading = state?.loading ?? false
+  const url = state?.url ?? null
+
+  return (
+    <div className="rounded-xl border border-pink-500/30 bg-gradient-to-br from-pink-500/10 to-purple-500/5 p-4">
+      <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-pink-300">
+        <Volume2 className="h-3.5 w-3.5" />
+        AI 더빙 음성 (ElevenLabs · Adam Voice)
+      </div>
+
+      {!url && !loading && (
+        <button
+          onClick={onGenerate}
+          className="w-full flex items-center justify-center gap-2 rounded-lg bg-pink-600 px-4 py-3 text-sm font-semibold text-white hover:bg-pink-500 transition-colors"
+        >
+          <Mic className="h-4 w-4" />
+          이 대본으로 음성 만들기 ({script.voiceover.length}자)
+        </button>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center gap-2 rounded-lg bg-pink-600/50 px-4 py-3 text-sm font-semibold text-white">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          음성 생성 중... (5~15초)
+        </div>
+      )}
+
+      {url && !loading && (
+        <div className="space-y-2">
+          <audio controls src={url} className="w-full h-10" />
+          <div className="flex gap-2">
+            <button
+              onClick={() => onDownload(url)}
+              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-pink-600 px-3 py-2 text-xs font-semibold text-white hover:bg-pink-500 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              MP3 다운로드
+            </button>
+            <button
+              onClick={onGenerate}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-pink-500/40 bg-pink-500/10 px-3 py-2 text-xs font-semibold text-pink-300 hover:bg-pink-500/20 transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              다시 생성
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
