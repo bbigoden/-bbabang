@@ -48,3 +48,6 @@ next-env.d.ts
 
 # 임시 파일
 *.tmp
+
+*storybook.log
+storybook-static
