@@ -178,7 +178,7 @@ export default function AdminPage() {
   const loadRecentUsers = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, name, email, role, phone, created_at')
       .order('created_at', { ascending: false })
       .limit(20)
     setRecentUsers(data ?? [])
@@ -236,12 +236,12 @@ export default function AdminPage() {
     if (type === 'users') setUserFilter(userFilterInit)
     setLoadingModal(true)
     if (type === 'users' && allUsersAll.length === 0) {
-      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(500)
+      const { data } = await supabase.from('profiles').select('id, name, email, role, phone, created_at').order('created_at', { ascending: false }).limit(500)
       setAllUsersAll(data ?? [])
     } else if (type === 'requests' && allRequestsAll.length === 0) {
       const { data } = await supabase
         .from('request_posts')
-        .select('*, profiles(name, phone)')
+        .select('id, status, city, district, deal_type, room_type, min_price, max_price, min_size, max_size, move_in_date, proposal_count, description, created_at, profiles(name, phone)')
         .order('created_at', { ascending: false })
         .limit(500)
       setAllRequestsAll(data ?? [])

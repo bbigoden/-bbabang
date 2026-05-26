@@ -25,7 +25,7 @@ export default async function BrokerDashboardPage() {
   if (!user) redirect('/auth/login?redirect=/dashboard/broker')
 
   // ── 역할 확인 (redirect는 try/catch 밖에서 호출) ───────────
-  const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profileData } = await supabase.from('profiles').select('name, role').eq('id', user.id).single()
   if (!profileData || profileData.role !== 'broker') redirect('/dashboard/user')
 
   const { data: brokerData } = await supabase

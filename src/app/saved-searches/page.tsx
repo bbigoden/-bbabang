@@ -52,7 +52,7 @@ export default function SavedSearchesPage() {
     setLoading(true)
     const { data } = await supabase
       .from('saved_searches')
-      .select('*')
+      .select('id, target, label, filters, last_checked_at, created_at')
       .eq('user_id', auth.user.id)
       .order('created_at', { ascending: false })
     setItems((data ?? []) as SavedSearch[])

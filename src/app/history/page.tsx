@@ -41,7 +41,7 @@ export default function HistoryPage() {
     setLoading(true)
     const { data: rows } = await supabase
       .from('view_history')
-      .select('*')
+      .select('id, target_type, target_id, viewed_at')
       .eq('user_id', auth.user.id)
       .order('viewed_at', { ascending: false })
       .limit(200)

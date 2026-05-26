@@ -43,7 +43,7 @@ export default function FavoritesPage() {
     setLoading(true)
     const { data: favRows } = await supabase
       .from('favorites')
-      .select('*')
+      .select('id, target_type, target_id, created_at')
       .eq('user_id', auth.user.id)
       .order('created_at', { ascending: false })
 

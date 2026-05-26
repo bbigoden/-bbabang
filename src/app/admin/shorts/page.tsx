@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -8,7 +8,13 @@ import { useToast } from '@/components/toast'
 import {
   Film, ArrowLeft, Sparkles, Copy, CheckCircle2, AlertTriangle,
   Megaphone, Mic, FileText, Hash, Image as ImageIcon, Tag, RefreshCw,
+  Volume2, Download, Loader2,
 } from 'lucide-react'
+
+interface VoiceState {
+  loading: boolean
+  url: string | null
+}
 
 interface ShortScript {
   id: string
@@ -32,12 +38,20 @@ export default function AdminShortsPage() {
   const [demoMode, setDemoMode] = useState<boolean | null>(null)
   const [demoMessage, setDemoMessage] = useState<string | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [voiceMap, setVoiceMap] = useState<Record<string, VoiceState>>({})
+  const voiceUrlsRef = useRef<string[]>([])
 
   useEffect(() => {
     if (auth.loading) return
     if (!auth.user) { router.push('/auth/login'); return }
     if (auth.profile?.role !== 'admin') { router.push('/'); return }
   }, [auth.loading, auth.user, auth.profile?.role, router])
+
+  // 페이지 언마운트 시 blob URL 메모리 해제
+  useEffect(() => {
+    const urls = voiceUrlsRef.current
+    return () => { urls.forEach(u => URL.revokeObjectURL(u)) }
+  }, [])
 
   const generate = async () => {
     setLoading(true)
@@ -73,6 +87,50 @@ export default function AdminShortsPage() {
     } catch {
       toast.error('복사 실패 — 직접 선택해서 복사해주세요')
     }
+  }
+
+  const generateVoice = async (script: ShortScript) => {
+    const scriptId = script.id
+    // 기존 URL 정리
+    setVoiceMap(prev => {
+      const old = prev[scriptId]?.url
+      if (old) {
+        URL.revokeObjectURL(old)
+        voiceUrlsRef.current = voiceUrlsRef.current.filter(u => u !== old)
+      }
+      return { ...prev, [scriptId]: { loading: true, url: null } }
+    })
+    try {
+      const res = await fetch('/api/admin/shorts/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: script.voiceover }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        toast.error(json?.message ?? json?.error ?? '음성 생성에 실패했어요')
+        setVoiceMap(prev => ({ ...prev, [scriptId]: { loading: false, url: null } }))
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      voiceUrlsRef.current.push(url)
+      setVoiceMap(prev => ({ ...prev, [scriptId]: { loading: false, url } }))
+      toast.success('음성 생성 완료')
+    } catch (e) {
+      console.error(e)
+      toast.error('네트워크 오류로 음성 생성에 실패했어요')
+      setVoiceMap(prev => ({ ...prev, [scriptId]: { loading: false, url: null } }))
+    }
+  }
+
+  const downloadVoice = (script: ShortScript, url: string) => {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `shorts-${script.category}-${script.id}.mp3`.replace(/[^a-zA-Z0-9가-힣.\-]/g, '_')
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   if (auth.loading || auth.profile?.role !== 'admin') {

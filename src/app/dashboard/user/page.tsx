@@ -27,10 +27,10 @@ export default async function UserDashboardPage() {
   let unreadCount = 0
   try {
     const [{ data: p }, { data: r }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('profiles').select('name, role').eq('id', user.id).single(),
       supabase
         .from('request_posts')
-        .select('*')
+        .select('id, status, deal_type, room_type, city, district, min_price, max_price, proposal_count, created_at, closed_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
     ])
