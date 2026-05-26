@@ -9,16 +9,17 @@ import { LoginForm } from './login-form'
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string }>
+  searchParams: Promise<{ redirect?: string; expired?: string }>
 }) {
   const sp = await searchParams
   const raw = sp.redirect ?? null
   const redirectTo = raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : null
+  const expired = sp.expired === '1'
 
   return (
     <>
       <h1 className="sr-only">빠방 로그인</h1>
-      <LoginForm redirectTo={redirectTo} />
+      <LoginForm redirectTo={redirectTo} expired={expired} />
     </>
   )
 }

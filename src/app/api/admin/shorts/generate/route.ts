@@ -161,7 +161,7 @@ export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
   const { data: profile } = await supabase
@@ -170,12 +170,12 @@ export async function POST() {
     .eq('id', user.id)
     .single()
   if (profile?.role !== 'admin') {
-    return NextResponse.json({ error: '관리자만 접근 가능합니다' }, { status: 403 })
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 
   const allowed = await checkRateLimit(`admin:${user.id}:shorts-generate`, 30, 3600)
   if (!allowed) {
-    return NextResponse.json({ error: '시간당 30회 호출 제한을 초과했습니다' }, { status: 429 })
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   const apiKey = (process.env.GEMINI_API_KEY ?? '').trim()

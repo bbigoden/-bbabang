@@ -8,17 +8,17 @@ import { createClient } from '@/lib/supabase/server'
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   let body: { endpoint: string; keys: { p256dh: string; auth: string }; userAgent?: string }
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: '잘못된 요청' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid_request' }, { status: 400 })
   }
 
   if (!body.endpoint || !body.keys?.p256dh || !body.keys?.auth) {
-    return NextResponse.json({ error: '구독 정보 누락' }, { status: 400 })
+    return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
 
   // upsert: 같은 endpoint면 갱신 (디바이스 재구독 시)
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     )
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'db_error', detail: error.message }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })
@@ -49,11 +49,11 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const endpoint = searchParams.get('endpoint')
-  if (!endpoint) return NextResponse.json({ error: 'endpoint 필요' }, { status: 400 })
+  if (!endpoint) return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
 
   await supabase
     .from('push_subscriptions')

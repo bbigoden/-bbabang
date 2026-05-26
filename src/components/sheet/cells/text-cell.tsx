@@ -15,11 +15,17 @@ export function TextCell({
   onSave,
   placeholder = '—',
   readOnly,
+  inputMode,
+  type,
 }: {
   value: string | null
   onSave: (v: string) => void
   placeholder?: string
   readOnly?: boolean
+  /** 모바일 키패드 종류 — 전화번호 셀에 'tel', 숫자 셀에 'numeric' 등 */
+  inputMode?: 'text' | 'tel' | 'numeric' | 'decimal' | 'email' | 'url'
+  /** input type — 'tel'은 dash 등 허용, 'number'는 숫자만 */
+  type?: 'text' | 'tel'
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -51,6 +57,8 @@ export function TextCell({
   if (editing) return (
     <input
       ref={inputRef}
+      type={type ?? 'text'}
+      inputMode={inputMode}
       value={draft}
       onChange={e => setDraft(e.target.value)}
       onBlur={commit}

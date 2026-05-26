@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthOptional } from '@/lib/auth-context'
+import { useToast } from '@/components/toast'
 import { Bookmark, BookmarkCheck, X, Check } from 'lucide-react'
 
 interface Props {
@@ -17,6 +18,7 @@ export function SaveSearchButton({ target, filters, defaultLabel = '' }: Props) 
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const { user } = useAuthOptional()
+  const toast = useToast()
 
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState(defaultLabel)
@@ -44,7 +46,7 @@ export function SaveSearchButton({ target, filters, defaultLabel = '' }: Props) 
       filters,
     })
     setBusy(false)
-    if (error) { alert('저장 실패: ' + error.message); return }
+    if (error) { toast.error('저장 실패: ' + error.message); return }
     setDone(true)
     setTimeout(() => setOpen(false), 1500)
   }

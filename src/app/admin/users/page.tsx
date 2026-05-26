@@ -150,11 +150,19 @@ export default function AdminUsersPage() {
       setBrokerItems([])
       return
     }
-    const { data: bps } = await supabase
-      .from('broker_profiles')
-      .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
-      .order('created_at', { ascending: false })
-      .limit(1000)
+    // 사무소 그룹화를 위해 모든 broker_profiles 필요 — 1000건씩 range 루프로 누락 방지
+    const PAGE = 1000
+    let bps: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      const { data: chunk } = await supabase
+        .from('broker_profiles')
+        .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1)
+      if (!chunk || chunk.length === 0) break
+      bps = bps.concat(chunk)
+      if (chunk.length < PAGE) break
+    }
 
     // 변환: 각 broker_profile row → UserRow (profile 정보 + broker_profiles 필드)
     let rows: UserRow[] = (bps ?? []).map((bp: any) => ({

@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
+import { useToast } from '@/components/toast'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
@@ -329,6 +330,7 @@ export default function BrokerCustomersPage() {
   const supabase = createClient()
   const router = useRouter()
   const auth = useAuth()
+  const toast = useToast()
 
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
@@ -429,7 +431,7 @@ export default function BrokerCustomersPage() {
     if (error) {
       console.error('[saveField] failed', error)
       setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: prevValue } : c))
-      alert(`저장 실패: ${error.message}`)
+      toast.error(`저장 실패: ${error.message}`)
     } else if (field === 'assignee' && brokerRef.current?.id) {
       // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
       notifyAssigneeOfAssignment(brokerRef.current.id, 'customer', value, prevValue)
@@ -449,7 +451,7 @@ export default function BrokerCustomersPage() {
     if (error) {
       console.error('[saveCustomField] failed', error)
       setCustomers(prev => prev.map(c => c.id === id ? { ...c, custom_fields: prevFields ?? {} } : c))
-      alert(`저장 실패: ${error.message}`)
+      toast.error(`저장 실패: ${error.message}`)
     }
   }, [])
 
@@ -532,7 +534,7 @@ export default function BrokerCustomersPage() {
     const { error } = await supabase.rpc('soft_delete_customer', { cust_id: id })
     if (error) {
       console.error('[deleteRow] failed', error)
-      alert(`삭제 실패: ${error.message}`)
+      toast.error(`삭제 실패: ${error.message}`)
       setDeleteConfirm(null)
       return
     }

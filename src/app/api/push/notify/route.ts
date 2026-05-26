@@ -11,17 +11,17 @@ import { checkRateLimit } from '@/lib/rate-limit'
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   let body: { targetUserId: string; title: string; body: string; url?: string; tag?: string }
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: '잘못된 요청' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid_request' }, { status: 400 })
   }
 
   if (!body.targetUserId || !body.title || !body.body) {
-    return NextResponse.json({ error: '필수 필드 누락' }, { status: 400 })
+    return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
 
   // 자기 자신에게는 알림 안 보냄 (불필요)
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   // Rate limit: 사용자당 분당 30회 (스팸 방지). 푸시는 strict — DB 장애 시 차단.
   const allowed = await checkRateLimit(`user:${user.id}:push-notify`, 30, 60, true)
   if (!allowed) {
-    return NextResponse.json({ error: '알림 호출 제한 초과' }, { status: 429 })
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   try {
@@ -53,6 +53,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {
     console.error('[push/notify] error', e)
-    return NextResponse.json({ error: '발송 실패' }, { status: 500 })
+    return NextResponse.json({ error: 'server_error' }, { status: 500 })
   }
 }

@@ -44,7 +44,7 @@ export function LongTextCell({
         ref={cellRef}
         onMouseEnter={() => { if (value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden text-ellipsis line-clamp-2 whitespace-pre-wrap break-words leading-snug"
         style={{ color: value ? '#374151' : '#d1d5db' }}
       >
         {value || placeholder}
@@ -74,7 +74,7 @@ export function LongTextCell({
         onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
         onMouseEnter={() => { if (value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
+        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden text-ellipsis line-clamp-2 whitespace-pre-wrap break-words leading-snug"
         style={{ color: value ? '#374151' : '#d1d5db' }}
       >
         {value || placeholder}

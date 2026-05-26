@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/toast'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice, maskAddress, cn } from '@/lib/utils'
@@ -280,6 +281,7 @@ export default function ChatPage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  const toast = useToast()
 
   const [user, setUser] = useState<any>(null)
   const [room, setRoom] = useState<any>(null)
@@ -448,16 +450,16 @@ export default function ChatPage() {
     e.target.value = ''
 
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    if (!ALLOWED_TYPES.includes(file.type)) { alert('지원하지 않는 이미지 형식입니다 (jpg/png/webp/gif)'); return }
-    if (file.size > 10 * 1024 * 1024) { alert('이미지가 10MB를 초과합니다'); return }
-    if (file.size === 0) { alert('빈 파일입니다'); return }
+    if (!ALLOWED_TYPES.includes(file.type)) { toast.error('지원하지 않는 이미지 형식입니다 (jpg/png/webp/gif)'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('이미지가 10MB를 초과합니다'); return }
+    if (file.size === 0) { toast.error('빈 파일입니다'); return }
 
     const ext = file.name.split('.').pop()
     const path = `chat/${room.id}/${Date.now()}.${ext}`
     const { error: uploadErr } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
     if (uploadErr) {
       console.error('[chat] image upload failed', uploadErr)
-      alert(`이미지 업로드 실패: ${uploadErr.message}`)
+      toast.error(`이미지 업로드 실패: ${uploadErr.message}`)
       return
     }
 
@@ -470,7 +472,7 @@ export default function ChatPage() {
     })
     if (msgErr) {
       console.error('[chat] image message insert failed', msgErr)
-      alert(`이미지 메시지 전송 실패: ${msgErr.message}`)
+      toast.error(`이미지 메시지 전송 실패: ${msgErr.message}`)
     }
   }
 
@@ -531,7 +533,7 @@ export default function ChatPage() {
       const { error } = await supabase.from('chat_messages').insert(rows)
       if (error) {
         console.error('[chat] sendSelectedProperties failed', error)
-        alert(`매물 발송 실패: ${error.message}`)
+        toast.error(`매물 발송 실패: ${error.message}`)
         setSendingProps(false)
         return
       }

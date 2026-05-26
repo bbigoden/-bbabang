@@ -12,6 +12,7 @@ import { ArrowLeft, Building2, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
+import { useToast } from '@/components/toast'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독/다가구', '숙박']
@@ -19,6 +20,7 @@ const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피
 export default function NewPropertyPage() {
   const router = useRouter()
   const supabase = createClient()
+  const toast = useToast()
 
   const [dealType, setDealType] = useState('')
   const [roomType, setRoomType] = useState('')
@@ -157,7 +159,7 @@ export default function NewPropertyPage() {
     }
 
     if (skipped.length > 0) {
-      alert(`일부 이미지가 업로드되지 않았어요:\n${skipped.join('\n')}`)
+      toast.error(`일부 이미지가 업로드되지 않았어요:\n${skipped.join('\n')}`)
     }
 
     // 매칭 고객에게 푸시 발송 (트리거가 DB notifications는 이미 채움, 푸시만 추가)

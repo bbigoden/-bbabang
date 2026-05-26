@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { FolderOpen, Plus, FileText, Download, Trash2, Link as LinkIcon, Paperclip, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { useToast } from '@/components/toast'
 
 interface ResourceFile {
   id: string
@@ -42,6 +43,7 @@ export default function BrokerResourcesPage() {
   const supabase = createClient()
   const router = useRouter()
   const auth = useAuth()
+  const toast = useToast()
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
@@ -98,7 +100,7 @@ export default function BrokerResourcesPage() {
 
     const oversized = arr.filter(f => f.size > MAX_FILE_SIZE)
     if (oversized.length > 0) {
-      alert(`다음 파일은 20MB를 초과해서 제외됐습니다:\n${oversized.map(f => `· ${f.name}`).join('\n')}`)
+      toast.error(`다음 파일은 20MB를 초과해서 제외됐습니다:\n${oversized.map(f => `· ${f.name}`).join('\n')}`)
     }
     const ok = arr.filter(f => f.size <= MAX_FILE_SIZE)
     if (ok.length === 0) return
@@ -111,7 +113,7 @@ export default function BrokerResourcesPage() {
         if (merged.length >= MAX_FILES) break
       }
       if (merged.length >= MAX_FILES) {
-        alert(`한 자료에는 최대 ${MAX_FILES}개까지 첨부할 수 있습니다.`)
+        toast.error(`한 자료에는 최대 ${MAX_FILES}개까지 첨부할 수 있습니다.`)
       }
       return merged.slice(0, MAX_FILES)
     })
@@ -148,8 +150,8 @@ export default function BrokerResourcesPage() {
 
   const save = async () => {
     if (!broker || !officeBrokerId) return
-    if (!title.trim()) { alert('제목을 입력해주세요.'); return }
-    if (files.length === 0 && !description.trim()) { alert('파일을 첨부하거나 메모 내용을 입력해주세요.'); return }
+    if (!title.trim()) { toast.error('제목을 입력해주세요.'); return }
+    if (files.length === 0 && !description.trim()) { toast.error('파일을 첨부하거나 메모 내용을 입력해주세요.'); return }
 
     setSaving(true)
     const uploadedPaths: string[] = []
@@ -168,7 +170,7 @@ export default function BrokerResourcesPage() {
         .single()
 
       if (insErr || !inserted) {
-        alert(`저장 실패: ${insErr?.message ?? '알 수 없는 오류'}`)
+        toast.error(`저장 실패: ${insErr?.message ?? '알 수 없는 오류'}`)
         setSaving(false)
         return
       }
@@ -185,7 +187,7 @@ export default function BrokerResourcesPage() {
           .from('office-resources')
           .upload(path, f, { upsert: false, contentType: f.type || undefined })
         if (upErr) {
-          alert(`"${f.name}" 업로드 실패: ${upErr.message}`)
+          toast.error(`"${f.name}" 업로드 실패: ${upErr.message}`)
           // 롤백
           if (uploadedPaths.length > 0) await supabase.storage.from('office-resources').remove(uploadedPaths)
           await supabase.from('office_resources').delete().eq('id', inserted.id)
@@ -208,7 +210,7 @@ export default function BrokerResourcesPage() {
           .single()
 
         if (fileErr || !fileRow) {
-          alert(`첨부 메타 저장 실패: ${fileErr?.message ?? ''}`)
+          toast.error(`첨부 메타 저장 실패: ${fileErr?.message ?? ''}`)
           if (uploadedPaths.length > 0) await supabase.storage.from('office-resources').remove(uploadedPaths)
           await supabase.from('office_resources').delete().eq('id', inserted.id)
           setSaving(false)
@@ -231,7 +233,7 @@ export default function BrokerResourcesPage() {
       .from('office-resources')
       .createSignedUrl(f.storage_path, 60, { download: f.file_name })
     if (error || !data?.signedUrl) {
-      alert(`다운로드 링크 생성 실패: ${error?.message ?? ''}`)
+      toast.error(`다운로드 링크 생성 실패: ${error?.message ?? ''}`)
       return
     }
     window.open(data.signedUrl, '_blank')
@@ -245,7 +247,7 @@ export default function BrokerResourcesPage() {
     }
     const { error } = await supabase.from('office_resources').delete().eq('id', r.id)
     if (error) {
-      alert(`삭제 실패: ${error.message}`)
+      toast.error(`삭제 실패: ${error.message}`)
       return
     }
     setResources(prev => prev.filter(x => x.id !== r.id))

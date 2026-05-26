@@ -4,11 +4,13 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { XCircle, AlertTriangle } from 'lucide-react'
+import { useToast } from '@/components/toast'
 
 export function CloseRequestButton({ requestId }: { requestId: string }) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const router = useRouter()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
 
@@ -19,7 +21,7 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
       .update({ status: 'closed', closed_at: new Date().toISOString() })
       .eq('id', requestId)
     if (error) {
-      alert('마감 처리에 실패했어요. 다시 시도해주세요.')
+      toast.error('마감 처리에 실패했어요. 다시 시도해주세요.')
       setLoading(false)
       return
     }

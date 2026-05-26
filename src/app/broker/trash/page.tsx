@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
+import { useToast } from '@/components/toast'
 import { ArrowLeft, Trash2, RotateCcw, AlertTriangle, Building2, Users } from 'lucide-react'
 
 interface TrashProperty {
@@ -21,6 +22,7 @@ export default function TrashPage() {
   const router = useRouter()
   const auth = useAuth()
   const supabase = createClient()
+  const toast = useToast()
   const [tab, setTab] = useState<'properties' | 'customers'>('properties')
   const [props, setProps] = useState<TrashProperty[]>([])
   const [custs, setCusts] = useState<TrashCustomer[]>([])
@@ -55,7 +57,7 @@ export default function TrashPage() {
     setBusy(id)
     const { error } = await supabase.from('broker_properties').update({ deleted_at: null }).eq('id', id)
     setBusy(null)
-    if (error) { alert(`복원 실패: ${error.message}`); return }
+    if (error) { toast.error(`복원 실패: ${error.message}`); return }
     setProps(prev => prev.filter(p => p.id !== id))
   }
   const purgeProperty = async (id: string) => {
@@ -63,14 +65,14 @@ export default function TrashPage() {
     setBusy(id)
     const { error } = await supabase.from('broker_properties').delete().eq('id', id)
     setBusy(null)
-    if (error) { alert(`영구삭제 실패: ${error.message}`); return }
+    if (error) { toast.error(`영구삭제 실패: ${error.message}`); return }
     setProps(prev => prev.filter(p => p.id !== id))
   }
   const restoreCustomer = async (id: string) => {
     setBusy(id)
     const { error } = await supabase.from('broker_customers').update({ deleted_at: null }).eq('id', id)
     setBusy(null)
-    if (error) { alert(`복원 실패: ${error.message}`); return }
+    if (error) { toast.error(`복원 실패: ${error.message}`); return }
     setCusts(prev => prev.filter(c => c.id !== id))
   }
   const purgeCustomer = async (id: string) => {
@@ -78,7 +80,7 @@ export default function TrashPage() {
     setBusy(id)
     const { error } = await supabase.from('broker_customers').delete().eq('id', id)
     setBusy(null)
-    if (error) { alert(`영구삭제 실패: ${error.message}`); return }
+    if (error) { toast.error(`영구삭제 실패: ${error.message}`); return }
     setCusts(prev => prev.filter(c => c.id !== id))
   }
 

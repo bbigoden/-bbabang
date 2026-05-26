@@ -13,16 +13,16 @@ import { checkRateLimit } from '@/lib/rate-limit'
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   let body: { requestId?: string }
-  try { body = await req.json() } catch { return NextResponse.json({ error: '잘못된 요청' }, { status: 400 }) }
-  if (!body.requestId) return NextResponse.json({ error: 'requestId 필요' }, { status: 400 })
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid_request' }, { status: 400 }) }
+  if (!body.requestId) return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
 
   // Rate limit: 사용자당 시간당 5회 (대량 푸시 스팸 방지)
   const allowed = await checkRateLimit(`user:${user.id}:notify-brokers`, 5, 3600)
   if (!allowed) {
-    return NextResponse.json({ error: '브로커 알림 발송 횟수 제한 초과 (시간당 5회)' }, { status: 429 })
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   // 요청 본문 조회 + 소유권 확인
@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
     .select('id, user_id, city, district, dong, deal_type, room_type, min_price, max_price')
     .eq('id', body.requestId)
     .single()
-  if (!post) return NextResponse.json({ error: '요청을 찾을 수 없습니다' }, { status: 404 })
-  if (post.user_id !== user.id) return NextResponse.json({ error: '본인 요청만 알림 발송 가능' }, { status: 403 })
+  if (!post) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  if (post.user_id !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   if (!post.city || !post.district) return NextResponse.json({ ok: true, sent: 0, skipped: 'region_empty' })
 
   // 점수 기반 추천 — 상위 20명에게만 푸시 (스팸 방지)
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   })
   if (rpcErr) {
     console.error('[notify-brokers] rpc error', rpcErr)
-    return NextResponse.json({ error: '매칭 조회 실패' }, { status: 500 })
+    return NextResponse.json({ error: 'server_error' }, { status: 500 })
   }
 
   // score > 0 + 지역 매칭(region_score > 0)인 중개사만 푸시

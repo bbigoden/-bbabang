@@ -5,10 +5,12 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { transferBrokerData } from '@/lib/leave-office'
+import { useToast } from '@/components/toast'
 
 export function BrokerChangeOffice({ brokerId, parentBrokerId }: { brokerId: string; parentBrokerId: string }) {
   const supabase = createClient()
   const router = useRouter()
+  const toast = useToast()
   const [loading, setLoading] = useState(false)
 
   const handleLeave = async () => {
@@ -18,7 +20,7 @@ export function BrokerChangeOffice({ brokerId, parentBrokerId }: { brokerId: str
     // 모든 영업 기록을 대표에게 이전 (법적 책임 보존)
     const { error } = await transferBrokerData(supabase, brokerId, parentBrokerId)
     if (error) {
-      alert(`데이터 이전 실패: ${error.message}\n탈퇴를 중단했어요. 잠시 후 다시 시도해주세요.`)
+      toast.error(`데이터 이전 실패: ${error.message}\n탈퇴를 중단했어요. 잠시 후 다시 시도해주세요.`)
       setLoading(false)
       return
     }
@@ -30,7 +32,7 @@ export function BrokerChangeOffice({ brokerId, parentBrokerId }: { brokerId: str
       permissions: null,
     }).eq('id', brokerId)
     if (detachErr) {
-      alert(`사무소 분리 실패: ${detachErr.message}`)
+      toast.error(`사무소 분리 실패: ${detachErr.message}`)
       setLoading(false)
       return
     }

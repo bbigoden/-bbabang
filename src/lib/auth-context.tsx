@@ -144,8 +144,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        const hadUser = user !== null  // 명시적 로그아웃 vs refresh token 만료 구분
         setUser(null); setProfile(null); setBroker(null)
         clearCache()
+        // refresh token 만료로 인한 자동 로그아웃이면 사용자에게 알림 + 로그인 페이지 이동
+        // 단, 이미 /auth/* 페이지거나 공개 페이지면 그냥 둠
+        if (hadUser && typeof window !== 'undefined') {
+          const path = window.location.pathname
+          const isPublic = path.startsWith('/auth/') || path === '/' || path.startsWith('/brokers') ||
+                           path.startsWith('/broker/') || path.startsWith('/property/') ||
+                           path.startsWith('/regions') || path.startsWith('/terms') || path.startsWith('/privacy') ||
+                           path.startsWith('/support')
+          if (!isPublic) {
+            const redirect = encodeURIComponent(path + window.location.search)
+            window.location.href = `/auth/login?expired=1&redirect=${redirect}`
+          }
+        }
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         fetchAll()
       }

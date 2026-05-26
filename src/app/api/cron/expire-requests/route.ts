@@ -43,34 +43,47 @@ export async function GET(req: NextRequest) {
 
   let renewalNotified = 0
   let renewalPushed = 0
-  for (const r of renewalTargets ?? []) {
-    // 이미 갱신 권유 알림을 받았는지 체크
-    const { data: existing } = await supa
+  // 중복 체크를 한 번에 — request_id 목록 단위로 기존 알림 조회
+  const renewalLinks = (renewalTargets ?? []).map(r => `/request/${r.id}`)
+  const alreadyRenewalNotified = new Set<string>()
+  if (renewalLinks.length > 0) {
+    const { data: existingRenewals } = await supa
       .from('notifications')
-      .select('id')
-      .eq('user_id', r.user_id)
+      .select('user_id, link')
       .eq('type', 'request_renewal_reminder')
-      .eq('link', `/request/${r.id}`)
-      .limit(1)
-      .maybeSingle()
-    if (existing) continue
+      .in('link', renewalLinks)
+    for (const e of existingRenewals ?? []) {
+      alreadyRenewalNotified.add(`${e.user_id}|${e.link}`)
+    }
+  }
 
+  const renewalInserts: Array<Record<string, unknown>> = []
+  const renewalPushTargets: Array<{ userId: string; region: string; requestId: string }> = []
+  for (const r of renewalTargets ?? []) {
+    const key = `${r.user_id}|/request/${r.id}`
+    if (alreadyRenewalNotified.has(key)) continue
     const region = [r.city, r.district].filter(Boolean).join(' ') || '내'
-    await supa.from('notifications').insert({
+    renewalInserts.push({
       user_id: r.user_id,
       type: 'request_renewal_reminder',
       title: '요청이 곧 마감돼요 ⏰',
       body: `'${region}' 요청이 5일 후 자동 마감됩니다. 아직 찾고 계시면 갱신해주세요.`,
       link: `/request/${r.id}`,
     })
-    renewalNotified++
-
+    renewalPushTargets.push({ userId: r.user_id, region, requestId: r.id })
+  }
+  if (renewalInserts.length > 0) {
+    await supa.from('notifications').insert(renewalInserts)
+    renewalNotified = renewalInserts.length
+  }
+  // 푸시는 외부 API라 batch 불가 — 루프 유지
+  for (const t of renewalPushTargets) {
     try {
-      const p = await sendPushToUser(r.user_id, {
+      const p = await sendPushToUser(t.userId, {
         title: '요청이 곧 마감돼요',
-        body: `'${region}' 요청이 5일 후 자동 마감됩니다.`,
-        url: `/request/${r.id}`,
-        tag: `renewal-${r.id}`,
+        body: `'${t.region}' 요청이 5일 후 자동 마감됩니다.`,
+        url: `/request/${t.requestId}`,
+        tag: `renewal-${t.requestId}`,
       })
       renewalPushed += p.sent
     } catch {/* 푸시 실패 무시 */}
@@ -85,6 +98,7 @@ export async function GET(req: NextRequest) {
     .lte('created_at', expireBefore)
 
   let expired = 0
+  const expiredNotifications: Array<Record<string, unknown>> = []
   for (const r of expireTargets ?? []) {
     const { error } = await supa
       .from('request_posts')
@@ -94,13 +108,16 @@ export async function GET(req: NextRequest) {
     expired++
 
     const region = [r.city, r.district].filter(Boolean).join(' ') || '내'
-    await supa.from('notifications').insert({
+    expiredNotifications.push({
       user_id: r.user_id,
       type: 'request_expired',
       title: '요청이 자동 마감됐어요',
       body: `'${region}' 요청이 30일 경과로 마감됐어요. 다시 등록하면 새 제안을 받을 수 있어요.`,
       link: `/request/${r.id}`,
     })
+  }
+  if (expiredNotifications.length > 0) {
+    await supa.from('notifications').insert(expiredNotifications)
   }
 
   // ─────────────────────────────────────────────
@@ -114,37 +131,50 @@ export async function GET(req: NextRequest) {
     .lte('created_at', propertyOldSince)
 
   let propertyNotified = 0
+  // 중복 체크를 한 번에 — 최근 30일 내 알림 조회
+  const propertyLinks = (oldProperties ?? []).map(p => `/broker/properties/${p.id}`)
+  const alreadyStaleNotified = new Set<string>()
+  if (propertyLinks.length > 0) {
+    const { data: existingStale } = await supa
+      .from('notifications')
+      .select('user_id, link')
+      .eq('type', 'property_stale_reminder')
+      .in('link', propertyLinks)
+      .gte('created_at', new Date(now - 30 * day).toISOString())
+    for (const e of existingStale ?? []) {
+      alreadyStaleNotified.add(`${e.user_id}|${e.link}`)
+    }
+  }
+
+  const propertyInserts: Array<Record<string, unknown>> = []
+  const propertyPushTargets: Array<{ userId: string; address: string; propertyId: string }> = []
   for (const p of oldProperties ?? []) {
     const brokerUserId = (p.broker_profiles as any)?.user_id
     if (!brokerUserId) continue
+    const key = `${brokerUserId}|/broker/properties/${p.id}`
+    if (alreadyStaleNotified.has(key)) continue
 
-    // 이미 알림 받은 적 있는지 (최근 30일)
-    const { data: existing } = await supa
-      .from('notifications')
-      .select('id')
-      .eq('user_id', brokerUserId)
-      .eq('type', 'property_stale_reminder')
-      .eq('link', `/broker/properties/${p.id}`)
-      .gte('created_at', new Date(now - 30 * day).toISOString())
-      .limit(1)
-      .maybeSingle()
-    if (existing) continue
-
-    await supa.from('notifications').insert({
+    propertyInserts.push({
       user_id: brokerUserId,
       type: 'property_stale_reminder',
       title: '오래된 매물 확인 필요 🏚️',
       body: `'${p.address ?? '주소 없음'}' 매물이 180일 넘게 활성 상태예요. 계약 완료됐다면 상태를 변경해주세요.`,
       link: `/broker/properties/${p.id}`,
     })
-    propertyNotified++
-
+    propertyPushTargets.push({ userId: brokerUserId, address: p.address ?? '', propertyId: p.id })
+  }
+  if (propertyInserts.length > 0) {
+    await supa.from('notifications').insert(propertyInserts)
+    propertyNotified = propertyInserts.length
+  }
+  // 푸시는 외부 API라 batch 불가 — 루프 유지
+  for (const t of propertyPushTargets) {
     try {
-      await sendPushToUser(brokerUserId, {
+      await sendPushToUser(t.userId, {
         title: '오래된 매물 확인',
-        body: `'${(p.address ?? '').slice(0, 30)}' 매물 상태를 확인해주세요`,
-        url: `/broker/properties/${p.id}`,
-        tag: `stale-prop-${p.id}`,
+        body: `'${t.address.slice(0, 30)}' 매물 상태를 확인해주세요`,
+        url: `/broker/properties/${t.propertyId}`,
+        tag: `stale-prop-${t.propertyId}`,
       })
     } catch {}
   }

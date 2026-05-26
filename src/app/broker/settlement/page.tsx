@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
+import { useToast } from '@/components/toast'
 import { Card, CardBody } from '@/components/ui/card'
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Plus, Download, Trash2,
@@ -187,6 +188,7 @@ export default function SettlementPage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  const toast = useToast()
 
   const [officeId, setOfficeId] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
@@ -375,7 +377,7 @@ export default function SettlementPage() {
   const updateRow = async (id: string, patch: Partial<Settlement>) => {
     setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r))
     const { error } = await supabase.from('settlements').update(patch).eq('id', id)
-    if (error) { alert('저장 실패: ' + error.message); loadRows() }
+    if (error) { toast.error('저장 실패: ' + error.message); loadRows() }
   }
 
   // 새 빈 행 추가 — 보고 있는 월(전체면 오늘)로 record_month 자동
@@ -398,7 +400,7 @@ export default function SettlementPage() {
       })
       .select('*')
       .single()
-    if (error) { alert('추가 실패: ' + error.message); return }
+    if (error) { toast.error('추가 실패: ' + error.message); return }
     setRows(prev => [...prev, data as Settlement])
     notifyOwnerOfBrokerAction(meBroker.id, 'settlement', `${recordMonth} 정산 행을 추가했어요.`)
   }
@@ -406,7 +408,7 @@ export default function SettlementPage() {
   const deleteRow = async (r: Settlement) => {
     if (!confirm(`${r.contract_address ?? r.contract_date ?? '이 계약'} 삭제할까요?`)) return
     const { error } = await supabase.from('settlements').delete().eq('id', r.id)
-    if (error) { alert('삭제 실패: ' + error.message); return }
+    if (error) { toast.error('삭제 실패: ' + error.message); return }
     setRows(prev => prev.filter(x => x.id !== r.id))
   }
 

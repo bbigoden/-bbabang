@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
+import { useToast } from '@/components/toast'
 import { Card, CardBody } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,7 @@ export default function EditPropertyPage() {
   const params = useParams()
   const propertyId = params.id as string
   const supabase = createClient()
+  const toast = useToast()
 
   const [dealType, setDealType] = useState('')
   const [roomType, setRoomType] = useState('')
@@ -182,7 +184,7 @@ export default function EditPropertyPage() {
         uploadedUrls.push(publicUrl)
       }
     }
-    if (skipped.length > 0) alert(`일부 이미지가 업로드되지 않았어요:\n${skipped.join('\n')}`)
+    if (skipped.length > 0) toast.error(`일부 이미지가 업로드되지 않았어요:\n${skipped.join('\n')}`)
 
     const allImages = [...existingImages, ...uploadedUrls]
 

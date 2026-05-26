@@ -10,14 +10,14 @@ import { Home, Eye, EyeOff, Check } from 'lucide-react'
 
 const STORAGE_KEY = 'bbabang_saved_email'
 
-export function LoginForm({ redirectTo }: { redirectTo: string | null }) {
+export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; expired?: boolean }) {
   const router = useRouter()
   const supabase = createClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(expired ? '세션이 만료됐어요. 다시 로그인해주세요.' : '')
   const [rememberEmail, setRememberEmail] = useState(false)
 
   useEffect(() => {

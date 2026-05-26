@@ -23,6 +23,7 @@ import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
+import { useToast } from '@/components/toast'
 
 interface Property {
   id: string
@@ -122,7 +123,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
     address: 200, received_date: 95, size_pyeong: 70, price: 96, room_type: 110, deal_type: 110,
     total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
     approval_date: 90, parking: 72, management_fee: 72,
-    direction: 68, images: 56, brief_memo: 140, memo: 140, assignee: 80,
+    direction: 68, images: 56, brief_memo: 200, memo: 240, assignee: 80,
   },
   customCols: [],
   options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS] },
@@ -180,6 +181,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
   autoFilling?: boolean
   placeholder?: string
 }) {
+  const toast = useToast()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const [hovered, setHovered] = useState(false)
@@ -199,7 +201,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
 
   const openPostcode = () => {
     const w = window as any
-    if (!w.daum?.Postcode) { alert('주소 검색 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return }
+    if (!w.daum?.Postcode) { toast.error('주소 검색 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return }
     setPostcodeOpen(true)
   }
 
@@ -1065,6 +1067,7 @@ function BrokerPropertiesContent() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  const toast = useToast()
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
@@ -1291,7 +1294,7 @@ function BrokerPropertiesContent() {
     if (error) {
       console.error('[saveField] failed', error)
       setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: prevValue } : p))
-      alert(`저장 실패: ${error.message}`)
+      toast.error(`저장 실패: ${error.message}`)
     } else if (field === 'assignee' && brokerRef.current?.id) {
       // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
       notifyAssigneeOfAssignment(brokerRef.current.id, 'property', value, prevValue)
@@ -1389,7 +1392,7 @@ function BrokerPropertiesContent() {
     if (error) {
       console.error('[saveCustomField] failed', error)
       setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, custom_fields: prevFields ?? {} } : p))
-      alert(`저장 실패: ${error.message}`)
+      toast.error(`저장 실패: ${error.message}`)
     }
   }, [])
 
@@ -1481,7 +1484,7 @@ function BrokerPropertiesContent() {
       const { error } = await supabase.rpc('soft_delete_property', { prop_id: deleteConfirm.id })
       if (error) {
         console.error('[deleteProperty] failed', error)
-        alert(`삭제 실패: ${error.message}`)
+        toast.error(`삭제 실패: ${error.message}`)
         setDeleteConfirm(null)
         return
       }

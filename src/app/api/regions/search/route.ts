@@ -34,11 +34,11 @@ export async function GET(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown'
   const allowed = await checkRateLimit(`ip:${ip}:regions-search`, 30, 60)
   if (!allowed) {
-    return NextResponse.json({ error: '호출 횟수 제한' }, { status: 429 })
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   const key = process.env.KAKAO_REST_KEY
-  if (!key) return NextResponse.json({ error: 'KAKAO_REST_KEY 누락' }, { status: 500 })
+  if (!key) return NextResponse.json({ error: 'config_missing_kakao_key' }, { status: 500 })
 
   // Kakao 키워드 검색 API: 부분 매칭 가능. POI 결과에서 행정구역(address_name)만 추출
   const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=15`
@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
   try {
     r = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` }, next: { revalidate: 0 } })
   } catch {
-    return NextResponse.json({ error: '카카오 API 호출 실패' }, { status: 502 })
+    return NextResponse.json({ error: 'upstream_fetch_failed' }, { status: 502 })
   }
   if (!r.ok) {
-    return NextResponse.json({ error: `카카오 응답 ${r.status}` }, { status: 502 })
+    return NextResponse.json({ error: 'upstream_error', status: r.status }, { status: 502 })
   }
 
   // 키워드 검색은 POI 결과를 반환. address_name 문자열을 파싱해 행정구역만 추출·dedupe.

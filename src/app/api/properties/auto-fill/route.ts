@@ -154,7 +154,7 @@ function parseFloor(item: SeumItem): number | null {
 
 export async function POST(req: NextRequest) {
   if (!process.env.SEUM_API_KEY) {
-    return NextResponse.json({ error: 'SEUM_API_KEY 미설정' }, { status: 500 })
+    return NextResponse.json({ error: 'config_missing_seum_key' }, { status: 500 })
   }
 
   // 인증 확인 — 로그인한 사용자(중개사)만 호출 가능
@@ -166,20 +166,20 @@ export async function POST(req: NextRequest) {
     user = data.user
   }
   if (!user) {
-    return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
   // Rate limit: 사용자당 시간당 30회 (세움터 API quota 보호)
   const allowed = await checkRateLimit(`user:${user.id}:auto-fill`, 30, 3600)
   if (!allowed) {
-    return NextResponse.json({ error: '자동채움 호출 횟수 제한을 초과했습니다. 잠시 후 다시 시도해주세요.' }, { status: 429 })
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   let body: AutoFillBody
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: '잘못된 요청 형식' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid_request' }, { status: 400 })
   }
 
   const { ho, platGbCd } = body
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
     }
   } else if (body.address && (!sigunguCd || !bjdongCd || !bun)) {
     const geo = await geocodeAddress(body.address)
-    if (!geo) return NextResponse.json({ error: '주소를 찾을 수 없습니다 (KAKAO_REST_KEY 확인 필요)' }, { status: 400 })
+    if (!geo) return NextResponse.json({ error: 'address_not_found' }, { status: 400 })
     sigunguCd = geo.sigunguCd
     bjdongCd = geo.bjdongCd
     bun = geo.bun
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!sigunguCd || !bjdongCd || !bun) {
-    return NextResponse.json({ error: '시군구·법정동·본번이 필요합니다' }, { status: 400 })
+    return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
 
   // 주소에서 동(棟)번호 추출 (101동, 102동 등) — 다동 건물 필터링용
@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
     let title = await callSeum('getBrTitleInfo', { ...addr, ...dongParam, regstrKindCd: '4' })
     if (title.length === 0) title = await callSeum('getBrTitleInfo', { ...addr, ...dongParam })
     if (title.length === 0) {
-      return NextResponse.json({ error: '건축물대장을 찾을 수 없습니다' }, { status: 404 })
+      return NextResponse.json({ error: 'building_not_found' }, { status: 404 })
     }
 
     // 동번호가 지정된 경우 해당 동의 표제부 선택
@@ -337,6 +337,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (err) {
     console.error('[auto-fill] error', err)
-    return NextResponse.json({ error: '세움터 호출 실패' }, { status: 502 })
+    return NextResponse.json({ error: 'upstream_fetch_failed' }, { status: 502 })
   }
 }

@@ -16,25 +16,25 @@ import { checkRateLimit } from '@/lib/rate-limit'
 export async function POST(req: NextRequest) {
   const apiKey = process.env.PUBLICDATA_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ error: 'PUBLICDATA_API_KEY 미설정. 공공데이터포털 키를 발급받아 env에 추가하세요.' }, { status: 500 })
+    return NextResponse.json({ error: 'config_missing_publicdata_key' }, { status: 500 })
   }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   // Rate limit: 사용자당 시간당 5회 (사업자번호 검증 quota 보호)
   const allowed = await checkRateLimit(`user:${user.id}:verify-business`, 5, 3600)
   if (!allowed) {
-    return NextResponse.json({ error: '검증 호출 횟수 제한 초과' }, { status: 429 })
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   let body: { businessNumber?: string }
-  try { body = await req.json() } catch { return NextResponse.json({ error: '잘못된 요청' }, { status: 400 }) }
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid_request' }, { status: 400 }) }
 
   const rawBn = (body.businessNumber ?? '').replace(/[^0-9]/g, '')
   if (rawBn.length !== 10) {
-    return NextResponse.json({ error: '사업자등록번호는 10자리 숫자입니다 (예: 1234567890)' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid_business_number' }, { status: 400 })
   }
 
   // 국세청 사업자등록 상태조회 API (status)
@@ -52,17 +52,17 @@ export async function POST(req: NextRequest) {
     })
   } catch (e) {
     console.error('[verify-business] fetch failed', e)
-    return NextResponse.json({ error: '국세청 API 호출 실패' }, { status: 502 })
+    return NextResponse.json({ error: 'upstream_fetch_failed' }, { status: 502 })
   }
   if (!r.ok) {
     const text = await r.text().catch(() => '')
-    return NextResponse.json({ error: `국세청 응답 ${r.status}`, detail: text.slice(0, 200) }, { status: 502 })
+    return NextResponse.json({ error: 'upstream_error', status: r.status, detail: text.slice(0, 200) }, { status: 502 })
   }
 
   const json = await r.json() as { data?: Array<Record<string, unknown>>; status_code?: string }
   const row = json.data?.[0]
   if (!row) {
-    return NextResponse.json({ error: '국세청 응답에 사업자 정보 없음', raw: json }, { status: 502 })
+    return NextResponse.json({ error: 'upstream_empty', raw: json }, { status: 502 })
   }
 
   // b_stt_cd: 01=계속사업자, 02=휴업자, 03=폐업자

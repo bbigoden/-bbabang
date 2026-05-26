@@ -12,16 +12,16 @@ import { checkRateLimit } from '@/lib/rate-limit'
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   let body: { propertyId?: string }
-  try { body = await req.json() } catch { return NextResponse.json({ error: '잘못된 요청' }, { status: 400 }) }
-  if (!body.propertyId) return NextResponse.json({ error: 'propertyId 필요' }, { status: 400 })
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid_request' }, { status: 400 }) }
+  if (!body.propertyId) return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
 
   // Rate limit
   const allowed = await checkRateLimit(`user:${user.id}:notify-customers`, 10, 3600)
   if (!allowed) {
-    return NextResponse.json({ error: '발송 횟수 제한 초과 (시간당 10회)' }, { status: 429 })
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
   }
 
   // 매물 + 본인 확인
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     .select('id, broker_id, address, deal_type, room_type, price, status, broker_profiles(office_name, user_id)')
     .eq('id', body.propertyId)
     .single()
-  if (!prop) return NextResponse.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 })
+  if (!prop) return NextResponse.json({ error: 'not_found' }, { status: 404 })
 
   // P2-3: as any 캐스팅 제거. Supabase가 단일/배열로 다르게 반환할 수 있어 정규화.
   type BrokerProfileMin = { office_name: string | null; user_id: string }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     : prop.broker_profiles) as BrokerProfileMin | null
   const brokerUserId = brokerProfile?.user_id
 
-  if (brokerUserId !== user.id) return NextResponse.json({ error: '본인 매물만 알림 발송 가능' }, { status: 403 })
+  if (brokerUserId !== user.id) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   if (prop.status !== 'available') return NextResponse.json({ ok: true, sent: 0, skipped: 'not_available' })
 
   // notifications 테이블에서 이 매물 알림을 받은 사용자 id 목록 조회 (트리거가 이미 채움)

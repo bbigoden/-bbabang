@@ -9,6 +9,7 @@ import { X, Shield, Users, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { transferBrokerData } from '@/lib/leave-office'
 import { OfficeCodeCard } from '@/components/office-code-card'
+import { useToast } from '@/components/toast'
 
 interface Permission {
   view: boolean
@@ -82,6 +83,7 @@ export default function BrokerTeamPage() {
   const supabase = createClient()
   const router = useRouter()
   const auth = useAuth()
+  const toast = useToast()
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
@@ -136,7 +138,7 @@ export default function BrokerTeamPage() {
       .update({ is_approved: true, permissions: approvePerms })
       .eq('id', empId)
     if (error) {
-      alert('승인 중 오류가 발생했습니다: ' + error.message)
+      toast.error('승인 중 오류가 발생했습니다: ' + error.message)
       setApproving(false)
       return
     }
@@ -154,7 +156,7 @@ export default function BrokerTeamPage() {
     const { error } = await supabase.rpc('reject_employee_application', { emp_broker_id: empId })
     if (error) {
       console.error('[team] reject failed', error)
-      alert(`거절 실패: ${error.message}`)
+      toast.error(`거절 실패: ${error.message}`)
       return
     }
     setPending(prev => prev.filter(e => e.id !== empId))
@@ -166,7 +168,7 @@ export default function BrokerTeamPage() {
     const { error } = await supabase.from('broker_profiles').update({ permissions: editPerms }).eq('id', empId)
     if (error) {
       console.error('[team] update perms failed', error)
-      alert(`권한 저장 실패: ${error.message}`)
+      toast.error(`권한 저장 실패: ${error.message}`)
       setSaving(false)
       return
     }
@@ -183,7 +185,7 @@ export default function BrokerTeamPage() {
     const { error: transferErr } = await transferBrokerData(supabase, empId, broker.id)
     if (transferErr) {
       console.error('[team] data transfer failed', transferErr)
-      alert(`데이터 이전 실패로 제거를 중단했어요: ${transferErr.message}`)
+      toast.error(`데이터 이전 실패로 제거를 중단했어요: ${transferErr.message}`)
       return
     }
 
@@ -191,7 +193,7 @@ export default function BrokerTeamPage() {
     const { error } = await supabase.rpc('remove_employee_from_office', { emp_broker_id: empId })
     if (error) {
       console.error('[team] detach failed', error)
-      alert(`직원 분리 실패: ${error.message}`)
+      toast.error(`직원 분리 실패: ${error.message}`)
       return
     }
     setApproved(prev => prev.filter(e => e.id !== empId))
