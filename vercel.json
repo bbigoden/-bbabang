@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/expire-requests",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/error-alert",
+      "schedule": "0,30 * * * *"
     }
   ]
 }
