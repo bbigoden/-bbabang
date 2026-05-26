@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { ArrowLeft, Building2, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
-import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
+import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독/다가구', '숙박']
@@ -171,8 +171,12 @@ export default function NewPropertyPage() {
       } catch { /* 푸시 실패는 무시 */ }
     }
 
-    // 사무소 대표에게 알림
+    // 사무소 대표에게 알림 (직원이 등록한 경우)
     notifyOwnerOfBrokerAction(broker.id, 'property', `${address || '신규 매물'} (${dealType || '거래형태 미지정'}) 등록`)
+    // 대표가 등록하면서 담당자를 직원으로 지정한 경우 → 그 직원에게 알림
+    if (assignee) {
+      notifyAssigneeOfAssignment(broker.id, 'property', assignee, null, `대표님이 새 매물(${address || '주소 미지정'}) 담당자로 지정했어요.`)
+    }
 
     router.push('/broker/properties')
   }

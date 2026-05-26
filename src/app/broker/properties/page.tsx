@@ -22,7 +22,7 @@ import {
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
-import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
+import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
 
 interface Property {
   id: string
@@ -1278,6 +1278,8 @@ function BrokerPropertiesContent() {
   }
 
   // 단일 필드 저장 (optimistic UI + 실패 시 롤백)
+  const brokerRef = useRef(broker)
+  useEffect(() => { brokerRef.current = broker }, [broker])
   const saveField = useCallback(async (id: string, field: string, value: any) => {
     let prevValue: any = undefined
     setProperties(prev => {
@@ -1290,6 +1292,9 @@ function BrokerPropertiesContent() {
       console.error('[saveField] failed', error)
       setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: prevValue } : p))
       alert(`저장 실패: ${error.message}`)
+    } else if (field === 'assignee' && brokerRef.current?.id) {
+      // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
+      notifyAssigneeOfAssignment(brokerRef.current.id, 'property', value, prevValue)
     }
   }, [])
 

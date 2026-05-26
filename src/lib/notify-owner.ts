@@ -78,3 +78,83 @@ export async function notifyOwnerOfBrokerAction(
     /* 알림 실패는 메인 작업을 방해하지 않음 */
   }
 }
+
+/**
+ * 대표가 매물·고객의 담당자(assignee)를 직원 이름으로 지정/변경하면
+ * 그 직원에게 "대표님이 배정했어요" 알림 발송.
+ *
+ * - 행위자가 대표가 아니면 무시 (직원이 본인 매물 작성 시 알림 X)
+ * - 변경 전·후 값이 같으면 무시
+ * - assignee가 콤마 구분 다중값일 수 있으므로 "새로 추가된 이름"만 알림
+ * - 대표 본인 이름이거나 사무소 직원과 매칭 안 되면 무시
+ */
+const ASSIGN_META: Record<'property' | 'customer', { icon: string; label: string; link: string }> = {
+  property: { icon: '🏠', label: '매물', link: '/broker/properties' },
+  customer: { icon: '👤', label: '고객', link: '/broker/customers' },
+}
+
+export async function notifyAssigneeOfAssignment(
+  actorBrokerId: string | null | undefined,
+  kind: 'property' | 'customer',
+  newAssigneeRaw: string | null | undefined,
+  prevAssigneeRaw: string | null | undefined,
+  detail?: string,
+): Promise<void> {
+  if (!actorBrokerId) return
+  const parse = (s: string | null | undefined) =>
+    new Set((s ?? '').split(',').map(x => x.trim()).filter(Boolean))
+  const newSet  = parse(newAssigneeRaw)
+  const prevSet = parse(prevAssigneeRaw)
+  const added = [...newSet].filter(n => !prevSet.has(n))
+  if (added.length === 0) return
+
+  try {
+    const supabase = createClient()
+
+    // 행위자: 대표여야만 진행
+    const { data: actor } = await supabase
+      .from('broker_profiles')
+      .select('id, user_id, is_owner')
+      .eq('id', actorBrokerId)
+      .maybeSingle()
+    if (!actor || !actor.is_owner) return
+
+    // 사무소 직원 목록 (대표의 broker_profile.id를 parent_broker_id로 가지는 사람)
+    const { data: members } = await supabase
+      .from('broker_profiles')
+      .select('id, user_id, profiles(name)')
+      .eq('parent_broker_id', actor.id)
+    if (!members || members.length === 0) return
+
+    const meta = ASSIGN_META[kind]
+
+    for (const name of added) {
+      const target = (members as any[]).find(m => (m.profiles as any)?.name === name)
+      if (!target?.user_id || target.user_id === actor.user_id) continue
+
+      const title = `${meta.icon} 대표님이 ${meta.label} 담당으로 지정`
+      const body  = detail || `대표님이 회원님을 ${meta.label} 담당자로 지정했어요.`
+
+      await supabase.from('notifications').insert({
+        user_id: target.user_id,
+        type: `assignee_${kind}_assigned`,
+        title,
+        body,
+        link: meta.link,
+      })
+      fetch('/api/push/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUserId: target.user_id,
+          title,
+          body,
+          url: meta.link,
+          tag: `assignee-${kind}-${target.id}-${Date.now()}`,
+        }),
+      }).catch(() => {})
+    }
+  } catch {
+    /* 무시 */
+  }
+}
