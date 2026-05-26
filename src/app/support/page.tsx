@@ -3,7 +3,8 @@ import { Header } from '@/components/layout/header'
 import { Mail, MessageCircle, Home } from 'lucide-react'
 import { SupportForm } from './support-form'
 
-export const dynamic = 'force-dynamic'
+// 정적 페이지 — FAQ + 폼만 있어 24시간 캐시 가능
+export const revalidate = 86400
 
 export const metadata = { title: '고객지원' }
 
