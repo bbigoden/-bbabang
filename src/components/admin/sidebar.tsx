@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Building2, Home, Flag,
-  Megaphone, BarChart3, AlertOctagon, Activity, Shield, LogOut, ExternalLink,
+  Megaphone, BarChart3, AlertOctagon, Activity, Shield, LogOut, ExternalLink, Film,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -24,6 +24,7 @@ const ITEMS: ItemDef[] = [
   { href: '/admin/users', label: '사용자 관리', icon: Users },
   { href: '/admin/brokers', label: '사무소 검수', icon: Building2 },
   { href: '/admin/stats', label: '통계·분석', icon: BarChart3 },
+  { href: '/admin/shorts', label: '쇼츠 공장', icon: Film },
   { href: '/admin/errors', label: '에러 로그', icon: AlertOctagon },
   { href: '/admin/health', label: '시스템 상태', icon: Activity },
 ]
