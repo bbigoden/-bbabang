@@ -53,9 +53,11 @@ export default function TrashPage() {
     return Math.max(0, Math.ceil(30 - elapsed))
   }
 
+  // SELECT RLS가 deleted_at IS NULL을 강제하므로 PostgREST의 DELETE/UPDATE RETURNING이 막힘.
+  // 휴지통 작업은 SECURITY DEFINER RPC로 우회.
   const restoreProperty = async (id: string) => {
     setBusy(id)
-    const { error } = await supabase.from('broker_properties').update({ deleted_at: null }).eq('id', id)
+    const { error } = await supabase.rpc('restore_property', { prop_id: id })
     setBusy(null)
     if (error) { toast.error(`복원 실패: ${error.message}`); return }
     setProps(prev => prev.filter(p => p.id !== id))
@@ -63,14 +65,14 @@ export default function TrashPage() {
   const purgeProperty = async (id: string) => {
     if (!confirm('영구 삭제하시겠어요?\n복구할 수 없습니다.')) return
     setBusy(id)
-    const { error } = await supabase.from('broker_properties').delete().eq('id', id)
+    const { error } = await supabase.rpc('purge_property', { prop_id: id })
     setBusy(null)
     if (error) { toast.error(`영구삭제 실패: ${error.message}`); return }
     setProps(prev => prev.filter(p => p.id !== id))
   }
   const restoreCustomer = async (id: string) => {
     setBusy(id)
-    const { error } = await supabase.from('broker_customers').update({ deleted_at: null }).eq('id', id)
+    const { error } = await supabase.rpc('restore_customer', { cust_id: id })
     setBusy(null)
     if (error) { toast.error(`복원 실패: ${error.message}`); return }
     setCusts(prev => prev.filter(c => c.id !== id))
@@ -78,7 +80,7 @@ export default function TrashPage() {
   const purgeCustomer = async (id: string) => {
     if (!confirm('영구 삭제하시겠어요?\n복구할 수 없습니다.')) return
     setBusy(id)
-    const { error } = await supabase.from('broker_customers').delete().eq('id', id)
+    const { error } = await supabase.rpc('purge_customer', { cust_id: id })
     setBusy(null)
     if (error) { toast.error(`영구삭제 실패: ${error.message}`); return }
     setCusts(prev => prev.filter(c => c.id !== id))
