@@ -57,7 +57,21 @@ export default function BrokerResourcesPage() {
   const [files, setFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const toggleExpand = (id: string) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
+
+  // description이 길면(3줄 초과 추정) 접기 처리. 줄바꿈 3개 이상이거나 140자 초과면 길다고 판단.
+  const isLongDesc = (s: string | null | undefined) => {
+    if (!s) return false
+    const lines = s.split('\n').length
+    return s.length > 140 || lines > 3
+  }
 
   useEffect(() => {
     if (auth.loading) return
@@ -412,9 +426,29 @@ export default function BrokerResourcesPage() {
                           </button>
                         )}
                       </div>
-                      {r.description && (
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400">{r.description}</p>
-                      )}
+                      {r.description && (() => {
+                        const long = isLongDesc(r.description)
+                        const open = expanded.has(r.id)
+                        return (
+                          <>
+                            <p
+                              className={`mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400 ${
+                                long && !open ? 'line-clamp-3' : ''
+                              }`}
+                            >
+                              {r.description}
+                            </p>
+                            {long && (
+                              <button
+                                onClick={() => toggleExpand(r.id)}
+                                className="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                              >
+                                {open ? '접기' : '더보기'}
+                              </button>
+                            )}
+                          </>
+                        )
+                      })()}
                       <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
                         <span>{uploaderName}</span>
                         <span>·</span>
