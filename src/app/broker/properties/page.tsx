@@ -22,6 +22,7 @@ import {
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
+import { geocodeAddress } from '@/lib/geocode'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES } from '@/lib/property-types'
@@ -58,6 +59,8 @@ interface Property {
   created_at: string
   received_date: string | null
   custom_fields: Record<string, string> | null
+  lat: number | null
+  lng: number | null
 }
 
 interface CustomColumn {
@@ -1214,7 +1217,7 @@ function BrokerPropertiesContent() {
       const collected: any[] = []
       for (let from = 0; ; from += PAGE) {
         const { data: page } = await supabase
-          .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields').eq('broker_id', b.id)
+          .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields, lat, lng').eq('broker_id', b.id)
           .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
         if (!page || page.length === 0) break
         collected.push(...page)
@@ -1277,7 +1280,7 @@ function BrokerPropertiesContent() {
     const collected: any[] = []
     for (let from = 0; ; from += PAGE) {
       const { data: page } = await supabase
-        .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields').in('broker_id', brokerIds)
+        .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields, lat, lng').in('broker_id', brokerIds)
         .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
       if (!page || page.length === 0) break
       collected.push(...page)
@@ -1305,6 +1308,17 @@ function BrokerPropertiesContent() {
     } else if (field === 'assignee' && brokerRef.current?.id) {
       // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
       notifyAssigneeOfAssignment(brokerRef.current.id, 'property', value, prevValue, `/broker/properties?focus=${id}`)
+    } else if (field === 'address' && typeof value === 'string' && value.trim() && value !== prevValue) {
+      // 주소가 바뀌면 좌표도 다시 구해 함께 저장 — 지도 뷰가 카카오 JS geocoder 호출 없이 즉시 마커 표시.
+      const coords = await geocodeAddress(value)
+      if (coords) {
+        await supabase.from('broker_properties').update({ lat: coords.lat, lng: coords.lng }).eq('id', id)
+        setProperties(prev => prev.map(p => p.id === id ? { ...p, lat: coords.lat, lng: coords.lng } : p))
+      } else {
+        // 변환 실패 시 stale 좌표 제거
+        await supabase.from('broker_properties').update({ lat: null, lng: null }).eq('id', id)
+        setProperties(prev => prev.map(p => p.id === id ? { ...p, lat: null, lng: null } : p))
+      }
     }
   }, [])
 
@@ -1358,6 +1372,17 @@ function BrokerPropertiesContent() {
       if (data.approval_date) updates.approval_date = data.approval_date
       if (data.parking) updates.parking = data.parking
       if (data.room_type) updates.room_type = data.room_type
+
+      // 자동채움 시 좌표도 함께 확보 (이미 있으면 굳이 재호출 안 함)
+      let hasCoords = false
+      setProperties(prev => { hasCoords = !!prev.find(p => p.id === id)?.lat; return prev })
+      if (!hasCoords) {
+        const coords = await geocodeAddress(addr)
+        if (coords) {
+          updates.lat = coords.lat
+          updates.lng = coords.lng
+        }
+      }
 
       const keys = Object.keys(updates)
       if (keys.length > 0) {
@@ -1529,9 +1554,13 @@ function BrokerPropertiesContent() {
     if (filterRoomType) list = list.filter(p => p.room_type === filterRoomType)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
+      // 숫자만 입력하면 매물번호 정확 매칭 우선 (예: "984" → seq_no 984)
+      const qNum = /^\d+$/.test(q.trim()) ? Number(q.trim()) : null
       list = list.filter(p => {
+        if (qNum != null && p.seq_no === qNum) return true
         // 현재 표시 중인 필드만 검색 (숨겨진 DB 컬럼 제외)
         const fields = [
+          p.seq_no != null ? String(p.seq_no) : null,  // 매물번호 (부분 매칭도 허용)
           p.address, p.deal_type, p.room_type, p.size_pyeong,
           p.price != null ? String(p.price) : null,
           p.total_floors, p.move_in_date, p.rooms_bathrooms,
@@ -1727,28 +1756,48 @@ function BrokerPropertiesContent() {
         }
       }
 
-      // 캐시된 좌표가 있으면 즉시 사용, 없으면 카카오 호출 (호출 후 캐시 저장).
-      // 동시 호출 수를 제한해서 OVER_QUERY_LIMIT 회피 (카카오 권장 ~5건/초 미만).
+      // 1) DB에 lat/lng가 이미 있으면 카카오 호출 없이 즉시 마커 — 백필·등록·자동채움 시 채워짐.
+      // 2) 없는 매물만 카카오 JS geocoder 호출 (백필 누락·신규 등록 직후 등) → 성공 시 DB에 저장.
+      // 동시 호출 수 제한으로 OVER_QUERY_LIMIT 회피.
       const cache = geocodeCacheRef.current
+      const needsGeocode: Property[] = []
+      for (const prop of targets) {
+        if (prop.lat != null && prop.lng != null) {
+          geocoded.push({ prop, lat: prop.lat, lng: prop.lng })
+          done++
+        } else {
+          needsGeocode.push(prop)
+        }
+      }
+      // 모두 DB 좌표면 즉시 렌더
+      if (needsGeocode.length === 0) {
+        buildAllMarkers()
+        return
+      }
+
       const CONCURRENT = 4
       let inFlight = 0
       let cursor = 0
 
       const finalize = (prop: Property, coords: { lat: number; lng: number } | null) => {
         done++
-        if (coords) geocoded.push({ prop, lat: coords.lat, lng: coords.lng })
+        if (coords) {
+          geocoded.push({ prop, lat: coords.lat, lng: coords.lng })
+          // DB에도 비동기로 저장 — 다음 페이지 로드부터는 카카오 호출 안 함
+          supabase.from('broker_properties').update({ lat: coords.lat, lng: coords.lng }).eq('id', prop.id).then(() => {
+            setProperties(prev => prev.map(p => p.id === prop.id ? { ...p, lat: coords.lat, lng: coords.lng } : p))
+          })
+        }
         if (done === targets.length) buildAllMarkers()
         else schedule()
       }
 
       const processOne = (prop: Property) => {
         const key = normalizeAddr(prop.address!)
-        // 캐시 hit (성공·실패 둘 다) — 즉시 처리
         if (key in cache) {
           finalize(prop, cache[key])
           return
         }
-        // 카카오 호출
         inFlight++
         geocoder.addressSearch(key, (result: any, status: any) => {
           inFlight--
@@ -1762,8 +1811,8 @@ function BrokerPropertiesContent() {
       }
 
       const schedule = () => {
-        while (inFlight < CONCURRENT && cursor < targets.length) {
-          processOne(targets[cursor++])
+        while (inFlight < CONCURRENT && cursor < needsGeocode.length) {
+          processOne(needsGeocode[cursor++])
         }
       }
       schedule()
