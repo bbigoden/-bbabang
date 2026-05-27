@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { MapPin, Clock, Search, SlidersHorizontal, X } from 'lucide-react'
 import Link from 'next/link'
+import { ALL_ROOM_TYPES as ROOM_TYPES } from '@/lib/property-types'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
-const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립']
 
 interface Props {
   brokerDistricts: string[]

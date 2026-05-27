@@ -56,19 +56,8 @@ describe('formatDate', () => {
 })
 
 // ── auto-fill 순수 함수 ───────────────────────────────────────────────────────
-// route.ts 내부 함수를 여기서 직접 검증 (별도 export 없이 로직 기준 테스트)
-
-function mapRoomType(purps: string): string | null {
-  const p = purps || ''
-  if (p.includes('아파트') || p.includes('공동주택')) return '아파트'
-  if (p.includes('오피스텔')) return '오피스텔'
-  if (p.includes('다세대') || p.includes('연립')) return '빌라/연립'
-  if (p.includes('단독주택') || p.includes('다가구')) return '단독주택'
-  if (p.includes('업무')) return '사무실'
-  if (p.includes('근린생활') || p.includes('판매') || p.includes('소매') || p.includes('교육연구') || p.includes('교육시설')) return '상가'
-  if (p.includes('공장') || p.includes('창고') || p.includes('위험물')) return '창고/공장'
-  return null
-}
+// 공통 모듈(src/lib/property-types.ts)의 mapPurposeToRoomType을 직접 import해서 테스트
+import { mapPurposeToRoomType as mapRoomType } from '@/lib/property-types'
 
 function parseFloor(flrGbCd: string, flrNoNm: string, flrNo: number): number | null {
   const nm = flrNoNm
@@ -89,17 +78,29 @@ function formatDateSeum(s: unknown): string | null {
 const m2ToPyeong = (m2: number) => +(m2 / 3.305785).toFixed(2)
 const pad4 = (s: string) => String(s || '0').padStart(4, '0')
 
-describe('mapRoomType', () => {
+describe('mapRoomType (19종)', () => {
+  // 주거 7종
   it('아파트', () => expect(mapRoomType('공동주택(아파트)')).toBe('아파트'))
   it('오피스텔', () => expect(mapRoomType('업무시설(오피스텔)')).toBe('오피스텔'))
   it('빌라/연립', () => expect(mapRoomType('다세대주택')).toBe('빌라/연립'))
-  it('단독주택', () => expect(mapRoomType('단독주택')).toBe('단독주택'))
-  it('다가구 → 단독주택', () => expect(mapRoomType('다가구주택')).toBe('단독주택'))
+  it('단독/다가구 - 단독', () => expect(mapRoomType('단독주택')).toBe('단독/다가구'))
+  it('단독/다가구 - 다가구', () => expect(mapRoomType('다가구주택')).toBe('단독/다가구'))
+  // 비주거 12종
   it('사무실', () => expect(mapRoomType('업무시설')).toBe('사무실'))
   it('상가 - 근린생활', () => expect(mapRoomType('제1종근린생활시설')).toBe('상가'))
-  it('상가 - 교육연구', () => expect(mapRoomType('교육연구시설')).toBe('상가'))
-  it('창고/공장', () => expect(mapRoomType('공장')).toBe('창고/공장'))
-  it('알 수 없음 → null', () => expect(mapRoomType('기타시설')).toBeNull())
+  it('교육시설', () => expect(mapRoomType('교육연구시설')).toBe('교육시설'))
+  it('창고/공장 - 공장', () => expect(mapRoomType('공장')).toBe('창고/공장'))
+  it('창고/공장 - 위험물', () => expect(mapRoomType('위험물 저장 및 처리 시설')).toBe('창고/공장'))
+  it('숙박', () => expect(mapRoomType('숙박시설')).toBe('숙박'))
+  it('의료시설', () => expect(mapRoomType('의료시설')).toBe('의료시설'))
+  it('의료시설 - 노유자', () => expect(mapRoomType('노유자시설')).toBe('의료시설'))
+  it('위락시설', () => expect(mapRoomType('위락시설')).toBe('위락시설'))
+  it('운동시설', () => expect(mapRoomType('운동시설')).toBe('운동시설'))
+  it('자동차시설', () => expect(mapRoomType('자동차 관련 시설')).toBe('자동차시설'))
+  it('농업/축사', () => expect(mapRoomType('동물 및 식물 관련 시설')).toBe('농업/축사'))
+  // 매핑 안 되는 것 → '기타'
+  it('기타 - 종교', () => expect(mapRoomType('종교시설')).toBe('기타'))
+  it('기타 - 묘지', () => expect(mapRoomType('묘지 관련 시설')).toBe('기타'))
   it('빈 문자열 → null', () => expect(mapRoomType('')).toBeNull())
 })
 

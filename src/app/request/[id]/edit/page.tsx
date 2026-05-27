@@ -10,13 +10,9 @@ import { Header } from '@/components/layout/header'
 import { cn } from '@/lib/utils'
 import { validateBudgetRange, validateArea } from '@/lib/validation'
 import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
+import { PROPERTY_CATEGORIES } from '@/lib/property-types'
 
 const DEAL_TYPES = ['매매', '월세', '전세']
-const PROPERTY_CATEGORIES = [
-  { label: '주거', types: ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '단독/다가구'] },
-  { label: '상업', types: ['상가', '사무실', '건물 전체'] },
-  { label: '기타', types: ['토지', '창고/공장', '숙박/여관'] },
-]
 const REGIONS: Record<string, string[]> = {
   '서울특별시': ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'],
   '경기도': ['수원시','성남시','고양시','용인시','부천시','안산시','화성시','남양주시','안양시','평택시','의정부시','파주시','시흥시','김포시','광주시','광명시','군포시','하남시','오산시','이천시','안성시','의왕시','양주시','구리시','포천시','여주시','동두천시','과천시','가평군','양평군','연천군'],

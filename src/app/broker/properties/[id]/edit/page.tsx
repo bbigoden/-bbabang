@@ -13,9 +13,9 @@ import { cn } from '@/lib/utils'
 import { ArrowLeft, Building2, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
+import { PROPERTY_CATEGORIES } from '@/lib/property-types'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
-const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독', '숙박']
 const OPTIONS = [
   '풀옵션', '에어컨', '세탁기', '냉장고', '전자레인지', '인터넷',
   '주차 가능', '엘리베이터', '반려동물 허용', 'CCTV', '도시가스', '관리비 포함',
@@ -273,24 +273,31 @@ export default function EditPropertyPage() {
               </CardBody>
             </Card>
 
-            {/* 매물 유형 */}
+            {/* 매물 유형 — 주거/비주거 카테고리별 */}
             <Card>
               <CardBody>
                 <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">매물 유형 <span className="text-red-500">*</span></p>
-                <div className="grid grid-cols-4 gap-2">
-                  {ROOM_TYPES.map(t => (
-                    <button
-                      key={t} type="button"
-                      onClick={() => setRoomType(t)}
-                      className={cn(
-                        'rounded-xl border-2 py-2 text-xs font-medium transition-all',
-                        roomType === t
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      )}
-                    >
-                      {t}
-                    </button>
+                <div className="space-y-3">
+                  {PROPERTY_CATEGORIES.map(cat => (
+                    <div key={cat.label}>
+                      <p className="mb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{cat.label}</p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {cat.types.map(t => (
+                          <button
+                            key={t} type="button"
+                            onClick={() => setRoomType(t)}
+                            className={cn(
+                              'rounded-xl border-2 py-2 text-xs font-medium transition-all',
+                              roomType === t
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            )}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </CardBody>

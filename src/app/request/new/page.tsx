@@ -11,25 +11,10 @@ import { cn } from '@/lib/utils'
 import { validateBudgetRange, validateArea } from '@/lib/validation'
 import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
 import { RegionPicker, type RegionValue } from '@/components/region-picker'
+import { PROPERTY_CATEGORIES } from '@/lib/property-types'
 
 // ─── 거래 유형 ───
 const DEAL_TYPES = ['매매', '월세', '전세']
-
-// ─── 매물 유형 (카테고리별) ───
-const PROPERTY_CATEGORIES = [
-  {
-    label: '주거',
-    types: ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '단독/다가구'],
-  },
-  {
-    label: '상업',
-    types: ['상가', '사무실', '건물 전체'],
-  },
-  {
-    label: '기타',
-    types: ['토지', '창고/공장', '숙박/여관'],
-  },
-]
 
 const STEPS = ['거래·매물 유형', '위치', '예산', '상세 조건']
 

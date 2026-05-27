@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { mapPurposeToRoomType } from '@/lib/property-types'
 
 const SEUM_BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService'
 
@@ -122,17 +123,8 @@ async function callSeum(endpoint: string, params: Record<string, string>): Promi
 
 const pad4 = (s: string) => String(s || '0').padStart(4, '0')
 
-function mapRoomType(purps: string): string | null {
-  const p = purps || ''
-  if (p.includes('아파트') || p.includes('공동주택')) return '아파트'
-  if (p.includes('오피스텔')) return '오피스텔'
-  if (p.includes('다세대') || p.includes('연립')) return '빌라/연립'
-  if (p.includes('단독주택') || p.includes('다가구')) return '단독주택'
-  if (p.includes('업무')) return '사무실'
-  if (p.includes('근린생활') || p.includes('판매') || p.includes('소매') || p.includes('교육연구') || p.includes('교육시설')) return '상가'
-  if (p.includes('공장') || p.includes('창고') || p.includes('위험물')) return '창고/공장'
-  return null
-}
+// 세움터 용도 → 빠방 19종 매핑은 공통 모듈에서 import (mapPurposeToRoomType)
+const mapRoomType = mapPurposeToRoomType
 
 function formatDate(s: unknown): string | null {
   const str = String(s ?? '')

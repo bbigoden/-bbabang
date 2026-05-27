@@ -24,6 +24,7 @@ import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
+import { ALL_ROOM_TYPES } from '@/lib/property-types'
 
 interface Property {
   id: string
@@ -73,7 +74,7 @@ const _STATUS_COLOR: Record<string, string> = {
   hidden: 'bg-yellow-100 text-yellow-700',
 }
 const DEAL_TYPES = ['매매', '전세', '월세', '분양', '분양권']
-const ROOM_TYPES = ['원룸', '투룸', '쓰리룸 이상', '아파트', '오피스텔', '빌라/연립', '상가', '사무실', '창고/공장', '토지', '단독/다가구', '숙박', '기타']
+const ROOM_TYPES = ALL_ROOM_TYPES
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const _PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
