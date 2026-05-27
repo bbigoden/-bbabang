@@ -3,6 +3,7 @@
 //
 // 주거 7종 + 비주거 12종 = 총 19종.
 // 세움터 건축법상 29종 용도를 빠방 분류로 매핑하기 위한 확장된 분류 체계.
+// 비주거 상가 계열 7종은 '(상가)' 접미로 통일.
 
 export interface PropertyCategory {
   label: string
@@ -17,9 +18,9 @@ export const PROPERTY_CATEGORIES: PropertyCategory[] = [
   {
     label: '비주거',
     types: [
-      '상가', '사무실', '창고/공장', '숙박',
-      '의료시설', '교육시설', '위락시설', '운동시설',
-      '자동차시설', '농업/축사', '토지', '기타',
+      '1종(상가)', '2종(상가)', '판매(상가)', '업무(상가)',
+      '의료(상가)', '교육(상가)', '운동(상가)',
+      '공장/창고', '농업/축사', '숙박', '토지', '기타',
     ],
   },
 ]
@@ -33,7 +34,10 @@ export const NON_RESIDENTIAL_TYPES = PROPERTY_CATEGORIES[1].types
  * 세움터 건축물대장의 "용도" 텍스트 → 빠방 19종 분류로 매핑.
  * 매칭 우선순위 주의: 위에서부터 순서대로 체크되므로, 더 구체적인 키워드를 먼저 둠.
  *
- * 매핑 안 되는 케이스(종교/문화/운수/자원순환/교정/국방/방송통신/발전/묘지/관광휴게/장례 등)는 '기타' 반환.
+ * 비주거 상가 계열은 '(상가)' 접미 통일:
+ *   1종(상가), 2종(상가), 판매(상가), 업무(상가), 의료(상가), 교육(상가), 운동(상가)
+ *
+ * 매핑 안 되는 케이스(문화/종교/운수/노유자/수련/위락/자동차/관광휴게/야영장/자원순환/교정/방송통신/발전/묘지/장례 등)는 '기타' 반환.
  * 빈 문자열은 null 반환(자동채움 실패 시 호출자가 기본값 적용).
  */
 export function mapPurposeToRoomType(purps: string): string | null {
@@ -46,21 +50,21 @@ export function mapPurposeToRoomType(purps: string): string | null {
   if (p.includes('다세대') || p.includes('연립')) return '빌라/연립'
   if (p.includes('단독주택') || p.includes('다가구') || p.includes('다중주택')) return '단독/다가구'
 
-  // ── 비주거 ──
-  if (p.includes('업무')) return '사무실'
-  if (p.includes('숙박')) return '숙박'
-  if (p.includes('의료') || p.includes('노유자')) return '의료시설'
-  if (p.includes('교육연구') || p.includes('교육시설')) return '교육시설'
-  if (p.includes('위락')) return '위락시설'
-  if (p.includes('운동')) return '운동시설'
-  if (p.includes('자동차')) return '자동차시설'
-  if (p.includes('축사') || p.includes('동물') || p.includes('식물 관련')) return '농업/축사'
-  if (p.includes('공장') || p.includes('창고') || p.includes('위험물')) return '창고/공장'
-  if (
-    p.includes('근린생활') || p.includes('판매') || p.includes('소매')
-  ) return '상가'
+  // ── 비주거: 상가 계열 (접미 통일) ──
+  if (p.includes('1종') && p.includes('근린')) return '1종(상가)'
+  if (p.includes('2종') && p.includes('근린')) return '2종(상가)'
+  if (p.includes('판매')) return '판매(상가)'
+  if (p.includes('업무')) return '업무(상가)'
+  if (p.includes('의료')) return '의료(상가)'
+  if (p.includes('교육연구') || p.includes('교육시설')) return '교육(상가)'
+  if (p.includes('운동')) return '운동(상가)'
+  if (p.includes('근린생활')) return '1종(상가)'  // 종 미명시 fallback
 
-  // ── 그 외 (종교/문화/운수/자원순환/교정/국방/방송통신/발전/묘지/관광휴게/장례 등) ──
-  // 빠방 어디에도 잘 안 맞으므로 '기타'로 통합
+  // ── 비주거: 그 외 ──
+  if (p.includes('숙박')) return '숙박'
+  if (p.includes('공장') || p.includes('창고') || p.includes('위험물')) return '공장/창고'
+  if (p.includes('축사') || p.includes('동물') || p.includes('식물 관련')) return '농업/축사'
+
+  // ── 그 외 (문화·종교·운수·노유자·수련·위락·자동차·관광휴게·야영장·자원순환·교정·방송통신·발전·묘지·장례 등) ──
   return '기타'
 }
