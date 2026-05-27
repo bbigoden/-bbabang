@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Users, Eye, MoreHorizontal, X, Lock, Download, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -329,6 +329,7 @@ function DonutChart({ data, colors, total }: { data: [string, number][]; colors:
 export default function BrokerCustomersPage() {
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const auth = useAuth()
   const toast = useToast()
 
@@ -434,7 +435,7 @@ export default function BrokerCustomersPage() {
       toast.error(`저장 실패: ${error.message}`)
     } else if (field === 'assignee' && brokerRef.current?.id) {
       // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
-      notifyAssigneeOfAssignment(brokerRef.current.id, 'customer', value, prevValue)
+      notifyAssigneeOfAssignment(brokerRef.current.id, 'customer', value, prevValue, `/broker/customers?focus=${id}`)
     }
   }, [])
 
@@ -467,7 +468,7 @@ export default function BrokerCustomersPage() {
     // customers 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'customer', '새 고객 행을 추가했어요.')
+    notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
   }
 
   // 고객 row 복사 — id/created_at 제외하고 모든 필드 동일하게 새 row 생성
@@ -478,7 +479,7 @@ export default function BrokerCustomersPage() {
     if (error || !data) return
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'customer', `고객을 복제했어요${c.client_name ? ` (${c.client_name})` : ''}.`)
+    notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
   }
 
   const openImport = async () => {
@@ -524,7 +525,9 @@ export default function BrokerCustomersPage() {
     if (!error && data) {
       setCustomers(prev => [...data, ...prev])
       setShowImport(false)
-      notifyOwnerOfBrokerAction(broker.id, 'customer', `빠방 채팅에서 고객 ${data.length}명을 가져왔어요.`)
+      // 여러 명 동시 가져오기 → 첫 번째 고객으로 강조
+      const firstId = data[0]?.id
+      notifyOwnerOfBrokerAction(broker.id, 'customer', firstId ? `/broker/customers?focus=${firstId}` : undefined)
     }
     setImporting(false)
   }
@@ -656,6 +659,19 @@ export default function BrokerCustomersPage() {
   const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize)
   // 필터 변경 시 1페이지로 리셋
   useEffect(() => { setPage(1) }, [monthFilter, assigneeFilter, search, pageSize])
+
+  // 알림에서 ?focus=ID 로 진입 시 해당 고객 강조 (한 번만 처리)
+  const focusedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const focus = searchParams.get('focus')
+    if (!focus || loading) return
+    if (focusedRef.current === focus) return
+    if (customers.some(c => c.id === focus)) {
+      focusedRef.current = focus
+      setAddingId(focus)
+      setTimeout(() => setAddingId(null), 2500)
+    }
+  }, [searchParams, loading, customers])
 
   // 새 행 추가 시 새 행이 있는 페이지로 이동 + 화면 스크롤 + 첫 셀 자동 편집
   useEffect(() => {

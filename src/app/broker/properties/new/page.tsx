@@ -175,10 +175,11 @@ export default function NewPropertyPage() {
     }
 
     // 사무소 대표에게 알림 (직원이 등록한 경우)
-    notifyOwnerOfBrokerAction(broker.id, 'property', `${address || '신규 매물'} (${dealType || '거래형태 미지정'}) 등록`)
+    const propLink = inserted?.id ? `/broker/properties?focus=${inserted.id}` : undefined
+    notifyOwnerOfBrokerAction(broker.id, 'property', propLink)
     // 대표가 등록하면서 담당자를 직원으로 지정한 경우 → 그 직원에게 알림
     if (assignee) {
-      notifyAssigneeOfAssignment(broker.id, 'property', assignee, null, `대표님이 새 매물(${address || '주소 미지정'}) 담당자로 지정했어요.`)
+      notifyAssigneeOfAssignment(broker.id, 'property', assignee, null, propLink)
     }
 
     router.push('/broker/properties')

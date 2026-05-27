@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, ChevronLeft, ChevronRight, Eye, MoreHorizontal, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -422,6 +422,7 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
 export default function BrokerDiaryPage() {
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const auth = useAuth()
 
   const [user, setUser] = useState<any>(null)
@@ -457,6 +458,23 @@ export default function BrokerDiaryPage() {
   // 날짜
   const [diaryDate, setDiaryDate] = useState(() => new Date().toISOString().split('T')[0])
   const [diaryLoading, setDiaryLoading] = useState(false)
+
+  // 알림에서 ?date=YYYY-MM-DD&broker=BROKER_ID 로 진입 시 처리 (한 번만)
+  const notifNavRef = useRef(false)
+  useEffect(() => {
+    if (notifNavRef.current) return
+    const dateParam = searchParams.get('date')
+    const brokerParam = searchParams.get('broker')
+    if (!dateParam && !brokerParam) return
+    if (!broker) return  // broker 로드 후에야 본인 매칭 가능
+    notifNavRef.current = true
+    if (dateParam) setDiaryDate(dateParam)
+    if (brokerParam && isOwner && brokerParam !== broker.id) {
+      // 대표가 직원 일지 알림 클릭 → 그 직원 일지 보기
+      setViewingBrokerId(brokerParam)
+      setViewingExEmployee(false)
+    }
+  }, [searchParams, broker, isOwner])
 
   // 칼럼 설정
   // 일지의 customCols·옵션도 viewing 대상의 col_settings 사용 (직원별 다른 칼럼 지원)
@@ -805,7 +823,7 @@ export default function BrokerDiaryPage() {
     else {
       await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
       // 그날 첫 일지 작성 시 대표에게 알림 (이후 셀 update는 알림 없음)
-      notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `${diaryDate} 업무일지를 작성하기 시작했어요.`)
+      notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
     }
     setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
   }, [broker, diaryDate, sectionContent, viewingBrokerId, viewingExEmployee])
@@ -907,7 +925,7 @@ export default function BrokerDiaryPage() {
     if (existingDiary) await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
     else {
       await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
-      notifyOwnerOfBrokerAction(broker.id, 'diary', `${importDate} 일지를 ${diaryDate}로 불러왔어요.`)
+      notifyOwnerOfBrokerAction(broker.id, 'diary', `/broker/diary?date=${diaryDate}&broker=${broker.id}`)
     }
     setSectionContent(newContent)
     setImporting(false)

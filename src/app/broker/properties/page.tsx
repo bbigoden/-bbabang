@@ -1098,6 +1098,8 @@ function BrokerPropertiesContent() {
   const markersRef = useRef<any[]>([])         // 카카오 Marker 인스턴스들
   const clustererRef = useRef<any>(null)        // MarkerClusterer
   const infoOverlaysRef = useRef<any[]>([])     // 클릭 시 뜨는 정보 카드
+  // 카카오 geocoder 결과 캐시 (effect 재실행·검색 변경 시에도 유지) — OVER_QUERY_LIMIT 회피
+  const geocodeCacheRef = useRef<Record<string, { lat: number; lng: number } | null>>({})
   const [addingId, setAddingId] = useState<string | null>(null)
   const [autoFillingId, setAutoFillingId] = useState<string | null>(null)
   const [autoFillToast, setAutoFillToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -1301,7 +1303,7 @@ function BrokerPropertiesContent() {
       toast.error(`저장 실패: ${error.message}`)
     } else if (field === 'assignee' && brokerRef.current?.id) {
       // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
-      notifyAssigneeOfAssignment(brokerRef.current.id, 'property', value, prevValue)
+      notifyAssigneeOfAssignment(brokerRef.current.id, 'property', value, prevValue, `/broker/properties?focus=${id}`)
     }
   }, [])
 
@@ -1475,7 +1477,7 @@ function BrokerPropertiesContent() {
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'property', '새 매물 행을 추가했어요.')
+    notifyOwnerOfBrokerAction(broker.id, 'property', `/broker/properties?focus=${data.id}`)
   }
 
   const deleteProperty = useCallback((id: string) => {
@@ -1517,7 +1519,7 @@ function BrokerPropertiesContent() {
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'property', `매물을 복제했어요${prop.address ? ` (${prop.address})` : ''}.`)
+    notifyOwnerOfBrokerAction(broker.id, 'property', `/broker/properties?focus=${data.id}`)
   }, [broker])
 
   const filtered = useMemo(() => {
@@ -1610,14 +1612,24 @@ function BrokerPropertiesContent() {
       // 거래형태가 "매매, 월세" 같은 멀티면 첫 번째 값 기준 색
       const pickPrimaryDeal = (d: string) => (d ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
 
-      const fmtPrice = (p: Property) => {
-        if (p.price == null) return '미정'
-        if (p.price >= 10000) {
-          const uk = Math.floor(p.price / 10000)
-          const man = p.price % 10000
-          return uk + '억' + (man > 0 ? ' ' + man + '만' : '')
+      const fmtAmount = (v: number) => {
+        if (v >= 10000) {
+          const uk = Math.floor(v / 10000)
+          const man = v % 10000
+          return uk + '억' + (man > 0 ? ' ' + man.toLocaleString() + '만' : '')
         }
-        return p.price.toLocaleString() + '만'
+        return v.toLocaleString() + '만'
+      }
+      const fmtPrice = (p: Property) => {
+        const isWolse = (p.deal_type ?? '').includes('월세')
+        if (isWolse) {
+          // 월세: 보증금/월세 형식 (예: "500/60만")
+          const dep = p.price != null ? p.price.toLocaleString() : '?'
+          const mo = p.monthly_rent != null ? p.monthly_rent.toLocaleString() : '?'
+          return `${dep}/${mo}만`
+        }
+        if (p.price == null) return '미정'
+        return fmtAmount(p.price)
       }
       const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
@@ -1753,6 +1765,19 @@ function BrokerPropertiesContent() {
   }, [filtered, sortKey, sortDir, direction])
 
   const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize)
+
+  // 알림에서 ?focus=ID 로 진입 시 해당 매물 강조 (한 번만 처리)
+  const focusedRef = useRef<string | null>(null)
+  useEffect(() => {
+    const focus = searchParams.get('focus')
+    if (!focus || loading) return
+    if (focusedRef.current === focus) return
+    if (properties.some(p => p.id === focus)) {
+      focusedRef.current = focus
+      setAddingId(focus)
+      setTimeout(() => setAddingId(null), 2500)
+    }
+  }, [searchParams, loading, properties])
 
   // 새 행 추가 시: 페이지 이동 + 스크롤 + 첫 셀 클릭 (편집모드)
   useEffect(() => {

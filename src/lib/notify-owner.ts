@@ -19,7 +19,7 @@ const META: Record<ActionKind, { icon: string; title: string; link: string }> = 
 export async function notifyOwnerOfBrokerAction(
   brokerId: string | null | undefined,
   kind: ActionKind,
-  _detail?: string,  // 호환성 유지용 (현재 미사용 — 메시지 단순화)
+  link?: string,  // 알림 클릭 시 이동할 URL (없으면 기본 페이지로)
 ): Promise<void> {
   if (!brokerId) return
   try {
@@ -46,6 +46,7 @@ export async function notifyOwnerOfBrokerAction(
     const meta = META[kind]
     const title = `${meta.icon} ${meta.title}`
     const body  = ''
+    const finalLink = link || meta.link
 
     // 인앱 알림 (종 아이콘)
     await supabase.from('notifications').insert({
@@ -53,7 +54,7 @@ export async function notifyOwnerOfBrokerAction(
       type: `staff_${kind}_added`,
       title,
       body,
-      link: meta.link,
+      link: finalLink,
     })
 
     // 웹 푸시 (실패 무시 — 푸시 미허용 대표도 인앱은 받음)
@@ -64,8 +65,8 @@ export async function notifyOwnerOfBrokerAction(
         targetUserId: owner.user_id,
         title,
         body,
-        url: meta.link,
-        tag: `staff-${kind}-${brokerId}`,
+        url: finalLink,
+        tag: `staff-${kind}-${brokerId}-${Date.now()}`,
       }),
     }).catch(() => {})
   } catch {
@@ -92,7 +93,7 @@ export async function notifyAssigneeOfAssignment(
   kind: 'property' | 'customer',
   newAssigneeRaw: string | null | undefined,
   prevAssigneeRaw: string | null | undefined,
-  _detail?: string,  // 호환성 유지용 (현재 미사용 — 메시지 단순화)
+  link?: string,  // 알림 클릭 시 이동할 URL (해당 매물·고객 행으로 강조 이동)
 ): Promise<void> {
   if (!actorBrokerId) return
   const parse = (s: string | null | undefined) =>
@@ -128,13 +129,14 @@ export async function notifyAssigneeOfAssignment(
 
       const title = `${meta.icon} ${meta.title}`
       const body  = ''
+      const finalLink = link || meta.link
 
       await supabase.from('notifications').insert({
         user_id: target.user_id,
         type: `assignee_${kind}_assigned`,
         title,
         body,
-        link: meta.link,
+        link: finalLink,
       })
       fetch('/api/push/notify', {
         method: 'POST',
@@ -143,7 +145,7 @@ export async function notifyAssigneeOfAssignment(
           targetUserId: target.user_id,
           title,
           body,
-          url: meta.link,
+          url: finalLink,
           tag: `assignee-${kind}-${target.id}-${Date.now()}`,
         }),
       }).catch(() => {})

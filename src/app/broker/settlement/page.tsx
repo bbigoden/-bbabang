@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -185,6 +185,7 @@ function RateCell({ value, onSave }: { value: number; onSave: (v: number) => voi
 
 export default function SettlementPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
@@ -198,6 +199,27 @@ export default function SettlementPage() {
   const [exAssignees, setExAssignees] = useState<Array<{ key: string; name: string }>>([])
   const [month, setMonth] = useState(() => yyyymm(new Date()))
   const [allMode, setAllMode] = useState(false)
+  const [highlightSettlementId, setHighlightSettlementId] = useState<string | null>(null)
+
+  // 알림에서 ?month=YYYY-MM&focus=ID 로 진입 시 처리 (한 번만)
+  const notifNavRef = useRef(false)
+  useEffect(() => {
+    if (notifNavRef.current) return
+    const monthParam = searchParams.get('month')
+    const focusParam = searchParams.get('focus')
+    if (!monthParam && !focusParam) return
+    notifNavRef.current = true
+    if (monthParam) { setAllMode(false); setMonth(monthParam) }
+    if (focusParam) {
+      setHighlightSettlementId(focusParam)
+      // 행 렌더링 후 scroll
+      setTimeout(() => {
+        const row = document.querySelector(`tr[data-row-id="${focusParam}"]`) as HTMLElement | null
+        row?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }, 400)
+      setTimeout(() => setHighlightSettlementId(null), 2500)
+    }
+  }, [searchParams])
   // 필터 값:
   //   ''             = 전체
   //   '<broker_id>'  = 재직 직원
@@ -402,7 +424,7 @@ export default function SettlementPage() {
       .single()
     if (error) { toast.error('추가 실패: ' + error.message); return }
     setRows(prev => [...prev, data as Settlement])
-    notifyOwnerOfBrokerAction(meBroker.id, 'settlement', `${recordMonth} 정산 행을 추가했어요.`)
+    notifyOwnerOfBrokerAction(meBroker.id, 'settlement', `/broker/settlement?month=${recordMonth}&focus=${(data as Settlement).id}`)
   }
 
   const deleteRow = async (r: Settlement) => {
@@ -643,7 +665,7 @@ export default function SettlementPage() {
                   const canEditMoney = isOwner || r.assignee_broker_id === meBroker?.id
 
                   return (
-                    <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/20">
+                    <tr key={r.id} data-row-id={r.id} className={`border-t border-gray-100 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:bg-gray-800/20 transition-colors ${highlightSettlementId === r.id ? 'animate-pulse bg-blue-50/60' : ''}`}>
                       <td className="px-1 py-1">
                         <DateCell value={r.contract_date} onSave={v => updateRow(r.id, { contract_date: v })} />
                       </td>
