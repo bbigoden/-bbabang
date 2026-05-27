@@ -25,7 +25,7 @@ import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { geocodeAddress } from '@/lib/geocode'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
-import { ALL_ROOM_TYPES } from '@/lib/property-types'
+import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 
 interface Property {
   id: string
@@ -1127,7 +1127,18 @@ function BrokerPropertiesContent() {
   const [adminViewBrokerName, setAdminViewBrokerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterDealType, setFilterDealType] = useState('')
-  const [filterRoomType, setFilterRoomType] = useState('')
+  const [filterRoomTypes, setFilterRoomTypes] = useState<string[]>([])  // 다중 선택
+  const toggleRoomType = (t: string) => {
+    setFilterRoomTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+  }
+  const toggleRoomGroup = (types: string[]) => {
+    // 그룹 전체 선택 / 전체 해제 토글
+    setFilterRoomTypes(prev => {
+      const allSelected = types.every(t => prev.includes(t))
+      if (allSelected) return prev.filter(x => !types.includes(x))
+      return Array.from(new Set([...prev, ...types]))
+    })
+  }
   const [showFilter, setShowFilter] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
@@ -1230,7 +1241,7 @@ function BrokerPropertiesContent() {
     if (!auth.broker) { router.push('/broker/register'); return }
     init()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
-  useEffect(() => { setPage(1) }, [filterDealType, filterRoomType, searchQuery, pageSize])
+  useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, searchQuery, pageSize])
 
   // 카카오맵 SDK는 useKakaoMapSdk 훅에서 로드
 
@@ -1606,7 +1617,7 @@ function BrokerPropertiesContent() {
   const filtered = useMemo(() => {
     let list = properties
     if (filterDealType) list = list.filter(p => (p.deal_type ?? '').split(',').map(s => s.trim()).includes(filterDealType))
-    if (filterRoomType) list = list.filter(p => p.room_type === filterRoomType)
+    if (filterRoomTypes.length > 0) list = list.filter(p => filterRoomTypes.includes(p.room_type))
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       // 숫자만 입력하면 매물번호 정확 매칭 우선 (예: "984" → seq_no 984)
@@ -1644,7 +1655,7 @@ function BrokerPropertiesContent() {
       })
     }
     return list
-  }, [properties, filterDealType, filterRoomType, searchQuery])
+  }, [properties, filterDealType, filterRoomTypes, searchQuery])
 
   // 지도 뷰 렌더링 — Marker(SVG 핀) + MarkerClusterer + 클릭 시 정보 오버레이
   useEffect(() => {
@@ -2047,10 +2058,10 @@ function BrokerPropertiesContent() {
           </div>
           <button
             onClick={() => setShowFilter(v => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomType) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomTypes.length > 0) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            필터{(filterDealType || filterRoomType) ? ' · ON' : ''}
+            필터{(filterDealType || filterRoomTypes.length > 0) ? ` · ${(filterDealType ? 1 : 0) + filterRoomTypes.length}` : ''}
           </button>
         </div>
 
@@ -2068,17 +2079,38 @@ function BrokerPropertiesContent() {
               </div>
             </div>
             <div>
-              <p className="mb-2 text-xs font-semibold text-gray-500">중개대상물종류</p>
-              <div className="flex flex-wrap gap-1.5">
-                {ROOM_TYPES.map(t => (
-                  <button key={t} onClick={() => setFilterRoomType(filterRoomType === t ? '' : t)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:border-gray-700'}`}
-                  >{t}</button>
-                ))}
+              <p className="mb-2 text-xs font-semibold text-gray-500">중개대상물종류 (다중 선택)</p>
+              <div className="space-y-2">
+                {PROPERTY_CATEGORIES.map(cat => {
+                  const allSelected = cat.types.every(t => filterRoomTypes.includes(t))
+                  const someSelected = cat.types.some(t => filterRoomTypes.includes(t))
+                  return (
+                    <div key={cat.label}>
+                      <div className="mb-1 flex items-center gap-2">
+                        <button onClick={() => toggleRoomGroup(cat.types)}
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-bold transition-colors ${
+                            allSelected ? 'bg-blue-600 text-white' :
+                            someSelected ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          }`}>
+                          {cat.label} {allSelected ? '전체 해제' : '전체 선택'}
+                        </button>
+                        {someSelected && <span className="text-[10px] text-gray-400">{cat.types.filter(t => filterRoomTypes.includes(t)).length}/{cat.types.length}</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {cat.types.map(t => (
+                          <button key={t} onClick={() => toggleRoomType(t)}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomTypes.includes(t) ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:border-gray-700'}`}
+                          >{t}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
-            {(filterDealType || filterRoomType) && (
-              <button onClick={() => { setFilterDealType(''); setFilterRoomType('') }}
+            {(filterDealType || filterRoomTypes.length > 0) && (
+              <button onClick={() => { setFilterDealType(''); setFilterRoomTypes([]) }}
                 className="text-xs text-red-500 hover:text-red-600 font-medium">
                 필터 초기화
               </button>
@@ -2232,7 +2264,7 @@ function BrokerPropertiesContent() {
               {paginated.length === 0 ? (
                 <tr>
                   <td colSpan={syncedOrder.length + 2} className="py-20 text-center text-sm text-gray-400">
-                    {searchQuery || filterDealType || filterRoomType ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
+                    {searchQuery || filterDealType || filterRoomTypes.length > 0 ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
               ) : paginated.map((p) => (
