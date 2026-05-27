@@ -43,9 +43,15 @@ export async function notifyOwnerOfBrokerAction(
       .maybeSingle()
     if (!owner?.user_id || owner.user_id === me.user_id) return
 
+    // 직원 이름 조회 (body에 "○○○ 님" 표시용)
+    const { data: nameRow } = me.user_id
+      ? await supabase.from('profiles').select('name').eq('id', me.user_id).maybeSingle()
+      : { data: null as { name: string | null } | null }
+    const staffName = (nameRow as any)?.name ?? '직원'
+
     const meta = META[kind]
     const title = `${meta.icon} ${meta.title}`
-    const body  = ''
+    const body  = `${staffName} 님`
     const finalLink = link || meta.link
 
     // 인앱 알림 (종 아이콘)
@@ -114,6 +120,12 @@ export async function notifyAssigneeOfAssignment(
       .maybeSingle()
     if (!actor || !actor.is_owner) return
 
+    // 대표 이름 조회 (body 표시용)
+    const { data: actorNameRow } = actor.user_id
+      ? await supabase.from('profiles').select('name').eq('id', actor.user_id).maybeSingle()
+      : { data: null as { name: string | null } | null }
+    const actorName = (actorNameRow as any)?.name ?? '대표'
+
     // 사무소 직원 목록 (대표의 broker_profile.id를 parent_broker_id로 가지는 사람)
     const { data: members } = await supabase
       .from('broker_profiles')
@@ -128,7 +140,7 @@ export async function notifyAssigneeOfAssignment(
       if (!target?.user_id || target.user_id === actor.user_id) continue
 
       const title = `${meta.icon} ${meta.title}`
-      const body  = ''
+      const body  = `대표 ${actorName} 님`
       const finalLink = link || meta.link
 
       await supabase.from('notifications').insert({
