@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".claude/worktrees/**", // 작업 worktree 사본은 lint 제외
+    "scripts/**",            // 일회성 운영 스크립트는 lint 제외
   ]),
   {
     rules: {
