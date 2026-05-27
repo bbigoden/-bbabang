@@ -42,7 +42,7 @@ export default function ProposePage() {
     const checkExisting = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).limit(1).single()
+      const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).limit(1).maybeSingle()
       if (!broker) return
       const { data: existing } = await supabase.from('proposals').select('id').eq('request_id', requestId).eq('broker_id', broker.id).limit(1).maybeSingle()
       if (existing) setAlreadyProposed(true)
@@ -138,7 +138,7 @@ export default function ProposePage() {
     } catch { setError('오류가 발생했습니다. 다시 시도해주세요.'); setLoading(false); return }
     if (!user) { router.push('/auth/login'); return }
 
-    const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).limit(1).single()
+    const { data: broker } = await supabase.from('broker_profiles').select('id').eq('user_id', user.id).limit(1).maybeSingle()
     if (!broker) { setError('중개사 등록이 필요합니다.'); setLoading(false); return }
 
     // 새 파일 업로드 → property-images 버킷 (잘못된 형식/크기 검증)

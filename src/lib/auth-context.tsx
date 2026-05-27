@@ -151,10 +151,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 단, 이미 /auth/* 페이지거나 공개 페이지면 그냥 둠
         if (hadUser && typeof window !== 'undefined') {
           const path = window.location.pathname
-          const isPublic = path.startsWith('/auth/') || path === '/' || path.startsWith('/brokers') ||
-                           path.startsWith('/broker/') || path.startsWith('/property/') ||
-                           path.startsWith('/regions') || path.startsWith('/terms') || path.startsWith('/privacy') ||
-                           path.startsWith('/support')
+          // /broker/[id] 공개 프로필만 허용 (보호 경로 /broker/properties 등은 prefix로 빠지지 않도록)
+          // /broker/[id]는 정확히 한 세그먼트의 ID여야 함 — /broker/abc, /broker/123 OK
+          // /broker/properties, /broker/customers 등은 보호 경로
+          const BROKER_PROTECTED_PATHS = [
+            '/broker/properties', '/broker/customers', '/broker/diary', '/broker/team',
+            '/broker/settings', '/broker/resources', '/broker/chats', '/broker/trash',
+            '/broker/register', '/broker/settlement',
+          ]
+          const isProtectedBrokerPath = BROKER_PROTECTED_PATHS.some(p => path === p || path.startsWith(p + '/'))
+          const isPublic = !isProtectedBrokerPath && (
+            path.startsWith('/auth/') || path === '/' || path.startsWith('/brokers') ||
+            path.startsWith('/broker/') || path.startsWith('/property/') ||
+            path.startsWith('/regions') || path.startsWith('/terms') || path.startsWith('/privacy') ||
+            path.startsWith('/support')
+          )
           if (!isPublic) {
             const redirect = encodeURIComponent(path + window.location.search)
             window.location.href = `/auth/login?expired=1&redirect=${redirect}`
