@@ -1642,6 +1642,17 @@ function BrokerPropertiesContent() {
         return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 32 }
       }
 
+      // 주소 정규화 — 같은 건물 다른 호수는 카카오가 어차피 같은 좌표 반환하므로 호수 부분을 제거해
+      // 캐시 hit율을 높이고 카카오 OVER_QUERY_LIMIT을 회피한다.
+      // 예: "충청남도 천안시 서북구 불당동 1479-2 404호" → "충청남도 천안시 서북구 불당동 1479-2"
+      const normalizeAddr = (a: string): string => {
+        return a
+          .replace(/\s+[0-9A-Za-z\-]+\s*동\s+/, ' ')    // "1동", "101동" 같은 동수 제거
+          .replace(/\s+[0-9\-]+\s*호\s*$/, '')          // 끝의 "404호", "1024호" 제거
+          .replace(/\s+/g, ' ')
+          .trim()
+      }
+
       // 1차: 모든 매물의 좌표를 먼저 모음 (그룹화하기 위해)
       type Geocoded = { prop: Property; lat: number; lng: number }
       const geocoded: Geocoded[] = []
@@ -1715,19 +1726,46 @@ function BrokerPropertiesContent() {
         }
       }
 
-      targets.forEach(prop => {
-        geocoder.addressSearch(prop.address!, (result: any, status: any) => {
-          done++
-          if (status === kakao.maps.services.Status.OK) {
-            geocoded.push({
-              prop,
-              lat: parseFloat(result[0].y),
-              lng: parseFloat(result[0].x),
-            })
+      // 캐시된 좌표가 있으면 즉시 사용, 없으면 카카오 호출 (호출 후 캐시 저장).
+      // 동시 호출 수를 제한해서 OVER_QUERY_LIMIT 회피 (카카오 권장 ~5건/초 미만).
+      const cache = geocodeCacheRef.current
+      const CONCURRENT = 4
+      let inFlight = 0
+      let cursor = 0
+
+      const finalize = (prop: Property, coords: { lat: number; lng: number } | null) => {
+        done++
+        if (coords) geocoded.push({ prop, lat: coords.lat, lng: coords.lng })
+        if (done === targets.length) buildAllMarkers()
+        else schedule()
+      }
+
+      const processOne = (prop: Property) => {
+        const key = normalizeAddr(prop.address!)
+        // 캐시 hit (성공·실패 둘 다) — 즉시 처리
+        if (key in cache) {
+          finalize(prop, cache[key])
+          return
+        }
+        // 카카오 호출
+        inFlight++
+        geocoder.addressSearch(key, (result: any, status: any) => {
+          inFlight--
+          let coords: { lat: number; lng: number } | null = null
+          if (status === kakao.maps.services.Status.OK && result[0]) {
+            coords = { lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) }
           }
-          if (done === targets.length) buildAllMarkers()
+          cache[key] = coords
+          finalize(prop, coords)
         })
-      })
+      }
+
+      const schedule = () => {
+        while (inFlight < CONCURRENT && cursor < targets.length) {
+          processOne(targets[cursor++])
+        }
+      }
+      schedule()
     }
 
     requestAnimationFrame(renderMap)
