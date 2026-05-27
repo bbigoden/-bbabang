@@ -63,7 +63,7 @@ export default function NotificationsPage() {
 
     let q = supabase
       .from('notifications')
-      .select('*')
+      .select('id, type, title, body, link, is_read, created_at')
       .eq('user_id', auth.user.id)
       .order('created_at', { ascending: false })
       .range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1)

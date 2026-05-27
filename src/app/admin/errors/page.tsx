@@ -75,13 +75,15 @@ export default function AdminErrorsPage() {
 
     let q = supabase
       .from('error_logs')
-      .select('*')
+      .select('id, user_id, message, stack, source, url, user_agent, status, admin_note, created_at')
       .order('created_at', { ascending: false })
 
     if (status !== 'all') q = q.eq('status', status)
     if (search.trim()) {
       const s = search.trim()
-      q = q.or(`message.ilike.%${s}%,url.ilike.%${s}%`)
+      // PostgREST .or() 인자에서 콤마는 필터 구분자, %·*·괄호는 패턴 메타문자 → 이스케이프
+      const escaped = s.replace(/[%,*()]/g, c => `\\${c}`)
+      q = q.or(`message.ilike.%${escaped}%,url.ilike.%${escaped}%`)
     }
 
     q = q.range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1)

@@ -67,7 +67,7 @@ export default function RequestEditPage() {
 
       const { data, error } = await supabase
         .from('request_posts')
-        .select('*')
+        .select('user_id, deal_type, room_type, city, district, min_price, max_price, min_monthly, max_monthly, min_size, max_size, move_in_date, description')
         .eq('id', id)
         .single()
 

@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
   // ─────────────────────────────────────────────
   const { data: searches } = await supa
     .from('saved_searches')
-    .select('*')
+    .select('id, user_id, target, label, filters, last_checked_at')
 
   let savedSearchNotified = 0
   for (const s of searches ?? []) {

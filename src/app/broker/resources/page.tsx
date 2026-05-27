@@ -93,7 +93,7 @@ export default function BrokerResourcesPage() {
     // 룰: 대표=사무소 전체. 직원=대표가 올린 자료 + 본인이 올린 자료(다른 직원이 올린 건 안 보임).
     let query = supabase
       .from('office_resources')
-      .select('*, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name)), files:office_resource_files(*)')
+      .select('id, office_broker_id, uploader_broker_id, title, description, created_at, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name)), files:office_resource_files(id, storage_path, file_name, file_size, file_type, sort_order)')
       .eq('office_broker_id', oid)
     if (!isOwner) {
       const allowed = [b.id, b.parent_broker_id].filter(Boolean) as string[]
@@ -185,7 +185,7 @@ export default function BrokerResourcesPage() {
           title: title.trim(),
           description: description.trim() || null,
         })
-        .select('*, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name))')
+        .select('id, office_broker_id, uploader_broker_id, title, description, created_at, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name))')
         .single()
 
       if (insErr || !inserted) {
@@ -225,7 +225,7 @@ export default function BrokerResourcesPage() {
             file_type: f.type || null,
             sort_order: i,
           })
-          .select('*')
+          .select('id, storage_path, file_name, file_size, file_type, sort_order')
           .single()
 
         if (fileErr || !fileRow) {
