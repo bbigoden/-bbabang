@@ -5,11 +5,12 @@ import { sendEmail, emailTemplate } from '@/lib/email-server'
 /**
  * 후속1: 미확인 에러 자동 알림.
  *
- * Vercel cron이 호출 (vercel.json). 매 30분.
- * - error_logs 중 alerted_at IS NULL 행 일괄 조회
+ * Vercel cron이 호출 (vercel.json). 매일 09:00.
+ * - error_logs 중 alerted_at IS NULL 행 일괄 조회 (최근 24h)
  * - 동일 message로 그룹핑 (스팸 방지)
  * - 관리자 이메일(ALERT_EMAIL_TO 또는 EMAIL_FROM의 노트)로 요약 발송
  * - 발송된 행은 alerted_at = now() 마킹
+ * - 90일 경과 로그 자동 DELETE (retention)
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization') ?? ''

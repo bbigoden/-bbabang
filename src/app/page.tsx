@@ -275,25 +275,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 푸터 */}
-      <footer className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-10">
-        <div className="mx-auto max-w-5xl">
-          <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-                <Home className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-bold text-gray-900 dark:text-white">빠방</span>
-            </div>
-            <div className="flex gap-6 text-sm text-gray-600 dark:text-gray-400">
-              <Link href="/terms" className="hover:text-gray-900 dark:hover:text-white">이용약관</Link>
-              <Link href="/privacy" className="hover:text-gray-900 dark:hover:text-white">개인정보처리방침</Link>
-              <Link href="/support" className="hover:text-gray-900 dark:hover:text-white">고객지원</Link>
-            </div>
-          </div>
-          <p className="mt-6 text-xs text-gray-500 dark:text-gray-400">© 2025 빠방. All rights reserved.</p>
-        </div>
-      </footer>
+      {/* 푸터는 글로벌 Footer 컴포넌트(layout.tsx)가 렌더 — 사업자정보·법적표기 포함 */}
     </div>
   )
 }
