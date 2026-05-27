@@ -7,11 +7,16 @@ const SUPABASE_HOST = 'https://wovxcdfxxnsljdhrgonh.supabase.co'
 
 const CSP = [
   `default-src 'self'`,
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://dapi.kakao.com https://t1.daumcdn.net https://va.vercel-scripts.com`,
+  // unpkg.com: FFmpeg.wasm core 스크립트 (관리자 쇼츠 공장 영상 합성)
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://dapi.kakao.com https://t1.daumcdn.net https://va.vercel-scripts.com https://unpkg.com`,
   `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
-  `img-src 'self' data: blob: ${SUPABASE_HOST} https://*.daumcdn.net https://*.daum.net https://*.kakao.com`,
+  // Pexels: 자료화면 썸네일/포스터 이미지
+  `img-src 'self' data: blob: ${SUPABASE_HOST} https://*.daumcdn.net https://*.daum.net https://*.kakao.com https://images.pexels.com`,
   `font-src 'self' data: https://fonts.gstatic.com`,
-  `connect-src 'self' ${SUPABASE_HOST} wss://wovxcdfxxnsljdhrgonh.supabase.co https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com`,
+  // unpkg + Pexels CDN/API: FFmpeg.wasm 바이너리 + 자료화면 비디오 다운로드 + Pexels 검색
+  `connect-src 'self' ${SUPABASE_HOST} wss://wovxcdfxxnsljdhrgonh.supabase.co https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com https://unpkg.com https://videos.pexels.com https://api.pexels.com`,
+  // Pexels 비디오 element src
+  `media-src 'self' blob: https://videos.pexels.com`,
   `frame-src 'self' https://*.daum.net https://*.kakao.com`,
   `worker-src 'self' blob:`,
   `object-src 'none'`,

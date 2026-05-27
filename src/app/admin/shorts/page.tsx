@@ -10,6 +10,7 @@ import {
   Megaphone, Mic, FileText, Hash, Image as ImageIcon, Tag, RefreshCw,
   Volume2, Download, Loader2,
 } from 'lucide-react'
+import { VideoBox } from './video-box'
 
 interface VoiceState {
   loading: boolean
@@ -247,6 +248,15 @@ export default function AdminShortsPage() {
                 state={voiceMap[script.id]}
                 onGenerate={() => generateVoice(script)}
                 onDownload={(url) => downloadVoice(script, url)}
+              />
+
+              {/* 영상 자동 합성 */}
+              <VideoBox
+                scriptId={script.id}
+                voiceoverText={script.voiceover}
+                bRollKeywords={script.b_roll_keywords}
+                audioUrl={voiceMap[script.id]?.url ?? null}
+                category={script.category}
               />
 
               {/* 제목 */}
