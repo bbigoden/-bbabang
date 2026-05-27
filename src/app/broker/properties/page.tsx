@@ -23,7 +23,7 @@ import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { geocodeAddress } from '@/lib/geocode'
-import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
+import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 
@@ -1332,13 +1332,15 @@ function BrokerPropertiesContent() {
     setCustomColumns(cols)
 
     // ── 데이터 범위 결정 ───────────────────────────────
-    // 룰: 대표=사무소 전체, 직원=본인+대표만 (매물은 대표 공유, 동료 직원 매물은 제외)
+    // 룰: 대표=사무소 전체. 직원=사무소 전체 중 본인 작성(broker_id) 또는 본인 담당(assignee=본인이름).
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
     } else if (b.parent_broker_id) {
-      brokerIds = [b.id, b.parent_broker_id]
+      const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
+      if (sibs) brokerIds = sibs.map((e: any) => e.id)
+      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
     // 1000건씩 페이지네이션 (PostgREST max-rows 우회)
@@ -1352,13 +1354,15 @@ function BrokerPropertiesContent() {
       collected.push(...page)
       if (page.length < PAGE) break
     }
-    setProperties(collected)
+    const filtered = owner
+      ? collected
+      : collected.filter((p: any) => p.broker_id === b.id || (myName && p.assignee === myName))
+    setProperties(filtered)
     setLoading(false)
   }
 
   // 단일 필드 저장 (optimistic UI + 실패 시 롤백)
-  const brokerRef = useRef(broker)
-  useEffect(() => { brokerRef.current = broker }, [broker])
+  // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
     let prevValue: any = undefined
     setProperties(prev => {
@@ -1371,9 +1375,6 @@ function BrokerPropertiesContent() {
       console.error('[saveField] failed', error)
       setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: prevValue } : p))
       toast.error(`저장 실패: ${error.message}`)
-    } else if (field === 'assignee' && brokerRef.current?.id) {
-      // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
-      notifyAssigneeOfAssignment(brokerRef.current.id, 'property', value, prevValue, `/broker/properties?focus=${id}`)
     } else if (field === 'address' && typeof value === 'string' && value.trim() && value !== prevValue) {
       // 주소가 바뀌면 좌표도 다시 구해 함께 저장 — 지도 뷰가 카카오 JS geocoder 호출 없이 즉시 마커 표시.
       const coords = await geocodeAddress(value)
