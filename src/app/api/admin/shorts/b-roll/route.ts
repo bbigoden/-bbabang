@@ -153,12 +153,12 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: 'bad_request' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid_request' }, { status: 400 })
   }
 
   const keywords = (body.keywords ?? []).filter(k => typeof k === 'string' && k.trim()).slice(0, 8)
   if (keywords.length === 0) {
-    return NextResponse.json({ error: 'keywords 필요' }, { status: 400 })
+    return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
 
   const results: BRollResult[] = []

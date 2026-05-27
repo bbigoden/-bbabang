@@ -50,15 +50,15 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: 'bad_request' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid_request' }, { status: 400 })
   }
 
   const text = (body.text ?? '').trim()
   if (!text) {
-    return NextResponse.json({ error: 'text 필요' }, { status: 400 })
+    return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
   if (text.length > 1000) {
-    return NextResponse.json({ error: 'text 최대 1000자' }, { status: 400 })
+    return NextResponse.json({ error: 'text_too_long', max: 1000 }, { status: 400 })
   }
 
   const voiceId = body.voiceId?.trim() || (process.env.ELEVENLABS_VOICE_ID?.trim() ?? DEFAULT_VOICE_ID)
