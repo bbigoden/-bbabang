@@ -1556,17 +1556,29 @@ function BrokerPropertiesContent() {
       const q = searchQuery.toLowerCase()
       // 숫자만 입력하면 매물번호 정확 매칭 우선 (예: "984" → seq_no 984)
       const qNum = /^\d+$/.test(q.trim()) ? Number(q.trim()) : null
+      // 매물 상태 한글 라벨도 검색 대상 (예: "계약완료" 검색 시 contracted 매물 매칭)
+      const statusLabel: Record<string, string> = { available: '매물있음', contracted: '계약완료', hidden: '숨김' }
       list = list.filter(p => {
         if (qNum != null && p.seq_no === qNum) return true
-        // 현재 표시 중인 필드만 검색 (숨겨진 DB 컬럼 제외)
+        // 모든 의미 있는 필드 (텍스트·숫자·날짜·배열·커스텀)를 검색 대상에 포함
         const fields = [
-          p.seq_no != null ? String(p.seq_no) : null,  // 매물번호 (부분 매칭도 허용)
-          p.address, p.deal_type, p.room_type, p.size_pyeong,
+          p.seq_no != null ? String(p.seq_no) : null,
+          p.address, p.deal_type, p.room_type,
+          p.size_pyeong,
+          p.area_supplied != null ? String(p.area_supplied) : null,
+          p.area_type, p.area_unit,
           p.price != null ? String(p.price) : null,
-          p.total_floors, p.move_in_date, p.rooms_bathrooms,
-          p.approval_date, p.parking,
+          p.monthly_rent != null ? String(p.monthly_rent) : null,
           p.management_fee != null ? String(p.management_fee) : null,
-          p.direction, p.brief_memo, p.memo, p.assignee,
+          p.premium != null ? String(p.premium) : null,
+          p.floor != null ? String(p.floor) : null,
+          p.total_floors,
+          p.move_in_date, p.rooms_bathrooms,
+          p.approval_date, p.received_date,
+          p.parking, p.direction,
+          p.brief_memo, p.description, p.memo, p.assignee,
+          p.status, statusLabel[p.status],
+          (p.options ?? []).join(' '),  // 옵션 배열 (예: "풀옵션", "주차가능")
         ]
         if (fields.some(f => f?.toLowerCase().includes(q))) return true
         // 커스텀 필드 값 검색
