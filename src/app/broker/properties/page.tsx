@@ -1550,8 +1550,17 @@ function BrokerPropertiesContent() {
   // 지도 뷰 렌더링 — Marker(SVG 핀) + MarkerClusterer + 클릭 시 정보 오버레이
   useEffect(() => {
     if (!isMapView || !mapReady) return
-    const timer = setTimeout(() => {
-      if (!mapContainerRef.current) return
+    let cancelled = false
+
+    const renderMap = () => {
+      if (cancelled || !mapContainerRef.current) return
+      // 컨테이너가 아직 layout 안 됐으면 다음 프레임에 재시도 (race condition 방지)
+      const rect = mapContainerRef.current.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) {
+        requestAnimationFrame(renderMap)
+        return
+      }
+
       const kakao = (window as any).kakao
 
       // 지도 인스턴스 최초 생성
@@ -1564,8 +1573,7 @@ function BrokerPropertiesContent() {
           infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
         })
       } else {
-        // 컨테이너가 hidden→visible로 다시 보일 때, 검색·필터로 페이지 height가 변했을 때
-        // 지도 타일/마커가 옛 사이즈 기준으로 그려져 빈 화면처럼 보이는 문제 방지
+        // 컨테이너 사이즈 변경(검색·뷰 전환) 후 타일·마커가 안 그려지는 문제 방지
         mapInstanceRef.current.relayout()
       }
 
@@ -1599,7 +1607,6 @@ function BrokerPropertiesContent() {
       if (targets.length === 0) { setGeocoding(false); return }
 
       setGeocoding(true)
-      let done = 0
       // 거래형태가 "매매, 월세" 같은 멀티면 첫 번째 값 기준 색
       const pickPrimaryDeal = (d: string) => (d ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
 
@@ -1623,17 +1630,44 @@ function BrokerPropertiesContent() {
         return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 32 }
       }
 
-      const newMarkers: any[] = []
-      const bounds = new kakao.maps.LatLngBounds()
+      // 1차: 모든 매물의 좌표를 먼저 모음 (그룹화하기 위해)
+      type Geocoded = { prop: Property; lat: number; lng: number }
+      const geocoded: Geocoded[] = []
+      let done = 0
 
-      targets.forEach(prop => {
-        geocoder.addressSearch(prop.address!, (result: any, status: any) => {
-          done++
-          if (status === kakao.maps.services.Status.OK) {
-            const pos = new kakao.maps.LatLng(result[0].y, result[0].x)
-            const primaryDeal = pickPrimaryDeal(prop.deal_type)
+      const buildAllMarkers = () => {
+        if (cancelled) return
+        setGeocoding(false)
+
+        // 같은 좌표(소수 5자리 ≈ 1m 정밀도) 매물을 그룹화 — 같은 건물의 다른 호수는
+        // 카카오 geocoder가 동일 좌표를 반환하므로 마커가 겹쳐 1개만 보이는 문제 발생
+        const groups: Record<string, Geocoded[]> = {}
+        geocoded.forEach(g => {
+          const key = `${g.lat.toFixed(5)}_${g.lng.toFixed(5)}`
+          if (!groups[key]) groups[key] = []
+          groups[key].push(g)
+        })
+
+        const newMarkers: any[] = []
+        const bounds = new kakao.maps.LatLngBounds()
+
+        Object.values(groups).forEach(group => {
+          const baseLat = group[0].lat
+          const baseLng = group[0].lng
+
+          group.forEach((g, idx) => {
+            // 같은 좌표 매물이 여러 개면 원형으로 분산 (반지름 ~15m)
+            let lat = g.lat, lng = g.lng
+            if (group.length > 1) {
+              const r = 0.00015
+              const angle = (2 * Math.PI * idx) / group.length - Math.PI / 2
+              lat = baseLat + r * Math.cos(angle)
+              lng = baseLng + r * Math.sin(angle)
+            }
+            const pos = new kakao.maps.LatLng(lat, lng)
+            const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
             const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
-            const icon = makePillIcon(primaryDeal, fmtPrice(prop), color)
+            const icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
             const markerImage = new kakao.maps.MarkerImage(
               icon.url,
               new kakao.maps.Size(icon.width, icon.height),
@@ -1643,9 +1677,10 @@ function BrokerPropertiesContent() {
             newMarkers.push(marker)
             bounds.extend(pos)
 
-            // 정보 카드
+            // 정보 카드 (매물번호 포함)
             const infoEl = document.createElement('div')
-            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:180px;font-family:inherit"><div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${esc(prop.address)}</div><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(prop.deal_type)}</span><span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(prop))}</span></div><div style="font-size:10px;color:#6b7280">${esc(prop.room_type)}${prop.size_pyeong ? ' · ' + esc(prop.size_pyeong) + '평' : ''}${prop.total_floors ? ' · ' + esc(prop.total_floors) : ''}</div>${prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(prop.brief_memo)}</div>` : ''}</div>`
+            const seqLabel = g.prop.seq_no != null ? `<span style="background:#111;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:4px">#${g.prop.seq_no}</span>` : ''
+            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:180px;font-family:inherit"><div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${seqLabel}${esc(g.prop.address)}</div><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(g.prop.deal_type)}</span><span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(g.prop))}</span></div><div style="font-size:10px;color:#6b7280">${esc(g.prop.room_type)}${g.prop.size_pyeong ? ' · ' + esc(g.prop.size_pyeong) + '평' : ''}${g.prop.total_floors ? ' · ' + esc(g.prop.total_floors) : ''}</div>${g.prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(g.prop.brief_memo)}</div>` : ''}</div>`
             const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 1.4, zIndex: 5 })
             infoOverlaysRef.current.push(infoOverlay)
 
@@ -1653,26 +1688,38 @@ function BrokerPropertiesContent() {
               infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
               infoOverlay.setMap(map)
             })
-          }
+          })
+        })
 
-          if (done === targets.length) {
-            setGeocoding(false)
-            clustererRef.current.addMarkers(newMarkers)
-            markersRef.current = newMarkers
-            // 모든 마커가 보이도록 bounds fit (1개면 그 위치 중심으로)
-            if (newMarkers.length > 0) {
-              if (newMarkers.length === 1) {
-                map.setCenter(newMarkers[0].getPosition())
-                map.setLevel(4)
-              } else {
-                map.setBounds(bounds)
-              }
-            }
+        clustererRef.current.addMarkers(newMarkers)
+        markersRef.current = newMarkers
+        if (newMarkers.length > 0) {
+          if (newMarkers.length === 1) {
+            map.setCenter(newMarkers[0].getPosition())
+            map.setLevel(4)
+          } else {
+            map.setBounds(bounds)
           }
+        }
+      }
+
+      targets.forEach(prop => {
+        geocoder.addressSearch(prop.address!, (result: any, status: any) => {
+          done++
+          if (status === kakao.maps.services.Status.OK) {
+            geocoded.push({
+              prop,
+              lat: parseFloat(result[0].y),
+              lng: parseFloat(result[0].x),
+            })
+          }
+          if (done === targets.length) buildAllMarkers()
         })
       })
-    }, 100)
-    return () => clearTimeout(timer)
+    }
+
+    requestAnimationFrame(renderMap)
+    return () => { cancelled = true }
   }, [isMapView, mapReady, filtered])
 
 
