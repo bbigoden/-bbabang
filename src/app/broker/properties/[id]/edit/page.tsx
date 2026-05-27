@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { ArrowLeft, Building2, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
+import { geocodeAddress } from '@/lib/geocode'
 import { PROPERTY_CATEGORIES } from '@/lib/property-types'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
@@ -46,6 +47,9 @@ export default function EditPropertyPage() {
   const [briefMemo, setBriefMemo] = useState('')
   const [memo, setMemo] = useState('')
   const [existingImages, setExistingImages] = useState<string[]>([])
+  const [originalAddress, setOriginalAddress] = useState('')
+  const [originalLat, setOriginalLat] = useState<number | null>(null)
+  const [originalLng, setOriginalLng] = useState<number | null>(null)
   const [newImages, setNewImages] = useState<File[]>([])
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
   const [user, setUser] = useState<any>(null)
@@ -76,7 +80,7 @@ export default function EditPropertyPage() {
 
     const { data: property, error } = await supabase
       .from('broker_properties')
-      .select('deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, floor, total_floors, description, options, assignee, brief_memo, memo, images')
+      .select('deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, floor, total_floors, description, options, assignee, brief_memo, memo, images, lat, lng')
       .eq('id', propertyId)
       .eq('broker_id', broker.id)
       .single()
@@ -89,6 +93,9 @@ export default function EditPropertyPage() {
     setDealType(property.deal_type ?? '')
     setRoomType(property.room_type ?? '')
     setAddress(property.address ?? '')
+    setOriginalAddress(property.address ?? '')
+    setOriginalLat((property as any).lat ?? null)
+    setOriginalLng((property as any).lng ?? null)
     setPrice(property.price ? String(property.price) : '')
     setMonthlyRent(property.monthly_rent ? String(property.monthly_rent) : '')
     setManagementFee(property.management_fee ? String(property.management_fee) : '')
@@ -189,6 +196,15 @@ export default function EditPropertyPage() {
 
     const allImages = [...existingImages, ...uploadedUrls]
 
+    // 주소가 바뀌었으면 좌표도 새로 구해 함께 저장 (지도 뷰 캐시 무효화)
+    let lat: number | null = originalLat
+    let lng: number | null = originalLng
+    if (address !== originalAddress) {
+      const coords = await geocodeAddress(address)
+      lat = coords?.lat ?? null
+      lng = coords?.lng ?? null
+    }
+
     const { error: updateError } = await supabase
       .from('broker_properties')
       .update({
@@ -210,6 +226,8 @@ export default function EditPropertyPage() {
         assignee: assignee || null,
         brief_memo: briefMemo || null,
         memo: memo || null,
+        lat,
+        lng,
       })
       .eq('id', propertyId)
 

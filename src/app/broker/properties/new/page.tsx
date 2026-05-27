@@ -13,6 +13,7 @@ import { ArrowLeft, Building2, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
 import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
+import { geocodeAddress } from '@/lib/geocode'
 import { useToast } from '@/components/toast'
 import { PROPERTY_CATEGORIES } from '@/lib/property-types'
 
@@ -130,6 +131,10 @@ export default function NewPropertyPage() {
       }
     }
 
+    // 주소 → 좌표 변환 (지도 뷰에서 카카오 OVER_QUERY_LIMIT 회피용 캐싱).
+    // 실패해도 매물 등록 자체는 진행 — 좌표는 다음 지도 뷰 진입 시 보충됨.
+    const coords = await geocodeAddress(address)
+
     const { data: inserted, error: insertError } = await supabase.from('broker_properties').insert({
       broker_id: broker.id,
       deal_type: dealType,
@@ -151,6 +156,8 @@ export default function NewPropertyPage() {
       premium: premium ? Number(premium) : null,
       memo: memo || null,
       status: 'available',
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
     }).select('id').single()
 
     if (insertError) {
