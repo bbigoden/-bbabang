@@ -76,12 +76,15 @@ export default function BrokerResourcesPage() {
     const oid = isOwner ? b.id : (b.parent_broker_id ?? b.id)
     setOfficeBrokerId(oid)
 
-    // 룰: 대표=사무소 전체 자료. 직원=본인이 업로드한 자료만.
+    // 룰: 대표=사무소 전체. 직원=대표가 올린 자료 + 본인이 올린 자료(다른 직원이 올린 건 안 보임).
     let query = supabase
       .from('office_resources')
       .select('*, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name)), files:office_resource_files(*)')
       .eq('office_broker_id', oid)
-    if (!isOwner) query = query.eq('uploader_broker_id', b.id)
+    if (!isOwner) {
+      const allowed = [b.id, b.parent_broker_id].filter(Boolean) as string[]
+      query = query.in('uploader_broker_id', allowed)
+    }
     const { data } = await query.order('created_at', { ascending: false })
 
     // 첨부파일 sort_order로 정렬
