@@ -96,6 +96,7 @@ const DEAL_TYPE_HEX_MAP: Record<string, string> = {
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
+  { key: 'status',          label: '매물상태' },
   { key: 'address',         label: '소재지' },
   { key: 'received_date',   label: '접수일자' },
   { key: 'size_pyeong',     label: '면적(전용/공급)' },
@@ -125,6 +126,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
   visible:    [...FIXED_COLS],
   order:      [...FIXED_COLS],
   widths: {
+    status: 80,
     address: 200, received_date: 95, size_pyeong: 70, price: 96, room_type: 110, deal_type: 110,
     total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
     approval_date: 90, parking: 72, management_fee: 72,
@@ -661,6 +663,29 @@ function ImageCell({ images, onSave, onView }: {
   )
 }
 
+// ── 매물상태 토글 셀 (가능 ↔ 완료) ─────────────────────────────
+function StatusToggleCell({ value, onSave }: {
+  value: 'available' | 'contracted' | 'hidden'
+  onSave: (v: 'available' | 'contracted') => void
+}) {
+  const isCompleted = value === 'contracted'
+  return (
+    <button
+      type="button"
+      onClick={() => onSave(isCompleted ? 'available' : 'contracted')}
+      title="클릭하여 전환"
+      className={cn(
+        'w-full rounded-md px-2 py-1 text-xs font-semibold transition-colors min-h-[22px]',
+        isCompleted
+          ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
+          : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300'
+      )}
+    >
+      {isCompleted ? '완료' : '가능'}
+    </button>
+  )
+}
+
 // ── 컬럼 헤더 툴팁 아이콘 ──────────────────────────────────────────
 function TooltipIcon({ text }: { text: string }) {
   const [show, setShow] = useState(false)
@@ -980,6 +1005,19 @@ const PropertyRow = memo(function PropertyRow({
           // 읽기 전용 셀 (어드민 뷰 / 편집 권한 없음 / 본인 매물 아님)
           if (isAdminView || !canEdit || !isMine) {
             const readVal = (() => {
+              if (key === 'status') {
+                const isCompleted = p.status === 'contracted'
+                return (
+                  <span className={cn(
+                    'rounded-md px-2 py-0.5 text-xs font-semibold',
+                    isCompleted
+                      ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                  )}>
+                    {isCompleted ? '완료' : '가능'}
+                  </span>
+                )
+              }
               if (key === 'price') {
                 if (p.deal_type === '월세') {
                   const dep = p.price != null ? `${p.price.toLocaleString()}만` : '—'
@@ -1011,6 +1049,7 @@ const PropertyRow = memo(function PropertyRow({
           }
           return (
             <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
+              {key === 'status'          && <StatusToggleCell value={p.status} onSave={v => saveField(p.id, 'status', v)} />}
               {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={isAutoFilling} placeholder="소재지 입력" />}
               {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
               {key === 'price'           && (p.deal_type === '월세'
@@ -1124,8 +1163,24 @@ function BrokerPropertiesContent() {
   }
 
   // 칼럼 설정 (DB)
-  const { settings, update, loaded: _colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
+  const { settings, update, loaded: colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'properties')
+
+  // 신규 고정칼럼(매물상태) 자동 마이그레이션 — 기존 사용자의 DB에 저장된 visible/order에 없으면 추가
+  const statusMigratedRef = useRef(false)
+  useEffect(() => {
+    if (!colLoaded || statusMigratedRef.current) return
+    if (settings.visible.includes('status') && settings.order.includes('status')) {
+      statusMigratedRef.current = true
+      return
+    }
+    statusMigratedRef.current = true
+    update(prev => ({
+      ...prev,
+      visible: prev.visible.includes('status') ? prev.visible : ['status', ...prev.visible],
+      order: prev.order.includes('status') ? prev.order : ['status', ...prev.order],
+    }))
+  }, [colLoaded, settings.visible, settings.order])
 
   // 고정 칼럼이 settings.order에 없는 경우 추가 (첫 로드 또는 새 칼럼 추가시)
   const syncedOrder = useMemo(() => {
