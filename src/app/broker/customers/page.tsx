@@ -12,7 +12,7 @@ import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { useToast } from '@/components/toast'
 import { ColumnHeader } from '@/components/sheet/column-header'
-import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
+import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
@@ -426,8 +426,7 @@ export default function BrokerCustomersPage() {
     setLoading(false)
   }
 
-  const brokerRef = useRef(broker)
-  useEffect(() => { brokerRef.current = broker }, [broker])
+  // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
     let prevValue: any = undefined
     setCustomers(prev => {
@@ -441,9 +440,6 @@ export default function BrokerCustomersPage() {
       console.error('[saveField] failed', error)
       setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: prevValue } : c))
       toast.error(`저장 실패: ${error.message}`)
-    } else if (field === 'assignee' && brokerRef.current?.id) {
-      // 대표가 담당자를 직원으로 지정/변경 시 해당 직원에게 알림
-      notifyAssigneeOfAssignment(brokerRef.current.id, 'customer', value, prevValue, `/broker/customers?focus=${id}`)
     }
   }, [])
 

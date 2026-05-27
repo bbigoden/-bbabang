@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import { ArrowLeft, Building2, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
-import { notifyOwnerOfBrokerAction, notifyAssigneeOfAssignment } from '@/lib/notify-owner'
+import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { geocodeAddress } from '@/lib/geocode'
 import { useToast } from '@/components/toast'
 import { PROPERTY_CATEGORIES } from '@/lib/property-types'
@@ -184,10 +184,7 @@ export default function NewPropertyPage() {
     // 사무소 대표에게 알림 (직원이 등록한 경우)
     const propLink = inserted?.id ? `/broker/properties?focus=${inserted.id}` : undefined
     notifyOwnerOfBrokerAction(broker.id, 'property', propLink)
-    // 대표가 등록하면서 담당자를 직원으로 지정한 경우 → 그 직원에게 알림
-    if (assignee) {
-      notifyAssigneeOfAssignment(broker.id, 'property', assignee, null, propLink)
-    }
+    // 담당자 배정 알림은 DB 트리거(notify_assignee_change)가 처리
 
     router.push('/broker/properties')
   }
