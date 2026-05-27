@@ -147,8 +147,8 @@ export default function AdminShortsPage() {
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
-              <ArrowLeft className="h-4 w-4 text-gray-300" />
+            <Link href="/admin" aria-label="관리자 대시보드로 돌아가기" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+              <ArrowLeft className="h-4 w-4 text-gray-300" aria-hidden="true" />
             </Link>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/20">
               <Film className="h-5 w-5 text-pink-400" />
