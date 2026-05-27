@@ -405,16 +405,24 @@ export default function BrokerCustomersPage() {
     }
 
     // ── 데이터 범위 결정 ───────────────────────────────
-    // 룰: 대표=사무소 전체, 직원=본인 고객만 (고객은 개인 정보·영업 비밀로 분리)
+    // 룰: 대표=사무소 전체. 직원=사무소 전체 중 본인 작성(broker_id) 또는 본인 담당(assignee=본인이름).
+    // (대표가 추가하고 직원을 담당자로 배정한 행도 직원에게 보여야 함 — 업무일지와 일치)
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
       if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
+    } else if (b.parent_broker_id) {
+      const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
+      if (sibs) brokerIds = sibs.map((e: any) => e.id)
+      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
-    const { data } = await supabase.from('broker_customers').select('*')
+    const { data: rawData } = await supabase.from('broker_customers').select('*')
       .in('broker_id', brokerIds).order('received_date', { ascending: false }).order('created_at', { ascending: false })
-    setCustomers(data ?? [])
+    const data = owner
+      ? (rawData ?? [])
+      : (rawData ?? []).filter((c: any) => c.broker_id === b.id || (myName && c.assignee === myName))
+    setCustomers(data)
     setLoading(false)
   }
 
