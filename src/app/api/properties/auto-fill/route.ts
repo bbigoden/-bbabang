@@ -260,8 +260,18 @@ export async function POST(req: NextRequest) {
       }
       const hoInt = num(ho)
       const dongInt = num(dongFilter)
+      // 전유부 dongNm 분포 — 비어있으면(예: 1466 호반금호어울림) 동 필터 우회
+      const exposDongsMeaningful = new Set(
+        expos.map(f => String(f.dongNm ?? '').trim()).filter(d => d)
+      )
+      const dongDataMissing = exposDongsMeaningful.size === 0
+
       const matchHo = (f: SeumItem) => num(f.hoNm) === hoInt
-      const matchDong = (f: SeumItem) => dongInt === 0 || num(f.dongNm) === dongInt
+      const matchDong = (f: SeumItem) => {
+        if (dongInt === 0) return true
+        if (dongDataMissing) return true
+        return num(f.dongNm) === dongInt
+      }
       const RESIDENTIAL = ['벽체', '계단', '승강기', '복도', '현관', '엘리베이터']
       const isResidentialPublic = (f: SeumItem) => {
         if (String(f.exposPubuseGbCd ?? '') !== '2') return false
@@ -277,18 +287,44 @@ export async function POST(req: NextRequest) {
           matched = expos.filter(matchHo)
         }
       }
-      const target = matched.length > 0
+      // ho 없이 전유부 있는 다세대 단지: 1층 전체 합산하면 1000평+ 사고 → 면적 매칭 자체 skip
+      const target = hoInt
         ? matched
-        : expos.filter(f => f.flrGbCd === '20' && Number(f.flrNo) === 1 && matchDong(f))
+        : []
 
       if (target.length > 0) {
-        const exclusive = target.filter(f => f.exposPubuseGbCd === '1')
+        // 변경이력으로 mgmBldrgstPk만 다른 완전 동일 row → 합산 시 면적 2배 사고 →
+        // (dongNm, hoNm, flrNoNm, exposPubuseGbCd, area) 동일 row 한 행만 유지.
+        const seen = new Set<string>()
+        const deduped: SeumItem[] = []
+        for (const f of target) {
+          const k = [
+            String(f.dongNm ?? ''),
+            String(f.hoNm ?? ''),
+            String(f.flrNoNm ?? ''),
+            String(f.exposPubuseGbCd ?? ''),
+            String(f.area ?? ''),
+          ].join('|')
+          if (seen.has(k)) continue
+          seen.add(k)
+          deduped.push(f)
+        }
+        const dedup = deduped
+
+        const exclusive = dedup.filter(f => f.exposPubuseGbCd === '1')
         areaM2 = exclusive.reduce((sum, f) => sum + (Number(f.area) || 0), 0)
-        const areaResidential = target.filter(isResidentialPublic).reduce((sum, f) => sum + (Number(f.area) || 0), 0)
+        const areaResidential = dedup.filter(isResidentialPublic).reduce((sum, f) => sum + (Number(f.area) || 0), 0)
         areaSuppliedM2 = areaM2 + areaResidential
         // 층 정보는 전용면적 행 우선(공용 행은 flrNoNm이 "각층"으로 층수 미표기)
-        const flrSource = exclusive.length > 0 ? exclusive[0] : target[0]
+        const flrSource = exclusive.length > 0 ? exclusive[0] : dedup[0]
         floor = parseFloor(flrSource)
+        // flrNoNm이 호수와 같으면(예: 1626 "101", 707 "502") 층 신뢰 불가 → null
+        if (floor !== null && ho) {
+          const srcFlrnm = String(flrSource.flrNoNm ?? '').replace(/[^0-9]/g, '')
+          if (srcFlrnm && srcFlrnm === String(ho).replace(/[^0-9]/g, '')) {
+            floor = null
+          }
+        }
         yongdoNm = String(flrSource.mainPurpsCdNm ?? '')
       }
     } else {
@@ -313,6 +349,11 @@ export async function POST(req: NextRequest) {
     const roomType = ho
       ? mapRoomType(yongdoNm) || mapRoomType(mainPurps)
       : mapRoomType(mainPurps) || mapRoomType(yongdoNm)
+
+    // Sanity: floor > total_floors 모순(호수 "502"가 층번호로 잘못 들어온 경우 등) → floor null
+    if (floor !== null && totalFloors !== null && floor > totalFloors) {
+      floor = null
+    }
 
     return NextResponse.json({
       size_m2: areaM2 > 0 ? +areaM2.toFixed(2) : null,
