@@ -12,8 +12,10 @@ export type AuditAction =
   | 'property.status_change'
   | 'error.status_change'
   | 'report.status_change'
+  | 'announcement.publish'
+  | 'announcement.recall'
 
-export type AuditTargetType = 'broker' | 'user' | 'property' | 'error' | 'report'
+export type AuditTargetType = 'broker' | 'user' | 'property' | 'error' | 'report' | 'announcement'
 
 type AuditInput = {
   action: AuditAction

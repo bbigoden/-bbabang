@@ -82,8 +82,11 @@ export default function AdminUsersPage() {
 
   // 고객·관리자 (페이지네이션)
   const [items, setItems] = useState<UserRow[]>([])
-  // broker (전체 한 번에) — 사무소 그룹화용
+  // broker — 대표 단위 페이지네이션 (각 대표에 대해 직원은 한 번에 fetch)
   const [brokerItems, setBrokerItems] = useState<UserRow[]>([])
+  const [brokerPage, setBrokerPage] = useState(0)
+  const [brokerHasMore, setBrokerHasMore] = useState(true)
+  const [brokerLoadingMore, setBrokerLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -142,30 +145,18 @@ export default function AdminUsersPage() {
     if (reset) setLoading(false); else setLoadingMore(false)
   }, [supabase, page, role, status, search, showFlatList])
 
-  // broker 사용자는 한 번에 가져옴 (사무소 그룹화 위해)
-  // broker_profiles 기준으로 fetch → profiles.role 무관하게 broker_profile이 있는 모든 사용자 포함
-  // (대표가 admin 역할을 갖고 있어도 사무소 그룹에 나타남)
-  const loadBrokers = useCallback(async () => {
+  // broker 페이지네이션 — 대표를 PAGE_SIZE씩 가져온 뒤 해당 사무소의 직원들을 batch fetch
+  // 검색이 있으면: profiles에서 검색 매칭 후 그들의 사무소(대표 기준) 일괄 가져옴
+  const loadBrokers = useCallback(async (reset = false) => {
     if (!showOffices) {
       setBrokerItems([])
+      setBrokerHasMore(false)
       return
     }
-    // 사무소 그룹화를 위해 모든 broker_profiles 필요 — 1000건씩 range 루프로 누락 방지
-    const PAGE = 1000
-    let bps: any[] = []
-    for (let from = 0; ; from += PAGE) {
-      const { data: chunk } = await supabase
-        .from('broker_profiles')
-        .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
-        .order('created_at', { ascending: false })
-        .range(from, from + PAGE - 1)
-      if (!chunk || chunk.length === 0) break
-      bps = bps.concat(chunk)
-      if (chunk.length < PAGE) break
-    }
+    const targetPage = reset ? 0 : brokerPage
+    if (!reset) setBrokerLoadingMore(true)
 
-    // 변환: 각 broker_profile row → UserRow (profile 정보 + broker_profiles 필드)
-    let rows: UserRow[] = (bps ?? []).map((bp: any) => ({
+    const mapBPRow = (bp: any): UserRow => ({
       ...(bp.profiles as any),
       broker_profiles: [{
         id: bp.id,
@@ -173,21 +164,98 @@ export default function AdminUsersPage() {
         office_name: bp.office_name,
         parent_broker_id: bp.parent_broker_id,
       }],
-    }))
+    })
 
-    // 상태·검색 필터 (클라이언트)
-    if (status !== 'all') rows = rows.filter(u => u.account_status === status)
-    if (search.trim()) {
-      const s = search.trim().toLowerCase()
-      rows = rows.filter(u =>
-        (u.name?.toLowerCase().includes(s)) ||
-        (u.email?.toLowerCase().includes(s)) ||
-        (u.phone?.toLowerCase().includes(s))
-      )
+    const s = search.trim()
+    let ownerIds: string[] = []
+    let pageHasMore = false
+
+    if (s) {
+      // 1) 검색어 매칭 profiles (broker 한정) 페이지네이션
+      let pq = supabase.from('profiles')
+        .select('id')
+        .eq('role', 'broker')
+        .or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
+        .order('created_at', { ascending: false })
+        .range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1)
+      if (status !== 'all') pq = pq.eq('account_status', status)
+      const { data: profs } = await pq
+      pageHasMore = (profs?.length ?? 0) === PAGE_SIZE
+
+      const matchedUserIds = (profs ?? []).map((p: any) => p.id)
+      if (matchedUserIds.length === 0) {
+        setBrokerItems(reset ? [] : brokerItems)
+        setBrokerHasMore(false)
+        setBrokerPage(targetPage + 1)
+        if (!reset) setBrokerLoadingMore(false)
+        return
+      }
+      // 2) 매칭된 사용자들의 broker_profile → 사무소 식별자 모으기
+      const { data: matchedBPs } = await supabase
+        .from('broker_profiles')
+        .select('id, is_owner, parent_broker_id')
+        .in('user_id', matchedUserIds)
+      const ownerSet = new Set<string>()
+      ;(matchedBPs ?? []).forEach((bp: any) => {
+        const oid = bp.is_owner ? bp.id : bp.parent_broker_id
+        if (oid) ownerSet.add(oid)
+      })
+      ownerIds = Array.from(ownerSet)
+    } else {
+      // 검색어 없음: 대표만 페이지네이션
+      const { data: owners } = await supabase
+        .from('broker_profiles')
+        .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
+        .eq('is_owner', true)
+        .order('created_at', { ascending: false })
+        .range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1)
+      pageHasMore = (owners?.length ?? 0) === PAGE_SIZE
+      ownerIds = (owners ?? []).map((o: any) => o.id)
+      // 검색 없을 때는 대표 row도 그대로 사용 (재조회 피함)
+      let ownerRows: UserRow[] = (owners ?? []).map(mapBPRow)
+      if (status !== 'all') ownerRows = ownerRows.filter(u => u.account_status === status)
+
+      // 해당 사무소들의 직원 fetch
+      let employees: UserRow[] = []
+      if (ownerIds.length > 0) {
+        const { data: emps } = await supabase
+          .from('broker_profiles')
+          .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
+          .in('parent_broker_id', ownerIds)
+        let empRows: UserRow[] = (emps ?? []).map(mapBPRow)
+        if (status !== 'all') empRows = empRows.filter(u => u.account_status === status)
+        employees = empRows
+      }
+      const combined = [...ownerRows, ...employees]
+      setBrokerItems(reset ? combined : [...brokerItems, ...combined])
+      setBrokerHasMore(pageHasMore)
+      setBrokerPage(targetPage + 1)
+      if (!reset) setBrokerLoadingMore(false)
+      return
     }
 
-    setBrokerItems(rows)
-  }, [supabase, status, search, showOffices])
+    // 검색 모드: ownerIds로 사무소 멤버 전체 fetch
+    if (ownerIds.length === 0) {
+      setBrokerItems(reset ? [] : brokerItems)
+      setBrokerHasMore(pageHasMore)
+      setBrokerPage(targetPage + 1)
+      if (!reset) setBrokerLoadingMore(false)
+      return
+    }
+    const ownerInList = ownerIds.join(',')
+    const { data: fullBPs } = await supabase
+      .from('broker_profiles')
+      .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
+      .or(`id.in.(${ownerInList}),parent_broker_id.in.(${ownerInList})`)
+
+    let rows: UserRow[] = (fullBPs ?? []).map(mapBPRow)
+    if (status !== 'all') rows = rows.filter(u => u.account_status === status)
+
+    setBrokerItems(reset ? rows : [...brokerItems, ...rows])
+    setBrokerHasMore(pageHasMore)
+    setBrokerPage(targetPage + 1)
+    if (!reset) setBrokerLoadingMore(false)
+  }, [supabase, status, search, showOffices, brokerPage, brokerItems])
 
   // brokerItems → 사무소별 그룹화
   const officeGroups: OfficeGroup[] = (() => {
@@ -225,8 +293,9 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (auth.profile?.role === 'admin') {
       setPage(0); setHasMore(true)
+      setBrokerPage(0); setBrokerHasMore(true)
       load(true)
-      loadBrokers()
+      loadBrokers(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.profile?.role, role, status])
@@ -234,8 +303,9 @@ export default function AdminUsersPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(0); setHasMore(true)
+    setBrokerPage(0); setBrokerHasMore(true)
     load(true)
-    loadBrokers()
+    loadBrokers(true)
   }
 
   if (auth.loading || auth.profile?.role !== 'admin') {
@@ -443,6 +513,18 @@ export default function AdminUsersPage() {
                   })}
                 </ul>
               )
+            )}
+
+            {brokerHasMore && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => loadBrokers(false)}
+                  disabled={brokerLoadingMore}
+                  className="rounded-xl border border-gray-700 bg-gray-900 px-5 py-2.5 text-sm font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {brokerLoadingMore ? '불러오는 중...' : '사무소 더 보기'}
+                </button>
+              </div>
             )}
           </section>
         )}

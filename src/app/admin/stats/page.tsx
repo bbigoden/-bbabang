@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { propertyStatusLabel } from '@/lib/property-status'
 import {
   BarChart3, ArrowLeft, Users, FileText, Home, TrendingUp,
   MapPin, Calendar, Building2
@@ -234,7 +235,7 @@ export default function AdminStatsPage() {
               <ChartCard title="매물 상태 분포" icon={Home}>
                 <RankBars
                   rows={propStatus.map(p => ({
-                    region: p.region === 'available' ? '거래가능' : p.region === 'contracted' ? '계약완료' : p.region === 'hidden' ? '숨김' : p.region,
+                    region: propertyStatusLabel(p.region),
                     count: p.count,
                   }))}
                   barColor="bg-amber-500/70"

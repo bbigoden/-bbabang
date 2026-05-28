@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
+import { logAdminAction } from '@/lib/audit'
 import {
   Flag, MessageCircle, ArrowLeft, ExternalLink, Check, X,
   AlertCircle, Clock, CheckCircle2, XCircle, ChevronDown, Mail
@@ -49,6 +50,8 @@ const TARGET_LABEL: Record<NonNullable<Report['target_type']>, string> = {
 const TARGET_LINK = (type: NonNullable<Report['target_type']>, id: string): string => {
   if (type === 'broker') return `/broker/${id}`
   if (type === 'request') return `/request/${id}`
+  if (type === 'property') return `/property/${id}`
+  if (type === 'review') return `/reviews?highlight=${id}`
   return '#'
 }
 
@@ -246,6 +249,21 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
     const { error } = await supabase.from('reports').update(updates).eq('id', report.id)
     setSaving(false)
     if (error) { setErr('저장 실패'); return }
+    if (status !== report.status || (adminNote ?? '') !== (report.admin_note ?? '')) {
+      await logAdminAction(supabase, adminId, {
+        action: 'report.status_change',
+        targetType: 'report',
+        targetId: report.id,
+        metadata: {
+          from: report.status,
+          to: status,
+          kind: report.kind,
+          target_type: report.target_type,
+          target_id: report.target_id,
+          note_changed: (adminNote ?? '') !== (report.admin_note ?? ''),
+        },
+      })
+    }
     await onUpdated()
     onClose()
   }

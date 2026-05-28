@@ -26,6 +26,7 @@ import { geocodeAddress } from '@/lib/geocode'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
+import { PROPERTY_STATUS_META } from '@/lib/property-status'
 
 interface Property {
   id: string
@@ -70,7 +71,11 @@ interface CustomColumn {
 }
 
 const _STATUS_OPTS = ['available', 'contracted', 'hidden'] as const
-const _STATUS_LABEL: Record<string, string> = { available: '거래가능', contracted: '계약완료', hidden: '숨김' }
+const _STATUS_LABEL: Record<string, string> = {
+  available: PROPERTY_STATUS_META.available.label,
+  contracted: PROPERTY_STATUS_META.contracted.label,
+  hidden: PROPERTY_STATUS_META.hidden.label,
+}
 const _STATUS_COLOR: Record<string, string> = {
   available: 'bg-green-100 text-green-700',
   contracted: 'bg-gray-100 text-gray-600',
@@ -1624,7 +1629,11 @@ function BrokerPropertiesContent() {
       // 숫자만 입력하면 매물번호 정확 매칭 우선 (예: "984" → seq_no 984)
       const qNum = /^\d+$/.test(q.trim()) ? Number(q.trim()) : null
       // 매물 상태 한글 라벨도 검색 대상 (예: "계약완료" 검색 시 contracted 매물 매칭)
-      const statusLabel: Record<string, string> = { available: '거래가능', contracted: '계약완료', hidden: '숨김' }
+      const statusLabel: Record<string, string> = {
+        available: PROPERTY_STATUS_META.available.label,
+        contracted: PROPERTY_STATUS_META.contracted.label,
+        hidden: PROPERTY_STATUS_META.hidden.label,
+      }
       list = list.filter(p => {
         if (qNum != null && p.seq_no === qNum) return true
         // 모든 의미 있는 필드 (텍스트·숫자·날짜·배열·커스텀)를 검색 대상에 포함

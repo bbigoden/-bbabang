@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/toast'
+import { logAdminAction } from '@/lib/audit'
 import { formatDate } from '@/lib/utils'
 import {
   Megaphone, ArrowLeft, Send, AlertCircle, Check, Users, Building2,
-  Globe, ExternalLink, Eye, EyeOff
+  Globe, ExternalLink, Eye, EyeOff, Trash2
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -25,6 +27,7 @@ export default function AdminAnnouncementsPage() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  const toast = useToast()
 
   const [audience, setAudience] = useState<Audience>('all')
   const [title, setTitle] = useState('')
@@ -128,10 +131,61 @@ export default function AdminAnnouncementsPage() {
     setBusy(false); setConfirm(false)
     if (error) { setErr('발행 실패: ' + error.message); return }
 
+    await logAdminAction(supabase, auth.user!.id, {
+      action: 'announcement.publish',
+      targetType: 'announcement',
+      targetId: `${audience}:${Date.now()}`,
+      metadata: {
+        audience,
+        title: title.trim(),
+        body_preview: body.trim().slice(0, 200),
+        link: link.trim() || null,
+        recipient_count: targets.length,
+      },
+    })
+
     setOkMsg(`${targets.length}명에게 발행됐어요`)
     setTitle(''); setBody(''); setLink('')
     await loadRecent()
     setTimeout(() => setOkMsg(null), 5000)
+  }
+
+  // 회수: 같은 created_at 분 버킷 + title 의 notifications 일괄 삭제
+  const [recallTarget, setRecallTarget] = useState<{ created_at: string; title: string; count: number } | null>(null)
+  const [recalling, setRecalling] = useState(false)
+
+  const recall = async () => {
+    if (!recallTarget) return
+    setRecalling(true)
+    // 분 버킷: created_at의 분(±1분)을 포괄하도록 범위 지정
+    const bucket = new Date(recallTarget.created_at)
+    const start = new Date(bucket.getFullYear(), bucket.getMonth(), bucket.getDate(), bucket.getHours(), bucket.getMinutes(), 0).toISOString()
+    const end = new Date(bucket.getFullYear(), bucket.getMonth(), bucket.getDate(), bucket.getHours(), bucket.getMinutes() + 1, 0).toISOString()
+    const { error, count } = await supabase
+      .from('notifications')
+      .delete({ count: 'exact' })
+      .eq('type', 'announcement')
+      .eq('title', recallTarget.title)
+      .gte('created_at', start)
+      .lt('created_at', end)
+    setRecalling(false)
+    if (error) {
+      toast.error('회수 실패: ' + error.message)
+      return
+    }
+    await logAdminAction(supabase, auth.user!.id, {
+      action: 'announcement.recall',
+      targetType: 'announcement',
+      targetId: `${recallTarget.created_at}|${recallTarget.title}`,
+      metadata: {
+        title: recallTarget.title,
+        original_count: recallTarget.count,
+        deleted_count: count ?? null,
+      },
+    })
+    toast.success(`${count ?? 0}건 회수했어요`)
+    setRecallTarget(null)
+    await loadRecent()
   }
 
   if (auth.loading || auth.profile?.role !== 'admin') {
@@ -277,11 +331,21 @@ export default function AdminAnnouncementsPage() {
                     <span className="text-[11px] text-gray-500 flex-shrink-0">{formatDate(a.created_at)}</span>
                   </div>
                   {a.body && <p className="mt-1 text-xs text-gray-400 line-clamp-2">{a.body}</p>}
-                  <div className="mt-1.5 flex items-center gap-2 text-[11px] text-gray-500">
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700/60 px-1.5 py-0.5">
-                      <Users className="h-3 w-3" /> {a.count}명
-                    </span>
-                    {a.link && <span className="inline-flex items-center gap-0.5 text-blue-400 truncate"><ExternalLink className="h-3 w-3" /> {a.link}</span>}
+                  <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-gray-500">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700/60 px-1.5 py-0.5">
+                        <Users className="h-3 w-3" /> {a.count}명
+                      </span>
+                      {a.link && <span className="inline-flex items-center gap-0.5 text-blue-400 truncate"><ExternalLink className="h-3 w-3" /> {a.link}</span>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRecallTarget({ created_at: a.created_at, title: a.title, count: a.count })}
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-colors flex-shrink-0"
+                      aria-label="공지 회수"
+                    >
+                      <Trash2 className="h-3 w-3" /> 회수
+                    </button>
                   </div>
                 </li>
               ))}
@@ -289,6 +353,36 @@ export default function AdminAnnouncementsPage() {
           )}
         </div>
       </div>
+
+      {recallTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => !recalling && setRecallTarget(null)}>
+          <div className="w-full max-w-sm rounded-2xl border border-red-500/30 bg-gray-900 p-6 shadow-xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20">
+                <Trash2 className="h-6 w-6 text-red-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white">공지를 회수할까요?</h3>
+              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+                <span className="font-bold text-white">&quot;{recallTarget.title}&quot;</span><br />
+                해당 공지로 발송된 <span className="font-bold text-white">{recallTarget.count}건</span>의 알림이 모두 삭제됩니다.<br />
+                <span className="text-xs text-gray-500">이미 푸시로 발송된 알림은 회수되지 않습니다.</span>
+              </p>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => setRecallTarget(null)} disabled={recalling}
+                className="flex-1 rounded-xl border border-gray-700 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50">
+                취소
+              </button>
+              <button onClick={recall} disabled={recalling}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                {recalling ? '회수 중...' : '회수'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"

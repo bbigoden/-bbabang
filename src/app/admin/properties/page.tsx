@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
+import { PROPERTY_STATUS_META } from '@/lib/property-status'
 import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Home, ArrowLeft, Search, X, MapPin, Building2, Flag,
@@ -44,9 +45,9 @@ interface Property {
 type StatusFilter = 'all' | 'available' | 'contracted' | 'hidden'
 
 const STATUS_META: Record<Property['status'], { label: string; color: string }> = {
-  available: { label: '거래가능', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  contracted: { label: '계약완료', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  hidden: { label: '숨김', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  available: { label: PROPERTY_STATUS_META.available.label, color: PROPERTY_STATUS_META.available.badge },
+  contracted: { label: PROPERTY_STATUS_META.contracted.label, color: PROPERTY_STATUS_META.contracted.badge },
+  hidden: { label: PROPERTY_STATUS_META.hidden.label, color: PROPERTY_STATUS_META.hidden.badge },
 }
 
 const PAGE_SIZE = 50

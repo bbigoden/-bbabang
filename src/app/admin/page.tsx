@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
+import { PROPERTY_STATUS_META, propertyStatusLabel } from '@/lib/property-status'
 import { formatDate, formatPrice } from '@/lib/utils'
 import {
   Users, Building2, FileText, MessageCircle,
@@ -715,11 +716,9 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
-                          p.status === 'available' ? 'bg-green-500/20 text-green-400' :
-                          p.status === 'contracted' ? 'bg-blue-500/20 text-blue-400' :
-                          'bg-yellow-500/20 text-yellow-400'
+                          PROPERTY_STATUS_META[p.status as keyof typeof PROPERTY_STATUS_META]?.pill ?? 'bg-gray-500/20 text-gray-400'
                         }`}>
-                          {p.status === 'available' ? '거래가능' : p.status === 'contracted' ? '계약완료' : '숨김'}
+                          {propertyStatusLabel(p.status)}
                         </span>
                       </button>
                     ))}
@@ -874,11 +873,9 @@ export default function AdminPage() {
               <p className="text-xs text-gray-400">{propertyModal.broker_profiles?.office_name}</p>
             </div>
             <span className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
-              propertyModal.status === 'available' ? 'bg-green-500/20 text-green-400' :
-              propertyModal.status === 'contracted' ? 'bg-blue-500/20 text-blue-400' :
-              'bg-yellow-500/20 text-yellow-400'
+              PROPERTY_STATUS_META[propertyModal.status as keyof typeof PROPERTY_STATUS_META]?.pill ?? 'bg-gray-500/20 text-gray-400'
             }`}>
-              {propertyModal.status === 'available' ? '매물 있음' : propertyModal.status === 'contracted' ? '계약 완료' : '숨김'}
+              {propertyStatusLabel(propertyModal.status)}
             </span>
           </div>
 
