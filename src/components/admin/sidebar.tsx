@@ -2,32 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  LayoutDashboard, Users, Building2, Home, Flag,
-  Megaphone, BarChart3, AlertOctagon, Activity, Shield, LogOut, ExternalLink, Film,
-} from 'lucide-react'
+import { Shield, LogOut, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-
-interface ItemDef {
-  href: string
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-}
-
-const ITEMS: ItemDef[] = [
-  { href: '/admin', label: '대시보드', icon: LayoutDashboard },
-  { href: '/admin/reports', label: '신고·문의 처리', icon: Flag },
-  { href: '/admin/announcements', label: '공지 발행', icon: Megaphone },
-  { href: '/admin/properties', label: '매물 검수', icon: Home },
-  { href: '/admin/users', label: '사용자 관리', icon: Users },
-  { href: '/admin/brokers', label: '사무소 검수', icon: Building2 },
-  { href: '/admin/stats', label: '통계·분석', icon: BarChart3 },
-  { href: '/admin/shorts', label: '쇼츠 공장', icon: Film },
-  { href: '/admin/errors', label: '에러 로그', icon: AlertOctagon },
-  { href: '/admin/health', label: '시스템 상태', icon: Activity },
-]
+import { ADMIN_ITEMS } from './menu-items'
 
 export function AdminSidebar() {
   const pathname = usePathname() ?? ''
@@ -63,11 +42,11 @@ export function AdminSidebar() {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="flex flex-col gap-1">
-          {ITEMS.map(item => {
+          {ADMIN_ITEMS.map(item => {
             const active = isActive(item.href)
             const Icon = item.icon
             return (
-              <li key={item.href}>
+              <li key={item.id}>
                 <Link
                   href={item.href}
                   className={cn(

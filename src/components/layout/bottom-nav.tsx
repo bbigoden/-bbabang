@@ -8,16 +8,17 @@ import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
   Home, Search, Bell, Heart, User, Building2, Briefcase,
   Users, ClipboardList, MoreHorizontal, X, ChevronDown, LogOut,
+  LayoutDashboard, Flag,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { BROKER_ITEMS, type ItemDef } from '@/components/broker/menu-items'
+import { ADMIN_ITEMS } from '@/components/admin/menu-items'
 
 // 풀스크린이거나 자체 하단 UI가 있는 페이지는 BottomNav 숨김
 const HIDDEN_PATHS = [
   '/chat/',
   '/request/', // request/[id]는 자체 하단 탭 보유, request/new·edit·propose도 풀스크린 폼
-  '/admin',
   '/auth',
   '/account-suspended',
   '/broker/properties/', // 매물 편집 등 풀스크린
@@ -63,8 +64,13 @@ export function BottomNav() {
       { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
     ]
   } else if (role === 'admin') {
-    // admin은 자체 헤더에 메뉴가 충분
-    return null
+    items = [
+      { href: '/admin', label: '홈', icon: LayoutDashboard },
+      { href: '/admin/reports', label: '신고', icon: Flag },
+      { href: '/admin/properties', label: '매물', icon: Home },
+      { href: '/admin/brokers', label: '사무소', icon: Building2 },
+      { action: 'more', label: '더보기', icon: MoreHorizontal },
+    ]
   } else {
     items = [
       { href: '/dashboard/user', label: '홈', icon: Home },
@@ -81,7 +87,9 @@ export function BottomNav() {
   }
 
   const isOwner = broker?.is_owner !== false
-  const drawerItems = BROKER_ITEMS.filter(i => !i.ownerOnly || isOwner)
+  const drawerItems: ItemDef[] = role === 'admin'
+    ? ADMIN_ITEMS as ItemDef[]
+    : BROKER_ITEMS.filter(i => !i.ownerOnly || isOwner)
   const toggleExpand = (id: string) => setOpenIds(prev => {
     const next = new Set(prev)
     if (next.has(id)) next.delete(id); else next.add(id)
@@ -147,8 +155,8 @@ export function BottomNav() {
         </ul>
       </nav>
 
-      {/* broker 더보기 드로어 — 모바일 풀스크린 시트 */}
-      {role === 'broker' && drawerOpen && (
+      {/* broker·admin 더보기 드로어 — 모바일 풀스크린 시트 */}
+      {(role === 'broker' || role === 'admin') && drawerOpen && (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
           {/* backdrop */}
           <div
