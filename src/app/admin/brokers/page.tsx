@@ -9,7 +9,7 @@ import { formatDate } from '@/lib/utils'
 import {
   Building2, ArrowLeft, Search, X, ShieldCheck, ShieldOff,
   CheckCircle2, XCircle, Hash, MapPin, ExternalLink,
-  Users, Phone, Mail, Calendar, FileText, ChevronDown
+  Users, Phone, Mail, Calendar, FileText, ChevronDown, AlertCircle
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { OfficeCard } from '@/components/office-card'
@@ -156,12 +156,17 @@ export default function AdminBrokersPage() {
 
   const toggleVerify = async (broker: BrokerRow) => {
     const next = !broker.is_verified
-    const { error } = await supabase.from('broker_profiles').update({ is_verified: next }).eq('id', broker.id)
+    const verification_info = next
+      ? { ...(broker.verification_info ?? {}), admin_approved_at: new Date().toISOString(), admin_reject_reason: null, admin_reject_at: null }
+      : broker.verification_info
+    const { error } = await supabase.from('broker_profiles')
+      .update({ is_verified: next, verification_info })
+      .eq('id', broker.id)
     if (error) { toast.error('변경 실패: ' + error.message); return }
     setOffices(prev => prev.map(g =>
-      g.owner.id === broker.id ? { ...g, owner: { ...g.owner, is_verified: next } } : g
+      g.owner.id === broker.id ? { ...g, owner: { ...g.owner, is_verified: next, verification_info } } : g
     ))
-    if (selected?.id === broker.id) setSelected({ ...selected, is_verified: next })
+    if (selected?.id === broker.id) setSelected({ ...selected, is_verified: next, verification_info })
     toast.success(next ? '인증 승인됨' : '인증 취소됨')
     if (auth.user) {
       void logAdminAction(supabase, auth.user.id, {
@@ -171,7 +176,57 @@ export default function AdminBrokersPage() {
         metadata: { office_name: broker.office_name },
       })
     }
+    // 중개사에게 알림
+    if (broker.user_id) {
+      void supabase.from('notifications').insert({
+        user_id: broker.user_id,
+        type: next ? 'broker_verify_approved' : 'broker_verify_revoked',
+        title: next ? '사무소 인증이 승인되었어요' : '사무소 인증이 취소되었어요',
+        body: next
+          ? '이제 매물 등록·제안 등 모든 기능을 사용할 수 있어요.'
+          : `${broker.office_name ?? '사무소'} 인증이 취소되었습니다. 자세한 사유는 고객센터로 문의해주세요.`,
+        link: '/dashboard/broker',
+      })
+    }
     loadCounts()
+  }
+
+  // 인증 반려 (거부 사유와 함께)
+  const rejectVerify = async (broker: BrokerRow, reason: string) => {
+    const verification_info = {
+      ...(broker.verification_info ?? {}),
+      admin_reject_reason: reason,
+      admin_reject_at: new Date().toISOString(),
+      admin_approved_at: null,
+    }
+    const { error } = await supabase.from('broker_profiles')
+      .update({ is_verified: false, verification_info })
+      .eq('id', broker.id)
+    if (error) { toast.error('반려 실패: ' + error.message); return false }
+    setOffices(prev => prev.map(g =>
+      g.owner.id === broker.id ? { ...g, owner: { ...g.owner, is_verified: false, verification_info } } : g
+    ))
+    if (selected?.id === broker.id) setSelected({ ...selected, is_verified: false, verification_info })
+    toast.success('인증 반려됨')
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: 'broker.reject',
+        targetType: 'broker',
+        targetId: broker.id,
+        metadata: { office_name: broker.office_name, reason },
+      })
+    }
+    if (broker.user_id) {
+      void supabase.from('notifications').insert({
+        user_id: broker.user_id,
+        type: 'broker_verify_rejected',
+        title: '사무소 인증이 반려되었어요',
+        body: `사유: ${reason}\n수정 후 다시 신청해주세요.`,
+        link: '/dashboard/broker',
+      })
+    }
+    loadCounts()
+    return true
   }
 
   if (auth.loading || auth.profile?.role !== 'admin') {
@@ -327,23 +382,37 @@ export default function AdminBrokersPage() {
           broker={selected}
           onClose={() => setSelected(null)}
           onToggleVerify={() => toggleVerify(selected)}
+          onReject={(reason) => rejectVerify(selected, reason)}
         />
       )}
     </div>
   )
 }
 
-function BrokerDetailModal({ broker, onClose, onToggleVerify }: {
+function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
   broker: BrokerRow
   onClose: () => void
   onToggleVerify: () => Promise<void>
+  onReject: (reason: string) => Promise<boolean>
 }) {
   const [busy, setBusy] = useState(false)
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
 
   const handleToggle = async () => { setBusy(true); await onToggleVerify(); setBusy(false) }
+  const handleReject = async () => {
+    const reason = rejectReason.trim()
+    if (reason.length < 5) return
+    setBusy(true)
+    const ok = await onReject(reason)
+    setBusy(false)
+    if (ok) { setRejectOpen(false); setRejectReason('') }
+  }
 
   const districts = broker.district?.split(',').map(d => d.trim()).filter(Boolean) ?? []
   const v = (broker.verification_info ?? {}) as Record<string, any>
+  const rejectReasonExisting = typeof v.admin_reject_reason === 'string' ? v.admin_reject_reason : null
+  const rejectAt = typeof v.admin_reject_at === 'string' ? v.admin_reject_at : null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
@@ -399,6 +468,18 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify }: {
             <Row icon={Calendar} label="가입일" value={broker.created_at && formatDate(broker.created_at)} />
           </div>
 
+          {/* 이전 반려 이력 */}
+          {rejectReasonExisting && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+              <div className="mb-2 flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-red-400" />
+                <p className="text-xs font-semibold text-red-400">이전 반려 이력</p>
+                {rejectAt && <span className="ml-auto text-[11px] text-red-300/70">{formatDate(rejectAt)}</span>}
+              </div>
+              <p className="text-sm text-red-200 whitespace-pre-line">{rejectReasonExisting}</p>
+            </div>
+          )}
+
           {/* 검증 정보 */}
           {Object.keys(v).length > 0 && (
             <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
@@ -428,6 +509,14 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify }: {
               {busy ? '처리 중...' : broker.is_verified ? '인증 취소' : '인증 승인'}
             </button>
 
+            {!broker.is_verified && (
+              <button onClick={() => setRejectOpen(true)} disabled={busy}
+                className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-orange-500/40 bg-orange-500/10 py-2.5 text-sm font-semibold text-orange-300 hover:bg-orange-500/20 disabled:opacity-50">
+                <AlertCircle className="h-4 w-4" />
+                인증 반려 (사유 입력)
+              </button>
+            )}
+
             <Link href={`/broker/${broker.id}`} target="_blank"
               className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-700 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800">
               <ExternalLink className="h-4 w-4" />
@@ -436,6 +525,47 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify }: {
           </div>
         </div>
       </div>
+
+      {/* 반려 모달 */}
+      {rejectOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => !busy && setRejectOpen(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-orange-500/40 bg-gray-900 p-6 shadow-xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/20">
+                <AlertCircle className="h-5 w-5 text-orange-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">사무소 인증 반려</h3>
+                <p className="text-xs text-gray-400">{broker.office_name ?? '—'}</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm text-gray-300">반려 사유를 작성해주세요. 중개사 본인에게 알림으로 전달됩니다.</p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="예) 자격증 번호와 사업자등록번호가 일치하지 않습니다. 자격증 사본을 다시 첨부해주세요."
+              className="mt-3 w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 resize-none"
+            />
+            <p className="mt-1 text-right text-xs text-gray-500">{rejectReason.length}/500 (최소 5자)</p>
+
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setRejectOpen(false)} disabled={busy}
+                className="flex-1 rounded-xl border border-gray-700 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50">
+                취소
+              </button>
+              <button onClick={handleReject} disabled={busy || rejectReason.trim().length < 5}
+                className="flex-1 rounded-xl bg-orange-600 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50">
+                {busy ? '처리 중...' : '반려'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

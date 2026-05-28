@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { propertyStatusLabel } from '@/lib/property-status'
 import {
   BarChart3, ArrowLeft, Users, FileText, Home, TrendingUp,
-  MapPin, Calendar, Building2
+  MapPin, Calendar, Building2, Download
 } from 'lucide-react'
 
 type Range = 7 | 30 | 90
@@ -49,6 +49,7 @@ export default function AdminStatsPage() {
       { data: props },
       { data: dts },
       { data: pst },
+      { count: newPropertiesCount },
     ] = await Promise.all([
       supabase.from('profiles').select('created_at, role').gte('created_at', since),
       supabase.from('request_posts').select('created_at').gte('created_at', since),
@@ -56,6 +57,7 @@ export default function AdminStatsPage() {
       supabase.from('broker_profiles').select('district'),
       supabase.from('request_posts').select('deal_type'),
       supabase.from('broker_properties').select('status'),
+      supabase.from('broker_properties').select('*', { count: 'exact', head: true }).gte('created_at', since),
     ])
 
     // 일별 가입 추이 (user vs broker)
@@ -123,18 +125,69 @@ export default function AdminStatsPage() {
       newUsers: (profs ?? []).filter(p => p.role !== 'broker' && p.role !== 'admin').length,
       newBrokers: (profs ?? []).filter(p => p.role === 'broker').length,
       newRequests: (reqs ?? []).length,
-      newProperties: 0, // broker_properties.created_at 없이 받으려면 별도 쿼리
+      newProperties: newPropertiesCount ?? 0,
     })
-
-    // 신규 매물 수 별도 쿼리
-    const { count: newPropertiesCount } = await supabase
-      .from('broker_properties')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', since)
-    setTotals(prev => ({ ...prev, newProperties: newPropertiesCount ?? 0 }))
 
     setLoading(false)
   }, [supabase, range])
+
+  // CSV 다운로드
+  const downloadCSV = () => {
+    const rows: string[][] = []
+    rows.push([`# 빠방 통계 (${range}일)`, `생성: ${new Date().toISOString()}`])
+    rows.push([])
+    rows.push(['요약'])
+    rows.push(['항목', '값'])
+    rows.push(['신규 회원', String(totals.newUsers)])
+    rows.push(['신규 중개사', String(totals.newBrokers)])
+    rows.push(['신규 요청', String(totals.newRequests)])
+    rows.push(['신규 매물', String(totals.newProperties)])
+    rows.push([])
+    rows.push(['일별 가입'])
+    rows.push(['날짜', '고객', '중개사'])
+    signupSeries.user.forEach((u, i) => {
+      const b = signupSeries.broker[i]
+      rows.push([u.date, String(u.count), String(b?.count ?? 0)])
+    })
+    rows.push([])
+    rows.push(['일별 요청'])
+    rows.push(['날짜', '요청 수'])
+    requestSeries.forEach(r => rows.push([r.date, String(r.count)]))
+    rows.push([])
+    rows.push(['요청 많은 지역 TOP10'])
+    rows.push(['지역', '건수'])
+    regionRequests.forEach(r => rows.push([r.region, String(r.count)]))
+    rows.push([])
+    rows.push(['중개사 분포 TOP10'])
+    rows.push(['지역', '명'])
+    regionProperties.forEach(r => rows.push([r.region, String(r.count)]))
+    rows.push([])
+    rows.push(['거래 유형'])
+    rows.push(['유형', '건수'])
+    dealTypes.forEach(r => rows.push([r.region, String(r.count)]))
+    rows.push([])
+    rows.push(['매물 상태'])
+    rows.push(['상태', '건수'])
+    propStatus.forEach(r => rows.push([propertyStatusLabel(r.region), String(r.count)]))
+
+    const csv = rows.map(row => row.map(cell => {
+      const s = String(cell ?? '')
+      // 엑셀 호환: 콤마·따옴표·개행 포함 시 따옴표로 감싸기
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+      return s
+    }).join(',')).join('\r\n')
+    // Excel 한글 인코딩: UTF-8 BOM
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const today = new Date().toISOString().slice(0, 10)
+    a.download = `bbabang-stats-${range}d-${today}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   useEffect(() => {
     if (auth.profile?.role === 'admin') load()
@@ -165,15 +218,26 @@ export default function AdminStatsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
-            {([7, 30, 90] as const).map(d => (
-              <button key={d} onClick={() => setRange(d)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  range === d ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}>
-                {d}일
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
+              {([7, 30, 90] as const).map(d => (
+                <button key={d} onClick={() => setRange(d)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    range === d ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}>
+                  {d}일
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={downloadCSV}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+              aria-label="CSV 다운로드"
+            >
+              <Download className="h-3.5 w-3.5" />
+              CSV
+            </button>
           </div>
         </div>
       </header>

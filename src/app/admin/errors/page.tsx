@@ -128,6 +128,44 @@ export default function AdminErrorsPage() {
     loadCounts()
   }
 
+  // admin_note 저장
+  const saveAdminNote = async (id: string, note: string) => {
+    const value = note.trim() || null
+    const { error } = await supabase.from('error_logs').update({ admin_note: value }).eq('id', id)
+    if (error) { toast.error('메모 저장 실패: ' + error.message); return false }
+    setItems(prev => prev.map(e => e.id === id ? { ...e, admin_note: value } : e))
+    if (selected?.id === id) setSelected({ ...selected, admin_note: value })
+    toast.success('메모 저장됨')
+    return true
+  }
+
+  // 같은 메시지 일괄 무시 (현재 메시지 + 아직 처리 안 된 것만)
+  const bulkIgnoreSameMessage = async (message: string) => {
+    const { data: targets, error: selErr } = await supabase
+      .from('error_logs')
+      .select('id')
+      .eq('message', message)
+      .neq('status', 'ignored')
+    if (selErr) { toast.error('조회 실패: ' + selErr.message); return 0 }
+    const ids = (targets ?? []).map(t => t.id)
+    if (ids.length === 0) { toast.info('이미 모두 무시 처리되어 있어요'); return 0 }
+    const { error } = await supabase.from('error_logs').update({ status: 'ignored' }).in('id', ids)
+    if (error) { toast.error('일괄 무시 실패: ' + error.message); return 0 }
+    setItems(prev => prev.map(e => ids.includes(e.id) ? { ...e, status: 'ignored' } : e))
+    if (selected && ids.includes(selected.id)) setSelected({ ...selected, status: 'ignored' })
+    toast.success(`${ids.length}건 무시 처리됨`)
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: 'error.status_change',
+        targetType: 'error',
+        targetId: `bulk:${ids.length}`,
+        metadata: { bulk: true, by: 'same_message', message: message.slice(0, 200), count: ids.length },
+      })
+    }
+    loadCounts()
+    return ids.length
+  }
+
   if (auth.loading || auth.profile?.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
@@ -246,22 +284,46 @@ export default function AdminErrorsPage() {
           err={selected}
           onClose={() => setSelected(null)}
           onChangeStatus={s => updateStatus(selected.id, s)}
+          onSaveNote={note => saveAdminNote(selected.id, note)}
+          onBulkIgnoreSame={() => bulkIgnoreSameMessage(selected.message)}
         />
       )}
     </div>
   )
 }
 
-function ErrorDetailModal({ err, onClose, onChangeStatus }: {
+function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgnoreSame }: {
   err: ErrLog
   onClose: () => void
   onChangeStatus: (s: ErrLog['status']) => Promise<void>
+  onSaveNote: (note: string) => Promise<boolean>
+  onBulkIgnoreSame: () => Promise<number>
 }) {
   const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState(err.admin_note ?? '')
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [bulkBusy, setBulkBusy] = useState(false)
+
+  useEffect(() => {
+    setNote(err.admin_note ?? '')
+  }, [err.id, err.admin_note])
+
   const handleChange = async (s: ErrLog['status']) => {
     setBusy(true); await onChangeStatus(s); setBusy(false)
   }
+  const handleSaveNote = async () => {
+    setNoteSaving(true)
+    await onSaveNote(note)
+    setNoteSaving(false)
+  }
+  const handleBulkIgnore = async () => {
+    if (!window.confirm(`동일 메시지의 미처리/조사/해결 에러를 모두 '무시' 처리할까요?\n메시지: ${err.message.slice(0, 100)}`)) return
+    setBulkBusy(true)
+    await onBulkIgnoreSame()
+    setBulkBusy(false)
+  }
 
+  const noteDirty = (note.trim() || null) !== (err.admin_note ?? null)
   const meta = STATUS_META[err.status]
 
   return (
@@ -318,6 +380,38 @@ function ErrorDetailModal({ err, onClose, onChangeStatus }: {
                   </button>
                 )
               })}
+            </div>
+
+            <button
+              onClick={handleBulkIgnore}
+              disabled={bulkBusy}
+              className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-700 bg-gray-900 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-800 disabled:opacity-50"
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+              {bulkBusy ? '처리 중...' : '같은 메시지 모두 무시'}
+            </button>
+          </div>
+
+          {/* 관리자 메모 */}
+          <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
+            <p className="mb-2 text-xs font-semibold text-gray-400">관리자 메모 (내부용)</p>
+            <textarea
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="원인·재현 조건·관련 PR 등"
+              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-[11px] text-gray-500">{note.length}/1000</p>
+              <button
+                onClick={handleSaveNote}
+                disabled={noteSaving || !noteDirty}
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {noteSaving ? '저장 중...' : '메모 저장'}
+              </button>
             </div>
           </div>
         </div>

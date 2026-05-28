@@ -35,6 +35,8 @@ export default function AdminHealthPage() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<Health | null>(null)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
+  // 자동 새로고침 — 0이면 끔, 30/60초
+  const [autoRefreshSec, setAutoRefreshSec] = useState<0 | 30 | 60>(0)
 
   useEffect(() => {
     if (auth.loading) return
@@ -42,8 +44,8 @@ export default function AdminHealthPage() {
     if (auth.profile?.role !== 'admin') { router.push('/'); return }
   }, [auth.loading, auth.user, auth.profile?.role, router])
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     const [
@@ -108,12 +110,20 @@ export default function AdminHealthPage() {
       status,
     })
     setLastChecked(new Date())
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [supabase])
 
   useEffect(() => {
     if (auth.profile?.role === 'admin') load()
   }, [auth.profile?.role, load])
+
+  // 자동 새로고침 인터벌
+  useEffect(() => {
+    if (autoRefreshSec === 0) return
+    if (auth.profile?.role !== 'admin') return
+    const id = setInterval(() => { load(true) }, autoRefreshSec * 1000)
+    return () => clearInterval(id)
+  }, [autoRefreshSec, auth.profile?.role, load])
 
   if (auth.loading || auth.profile?.role !== 'admin') {
     return (
@@ -140,11 +150,31 @@ export default function AdminHealthPage() {
               실시간 카운트·24h 활동
             </p>
           </div>
-          <button onClick={() => load()} disabled={loading}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
-            title="새로고침">
-            <RefreshCw className={`h-4 w-4 text-gray-300 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1" role="group" aria-label="자동 새로고침 주기">
+              {([
+                { v: 0, label: 'OFF' },
+                { v: 30, label: '30s' },
+                { v: 60, label: '60s' },
+              ] as const).map(o => (
+                <button
+                  key={o.v}
+                  onClick={() => setAutoRefreshSec(o.v)}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    autoRefreshSec === o.v ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }`}
+                  aria-pressed={autoRefreshSec === o.v}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => load()} disabled={loading}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
+              title="새로고침">
+              <RefreshCw className={`h-4 w-4 text-gray-300 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
       </header>
 

@@ -70,6 +70,10 @@ export default function AdminPropertiesPage() {
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set())
   const [reportCounts, setReportCounts] = useState<Map<string, number>>(new Map())
   const [selected, setSelected] = useState<Property | null>(null)
+  // 일괄 선택
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkConfirm, setBulkConfirm] = useState<null | { kind: 'hide' | 'available' | 'delete'; count: number }>(null)
 
   useEffect(() => {
     if (auth.loading) return
@@ -181,6 +185,82 @@ export default function AdminPropertiesPage() {
         link: '/broker/properties',
       })
     }
+  }
+
+  // 일괄 상태 변경 (hidden/available)
+  const bulkUpdateStatus = async (newStatus: 'hidden' | 'available') => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    const targets = items.filter(p => selectedIds.has(p.id))
+    const { error } = await supabase.from('broker_properties').update({ status: newStatus }).in('id', ids)
+    setBulkBusy(false)
+    if (error) { toast.error('일괄 변경 실패: ' + error.message); return }
+    setItems(prev => prev.map(p => selectedIds.has(p.id) ? { ...p, status: newStatus } : p))
+    toast.success(`${ids.length}건 ${STATUS_META[newStatus].label} 처리됨`)
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: 'property.status_change',
+        targetType: 'property',
+        targetId: `bulk:${ids.length}`,
+        metadata: { bulk: true, next: newStatus, ids },
+      })
+    }
+    // 각 중개사에게 알림 (사무소별로 묶지 않고 매물별로)
+    const notifs = targets
+      .map(t => t.broker_profiles?.user_id ? {
+        user_id: t.broker_profiles.user_id,
+        type: 'admin_property_status_changed',
+        title: '관리자가 매물 상태를 변경했어요',
+        body: `${t.address ?? '매물'} → ${STATUS_META[newStatus].label}${newStatus === 'hidden' ? ' (공개 페이지에서 숨겨짐)' : ''}`,
+        link: '/broker/properties',
+      } : null)
+      .filter((x): x is NonNullable<typeof x> => !!x)
+    if (notifs.length > 0) void supabase.from('notifications').insert(notifs)
+    setSelectedIds(new Set())
+    setBulkConfirm(null)
+  }
+
+  // 일괄 영구 삭제
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    const targets = items.filter(p => selectedIds.has(p.id))
+    const { error } = await supabase.from('broker_properties').delete().in('id', ids)
+    setBulkBusy(false)
+    if (error) { toast.error('일괄 삭제 실패: ' + error.message); return }
+    setItems(prev => prev.filter(p => !selectedIds.has(p.id)))
+    toast.success(`${ids.length}건 삭제됨`)
+    if (auth.user) {
+      void logAdminAction(supabase, auth.user.id, {
+        action: 'property.delete',
+        targetType: 'property',
+        targetId: `bulk:${ids.length}`,
+        metadata: { bulk: true, ids, addresses: targets.map(t => t.address) },
+      })
+    }
+    setSelectedIds(new Set())
+    setBulkConfirm(null)
+  }
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const toggleAll = () => {
+    const allOnPage = items.map(p => p.id)
+    const allSelected = allOnPage.every(id => selectedIds.has(id))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) allOnPage.forEach(id => next.delete(id))
+      else allOnPage.forEach(id => next.add(id))
+      return next
+    })
   }
 
   const deleteProperty = async (id: string) => {
@@ -312,6 +392,15 @@ export default function AdminPropertiesPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-800 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="현재 페이지 매물 전체 선택"
+                        checked={items.length > 0 && items.every(p => selectedIds.has(p.id))}
+                        onChange={toggleAll}
+                        className="h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-1 focus:ring-blue-500"
+                      />
+                    </th>
                     <th className="px-5 py-3">매물</th>
                     <th className="px-5 py-3 hidden md:table-cell">중개사</th>
                     <th className="px-5 py-3 hidden lg:table-cell">상태</th>
@@ -323,9 +412,18 @@ export default function AdminPropertiesPage() {
                   {items.map(p => {
                     const meta = STATUS_META[p.status]
                     return (
-                      <tr key={p.id} onClick={() => setSelected(p)}
-                        className="border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors">
-                        <td className="px-5 py-3.5">
+                      <tr key={p.id}
+                        className={`border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors ${selectedIds.has(p.id) ? 'bg-blue-500/5' : ''}`}>
+                        <td className="px-4 py-3.5 w-10" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            aria-label={`${p.address ?? '매물'} 선택`}
+                            checked={selectedIds.has(p.id)}
+                            onChange={() => toggleOne(p.id)}
+                            className="h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-5 py-3.5 cursor-pointer" onClick={() => setSelected(p)}>
                           <div className="flex items-center gap-3">
                             {p.images?.[0] && (
                               <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
@@ -346,16 +444,16 @@ export default function AdminPropertiesPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 hidden md:table-cell">
+                        <td className="px-5 py-3.5 hidden md:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           <p className="text-sm text-white truncate max-w-[160px]">{p.broker_profiles?.profiles?.name ?? '—'}</p>
                           <p className="text-xs text-gray-500 truncate max-w-[160px]">{p.broker_profiles?.office_name ?? ''}</p>
                         </td>
-                        <td className="px-5 py-3.5 hidden lg:table-cell">
+                        <td className="px-5 py-3.5 hidden lg:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
                             {meta.label}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 hidden lg:table-cell">
+                        <td className="px-5 py-3.5 hidden lg:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           {(p.reportCount ?? 0) > 0 ? (
                             <span className="inline-flex items-center gap-1 rounded-md bg-red-500/20 px-1.5 py-0.5 text-xs font-bold text-red-400">
                               <Flag className="h-3 w-3" /> {p.reportCount}
@@ -364,7 +462,7 @@ export default function AdminPropertiesPage() {
                             <span className="text-xs text-gray-600 dark:text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 hidden sm:table-cell">
+                        <td className="px-5 py-3.5 hidden sm:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           <span className="text-xs text-gray-400">{formatDate(p.created_at)}</span>
                         </td>
                       </tr>
@@ -397,6 +495,96 @@ export default function AdminPropertiesPage() {
             if (ok) setSelected(null)
           }}
         />
+      )}
+
+      {/* 일괄 선택 액션바 */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-2xl border border-gray-700 bg-gray-900 px-4 py-3 shadow-2xl">
+          <span className="text-sm font-semibold text-white"><span className="text-blue-400">{selectedIds.size}건</span> 선택됨</span>
+          <span className="h-5 w-px bg-gray-700" />
+          <button
+            onClick={() => setBulkConfirm({ kind: 'available', count: selectedIds.size })}
+            disabled={bulkBusy}
+            className="inline-flex items-center gap-1 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-1.5 text-xs font-semibold text-green-400 hover:bg-green-500/20 disabled:opacity-50"
+          >
+            <Eye className="h-3.5 w-3.5" /> 거래가능
+          </button>
+          <button
+            onClick={() => setBulkConfirm({ kind: 'hide', count: selectedIds.size })}
+            disabled={bulkBusy}
+            className="inline-flex items-center gap-1 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-400 hover:bg-yellow-500/20 disabled:opacity-50"
+          >
+            <EyeOff className="h-3.5 w-3.5" /> 일괄 숨김
+          </button>
+          <button
+            onClick={() => setBulkConfirm({ kind: 'delete', count: selectedIds.size })}
+            disabled={bulkBusy}
+            className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> 일괄 삭제
+          </button>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            disabled={bulkBusy}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-400 hover:bg-gray-800 disabled:opacity-50"
+            aria-label="선택 해제"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* 일괄 컨펌 모달 */}
+      {bulkConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => !bulkBusy && setBulkConfirm(null)}>
+          <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-xl bg-gray-900 ${bulkConfirm.kind === 'delete' ? 'border-red-500/30' : 'border-gray-700'}`}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col items-center text-center">
+              <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
+                bulkConfirm.kind === 'delete' ? 'bg-red-500/20' :
+                bulkConfirm.kind === 'hide' ? 'bg-yellow-500/20' :
+                'bg-green-500/20'
+              }`}>
+                {bulkConfirm.kind === 'delete' ? <AlertTriangle className="h-6 w-6 text-red-400" /> :
+                  bulkConfirm.kind === 'hide' ? <EyeOff className="h-6 w-6 text-yellow-400" /> :
+                  <Eye className="h-6 w-6 text-green-400" />}
+              </div>
+              <h3 className="text-lg font-bold text-white">
+                {bulkConfirm.kind === 'delete' ? '매물을 영구 삭제할까요?' :
+                  bulkConfirm.kind === 'hide' ? '매물을 일괄 숨길까요?' :
+                  '매물을 일괄 공개할까요?'}
+              </h3>
+              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+                선택한 <span className="font-bold text-white">{bulkConfirm.count}건</span>이 {
+                  bulkConfirm.kind === 'delete' ? '영구 삭제됩니다. 복구할 수 없습니다.' :
+                  bulkConfirm.kind === 'hide' ? '공개 페이지에서 숨겨집니다.' :
+                  '거래가능 상태로 변경됩니다.'
+                }<br />
+                <span className="text-xs text-gray-500">중개사에게 알림이 발송됩니다.</span>
+              </p>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => setBulkConfirm(null)} disabled={bulkBusy}
+                className="flex-1 rounded-xl border border-gray-700 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800 disabled:opacity-50">
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  if (bulkConfirm.kind === 'delete') bulkDelete()
+                  else bulkUpdateStatus(bulkConfirm.kind === 'hide' ? 'hidden' : 'available')
+                }}
+                disabled={bulkBusy}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-50 ${
+                  bulkConfirm.kind === 'delete' ? 'bg-red-600 hover:bg-red-700' :
+                  bulkConfirm.kind === 'hide' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                  'bg-green-600 hover:bg-green-700'
+                }`}>
+                {bulkBusy ? '처리 중...' : (bulkConfirm.kind === 'delete' ? '삭제' : '실행')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

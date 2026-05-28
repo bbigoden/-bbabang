@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type AuditAction =
   | 'broker.verify'
   | 'broker.unverify'
+  | 'broker.reject'
   | 'user.suspend'
   | 'user.unsuspend'
   | 'user.ban'
