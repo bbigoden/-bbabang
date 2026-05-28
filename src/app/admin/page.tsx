@@ -23,19 +23,19 @@ import { EmployeeRow } from '@/components/employee-row'
 // ── 모달 래퍼 ──────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className="relative z-10 w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
+        className="relative z-10 w-full max-w-lg max-h-[90vh] sm:max-h-[85vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="sticky top-0 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
+        <div className="sticky top-0 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <h3 className="font-bold text-white">{title}</h3>
           <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-4 sm:p-6">{children}</div>
       </div>
     </div>
   )
@@ -271,7 +271,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
 
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-8">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-6 sm:space-y-8">
 
         {/* ── 액션 필요 큐 (카운트 있는 항목만 강조) ── */}
         <div className="grid gap-4 md:grid-cols-2">
@@ -470,17 +470,18 @@ export default function AdminPage() {
               <span className="text-xs text-gray-500">클릭하면 상세 정보</span>
             </div>
             <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">이름</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">역할</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">가입일</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">이름</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">역할</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">가입일</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentUsers.length === 0 ? (
-                    <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-500">회원이 없습니다</td></tr>
+                    <tr><td colSpan={3} className="px-3 sm:px-5 py-8 text-center text-gray-500">회원이 없습니다</td></tr>
                   ) : (
                     recentUsers.map(u => (
                       <tr
@@ -488,12 +489,12 @@ export default function AdminPage() {
                         onClick={() => setUserModal(u)}
                         className="border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
                       >
-                        <td className="px-5 py-3.5">
-                          <div className="font-medium text-white">{u.name || '(이름 없음)'}</div>
-                          <div className="text-xs text-gray-400">{u.email}</div>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5">
+                          <div className="font-medium text-white truncate max-w-[140px] sm:max-w-none">{u.name || '(이름 없음)'}</div>
+                          <div className="text-xs text-gray-400 truncate max-w-[140px] sm:max-w-none">{u.email}</div>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5">
+                          <span className={`rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                             u.role === 'admin' ? 'bg-red-500/20 text-red-400' :
                             u.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
                             'bg-blue-500/20 text-blue-400'
@@ -501,12 +502,13 @@ export default function AdminPage() {
                             {u.role === 'admin' ? '관리자' : u.role === 'broker' ? '중개사' : '일반'}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-sm text-gray-400">{formatDate(u.created_at)}</td>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 text-sm text-gray-400 whitespace-nowrap">{formatDate(u.created_at)}</td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 
@@ -517,17 +519,18 @@ export default function AdminPage() {
               <span className="text-xs text-gray-500">클릭하면 상세 정보</span>
             </div>
             <div className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">요청자</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">지역/유형</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">상태</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">요청자</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">지역/유형</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">상태</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentRequests.length === 0 ? (
-                    <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-500">요청이 없습니다</td></tr>
+                    <tr><td colSpan={3} className="px-3 sm:px-5 py-8 text-center text-gray-500">요청이 없습니다</td></tr>
                   ) : (
                     recentRequests.map(req => (
                       <tr
@@ -535,16 +538,16 @@ export default function AdminPage() {
                         onClick={() => setRequestModal(req)}
                         className="border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
                       >
-                        <td className="px-5 py-3.5">
-                          <div className="font-medium text-white">{req.profiles?.name || '(알 수 없음)'}</div>
-                          <div className="text-xs text-gray-400">{formatDate(req.created_at)}</div>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5">
+                          <div className="font-medium text-white truncate max-w-[120px] sm:max-w-none">{req.profiles?.name || '(알 수 없음)'}</div>
+                          <div className="text-xs text-gray-400 whitespace-nowrap">{formatDate(req.created_at)}</div>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <div className="text-sm text-white">{req.city} {req.district}</div>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5">
+                          <div className="text-sm text-white truncate max-w-[140px] sm:max-w-none">{req.city} {req.district}</div>
                           <div className="text-xs text-gray-400">{req.deal_type?.split(',')?.[0]}</div>
                         </td>
-                        <td className="px-5 py-3.5">
-                          <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5">
+                          <span className={`rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                             req.status === 'active'
                               ? 'bg-green-500/20 text-green-400'
                               : 'bg-gray-500/20 text-gray-400'
@@ -557,6 +560,7 @@ export default function AdminPage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 

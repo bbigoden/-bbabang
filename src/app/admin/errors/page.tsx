@@ -198,7 +198,7 @@ export default function AdminErrorsPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-5">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-5">
         <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex-1 min-w-[280px] flex gap-2">
             <div className="relative flex-1">
@@ -327,9 +327,9 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
   const meta = STATUS_META[err.status]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => !busy && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4" onClick={() => !busy && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-white">에러 상세</h3>
             <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
@@ -341,7 +341,7 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4">
           <div>
             <p className="mb-1.5 text-xs font-semibold text-gray-400">메시지</p>
             <p className="text-sm text-white break-words font-mono bg-gray-800/50 rounded-xl px-3 py-2.5">{err.message}</p>

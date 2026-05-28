@@ -257,7 +257,7 @@ export default function AdminBrokersPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-5">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-5">
         <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex-1 min-w-[280px] flex gap-2">
             <div className="relative flex-1">
@@ -415,11 +415,11 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
   const rejectAt = typeof v.admin_reject_at === 'string' ? v.admin_reject_at : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
       onClick={() => !busy && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
         onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-white">사무소 상세</h3>
             {broker.is_verified ? (
@@ -438,7 +438,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4">
           {/* 헤더 */}
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-500/20 text-2xl font-black text-purple-400">

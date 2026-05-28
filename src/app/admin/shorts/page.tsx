@@ -179,7 +179,7 @@ export default function AdminShortsPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-6">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-6">
 
         {scripts.length === 0 && !loading && (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 p-12 text-center">

@@ -124,7 +124,7 @@ export default function AdminReportsPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-5">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-5">
         {/* 필터 */}
         <div className="flex flex-wrap gap-3">
           <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
@@ -272,11 +272,11 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
   const targetHref = report.target_type && report.target_id ? TARGET_LINK(report.target_type, report.target_id) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
       onClick={() => !saving && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
         onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
             <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${report.kind === 'report' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
               {report.kind === 'report' ? <Flag className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
@@ -292,7 +292,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-5">
           {/* 신고자 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
             <p className="mb-2 text-xs font-semibold text-gray-400">신고자</p>

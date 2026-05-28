@@ -312,7 +312,7 @@ export default function AdminPropertiesPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-8 space-y-5">
+      <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-5">
         {/* 검색·필터 */}
         <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex-1 min-w-[280px] flex gap-2">
@@ -401,7 +401,7 @@ export default function AdminPropertiesPage() {
                         className="h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-1 focus:ring-blue-500"
                       />
                     </th>
-                    <th className="px-5 py-3">매물</th>
+                    <th className="px-3 sm:px-5 py-3">매물</th>
                     <th className="px-5 py-3 hidden md:table-cell">중개사</th>
                     <th className="px-5 py-3 hidden lg:table-cell">상태</th>
                     <th className="px-5 py-3 hidden lg:table-cell">신고</th>
@@ -423,7 +423,7 @@ export default function AdminPropertiesPage() {
                             className="h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-1 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="px-5 py-3.5 cursor-pointer" onClick={() => setSelected(p)}>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 cursor-pointer" onClick={() => setSelected(p)}>
                           <div className="flex items-center gap-3">
                             {p.images?.[0] && (
                               <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg">
@@ -444,16 +444,16 @@ export default function AdminPropertiesPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 hidden md:table-cell cursor-pointer" onClick={() => setSelected(p)}>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 hidden md:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           <p className="text-sm text-white truncate max-w-[160px]">{p.broker_profiles?.profiles?.name ?? '—'}</p>
                           <p className="text-xs text-gray-500 truncate max-w-[160px]">{p.broker_profiles?.office_name ?? ''}</p>
                         </td>
-                        <td className="px-5 py-3.5 hidden lg:table-cell cursor-pointer" onClick={() => setSelected(p)}>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 hidden lg:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
                             {meta.label}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 hidden lg:table-cell cursor-pointer" onClick={() => setSelected(p)}>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 hidden lg:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           {(p.reportCount ?? 0) > 0 ? (
                             <span className="inline-flex items-center gap-1 rounded-md bg-red-500/20 px-1.5 py-0.5 text-xs font-bold text-red-400">
                               <Flag className="h-3 w-3" /> {p.reportCount}
@@ -462,7 +462,7 @@ export default function AdminPropertiesPage() {
                             <span className="text-xs text-gray-600 dark:text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 hidden sm:table-cell cursor-pointer" onClick={() => setSelected(p)}>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 hidden sm:table-cell cursor-pointer" onClick={() => setSelected(p)}>
                           <span className="text-xs text-gray-400">{formatDate(p.created_at)}</span>
                         </td>
                       </tr>
@@ -614,11 +614,11 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
       onClick={() => !busy && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
         onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-white">매물 상세</h3>
             <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
@@ -636,7 +636,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4">
           {property.images && property.images.length > 0 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
               {property.images.map((url, i) => (
