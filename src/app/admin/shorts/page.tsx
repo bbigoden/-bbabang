@@ -144,25 +144,25 @@ export default function AdminShortsPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/admin" aria-label="관리자 대시보드로 돌아가기" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+      <header className="border-b border-gray-800 bg-gray-900 px-4 py-4 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/admin" aria-label="관리자 대시보드로 돌아가기" className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
               <ArrowLeft className="h-4 w-4 text-gray-300" aria-hidden="true" />
             </Link>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/20">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-pink-500/20">
               <Film className="h-5 w-5 text-pink-400" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">쇼츠 공장</h1>
-              <p className="text-xs text-gray-400">AI가 유튜브 쇼츠 대본을 자동 생성해요</p>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-white truncate">쇼츠 공장</h1>
+              <p className="text-xs text-gray-400 truncate">AI가 유튜브 쇼츠 대본을 자동 생성해요</p>
             </div>
           </div>
 
           <button
             onClick={generate}
             disabled={loading}
-            className="flex items-center gap-2 rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pink-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pink-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
           >
             {loading ? (
               <>
