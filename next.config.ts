@@ -12,8 +12,8 @@ const CSP = [
   // Pexels: 자료화면 썸네일/포스터 이미지 / Creatomate: 영상 스냅샷
   `img-src 'self' data: blob: ${SUPABASE_HOST} https://*.daumcdn.net https://*.daum.net https://*.kakao.com https://images.pexels.com https://cdn.creatomate.com`,
   `font-src 'self' data: https://fonts.gstatic.com`,
-  // Pexels API (자료화면 검색) + Creatomate API (영상 합성 polling)
-  `connect-src 'self' ${SUPABASE_HOST} wss://wovxcdfxxnsljdhrgonh.supabase.co https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com https://api.pexels.com https://api.creatomate.com https://cdn.creatomate.com`,
+  // Pexels API (자료화면 검색) + Creatomate API (영상 합성 polling) + blob: (음성 MP3 blob fetch)
+  `connect-src 'self' blob: ${SUPABASE_HOST} wss://wovxcdfxxnsljdhrgonh.supabase.co https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com https://api.pexels.com https://api.creatomate.com https://cdn.creatomate.com`,
   // Creatomate CDN: 완성된 mp4 video element src
   `media-src 'self' blob: ${SUPABASE_HOST} https://cdn.creatomate.com`,
   `frame-src 'self' https://*.daum.net https://*.kakao.com`,
