@@ -163,7 +163,7 @@ function FilterField({ name, label, defaultValue, placeholder }: {
   name: string; label: string; defaultValue?: string; placeholder?: string
 }) {
   return (
-    <div className="flex-1 min-w-[140px]">
+    <div className="w-full sm:flex-1 sm:min-w-[140px]">
       <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <input name={name} defaultValue={defaultValue ?? ''} placeholder={placeholder}
         className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
