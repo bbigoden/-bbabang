@@ -1007,12 +1007,12 @@ export default function BrokerDiaryPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
-      <div className="mx-auto max-w-screen-xl px-4 py-6 space-y-4">
+      <div className="mx-auto max-w-screen-xl px-3 py-4 sm:px-4 sm:py-6 space-y-4">
 
         {/* 날짜 헤더 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white">{formatDateHeader(diaryDate)} 업무일지</h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <h1 className="text-lg sm:text-2xl font-black text-gray-900 dark:text-white">{formatDateHeader(diaryDate)} 업무일지</h1>
             {/* 대표: 직원/퇴사자 선택 드롭다운 */}
             {isOwner && (employees.length > 0 || exEmployees.length > 0) && (
               <select
@@ -1048,7 +1048,7 @@ export default function BrokerDiaryPage() {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {effectiveCanEdit && (
               <button onClick={() => { setImportDate(''); setShowImport(true) }}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
