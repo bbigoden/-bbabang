@@ -14,6 +14,13 @@ export function ServiceWorkerRegister() {
     if (!('serviceWorker' in navigator)) return
     if (process.env.NODE_ENV !== 'production') return
 
+    let reloaded = false
+    const reloadOnce = () => {
+      if (reloaded) return
+      reloaded = true
+      window.location.reload()
+    }
+
     const register = async () => {
       try {
         const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
@@ -26,14 +33,21 @@ export function ServiceWorkerRegister() {
             if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
               // 옛 SW가 있던 상태에서 새 SW 활성 → 새 자원으로 리로드
               // 첫 설치는 controller가 null이라 reload 안 함
+              reloadOnce()
             }
           })
         })
+
+        // 1시간마다 업데이트 체크 (PWA를 오래 띄워둔 경우)
+        setInterval(() => { reg.update().catch(() => {}) }, 60 * 60 * 1000)
       } catch {
         // SW 등록 실패는 무시 (사용자에 영향 없음)
       }
     }
     register()
+
+    // controller가 새 SW로 교체되면 reload (다른 탭에서 갱신된 경우 등)
+    navigator.serviceWorker.addEventListener('controllerchange', reloadOnce)
   }, [])
 
   return null
