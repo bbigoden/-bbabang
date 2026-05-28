@@ -90,10 +90,14 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
             setProgressMsg(`영상 합성 중... ${pct}%`)
           }
         })
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd'
+        // classWorkerURL을 명시해서 @ffmpeg/ffmpeg 내부의 동적 worker 생성을 우회
+        // (Turbopack이 패키지 내부 dynamic import 분석 실패하는 케이스 회피)
+        const coreBase = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd'
+        const ffmpegBase = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.15/dist/esm'
         await ffmpeg.load({
-          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          classWorkerURL: await toBlobURL(`${ffmpegBase}/worker.js`, 'text/javascript'),
+          coreURL: await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
         })
         ffmpegRef.current = ffmpeg
       }
