@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Video, Loader2, Download, RefreshCw, AlertTriangle, FileVideo, FileText,
 } from 'lucide-react'
+import { FFmpeg } from '@ffmpeg/ffmpeg'
+import { toBlobURL } from '@ffmpeg/util'
 import { useToast } from '@/components/toast'
 
 interface BRollClip {
@@ -75,12 +77,10 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
       const useClips = allClips.slice(0, 5)
       setProgressPct(15)
 
-      // 2) FFmpeg.wasm lazy load
+      // 2) FFmpeg.wasm lazy load (core wasm은 첫 클릭 시점에 unpkg에서 받음)
       setPhase('loading_ffmpeg')
       setProgressMsg('영상 엔진 로딩 중... (최초 1회 약 30MB 다운로드)')
       if (!ffmpegRef.current) {
-        const { FFmpeg } = await import('@ffmpeg/ffmpeg')
-        const { toBlobURL } = await import('@ffmpeg/util')
         const ffmpeg = new FFmpeg()
         ffmpeg.on('progress', ({ progress }: { progress: number }) => {
           // 렌더링 단계에서만 의미있는 값
