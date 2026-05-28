@@ -228,7 +228,7 @@ export default function ProposePage() {
               ) : myProperties.length === 0 ? (
                 <div className="py-10 text-center">
                   <Home className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                  <p className="text-sm text-gray-400">매물있음 상태의 매물이 없습니다</p>
+                  <p className="text-sm text-gray-400">거래가능 상태의 매물이 없습니다</p>
                   <p className="mt-1 text-xs text-gray-400">매물목록에서 매물을 먼저 등록해주세요</p>
                 </div>
               ) : (

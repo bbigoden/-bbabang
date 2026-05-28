@@ -44,7 +44,7 @@ interface Property {
 type StatusFilter = 'all' | 'available' | 'contracted' | 'hidden'
 
 const STATUS_META: Record<Property['status'], { label: string; color: string }> = {
-  available: { label: '매물있음', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
+  available: { label: '거래가능', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
   contracted: { label: '계약완료', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   hidden: { label: '숨김', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
 }
@@ -253,7 +253,7 @@ export default function AdminPropertiesPage() {
           <div className="flex items-center gap-1 rounded-xl border border-gray-800 bg-gray-900 p-1">
             {([
               { key: 'all', label: '전체' },
-              { key: 'available', label: '매물있음' },
+              { key: 'available', label: '거래가능' },
               { key: 'contracted', label: '계약완료' },
               { key: 'hidden', label: '숨김' },
             ] as const).map(t => (

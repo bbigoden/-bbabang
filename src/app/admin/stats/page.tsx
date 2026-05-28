@@ -234,7 +234,7 @@ export default function AdminStatsPage() {
               <ChartCard title="매물 상태 분포" icon={Home}>
                 <RankBars
                   rows={propStatus.map(p => ({
-                    region: p.region === 'available' ? '매물있음' : p.region === 'contracted' ? '계약완료' : p.region === 'hidden' ? '숨김' : p.region,
+                    region: p.region === 'available' ? '거래가능' : p.region === 'contracted' ? '계약완료' : p.region === 'hidden' ? '숨김' : p.region,
                     count: p.count,
                   }))}
                   barColor="bg-amber-500/70"

@@ -719,7 +719,7 @@ export default function AdminPage() {
                           p.status === 'contracted' ? 'bg-blue-500/20 text-blue-400' :
                           'bg-yellow-500/20 text-yellow-400'
                         }`}>
-                          {p.status === 'available' ? '매물있음' : p.status === 'contracted' ? '계약완료' : '숨김'}
+                          {p.status === 'available' ? '거래가능' : p.status === 'contracted' ? '계약완료' : '숨김'}
                         </span>
                       </button>
                     ))}
