@@ -92,8 +92,9 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
         })
         // classWorkerURL을 명시해서 @ffmpeg/ffmpeg 내부의 동적 worker 생성을 우회
         // (Turbopack이 패키지 내부 dynamic import 분석 실패하는 케이스 회피)
-        const coreBase = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd'
-        const ffmpegBase = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.15/dist/esm'
+        // CDN은 jsdelivr 사용 — 한국 노드 있어서 unpkg보다 빠름
+        const coreBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd'
+        const ffmpegBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm'
         await ffmpeg.load({
           classWorkerURL: await toBlobURL(`${ffmpegBase}/worker.js`, 'text/javascript'),
           coreURL: await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript'),
