@@ -2,34 +2,53 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  Video, Loader2, Download, RefreshCw, AlertTriangle, FileVideo, FileText,
+  Video, Loader2, Download, RefreshCw, AlertTriangle, Sparkles,
 } from 'lucide-react'
-import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { toBlobURL } from '@ffmpeg/util'
 import { useToast } from '@/components/toast'
 
-interface BRollClip {
-  id: number
-  duration: number
-  poster: string
-  downloadUrl: string
-  width: number
-  height: number
-}
-interface BRollResult {
-  keyword: string
-  englishQuery: string
-  clips: BRollClip[]
-}
-
-type Phase = 'idle' | 'searching' | 'loading_ffmpeg' | 'downloading' | 'rendering' | 'done' | 'error'
+type Phase = 'idle' | 'uploading' | 'rendering' | 'done' | 'error'
 
 interface Props {
   scriptId: string
   voiceoverText: string
   bRollKeywords: string[]
-  audioUrl: string | null  // 음성 생성 완료된 blob URL (없으면 비활성)
+  audioUrl: string | null  // 음성 blob URL (없으면 비활성)
   category: string
+}
+
+interface RenderResp {
+  status: 'succeeded' | 'failed' | 'planned' | 'waiting' | 'transcribing' | 'rendering'
+  url?: string
+  renderId?: string
+  audioUrl?: string
+  error?: string
+  message?: string
+}
+
+const POLL_INTERVAL_MS = 4000
+const POLL_TIMEOUT_MS = 5 * 60 * 1000  // 최대 5분 polling
+
+async function getAudioDuration(blobUrl: string): Promise<number> {
+  return new Promise(resolve => {
+    const audio = new Audio()
+    audio.preload = 'metadata'
+    audio.src = blobUrl
+    const onLoad = () => {
+      const d = Number.isFinite(audio.duration) ? audio.duration : 30
+      audio.removeEventListener('loadedmetadata', onLoad)
+      audio.removeEventListener('error', onErr)
+      resolve(Math.max(5, Math.min(90, Math.round(d))))
+    }
+    const onErr = () => {
+      audio.removeEventListener('loadedmetadata', onLoad)
+      audio.removeEventListener('error', onErr)
+      resolve(30)
+    }
+    audio.addEventListener('loadedmetadata', onLoad, { once: true })
+    audio.addEventListener('error', onErr, { once: true })
+    // 안전망: 5초 후에도 metadata 안 오면 기본값
+    setTimeout(() => onErr(), 5000)
+  })
 }
 
 export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, category }: Props) {
@@ -38,14 +57,45 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
   const [progressPct, setProgressPct] = useState<number>(0)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const ffmpegRef = useRef<any>(null)
-  const generatedUrlsRef = useRef<string[]>([])
+  const pollAbortRef = useRef<boolean>(false)
   const toast = useToast()
 
   useEffect(() => {
-    const urls = generatedUrlsRef.current
-    return () => { urls.forEach(u => URL.revokeObjectURL(u)) }
+    return () => { pollAbortRef.current = true }
   }, [])
+
+  const startPolling = async (renderId: string) => {
+    const start = Date.now()
+    let last: RenderResp | null = null
+    while (!pollAbortRef.current && Date.now() - start < POLL_TIMEOUT_MS) {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+      if (pollAbortRef.current) return
+      try {
+        const res = await fetch(`/api/admin/shorts/render?id=${renderId}`)
+        const j = (await res.json()) as RenderResp
+        last = j
+        if (j.status === 'succeeded' && j.url) {
+          setProgressPct(100)
+          setVideoUrl(j.url)
+          setPhase('done')
+          toast.success('영상 생성 완료!')
+          return
+        }
+        if (j.status === 'failed') {
+          throw new Error(j.message ?? 'Creatomate render 실패')
+        }
+        // 진행 중 — 진행률을 시간 기반으로 추정 (20% → 95%)
+        const elapsed = (Date.now() - start) / 1000
+        const pct = Math.min(95, 25 + Math.round(elapsed * 1.5))
+        setProgressPct(pct)
+        setProgressMsg(`Creatomate 합성 중... (${j.status}, ${Math.round(elapsed)}초 경과)`)
+      } catch (e) {
+        console.error('[video-box] poll error', e)
+        throw e
+      }
+    }
+    throw new Error(`타임아웃 (5분 초과). renderId=${last?.renderId ?? renderId}`)
+  }
 
   const generate = async () => {
     if (!audioUrl) {
@@ -54,190 +104,72 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
     }
     setErrorMsg(null)
     setProgressPct(0)
+    setVideoUrl(null)
+    pollAbortRef.current = false
 
     try {
-      // 1) Pexels 자료화면 검색
-      setPhase('searching')
-      setProgressMsg('자료화면 검색 중...')
-      const brRes = await fetch('/api/admin/shorts/b-roll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keywords: bRollKeywords }),
-      })
-      if (!brRes.ok) {
-        const j = await brRes.json().catch(() => ({}))
-        throw new Error(j?.message ?? j?.error ?? 'b-roll 검색 실패')
-      }
-      const brJson = (await brRes.json()) as { results: BRollResult[] }
-      const allClips = brJson.results.flatMap(r => r.clips)
-      if (allClips.length === 0) {
-        throw new Error('자료화면을 찾지 못했어요. 다시 시도해주세요.')
-      }
-      // 최대 5개까지만 사용 (다운로드/렌더 시간 절약)
-      const useClips = allClips.slice(0, 5)
-      setProgressPct(15)
+      // 1) 음성 blob + duration 수집
+      setPhase('uploading')
+      setProgressMsg('음성 업로드 + 자료화면 검색 중...')
+      setProgressPct(5)
+      const audioBlob = await (await fetch(audioUrl)).blob()
+      const audioDuration = await getAudioDuration(audioUrl)
+      setProgressPct(10)
 
-      // 2) FFmpeg.wasm lazy load (core wasm은 첫 클릭 시점에 unpkg에서 받음)
-      setPhase('loading_ffmpeg')
-      setProgressMsg('영상 엔진 로딩 중... (최초 1회 약 30MB 다운로드)')
-      if (!ffmpegRef.current) {
-        const ffmpeg = new FFmpeg()
-        ffmpeg.on('progress', ({ progress }: { progress: number }) => {
-          // 렌더링 단계에서만 의미있는 값
-          if (phase === 'rendering' || (typeof progress === 'number' && progress > 0)) {
-            const pct = Math.max(0, Math.min(100, Math.round(progress * 100)))
-            setProgressPct(60 + Math.round(pct * 0.35))
-            setProgressMsg(`영상 합성 중... ${pct}%`)
-          }
-        })
-        // classWorkerURL을 명시해서 @ffmpeg/ffmpeg 내부의 동적 worker 생성을 우회
-        // (Turbopack이 패키지 내부 dynamic import 분석 실패하는 케이스 회피)
-        // CDN은 jsdelivr 사용 — 한국 노드 있어서 unpkg보다 빠름
-        const coreBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd'
-        const ffmpegBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm'
-        await ffmpeg.load({
-          classWorkerURL: await toBlobURL(`${ffmpegBase}/worker.js`, 'text/javascript'),
-          coreURL: await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript'),
-          wasmURL: await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
-        })
-        ffmpegRef.current = ffmpeg
-      }
-      const ffmpeg = ffmpegRef.current
-      setProgressPct(35)
+      // 2) form-data로 render API 호출
+      const form = new FormData()
+      form.append('audio', audioBlob, 'voice.mp3')
+      form.append('voiceoverText', voiceoverText)
+      form.append('bRollKeywords', JSON.stringify(bRollKeywords))
+      form.append('audioDuration', String(audioDuration))
+      form.append('category', category)
 
-      // 3) 음성 + 자료화면 다운로드
-      setPhase('downloading')
-      setProgressMsg(`자료화면 ${useClips.length}개 다운로드 중...`)
-      const audioBuf = new Uint8Array(await (await fetch(audioUrl)).arrayBuffer())
-      await ffmpeg.writeFile('audio.mp3', audioBuf)
-
-      const clipNames: string[] = []
-      const clipErrors: string[] = []
-      for (let i = 0; i < useClips.length; i++) {
-        const clip = useClips[i]
-        try {
-          // Pexels 직접 fetch는 CORS 차단 가능 → 빠방 서버 프록시 우회
-          const proxyUrl = `/api/admin/shorts/b-roll-proxy?url=${encodeURIComponent(clip.downloadUrl)}`
-          const res = await fetch(proxyUrl)
-          if (!res.ok) {
-            clipErrors.push(`clip${i}: HTTP ${res.status}`)
-            continue
-          }
-          const buf = new Uint8Array(await res.arrayBuffer())
-          if (buf.byteLength === 0) {
-            clipErrors.push(`clip${i}: empty`)
-            continue
-          }
-          const name = `clip${i}.mp4`
-          await ffmpeg.writeFile(name, buf)
-          clipNames.push(name)
-        } catch (e) {
-          console.warn('[video-box] clip download failed', clip.id, e)
-          clipErrors.push(`clip${i}: ${e instanceof Error ? e.message : 'fetch err'}`)
-        }
-        setProgressPct(35 + Math.round(((i + 1) / useClips.length) * 20))
-      }
-      if (clipNames.length === 0) {
-        throw new Error(`자료화면 다운로드 0건. 상세: ${clipErrors.join(' | ').slice(0, 200)}`)
-      }
-
-      // 4) FFmpeg 합성: 자료화면들 concat → 9:16 crop → 음성 트랙 → mp4
+      setProgressMsg(`Creatomate 영상 합성 시작 (${audioDuration}초)...`)
+      setProgressPct(20)
       setPhase('rendering')
-      setProgressPct(60)
-      setProgressMsg('영상 합성 중... (수십 초 ~ 수 분 걸려요)')
 
-      const filterParts: string[] = []
-      const concatInputs: string[] = []
-      clipNames.forEach((_, i) => {
-        // 각 클립을 9:16로 crop+scale, 동일 fps로 강제 (concat 호환)
-        filterParts.push(
-          `[${i}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30[v${i}]`
-        )
-        concatInputs.push(`[v${i}]`)
-      })
-      const concatFilter = `${concatInputs.join('')}concat=n=${clipNames.length}:v=1:a=0[catv];[catv]loop=loop=-1:size=32767:start=0[outv]`
-      const filterComplex = filterParts.join(';') + ';' + concatFilter
+      const res = await fetch('/api/admin/shorts/render', { method: 'POST', body: form })
+      const j = (await res.json()) as RenderResp
 
-      const ffmpegArgs: string[] = []
-      clipNames.forEach(n => { ffmpegArgs.push('-i', n) })
-      ffmpegArgs.push('-i', 'audio.mp3')
-      ffmpegArgs.push('-filter_complex', filterComplex)
-      ffmpegArgs.push('-map', '[outv]', '-map', `${clipNames.length}:a`)
-      ffmpegArgs.push('-shortest')
-      ffmpegArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28')
-      ffmpegArgs.push('-c:a', 'aac', '-b:a', '128k')
-      ffmpegArgs.push('-pix_fmt', 'yuv420p', '-r', '30')
-      ffmpegArgs.push('-movflags', '+faststart')
-      ffmpegArgs.push('output.mp4')
-
-      await ffmpeg.exec(ffmpegArgs)
-      setProgressPct(95)
-      setProgressMsg('마무리 중...')
-
-      // 5) 결과 읽기
-      const data = await ffmpeg.readFile('output.mp4') as Uint8Array
-      const videoBlob = new Blob([data.buffer as ArrayBuffer], { type: 'video/mp4' })
-      const url = URL.createObjectURL(videoBlob)
-      generatedUrlsRef.current.push(url)
-
-      // 클린업
-      for (const n of clipNames) {
-        try { await ffmpeg.deleteFile(n) } catch {}
+      if (j.status === 'succeeded' && j.url) {
+        setProgressPct(100)
+        setVideoUrl(j.url)
+        setPhase('done')
+        toast.success('영상 생성 완료!')
+        return
       }
-      try { await ffmpeg.deleteFile('audio.mp3') } catch {}
-      try { await ffmpeg.deleteFile('output.mp4') } catch {}
-
-      setVideoUrl(url)
-      setProgressPct(100)
-      setPhase('done')
-      toast.success('영상 생성 완료!')
+      if (j.status === 'failed') {
+        throw new Error(j.message ?? 'Creatomate render 실패')
+      }
+      if (!res.ok && res.status !== 202) {
+        throw new Error(j.message ?? j.error ?? `HTTP ${res.status}`)
+      }
+      // 202 — 아직 처리 중, polling 시작
+      if (!j.renderId) throw new Error('renderId 누락')
+      setProgressMsg('Creatomate 합성 중... (보통 30초~2분)')
+      await startPolling(j.renderId)
     } catch (e) {
       console.error('[video-box] error', e)
-      const errObj = e as { name?: string; message?: string; cause?: unknown }
-      const parts = [
-        errObj?.name && errObj.name !== 'Error' ? `[${errObj.name}]` : '',
-        e instanceof Error ? e.message : String(e),
-        errObj?.cause ? ` (cause: ${String(errObj.cause).slice(0, 100)})` : '',
-      ].filter(Boolean).join(' ').trim()
-      const detail = parts || `영상 생성 실패 (단계: ${phase})`
-      setErrorMsg(detail)
+      const detail = e instanceof Error ? e.message : String(e)
+      setErrorMsg(detail || '영상 생성 실패')
       setPhase('error')
       toast.error(detail.slice(0, 100))
     }
   }
 
-  const downloadMp4 = () => {
+  const download = () => {
     if (!videoUrl) return
-    const a = document.createElement('a')
-    a.href = videoUrl
-    a.download = `shorts-${category}-${scriptId}.mp4`.replace(/[^a-zA-Z0-9가-힣.\-]/g, '_')
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    // Creatomate URL은 cross-origin이라 a.download 작동 안 함 → 새 탭으로 열기
+    window.open(videoUrl, '_blank', 'noopener,noreferrer')
   }
 
-  const downloadSrt = () => {
-    // 단순 SRT: voiceover 전체를 0초~30초 단일 자막으로 출력
-    // (정확한 시간 분할은 차후 단계 — 사장님이 CapCut 등에서 미세 조정 가능)
-    const srt = `1\n00:00:00,000 --> 00:00:30,000\n${voiceoverText}\n`
-    const blob = new Blob([srt], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `shorts-${category}-${scriptId}.srt`.replace(/[^a-zA-Z0-9가-힣.\-]/g, '_')
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-
-  const isWorking = phase !== 'idle' && phase !== 'done' && phase !== 'error'
+  const isWorking = phase === 'uploading' || phase === 'rendering'
 
   return (
     <div className="rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-blue-500/5 p-4">
       <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-purple-300">
         <Video className="h-3.5 w-3.5" />
-        AI 영상 자동 합성 (Pexels 자료화면 + FFmpeg)
+        AI 영상 자동 합성 (Creatomate · 9:16 쇼츠)
       </div>
 
       {!audioUrl && phase === 'idle' && (
@@ -251,8 +183,8 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
           onClick={generate}
           className="w-full flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-3 text-sm font-semibold text-white hover:bg-purple-500 transition-colors"
         >
-          <Video className="h-4 w-4" />
-          영상 만들기 (자료화면 자동 검색 + 합성)
+          <Sparkles className="h-4 w-4" />
+          영상 만들기 (자료화면 자동 + 자막 + 음성 합성)
         </button>
       )}
 
@@ -266,7 +198,7 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
             <div className="h-full bg-purple-500 transition-all" style={{ width: `${progressPct}%` }} />
           </div>
           <p className="text-[11px] text-gray-400">
-            * 사장님 브라우저에서 합성합니다 (서버 비용 0원). 탭 닫지 마세요.
+            * Creatomate 서버에서 합성 중. 사장님 PC는 안 씁니다. 탭 닫지 마세요.
           </p>
         </div>
       )}
@@ -291,33 +223,25 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
 
       {phase === 'done' && videoUrl && (
         <div className="space-y-2">
-          <video controls src={videoUrl} className="w-full rounded-lg bg-black" style={{ maxHeight: 360 }} />
+          <video controls src={videoUrl} className="w-full rounded-lg bg-black" style={{ maxHeight: 480 }} />
           <div className="flex gap-2">
             <button
-              onClick={downloadMp4}
+              onClick={download}
               className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-500 transition-colors"
             >
-              <FileVideo className="h-3.5 w-3.5" />
-              MP4 다운로드
-            </button>
-            <button
-              onClick={downloadSrt}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-colors"
-              title="CapCut 등에서 자막 입히기용"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              자막 SRT
+              <Download className="h-3.5 w-3.5" />
+              MP4 다운로드 (새 탭)
             </button>
             <button
               onClick={() => { setVideoUrl(null); setPhase('idle') }}
               className="flex items-center justify-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-500/20 transition-colors"
             >
               <RefreshCw className="h-3.5 w-3.5" />
-              다시
+              다시 만들기
             </button>
           </div>
           <p className="text-[11px] text-gray-400">
-            * 자막은 별도 SRT 파일. CapCut/유튜브 스튜디오에 영상+SRT 함께 올리면 자막 자동 적용됩니다.
+            * MP4는 새 탭에서 열립니다. 우클릭 → 「다른 이름으로 비디오 저장」 으로 다운로드. 그대로 유튜브 스튜디오에 업로드 가능.
           </p>
         </div>
       )}
