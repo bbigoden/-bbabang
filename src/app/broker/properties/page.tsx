@@ -76,7 +76,7 @@ const _STATUS_COLOR: Record<string, string> = {
   contracted: 'bg-gray-100 text-gray-600',
   hidden: 'bg-yellow-100 text-yellow-700',
 }
-const DEAL_TYPES = ['매매', '전세', '월세', '분양', '분양권']
+const DEAL_TYPES = ['매매', '전세', '월세']  // 신규 등록 페이지(new/page.tsx)와 일치
 const ROOM_TYPES = ALL_ROOM_TYPES
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const _PARKING_OPTS = ['주차가능', '주차불가', '협의']
