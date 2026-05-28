@@ -107,20 +107,33 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
       await ffmpeg.writeFile('audio.mp3', audioBuf)
 
       const clipNames: string[] = []
+      const clipErrors: string[] = []
       for (let i = 0; i < useClips.length; i++) {
         const clip = useClips[i]
         try {
-          const buf = new Uint8Array(await (await fetch(clip.downloadUrl)).arrayBuffer())
+          // Pexels 직접 fetch는 CORS 차단 가능 → 빠방 서버 프록시 우회
+          const proxyUrl = `/api/admin/shorts/b-roll-proxy?url=${encodeURIComponent(clip.downloadUrl)}`
+          const res = await fetch(proxyUrl)
+          if (!res.ok) {
+            clipErrors.push(`clip${i}: HTTP ${res.status}`)
+            continue
+          }
+          const buf = new Uint8Array(await res.arrayBuffer())
+          if (buf.byteLength === 0) {
+            clipErrors.push(`clip${i}: empty`)
+            continue
+          }
           const name = `clip${i}.mp4`
           await ffmpeg.writeFile(name, buf)
           clipNames.push(name)
         } catch (e) {
           console.warn('[video-box] clip download failed', clip.id, e)
+          clipErrors.push(`clip${i}: ${e instanceof Error ? e.message : 'fetch err'}`)
         }
         setProgressPct(35 + Math.round(((i + 1) / useClips.length) * 20))
       }
       if (clipNames.length === 0) {
-        throw new Error('자료화면 다운로드에 실패했어요')
+        throw new Error(`자료화면 다운로드 0건. 상세: ${clipErrors.join(' | ').slice(0, 200)}`)
       }
 
       // 4) FFmpeg 합성: 자료화면들 concat → 9:16 crop → 음성 트랙 → mp4
@@ -175,10 +188,16 @@ export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, cat
       toast.success('영상 생성 완료!')
     } catch (e) {
       console.error('[video-box] error', e)
-      const msg = e instanceof Error ? e.message : '영상 생성 실패'
-      setErrorMsg(msg)
+      const errObj = e as { name?: string; message?: string; cause?: unknown }
+      const parts = [
+        errObj?.name && errObj.name !== 'Error' ? `[${errObj.name}]` : '',
+        e instanceof Error ? e.message : String(e),
+        errObj?.cause ? ` (cause: ${String(errObj.cause).slice(0, 100)})` : '',
+      ].filter(Boolean).join(' ').trim()
+      const detail = parts || `영상 생성 실패 (단계: ${phase})`
+      setErrorMsg(detail)
       setPhase('error')
-      toast.error(msg)
+      toast.error(detail.slice(0, 100))
     }
   }
 
