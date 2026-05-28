@@ -343,27 +343,69 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const sizePyeong = areaM2 > 0 ? m2ToPyeong(areaM2) : null
-    const sizePyeongSupplied = areaSuppliedM2 > 0 ? m2ToPyeong(areaSuppliedM2) : null
+    let sizePyeong = areaM2 > 0 ? m2ToPyeong(areaM2) : null
+    let sizePyeongSupplied = areaSuppliedM2 > 0 ? m2ToPyeong(areaSuppliedM2) : null
     // ho 지정 시 해당 유닛 용도 우선, ho 없으면 건물 전체 용도(mainPurps) 우선
     const roomType = ho
       ? mapRoomType(yongdoNm) || mapRoomType(mainPurps)
       : mapRoomType(mainPurps) || mapRoomType(yongdoNm)
 
-    // Sanity: floor > total_floors 모순(호수 "502"가 층번호로 잘못 들어온 경우 등) → floor null
-    if (floor !== null && totalFloors !== null && floor > totalFloors) {
-      floor = null
+    // ─────────────────────────────────────────────────────────────
+    // 결과 Sanity Check — 잘못된 데이터를 절대 DB에 흘리지 않음.
+    // ─────────────────────────────────────────────────────────────
+    let safeTotalFloors: number | null = totalFloors
+    let safeApprovalDate: string | null = approvalDate
+    let safeParking = parkingTotal
+    let safeAreaM2 = areaM2
+    let safeAreaSuppliedM2 = areaSuppliedM2
+
+    // S1: floor > total_floors 모순 → floor null
+    if (floor !== null && safeTotalFloors !== null && floor > safeTotalFloors) floor = null
+    // S2: floor < -10 (지하 10층 이하는 사실상 없음)
+    if (floor !== null && floor < -10) floor = null
+    // S3: total_floors > 100
+    if (safeTotalFloors !== null && safeTotalFloors > 100) safeTotalFloors = null
+    // S4: total_floors == 0
+    if (safeTotalFloors === 0) safeTotalFloors = null
+    // S5: 공급 < 전용 → 공급=전용 강제
+    if (safeAreaM2 > 0 && safeAreaSuppliedM2 > 0 && safeAreaSuppliedM2 < safeAreaM2) {
+      safeAreaSuppliedM2 = safeAreaM2
+      sizePyeongSupplied = m2ToPyeong(safeAreaSuppliedM2)
     }
+    // S6: 호 지정 + 1평 미만 → 데이터 의심
+    if (ho && safeAreaM2 > 0 && safeAreaM2 < 3.3) {
+      safeAreaM2 = 0; safeAreaSuppliedM2 = 0; sizePyeong = null; sizePyeongSupplied = null
+    }
+    // S7: 호 지정 + 다세대 200평 초과 → 매칭 오류 의심
+    const SUSPECT_BIG = new Set(['아파트', '오피스텔', '빌라/연립', '단독/다가구',
+      '1종(상가)', '2종(상가)', '업무(상가)', '의료(상가)', '판매(상가)', '교육(상가)', '운동(상가)', '숙박'])
+    if (ho && sizePyeong !== null && sizePyeong > 200 && roomType && SUSPECT_BIG.has(roomType)) {
+      safeAreaM2 = 0; safeAreaSuppliedM2 = 0; sizePyeong = null; sizePyeongSupplied = null
+    }
+    // S8: 사용승인일 미래/1900년 이전
+    if (safeApprovalDate) {
+      const m = safeApprovalDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+      if (!m) {
+        safeApprovalDate = null
+      } else {
+        const d = new Date(safeApprovalDate)
+        const today = new Date()
+        const year = Number(m[1])
+        if (isNaN(d.getTime()) || d > today || year < 1900) safeApprovalDate = null
+      }
+    }
+    // S9: 주차 > 10000 또는 음수
+    if (safeParking > 10000 || safeParking < 0) safeParking = 0
 
     return NextResponse.json({
-      size_m2: areaM2 > 0 ? +areaM2.toFixed(2) : null,
+      size_m2: safeAreaM2 > 0 ? +safeAreaM2.toFixed(2) : null,
       size_pyeong: sizePyeong,
-      size_m2_supplied: areaSuppliedM2 > 0 ? +areaSuppliedM2.toFixed(2) : null,
+      size_m2_supplied: safeAreaSuppliedM2 > 0 ? +safeAreaSuppliedM2.toFixed(2) : null,
       size_pyeong_supplied: sizePyeongSupplied,
       floor,
-      total_floors: totalFloors,
-      approval_date: approvalDate,
-      parking: parkingTotal > 0 ? String(parkingTotal) : null,
+      total_floors: safeTotalFloors,
+      approval_date: safeApprovalDate,
+      parking: safeParking > 0 ? String(safeParking) : null,
       room_type: roomType,
       building_name: buildingName,
       main_purpose: mainPurps || null,
