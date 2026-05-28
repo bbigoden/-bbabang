@@ -129,7 +129,7 @@ export function AdminSidebar() {
       </aside>
 
       {/* 모바일 상단 바 */}
-      <div className="md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-800 bg-gray-900 px-3">
+      <div className="md:hidden w-full sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-800 bg-gray-900 px-3">
         <button
           onClick={() => setMobileOpen(true)}
           aria-label="관리자 메뉴 열기"

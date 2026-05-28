@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-gray-950 text-gray-100">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-950 text-gray-100">
       <AdminSidebar />
       <div className="flex-1 min-w-0">{children}</div>
     </div>
