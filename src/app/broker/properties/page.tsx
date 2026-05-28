@@ -185,6 +185,48 @@ function PostcodeModal({ onComplete, onClose }: {
   )
 }
 
+// ── 호수 파싱: 단일·다중·범위 모두 지원 (봇과 동일 로직) ────────
+// '114호' → ['114']
+// '114, 115호' / '103,104호' → ['114','115']
+// '201, 202, 203호' → ['201','202','203']
+// '201~205호' / '114-115호' → 범위 자동 확장 (자릿수 같을 때만, 최대 50개)
+// '104동 404호' → ho=['404'], 주소에 '104동' 유지
+// '104-404' → ho=['404'], 주소에 '104동' 추가
+function extractHos(addr: string): { addr: string; hos: string[] } {
+  // 1) '동번호-호번호' 형식 (예: '104-404') — 호 접미사 없음
+  const dongHo = addr.match(/\s(\d{1,3})-(\d{3,4})\s*$/)
+  if (dongHo) {
+    const cleaned = (addr.slice(0, dongHo.index) + ` ${dongHo[1]}동`).replace(/\s+/g, ' ').trim()
+    return { addr: cleaned, hos: [dongHo[2]] }
+  }
+  // 2) 'N호' / 'N,M호' / 'N~M호' 등 다중 호수
+  const m = addr.match(/(\d{1,4}(?:\s*[,\-·~]\s*\d{1,4})*)\s*호\b/)
+  if (!m) return { addr: addr.trim(), hos: [] }
+  const start = m.index ?? 0
+  const cleaned = (addr.slice(0, start) + ' ' + addr.slice(start + m[0].length)).replace(/\s+/g, ' ').trim()
+  // 호수 확장
+  const parts = m[1].trim().split(/\s*[,·]\s*/)
+  const out: string[] = []
+  for (const p of parts) {
+    const t = p.trim()
+    if (!t) continue
+    const rm = t.match(/^(\d+)\s*[~\-]\s*(\d+)$/)
+    if (rm && rm[1].length === rm[2].length) {
+      const a = Number(rm[1]), b = Number(rm[2])
+      if (a <= b && b - a <= 50) {
+        for (let n = a; n <= b; n++) out.push(String(n))
+        continue
+      }
+    }
+    const n = t.replace(/[^0-9]/g, '')
+    if (n) out.push(n)
+  }
+  // 중복 제거(순서 유지)
+  const seen = new Set<string>()
+  const hos = out.filter(h => !seen.has(h) && (seen.add(h), true))
+  return { addr: cleaned, hos }
+}
+
 // ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
 function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placeholder = '소재지 입력' }: {
   value: string | null
@@ -1403,31 +1445,57 @@ function BrokerPropertiesContent() {
     }
     setAutoFillingId(id)
     try {
-      const hoMatch = addr.match(/(\d+)\s*호/)
-      let ho = hoMatch ? hoMatch[1] : ''
-      let searchAddr = addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').trim()
-      if (hoMatch) searchAddr = searchAddr.slice(0, hoMatch.index).trim()
-      searchAddr = searchAddr.replace(/\s+/g, ' ')
-      // "101-2403" 형식(동-호 하이픈, 호 접미사 없음) 처리
-      if (!ho) {
-        const dongHoMatch = searchAddr.match(/\s(\d{1,3})-(\d{3,4})\s*$/)
-        if (dongHoMatch) {
-          ho = dongHoMatch[2]
-          searchAddr = (searchAddr.slice(0, dongHoMatch.index) + ` ${dongHoMatch[1]}동`).replace(/\s+/g, ' ').trim()
-        }
+      // 층수 제거 후 호수 추출 (단일·다중·범위 지원)
+      const addrNoFloor = addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').replace(/\s+/g, ' ').trim()
+      const { addr: searchAddr, hos } = extractHos(addrNoFloor)
+
+      const callAutoFill = async (ho: string) => {
+        const body = bcode && bcode.length === 10
+          ? { bcode, address: searchAddr, ho }
+          : { address: searchAddr, ho }
+        const r = await fetch('/api/properties/auto-fill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const d = await r.json()
+        return { ok: r.ok, data: d as Record<string, any> }
       }
 
-      const body = bcode && bcode.length === 10
-        ? { bcode, address: searchAddr, ho }
-        : { address: searchAddr, ho }
+      let data: Record<string, any>
+      let mergedHos: string[] = []
+      let failedHos: string[] = []
 
-      const res = await fetch('/api/properties/auto-fill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? '세움터 조회 실패')
+      if (hos.length <= 1) {
+        const { ok, data: d } = await callAutoFill(hos[0] ?? '')
+        if (!ok) throw new Error(d.error ?? '세움터 조회 실패')
+        data = d
+      } else {
+        // 다호수 합산: 순차 호출 (서버 캐시가 부지 단위로 동작해 추가 비용 거의 없음)
+        const results: Array<{ ho: string; data: Record<string, any> }> = []
+        for (const h of hos) {
+          const { ok, data: d } = await callAutoFill(h)
+          if (ok) results.push({ ho: h, data: d })
+          else failedHos.push(h)
+        }
+        if (results.length === 0) {
+          throw new Error('전체 호수 조회 실패')
+        }
+        const base = { ...results[0].data }
+        // size_m2가 있으면 거기서 합산 (정확), 없으면 size_pyeong 합산
+        const sumM2 = results.reduce((s, r) => s + (Number(r.data.size_m2) || 0), 0)
+        const sumM2Sup = results.reduce((s, r) => s + (Number(r.data.size_m2_supplied) || 0), 0)
+        if (sumM2 > 0) {
+          base.size_m2 = +sumM2.toFixed(2)
+          base.size_pyeong = +(sumM2 / 3.305785).toFixed(2)
+        }
+        if (sumM2Sup > 0) {
+          base.size_m2_supplied = +sumM2Sup.toFixed(2)
+          base.size_pyeong_supplied = +(sumM2Sup / 3.305785).toFixed(2)
+        }
+        data = base
+        mergedHos = results.map(r => r.ho)
+      }
 
       const updates: Record<string, any> = {}
       if (data.size_pyeong != null) {
@@ -1468,11 +1536,13 @@ function BrokerPropertiesContent() {
       }
       const filledNames = Object.keys(updates)
         .map(k => labels[k]).filter(Boolean) as string[]
+      const mergedLabel = mergedHos.length > 1 ? ` [${mergedHos.join('+')}호 합산]` : ''
+      const failedLabel = failedHos.length > 0 ? ` (실패: ${failedHos.join(',')})` : ''
       setAutoFillToast({
         type: 'success',
         text: filledNames.length > 0
-          ? `자동채움: ${filledNames.join(' · ')}${data.building_name ? ` (${data.building_name})` : ''}`
-          : '건축물대장 조회됨 (변경 없음)',
+          ? `자동채움: ${filledNames.join(' · ')}${data.building_name ? ` (${data.building_name})` : ''}${mergedLabel}${failedLabel}`
+          : `건축물대장 조회됨 (변경 없음)${mergedLabel}`,
       })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '자동채움 실패'
