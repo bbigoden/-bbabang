@@ -1830,6 +1830,15 @@ function BrokerPropertiesContent() {
         return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 26 }
       }
 
+      // 그룹(같은 좌표 다호수) 핀 — 카운트만 강조
+      const makeGroupPillIcon = (count: number) => {
+        const label = `매물 ${count}건`
+        const charCount = [...label].length
+        const width = Math.max(60, charCount * 7 + 16)
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28"><rect x="1" y="1" width="${width-2}" height="20" rx="10" ry="10" fill="#111827" stroke="white" stroke-width="1.5"/><text x="${width/2}" y="14.5" font-size="11" font-weight="700" text-anchor="middle" fill="white" font-family="-apple-system, BlinkMacSystemFont, sans-serif">${label}</text><path d="M${width/2-4} 20 L${width/2} 26 L${width/2+4} 20 Z" fill="#111827"/></svg>`
+        return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 28 }
+      }
+
       // 주소 정규화 — 같은 건물 다른 호수는 카카오가 어차피 같은 좌표 반환하므로 호수 부분을 제거해
       // 캐시 hit율을 높이고 카카오 OVER_QUERY_LIMIT을 회피한다.
       // 예: "충청남도 천안시 서북구 불당동 1479-2 404호" → "충청남도 천안시 서북구 불당동 1479-2"
@@ -1862,20 +1871,21 @@ function BrokerPropertiesContent() {
         const newMarkers: any[] = []
         const bounds = new kakao.maps.LatLngBounds()
 
-        Object.values(groups).forEach(group => {
-          const baseLat = group[0].lat
-          const baseLng = group[0].lng
+        // 단일 매물 정보 카드 HTML 생성
+        const buildSingleCardHtml = (g: Geocoded) => {
+          const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
+          const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
+          const seqLabel = g.prop.seq_no != null ? `<span style="background:#111;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:4px">#${g.prop.seq_no}</span>` : ''
+          return `<div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${seqLabel}${esc(g.prop.address)}</div><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(g.prop.deal_type)}</span><span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(g.prop))}</span></div><div style="font-size:10px;color:#6b7280">${esc(g.prop.room_type)}${g.prop.size_pyeong ? ' · ' + esc(g.prop.size_pyeong) + '평' : ''}${g.prop.total_floors ? ' · ' + esc(g.prop.total_floors) : ''}</div>${g.prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(g.prop.brief_memo)}</div>` : ''}`
+        }
 
-          group.forEach((g, idx) => {
-            // 같은 좌표 매물이 여러 개면 원형으로 분산 (반지름 ~15m)
-            let lat = g.lat, lng = g.lng
-            if (group.length > 1) {
-              const r = 0.00015
-              const angle = (2 * Math.PI * idx) / group.length - Math.PI / 2
-              lat = baseLat + r * Math.cos(angle)
-              lng = baseLng + r * Math.sin(angle)
-            }
-            const pos = new kakao.maps.LatLng(lat, lng)
+        Object.values(groups).forEach(group => {
+          const pos = new kakao.maps.LatLng(group[0].lat, group[0].lng)
+          bounds.extend(pos)
+
+          if (group.length === 1) {
+            // 단일 매물 — 개별 pill 라벨
+            const g = group[0]
             const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
             const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
             const icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
@@ -1886,12 +1896,9 @@ function BrokerPropertiesContent() {
             )
             const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
             newMarkers.push(marker)
-            bounds.extend(pos)
 
-            // 정보 카드 (매물번호 포함)
             const infoEl = document.createElement('div')
-            const seqLabel = g.prop.seq_no != null ? `<span style="background:#111;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:4px">#${g.prop.seq_no}</span>` : ''
-            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:180px;font-family:inherit"><div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${seqLabel}${esc(g.prop.address)}</div><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(g.prop.deal_type)}</span><span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(g.prop))}</span></div><div style="font-size:10px;color:#6b7280">${esc(g.prop.room_type)}${g.prop.size_pyeong ? ' · ' + esc(g.prop.size_pyeong) + '평' : ''}${g.prop.total_floors ? ' · ' + esc(g.prop.total_floors) : ''}</div>${g.prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(g.prop.brief_memo)}</div>` : ''}</div>`
+            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:180px;font-family:inherit">${buildSingleCardHtml(g)}</div>`
             const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 1.4, zIndex: 5 })
             infoOverlaysRef.current.push(infoOverlay)
 
@@ -1899,7 +1906,35 @@ function BrokerPropertiesContent() {
               infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
               infoOverlay.setMap(map)
             })
-          })
+          } else {
+            // 다호수 그룹 — 단일 카운트 핀, 클릭 시 매물 리스트 패널
+            const icon = makeGroupPillIcon(group.length)
+            const markerImage = new kakao.maps.MarkerImage(
+              icon.url,
+              new kakao.maps.Size(icon.width, icon.height),
+              { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
+            )
+            const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
+            newMarkers.push(marker)
+
+            const addr = group[0].prop.address ?? ''
+            const itemsHtml = group.map(g => {
+              const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
+              const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
+              const seq = g.prop.seq_no != null ? `<span style="background:#111;color:#fff;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700;margin-right:4px">#${g.prop.seq_no}</span>` : ''
+              const meta = `${esc(g.prop.room_type ?? '')}${g.prop.size_pyeong ? ' · ' + esc(g.prop.size_pyeong) + '평' : ''}`
+              return `<div style="padding:8px 10px;border-bottom:1px solid #f3f4f6;display:flex;gap:8px;align-items:center"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;flex-shrink:0">${esc(g.prop.deal_type)}</span><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;color:${color}">${esc(fmtPrice(g.prop))}</div><div style="font-size:10px;color:#6b7280;margin-top:1px">${seq}${meta}</div></div></div>`
+            }).join('')
+            const infoEl = document.createElement('div')
+            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.18);width:240px;max-height:320px;display:flex;flex-direction:column;font-family:inherit;overflow:hidden"><div style="padding:10px 12px;border-bottom:1px solid #f3f4f6;flex-shrink:0"><div style="font-size:11px;font-weight:700;color:#111;line-height:1.4">${esc(addr)}</div><div style="font-size:10px;color:#6b7280;margin-top:2px">총 ${group.length}건</div></div><div style="overflow-y:auto;flex:1">${itemsHtml}</div></div>`
+            const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 1.4, zIndex: 5 })
+            infoOverlaysRef.current.push(infoOverlay)
+
+            kakao.maps.event.addListener(marker, 'click', () => {
+              infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
+              infoOverlay.setMap(map)
+            })
+          }
         })
 
         clustererRef.current.addMarkers(newMarkers)
