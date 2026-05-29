@@ -1198,7 +1198,8 @@ function BrokerPropertiesContent() {
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])         // 카카오 Marker 인스턴스들
   const clustererRef = useRef<any>(null)        // MarkerClusterer
-  const infoOverlaysRef = useRef<any[]>([])     // 클릭 시 뜨는 정보 카드
+  // 지도 마커 클릭 시 우측 사이드바(네이버 부동산 식)에 표시할 매물 그룹
+  const [mapPanel, setMapPanel] = useState<{ address: string; items: Property[] } | null>(null)
   // 카카오 geocoder 결과 캐시 (effect 재실행·검색 변경 시에도 유지) — OVER_QUERY_LIMIT 회피
   const geocodeCacheRef = useRef<Record<string, { lat: number; lng: number } | null>>({})
   const [addingId, setAddingId] = useState<string | null>(null)
@@ -1760,7 +1761,7 @@ function BrokerPropertiesContent() {
           level: 6,
         })
         kakao.maps.event.addListener(mapInstanceRef.current, 'click', () => {
-          infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
+          setMapPanel(null)
         })
       } else {
         // 컨테이너 사이즈 변경(검색·뷰 전환) 후 타일·마커가 안 그려지는 문제 방지
@@ -1789,8 +1790,6 @@ function BrokerPropertiesContent() {
         })
       }
       markersRef.current = []
-      infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
-      infoOverlaysRef.current = []
 
       const geocoder = new kakao.maps.services.Geocoder()
       const targets = filtered.filter(p => p.address)
@@ -1871,70 +1870,34 @@ function BrokerPropertiesContent() {
         const newMarkers: any[] = []
         const bounds = new kakao.maps.LatLngBounds()
 
-        // 단일 매물 정보 카드 HTML 생성
-        const buildSingleCardHtml = (g: Geocoded) => {
-          const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
-          const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
-          const seqLabel = g.prop.seq_no != null ? `<span style="background:#111;color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-right:4px">#${g.prop.seq_no}</span>` : ''
-          return `<div style="font-size:11px;font-weight:600;color:#111;margin-bottom:6px;line-height:1.5">${seqLabel}${esc(g.prop.address)}</div><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">${esc(g.prop.deal_type)}</span><span style="font-size:12px;font-weight:700;color:${color}">${esc(fmtPrice(g.prop))}</span></div><div style="font-size:10px;color:#6b7280">${esc(g.prop.room_type)}${g.prop.size_pyeong ? ' · ' + esc(g.prop.size_pyeong) + '평' : ''}${g.prop.total_floors ? ' · ' + esc(g.prop.total_floors) : ''}</div>${g.prop.brief_memo ? `<div style="font-size:10px;color:#9ca3af;margin-top:4px;border-top:1px solid #f3f4f6;padding-top:4px">${esc(g.prop.brief_memo)}</div>` : ''}`
-        }
-
         Object.values(groups).forEach(group => {
           const pos = new kakao.maps.LatLng(group[0].lat, group[0].lng)
           bounds.extend(pos)
 
+          // 마커 아이콘: 단일=색깔 pill / 그룹=검정 카운트 pill
+          let icon: { url: string; width: number; height: number }
           if (group.length === 1) {
-            // 단일 매물 — 개별 pill 라벨
             const g = group[0]
             const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
             const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
-            const icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
-            const markerImage = new kakao.maps.MarkerImage(
-              icon.url,
-              new kakao.maps.Size(icon.width, icon.height),
-              { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
-            )
-            const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
-            newMarkers.push(marker)
-
-            const infoEl = document.createElement('div')
-            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 4px 20px rgba(0,0,0,0.18);min-width:180px;font-family:inherit">${buildSingleCardHtml(g)}</div>`
-            const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 1.4, zIndex: 5 })
-            infoOverlaysRef.current.push(infoOverlay)
-
-            kakao.maps.event.addListener(marker, 'click', () => {
-              infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
-              infoOverlay.setMap(map)
-            })
+            icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
           } else {
-            // 다호수 그룹 — 단일 카운트 핀, 클릭 시 매물 리스트 패널
-            const icon = makeGroupPillIcon(group.length)
-            const markerImage = new kakao.maps.MarkerImage(
-              icon.url,
-              new kakao.maps.Size(icon.width, icon.height),
-              { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
-            )
-            const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
-            newMarkers.push(marker)
-
-            const addr = group[0].prop.address ?? ''
-            const itemsHtml = group.map(g => {
-              const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
-              const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
-              const seq = g.prop.seq_no != null ? `<span style="background:#111;color:#fff;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700;margin-right:4px">#${g.prop.seq_no}</span>` : ''
-              const meta = `${esc(g.prop.room_type ?? '')}${g.prop.size_pyeong ? ' · ' + esc(g.prop.size_pyeong) + '평' : ''}`
-              return `<div style="padding:8px 10px;border-bottom:1px solid #f3f4f6;display:flex;gap:8px;align-items:center"><span style="background:${color};color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;flex-shrink:0">${esc(g.prop.deal_type)}</span><div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;color:${color}">${esc(fmtPrice(g.prop))}</div><div style="font-size:10px;color:#6b7280;margin-top:1px">${seq}${meta}</div></div></div>`
-            }).join('')
-            const infoEl = document.createElement('div')
-            infoEl.innerHTML = `<div style="background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.18);width:240px;max-height:320px;display:flex;flex-direction:column;font-family:inherit;overflow:hidden"><div style="padding:10px 12px;border-bottom:1px solid #f3f4f6;flex-shrink:0"><div style="font-size:11px;font-weight:700;color:#111;line-height:1.4">${esc(addr)}</div><div style="font-size:10px;color:#6b7280;margin-top:2px">총 ${group.length}건</div></div><div style="overflow-y:auto;flex:1">${itemsHtml}</div></div>`
-            const infoOverlay = new kakao.maps.CustomOverlay({ position: pos, content: infoEl, yAnchor: 1.4, zIndex: 5 })
-            infoOverlaysRef.current.push(infoOverlay)
-
-            kakao.maps.event.addListener(marker, 'click', () => {
-              infoOverlaysRef.current.forEach((o: any) => o.setMap(null))
-              infoOverlay.setMap(map)
-            })
+            icon = makeGroupPillIcon(group.length)
           }
+          const markerImage = new kakao.maps.MarkerImage(
+            icon.url,
+            new kakao.maps.Size(icon.width, icon.height),
+            { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
+          )
+          const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
+          newMarkers.push(marker)
+
+          // 클릭 시 React 우측 사이드바 패널에 매물 리스트 표시
+          const addr = group[0].prop.address ?? ''
+          const items = group.map(g => g.prop)
+          kakao.maps.event.addListener(marker, 'click', () => {
+            setMapPanel({ address: addr, items })
+          })
         })
 
         clustererRef.current.addMarkers(newMarkers)
@@ -2270,6 +2233,77 @@ function BrokerPropertiesContent() {
               <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
                 <p className="text-sm text-gray-400">주소가 있는 매물이 없습니다</p>
               </div>
+            )}
+
+            {/* 우측 매물 패널 (네이버 부동산 식) — 모바일은 풀시트, 데스크톱은 우측 고정 */}
+            {mapPanel && (
+              <>
+                {/* 모바일 backdrop */}
+                <button
+                  type="button"
+                  aria-label="패널 닫기"
+                  onClick={() => setMapPanel(null)}
+                  className="absolute inset-0 z-20 bg-black/40 md:hidden"
+                />
+                <div className="absolute inset-y-0 right-0 z-30 flex w-full max-w-[420px] md:w-[380px] flex-col bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
+                  {/* 헤더 */}
+                  <div className="flex items-start gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-400 mb-0.5">건물</p>
+                      <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight break-words">{mapPanel.address || '주소 없음'}</p>
+                      <p className="mt-1 text-xs text-gray-500">전체 매물 <span className="font-bold text-blue-600">{mapPanel.items.length}</span>건</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMapPanel(null)}
+                      aria-label="닫기"
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-white"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  {/* 매물 리스트 */}
+                  <div className="flex-1 overflow-y-auto">
+                    {mapPanel.items.map(p => {
+                      const primaryDeal = (p.deal_type ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
+                      const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
+                      const isWolse = (p.deal_type ?? '').includes('월세')
+                      const priceText = isWolse
+                        ? `${p.price != null ? p.price.toLocaleString() : '?'}/${p.monthly_rent != null ? p.monthly_rent.toLocaleString() : '?'}만`
+                        : (p.price == null ? '미정' : (p.price >= 10000 ? Math.floor(p.price / 10000) + '억' + (p.price % 10000 > 0 ? ' ' + (p.price % 10000).toLocaleString() + '만' : '') : p.price.toLocaleString() + '만'))
+                      return (
+                        <div
+                          key={p.id}
+                          className="border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span style={{ background: color }} className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white">
+                              {p.deal_type}
+                            </span>
+                            <span style={{ color }} className="text-base font-black">
+                              {priceText}
+                            </span>
+                            {p.seq_no != null && (
+                              <span className="ml-auto rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                                #{p.seq_no}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {p.room_type}
+                            {p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}
+                            {p.floor != null ? ` · ${p.floor}층${p.total_floors ? `/${p.total_floors}` : ''}` : ''}
+                          </div>
+                          {p.brief_memo && (
+                            <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.brief_memo}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}
