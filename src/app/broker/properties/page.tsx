@@ -1907,11 +1907,18 @@ function BrokerPropertiesContent() {
         markersRef.current = newMarkers
         if (newMarkers.length > 0) {
           if (newMarkers.length === 1) {
+            // 줌 3으로 줌인 — clusterer minLevel(4)과 충돌 방지
+            map.setLevel(3)
             map.setCenter(newMarkers[0].getPosition())
-            map.setLevel(4)
           } else {
             map.setBounds(bounds)
           }
+          // 컨테이너 사이즈 변경 직후 타일 누락 방지 — relayout + 한 번 더 중심 보정
+          requestAnimationFrame(() => {
+            map.relayout()
+            if (newMarkers.length === 1) map.setCenter(newMarkers[0].getPosition())
+            else map.setBounds(bounds)
+          })
         }
       }
 
@@ -2278,29 +2285,46 @@ function BrokerPropertiesContent() {
                       return (
                         <div
                           key={p.id}
-                          className="border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                          className="border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex gap-3"
                         >
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <span style={{ background: color }} className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white">
-                              {p.deal_type}
-                            </span>
-                            <span style={{ color }} className="text-base font-black">
-                              {priceText}
-                            </span>
-                            {p.seq_no != null && (
-                              <span className="ml-auto rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] font-bold text-gray-600 dark:text-gray-300">
-                                #{p.seq_no}
+                          {/* 사진 썸네일 */}
+                          {p.images?.[0] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.images[0]}
+                              alt=""
+                              className="h-20 w-20 flex-shrink-0 rounded-lg object-cover bg-gray-100 dark:bg-gray-800"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-20 w-20 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-300">
+                              <ImagePlus className="h-6 w-6" />
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span style={{ background: color }} className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white">
+                                {p.deal_type}
                               </span>
+                              <span style={{ color }} className="text-base font-black truncate">
+                                {priceText}
+                              </span>
+                              {p.seq_no != null && (
+                                <span className="ml-auto flex-shrink-0 rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] font-bold text-gray-600 dark:text-gray-300">
+                                  #{p.seq_no}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {p.room_type}
+                              {p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}
+                              {p.floor != null ? ` · ${p.floor}층${p.total_floors ? `/${p.total_floors}` : ''}` : ''}
+                            </div>
+                            {p.brief_memo && (
+                              <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.brief_memo}</p>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {p.room_type}
-                            {p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}
-                            {p.floor != null ? ` · ${p.floor}층${p.total_floors ? `/${p.total_floors}` : ''}` : ''}
-                          </div>
-                          {p.brief_memo && (
-                            <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.brief_memo}</p>
-                          )}
                         </div>
                       )
                     })}
