@@ -10,6 +10,8 @@
 
 html {
   font-size: 16px;
+  /* 모바일 가로 overflow 방지 — body와 같이 적용해야 iOS Safari에서 fixed BottomNav 위치 정상 */
+  overflow-x: hidden;
 }
 
 html.dark {

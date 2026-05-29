@@ -494,7 +494,7 @@ export default function SettlementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       <Header />
 
       <div className="px-4 py-6">
