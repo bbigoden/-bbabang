@@ -15,6 +15,7 @@ type Range = 7 | 30 | 90
 
 interface TimeBucket { date: string; count: number }
 interface RegionRow { region: string; count: number }
+interface FunnelStage { key: string; label: string; count: number; color: string }
 
 export default function AdminStatsPage() {
   const router = useRouter()
@@ -31,6 +32,7 @@ export default function AdminStatsPage() {
   const [dealTypes, setDealTypes] = useState<RegionRow[]>([])
   const [propStatus, setPropStatus] = useState<RegionRow[]>([])
   const [totals, setTotals] = useState({ newUsers: 0, newBrokers: 0, newRequests: 0, newProperties: 0 })
+  const [funnel, setFunnel] = useState<FunnelStage[]>([])
 
   useEffect(() => {
     if (auth.loading) return
@@ -128,6 +130,28 @@ export default function AdminStatsPage() {
       newProperties: newPropertiesCount ?? 0,
     })
 
+    // ── 역경매 전환 깔때기 (기간 내 생성된 의뢰 기준) ──
+    const [
+      { count: reqTotal },
+      { count: reqWithProposal },
+      { count: proposalAccepted },
+      { count: dealCompleted },
+      { count: reviewWritten },
+    ] = await Promise.all([
+      supabase.from('request_posts').select('*', { count: 'exact', head: true }).gte('created_at', since),
+      supabase.from('request_posts').select('*', { count: 'exact', head: true }).gte('created_at', since).gt('proposal_count', 0),
+      supabase.from('proposals').select('*', { count: 'exact', head: true }).gte('created_at', since).eq('status', 'accepted'),
+      supabase.from('proposals').select('*', { count: 'exact', head: true }).gte('created_at', since).eq('stage', 'completed'),
+      supabase.from('reviews').select('*', { count: 'exact', head: true }).gte('created_at', since),
+    ])
+    setFunnel([
+      { key: 'request',  label: '의뢰 등록',   count: reqTotal ?? 0,        color: 'bg-blue-500' },
+      { key: 'proposal', label: '제안 받음',   count: reqWithProposal ?? 0, color: 'bg-cyan-500' },
+      { key: 'accepted', label: '제안 수락',   count: proposalAccepted ?? 0, color: 'bg-purple-500' },
+      { key: 'completed',label: '거래 완료',   count: dealCompleted ?? 0,   color: 'bg-green-500' },
+      { key: 'review',   label: '리뷰 작성',   count: reviewWritten ?? 0,   color: 'bg-amber-500' },
+    ])
+
     setLoading(false)
   }, [supabase, range])
 
@@ -142,6 +166,14 @@ export default function AdminStatsPage() {
     rows.push(['신규 중개사', String(totals.newBrokers)])
     rows.push(['신규 요청', String(totals.newRequests)])
     rows.push(['신규 매물', String(totals.newProperties)])
+    rows.push([])
+    rows.push(['전환 깔때기'])
+    rows.push(['단계', '건수', '직전 단계 대비'])
+    funnel.forEach((f, i) => {
+      const prev = i > 0 ? funnel[i - 1].count : 0
+      const rate = i > 0 && prev > 0 ? `${Math.round((f.count / prev) * 100)}%` : '-'
+      rows.push([f.label, String(f.count), rate])
+    })
     rows.push([])
     rows.push(['일별 가입'])
     rows.push(['날짜', '고객', '중개사'])
@@ -256,6 +288,11 @@ export default function AdminStatsPage() {
               <SummaryCard label={`신규 요청 (${range}일)`} value={totals.newRequests} icon={FileText} color="text-green-400 bg-green-500/10" />
               <SummaryCard label={`신규 매물 (${range}일)`} value={totals.newProperties} icon={Home} color="text-amber-400 bg-amber-500/10" />
             </div>
+
+            {/* 역경매 전환 깔때기 */}
+            <ChartCard title={`역경매 전환 깔때기 (${range}일)`} icon={TrendingUp}>
+              <FunnelChart stages={funnel} />
+            </ChartCard>
 
             {/* 시계열 차트들 */}
             <div className="grid gap-6 lg:grid-cols-2">
@@ -392,6 +429,48 @@ function DualLineBars({ primary, primaryLabel, primaryColor, secondary, secondar
         <span>{primary[primary.length - 1]?.date.slice(5)}</span>
       </div>
     </div>
+  )
+}
+
+function FunnelChart({ stages }: { stages: FunnelStage[] }) {
+  const top = stages[0]?.count ?? 0
+  if (stages.length === 0) {
+    return <p className="py-8 text-center text-sm text-gray-500">데이터가 없어요</p>
+  }
+  if (top === 0) {
+    return <p className="py-8 text-center text-sm text-gray-500">아직 의뢰가 없어 전환을 계산할 수 없어요</p>
+  }
+  return (
+    <ul className="space-y-2.5">
+      {stages.map((s, i) => {
+        const prev = i > 0 ? stages[i - 1].count : null
+        const stepRate = prev != null && prev > 0 ? Math.round((s.count / prev) * 100) : null
+        const widthPct = Math.max(2, (s.count / top) * 100)
+        const overallPct = Math.round((s.count / top) * 100)
+        return (
+          <li key={s.key}>
+            <div className="mb-1 flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 text-gray-300">
+                <span className="text-gray-500">{i + 1}.</span> {s.label}
+                {stepRate != null && (
+                  <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    stepRate >= 50 ? 'bg-green-500/15 text-green-400' : stepRate >= 20 ? 'bg-yellow-500/15 text-yellow-400' : 'bg-red-500/15 text-red-400'
+                  }`}>
+                    직전 대비 {stepRate}%
+                  </span>
+                )}
+              </span>
+              <span className="font-bold text-white">{s.count}<span className="ml-1 text-[10px] font-medium text-gray-500">({overallPct}%)</span></span>
+            </div>
+            <div className="h-6 rounded-lg bg-gray-800 overflow-hidden">
+              <div className={`h-full ${s.color} rounded-lg transition-all flex items-center justify-end pr-2`} style={{ width: `${widthPct}%` }}>
+                {s.count > 0 && <span className="text-[10px] font-bold text-white/90">{s.count}</span>}
+              </div>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

@@ -12,7 +12,7 @@ import {
   Users, Building2, FileText, MessageCircle,
   CheckCircle, XCircle, ExternalLink,
   StickyNote, MapPin, X, Phone, Mail, Star, Home, Calendar,
-  Hash, ChevronRight, ChevronDown, Table2, Flag
+  Hash, ChevronRight, ChevronDown, Table2, Flag, Clock, AlertTriangle, Inbox
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import Link from 'next/link'
@@ -72,6 +72,14 @@ export default function AdminPage() {
   const [verifying, setVerifying] = useState<string | null>(null)
   const [brokerProperties, setBrokerProperties] = useState<any[]>([])
 
+  // 적체 경보
+  const [alerts, setAlerts] = useState({
+    stalledRequests: 0,       // 제안 0건인 진행중 의뢰
+    staleBrokers: 0,          // 3일+ 미인증 사무소
+    staleReports: 0,          // 3일+ 미처리 신고
+    stalledList: [] as any[], // 방치 의뢰 상위 목록
+  })
+
   // 행 클릭 상세 모달
   const [brokerModal, setBrokerModal] = useState<any>(null)
   const [brokerReviews, setBrokerReviews] = useState<any[]>([])
@@ -116,7 +124,7 @@ export default function AdminPage() {
   const init = async () => {
 
     try {
-      await Promise.all([loadStats(), loadBrokers(), loadRecentUsers(), loadRecentRequests(), loadBrokerProperties()])
+      await Promise.all([loadStats(), loadBrokers(), loadRecentUsers(), loadRecentRequests(), loadBrokerProperties(), loadAlerts()])
     } catch (e) {
       console.error('관리자 페이지 데이터 로드 오류:', e)
     } finally {
@@ -175,6 +183,39 @@ export default function AdminPage() {
     } else {
       setEmployeesByOwner(new Map())
     }
+  }
+
+  const loadAlerts = async () => {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+    const [
+      { count: stalledCount, data: stalledRows },
+      { count: staleBrokers },
+      { count: staleReports },
+    ] = await Promise.all([
+      // 제안 0건 + 진행중(active) 의뢰
+      supabase.from('request_posts')
+        .select('id, deal_type, room_type, city, district, created_at, proposal_count, profiles(name, phone)', { count: 'exact' })
+        .eq('status', 'active')
+        .eq('proposal_count', 0)
+        .order('created_at', { ascending: false })
+        .limit(8),
+      // 3일+ 미인증 대표 사무소
+      supabase.from('broker_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_owner', true).eq('is_verified', false)
+        .lt('created_at', threeDaysAgo),
+      // 3일+ 미처리 신고
+      supabase.from('reports')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'open')
+        .lt('created_at', threeDaysAgo),
+    ])
+    setAlerts({
+      stalledRequests: stalledCount ?? 0,
+      staleBrokers: staleBrokers ?? 0,
+      staleReports: staleReports ?? 0,
+      stalledList: stalledRows ?? [],
+    })
   }
 
   const loadRecentUsers = async () => {
@@ -319,6 +360,69 @@ export default function AdminPage() {
             <ChevronRight className="h-5 w-5 text-gray-500" />
           </Link>
         </div>
+
+        {/* ── 적체 경보 (방치된 의뢰·오래된 미처리) ── */}
+        {(alerts.stalledRequests > 0 || alerts.staleBrokers > 0 || alerts.staleReports > 0) && (
+          <div className="rounded-2xl border border-orange-500/30 bg-orange-500/5 p-5">
+            <div className="mb-3 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-400" />
+              <h2 className="font-bold text-white">살펴봐야 할 것</h2>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
+                <div className="flex items-center gap-2 text-orange-300">
+                  <Inbox className="h-4 w-4" />
+                  <span className="text-xs font-semibold">제안 못 받은 의뢰</span>
+                </div>
+                <p className="mt-1.5 text-2xl font-black text-white">{alerts.stalledRequests}<span className="ml-1 text-sm font-medium text-gray-400">건</span></p>
+                <p className="text-[11px] text-gray-500">고객이 기다리는 중 · 이탈 위험</p>
+              </div>
+              <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
+                <div className="flex items-center gap-2 text-yellow-300">
+                  <Clock className="h-4 w-4" />
+                  <span className="text-xs font-semibold">3일+ 미인증 사무소</span>
+                </div>
+                <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleBrokers}<span className="ml-1 text-sm font-medium text-gray-400">곳</span></p>
+                <Link href="/admin/brokers" className="text-[11px] text-blue-400 hover:underline">사무소 검수로 →</Link>
+              </div>
+              <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
+                <div className="flex items-center gap-2 text-red-300">
+                  <Flag className="h-4 w-4" />
+                  <span className="text-xs font-semibold">3일+ 미처리 신고</span>
+                </div>
+                <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleReports}<span className="ml-1 text-sm font-medium text-gray-400">건</span></p>
+                <Link href="/admin/reports" className="text-[11px] text-blue-400 hover:underline">신고 처리로 →</Link>
+              </div>
+            </div>
+
+            {/* 방치 의뢰 상위 목록 */}
+            {alerts.stalledList.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold text-gray-400">제안 0건 의뢰 (최근순)</p>
+                <ul className="divide-y divide-gray-800 rounded-xl border border-gray-800 bg-gray-900/60 overflow-hidden">
+                  {alerts.stalledList.map((r: any) => (
+                    <li key={r.id}>
+                      <Link href={`/request/${r.id}`} target="_blank"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-800/60 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate">
+                            {[r.city, r.district].filter(Boolean).join(' ') || '지역 미정'}
+                            <span className="ml-2 text-xs text-gray-400">{r.deal_type}{r.room_type ? ` · ${r.room_type}` : ''}</span>
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            {r.profiles?.name ?? '익명'} · {formatDate(r.created_at)}
+                          </p>
+                        </div>
+                        <ExternalLink className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
 
         {/* ── 통계 ── */}

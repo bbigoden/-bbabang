@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardBody } from '@/components/ui/card'
 import { AutoRedirectHome } from '@/components/auto-redirect-home'
+import { SiteBanner, FeaturedMain } from '@/components/site-curation'
 import {
   Search, ArrowRight, CheckCircle, Star, MessageCircle,
   Shield, TrendingUp, Users, Clock, Home
@@ -22,6 +23,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen">
+      {/* 관리자가 메인 노출 관리에서 켠 상단 띠 배너 (클라이언트 후수화) */}
+      <SiteBanner />
       {/* Header에 prop 안 넘김 → AuthContext에서 자동 인식 (bfcache 대응) */}
       <Header />
       {/* 로그인 사용자가 bfcache 등으로 / 로 돌아오면 적절한 대시보드로 자동 이동 */}
@@ -174,6 +177,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* 관리자가 고른 추천 사무소·매물 (있을 때만 노출) */}
+      <FeaturedMain />
 
       {/* 통계 */}
       <section className="bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-16 text-white">
