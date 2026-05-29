@@ -1842,11 +1842,15 @@ function BrokerPropertiesContent() {
       // 캐시 hit율을 높이고 카카오 OVER_QUERY_LIMIT을 회피한다.
       // 예: "충청남도 천안시 서북구 불당동 1479-2 404호" → "충청남도 천안시 서북구 불당동 1479-2"
       const normalizeAddr = (a: string): string => {
-        return a
-          .replace(/\s+[0-9A-Za-z\-]+\s*동\s+/, ' ')    // "1동", "101동" 같은 동수 제거
-          .replace(/\s+[0-9\-]+\s*호\s*$/, '')          // 끝의 "404호", "1024호" 제거
-          .replace(/\s+/g, ' ')
-          .trim()
+        // 끝에 호수(예: "1412호", "404-1호", "A동1412호")가 있을 때만 처리
+        // 행정동("쌍용2동", "다대1동")이 끝나는 주소는 그대로 — 호수 없으면 건드리지 않음
+        const hoMatch = a.match(/[0-9A-Za-z\-]*\d[0-9A-Za-z\-]*호\s*$/i)
+        if (!hoMatch || hoMatch.index === undefined) return a.trim()
+        // 호수 부분 제거
+        let r = a.slice(0, hoMatch.index).trim()
+        // 호수 앞에 남은 건물 동수(영문/숫자) 추가 제거 — 한글 행정동은 영문·숫자 패턴이라 안전
+        r = r.replace(/\s+[0-9A-Za-z\-]+동\s*$/, '')
+        return r.replace(/\s+/g, ' ').trim()
       }
 
       // 1차: 모든 매물의 좌표를 먼저 모음 (그룹화하기 위해)
