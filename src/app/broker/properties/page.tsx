@@ -1775,9 +1775,9 @@ function BrokerPropertiesContent() {
         clustererRef.current = new kakao.maps.MarkerClusterer({
           map,
           averageCenter: true,
-          minLevel: 8, // 줌 8 이하(축소)에서 클러스터링
+          minLevel: 4, // 줌 4 이상에서 클러스터링 — 동네·읍면 단위 축소 시에도 겹침 해소
           disableClickZoom: false,
-          gridSize: 80,
+          gridSize: 60,
           styles: [{
             width: '40px', height: '40px',
             background: '#2563eb', color: '#fff',
@@ -1821,13 +1821,13 @@ function BrokerPropertiesContent() {
       }
       const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-      // SVG 핀(알약 모양) data URI 생성
+      // SVG 핀(알약 모양) data URI 생성 — 모바일 가독성 위해 컴팩트하게
       const makePillIcon = (dealType: string, price: string, color: string) => {
         const label = `${dealType} ${price}`
         const charCount = [...label].length
-        const width = Math.max(64, Math.min(140, charCount * 9 + 16))
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="32" viewBox="0 0 ${width} 32"><rect x="1" y="1" width="${width-2}" height="22" rx="11" ry="11" fill="${color}" stroke="white" stroke-width="2"/><text x="${width/2}" y="16" font-size="11" font-weight="700" text-anchor="middle" fill="white" font-family="-apple-system, BlinkMacSystemFont, sans-serif">${label}</text><path d="M${width/2-5} 22 L${width/2} 30 L${width/2+5} 22 Z" fill="${color}"/></svg>`
-        return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 32 }
+        const width = Math.max(52, Math.min(120, charCount * 7 + 14))
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="26" viewBox="0 0 ${width} 26"><rect x="1" y="1" width="${width-2}" height="18" rx="9" ry="9" fill="${color}" stroke="white" stroke-width="1.5"/><text x="${width/2}" y="13.5" font-size="10" font-weight="600" text-anchor="middle" fill="white" font-family="-apple-system, BlinkMacSystemFont, sans-serif">${label}</text><path d="M${width/2-4} 18 L${width/2} 24 L${width/2+4} 18 Z" fill="${color}"/></svg>`
+        return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 26 }
       }
 
       // 주소 정규화 — 같은 건물 다른 호수는 카카오가 어차피 같은 좌표 반환하므로 호수 부분을 제거해
