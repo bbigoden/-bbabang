@@ -1992,6 +1992,15 @@ function BrokerPropertiesContent() {
     return () => { cancelled = true }
   }, [isMapView, mapReady, filtered])
 
+  // 지도 뷰가 닫히면 인스턴스 무효화 — 다음 진입 시 새 컨테이너에 새 instance 생성 강제
+  // (기존: 옛 DOM에 binding된 instance를 relayout만 했더니 타일이 안 그려지는 케이스 있었음)
+  useEffect(() => {
+    if (isMapView) return
+    mapInstanceRef.current = null
+    clustererRef.current = null
+    markersRef.current = []
+  }, [isMapView])
+
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
 
@@ -2287,9 +2296,15 @@ function BrokerPropertiesContent() {
                         ? `${p.price != null ? p.price.toLocaleString() : '?'}/${p.monthly_rent != null ? p.monthly_rent.toLocaleString() : '?'}만`
                         : (p.price == null ? '미정' : (p.price >= 10000 ? Math.floor(p.price / 10000) + '억' + (p.price % 10000 > 0 ? ' ' + (p.price % 10000).toLocaleString() + '만' : '') : p.price.toLocaleString() + '만'))
                       return (
-                        <div
+                        <button
                           key={p.id}
-                          className="border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex gap-3"
+                          type="button"
+                          onClick={() => {
+                            if (p.images && p.images.length > 0) {
+                              setLightbox({ images: p.images, index: 0 })
+                            }
+                          }}
+                          className="w-full text-left border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex gap-3"
                         >
                           {/* 사진 썸네일 */}
                           {p.images?.[0] ? (
@@ -2320,6 +2335,15 @@ function BrokerPropertiesContent() {
                                 </span>
                               )}
                             </div>
+                            {/* 동·호수 — 그룹 안에서 어떤 매물인지 식별 */}
+                            {(() => {
+                              const addr = p.address ?? ''
+                              const hoMatch = addr.match(/[0-9A-Za-z\-]*\d[0-9A-Za-z\-]*호\s*$/i)
+                              if (!hoMatch || hoMatch.index === undefined) return null
+                              const unit = addr.slice(0, hoMatch.index).match(/\s+[0-9A-Za-z\-]+동\s*$/)
+                              const unitText = (unit ? unit[0].trim() + ' ' : '') + hoMatch[0].trim()
+                              return <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-0.5">{unitText}</div>
+                            })()}
                             <div className="text-xs text-gray-500 dark:text-gray-400">
                               {p.room_type}
                               {p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}
@@ -2328,8 +2352,11 @@ function BrokerPropertiesContent() {
                             {p.brief_memo && (
                               <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.brief_memo}</p>
                             )}
+                            {p.images && p.images.length > 0 && (
+                              <p className="mt-1.5 text-[10px] text-blue-500">사진 {p.images.length}장 · 클릭해서 보기</p>
+                            )}
                           </div>
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
