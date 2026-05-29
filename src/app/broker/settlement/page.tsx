@@ -514,7 +514,7 @@ export default function SettlementPage() {
 
         {/* 월 네비 + 액션 */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => { setAllMode(false); moveMonth(-1) }} disabled={allMode}
               className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronLeft className="h-4 w-4" />
