@@ -545,11 +545,14 @@ export default function SettlementPage() {
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}>
               전체
             </button>
+          </div>
+          {/* 직원 select + CSV — 한 줄로 묶음 (모바일에선 월 네비 아래 줄에 배치) */}
+          <div className="flex flex-wrap items-center gap-2">
             {isOwner && (
               <select
                 value={filterAssigneeId}
                 onChange={e => setFilterAssigneeId(e.target.value)}
-                className={`ml-2 rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${filterAssigneeId
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${filterAssigneeId
                   ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                   : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}
               >
@@ -570,8 +573,6 @@ export default function SettlementPage() {
                 )}
               </select>
             )}
-          </div>
-          <div className="flex items-center gap-2">
             <button onClick={() => downloadCsv('employee')} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
               <Download className="h-3.5 w-3.5" /> 직원CSV
             </button>
