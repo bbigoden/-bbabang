@@ -1893,7 +1893,10 @@ function BrokerPropertiesContent() {
           newMarkers.push(marker)
 
           // 클릭 시 React 우측 사이드바 패널에 매물 리스트 표시
-          const addr = group[0].prop.address ?? ''
+          // 헤더 주소는 동·호수 제거한 건물 단위 (group 매물이 같은 건물 다른 호수일 때 정확)
+          const addr = group.length > 1
+            ? normalizeAddr(group[0].prop.address ?? '')
+            : (group[0].prop.address ?? '')
           const items = group.map(g => g.prop)
           kakao.maps.event.addListener(marker, 'click', () => {
             setMapPanel({ address: addr, items })
@@ -2249,9 +2252,9 @@ function BrokerPropertiesContent() {
                   {/* 헤더 */}
                   <div className="flex items-start gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-400 mb-0.5">건물</p>
+                      <p className="text-xs text-gray-400 mb-0.5">{mapPanel.items.length > 1 ? '같은 건물' : '매물 위치'}</p>
                       <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight break-words">{mapPanel.address || '주소 없음'}</p>
-                      <p className="mt-1 text-xs text-gray-500">전체 매물 <span className="font-bold text-blue-600">{mapPanel.items.length}</span>건</p>
+                      <p className="mt-1 text-xs text-gray-500">매물 <span className="font-bold text-blue-600">{mapPanel.items.length}</span>건</p>
                     </div>
                     <button
                       type="button"
