@@ -2198,7 +2198,7 @@ function BrokerPropertiesContent() {
 
         {/* 지도 뷰 */}
         {isMapView && (
-          <div className="relative rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm" style={{ height: 560 }}>
+          <div className="relative rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm h-[560px] md:h-[calc(100vh-220px)] md:min-h-[640px]">
             <div ref={mapContainerRef} className="w-full h-full" />
             {/* 로딩/에러 오버레이 */}
             {mapStatus === 'error' && (
