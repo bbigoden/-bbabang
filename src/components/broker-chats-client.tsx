@@ -57,6 +57,7 @@ export function BrokerChatsClient({ user }: { user: any }) {
         `)
         .eq('broker_id', user.id)
         .order('created_at', { ascending: false })
+        .limit(50)
 
       setChatRooms((data ?? []) as unknown as ChatRoom[])
       setLoading(false)

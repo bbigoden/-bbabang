@@ -18,7 +18,6 @@ import { ADMIN_ITEMS } from '@/components/admin/menu-items'
 // 풀스크린이거나 자체 하단 UI가 있는 페이지는 BottomNav 숨김
 const HIDDEN_PATHS = [
   '/chat/',
-  '/request/', // request/[id]는 자체 하단 탭 보유, request/new·edit·propose도 풀스크린 폼
   '/auth',
   '/account-suspended',
   '/broker/properties/', // 매물 편집 등 풀스크린
