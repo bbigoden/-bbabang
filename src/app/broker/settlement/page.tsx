@@ -599,7 +599,7 @@ export default function SettlementPage() {
                 </div>
                 <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.totalFee)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
                 <p className="mt-0.5 text-[10px] text-gray-400">
-                  공급가 {fmtComma(summary.supplySum)}원 · VAT {fmtComma(summary.totalFee - summary.supplySum)}원
+                  = 공급가 {fmtComma(summary.supplySum)} + VAT {fmtComma(summary.totalFee - summary.supplySum)}
                 </p>
               </CardBody>
             </Card>
@@ -608,7 +608,7 @@ export default function SettlementPage() {
                 <p className="text-[11px] font-medium text-gray-500">담당자</p>
                 <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.assigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
                 <p className="mt-0.5 text-[10px] text-gray-400">
-                  실수령 {fmtComma(summary.takeHomeSum)}원 · 원천 {fmtComma(summary.assigneeSum - summary.takeHomeSum)}원
+                  = 실수령 {fmtComma(summary.takeHomeSum)} + 원천 {fmtComma(summary.assigneeSum - summary.takeHomeSum)}
                 </p>
               </CardBody>
             </Card>
@@ -617,6 +617,9 @@ export default function SettlementPage() {
                 <CardBody className="p-4">
                   <p className="text-[11px] font-medium text-gray-500">사무실</p>
                   <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
+                  <p className="mt-0.5 text-[10px] text-gray-400">
+                    = 공급가 {fmtComma(summary.supplySum)} − 담당자 {fmtComma(summary.assigneeSum)}
+                  </p>
                 </CardBody>
               </Card>
             ) : (
