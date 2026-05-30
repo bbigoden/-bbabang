@@ -761,7 +761,7 @@ export default function SettlementPage() {
                   <td colSpan={15} className="border-t border-gray-100 dark:border-gray-800">
                     <button onClick={addNewRow}
                       className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-400 transition-colors">
-                      <Plus className="h-3.5 w-3.5" />계약 등록
+                      <Plus className="h-3.5 w-3.5" />정산 등록
                     </button>
                   </td>
                 </tr>
