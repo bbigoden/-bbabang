@@ -403,19 +403,24 @@ export default function SettlementPage() {
   }
 
   // 새 빈 행 추가 — 보고 있는 월(전체면 오늘)로 record_month 자동
+  // 대표가 특정 직원 필터를 걸어둔 상태면 그 직원 기준으로 행 생성 (필터된 화면에 즉시 보이도록)
   const addNewRow = async () => {
     if (!officeId || !meBroker) return
     const recordMonth = allMode ? yyyymm(new Date()) : month
+
+    const target = (isOwner && filterAssigneeId && !filterAssigneeId.startsWith('ex:'))
+      ? (members.find(m => m.id === filterAssigneeId) ?? meBroker)
+      : meBroker
 
     const { data, error } = await supabase
       .from('settlements')
       .insert({
         office_broker_id: officeId,
-        assignee_broker_id: meBroker.id,
-        assignee_name: meBroker.profiles?.name ?? null,
+        assignee_broker_id: target.id,
+        assignee_name: target.profiles?.name ?? null,
         record_month: recordMonth,
-        settlement_rate: Number(meBroker.default_settlement_rate ?? 0.5),
-        withhold_exempt: !!meBroker.is_owner,
+        settlement_rate: Number(target.default_settlement_rate ?? 0.5),
+        withhold_exempt: !!target.is_owner,
         seller_fee: 0,
         buyer_fee: 0,
         created_by: meBroker.id,
