@@ -41,6 +41,48 @@ const TONES = [
     bgLight: '#dbeafe',
     textOnLight: '#1e3a8a',
   },
+
+  // ─── 옵션 3 (#172554) 주변 톤들 ───
+  {
+    key: 'indigo-950',
+    name: '잉크 네이비 (indigo-950)',
+    desc: '옵션 3보다 보라 기운 살짝 추가. 더 차분·고급, 살짝 럭셔리한 느낌.',
+    primary: '#1e1b4b',
+    hover: '#312e81',
+    ring: '#4338ca',
+    bgLight: '#eef2ff',
+    textOnLight: '#1e1b4b',
+  },
+  {
+    key: 'midnight',
+    name: '미드나잇 (#0a1929)',
+    desc: 'MUI 다크 블루. 옵션 3보다 한 단계 더 어둡고 파랑이 깊음. 미니멀·기술 톤.',
+    primary: '#0a1929',
+    hover: '#0f2845',
+    ring: '#1e3a8a',
+    bgLight: '#e7eef7',
+    textOnLight: '#0a1929',
+  },
+  {
+    key: 'oxford',
+    name: '옥스퍼드 블루 (#14213d)',
+    desc: '명품·금융 브랜드가 자주 쓰는 \'옥스퍼드 블루\'. 옵션 3보다 살짝 채도 낮고 안정적.',
+    primary: '#14213d',
+    hover: '#1d3557',
+    ring: '#2c5282',
+    bgLight: '#e8ecf3',
+    textOnLight: '#14213d',
+  },
+  {
+    key: 'royal-deep',
+    name: '딥 로얄 (#1a237e)',
+    desc: '머터리얼 indigo-900. 옵션 3보다 채도가 진해 \'로얄 블루\' 느낌. 화려·자신감 톤.',
+    primary: '#1a237e',
+    hover: '#283593',
+    ring: '#3949ab',
+    bgLight: '#e8eaf6',
+    textOnLight: '#1a237e',
+  },
 ]
 
 export default function ThemePreviewPage() {
