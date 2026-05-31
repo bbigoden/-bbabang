@@ -1,16 +1,7 @@
 'use client'
 
 const TONES = [
-  {
-    key: 'slate-950',
-    name: '잘톤 (slate-950)',
-    desc: '거의 검정. 극도로 진한 다크네이비. 명소 다크모드 느낌.',
-    primary: '#020617',
-    hover: '#0f172a',
-    ring: '#1e293b',
-    bgLight: '#f1f5f9',
-    textOnLight: '#020617',
-  },
+  // ─── 기존 유지 ───
   {
     key: 'slate-900',
     name: '딥네이비 (slate-900)',
@@ -32,21 +23,9 @@ const TONES = [
     textOnLight: '#172554',
   },
   {
-    key: 'blue-900',
-    name: '정통 네이비 (blue-900)',
-    desc: '해군·정장 느낌의 전통 남색. 채도가 남아 \'파란색\'이라는 게 느껴짐.',
-    primary: '#1e3a8a',
-    hover: '#1e40af',
-    ring: '#3b82f6',
-    bgLight: '#dbeafe',
-    textOnLight: '#1e3a8a',
-  },
-
-  // ─── 옵션 3 (#172554) 주변 톤들 ───
-  {
     key: 'indigo-950',
     name: '잉크 네이비 (indigo-950)',
-    desc: '옵션 3보다 보라 기운 살짝 추가. 더 차분·고급, 살짝 럭셔리한 느낌.',
+    desc: '보라 기운 살짝. 차분·고급, 살짝 럭셔리한 느낌.',
     primary: '#1e1b4b',
     hover: '#312e81',
     ring: '#4338ca',
@@ -54,34 +33,56 @@ const TONES = [
     textOnLight: '#1e1b4b',
   },
   {
-    key: 'midnight',
-    name: '미드나잇 (#0a1929)',
-    desc: 'MUI 다크 블루. 옵션 3보다 한 단계 더 어둡고 파랑이 깊음. 미니멀·기술 톤.',
-    primary: '#0a1929',
-    hover: '#0f2845',
-    ring: '#1e3a8a',
-    bgLight: '#e7eef7',
-    textOnLight: '#0a1929',
-  },
-  {
     key: 'oxford',
-    name: '옥스퍼드 블루 (#14213d)',
-    desc: '명품·금융 브랜드가 자주 쓰는 \'옥스퍼드 블루\'. 옵션 3보다 살짝 채도 낮고 안정적.',
+    name: '옥스퍼드 블루',
+    desc: '명품·금융 브랜드가 자주 쓰는 옥스퍼드 블루. 채도 낮고 안정적.',
     primary: '#14213d',
     hover: '#1d3557',
     ring: '#2c5282',
     bgLight: '#e8ecf3',
     textOnLight: '#14213d',
   },
+
+  // ─── 신규 추천 4종 ───
   {
-    key: 'royal-deep',
-    name: '딥 로얄 (#1a237e)',
-    desc: '머터리얼 indigo-900. 옵션 3보다 채도가 진해 \'로얄 블루\' 느낌. 화려·자신감 톤.',
-    primary: '#1a237e',
-    hover: '#283593',
-    ring: '#3949ab',
-    bgLight: '#e8eaf6',
-    textOnLight: '#1a237e',
+    key: 'prussian',
+    name: '프러시안 블루',
+    desc: '클래식 회화 안료의 진한 청. 살짝 청록 기운으로 차가운 고급 톤.',
+    primary: '#003153',
+    hover: '#0a3d6b',
+    ring: '#1e5a8a',
+    bgLight: '#e3edf5',
+    textOnLight: '#003153',
+  },
+  {
+    key: 'space-cadet',
+    name: '스페이스 카뎃',
+    desc: '잉크와 옥스퍼드 중간. 보라 살짝, 우주 같은 깊이감.',
+    primary: '#1c2541',
+    hover: '#2a3760',
+    ring: '#3b4a7a',
+    bgLight: '#ecedf3',
+    textOnLight: '#1c2541',
+  },
+  {
+    key: 'deep-ocean',
+    name: '딥 오션',
+    desc: '옥스퍼드보다 더 어두운 심해 톤. 차가운 정적·집중 분위기.',
+    primary: '#0d1b2a',
+    hover: '#15293f',
+    ring: '#2c4a6b',
+    bgLight: '#e6ebf0',
+    textOnLight: '#0d1b2a',
+  },
+  {
+    key: 'petrol',
+    name: '페트롤 네이비',
+    desc: '잘키와 옥스퍼드 사이. 채도 약간 더 살아있어 신뢰감·시원함.',
+    primary: '#14274e',
+    hover: '#1d3768',
+    ring: '#2c5095',
+    bgLight: '#e7ebf3',
+    textOnLight: '#14274e',
   },
 ]
 
@@ -223,13 +224,17 @@ export default function ThemePreviewPage() {
         <div className="mt-8 p-5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700">
           <div className="font-semibold text-gray-900 mb-2">고르는 법</div>
           <ul className="list-disc list-inside space-y-1">
-            <li><b>옵션 1 (잘톤)</b> — 사실상 검정. 차분·시크 끝판왕이지만 &lsquo;네이비 같지 않다&rsquo;는 인상 가능.</li>
-            <li><b>옵션 2 (딥네이비)</b> — 검정 느낌 + 약간의 파랑. 가장 실용적·고급스러움. <b>일반 추천</b>.</li>
-            <li><b>옵션 3 (잘키 네이비)</b> — 어둡지만 &lsquo;파랑&rsquo; 식별성이 좋음. 링크·뱃지 가독성 ↑.</li>
-            <li><b>옵션 4 (정통 네이비)</b> — 전통 남색. 가장 &lsquo;파랑&rsquo;스러움. 다크네이비 중에선 가장 밝음.</li>
+            <li><b>옵션 1 (딥네이비)</b> — 검정 느낌 + 약간의 파랑. 가장 실용적·고급. <b>가장 무난한 추천</b>.</li>
+            <li><b>옵션 2 (잘키 네이비)</b> — 어둡지만 파랑 식별성 좋음. 링크·뱃지 가독성 ↑.</li>
+            <li><b>옵션 3 (잉크 네이비)</b> — 보라 기운 살짝. 우아·럭셔리.</li>
+            <li><b>옵션 4 (옥스퍼드 블루)</b> — 명품·금융 톤. 차분하고 안정적.</li>
+            <li><b>옵션 5 (프러시안 블루)</b> — 청록 살짝 섞인 클래식 회화 안료 톤.</li>
+            <li><b>옵션 6 (스페이스 카뎃)</b> — 잉크·옥스퍼드 사이. 우주 같은 깊이.</li>
+            <li><b>옵션 7 (딥 오션)</b> — 옥스퍼드보다 더 어두운 심해. 차가운 집중감.</li>
+            <li><b>옵션 8 (페트롤 네이비)</b> — 잘키·옥스퍼드 사이. 신뢰감·시원함.</li>
           </ul>
           <div className="mt-3 text-gray-600">
-            결정되면 <code className="bg-gray-100 px-1.5 py-0.5 rounded">옵션 2</code> 처럼 알려주세요. 전 페이지의 blue-600 계열을 일괄 교체합니다.
+            결정되면 <code className="bg-gray-100 px-1.5 py-0.5 rounded">옵션 N</code> 처럼 알려주세요. 전 페이지의 blue-600 계열을 일괄 교체합니다.
           </div>
         </div>
       </div>
