@@ -96,7 +96,7 @@ const DEAL_TYPE_COLOR_MAP: Record<string, string> = {
 }
 // 지도용 거래형태 hex 색
 const DEAL_TYPE_HEX_MAP: Record<string, string> = {
-  매매: '#2563eb', 전세: '#7c3aed', 월세: '#ea580c', 분양: '#db2777', 분양권: '#e11d48',
+  매매: '#14274e', 전세: '#7c3aed', 월세: '#ea580c', 분양: '#db2777', 분양권: '#e11d48',
 }
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
@@ -1781,7 +1781,7 @@ function BrokerPropertiesContent() {
           gridSize: 60,
           styles: [{
             width: '40px', height: '40px',
-            background: '#2563eb', color: '#fff',
+            background: '#14274e', color: '#fff',
             borderRadius: '20px', textAlign: 'center', lineHeight: '40px',
             fontSize: '13px', fontWeight: '700',
             boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
@@ -2244,7 +2244,7 @@ function BrokerPropertiesContent() {
             {/* 범례 */}
             {mapReady && !geocoding && (
               <div className="absolute bottom-4 left-4 flex gap-2 z-10">
-                {[['매매','#2563eb'],['전세','#7c3aed'],['월세','#ea580c']].map(([label, color]) => (
+                {[['매매','#14274e'],['전세','#7c3aed'],['월세','#ea580c']].map(([label, color]) => (
                   <span key={label} style={{ background: color }} className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white shadow">
                     {label}
                   </span>

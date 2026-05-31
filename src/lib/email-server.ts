@@ -76,15 +76,15 @@ ${opts.preview ? `<div style="display:none;font-size:1px;color:#f9fafb;line-heig
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f9fafb;padding:32px 16px;">
   <tr><td align="center">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);overflow:hidden;">
-      <tr><td style="background:linear-gradient(135deg,#2563eb 0%,#4338ca 100%);padding:24px 32px;">
-        <a href="${base}" style="color:#fff;text-decoration:none;font-size:22px;font-weight:900;letter-spacing:-0.5px;">빠<span style="color:#bfdbfe;">방</span></a>
+      <tr><td style="background:linear-gradient(135deg,#14274e 0%,#2c5095 100%);padding:24px 32px;">
+        <a href="${base}" style="color:#fff;text-decoration:none;font-size:22px;font-weight:900;letter-spacing:-0.5px;">빠<span style="color:#b1c2df;">방</span></a>
       </td></tr>
       <tr><td style="padding:32px;">
         <h1 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#111827;line-height:1.4;">${opts.title}</h1>
         <div style="font-size:15px;color:#4b5563;line-height:1.7;">${opts.bodyHtml}</div>
         ${opts.ctaUrl && opts.ctaLabel ? `
         <div style="margin-top:24px;text-align:center;">
-          <a href="${opts.ctaUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">${opts.ctaLabel}</a>
+          <a href="${opts.ctaUrl}" style="display:inline-block;background:#14274e;color:#fff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">${opts.ctaLabel}</a>
         </div>` : ''}
       </td></tr>
       <tr><td style="border-top:1px solid #f3f4f6;padding:20px 32px;font-size:12px;color:#9ca3af;text-align:center;">

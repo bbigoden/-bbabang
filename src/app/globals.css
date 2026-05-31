@@ -3,6 +3,24 @@
 /* 다크 모드: 클래스 기반 (.dark) — ThemeProvider가 html에 클래스 토글 */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* 브랜드 컬러 = 페트롤 네이비.
+   Tailwind blue 팔레트 전체를 페트롤 스케일로 override.
+   기존 bg-blue-600 / text-blue-700 / border-blue-500 등 모든 blue-XXX 클래스가
+   자동으로 페트롤로 바뀜. (다른 색 emerald/amber/red/gray는 그대로) */
+@theme {
+  --color-blue-50:  #eef2f9;
+  --color-blue-100: #d8e0ef;
+  --color-blue-200: #b1c2df;
+  --color-blue-300: #859ecd;
+  --color-blue-400: #5174b1;
+  --color-blue-500: #2c5095;
+  --color-blue-600: #14274e; /* PRIMARY (페트롤 네이비) */
+  --color-blue-700: #0f1d3a; /* hover */
+  --color-blue-800: #0a1428;
+  --color-blue-900: #060d1c;
+  --color-blue-950: #03060e;
+}
+
 :root {
   --background: #f9fafb;
   --foreground: #111827;
@@ -43,7 +61,7 @@ body {
 
 /* 키보드 포커스 — 접근성 */
 *:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #14274e;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -58,7 +76,7 @@ body {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  background: #2563eb;
+  background: #14274e;
   color: white;
   border-radius: 0.5rem;
   font-weight: 600;

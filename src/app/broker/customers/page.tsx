@@ -819,7 +819,7 @@ export default function BrokerCustomersPage() {
 
         {/* 통계 */}
         {(() => {
-          const ASSIGNEE_COLORS = ['#60a5fa','#3b82f6','#2563eb','#93c5fd']
+          const ASSIGNEE_COLORS = ['#5174b1','#2c5095','#14274e','#859ecd']
           const CATEGORY_COLORS_CHART = ['#a78bfa','#8b5cf6','#7c3aed','#c4b5fd']
           const SOURCE_COLORS_CHART = ['#34d399','#10b981','#f59e0b','#f97316','#6366f1','#ec4899','#14b8a6','#84cc16']
           const aTotal = assigneeDist.reduce((s,[,v])=>s+v,0)
