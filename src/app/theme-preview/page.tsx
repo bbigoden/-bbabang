@@ -181,10 +181,10 @@ export default function ThemePreviewPage() {
         <div className="mt-8 p-5 rounded-xl bg-white border border-gray-200 text-sm text-gray-700">
           <div className="font-semibold text-gray-900 mb-2">고르는 법</div>
           <ul className="list-disc list-inside space-y-1">
-            <li><b>옵션 1 (잘톤)</b> — 사실상 검정. 차분·시크 끝판왕이지만 \'네이비 같지 않다\'는 인상 가능.</li>
+            <li><b>옵션 1 (잘톤)</b> — 사실상 검정. 차분·시크 끝판왕이지만 &lsquo;네이비 같지 않다&rsquo;는 인상 가능.</li>
             <li><b>옵션 2 (딥네이비)</b> — 검정 느낌 + 약간의 파랑. 가장 실용적·고급스러움. <b>일반 추천</b>.</li>
-            <li><b>옵션 3 (잘키 네이비)</b> — 어둡지만 \'파랑\' 식별성이 좋음. 링크·뱃지 가독성 ↑.</li>
-            <li><b>옵션 4 (정통 네이비)</b> — 전통 남색. 가장 \'파랑\'스러움. 다크네이비 중에선 가장 밝음.</li>
+            <li><b>옵션 3 (잘키 네이비)</b> — 어둡지만 &lsquo;파랑&rsquo; 식별성이 좋음. 링크·뱃지 가독성 ↑.</li>
+            <li><b>옵션 4 (정통 네이비)</b> — 전통 남색. 가장 &lsquo;파랑&rsquo;스러움. 다크네이비 중에선 가장 밝음.</li>
           </ul>
           <div className="mt-3 text-gray-600">
             결정되면 <code className="bg-gray-100 px-1.5 py-0.5 rounded">옵션 2</code> 처럼 알려주세요. 전 페이지의 blue-600 계열을 일괄 교체합니다.
