@@ -1465,7 +1465,7 @@ function BrokerPropertiesContent() {
 
       let data: Record<string, any>
       let mergedHos: string[] = []
-      let failedHos: string[] = []
+      const failedHos: string[] = []
 
       if (hos.length <= 1) {
         const { ok, data: d } = await callAutoFill(hos[0] ?? '')
