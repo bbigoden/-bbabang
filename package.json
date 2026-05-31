@@ -18,6 +18,9 @@
     "test:seo": "node seo-test.mjs",
     "test:visual": "node visual-regression-test.mjs",
     "test:visual:update": "node visual-regression-test.mjs --update",
+    "inspect:visual": "playwright test --config=playwright.config.ts",
+    "inspect:visual:full": "cross-env FULL=1 playwright test --config=playwright.config.ts",
+    "inspect:visual:report": "playwright show-report test-results/visual-report",
     "test:all": "npm test && npm run test:integration && npm run test:contract && npm run test:a11y && npm run test:load && npm run test:smoke && npm run test:seo",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
@@ -39,6 +42,7 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^5.2.1",
+    "@playwright/test": "^1.60.0",
     "@storybook/addon-a11y": "^10.4.1",
     "@storybook/addon-docs": "^10.4.1",
     "@storybook/addon-mcp": "^0.6.0",
