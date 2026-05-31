@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardBody } from '@/components/ui/card'
 import { Shield, CheckCircle, Users, Building2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { seedRegionFromAddress } from '@/lib/region-from-address'
 
 export default function BrokerRegisterPage() {
   const router = useRouter()
@@ -102,6 +103,9 @@ export default function BrokerRegisterPage() {
         .single()
       if (!parentBroker) { setError('사무소 코드를 다시 확인해주세요.'); setLoading(false); return }
 
+      // 사무소 주소 → 시·군·구 자동 추출해 alert_regions 시드 (실패해도 빈 배열로 진행)
+      const seed = await seedRegionFromAddress(parentBroker.address)
+
       const { error: insertError } = await supabase.from('broker_profiles').insert({
         user_id: user.id,
         office_name: parentBroker.office_name,
@@ -113,6 +117,7 @@ export default function BrokerRegisterPage() {
         parent_broker_id: parentBroker.id,
         permissions: null,
         is_approved: false,
+        alert_regions: seed ? [seed] : [],
       })
       if (insertError) { setError('등록 중 오류가 발생했습니다.'); setLoading(false); return }
 
@@ -138,6 +143,9 @@ export default function BrokerRegisterPage() {
       const user = authData.user
       if (!user) { router.push('/auth/login'); return }
 
+      // 사무소 주소 → 시·군·구 자동 추출해 alert_regions 시드 (실패해도 빈 배열로 진행)
+      const seed = await seedRegionFromAddress(form.address)
+
       const { error: insertError } = await supabase.from('broker_profiles').insert({
         user_id: user.id,
         office_name: form.office_name,
@@ -150,6 +158,7 @@ export default function BrokerRegisterPage() {
         is_verified: false,
         is_owner: true,
         is_approved: true,
+        alert_regions: seed ? [seed] : [],
       })
       if (insertError) { setError('등록 중 오류가 발생했습니다.'); setLoading(false); return }
 
