@@ -1818,8 +1818,6 @@ function BrokerPropertiesContent() {
         if (p.price == null) return '미정'
         return fmtAmount(p.price)
       }
-      const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
       // SVG 핀(알약 모양) data URI 생성 — 모바일 가독성 위해 컴팩트하게
       const makePillIcon = (dealType: string, price: string, color: string) => {
         const label = `${dealType} ${price}`

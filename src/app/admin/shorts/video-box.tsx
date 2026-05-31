@@ -51,7 +51,7 @@ async function getAudioDuration(blobUrl: string): Promise<number> {
   })
 }
 
-export function VideoBox({ scriptId, voiceoverText, bRollKeywords, audioUrl, category }: Props) {
+export function VideoBox({ scriptId: _scriptId, voiceoverText, bRollKeywords, audioUrl, category }: Props) {
   const [phase, setPhase] = useState<Phase>('idle')
   const [progressMsg, setProgressMsg] = useState<string>('')
   const [progressPct, setProgressPct] = useState<number>(0)
