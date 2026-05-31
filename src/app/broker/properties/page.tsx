@@ -173,8 +173,8 @@ function PostcodeModal({ onComplete, onClose }: {
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white">주소 검색</h3>
-          <button type="button" onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800"
+          <button type="button" onClick={onClose} aria-label="닫기"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800"
           >
             <X className="h-4 w-4" />
           </button>
@@ -318,7 +318,7 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
         </span>
         <button type="button" onClick={openPostcode}
           className="shrink-0 rounded p-0.5 text-gray-300 opacity-50 sm:opacity-0 transition-opacity hover:text-blue-500 sm:group-hover:opacity-100"
-          title="주소 검색"
+          title="주소 검색" aria-label="주소 검색"
         >
           <Search className="h-3 w-3" />
         </button>
@@ -466,7 +466,7 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
           className="w-0 flex-1 rounded border border-blue-400 bg-white dark:bg-gray-900 px-1 py-1 text-xs text-right outline-none focus:ring-1 focus:ring-blue-300"
           placeholder="보증금"
         />
-        <span className="text-gray-400 text-xs flex-shrink-0">/</span>
+        <span className="text-gray-500 text-xs flex-shrink-0">/</span>
         <input ref={rentInputRef} type="number" value={draftRent} onChange={e => setDraftRent(e.target.value)}
           onBlur={commitRent}
           onKeyDown={e => {
@@ -485,7 +485,7 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
     <div className="w-full cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs text-right overflow-hidden whitespace-nowrap text-ellipsis"
       onClick={() => { setDraftPrice(price != null ? String(price) : ''); setDraftRent(rent != null ? String(rent) : ''); setEditing(true) }}>
       <span className={`font-semibold ${price ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300'}`}>{dep}</span>
-      <span className="text-gray-400 mx-0.5">/</span>
+      <span className="text-gray-500 mx-0.5">/</span>
       <span className={`font-semibold ${rent ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300'}`}>{mo}</span>
     </div>
   )
@@ -583,7 +583,7 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
               className="w-0 flex-1 rounded border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
-            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{globalUnit}</span>
+            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-500">{globalUnit}</span>
           </div>
           {/* 공급 */}
           <div className="flex items-center gap-1">
@@ -596,7 +596,7 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
               className="w-0 flex-1 rounded border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-300"
             />
-            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-400">{globalUnit}</span>
+            <span className="w-6 flex-shrink-0 text-right text-xs text-gray-500">{globalUnit}</span>
           </div>
         </div>
       )}
@@ -671,7 +671,7 @@ function ImageCell({ images, onSave, onView }: {
               <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 dark:border-gray-800 flex-shrink-0">
                 <img src={localImgs[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </div>
-              {localImgs.length > 1 && <span className="text-[10px] text-gray-400">+{localImgs.length - 1}</span>}
+              {localImgs.length > 1 && <span className="text-[10px] text-gray-500">+{localImgs.length - 1}</span>}
             </>
         }
       </div>
@@ -695,7 +695,7 @@ function ImageCell({ images, onSave, onView }: {
               </div>
             ))}
             {localImgs.length + newFiles.length < 5 && (
-              <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:border-blue-400 transition-colors">
+              <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:border-blue-400 transition-colors">
                 <ImagePlus className="h-4 w-4" />
                 <input type="file" accept="image/*" multiple className="hidden" onChange={handleAdd} />
               </label>
@@ -724,7 +724,7 @@ function StatusToggleCell({ value, onSave }: {
       className={cn(
         'w-full rounded-md px-2 py-1 text-xs font-semibold transition-colors min-h-[22px]',
         isCompleted
-          ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'
+          ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500'
           : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300'
       )}
     >
@@ -766,7 +766,7 @@ function TooltipIcon({ text }: { text: string }) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setShow(false)}
     >
-      <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+      <HelpCircle className="h-3.5 w-3.5 text-gray-500 cursor-help" />
       {show && (
         <span
           className="pointer-events-none rounded-lg bg-gray-800 px-2.5 py-1.5 text-[11px] leading-tight text-white shadow-xl"
@@ -828,7 +828,7 @@ function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onS
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={style}
           onClick={e => e.stopPropagation()}>
           {/* 고정 칼럼 섹션 */}
-          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
+          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
             <Lock className="h-2.5 w-2.5" />고정 칼럼
           </div>
           {hiddenFixed.length > 0 ? hiddenFixed.map(col => (
@@ -837,11 +837,11 @@ function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onS
               <span className="text-gray-300 font-bold">+</span>{col.label}
             </button>
           )) : (
-            <div className="px-3 py-1.5 text-xs text-gray-400">모두 표시 중</div>
+            <div className="px-3 py-1.5 text-xs text-gray-500">모두 표시 중</div>
           )}
 
           {/* 내 칼럼 섹션 */}
-          <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">내 칼럼</div>
+          <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">내 칼럼</div>
           {hiddenCustom.map(col => (
             <button key={col.id} onClick={() => { onShowCustom(col.id); setOpen(false) }}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
@@ -976,7 +976,7 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
 
   return (
     <div className="relative">
-      <button ref={btnRef} onClick={handleOpen}
+      <button ref={btnRef} onClick={handleOpen} aria-label="더보기"
         className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors">
         <MoreHorizontal className="h-3.5 w-3.5" />
       </button>
@@ -995,8 +995,8 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
               <div key={c.key}
                 className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 cursor-pointer"
                 onClick={() => onToggle(c.key)}>
-                <span className={`text-xs font-medium ${visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>{c.label}</span>
-                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${visible.includes(c.key) ? 'text-gray-400' : 'text-gray-200'}`} />
+                <span className={`text-xs font-medium ${visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`}>{c.label}</span>
+                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${visible.includes(c.key) ? 'text-gray-500' : 'text-gray-200'}`} />
               </div>
             ))}
           </div>
@@ -1041,7 +1041,7 @@ const PropertyRow = memo(function PropertyRow({
     <tr data-row-id={p.id}
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
-      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 tabular-nums select-all" style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
+      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-500 tabular-nums select-all" style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
         {p.seq_no ?? ''}
       </td>
       {syncedOrder.map(key => {
@@ -1058,7 +1058,7 @@ const PropertyRow = memo(function PropertyRow({
                   <span className={cn(
                     'rounded-md px-2 py-0.5 text-xs font-semibold',
                     isCompleted
-                      ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500'
                       : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
                   )}>
                     {isCompleted ? '완료' : '가능'}
@@ -1075,11 +1075,11 @@ const PropertyRow = memo(function PropertyRow({
               }
               if (key === 'management_fee') return p.management_fee != null ? `${p.management_fee.toLocaleString()}만` : '—'
               if (key === 'deal_type') {
-                return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DEAL_TYPE_COLOR_MAP[p.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>{p.deal_type}</span>
+                return <span className={`rounded px-2 py-0.5 text-xs font-semibold ${DEAL_TYPE_COLOR_MAP[p.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-500'}`}>{p.deal_type}</span>
               }
-              if (key === 'room_type') return <span className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400">{p.room_type}</span>
+              if (key === 'room_type') return <span className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-500">{p.room_type}</span>
               if (key === 'images') return p.images?.length > 0
-                ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-400">+{p.images.length - 1}</span>}</div>
+                ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-500">+{p.images.length - 1}</span>}</div>
                 : <span className="text-xs text-gray-300">—</span>
               // 중개사 메모는 본인 매물 아니면 숨김
               if (key === 'memo' && !isMine) return <span className="text-gray-200 select-none">—</span>
@@ -2077,7 +2077,7 @@ function BrokerPropertiesContent() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="text-5xl">🔒</div>
         <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">매물목록 접근 권한이 없어요</h2>
-        <p className="text-sm text-gray-400">대표에게 권한 설정을 요청해주세요.</p>
+        <p className="text-sm text-gray-500">대표에게 권한 설정을 요청해주세요.</p>
       </div>
     </div>
   )
@@ -2120,7 +2120,7 @@ function BrokerPropertiesContent() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
-            <p className="mt-0.5 text-xs text-gray-400 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>
+            <p className="mt-0.5 text-xs text-gray-500 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>
           </div>
           <div className="flex items-center gap-2">
             {/* 목록/지도 토글 */}
@@ -2144,20 +2144,20 @@ function BrokerPropertiesContent() {
         {/* 검색 + 필터 */}
         <div className="mb-2 flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="전체 검색..." value={searchQuery}
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <input type="text" placeholder="전체 검색..." aria-label="매물 전체 검색" value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-400">
+              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:text-gray-500">
                 <X className="h-4 w-4" />
               </button>
             )}
           </div>
           <button
             onClick={() => setShowFilter(v => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomTypes.length > 0) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomTypes.length > 0) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
           >
             <SlidersHorizontal className="h-4 w-4" />
             필터{(filterDealType || filterRoomTypes.length > 0) ? ` · ${(filterDealType ? 1 : 0) + filterRoomTypes.length}` : ''}
@@ -2172,7 +2172,7 @@ function BrokerPropertiesContent() {
               <div className="flex flex-wrap gap-1.5">
                 {DEAL_TYPES.map(t => (
                   <button key={t} onClick={() => setFilterDealType(filterDealType === t ? '' : t)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterDealType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:border-gray-700'}`}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterDealType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
                   >{t}</button>
                 ))}
               </div>
@@ -2194,12 +2194,12 @@ function BrokerPropertiesContent() {
                           }`}>
                           {cat.label} {allSelected ? '전체 해제' : '전체 선택'}
                         </button>
-                        {someSelected && <span className="text-[10px] text-gray-400">{cat.types.filter(t => filterRoomTypes.includes(t)).length}/{cat.types.length}</span>}
+                        {someSelected && <span className="text-[10px] text-gray-500">{cat.types.filter(t => filterRoomTypes.includes(t)).length}/{cat.types.length}</span>}
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {cat.types.map(t => (
                           <button key={t} onClick={() => toggleRoomType(t)}
-                            className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomTypes.includes(t) ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:border-gray-700'}`}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomTypes.includes(t) ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
                           >{t}</button>
                         ))}
                       </div>
@@ -2252,7 +2252,7 @@ function BrokerPropertiesContent() {
             {/* 검색 결과 없음 */}
             {mapReady && !geocoding && filtered.filter(p => p.address).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
-                <p className="text-sm text-gray-400">주소가 있는 매물이 없습니다</p>
+                <p className="text-sm text-gray-500">주소가 있는 매물이 없습니다</p>
               </div>
             )}
 
@@ -2270,7 +2270,7 @@ function BrokerPropertiesContent() {
                   {/* 헤더 */}
                   <div className="flex items-start gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-400 mb-0.5">{mapPanel.items.length > 1 ? '같은 건물' : '매물 위치'}</p>
+                      <p className="text-xs text-gray-500 mb-0.5">{mapPanel.items.length > 1 ? '같은 건물' : '매물 위치'}</p>
                       <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight break-words">{mapPanel.address || '주소 없음'}</p>
                       <p className="mt-1 text-xs text-gray-500">매물 <span className="font-bold text-blue-600">{mapPanel.items.length}</span>건</p>
                     </div>
@@ -2278,7 +2278,7 @@ function BrokerPropertiesContent() {
                       type="button"
                       onClick={() => setMapPanel(null)}
                       aria-label="닫기"
-                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-white"
+                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-white"
                     >
                       <X className="h-5 w-5" />
                     </button>
@@ -2342,13 +2342,13 @@ function BrokerPropertiesContent() {
                               const unitText = (unit ? unit[0].trim() + ' ' : '') + hoMatch[0].trim()
                               return <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-0.5">{unitText}</div>
                             })()}
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                            <div className="text-xs text-gray-500 dark:text-gray-500">
                               {p.room_type}
                               {p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}
                               {p.floor != null ? ` · ${p.floor}층${p.total_floors ? `/${p.total_floors}` : ''}` : ''}
                             </div>
                             {p.brief_memo && (
-                              <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.brief_memo}</p>
+                              <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{p.brief_memo}</p>
                             )}
                             {p.images && p.images.length > 0 && (
                               <p className="mt-1.5 text-[10px] text-blue-500">사진 {p.images.length}장 · 클릭해서 보기</p>
@@ -2368,7 +2368,7 @@ function BrokerPropertiesContent() {
         <div className={`overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm ${isMapView ? 'hidden' : ''}`}>
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
-              <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
+              <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none">
                 <th className="px-2 py-2.5 text-center border-r border-gray-100 dark:border-gray-800" style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
                   번호
                 </th>
@@ -2468,7 +2468,7 @@ function BrokerPropertiesContent() {
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={syncedOrder.length + 2} className="py-20 text-center text-sm text-gray-400">
+                  <td colSpan={syncedOrder.length + 2} className="py-20 text-center text-sm text-gray-500">
                     {searchQuery || filterDealType || filterRoomTypes.length > 0 ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
                   </td>
                 </tr>
@@ -2499,12 +2499,12 @@ function BrokerPropertiesContent() {
                   <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-center divide-x divide-gray-100">
                       <button onClick={addNewRow}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 dark:text-gray-400 hover:bg-gray-50/80 transition-colors">
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-600 dark:text-gray-500 hover:bg-gray-50/80 transition-colors">
                         <Plus className="h-3.5 w-3.5" />매물 등록
                       </button>
                       <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
                         title={direction === 'up' ? '새 행이 위로 쌓임 (클릭하면 아래로)' : '새 행이 아래로 쌓임 (클릭하면 위로)'}
-                        className="flex items-center gap-1 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                        className="flex items-center gap-1 px-3 py-2 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
                         {direction === 'up' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                         {direction === 'up' ? '위로 쌓기' : '아래로 쌓기'}
                       </button>
@@ -2521,8 +2521,8 @@ function BrokerPropertiesContent() {
           {/* 페이지 이동 */}
           {totalPages > 1 && (
             <>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="이전 페이지"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
               ><ChevronLeft className="h-4 w-4" /></button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
@@ -2531,26 +2531,26 @@ function BrokerPropertiesContent() {
                   acc.push(n); return acc
                 }, [])
                 .map((n, i) => n === '...'
-                  ? <span key={`e${i}`} className="px-1 text-gray-400">…</span>
+                  ? <span key={`e${i}`} className="px-1 text-gray-500">…</span>
                   : <button key={n} onClick={() => setPage(n as number)}
-                      className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                      className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
                     >{n}</button>
                 )
               }
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="다음 페이지"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
               ><ChevronRight className="h-4 w-4" /></button>
             </>
           )}
           {/* 페이지당 개수 선택 */}
           <div className="flex items-center gap-1 ml-3">
-            <span className="text-sm text-gray-400">페이지당</span>
+            <span className="text-sm text-gray-500">페이지당</span>
             {PAGE_SIZE_OPTIONS.map(n => (
               <button key={n} onClick={() => setPageSize(n)}
-                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >{n}개</button>
             ))}
-            <span className="text-sm text-gray-400 ml-1">| 총 {filtered.length}개</span>
+            <span className="text-sm text-gray-500 ml-1">| 총 {filtered.length}개</span>
           </div>
         </div>
       </div>
@@ -2582,7 +2582,7 @@ function BrokerPropertiesContent() {
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={confirmDelete}
                 className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
             </div>

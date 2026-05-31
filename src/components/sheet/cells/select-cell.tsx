@@ -135,7 +135,7 @@ function MultiSelectCell({
     <>
       {chips.map(v => (
         <span key={v}
-          className={`inline-flex items-center gap-1 rounded ${small ? 'px-1.5 py-0' : 'px-2 py-0.5'} text-xs font-semibold whitespace-nowrap flex-shrink-0 ${colorMap?.[v] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+          className={`inline-flex items-center gap-1 rounded ${small ? 'px-1.5 py-0' : 'px-2 py-0.5'} text-xs font-semibold whitespace-nowrap flex-shrink-0 ${colorMap?.[v] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-500'}`}>
           {v}
           {allowRemove && (
             <button

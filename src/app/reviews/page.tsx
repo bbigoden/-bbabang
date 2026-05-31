@@ -100,7 +100,7 @@ export default function MyReviewsPage() {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
             <Star className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">작성한 리뷰가 없어요</p>
-            <p className="mt-1 text-sm text-gray-400">중개사와 거래를 마치면 리뷰를 남길 수 있어요</p>
+            <p className="mt-1 text-sm text-gray-500">중개사와 거래를 마치면 리뷰를 남길 수 있어요</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -120,7 +120,7 @@ export default function MyReviewsPage() {
                           <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-gray-400 truncate">{r.broker_profiles?.office_name ?? ''}</p>
+                      <p className="text-xs text-gray-500 truncate">{r.broker_profiles?.office_name ?? ''}</p>
                     </div>
                   </Link>
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -128,7 +128,7 @@ export default function MyReviewsPage() {
                       onClick={() => setEditing(r)}
                       title="수정"
                       aria-label="수정"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors"
                     >
                       <Edit2 className="h-4 w-4" />
                     </button>
@@ -136,7 +136,7 @@ export default function MyReviewsPage() {
                       onClick={() => setDeleting(r)}
                       title="삭제"
                       aria-label="삭제"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -147,11 +147,11 @@ export default function MyReviewsPage() {
                   {[1,2,3,4,5].map(i => (
                     <Star key={i} className={`h-4 w-4 ${i <= r.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200'}`} />
                   ))}
-                  <span className="ml-2 text-xs text-gray-400">{formatDate(r.created_at)}</span>
+                  <span className="ml-2 text-xs text-gray-500">{formatDate(r.created_at)}</span>
                 </div>
 
                 {r.content && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{r.content}</p>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-500 leading-relaxed whitespace-pre-line">{r.content}</p>
                 )}
 
                 {Array.isArray(r.images) && r.images.length > 0 && (
@@ -229,7 +229,7 @@ function EditReviewModal({ review, onClose, onSaved, supabase }: {
       <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-4">
           <h3 className="font-bold text-gray-900 dark:text-white">리뷰 수정</h3>
-          <button onClick={onClose} disabled={saving} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+          <button onClick={onClose} disabled={saving} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -260,7 +260,7 @@ function EditReviewModal({ review, onClose, onSaved, supabase }: {
         </div>
         <div className="flex gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
           <button onClick={onClose} disabled={saving}
-            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
+            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             취소
           </button>
           <button onClick={save} disabled={saving}
@@ -308,7 +308,7 @@ function DeleteReviewModal({ review, onClose, onDeleted, supabase }: {
         {err && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
         <div className="mt-5 flex gap-3">
           <button onClick={onClose} disabled={deleting}
-            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
+            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             취소
           </button>
           <button onClick={remove} disabled={deleting}

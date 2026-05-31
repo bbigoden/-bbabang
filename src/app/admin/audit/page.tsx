@@ -28,7 +28,7 @@ const TONE_COLOR: Record<string, string> = {
   blue: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   yellow: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   purple: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  gray: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  gray: 'bg-gray-500/20 text-gray-500 border-gray-500/30',
 }
 
 const PAGE_SIZE = 50
@@ -126,7 +126,7 @@ export default function AdminAuditPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center gap-3">
-          <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+          <Link href="/admin" aria-label="관리자 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
             <ArrowLeft className="h-4 w-4 text-gray-300" />
           </Link>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/20">
@@ -134,7 +134,7 @@ export default function AdminAuditPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">관리자 활동 로그</h1>
-            <p className="text-xs text-gray-400">전체 <span className="font-bold text-indigo-400">{total}</span>건 · 누가 언제 무엇을 바꿨는지 기록</p>
+            <p className="text-xs text-gray-500">전체 <span className="font-bold text-indigo-400">{total}</span>건 · 누가 언제 무엇을 바꿨는지 기록</p>
           </div>
           <button onClick={() => { setPage(0); load(true) }} disabled={loading}
             className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
@@ -150,6 +150,7 @@ export default function AdminAuditPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                aria-label="액션·대상 ID 검색"
                 placeholder="액션·대상 ID 검색"
                 className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
             </div>
@@ -160,7 +161,7 @@ export default function AdminAuditPage() {
             {TARGET_FILTERS.map(t => (
               <button key={t} onClick={() => setTargetFilter(t)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  targetFilter === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  targetFilter === t ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t === 'all' ? '전체' : AUDIT_TARGET_LABEL[t] ?? t}
               </button>
@@ -175,7 +176,7 @@ export default function AdminAuditPage() {
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
             <ScrollText className="mx-auto mb-3 h-12 w-12 text-gray-700" />
-            <p className="font-semibold text-gray-400">기록된 활동이 없어요</p>
+            <p className="font-semibold text-gray-500">기록된 활동이 없어요</p>
           </div>
         ) : (
           <>
@@ -263,7 +264,7 @@ function AuditDetailModal({ row, onClose }: { row: AuditRow; onClose: () => void
               {auditActionLabel(row.action)}
             </span>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -276,7 +277,7 @@ function AuditDetailModal({ row, onClose }: { row: AuditRow; onClose: () => void
           <KV label="시각" value={formatDate(row.created_at)} />
           {row.metadata && Object.keys(row.metadata).length > 0 && (
             <div>
-              <p className="mb-1.5 text-xs font-semibold text-gray-400">상세 데이터</p>
+              <p className="mb-1.5 text-xs font-semibold text-gray-500">상세 데이터</p>
               <pre className="overflow-x-auto rounded-xl bg-gray-950 px-3 py-2.5 text-[11px] text-gray-300 font-mono whitespace-pre-wrap">
 {JSON.stringify(row.metadata, null, 2)}
               </pre>

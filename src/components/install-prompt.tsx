@@ -103,7 +103,7 @@ export function InstallPrompt() {
             <div className="mt-3 rounded-lg bg-gray-50 dark:bg-gray-950 p-2.5">
               <p className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-300">
                 <Share className="h-3.5 w-3.5 text-blue-500" /> 아래 공유 버튼
-                <span className="text-gray-400">→</span>
+                <span className="text-gray-500">→</span>
                 &quot;홈 화면에 추가&quot;
               </p>
             </div>
@@ -115,7 +115,7 @@ export function InstallPrompt() {
                 {installing ? '설치 중...' : '설치하기'}
               </button>
               <button onClick={dismiss}
-                className="rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 text-gray-600 dark:text-gray-400 text-xs font-semibold px-3 transition-colors">
+                className="rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 text-gray-600 dark:text-gray-500 text-xs font-semibold px-3 transition-colors">
                 나중에
               </button>
             </div>

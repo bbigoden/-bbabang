@@ -177,7 +177,7 @@ export default function NotificationsPage() {
             <p className="font-semibold text-gray-500">
               {filter === 'unread' ? '안 읽은 알림이 없어요' : '알림이 없어요'}
             </p>
-            <p className="mt-1 text-sm text-gray-400">새 알림이 도착하면 여기에 표시돼요</p>
+            <p className="mt-1 text-sm text-gray-500">새 알림이 도착하면 여기에 표시돼요</p>
           </div>
         ) : (
           <>
@@ -197,7 +197,7 @@ export default function NotificationsPage() {
                         {n.title}
                       </p>
                       {n.body && <p className="mt-1 text-sm text-gray-500 line-clamp-2">{n.body}</p>}
-                      <p className="mt-1.5 text-xs text-gray-400">{formatDate(n.created_at)}</p>
+                      <p className="mt-1.5 text-xs text-gray-500">{formatDate(n.created_at)}</p>
                     </div>
                     {!n.is_read ? (
                       <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" aria-label="안 읽음" />

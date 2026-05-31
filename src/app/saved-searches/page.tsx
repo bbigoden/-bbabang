@@ -98,7 +98,7 @@ export default function SavedSearchesPage() {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <Bookmark className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">저장한 검색이 없어요</p>
-            <p className="mt-1 text-sm text-gray-400">중개사·요청 페이지에서 필터 + &apos;조건 저장&apos; 버튼을 사용해보세요</p>
+            <p className="mt-1 text-sm text-gray-500">중개사·요청 페이지에서 필터 + &apos;조건 저장&apos; 버튼을 사용해보세요</p>
             <div className="mt-5 flex justify-center gap-2">
               <Link href="/brokers" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 중개사 찾기
@@ -122,7 +122,7 @@ export default function SavedSearchesPage() {
                         <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
                           <Icon className="h-3 w-3" /> {meta.label}
                         </span>
-                        <span className="text-[11px] text-gray-400">저장 {formatDate(s.created_at)}</span>
+                        <span className="text-[11px] text-gray-500">저장 {formatDate(s.created_at)}</span>
                       </div>
                       <p className="text-base font-bold text-gray-900 dark:text-white">{s.label || '(이름 없음)'}</p>
 
@@ -130,7 +130,7 @@ export default function SavedSearchesPage() {
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {Object.entries(s.filters).filter(([_, v]) => v !== null && v !== undefined && v !== '' && v !== false).map(([k, v]) => (
                           <span key={k} className="inline-flex items-center gap-1 rounded-md bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:text-gray-300">
-                            <span className="text-gray-400">{k}:</span> {String(v)}
+                            <span className="text-gray-500">{k}:</span> {String(v)}
                           </span>
                         ))}
                       </div>

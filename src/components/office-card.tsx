@@ -70,13 +70,13 @@ export function OfficeCard({
     hover: isDark ? 'hover:bg-gray-800/60' : 'hover:bg-gray-50 hover:border-blue-300',
     icon: isDark ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-50 text-purple-600',
     title: isDark ? 'text-white' : 'text-gray-900',
-    sub: isDark ? 'text-gray-400' : 'text-gray-600',
+    sub: isDark ? 'text-gray-500' : 'text-gray-600',
     meta: isDark ? 'text-gray-500' : 'text-gray-500',
     chip: isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700',
     verified: isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-700',
     unverified: isDark ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-50 text-yellow-700',
     actionBorder: isDark ? 'border-gray-800' : 'border-gray-200',
-    chevron: isDark ? 'text-gray-600' : 'text-gray-400',
+    chevron: isDark ? 'text-gray-600' : 'text-gray-500',
   }
 
   const interactive = isClickable ? `${cls.hover} cursor-pointer transition-colors` : ''

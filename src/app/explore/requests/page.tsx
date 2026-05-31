@@ -88,7 +88,7 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
                 <Filter className="inline h-3.5 w-3.5 mr-1" /> 필터
               </button>
               {filterActive && (
-                <Link href="/explore/requests" className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
+                <Link href="/explore/requests" className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
                   초기화
                 </Link>
               )}
@@ -107,7 +107,7 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
         {error ? (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">데이터 조회 실패</div>
         ) : total === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
             {filterActive ? '조건에 맞는 요청이 없어요' : '아직 등록된 요청이 없어요'}
           </div>
         ) : (
@@ -118,23 +118,23 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
                   className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                   <div className="mb-2 flex items-center gap-2 pr-8">
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
-                    <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">{r.room_type || '매물'}</span>
+                    <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-500">{r.room_type || '매물'}</span>
                   </div>
                   <div className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
-                    <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                    <MapPin className="h-3.5 w-3.5 text-gray-500" />
                     {buildLabel(r.city, r.district, r.dong) || '지역 미지정'}
                   </div>
                   <div className="mb-3 text-sm text-gray-700 dark:text-gray-300">
-                    <HomeIcon className="inline h-3.5 w-3.5 text-gray-400 mr-1" />
+                    <HomeIcon className="inline h-3.5 w-3.5 text-gray-500 mr-1" />
                     {r.min_price != null && r.max_price != null
                       ? <>{formatPrice(r.min_price)} ~ {formatPrice(r.max_price)}
                           {r.min_monthly != null && r.max_monthly != null && r.min_monthly > 0 && (
                             <span className="text-gray-500"> · 월 {r.min_monthly}만 ~ {r.max_monthly}만</span>
                           )}
                         </>
-                      : <span className="text-gray-400">가격 미지정</span>}
+                      : <span className="text-gray-500">가격 미지정</span>}
                   </div>
-                  <div className="flex items-center justify-between text-xs text-gray-400">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
                     <span><Clock className="inline h-3 w-3 mr-0.5" /> {timeAgo(r.created_at)}</span>
                     <span className="font-medium text-blue-600">{r.proposal_count ?? 0}개 제안</span>
                   </div>

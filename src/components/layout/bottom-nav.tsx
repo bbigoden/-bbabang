@@ -108,7 +108,7 @@ export function BottomNav() {
       {/* 본문 가림 방지용 spacer */}
       <div className="md:hidden h-16" aria-hidden />
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav aria-label="하단 네비게이션" className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <ul className="flex">
           {items.map((it, _idx) => {
             const Icon = it.icon
@@ -171,7 +171,7 @@ export function BottomNav() {
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-500 dark:hover:bg-gray-800"
                 aria-label="닫기"
               >
                 <X className="h-5 w-5" />
@@ -179,7 +179,7 @@ export function BottomNav() {
             </div>
 
             {/* 메뉴 리스트 */}
-            <nav className="flex-1 overflow-y-auto px-3 py-3">
+            <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label="더보기 메뉴">
               <ul className="flex flex-col gap-0.5">
                 {drawerItems.map((item: ItemDef) => {
                   const Icon = item.icon
@@ -210,7 +210,7 @@ export function BottomNav() {
                                       'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium',
                                       subActive
                                         ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
-                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800',
+                                        : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800',
                                     )}
                                   >
                                     <SubIcon className="h-3.5 w-3.5 flex-shrink-0" />

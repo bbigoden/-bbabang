@@ -69,7 +69,7 @@ export function RegionPicker({
           {value.sido} {value.sigungu}{value.dong ? ` ${value.dong}` : ' 전체'}
         </span>
         {onClear && (
-          <button type="button" onClick={onClear} className="text-blue-600 hover:text-blue-800">
+          <button type="button" onClick={onClear} aria-label="지역 초기화" className="text-blue-600 hover:text-blue-800">
             <X className="h-4 w-4" />
           </button>
         )}
@@ -80,7 +80,7 @@ export function RegionPicker({
   return (
     <div ref={boxRef} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
         <input
           type="text"
           value={q}
@@ -100,7 +100,7 @@ export function RegionPicker({
       {open && q.trim().length >= 2 && (
         <div className="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg">
           {hits.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-gray-400">
+            <div className="px-4 py-6 text-center text-sm text-gray-500">
               {loading ? '검색 중...' : '결과가 없어요. 다른 단어로 검색해주세요'}
             </div>
           ) : (
@@ -125,7 +125,7 @@ export function RegionPicker({
                           : 'text-gray-800 hover:bg-blue-50 hover:text-blue-700'
                       }`}
                     >
-                      <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                      <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
                       <span className="flex-1">{h.label}</span>
                       {already && <Check className="h-4 w-4 text-gray-300" />}
                     </button>

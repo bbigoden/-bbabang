@@ -139,14 +139,14 @@ export default async function BrokerDashboardPage() {
                     <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
                   )}
                 </div>
-                <p className="text-gray-500 dark:text-gray-400 truncate">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
+                <p className="text-gray-500 dark:text-gray-500 truncate">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
                 <div className="mt-2 flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
                     <Star className="h-4 w-4 fill-yellow-400" />
                     <strong>{broker.rating?.toFixed(1) ?? '0.0'}</strong>
-                    <span className="text-gray-400 dark:text-gray-500">({broker.review_count ?? 0})</span>
+                    <span className="text-gray-500 dark:text-gray-500">({broker.review_count ?? 0})</span>
                   </span>
-                  <span className="text-gray-500 dark:text-gray-400">성사 {broker.deal_count ?? 0}건</span>
+                  <span className="text-gray-500 dark:text-gray-500">성사 {broker.deal_count ?? 0}건</span>
                 </div>
               </div>
             </div>
@@ -169,7 +169,7 @@ export default async function BrokerDashboardPage() {
           <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4">
             <div>
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{broker.office_name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">소속 사무소</p>
+              <p className="text-xs text-gray-500 mt-0.5">소속 사무소</p>
             </div>
             <BrokerChangeOffice brokerId={broker.id} parentBrokerId={broker.parent_broker_id} />
           </div>
@@ -181,7 +181,7 @@ export default async function BrokerDashboardPage() {
             <div className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-teal-600" />
               <h2 className="font-bold text-gray-900 dark:text-white">{now.getMonth() + 1}월 정산</h2>
-              <span className="text-xs text-gray-400">· 내 담당 기준</span>
+              <span className="text-xs text-gray-500">· 내 담당 기준</span>
             </div>
             <Link href="/broker/settlement" className="text-xs text-blue-600 hover:underline">정산 전체 보기 →</Link>
           </div>
@@ -189,40 +189,40 @@ export default async function BrokerDashboardPage() {
             <Card>
               <CardBody>
                 <div className="flex items-center gap-2 mb-2">
-                  <FileText className="h-4 w-4 text-gray-400" />
+                  <FileText className="h-4 w-4 text-gray-500" />
                   <span className="text-xs font-medium text-gray-500">계약 건수</span>
                 </div>
                 <div className="text-3xl font-black text-gray-900 dark:text-white">
                   {settlementSummary.count}
-                  <span className="text-lg font-medium text-gray-400">건</span>
+                  <span className="text-lg font-medium text-gray-500">건</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-400">정산월 {thisMonth} 기준</div>
+                <div className="mt-2 text-xs text-gray-500">정산월 {thisMonth} 기준</div>
               </CardBody>
             </Card>
             <Card>
               <CardBody>
                 <div className="flex items-center gap-2 mb-2">
-                  <Calculator className="h-4 w-4 text-gray-400" />
+                  <Calculator className="h-4 w-4 text-gray-500" />
                   <span className="text-xs font-medium text-gray-500">총수수료</span>
                 </div>
                 <div className="text-3xl font-black text-teal-600">
                   {fmtComma(settlementSummary.total)}
-                  <span className="text-lg font-medium text-gray-400">원</span>
+                  <span className="text-lg font-medium text-gray-500">원</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-400">매도+매수 합계</div>
+                <div className="mt-2 text-xs text-gray-500">매도+매수 합계</div>
               </CardBody>
             </Card>
             <Card>
               <CardBody>
                 <div className="flex items-center gap-2 mb-2">
-                  <ThumbsUp className="h-4 w-4 text-gray-400" />
+                  <ThumbsUp className="h-4 w-4 text-gray-500" />
                   <span className="text-xs font-medium text-gray-500">내 수수료</span>
                 </div>
                 <div className="text-3xl font-black text-blue-600">
                   {fmtComma(settlementSummary.assignee)}
-                  <span className="text-lg font-medium text-gray-400">원</span>
+                  <span className="text-lg font-medium text-gray-500">원</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-400">담당자 몫 (원천 전)</div>
+                <div className="mt-2 text-xs text-gray-500">담당자 몫 (원천 전)</div>
               </CardBody>
             </Card>
           </div>
@@ -238,26 +238,26 @@ export default async function BrokerDashboardPage() {
             <Card>
               <CardBody>
                 <div className="flex items-center gap-2 mb-2">
-                  <MessageCircle className="h-4 w-4 text-gray-400" />
+                  <MessageCircle className="h-4 w-4 text-gray-500" />
                   <span className="text-xs font-medium text-gray-500">이번 달 제안</span>
                 </div>
                 <div className="text-4xl font-black text-blue-600">
                   {thisMonthProposals}
-                  <span className="text-lg font-medium text-gray-400">건</span>
+                  <span className="text-lg font-medium text-gray-500">건</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-400">{now.getMonth() + 1}월 기준</div>
+                <div className="mt-2 text-xs text-gray-500">{now.getMonth() + 1}월 기준</div>
               </CardBody>
             </Card>
             <Card>
               <CardBody>
                 <div className="flex items-center gap-2 mb-2">
-                  <ThumbsUp className="h-4 w-4 text-gray-400" />
+                  <ThumbsUp className="h-4 w-4 text-gray-500" />
                   <span className="text-xs font-medium text-gray-500">수락된 제안 평균가</span>
                 </div>
                 <div className="text-3xl font-black text-gray-900 dark:text-white">
                   {avgPrice > 0 ? formatPrice(avgPrice) : '-'}
                 </div>
-                <div className="mt-2 text-xs text-gray-400">수락된 {acceptedProposals}건 기준</div>
+                <div className="mt-2 text-xs text-gray-500">수락된 {acceptedProposals}건 기준</div>
               </CardBody>
             </Card>
             <Card>
@@ -271,11 +271,11 @@ export default async function BrokerDashboardPage() {
                         <div className="w-full rounded-t bg-blue-100 absolute bottom-0" style={{ height: `${Math.round((m.total / maxMonthly) * 52)}px` }} />
                         <div className="w-full rounded-t bg-blue-500 absolute bottom-0" style={{ height: `${Math.round((m.accepted / maxMonthly) * 52)}px` }} />
                       </div>
-                      <span className="text-[10px] text-gray-400">{m.label}</span>
+                      <span className="text-[10px] text-gray-500">{m.label}</span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400">
+                <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-500">
                   <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-blue-500" />수락</span>
                   <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-blue-100" />전체</span>
                 </div>
@@ -316,7 +316,7 @@ export default async function BrokerDashboardPage() {
                       ? `${formatPrice(r.min_price)} ~ ${formatPrice(r.max_price)}`
                       : '가격 미지정'}
                   </p>
-                  <div className="flex items-center justify-between text-xs text-gray-400">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>{formatDate(r.created_at)}</span>
                     <span>{r.proposal_count}개 제안 중</span>
                   </div>
@@ -356,12 +356,12 @@ export default async function BrokerDashboardPage() {
                           />
                         ))}
                       </div>
-                      <span className="text-xs text-gray-400">{formatDate(review.created_at)}</span>
+                      <span className="text-xs text-gray-500">{formatDate(review.created_at)}</span>
                     </div>
                     {review.content && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{review.content}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-500 line-clamp-2">{review.content}</p>
                     )}
-                    <p className="mt-2 text-xs text-gray-400">{review.profiles?.name ?? '익명'}</p>
+                    <p className="mt-2 text-xs text-gray-500">{review.profiles?.name ?? '익명'}</p>
                   </CardBody>
                 </Card>
               ))}
@@ -381,7 +381,7 @@ export default async function BrokerDashboardPage() {
             <div className="space-y-3">
               {(!proposals || proposals.length === 0) ? (
                 <Card>
-                  <CardBody className="py-8 text-center text-sm text-gray-400">
+                  <CardBody className="py-8 text-center text-sm text-gray-500">
                     아직 제안이 없습니다
                   </CardBody>
                 </Card>
@@ -401,13 +401,13 @@ export default async function BrokerDashboardPage() {
                                 {formatPrice(proposal.price)}
                               </div>
                               {req && (
-                                <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                                <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
                                   <MapPin className="h-3.5 w-3.5" />
                                   {req.district} · {req.deal_type}
                                 </div>
                               )}
                             </div>
-                            <span className="text-xs text-gray-400">{formatDate(proposal.created_at)}</span>
+                            <span className="text-xs text-gray-500">{formatDate(proposal.created_at)}</span>
                           </div>
                         </CardBody>
                       </Card>

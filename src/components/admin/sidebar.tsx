@@ -36,11 +36,11 @@ export function AdminSidebar() {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-white">빠방 관리자</p>
-          <p className="truncate text-[11px] text-gray-400">Admin Dashboard</p>
+          <p className="truncate text-[11px] text-gray-500">Admin Dashboard</p>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="관리자 사이드바">
         <ul className="flex flex-col gap-1">
           {ADMIN_ITEMS.map(item => {
             const active = isActive(item.href)
@@ -53,7 +53,7 @@ export function AdminSidebar() {
                     'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                     active
                       ? 'bg-blue-500/15 text-blue-300'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-white',
+                      : 'text-gray-500 hover:bg-gray-800 hover:text-white',
                   )}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
@@ -70,14 +70,14 @@ export function AdminSidebar() {
           href="/?as_visitor=1"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-800 hover:text-white transition-colors"
         >
           <ExternalLink className="h-4 w-4 flex-shrink-0" />
           사이트 보기
         </Link>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
         >
           <LogOut className="h-4 w-4 flex-shrink-0" />
           로그아웃

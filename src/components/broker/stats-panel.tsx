@@ -160,7 +160,7 @@ export function BrokerStatsPanel() {
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-blue-600" />
           <h2 className="font-bold text-gray-900 dark:text-white">실적 분석</h2>
-          <span className="text-xs text-gray-400">· 제안·수락·응답 시간을 한눈에</span>
+          <span className="text-xs text-gray-500">· 제안·수락·응답 시간을 한눈에</span>
         </div>
         <div className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
           {([30, 90, 365] as const).map(d => (
@@ -231,7 +231,7 @@ function Summary({ icon: Icon, label, value, sub, color }: { icon: any; label: s
       </div>
       <p className="text-xs text-gray-500">{label}</p>
       <p className="text-xl font-black text-gray-900 dark:text-white">{value}</p>
-      <p className="mt-0.5 text-[11px] text-gray-400">{sub}</p>
+      <p className="mt-0.5 text-[11px] text-gray-500">{sub}</p>
     </div>
   )
 }
@@ -249,9 +249,9 @@ function ChartCard({ title, icon: Icon, subtitle, children }: { title: string; i
   return (
     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
       <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-gray-400" />
+        <Icon className="h-4 w-4 text-gray-500" />
         <h3 className="font-bold text-gray-900 dark:text-white">{title}</h3>
-        {subtitle && <span className="text-xs text-gray-400">· {subtitle}</span>}
+        {subtitle && <span className="text-xs text-gray-500">· {subtitle}</span>}
       </div>
       {children}
     </div>
@@ -280,7 +280,7 @@ function DualBars({ primary, primaryLabel, primaryColor, secondary, secondaryLab
           )
         })}
       </div>
-      <div className="mt-2 flex justify-between text-[10px] text-gray-400">
+      <div className="mt-2 flex justify-between text-[10px] text-gray-500">
         <span>{primary[0]?.date.slice(5)}</span>
         <span>{primary[primary.length - 1]?.date.slice(5)}</span>
       </div>
@@ -289,14 +289,14 @@ function DualBars({ primary, primaryLabel, primaryColor, secondary, secondaryLab
 }
 
 function RankBars({ rows, barColor }: { rows: Row[]; barColor: string }) {
-  if (rows.length === 0) return <p className="py-8 text-center text-sm text-gray-400">데이터가 없어요</p>
+  if (rows.length === 0) return <p className="py-8 text-center text-sm text-gray-500">데이터가 없어요</p>
   const max = Math.max(1, ...rows.map(r => r.count))
   return (
     <ul className="space-y-2">
       {rows.map((r, i) => (
         <li key={r.key}>
           <div className="flex items-center justify-between text-xs mb-1">
-            <span className="text-gray-700 dark:text-gray-300"><span className="text-gray-400 mr-1.5">{i + 1}.</span>{r.key}</span>
+            <span className="text-gray-700 dark:text-gray-300"><span className="text-gray-500 mr-1.5">{i + 1}.</span>{r.key}</span>
             <span className="font-bold text-gray-900 dark:text-white">{r.count}</span>
           </div>
           <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">

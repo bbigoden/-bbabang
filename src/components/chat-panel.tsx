@@ -61,7 +61,7 @@ export function PropertyCard({ snapshot, isMine, onClick }: { snapshot: Property
         <p className={cn('text-sm font-black', isMine ? 'text-blue-800' : 'text-blue-600')}>{priceText}</p>
       </div>
       {onClick && (
-        <div className={cn('px-3 py-1.5 text-center text-xs border-t', isMine ? 'border-blue-200 text-blue-500' : 'border-gray-100 text-gray-400')}>
+        <div className={cn('px-3 py-1.5 text-center text-xs border-t', isMine ? 'border-blue-200 text-blue-500' : 'border-gray-100 text-gray-500')}>
           탭하면 상세 정보 보기
         </div>
       )}
@@ -130,7 +130,7 @@ export function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertyS
             <Building2 className="h-5 w-5 text-blue-600" />
             <span className="font-bold text-gray-900 dark:text-white">매물 상세</span>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-400">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-500">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -149,13 +149,13 @@ export function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertyS
             >
               <Image key={imgIdx} src={images[imgIdx]} alt={snapshot.address} fill className="object-cover" sizes="400px" />
               {imgIdx > 0 && (
-                <button onClick={e => { e.stopPropagation(); prevImg() }}
+                <button onClick={e => { e.stopPropagation(); prevImg() }} aria-label="이전 이미지"
                   className="absolute left-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
               )}
               {imgIdx < images.length - 1 && (
-                <button onClick={e => { e.stopPropagation(); nextImg() }}
+                <button onClick={e => { e.stopPropagation(); nextImg() }} aria-label="다음 이미지"
                   className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors">
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -182,7 +182,7 @@ export function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertyS
           <div className="p-5 space-y-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>{snapshot.deal_type}</span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-500'}`}>{snapshot.deal_type}</span>
                 <span className="text-xs text-gray-500">{snapshot.room_type}</span>
               </div>
               <p className="text-lg font-bold text-gray-900 dark:text-white">{maskAddress(snapshot.address)}</p>
@@ -193,13 +193,13 @@ export function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertyS
             <div className="grid grid-cols-2 gap-3">
               {snapshot.size_pyeong && (
                 <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
-                  <p className="text-xs text-gray-400 mb-1">면적</p>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{snapshot.size_pyeong}{snapshot.area_unit ?? '평'}<span className="ml-1 text-xs font-normal text-gray-400">({snapshot.area_type ?? '전용'})</span></p>
+                  <p className="text-xs text-gray-500 mb-1">면적</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{snapshot.size_pyeong}{snapshot.area_unit ?? '평'}<span className="ml-1 text-xs font-normal text-gray-500">({snapshot.area_type ?? '전용'})</span></p>
                 </div>
               )}
               {snapshot.floor && (
                 <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
-                  <p className="text-xs text-gray-400 mb-1">층수</p>
+                  <p className="text-xs text-gray-500 mb-1">층수</p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">{snapshot.floor}층{snapshot.total_floors ? ` / ${snapshot.total_floors}층` : ''}</p>
                 </div>
               )}
@@ -429,7 +429,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     <div className="flex h-full items-center justify-center">
       <div className="flex flex-col items-center gap-2">
         <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
-        <p className="text-xs text-gray-400">채팅 불러오는 중...</p>
+        <p className="text-xs text-gray-500">채팅 불러오는 중...</p>
       </div>
     </div>
   )
@@ -438,8 +438,8 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     <div className="flex h-full flex-col bg-white dark:bg-gray-900">
       {/* 채팅 헤더 */}
       <div className="flex items-center gap-2.5 border-b border-gray-100 dark:border-gray-800 px-3 py-2.5 flex-shrink-0">
-        <button onClick={onBack} className="md:hidden flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
-          <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+        <button onClick={onBack} aria-label="뒤로" className="md:hidden flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
+          <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-500" />
         </button>
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm flex-shrink-0">
           {otherName[0]}
@@ -449,7 +449,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             <span className="font-bold text-gray-900 dark:text-white text-sm">{otherName}</span>
             {isOwner && broker?.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-500" />}
           </div>
-          {otherSubName && <p className="text-xs text-gray-400 truncate">{otherSubName}</p>}
+          {otherSubName && <p className="text-xs text-gray-500 truncate">{otherSubName}</p>}
         </div>
         {isOwner && proposal?.status === 'accepted' && (
           <Link href={`/review/${proposalId}`} className="flex h-8 w-8 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 hover:bg-yellow-100 transition-colors">
@@ -540,8 +540,8 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-3xl mb-2">👋</div>
-            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">{otherName}님과 대화를 시작하세요</p>
-            <p className="mt-1 text-xs text-gray-400">매물 정보, 계약 조건을 자유롭게 문의하세요</p>
+            <p className="text-sm font-semibold text-gray-600 dark:text-gray-500">{otherName}님과 대화를 시작하세요</p>
+            <p className="mt-1 text-xs text-gray-500">매물 정보, 계약 조건을 자유롭게 문의하세요</p>
             {isBroker && (
               <button onClick={openPropertyPicker} className="mt-3 flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
                 <Building2 className="h-3.5 w-3.5" />매물 바로 공유하기
@@ -554,7 +554,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             <div key={date}>
               <div className="my-3 flex items-center gap-2">
                 <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-[10px] text-gray-400">{date}</span>
+                <span className="text-[10px] text-gray-500">{date}</span>
                 <div className="h-px flex-1 bg-gray-200" />
               </div>
               <div className="space-y-0.5">
@@ -594,7 +594,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                         {(showMeta || isLast) && (
                           <div className="mt-0.5 px-1 flex items-center gap-1">
                             {isMine && msg.is_read && <span className="text-[10px] text-blue-400">읽음</span>}
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-gray-500">
                               {new Date(msg.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
@@ -633,17 +633,18 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             {!loadingProps && brokerProperties.length > 0 && (
               <div className="border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
                 <div className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white dark:bg-gray-900 transition-colors">
-                  <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
                   <input type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
-                    placeholder="주소, 거래유형, 방종류 검색..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400" autoFocus />
-                  {pickerSearch && <button onClick={() => setPickerSearch('')} className="text-gray-400 hover:text-gray-600 dark:text-gray-400"><X className="h-3.5 w-3.5" /></button>}
+                    aria-label="매물 검색"
+                    placeholder="주소, 거래유형, 방종류 검색..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-500" autoFocus />
+                  {pickerSearch && <button onClick={() => setPickerSearch('')} className="text-gray-500 hover:text-gray-600 dark:text-gray-500"><X className="h-3.5 w-3.5" /></button>}
                 </div>
               </div>
             )}
 
             {/* 테이블 헤더 */}
             {!loadingProps && brokerProperties.length > 0 && (
-              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
+              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-4 py-2 text-xs font-semibold text-gray-500 flex-shrink-0">
                 <span></span><span>유형</span><span>소재지</span><span className="text-right">가격</span>
               </div>
             )}
@@ -653,7 +654,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
               {loadingProps ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
                   <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
-                  <p className="text-sm text-gray-400">매물 불러오는 중...</p>
+                  <p className="text-sm text-gray-500">매물 불러오는 중...</p>
                 </div>
               ) : brokerProperties.length === 0 ? (
                 <div className="py-12 text-center">
@@ -668,7 +669,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                   const q = pickerSearch.toLowerCase()
                   return p.address.toLowerCase().includes(q) || p.deal_type.includes(q) || p.room_type.includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q)
                 })
-                if (filtered.length === 0) return <div className="py-12 text-center text-sm text-gray-400">검색 결과가 없습니다</div>
+                if (filtered.length === 0) return <div className="py-12 text-center text-sm text-gray-500">검색 결과가 없습니다</div>
                 return (
                   <div className="divide-y divide-gray-50">
                     {filtered.map(p => {
@@ -683,11 +684,11 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                           <span className={cn('inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold', dealColors[p.deal_type] ?? 'bg-gray-100 text-gray-600')}>{p.deal_type}</span>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{p.address}</p>
-                            <p className="text-xs text-gray-400 truncate">{p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}</p>
+                            <p className="text-xs text-gray-500 truncate">{p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-black text-blue-600 whitespace-nowrap">{priceText}</p>
-                            {p.brief_memo && <p className="text-xs text-gray-400 truncate max-w-[100px]">{p.brief_memo}</p>}
+                            {p.brief_memo && <p className="text-xs text-gray-500 truncate max-w-[100px]">{p.brief_memo}</p>}
                           </div>
                         </button>
                       )
@@ -700,7 +701,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             {/* 하단 보내기 버튼 */}
             <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
               <button onClick={sendSelectedProperties} disabled={selectedPropIds.size === 0 || sendingProps}
-                className={cn('w-full rounded-xl py-3 text-sm font-bold transition-colors', selectedPropIds.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}>
+                className={cn('w-full rounded-xl py-3 text-sm font-bold transition-colors', selectedPropIds.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-500 cursor-not-allowed')}>
                 {sendingProps ? '전송 중...' : selectedPropIds.size > 0 ? `선택한 매물 ${selectedPropIds.size}건 보내기` : '매물을 선택하세요'}
               </button>
             </div>
@@ -744,7 +745,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
           />
           <button onClick={sendMessage} disabled={!input.trim() || sending}
             className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl transition-all',
-              input.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}>
+              input.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-500 cursor-not-allowed')}>
             <Send className="h-4 w-4" />
           </button>
         </div>
@@ -846,7 +847,7 @@ function QuickRepliesModal({ onClose, onSelect }: {
             <Zap className="h-4 w-4 text-amber-500" />
             빠른 답변
           </h3>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -860,7 +861,7 @@ function QuickRepliesModal({ onClose, onSelect }: {
             <div className="py-10 text-center">
               <Zap className="mx-auto mb-2 h-10 w-10 text-gray-200" />
               <p className="font-semibold text-gray-500">저장된 답변이 없어요</p>
-              <p className="mt-1 text-xs text-gray-400">자주 쓰는 답변을 미리 등록해두세요</p>
+              <p className="mt-1 text-xs text-gray-500">자주 쓰는 답변을 미리 등록해두세요</p>
             </div>
           ) : (
             <ul className="space-y-2">
@@ -871,16 +872,16 @@ function QuickRepliesModal({ onClose, onSelect }: {
                       <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{item.label}</p>
                       <p className="mt-1 text-xs text-gray-500 line-clamp-2">{item.content}</p>
                       {item.use_count > 0 && (
-                        <p className="mt-1 text-[10px] text-gray-400">사용 {item.use_count}회</p>
+                        <p className="mt-1 text-[10px] text-gray-500">사용 {item.use_count}회</p>
                       )}
                     </button>
                     <div className="flex flex-col gap-1 flex-shrink-0">
                       <button onClick={() => startEdit(item)} title="수정"
-                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300">
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300">
                         <Edit2 className="h-3 w-3" />
                       </button>
                       <button onClick={() => remove(item.id)} title="삭제"
-                        className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-500">
+                        className="flex h-6 w-6 items-center justify-center rounded text-gray-500 hover:bg-red-50 hover:text-red-500">
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
@@ -900,7 +901,7 @@ function QuickRepliesModal({ onClose, onSelect }: {
                 className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-none" />
               <div className="mt-2 flex gap-2">
                 <button onClick={cancelEdit} disabled={busy}
-                  className="flex-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">취소</button>
+                  className="flex-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">취소</button>
                 <button onClick={save} disabled={busy || !label.trim() || !content.trim()}
                   className="flex-1 rounded-lg bg-amber-500 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50">
                   {editingId ? '수정' : '추가'}
@@ -963,7 +964,7 @@ function StageTracker({ currentStage, isBroker, onStageChange }: {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {isCanceled ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-1 text-xs font-bold text-gray-600 dark:text-gray-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-1 text-xs font-bold text-gray-600 dark:text-gray-500">
               <XOctagon className="h-3 w-3" /> 취소된 거래
             </span>
           ) : (
@@ -991,7 +992,7 @@ function StageTracker({ currentStage, isBroker, onStageChange }: {
 
         {isBroker && !isCanceled && (
           <button onClick={() => setOpen(o => !o)} disabled={busy}
-            className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-800 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
+            className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-800 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             단계 변경
             <ChevronDown className="h-3 w-3" />
           </button>
@@ -1065,7 +1066,7 @@ function EventComposeModal({ onClose, onSend }: {
             <Calendar className="h-4 w-4 text-emerald-500" />
             일정 공유
           </h3>
-          <button onClick={onClose} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+          <button onClick={onClose} disabled={busy} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1106,7 +1107,7 @@ function EventComposeModal({ onClose, onSend }: {
 
         <div className="flex gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
           <button onClick={onClose} disabled={busy}
-            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
+            className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
             취소
           </button>
           <button onClick={submit} disabled={busy}

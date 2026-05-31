@@ -121,11 +121,11 @@ function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddC
           onClick={e => e.stopPropagation()}>
 
           {/* 고정 칼럼 섹션 */}
-          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
+          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
             <Lock className="h-2.5 w-2.5" />고정 칼럼
           </div>
           {fixedCols.map(col => (
-            <div key={col.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-400">
+            <div key={col.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500">
               <span className="text-[10px] text-gray-300">🔒</span>{col.label}
             </div>
           ))}
@@ -133,7 +133,7 @@ function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddC
           {/* 선택 칼럼 섹션 */}
           {hiddenOptional.length > 0 && (
             <>
-              <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">선택 칼럼</div>
+              <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">선택 칼럼</div>
               {hiddenOptional.map(col => (
                 <button key={col.key} onClick={() => { onShow(col.key); setOpen(false) }}
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
@@ -146,7 +146,7 @@ function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddC
           {/* 내 칼럼 섹션 */}
           {hiddenCustom.length > 0 && (
             <>
-              <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">내 칼럼</div>
+              <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">내 칼럼</div>
               {hiddenCustom.map(col => (
                 <button key={col.id} onClick={() => { onShow(col.id); setOpen(false) }}
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
@@ -264,7 +264,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
 
   return (
     <div ref={containerRef} className="relative">
-      <button ref={btnRef} onClick={handleOpen}
+      <button ref={btnRef} onClick={handleOpen} aria-label="더보기"
         className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors">
         <MoreHorizontal className="h-3.5 w-3.5" />
       </button>
@@ -283,8 +283,8 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
               <div key={c.key}
                 className={`flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`}
                 onClick={() => !c.fixed && onToggle(c.key)}>
-                <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400'}`}>{c.label}</span>
-                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${c.fixed || visible.includes(c.key) ? 'text-gray-400' : 'text-gray-200'}`} />
+                <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`}>{c.label}</span>
+                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${c.fixed || visible.includes(c.key) ? 'text-gray-500' : 'text-gray-200'}`} />
               </div>
             ))}
           </div>
@@ -789,7 +789,7 @@ export default function BrokerCustomersPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-      <div className="text-gray-400 text-sm">불러오는 중...</div>
+      <div className="text-gray-500 text-sm">불러오는 중...</div>
     </div>
   )
 
@@ -799,7 +799,7 @@ export default function BrokerCustomersPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="text-5xl">🔒</div>
         <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">고객목록 접근 권한이 없어요</h2>
-        <p className="text-sm text-gray-400">대표에게 권한 설정을 요청해주세요.</p>
+        <p className="text-sm text-gray-500">대표에게 권한 설정을 요청해주세요.</p>
       </div>
     </div>
   )
@@ -813,7 +813,7 @@ export default function BrokerCustomersPage() {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black text-gray-900 dark:text-white">고객목록</h1>
-            <p className="text-sm text-gray-400 mt-0.5">전체 {customers.length}명 · 검색 {filtered.length}명</p>
+            <p className="text-sm text-gray-500 mt-0.5">전체 {customers.length}명 · 검색 {filtered.length}명</p>
           </div>
         </div>
 
@@ -836,7 +836,7 @@ export default function BrokerCustomersPage() {
                   <span className="text-xs font-semibold text-gray-500">신규</span>
                 </div>
                 <div>
-                  <div className="text-3xl font-black text-blue-600 leading-none">{monthFilter === '전체' ? newThisMonth : filtered.length}<span className="text-sm font-normal text-gray-400 ml-1">명</span></div>
+                  <div className="text-3xl font-black text-blue-600 leading-none">{monthFilter === '전체' ? newThisMonth : filtered.length}<span className="text-sm font-normal text-gray-500 ml-1">명</span></div>
                   <div className="text-[10px] text-gray-300 mt-1">{monthFilter === '전체' ? '이번달 신규 고객' : `${monthFilter.slice(2, 4)}년 ${parseInt(monthFilter.slice(5, 7), 10)}월 신규 고객`}</div>
                 </div>
               </div>
@@ -851,14 +851,14 @@ export default function BrokerCustomersPage() {
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                       <DonutChart data={assigneeDist} colors={ASSIGNEE_COLORS} total={aTotal} />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400">{aTotal}</span>
+                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-500">{aTotal}</span>
                       </div>
                     </div>
                     <div className={`flex-1 min-w-0 ${assigneeDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
                       {assigneeDist.map(([label, count], i) => (
                         <div key={label} className="flex items-center gap-1.5 min-w-0">
                           <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: ASSIGNEE_COLORS[i % ASSIGNEE_COLORS.length] }} />
-                          <span className="text-[11px] text-gray-600 dark:text-gray-400 truncate flex-1">{label}</span>
+                          <span className="text-[11px] text-gray-600 dark:text-gray-500 truncate flex-1">{label}</span>
                           <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">{count}</span>
                         </div>
                       ))}
@@ -877,14 +877,14 @@ export default function BrokerCustomersPage() {
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                       <DonutChart data={categoryDist} colors={CATEGORY_COLORS_CHART} total={cTotal} />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400">{cTotal}</span>
+                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-500">{cTotal}</span>
                       </div>
                     </div>
                     <div className={`flex-1 min-w-0 ${categoryDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
                       {categoryDist.map(([label, count], i) => (
                         <div key={label} className="flex items-center gap-1.5 min-w-0">
                           <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: CATEGORY_COLORS_CHART[i % CATEGORY_COLORS_CHART.length] }} />
-                          <span className="text-[11px] text-gray-600 dark:text-gray-400 truncate flex-1">{label}</span>
+                          <span className="text-[11px] text-gray-600 dark:text-gray-500 truncate flex-1">{label}</span>
                           <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">{count}</span>
                         </div>
                       ))}
@@ -903,14 +903,14 @@ export default function BrokerCustomersPage() {
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                       <DonutChart data={sourceDist} colors={SOURCE_COLORS_CHART} total={sTotal} />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400">{sTotal}</span>
+                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-500">{sTotal}</span>
                       </div>
                     </div>
                     <div className={`flex-1 min-w-0 ${sourceDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
                       {sourceDist.map(([label, count], i) => (
                         <div key={label} className="flex items-center gap-1.5 min-w-0">
                           <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS_CHART[i % SOURCE_COLORS_CHART.length] }} />
-                          <span className="text-[11px] text-gray-600 dark:text-gray-400 truncate flex-1">{label}</span>
+                          <span className="text-[11px] text-gray-600 dark:text-gray-500 truncate flex-1">{label}</span>
                           <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">{count}</span>
                         </div>
                       ))}
@@ -925,7 +925,7 @@ export default function BrokerCustomersPage() {
         {/* 필터 */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="전체 검색..."
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
           </div>
@@ -959,7 +959,7 @@ export default function BrokerCustomersPage() {
           <div className="overflow-x-auto">
             <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
               <thead>
-                <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-400 uppercase tracking-wide select-none">
+                <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none">
                   {activeCols.map(col => {
                     const key = getColKey(col)
                     const w = getColWidth(col)
@@ -1026,7 +1026,7 @@ export default function BrokerCustomersPage() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={activeCols.length + 1} className="py-16 text-center text-sm text-gray-400">
+                    <td colSpan={activeCols.length + 1} className="py-16 text-center text-sm text-gray-500">
                       {customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
                     </td>
                   </tr>
@@ -1046,17 +1046,17 @@ export default function BrokerCustomersPage() {
                     <td colSpan={activeCols.length + 1} className="border-t border-gray-100 dark:border-gray-800">
                       <div className="flex items-center divide-x divide-gray-100">
                         <button onClick={addRow}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-600 dark:text-gray-400 hover:bg-gray-50/80 transition-colors">
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-600 dark:text-gray-500 hover:bg-gray-50/80 transition-colors">
                           <Plus className="h-3.5 w-3.5" />고객 등록
                         </button>
                         <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
                           title={direction === 'up' ? '새 행이 위로 쌓임 (클릭하면 아래로)' : '새 행이 아래로 쌓임 (클릭하면 위로)'}
-                          className="flex items-center gap-1 px-3 py-2 text-xs text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                          className="flex items-center gap-1 px-3 py-2 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
                           {direction === 'up' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
                           {direction === 'up' ? '위로 쌓기' : '아래로 쌓기'}
                         </button>
                         <button onClick={openImport}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
                           <Download className="h-3.5 w-3.5" />불러오기
                         </button>
                       </div>
@@ -1071,8 +1071,8 @@ export default function BrokerCustomersPage() {
           <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
             {totalPages > 1 && (
               <>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="이전 페이지"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
                 ><ChevronLeft className="h-4 w-4" /></button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
                   .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
@@ -1081,25 +1081,25 @@ export default function BrokerCustomersPage() {
                     acc.push(n); return acc
                   }, [])
                   .map((n, i) => n === '...'
-                    ? <span key={`e${i}`} className="px-1 text-gray-400">…</span>
+                    ? <span key={`e${i}`} className="px-1 text-gray-500">…</span>
                     : <button key={n} onClick={() => setPage(n as number)}
-                        className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                        className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
                       >{n}</button>
                   )
                 }
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="다음 페이지"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
                 ><ChevronRight className="h-4 w-4" /></button>
               </>
             )}
             <div className="flex items-center gap-1 ml-3">
-              <span className="text-sm text-gray-400">페이지당</span>
+              <span className="text-sm text-gray-500">페이지당</span>
               {[10, 20, 50, 100].map(n => (
                 <button key={n} onClick={() => setPageSize(n)}
-                  className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                  className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
                 >{n}개</button>
               ))}
-              <span className="text-sm text-gray-400 ml-1">| 총 {filtered.length}개</span>
+              <span className="text-sm text-gray-500 ml-1">| 총 {filtered.length}개</span>
             </div>
           </div>
         </div>
@@ -1113,9 +1113,9 @@ export default function BrokerCustomersPage() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
               <div>
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">빠방 대화 불러오기</h3>
-                <p className="text-xs text-gray-400 mt-0.5">선택한 고객을 고객목록에 추가해요</p>
+                <p className="text-xs text-gray-500 mt-0.5">선택한 고객을 고객목록에 추가해요</p>
               </div>
-              <button onClick={() => setShowImport(false)} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+              <button onClick={() => setShowImport(false)} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1123,11 +1123,11 @@ export default function BrokerCustomersPage() {
             {/* 목록 */}
             <div className="flex-1 overflow-y-auto">
               {importLoading ? (
-                <div className="flex items-center justify-center py-16 text-sm text-gray-400">불러오는 중...</div>
+                <div className="flex items-center justify-center py-16 text-sm text-gray-500">불러오는 중...</div>
               ) : importItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-2">
                   <div className="text-3xl">💬</div>
-                  <p className="text-sm text-gray-400">빠방에서 대화한 고객이 없어요</p>
+                  <p className="text-sm text-gray-500">빠방에서 대화한 고객이 없어요</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50">
@@ -1148,10 +1148,10 @@ export default function BrokerCustomersPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-gray-900 dark:text-white">{userName}</span>
-                            <span className="text-xs text-gray-400">{date}</span>
+                            <span className="text-xs text-gray-500">{date}</span>
                           </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{summary || '요청사항 없음'}</div>
-                          {desc && <div className="text-xs text-gray-400 mt-0.5 truncate">{desc}</div>}
+                          <div className="text-xs text-gray-600 dark:text-gray-500 mt-0.5">{summary || '요청사항 없음'}</div>
+                          {desc && <div className="text-xs text-gray-500 mt-0.5 truncate">{desc}</div>}
                         </div>
                       </div>
                     )
@@ -1162,9 +1162,9 @@ export default function BrokerCustomersPage() {
 
             {/* 푸터 */}
             <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 dark:border-gray-800">
-              <span className="text-xs text-gray-400">{importSelected.size > 0 ? `${importSelected.size}명 선택됨` : '고객을 선택해주세요'}</span>
+              <span className="text-xs text-gray-500">{importSelected.size > 0 ? `${importSelected.size}명 선택됨` : '고객을 선택해주세요'}</span>
               <div className="flex gap-2">
-                <button onClick={() => setShowImport(false)} className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+                <button onClick={() => setShowImport(false)} className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
                 <button onClick={doImport} disabled={importSelected.size === 0 || importing}
                   className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40 transition-colors">
                   {importing ? '추가 중...' : '고객 추가'}
@@ -1182,7 +1182,7 @@ export default function BrokerCustomersPage() {
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">고객을 삭제할까요?</h3>
             <p className="text-sm text-gray-500 mb-6">삭제하면 복구할 수 없어요.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={() => deleteRow(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
             </div>
           </div>

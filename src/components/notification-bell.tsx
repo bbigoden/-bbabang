@@ -55,7 +55,7 @@ export function NotificationBell({ userId: _userId }: { userId?: string }) {
         className="relative flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors"
         aria-label="알림"
       >
-        <Bell className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+        <Bell className="h-5 w-5 text-gray-600 dark:text-gray-500" />
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
             {unread > 9 ? '9+' : unread}
@@ -81,7 +81,7 @@ export function NotificationBell({ userId: _userId }: { userId?: string }) {
           {/* 목록 */}
           <div className="max-h-96 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-400">
+              <div className="py-10 text-center text-sm text-gray-500">
                 <Bell className="mx-auto mb-2 h-8 w-8 text-gray-200" />
                 알림이 없습니다
               </div>
@@ -100,7 +100,7 @@ export function NotificationBell({ userId: _userId }: { userId?: string }) {
                       {n.title}
                     </p>
                     {n.body && <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{n.body}</p>}
-                    <p className="mt-1 text-xs text-gray-400">{formatDate(n.created_at)}</p>
+                    <p className="mt-1 text-xs text-gray-500">{formatDate(n.created_at)}</p>
                   </div>
                   {!n.is_read && (
                     <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />

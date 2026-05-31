@@ -31,7 +31,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
       >
         <div className="sticky top-0 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <h3 className="font-bold text-white">{title}</h3>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white transition-colors">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -313,6 +313,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
 
       <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-6 sm:space-y-8">
+        <h1 className="sr-only">관리자 대시보드</h1>
 
         {/* ── 액션 필요 큐 (카운트 있는 항목만 강조) ── */}
         <div className="grid gap-4 md:grid-cols-2">
@@ -329,7 +330,7 @@ export default function AdminPage() {
             </div>
             <div className="flex-1">
               <p className="font-bold text-white">신고·문의 처리</p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-500">
                 {stats.openReports > 0
                   ? <>미처리 <span className="font-bold text-red-400">{stats.openReports}</span>건이 대기 중이에요</>
                   : '대기 중인 항목이 없어요'}
@@ -351,7 +352,7 @@ export default function AdminPage() {
             </div>
             <div className="flex-1">
               <p className="font-bold text-white">사무소 검수</p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-500">
                 {stats.unverifiedBrokers > 0
                   ? <>미인증 사무소 <span className="font-bold text-yellow-400">{stats.unverifiedBrokers}</span>곳 대기</>
                   : '대표 자격증·사업자 정보 검토 및 인증'}
@@ -375,7 +376,7 @@ export default function AdminPage() {
                   <Inbox className="h-4 w-4" />
                   <span className="text-xs font-semibold">제안 못 받은 의뢰</span>
                 </div>
-                <p className="mt-1.5 text-2xl font-black text-white">{alerts.stalledRequests}<span className="ml-1 text-sm font-medium text-gray-400">건</span></p>
+                <p className="mt-1.5 text-2xl font-black text-white">{alerts.stalledRequests}<span className="ml-1 text-sm font-medium text-gray-500">건</span></p>
                 <p className="text-[11px] text-gray-500">고객이 기다리는 중 · 이탈 위험</p>
               </div>
               <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
@@ -383,7 +384,7 @@ export default function AdminPage() {
                   <Clock className="h-4 w-4" />
                   <span className="text-xs font-semibold">3일+ 미인증 사무소</span>
                 </div>
-                <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleBrokers}<span className="ml-1 text-sm font-medium text-gray-400">곳</span></p>
+                <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleBrokers}<span className="ml-1 text-sm font-medium text-gray-500">곳</span></p>
                 <Link href="/admin/brokers" className="text-[11px] text-blue-400 hover:underline">사무소 검수로 →</Link>
               </div>
               <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
@@ -391,7 +392,7 @@ export default function AdminPage() {
                   <Flag className="h-4 w-4" />
                   <span className="text-xs font-semibold">3일+ 미처리 신고</span>
                 </div>
-                <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleReports}<span className="ml-1 text-sm font-medium text-gray-400">건</span></p>
+                <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleReports}<span className="ml-1 text-sm font-medium text-gray-500">건</span></p>
                 <Link href="/admin/reports" className="text-[11px] text-blue-400 hover:underline">신고 처리로 →</Link>
               </div>
             </div>
@@ -399,7 +400,7 @@ export default function AdminPage() {
             {/* 방치 의뢰 상위 목록 */}
             {alerts.stalledList.length > 0 && (
               <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold text-gray-400">제안 0건 의뢰 (최근순)</p>
+                <p className="mb-2 text-xs font-semibold text-gray-500">제안 0건 의뢰 (최근순)</p>
                 <ul className="divide-y divide-gray-800 rounded-xl border border-gray-800 bg-gray-900/60 overflow-hidden">
                   {alerts.stalledList.map((r: any) => (
                     <li key={r.id}>
@@ -408,7 +409,7 @@ export default function AdminPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white truncate">
                             {[r.city, r.district].filter(Boolean).join(' ') || '지역 미정'}
-                            <span className="ml-2 text-xs text-gray-400">{r.deal_type}{r.room_type ? ` · ${r.room_type}` : ''}</span>
+                            <span className="ml-2 text-xs text-gray-500">{r.deal_type}{r.room_type ? ` · ${r.room_type}` : ''}</span>
                           </p>
                           <p className="text-[11px] text-gray-500">
                             {r.profiles?.name ?? '익명'} · {formatDate(r.created_at)}
@@ -442,7 +443,7 @@ export default function AdminPage() {
                 <stat.icon className="h-5 w-5" />
               </div>
               <div className="text-3xl font-black text-white">{stat.value}</div>
-              <div className="mt-1 flex items-center gap-1 text-sm text-gray-400">
+              <div className="mt-1 flex items-center gap-1 text-sm text-gray-500">
                 {stat.label}
                 <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -465,7 +466,7 @@ export default function AdminPage() {
             <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
               <div className="flex flex-col items-center gap-2 text-gray-500">
                 <CheckCircle className="h-8 w-8 text-green-500/60" />
-                <p className="font-semibold text-gray-400">인증 대기 중인 사무소가 없어요</p>
+                <p className="font-semibold text-gray-500">인증 대기 중인 사무소가 없어요</p>
                 <Link href="/admin/brokers" className="mt-1 text-xs text-blue-400 hover:underline">
                   전체 사무소 보러 가기 →
                 </Link>
@@ -528,7 +529,7 @@ export default function AdminPage() {
                         <div className="border-t border-gray-800">
                           <button
                             onClick={() => setExpandedOwnerId(isOpen ? null : broker.id)}
-                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-800/40 transition-colors"
                           >
                             <span className="flex items-center gap-1.5">
                               <Users className="h-3.5 w-3.5" />
@@ -578,9 +579,9 @@ export default function AdminPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">이름</th>
-                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">역할</th>
-                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">가입일</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">이름</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">역할</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">가입일</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -595,7 +596,7 @@ export default function AdminPage() {
                       >
                         <td className="px-3 sm:px-5 py-3 sm:py-3.5">
                           <div className="font-medium text-white truncate max-w-[140px] sm:max-w-none">{u.name || '(이름 없음)'}</div>
-                          <div className="text-xs text-gray-400 truncate max-w-[140px] sm:max-w-none">{u.email}</div>
+                          <div className="text-xs text-gray-500 truncate max-w-[140px] sm:max-w-none">{u.email}</div>
                         </td>
                         <td className="px-3 sm:px-5 py-3 sm:py-3.5">
                           <span className={`rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
@@ -606,7 +607,7 @@ export default function AdminPage() {
                             {u.role === 'admin' ? '관리자' : u.role === 'broker' ? '중개사' : '일반'}
                           </span>
                         </td>
-                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 text-sm text-gray-400 whitespace-nowrap">{formatDate(u.created_at)}</td>
+                        <td className="px-3 sm:px-5 py-3 sm:py-3.5 text-sm text-gray-500 whitespace-nowrap">{formatDate(u.created_at)}</td>
                       </tr>
                     ))
                   )}
@@ -627,9 +628,9 @@ export default function AdminPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">요청자</th>
-                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">지역/유형</th>
-                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">상태</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">요청자</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">지역/유형</th>
+                    <th className="px-3 sm:px-5 py-3 sm:py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">상태</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -644,17 +645,17 @@ export default function AdminPage() {
                       >
                         <td className="px-3 sm:px-5 py-3 sm:py-3.5">
                           <div className="font-medium text-white truncate max-w-[120px] sm:max-w-none">{req.profiles?.name || '(알 수 없음)'}</div>
-                          <div className="text-xs text-gray-400 whitespace-nowrap">{formatDate(req.created_at)}</div>
+                          <div className="text-xs text-gray-500 whitespace-nowrap">{formatDate(req.created_at)}</div>
                         </td>
                         <td className="px-3 sm:px-5 py-3 sm:py-3.5">
                           <div className="text-sm text-white truncate max-w-[140px] sm:max-w-none">{req.city} {req.district}</div>
-                          <div className="text-xs text-gray-400">{req.deal_type?.split(',')?.[0]}</div>
+                          <div className="text-xs text-gray-500">{req.deal_type?.split(',')?.[0]}</div>
                         </td>
                         <td className="px-3 sm:px-5 py-3 sm:py-3.5">
                           <span className={`rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                             req.status === 'active'
                               ? 'bg-green-500/20 text-green-400'
-                              : 'bg-gray-500/20 text-gray-400'
+                              : 'bg-gray-500/20 text-gray-500'
                           }`}>
                             {req.status === 'active' ? '모집 중' : '종료'}
                           </span>
@@ -678,7 +679,7 @@ export default function AdminPage() {
           return (
             <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
               <h3 className="mb-3 font-bold text-white">🔗 Supabase 직접 관리</h3>
-              <p className="mb-4 text-sm text-gray-400">데이터 직접 수정, 삭제 등 세부 작업은 Supabase Table Editor를 사용하세요</p>
+              <p className="mb-4 text-sm text-gray-500">데이터 직접 수정, 삭제 등 세부 작업은 Supabase Table Editor를 사용하세요</p>
               <div className="flex flex-wrap gap-3">
                 {[
                   { label: 'Table Editor', url: `${base}/editor` },
@@ -719,7 +720,7 @@ export default function AdminPage() {
                   : <span className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-400"><XCircle className="h-3 w-3" />미인증</span>
                 }
               </div>
-              <p className="text-sm text-gray-400">{brokerModal.office_name}</p>
+              <p className="text-sm text-gray-500">{brokerModal.office_name}</p>
             </div>
           </div>
 
@@ -743,7 +744,7 @@ export default function AdminPage() {
                     ))}
                   </div>
                   <span className="font-bold text-white">{brokerModal.rating.toFixed(1)}</span>
-                  <span className="text-gray-400 text-xs">({brokerModal.review_count}개)</span>
+                  <span className="text-gray-500 text-xs">({brokerModal.review_count}개)</span>
                 </div>
               ) : '리뷰 없음'
             } />
@@ -754,14 +755,14 @@ export default function AdminPage() {
           {/* 소개글 */}
           {brokerModal.description && (
             <div className="mb-5 rounded-xl border border-gray-700 bg-gray-800/40 p-4">
-              <p className="mb-1.5 text-xs font-semibold text-gray-400">소개글</p>
+              <p className="mb-1.5 text-xs font-semibold text-gray-500">소개글</p>
               <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{brokerModal.description}</p>
             </div>
           )}
 
           {/* 고객 리뷰 */}
           <div className="mb-5">
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-400">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-500">
               <Star className="h-3.5 w-3.5" />
               고객 리뷰
               <span className="rounded-full bg-gray-700 px-1.5 py-0.5 text-gray-300">{brokerModal.review_count ?? 0}개</span>
@@ -784,7 +785,7 @@ export default function AdminPage() {
                         ))}
                       </div>
                     </div>
-                    {r.content && <p className="text-xs text-gray-400 leading-relaxed">{r.content}</p>}
+                    {r.content && <p className="text-xs text-gray-500 leading-relaxed">{r.content}</p>}
                     <p className="mt-1 text-[10px] text-gray-500">{formatDate(r.created_at)}</p>
                   </div>
                 ))}
@@ -797,7 +798,7 @@ export default function AdminPage() {
             const props = brokerProperties.filter(p => p.broker_id === brokerModal.id)
             return (
               <div className="mb-5">
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-400">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-500">
                   <Home className="h-3.5 w-3.5" />
                   등록 매물
                   <span className="rounded-full bg-gray-700 px-1.5 py-0.5 text-gray-300">{props.length}건</span>
@@ -817,14 +818,14 @@ export default function AdminPage() {
                             <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
                             {p.address || '주소 없음'}
                           </div>
-                          <div className="mt-0.5 text-xs text-gray-400">
+                          <div className="mt-0.5 text-xs text-gray-500">
                             {p.deal_type} · {p.room_type}
                             {p.size_pyeong ? ` · ${p.size_pyeong}` : ''}
                             {p.price ? ` · ${formatPrice(p.price)}` : ''}
                           </div>
                         </div>
                         <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
-                          PROPERTY_STATUS_META[p.status as keyof typeof PROPERTY_STATUS_META]?.pill ?? 'bg-gray-500/20 text-gray-400'
+                          PROPERTY_STATUS_META[p.status as keyof typeof PROPERTY_STATUS_META]?.pill ?? 'bg-gray-500/20 text-gray-500'
                         }`}>
                           {propertyStatusLabel(p.status)}
                         </span>
@@ -907,12 +908,12 @@ export default function AdminPage() {
             </div>
             <div>
               <p className="font-semibold text-white">{requestModal.profiles?.name || '(알 수 없음)'}</p>
-              {requestModal.profiles?.phone && <p className="text-xs text-gray-400">{requestModal.profiles.phone}</p>}
+              {requestModal.profiles?.phone && <p className="text-xs text-gray-500">{requestModal.profiles.phone}</p>}
             </div>
             <span className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
               requestModal.status === 'active'
                 ? 'bg-green-500/20 text-green-400'
-                : 'bg-gray-500/20 text-gray-400'
+                : 'bg-gray-500/20 text-gray-500'
             }`}>
               {requestModal.status === 'active' ? '모집 중' : '종료'}
             </span>
@@ -945,7 +946,7 @@ export default function AdminPage() {
 
           {requestModal.description && (
             <div className="rounded-xl border border-gray-700 bg-gray-800/40 p-4">
-              <p className="mb-1.5 text-xs font-semibold text-gray-400">요청 내용</p>
+              <p className="mb-1.5 text-xs font-semibold text-gray-500">요청 내용</p>
               <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{requestModal.description}</p>
             </div>
           )}
@@ -978,10 +979,10 @@ export default function AdminPage() {
             <Building2 className="h-5 w-5 text-blue-400" />
             <div>
               <p className="font-semibold text-white">{propertyModal.broker_profiles?.profiles?.name}</p>
-              <p className="text-xs text-gray-400">{propertyModal.broker_profiles?.office_name}</p>
+              <p className="text-xs text-gray-500">{propertyModal.broker_profiles?.office_name}</p>
             </div>
             <span className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
-              PROPERTY_STATUS_META[propertyModal.status as keyof typeof PROPERTY_STATUS_META]?.pill ?? 'bg-gray-500/20 text-gray-400'
+              PROPERTY_STATUS_META[propertyModal.status as keyof typeof PROPERTY_STATUS_META]?.pill ?? 'bg-gray-500/20 text-gray-500'
             }`}>
               {propertyStatusLabel(propertyModal.status)}
             </span>
@@ -1006,7 +1007,7 @@ export default function AdminPage() {
 
           {propertyModal.options && propertyModal.options.length > 0 && (
             <div className="mb-4">
-              <p className="mb-2 text-xs font-semibold text-gray-400">옵션</p>
+              <p className="mb-2 text-xs font-semibold text-gray-500">옵션</p>
               <div className="flex flex-wrap gap-1.5">
                 {propertyModal.options.map((opt: string) => (
                   <span key={opt} className="rounded-full bg-gray-700 px-3 py-1 text-xs text-gray-300">{opt}</span>
@@ -1017,7 +1018,7 @@ export default function AdminPage() {
 
           {propertyModal.description && (
             <div className="mb-4 rounded-xl border border-gray-700 bg-gray-800/40 p-4">
-              <p className="mb-1.5 text-xs font-semibold text-gray-400">매물 설명</p>
+              <p className="mb-1.5 text-xs font-semibold text-gray-500">매물 설명</p>
               <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{propertyModal.description}</p>
             </div>
           )}
@@ -1073,7 +1074,7 @@ export default function AdminPage() {
                           className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
                             userFilter === tab.key
                               ? 'bg-blue-600 text-white'
-                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                              : 'bg-gray-800 text-gray-500 hover:bg-gray-700'
                           }`}
                         >
                           {tab.label}
@@ -1093,7 +1094,7 @@ export default function AdminPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-semibold text-white">{u.name || '(이름 없음)'}</div>
-                              <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                              <div className="text-xs text-gray-500 truncate">{u.email}</div>
                             </div>
                             <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
                               u.role === 'admin' ? 'bg-red-500/20 text-red-400' :
@@ -1124,12 +1125,12 @@ export default function AdminPage() {
                             <span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${
                               req.status === 'active'
                                 ? 'bg-green-500/20 text-green-400'
-                                : 'bg-gray-500/20 text-gray-400'
+                                : 'bg-gray-500/20 text-gray-500'
                             }`}>
                               {req.status === 'active' ? '모집 중' : '종료'}
                             </span>
                           </div>
-                          <div className="text-xs text-gray-400">{req.city} {req.district} · {req.deal_type?.split(',')?.[0]}</div>
+                          <div className="text-xs text-gray-500">{req.city} {req.district} · {req.deal_type?.split(',')?.[0]}</div>
                         </div>
                         <span className="text-xs text-gray-500 flex-shrink-0">{formatDate(req.created_at)}</span>
                       </button>
@@ -1165,13 +1166,13 @@ export default function AdminPage() {
                           {req && (
                             <div className="flex items-center gap-1.5">
                               <MapPin className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                              <span className="text-xs text-gray-400">
+                              <span className="text-xs text-gray-500">
                                 {req.city} {req.district} · {req.deal_type?.split(',')?.[0]} · 요청자: {req.profiles?.name}
                               </span>
                             </div>
                           )}
                           {p.price && <div className="mt-2 text-sm font-bold text-blue-400">{formatPrice(p.price)}</div>}
-                          {p.message && <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.message}</p>}
+                          {p.message && <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{p.message}</p>}
                         </div>
                       )
                     })

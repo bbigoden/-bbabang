@@ -61,9 +61,9 @@ export function OnboardingModal() {
       <div className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
         <div className="relative flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-3.5">
-          <span className="text-xs font-bold text-gray-400">빠방 사용 가이드</span>
+          <span className="text-xs font-bold text-gray-500">빠방 사용 가이드</span>
           <button onClick={() => close()} aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -89,13 +89,13 @@ export function OnboardingModal() {
         <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
           {step > 0 ? (
             <button onClick={() => setStep(s => s - 1)}
-              className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+              className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
               <ChevronLeft className="h-4 w-4" />
               이전
             </button>
           ) : (
             <button onClick={() => close()}
-              className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+              className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
               건너뛰기
             </button>
           )}

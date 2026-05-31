@@ -200,7 +200,7 @@ export default function AdminAnnouncementsPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+          <Link href="/admin" aria-label="관리자 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
             <ArrowLeft className="h-4 w-4 text-gray-300" />
           </Link>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20">
@@ -208,7 +208,7 @@ export default function AdminAnnouncementsPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">공지 발행</h1>
-            <p className="text-xs text-gray-400">알림함 카테고리: 공지·이벤트</p>
+            <p className="text-xs text-gray-500">알림함 카테고리: 공지·이벤트</p>
           </div>
         </div>
       </header>
@@ -220,7 +220,7 @@ export default function AdminAnnouncementsPage() {
             <h2 className="mb-4 font-bold text-white">새 공지 작성</h2>
 
             <div className="mb-4">
-              <p className="mb-2 text-xs font-semibold text-gray-400">대상</p>
+              <p className="mb-2 text-xs font-semibold text-gray-500">대상</p>
               <div className="grid grid-cols-3 gap-2">
                 {(['all', 'user', 'broker'] as Audience[]).map(a => {
                   const m = AUDIENCE_META[a]
@@ -228,7 +228,7 @@ export default function AdminAnnouncementsPage() {
                   return (
                     <button key={a} onClick={() => setAudience(a)}
                       className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-xs font-semibold transition-all ${
-                        active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-400 hover:bg-gray-800'
+                        active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-500 hover:bg-gray-800'
                       }`}>
                       <m.icon className="h-4 w-4" />
                       {m.label}
@@ -238,27 +238,27 @@ export default function AdminAnnouncementsPage() {
               </div>
               <p className="mt-2 text-xs text-gray-500">
                 대상자 약 <span className="font-bold text-white">{targetCount ?? '...'}</span>명
-                <span className="text-gray-600 dark:text-gray-400"> (공지 알림을 끈 사용자는 자동 제외)</span>
+                <span className="text-gray-600 dark:text-gray-500"> (공지 알림을 끈 사용자는 자동 제외)</span>
               </p>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">제목 *</label>
+                <label className="mb-1.5 block text-xs font-semibold text-gray-500">제목 *</label>
                 <input type="text" value={title} onChange={e => setTitle(e.target.value)} maxLength={100}
                   placeholder="공지 제목"
                   className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                 <p className="mt-1 text-right text-xs text-gray-500">{title.length}/100</p>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">본문 (선택)</label>
+                <label className="mb-1.5 block text-xs font-semibold text-gray-500">본문 (선택)</label>
                 <textarea value={body} onChange={e => setBody(e.target.value)} maxLength={500} rows={5}
                   placeholder="공지 내용"
                   className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
                 <p className="mt-1 text-right text-xs text-gray-500">{body.length}/500</p>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">링크 (선택)</label>
+                <label className="mb-1.5 block text-xs font-semibold text-gray-500">링크 (선택)</label>
                 <input type="text" value={link} onChange={e => setLink(e.target.value)}
                   placeholder="/event/2026 또는 https://..."
                   className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
@@ -287,7 +287,7 @@ export default function AdminAnnouncementsPage() {
           {/* 미리보기 */}
           <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
             <h2 className="mb-3 flex items-center gap-2 font-bold text-white">
-              <Eye className="h-4 w-4 text-gray-400" /> 알림 미리보기
+              <Eye className="h-4 w-4 text-gray-500" /> 알림 미리보기
             </h2>
             {title.trim() ? (
               <div className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
@@ -295,7 +295,7 @@ export default function AdminAnnouncementsPage() {
                   <span className="text-xl flex-shrink-0">📢</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white">{title.trim()}</p>
-                    {body.trim() && <p className="mt-1 text-xs text-gray-400 whitespace-pre-line">{body.trim()}</p>}
+                    {body.trim() && <p className="mt-1 text-xs text-gray-500 whitespace-pre-line">{body.trim()}</p>}
                     {link.trim() && (
                       <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-blue-400">
                         <ExternalLink className="h-3 w-3" /> {link.trim()}
@@ -306,7 +306,7 @@ export default function AdminAnnouncementsPage() {
               </div>
             ) : (
               <div className="rounded-xl border border-gray-700 bg-gray-800/30 py-8 text-center">
-                <EyeOff className="mx-auto mb-2 h-6 w-6 text-gray-600 dark:text-gray-400" />
+                <EyeOff className="mx-auto mb-2 h-6 w-6 text-gray-600 dark:text-gray-500" />
                 <p className="text-xs text-gray-500">제목을 입력하면 미리 볼 수 있어요</p>
               </div>
             )}
@@ -330,7 +330,7 @@ export default function AdminAnnouncementsPage() {
                     <p className="text-sm font-semibold text-white truncate flex-1">{a.title}</p>
                     <span className="text-[11px] text-gray-500 flex-shrink-0">{formatDate(a.created_at)}</span>
                   </div>
-                  {a.body && <p className="mt-1 text-xs text-gray-400 line-clamp-2">{a.body}</p>}
+                  {a.body && <p className="mt-1 text-xs text-gray-500 line-clamp-2">{a.body}</p>}
                   <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px] text-gray-500">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700/60 px-1.5 py-0.5">
@@ -341,7 +341,7 @@ export default function AdminAnnouncementsPage() {
                     <button
                       type="button"
                       onClick={() => setRecallTarget({ created_at: a.created_at, title: a.title, count: a.count })}
-                      className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-colors flex-shrink-0"
+                      className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-2 py-0.5 text-[11px] font-medium text-gray-500 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30 transition-colors flex-shrink-0"
                       aria-label="공지 회수"
                     >
                       <Trash2 className="h-3 w-3" /> 회수
@@ -364,7 +364,7 @@ export default function AdminAnnouncementsPage() {
                 <Trash2 className="h-6 w-6 text-red-400" />
               </div>
               <h3 className="text-lg font-bold text-white">공지를 회수할까요?</h3>
-              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+              <p className="mt-2 text-sm text-gray-500 leading-relaxed">
                 <span className="font-bold text-white">&quot;{recallTarget.title}&quot;</span><br />
                 해당 공지로 발송된 <span className="font-bold text-white">{recallTarget.count}건</span>의 알림이 모두 삭제됩니다.<br />
                 <span className="text-xs text-gray-500">이미 푸시로 발송된 알림은 회수되지 않습니다.</span>
@@ -394,7 +394,7 @@ export default function AdminAnnouncementsPage() {
                 <Megaphone className="h-6 w-6 text-amber-400" />
               </div>
               <h3 className="text-lg font-bold text-white">공지를 발행할까요?</h3>
-              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+              <p className="mt-2 text-sm text-gray-500 leading-relaxed">
                 <span className="font-bold text-white">{AUDIENCE_META[audience].label}</span> 대상 약 <span className="font-bold text-white">{targetCount ?? '...'}</span>명에게<br />
                 푸시·알림함으로 전달됩니다.
               </p>

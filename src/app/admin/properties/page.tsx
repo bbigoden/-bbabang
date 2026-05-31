@@ -299,7 +299,7 @@ export default function AdminPropertiesPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center gap-3">
-          <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+          <Link href="/admin" aria-label="관리자 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
             <ArrowLeft className="h-4 w-4 text-gray-300" />
           </Link>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/20">
@@ -307,7 +307,7 @@ export default function AdminPropertiesPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">매물 검수</h1>
-            <p className="text-xs text-gray-400">전체 매물 모니터링·강제 숨김·삭제</p>
+            <p className="text-xs text-gray-500">전체 매물 모니터링·강제 숨김·삭제</p>
           </div>
         </div>
       </header>
@@ -340,7 +340,7 @@ export default function AdminPropertiesPage() {
             ] as const).map(t => (
               <button key={t.key} onClick={() => setStatus(t.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.label}
               </button>
@@ -351,7 +351,7 @@ export default function AdminPropertiesPage() {
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
               showReportedOnly
                 ? 'border-red-500/40 bg-red-500/10 text-red-400'
-                : 'border-gray-700 bg-gray-900 text-gray-400 hover:bg-gray-800'
+                : 'border-gray-700 bg-gray-900 text-gray-500 hover:bg-gray-800'
             }`}>
             <Flag className="h-3.5 w-3.5" />
             신고된 매물만 {reportedCount > 0 && <span className="ml-1 rounded-md bg-red-500/30 px-1.5 text-[10px]">{reportedCount}</span>}
@@ -361,7 +361,7 @@ export default function AdminPropertiesPage() {
             <button
               type="button"
               onClick={() => { setSearch(''); setStatus('all'); setShowReportedOnly(false) }}
-              className="flex items-center gap-1.5 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs font-semibold text-gray-400 hover:bg-gray-800"
+              className="flex items-center gap-1.5 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-800"
             >
               필터 초기화
             </button>
@@ -376,7 +376,7 @@ export default function AdminPropertiesPage() {
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
             <Home className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
-            <p className="font-semibold text-gray-400">조건에 맞는 매물이 없어요</p>
+            <p className="font-semibold text-gray-500">조건에 맞는 매물이 없어요</p>
             {(search || status !== 'all' || showReportedOnly) && (
               <button
                 onClick={() => { setSearch(''); setStatus('all'); setShowReportedOnly(false) }}
@@ -391,7 +391,7 @@ export default function AdminPropertiesPage() {
             <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-800 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                  <tr className="border-b border-gray-800 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     <th className="px-4 py-3 w-10">
                       <input
                         type="checkbox"
@@ -433,7 +433,7 @@ export default function AdminPropertiesPage() {
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {p.deal_type && <span className="rounded-md bg-gray-800 px-1.5 py-0.5 text-[10px] font-bold text-gray-300">{p.deal_type}</span>}
-                                {p.room_type && <span className="rounded-md bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">{p.room_type}</span>}
+                                {p.room_type && <span className="rounded-md bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{p.room_type}</span>}
                               </div>
                               <p className="mt-1 text-sm font-semibold text-white truncate">{p.address || '주소 없음'}</p>
                               <p className="text-xs text-blue-400">
@@ -459,11 +459,11 @@ export default function AdminPropertiesPage() {
                               <Flag className="h-3 w-3" /> {p.reportCount}
                             </span>
                           ) : (
-                            <span className="text-xs text-gray-600 dark:text-gray-400">—</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-500">—</span>
                           )}
                         </td>
                         <td className="px-3 sm:px-5 py-3 sm:py-3.5 hidden sm:table-cell cursor-pointer" onClick={() => setSelected(p)}>
-                          <span className="text-xs text-gray-400">{formatDate(p.created_at)}</span>
+                          <span className="text-xs text-gray-500">{formatDate(p.created_at)}</span>
                         </td>
                       </tr>
                     )
@@ -526,7 +526,7 @@ export default function AdminPropertiesPage() {
           <button
             onClick={() => setSelectedIds(new Set())}
             disabled={bulkBusy}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-400 hover:bg-gray-800 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-800 disabled:opacity-50"
             aria-label="선택 해제"
           >
             <X className="h-3.5 w-3.5" />
@@ -555,7 +555,7 @@ export default function AdminPropertiesPage() {
                   bulkConfirm.kind === 'hide' ? '매물을 일괄 숨길까요?' :
                   '매물을 일괄 공개할까요?'}
               </h3>
-              <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+              <p className="mt-2 text-sm text-gray-500 leading-relaxed">
                 선택한 <span className="font-bold text-white">{bulkConfirm.count}건</span>이 {
                   bulkConfirm.kind === 'delete' ? '영구 삭제됩니다. 복구할 수 없습니다.' :
                   bulkConfirm.kind === 'hide' ? '공개 페이지에서 숨겨집니다.' :
@@ -630,8 +630,8 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
               </span>
             )}
           </div>
-          <button onClick={onClose} disabled={busy}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
+          <button onClick={onClose} disabled={busy} aria-label="닫기"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -674,7 +674,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
 
           {property.description && (
             <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
-              <p className="mb-1.5 text-xs font-semibold text-gray-400">매물 설명</p>
+              <p className="mb-1.5 text-xs font-semibold text-gray-500">매물 설명</p>
               <p className="text-sm text-gray-200 whitespace-pre-line">{property.description}</p>
             </div>
           )}
@@ -690,7 +690,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
 
           {/* 운영 액션 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-3 text-xs font-semibold text-gray-400">상태 변경</p>
+            <p className="mb-3 text-xs font-semibold text-gray-500">상태 변경</p>
             <div className="grid grid-cols-3 gap-2">
               {(['available', 'contracted', 'hidden'] as const).map(s => {
                 const m = STATUS_META[s]
@@ -698,7 +698,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
                 return (
                   <button key={s} onClick={() => handleStatus(s)} disabled={busy || active}
                     className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold transition-all ${
-                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-400 hover:bg-gray-700'
+                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-500 hover:bg-gray-700'
                     } disabled:opacity-50`}>
                     {s === 'hidden' ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                     {m.label}

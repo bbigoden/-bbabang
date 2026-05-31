@@ -163,7 +163,7 @@ export function FeaturedMain() {
                   <div className="mt-2 flex items-center gap-1 text-sm">
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                     <span className="font-semibold text-gray-900 dark:text-white">{b.rating ? Number(b.rating).toFixed(1) : '신규'}</span>
-                    {(b.review_count ?? 0) > 0 && <span className="text-gray-400">({b.review_count})</span>}
+                    {(b.review_count ?? 0) > 0 && <span className="text-gray-500">({b.review_count})</span>}
                   </div>
                 </Link>
               ))}
@@ -185,7 +185,7 @@ export function FeaturedMain() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.images[0]} alt="" className="h-40 w-full object-cover" />
                   ) : (
-                    <div className="flex h-40 w-full items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-400">이미지 없음</div>
+                    <div className="flex h-40 w-full items-center justify-center bg-gray-100 dark:bg-gray-800 text-gray-500">이미지 없음</div>
                   )}
                   <div className="p-4">
                     <div className="mb-1 flex items-center gap-1.5">

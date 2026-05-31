@@ -216,7 +216,7 @@ export default function ProposePage() {
             {/* 모달 헤더 */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
               <h2 className="font-bold text-gray-900 dark:text-white">내 매물에서 가져오기</h2>
-              <button onClick={() => setShowPropertyModal(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-400">
+              <button onClick={() => setShowPropertyModal(false)} className="text-gray-500 hover:text-gray-600 dark:text-gray-500">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -224,12 +224,12 @@ export default function ProposePage() {
             {/* 매물 목록 */}
             <div className="overflow-y-auto flex-1 p-4 space-y-2">
               {propertiesLoading ? (
-                <div className="py-10 text-center text-sm text-gray-400">불러오는 중...</div>
+                <div className="py-10 text-center text-sm text-gray-500">불러오는 중...</div>
               ) : myProperties.length === 0 ? (
                 <div className="py-10 text-center">
                   <Home className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                  <p className="text-sm text-gray-400">거래가능 상태의 매물이 없습니다</p>
-                  <p className="mt-1 text-xs text-gray-400">매물목록에서 매물을 먼저 등록해주세요</p>
+                  <p className="text-sm text-gray-500">거래가능 상태의 매물이 없습니다</p>
+                  <p className="mt-1 text-xs text-gray-500">매물목록에서 매물을 먼저 등록해주세요</p>
                 </div>
               ) : (
                 myProperties.map(prop => (
@@ -248,14 +248,14 @@ export default function ProposePage() {
                             prop.deal_type === '전세' ? 'bg-purple-100 text-purple-700' :
                             'bg-orange-100 text-orange-700'
                           }`}>{prop.deal_type}</span>
-                          <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-400">{prop.room_type}</span>
+                          <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-500">{prop.room_type}</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-gray-500 truncate">
                           <MapPin className="h-3 w-3 flex-shrink-0" />
                           <span className="truncate">{prop.address || '주소 없음'}</span>
                         </div>
                         {prop.brief_memo && (
-                          <p className="mt-1 text-xs text-gray-400 truncate">{prop.brief_memo}</p>
+                          <p className="mt-1 text-xs text-gray-500 truncate">{prop.brief_memo}</p>
                         )}
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -353,7 +353,7 @@ export default function ProposePage() {
                 {/* 매물 사진 */}
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    매물 사진 <span className="text-gray-400 font-normal">(최대 {MAX_IMAGES}장)</span>
+                    매물 사진 <span className="text-gray-500 font-normal">(최대 {MAX_IMAGES}장)</span>
                   </label>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {existingImages.map((url, i) => (
@@ -377,14 +377,14 @@ export default function ProposePage() {
                     ))}
                     {existingImages.length + newFiles.length < MAX_IMAGES && (
                       <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                        <ImagePlus className="h-5 w-5 text-gray-400" />
+                        <ImagePlus className="h-5 w-5 text-gray-500" />
                         <span className="text-[10px] text-gray-500">추가</span>
                         <input type="file" accept="image/*" multiple className="hidden"
                           onChange={e => { onPickFiles(e.target.files); e.target.value = '' }} />
                       </label>
                     )}
                   </div>
-                  <p className="mt-1.5 text-xs text-gray-400">
+                  <p className="mt-1.5 text-xs text-gray-500">
                     {existingImages.length + newFiles.length === 0
                       ? '사진이 있으면 매물 호소력이 크게 올라가요 (JPG/PNG/WEBP, 각 10MB)'
                       : `${existingImages.length + newFiles.length}장 첨부 (최대 ${MAX_IMAGES}장)`}

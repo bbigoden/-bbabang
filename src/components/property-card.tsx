@@ -76,7 +76,7 @@ export function PropertyCard({
             </span>
           )}
           {p.room_type && (
-            <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">
+            <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-500">
               {p.room_type}
             </span>
           )}
@@ -84,7 +84,7 @@ export function PropertyCard({
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{masked}</p>
         <p className="mt-1 text-sm font-black text-blue-600">{priceLine}</p>
         {showBroker && (p.broker_profiles?.profiles?.name || p.broker_profiles?.office_name) && (
-          <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-400 truncate max-w-full">
+          <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500 truncate max-w-full">
             <Building2 className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">
               {p.broker_profiles?.profiles?.name}

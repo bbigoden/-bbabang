@@ -224,12 +224,12 @@ export default function SettingsAccountPage() {
         </div>
         <div className="divide-y divide-gray-50">
           <div className="flex items-center gap-3 py-3">
-            <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            <Mail className="h-4 w-4 text-gray-500 flex-shrink-0" />
             <span className="text-sm text-gray-500 w-20 flex-shrink-0">이메일</span>
             <span className="text-sm text-gray-800 dark:text-gray-100">{user?.email}</span>
           </div>
           <div className="flex items-center gap-3 py-3">
-            <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
             <span className="text-sm text-gray-500 w-20 flex-shrink-0">가입일</span>
             <span className="text-sm text-gray-800 dark:text-gray-100">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('ko-KR') : '—'}</span>
           </div>
@@ -238,16 +238,16 @@ export default function SettingsAccountPage() {
 
       {/* 정보 수정 */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
-        <h2 className="mb-4 font-bold text-gray-900 dark:text-white flex items-center gap-2"><User className="h-4 w-4 text-gray-400" /> 정보 수정</h2>
+        <h2 className="mb-4 font-bold text-gray-900 dark:text-white flex items-center gap-2"><User className="h-4 w-4 text-gray-500" /> 정보 수정</h2>
         <div className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">이름</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="이름"
+            <label htmlFor="account-name" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">이름</label>
+            <input id="account-name" value={name} onChange={e => setName(e.target.value)} placeholder="이름"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">전화번호</label>
-            <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="010-0000-0000"
+            <label htmlFor="account-phone" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">전화번호</label>
+            <input id="account-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="010-0000-0000"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
         </div>
@@ -266,17 +266,17 @@ export default function SettingsAccountPage() {
       {/* 비밀번호 변경 */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <h2 className="mb-4 font-bold text-gray-900 dark:text-white flex items-center gap-2">
-          <Lock className="h-4 w-4 text-gray-400" /> 비밀번호 변경
+          <Lock className="h-4 w-4 text-gray-500" /> 비밀번호 변경
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">새 비밀번호</label>
-            <input type="password" autoComplete="new-password" value={pwNew} onChange={e => setPwNew(e.target.value)} placeholder="8자 이상"
+            <label htmlFor="account-pw-new" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">새 비밀번호</label>
+            <input id="account-pw-new" type="password" autoComplete="new-password" value={pwNew} onChange={e => setPwNew(e.target.value)} placeholder="8자 이상"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">새 비밀번호 확인</label>
-            <input type="password" autoComplete="new-password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} placeholder="비밀번호 재입력"
+            <label htmlFor="account-pw-confirm" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">새 비밀번호 확인</label>
+            <input id="account-pw-confirm" type="password" autoComplete="new-password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} placeholder="비밀번호 재입력"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
         </div>
@@ -297,13 +297,13 @@ export default function SettingsAccountPage() {
         <h2 className="mb-1 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           {mfaFactorId
             ? <ShieldCheck className="h-4 w-4 text-green-500" />
-            : <Shield className="h-4 w-4 text-gray-400" />}
+            : <Shield className="h-4 w-4 text-gray-500" />}
           2단계 인증 (2FA)
           {mfaFactorId && (
             <span className="ml-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400">활성화</span>
           )}
         </h2>
-        <p className="mb-4 text-sm text-gray-400">
+        <p className="mb-4 text-sm text-gray-500">
           {mfaFactorId
             ? '로그인 시 인증 앱에서 6자리 코드를 추가로 입력해요.'
             : 'Google Authenticator · Authy 등 인증 앱으로 로그인 보안을 강화해요.'}
@@ -329,7 +329,7 @@ export default function SettingsAccountPage() {
                 <code className="flex-1 text-xs font-mono text-gray-700 dark:text-gray-200 break-all">{mfaSecret}</code>
                 <button type="button" onClick={copySecret}
                   className="flex-shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  {secretCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
+                  {secretCopied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-500" />}
                 </button>
               </div>
             </div>
@@ -351,7 +351,7 @@ export default function SettingsAccountPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => { setMfaStep('idle'); setMfaMsg(null) }}
-                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-700 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-700 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 취소
               </button>
               <button onClick={confirmEnroll} disabled={mfaBusy || mfaCode.length !== 6}
@@ -389,7 +389,7 @@ export default function SettingsAccountPage() {
         <h2 className="mb-1 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Trash2 className="h-4 w-4 text-red-400" /> 회원탈퇴
         </h2>
-        <p className="mb-4 text-sm text-gray-400">탈퇴 시 모든 데이터가 삭제되며 복구할 수 없어요.</p>
+        <p className="mb-4 text-sm text-gray-500">탈퇴 시 모든 데이터가 삭제되며 복구할 수 없어요.</p>
         <button onClick={() => { setShowWithdraw(true); setWithdrawErr(null) }}
           className="rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors">
           탈퇴하기
@@ -414,7 +414,7 @@ export default function SettingsAccountPage() {
             )}
             <div className="flex gap-3">
               <button onClick={() => setShowWithdraw(false)} disabled={withdrawing}
-                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
+                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
                 취소
               </button>
               <button onClick={withdraw} disabled={withdrawing}

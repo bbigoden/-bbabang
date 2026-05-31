@@ -33,7 +33,7 @@ export function Footer() {
   const phone = process.env.NEXT_PUBLIC_BUSINESS_PHONE
 
   return (
-    <footer className="mt-12 border-t border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-400">
+    <footer className="mt-12 border-t border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-500">
       <div className="mx-auto max-w-6xl px-4 py-10 md:pb-10 pb-24">
         <div className="grid gap-8 md:grid-cols-3">
           {/* 회사·사업자 정보 */}

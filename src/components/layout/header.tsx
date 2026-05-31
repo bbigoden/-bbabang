@@ -52,20 +52,20 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
         </Link>
 
         {/* 데스크탑 네비 */}
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-1 md:flex" aria-label="주 네비게이션">
           {role !== 'broker' && role !== 'admin' && pathname !== '/request/new' && (
-            <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
+            <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
               매물 요청하기
             </Link>
           )}
           {role === 'broker' && (
             <>
               {!isBrokerSidebarArea && pathname !== '/request/new' && (
-                <Link href="/request/new?co_broker=true" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
+                <Link href="/request/new?co_broker=true" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
                   공동요청
                 </Link>
               )}
-              <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
+              <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
                 중개사 대시보드
               </Link>
             </>
@@ -73,16 +73,16 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
           {user ? (
             <>
               <Link href="/search" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="통합 검색">
-                <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <Search className="h-5 w-5 text-gray-600 dark:text-gray-500" />
               </Link>
               {role !== 'admin' && (
                 <Link href="/favorites" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="찜 목록">
-                  <Heart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <Heart className="h-5 w-5 text-gray-600 dark:text-gray-500" />
                 </Link>
               )}
               {!isBrokerSidebarArea && <NotificationBell userId={user.id} />}
               <Link href="/settings" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="설정">
-                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <Settings className="h-5 w-5 text-gray-600 dark:text-gray-500" />
               </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>로그아웃</Button>
             </>
@@ -101,7 +101,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
         {/* 모바일 메뉴 버튼 */}
         <div className="flex items-center gap-2 md:hidden">
           <Link href="/search" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="검색">
-            <Search className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <Search className="h-5 w-5 text-gray-600 dark:text-gray-500" />
           </Link>
           {user && <NotificationBell userId={user.id} />}
           <button

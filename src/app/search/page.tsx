@@ -115,8 +115,9 @@ function SearchInner() {
       <Header />
 
       <div className="mx-auto max-w-4xl px-4 py-6">
+        <h1 className="sr-only">통합 검색</h1>
         <div className="mb-5 relative">
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
           <input
             autoFocus
             type="search"
@@ -127,7 +128,7 @@ function SearchInner() {
           />
           {query && (
             <button onClick={() => setQuery('')} aria-label="지우기"
-              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300">
+              className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300">
               <X className="h-4 w-4" />
             </button>
           )}
@@ -137,7 +138,7 @@ function SearchInner() {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">검색어를 2자 이상 입력해주세요</p>
-            <p className="mt-1 text-sm text-gray-400">중개사 · 매물 · 요청을 한 번에 찾아드려요</p>
+            <p className="mt-1 text-sm text-gray-500">중개사 · 매물 · 요청을 한 번에 찾아드려요</p>
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-20">
@@ -147,7 +148,7 @@ function SearchInner() {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">&quot;{debounced}&quot;에 대한 결과가 없어요</p>
-            <p className="mt-1 text-sm text-gray-400">다른 키워드로 검색해보세요</p>
+            <p className="mt-1 text-sm text-gray-500">다른 키워드로 검색해보세요</p>
           </div>
         ) : (
           <div className="space-y-8">
@@ -167,8 +168,8 @@ function SearchInner() {
                           {b.is_verified && <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />}
                         </div>
                         <p className="text-xs text-gray-500 truncate">{b.office_name}</p>
-                        <p className="text-xs text-gray-400 truncate"><MapPin className="inline h-3 w-3 mr-0.5" />{b.address}</p>
-                        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
+                        <p className="text-xs text-gray-500 truncate"><MapPin className="inline h-3 w-3 mr-0.5" />{b.address}</p>
+                        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
                           <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
                             <Star className="h-3 w-3 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
                           </span>
@@ -210,10 +211,10 @@ function SearchInner() {
                         className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                         <div className="flex flex-wrap gap-1.5 mb-1.5">
                           {r.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{r.deal_type}</span>}
-                          {r.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{r.room_type}</span>}
+                          {r.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-500">{r.room_type}</span>}
                         </div>
                         <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                          <MapPin className="h-3.5 w-3.5 text-gray-500" />
                           {[r.city, r.district, r.dong].filter(Boolean).join(' ') || '지역 미지정'}
                         </p>
                         {r.min_price != null && r.max_price != null && (
@@ -221,7 +222,7 @@ function SearchInner() {
                             {formatPrice(r.min_price)} ~ {formatPrice(r.max_price)}
                           </p>
                         )}
-                        <div className="mt-1.5 flex items-center justify-between text-xs text-gray-400">
+                        <div className="mt-1.5 flex items-center justify-between text-xs text-gray-500">
                           <span className="text-blue-500 font-medium">{r.proposal_count ?? 0}개 제안</span>
                           <span>{formatDate(r.created_at)}</span>
                         </div>

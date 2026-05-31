@@ -63,7 +63,7 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
               <button
                 onClick={() => setShowModal(false)}
                 disabled={loading}
-                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors disabled:opacity-50"
+                className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors disabled:opacity-50"
               >
                 취소
               </button>

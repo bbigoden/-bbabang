@@ -63,6 +63,7 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
           </button>
           <button
             onClick={e => { e.stopPropagation(); onClose() }}
+            aria-label="닫기"
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
           >
             <X className="h-5 w-5" />
@@ -75,6 +76,7 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
         {images.length > 1 && (
           <button
             onClick={e => { e.stopPropagation(); onPrev() }}
+            aria-label="이전 이미지"
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
           >
             <ChevronLeft className="h-6 w-6" />
@@ -97,6 +99,7 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
         {images.length > 1 && (
           <button
             onClick={e => { e.stopPropagation(); onNext() }}
+            aria-label="다음 이미지"
             className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
           >
             <ChevronRight className="h-6 w-6" />
@@ -114,6 +117,7 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
             <button
               key={i}
               onClick={() => onGoTo(i)}
+              aria-label={`사진 ${i + 1}`}
               className={`h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
                 i === index ? 'border-white scale-110' : 'border-white/30 opacity-60 hover:opacity-90'
               }`}

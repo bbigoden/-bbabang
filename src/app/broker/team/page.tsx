@@ -67,7 +67,7 @@ function PermissionEditor({ perms, onChange }: {
                 className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors',
                   perms[page][field]
                     ? field === 'edit' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
-                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                 )}>
                 {field === 'view' ? '조회' : '편집'}
               </button>
@@ -201,7 +201,7 @@ export default function BrokerTeamPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-      <div className="text-gray-400 text-sm">불러오는 중...</div>
+      <div className="text-gray-500 text-sm">불러오는 중...</div>
     </div>
   )
 
@@ -211,7 +211,7 @@ export default function BrokerTeamPage() {
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <Shield className="mx-auto h-12 w-12 text-gray-200 mb-4" />
         <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">팀원 관리는 대표 계정에서만 가능해요</h2>
-        <p className="text-sm text-gray-400">대표 중개사 계정으로 로그인 후 이용해주세요.</p>
+        <p className="text-sm text-gray-500">대표 중개사 계정으로 로그인 후 이용해주세요.</p>
       </div>
     </div>
   )
@@ -223,7 +223,7 @@ export default function BrokerTeamPage() {
 
         <div className="mb-6">
           <h1 className="text-2xl font-black text-gray-900 dark:text-white">팀 관리</h1>
-          <p className="text-sm text-gray-400 mt-0.5">직원 등록 신청을 승인하고 권한을 설정해요</p>
+          <p className="text-sm text-gray-500 mt-0.5">직원 등록 신청을 승인하고 권한을 설정해요</p>
         </div>
 
         {/* 사무소 코드 */}
@@ -249,7 +249,7 @@ export default function BrokerTeamPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{emp.profiles?.name ?? '—'}</div>
-                      <div className="text-xs text-gray-400">{emp.profiles?.email}</div>
+                      <div className="text-xs text-gray-500">{emp.profiles?.email}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => {
@@ -268,11 +268,11 @@ export default function BrokerTeamPage() {
                   </div>
                   {approvingId === emp.id && (
                     <div className="border-t border-yellow-200 bg-white dark:bg-gray-900 p-4">
-                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">권한 설정 후 승인</p>
+                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-500 mb-2">권한 설정 후 승인</p>
                       <PermissionEditor perms={approvePerms} onChange={setApprovePerms} />
                       <div className="flex gap-2 mt-3">
                         <button onClick={() => setApprovingId(null)}
-                          className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+                          className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
                         <button onClick={() => approveEmployee(emp.id)} disabled={approving}
                           className="flex-1 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
                           {approving ? '승인 중...' : '승인 완료'}
@@ -289,13 +289,13 @@ export default function BrokerTeamPage() {
         {/* 현재 팀원 */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Users className="h-4 w-4 text-gray-400" />
+            <Users className="h-4 w-4 text-gray-500" />
             <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">현재 팀원 ({approved.length}명)</h2>
           </div>
           {approved.length === 0 ? (
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
               <Users className="mx-auto h-8 w-8 text-gray-200 mb-3" />
-              <p className="text-sm text-gray-400">아직 팀원이 없어요</p>
+              <p className="text-sm text-gray-500">아직 팀원이 없어요</p>
               <p className="text-xs text-gray-300 mt-1">직원에게 사무소 코드를 알려주세요</p>
             </div>
           ) : (
@@ -303,12 +303,12 @@ export default function BrokerTeamPage() {
               {approved.map(emp => (
                 <div key={emp.id} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
                   <div className="flex items-center gap-3 p-4">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-400 flex-shrink-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-500 flex-shrink-0">
                       {emp.profiles?.name?.[0] ?? '?'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{emp.profiles?.name ?? '—'}</div>
-                      <div className="text-xs text-gray-400">{emp.profiles?.email}</div>
+                      <div className="text-xs text-gray-500">{emp.profiles?.email}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => {
@@ -330,7 +330,7 @@ export default function BrokerTeamPage() {
                       <PermissionEditor perms={editPerms} onChange={setEditPerms} />
                       <div className="flex gap-2 mt-3">
                         <button onClick={() => setEditingId(null)}
-                          className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+                          className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
                         <button onClick={() => saveEmployeePerms(emp.id)} disabled={saving}
                           className="flex-1 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
                           {saving ? '저장 중...' : '저장'}

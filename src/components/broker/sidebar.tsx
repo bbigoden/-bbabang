@@ -96,14 +96,14 @@ export function BrokerSidebar() {
           onClick={toggleCollapsed}
           aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
           title={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
         >
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
       </div>
 
       {/* 메뉴 */}
-      <nav className="flex-1 px-3 py-4">
+      <nav className="flex-1 px-3 py-4" aria-label="사무소 사이드바">
         <ul className="flex flex-col gap-0.5">
           {items.map(item => {
             const Icon = item.icon
@@ -119,7 +119,7 @@ export function BrokerSidebar() {
                     title={collapsed ? item.label : undefined}
                     className={cn(
                       'flex w-full items-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-colors',
-                      'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
+                      'text-gray-600 dark:text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
                       collapsed ? 'justify-center px-0' : 'px-3',
                     )}
                   >
@@ -144,7 +144,7 @@ export function BrokerSidebar() {
                                 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                                 subActive
                                   ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
-                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
+                                  : 'text-gray-500 dark:text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
                               )}
                             >
                               <SubIcon className="h-3.5 w-3.5 flex-shrink-0" />
@@ -168,7 +168,7 @@ export function BrokerSidebar() {
                     'flex items-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-colors',
                     active
                       ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
+                      : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
                     collapsed ? 'justify-center px-0' : 'px-3',
                   )}
                 >
@@ -191,7 +191,7 @@ export function BrokerSidebar() {
             'flex items-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-colors',
             isActive('/notifications')
               ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
+              : 'text-gray-600 dark:text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white',
             collapsed ? 'justify-center px-0' : 'px-3',
           )}
         >
@@ -216,7 +216,7 @@ export function BrokerSidebar() {
           title={collapsed ? '로그아웃' : undefined}
           className={cn(
             'flex w-full items-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-colors',
-            'text-gray-600 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400',
+            'text-gray-600 dark:text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400',
             collapsed ? 'justify-center px-0' : 'px-3',
           )}
         >

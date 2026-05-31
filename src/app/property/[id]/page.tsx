@@ -152,7 +152,7 @@ export default async function PropertyDetailPage({ params }: Props) {
 
       <div className="mx-auto max-w-3xl px-4 py-6">
         {/* 빵 부스러기 */}
-        <nav className="mb-3 text-xs text-gray-400" aria-label="경로">
+        <nav className="mb-3 text-xs text-gray-500" aria-label="경로">
           <Link href="/" className="hover:text-blue-600">홈</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <Link href={`/broker/${prop.broker_id}`} className="hover:text-blue-600">{broker?.office_name ?? '중개사'}</Link>
@@ -253,7 +253,7 @@ export default async function PropertyDetailPage({ params }: Props) {
           <Card className="mb-5">
             <CardBody>
               <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900 dark:text-white">
-                {hasPriceDrop ? <TrendingDown className="h-4 w-4 text-red-500" /> : <TrendingUp className="h-4 w-4 text-gray-400" />}
+                {hasPriceDrop ? <TrendingDown className="h-4 w-4 text-red-500" /> : <TrendingUp className="h-4 w-4 text-gray-500" />}
                 가격 변동 내역
               </h2>
               <ul className="space-y-2 text-sm">
@@ -265,8 +265,8 @@ export default async function PropertyDetailPage({ params }: Props) {
                     <li key={i} className="flex items-center justify-between py-1 border-b border-gray-100 dark:border-gray-800 last:border-0">
                       <span className="text-xs text-gray-500">{formatDate(h.changed_at)}</span>
                       <span className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-400 line-through">{formatPrice(h.old_price)}</span>
-                        <span className="text-gray-400">→</span>
+                        <span className="text-gray-500 line-through">{formatPrice(h.old_price)}</span>
+                        <span className="text-gray-500">→</span>
                         <span className="font-bold text-gray-900 dark:text-white">{formatPrice(h.new_price)}</span>
                         <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${dropped ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}>
                           {dropped ? '▼' : '▲'} {formatPrice(diff)}
@@ -339,7 +339,7 @@ export default async function PropertyDetailPage({ params }: Props) {
           </div>
         )}
 
-        <p className="text-center text-xs text-gray-400">
+        <p className="text-center text-xs text-gray-500">
           빠방 인증 중개사가 등록한 매물 · {formatDate(prop.created_at)} 등록
         </p>
       </div>

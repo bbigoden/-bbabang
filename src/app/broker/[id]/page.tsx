@@ -227,31 +227,31 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                       <StarRating value={broker.rating} />
                       <span className="text-2xl font-black text-gray-900 dark:text-white">{broker.rating.toFixed(1)}</span>
                     </div>
-                    <p className="text-sm text-gray-400">리뷰 {broker.review_count}개</p>
+                    <p className="text-sm text-gray-500">리뷰 {broker.review_count}개</p>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400">아직 리뷰가 없어요</p>
+                  <p className="text-sm text-gray-500">아직 리뷰가 없어요</p>
                 )}
               </div>
             </div>
 
             {/* 사무소 정보 — 2열 (모바일 1열) — 1행: 소재지·등록번호 / 2행: 연락처·대표 */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-500">
               {broker.address && (
                 <div className="flex items-start gap-2 min-w-0">
-                  <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <MapPin className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
                   <span className="break-keep">{broker.address}</span>
                 </div>
               )}
               {broker.office_reg_number && (
                 <div className="flex items-start gap-2 min-w-0">
-                  <Hash className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <Hash className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
                   <span>등록번호 <span className="font-mono text-gray-800 dark:text-gray-100">{broker.office_reg_number}</span></span>
                 </div>
               )}
               {broker.profiles?.phone && (
                 <div className="flex items-start gap-2 min-w-0">
-                  <Phone className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <Phone className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
                   <a href={`tel:${broker.profiles.phone}`} className="text-blue-600 hover:underline">
                     {broker.profiles.phone}
                   </a>
@@ -259,7 +259,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
               )}
               {broker.profiles?.name && (
                 <div className="flex items-start gap-2 min-w-0">
-                  <User className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                  <User className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
                   <span>대표 <span className="font-semibold text-gray-800 dark:text-gray-100">{broker.profiles.name}</span></span>
                 </div>
               )}
@@ -267,14 +267,14 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
 
             {/* 담당 지역 */}
             <div className="mt-4 flex items-center gap-2 flex-wrap">
-              <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <MapPin className="h-4 w-4 text-gray-500 flex-shrink-0" />
               {districts.map((d: string) => (
                 <span key={d} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{d}</span>
               ))}
             </div>
 
             {broker.description && (
-              <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{broker.description}</p>
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-500 leading-relaxed">{broker.description}</p>
             )}
 
             {/* 신뢰 지표 */}
@@ -367,13 +367,13 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{review.profiles?.name}</p>
-                          <p className="text-xs text-gray-400">{formatDate(review.created_at)}</p>
+                          <p className="text-xs text-gray-500">{formatDate(review.created_at)}</p>
                         </div>
                       </div>
                       <StarRating value={review.rating} />
                     </div>
                     {review.content && (
-                      <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{review.content}</p>
+                      <p className="mt-3 text-sm text-gray-600 dark:text-gray-500 leading-relaxed">{review.content}</p>
                     )}
                     {Array.isArray(review.images) && review.images.length > 0 && (
                       <div className="mt-3 flex gap-2 overflow-x-auto">

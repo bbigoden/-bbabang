@@ -69,7 +69,7 @@ export function SaveSearchButton({ target, filters, defaultLabel = '' }: Props) 
                 검색 조건 저장
               </h3>
               <button onClick={() => setOpen(false)} disabled={busy}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -96,7 +96,7 @@ export function SaveSearchButton({ target, filters, defaultLabel = '' }: Props) 
                     <div className="flex flex-wrap gap-1.5">
                       {Object.entries(filters).filter(([_, v]) => v !== null && v !== undefined && v !== '' && v !== false).map(([k, v]) => (
                         <span key={k} className="inline-flex items-center gap-1 rounded-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-700 dark:text-gray-300">
-                          <span className="text-gray-400">{k}:</span> {String(v)}
+                          <span className="text-gray-500">{k}:</span> {String(v)}
                         </span>
                       ))}
                     </div>
@@ -104,7 +104,7 @@ export function SaveSearchButton({ target, filters, defaultLabel = '' }: Props) 
                 </div>
                 <div className="flex gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
                   <button onClick={() => setOpen(false)} disabled={busy}
-                    className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
+                    className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
                     취소
                   </button>
                   <button onClick={save} disabled={busy}

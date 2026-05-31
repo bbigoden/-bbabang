@@ -127,7 +127,7 @@ export default function PendingPage() {
             >
               {checking ? '확인 중...' : '지금 확인'}
             </button>
-            <p className="mt-4 text-xs text-gray-400">자동으로 5초마다 확인합니다</p>
+            <p className="mt-4 text-xs text-gray-500">자동으로 5초마다 확인합니다</p>
           </>
         )}
       </div>

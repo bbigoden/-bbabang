@@ -130,8 +130,9 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
-                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 dark:text-gray-400"
+                className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-600 dark:text-gray-500"
                 tabIndex={-1}
+                aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 보이기'}
               >
                 {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -153,7 +154,7 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
                 </span>
                 <span className="text-xs text-gray-500 select-none group-hover:text-gray-700 dark:text-gray-300">아이디 저장</span>
               </button>
-              <Link href="/auth/reset-password" className="text-xs text-gray-400 hover:text-blue-600">
+              <Link href="/auth/reset-password" className="text-xs text-gray-500 hover:text-blue-600">
                 비밀번호를 잊으셨나요?
               </Link>
             </div>
@@ -177,7 +178,7 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
           </div>
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-xs text-gray-500">
           로그인하면 빠방의{' '}
           <Link href="/terms" className="underline">이용약관</Link>과{' '}
           <Link href="/privacy" className="underline">개인정보처리방침</Link>에 동의합니다

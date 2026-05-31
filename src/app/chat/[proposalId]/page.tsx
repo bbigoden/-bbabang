@@ -123,7 +123,7 @@ function PropertyCard({ snapshot, isMine, onClick }: { snapshot: PropertySnapsho
         )}
       </div>
       {onClick && (
-        <div className={cn('px-4 py-2 text-center text-xs border-t', isMine ? 'border-blue-200 text-blue-500' : 'border-gray-100 text-gray-400')}>
+        <div className={cn('px-4 py-2 text-center text-xs border-t', isMine ? 'border-blue-200 text-blue-500' : 'border-gray-100 text-gray-500')}>
           탭하면 상세 정보 보기
         </div>
       )}
@@ -163,7 +163,7 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
             <Building2 className="h-5 w-5 text-blue-600" />
             <span className="font-bold text-gray-900 dark:text-white">매물 상세</span>
           </div>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-400">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-500">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -186,7 +186,7 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
 
               {/* 이전 버튼 */}
               {imgIdx > 0 && (
-                <button onClick={e => { e.stopPropagation(); prevImg() }}
+                <button onClick={e => { e.stopPropagation(); prevImg() }} aria-label="이전 이미지"
                   className="absolute left-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors">
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -194,7 +194,7 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
 
               {/* 다음 버튼 */}
               {imgIdx < images.length - 1 && (
-                <button onClick={e => { e.stopPropagation(); nextImg() }}
+                <button onClick={e => { e.stopPropagation(); nextImg() }} aria-label="다음 이미지"
                   className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors">
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -228,7 +228,7 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
             {/* 유형 + 주소 */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${dealColors[snapshot.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-500'}`}>
                   {snapshot.deal_type}
                 </span>
                 <span className="text-xs text-gray-500">{snapshot.room_type}</span>
@@ -245,13 +245,13 @@ function PropertyDetailModal({ snapshot, onClose }: { snapshot: PropertySnapshot
             <div className="grid grid-cols-2 gap-3">
               {snapshot.size_pyeong && (
                 <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
-                  <p className="text-xs text-gray-400 mb-1">면적</p>
+                  <p className="text-xs text-gray-500 mb-1">면적</p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">{snapshot.size_pyeong}평</p>
                 </div>
               )}
               {snapshot.floor && (
                 <div className="rounded-xl border border-gray-100 dark:border-gray-800 p-3">
-                  <p className="text-xs text-gray-400 mb-1">층수</p>
+                  <p className="text-xs text-gray-500 mb-1">층수</p>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white">{snapshot.floor}층{snapshot.total_floors ? ` / ${snapshot.total_floors}층` : ''}</p>
                 </div>
               )}
@@ -563,7 +563,7 @@ export default function ChatPage() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-          <p className="text-sm text-gray-400">채팅방 불러오는 중...</p>
+          <p className="text-sm text-gray-500">채팅방 불러오는 중...</p>
         </div>
       </div>
     )
@@ -590,12 +590,13 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-950">
+      <h1 className="sr-only">{otherName}님과의 채팅</h1>
 
       {/* ── 상단 헤더 ── */}
       <div className="border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
-          <Link href={isUser ? '/dashboard/user' : '/dashboard/broker'} className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
-            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          <Link href={isUser ? '/dashboard/user' : '/dashboard/broker'} aria-label="대시보드로 돌아가기" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
+            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-500" />
           </Link>
 
           <button
@@ -612,13 +613,13 @@ export default function ChatPage() {
                 )}
               </div>
               {isUser && broker?.office_name && (
-                <p className="text-xs text-gray-400">{broker.office_name} · {broker.district?.split(',')?.[0]}</p>
+                <p className="text-xs text-gray-500">{broker.office_name} · {broker.district?.split(',')?.[0]}</p>
               )}
             </div>
           </button>
 
           {isUser && proposal?.status === 'accepted' && (
-            <Link href={`/review/${proposalId}`} className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 hover:bg-yellow-100 transition-colors" title="리뷰 남기기">
+            <Link href={`/review/${proposalId}`} aria-label="리뷰 남기기" className="flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-50 text-yellow-500 hover:bg-yellow-100 transition-colors" title="리뷰 남기기">
               <Star className="h-4 w-4" />
             </Link>
           )}
@@ -652,8 +653,8 @@ export default function ChatPage() {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="mb-3 text-4xl">👋</div>
-              <p className="font-semibold text-gray-600 dark:text-gray-400">{otherName}님과 대화를 시작해보세요</p>
-              <p className="mt-1 text-sm text-gray-400">매물 정보, 계약 조건 등을 자유롭게 문의하세요</p>
+              <p className="font-semibold text-gray-600 dark:text-gray-500">{otherName}님과 대화를 시작해보세요</p>
+              <p className="mt-1 text-sm text-gray-500">매물 정보, 계약 조건 등을 자유롭게 문의하세요</p>
               {isBroker && (
                 <button
                   onClick={openPropertyPicker}
@@ -670,7 +671,7 @@ export default function ChatPage() {
             <div key={date}>
               <div className="my-4 flex items-center gap-3">
                 <div className="h-px flex-1 bg-gray-200" />
-                <span className="bg-gray-50 dark:bg-gray-950 px-2 text-xs text-gray-400">{date}</span>
+                <span className="bg-gray-50 dark:bg-gray-950 px-2 text-xs text-gray-500">{date}</span>
                 <div className="h-px flex-1 bg-gray-200" />
               </div>
 
@@ -743,7 +744,7 @@ export default function ChatPage() {
                                 {msg.is_read ? '읽음' : ''}
                               </span>
                             )}
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-gray-500">
                               {new Date(msg.created_at).toLocaleTimeString('ko-KR', {
                                 hour: '2-digit', minute: '2-digit',
                               })}
@@ -781,7 +782,7 @@ export default function ChatPage() {
                 <span className="font-bold text-gray-900 dark:text-white">매물목록</span>
                 {!loadingProps && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{brokerProperties.length}</span>}
               </div>
-              <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-400 transition-colors">
+              <button onClick={() => { setShowPicker(false); setPickerSearch(''); setSelectedPropIds(new Set()) }} className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-500 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -790,17 +791,17 @@ export default function ChatPage() {
             {!loadingProps && brokerProperties.length > 0 && (
               <div className="border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
                 <div className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white dark:bg-gray-900 transition-colors">
-                  <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
                   <input
                     type="text"
                     value={pickerSearch}
                     onChange={e => setPickerSearch(e.target.value)}
                     placeholder="주소, 거래유형, 방종류 검색..."
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-500"
                     autoFocus
                   />
                   {pickerSearch && (
-                    <button onClick={() => setPickerSearch('')} className="text-gray-400 hover:text-gray-600 dark:text-gray-400">
+                    <button onClick={() => setPickerSearch('')} className="text-gray-500 hover:text-gray-600 dark:text-gray-500">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
@@ -810,7 +811,7 @@ export default function ChatPage() {
 
             {/* 테이블 헤더 */}
             {!loadingProps && brokerProperties.length > 0 && (
-              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-4 py-2 text-xs font-semibold text-gray-400 flex-shrink-0">
+              <div className="grid grid-cols-[2rem_3rem_1fr_auto] gap-x-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-4 py-2 text-xs font-semibold text-gray-500 flex-shrink-0">
                 <span></span>
                 <span>유형</span>
                 <span>소재지</span>
@@ -850,7 +851,7 @@ export default function ChatPage() {
                   )
                 })
                 if (filtered.length === 0) return (
-                  <div className="py-12 text-center text-sm text-gray-400">
+                  <div className="py-12 text-center text-sm text-gray-500">
                     검색 결과가 없습니다
                   </div>
                 )
@@ -877,18 +878,18 @@ export default function ChatPage() {
                           )}>
                             {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
                           </span>
-                          <span className={`inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold ${dealColors[prop.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+                          <span className={`inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold ${dealColors[prop.deal_type] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-500'}`}>
                             {prop.deal_type}
                           </span>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{prop.address}</p>
-                            <p className="text-xs text-gray-400 truncate">
+                            <p className="text-xs text-gray-500 truncate">
                               {prop.room_type}{prop.size_pyeong ? ` · ${prop.size_pyeong}평` : ''}{prop.floor ? ` · ${prop.floor}층` : ''}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-black text-blue-600 whitespace-nowrap">{priceText}</p>
-                            {prop.description && <p className="text-xs text-gray-400 truncate max-w-[100px]">{prop.description}</p>}
+                            {prop.description && <p className="text-xs text-gray-500 truncate max-w-[100px]">{prop.description}</p>}
                           </div>
                         </button>
                       )
@@ -907,7 +908,7 @@ export default function ChatPage() {
                   'w-full rounded-xl py-3 text-sm font-bold transition-colors',
                   selectedPropIds.size > 0
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-100 text-gray-500 cursor-not-allowed'
                 )}
               >
                 {sendingProps
@@ -971,7 +972,7 @@ export default function ChatPage() {
               'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl transition-all',
               input.trim()
                 ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-100 text-gray-500 cursor-not-allowed'
             )}
           >
             <Send className="h-4 w-4" />

@@ -75,7 +75,7 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
                 <Filter className="inline h-3.5 w-3.5 mr-1" /> 필터
               </button>
               {filterActive && (
-                <Link href="/brokers" className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+                <Link href="/brokers" className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
                   초기화
                 </Link>
               )}
@@ -93,7 +93,7 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
         {error ? (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">데이터 조회 실패</div>
         ) : !rows || rows.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
             조건에 맞는 중개사가 없어요
           </div>
         ) : (

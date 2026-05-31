@@ -35,13 +35,13 @@ export function SheetActionCell({ canEdit = true, onCopy, onDelete }: {
     <td className={CELL_CLASS}>
       <div className="flex items-center justify-center gap-1.5">
         {canEdit && onCopy && (
-          <button onClick={onCopy} title="복사"
+          <button onClick={onCopy} title="복사" aria-label="복사"
             className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors">
             <Copy className="h-3.5 w-3.5" />
           </button>
         )}
         {canEdit && onDelete && (
-          <button onClick={onDelete} title="삭제"
+          <button onClick={onDelete} title="삭제" aria-label="삭제"
             className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
             <Trash2 className="h-3.5 w-3.5" />
           </button>

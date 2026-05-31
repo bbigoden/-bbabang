@@ -513,19 +513,19 @@ export default function SettlementPage() {
             {isOwner ? '사무소 보기' : '직원 보기'}
           </span>
         </div>
-        <p className="mb-4 ml-11 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mb-4 ml-11 text-xs text-gray-500 dark:text-gray-500">
           셀을 클릭해 수정하면 자동 저장됩니다. 회계 데이터이니 신중히 입력하세요.
         </p>
 
         {/* 월 네비 + 액션 */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => { setAllMode(false); moveMonth(-1) }} disabled={allMode}
+            <button onClick={() => { setAllMode(false); moveMonth(-1) }} disabled={allMode} aria-label="이전 달"
               className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronLeft className="h-4 w-4" />
             </button>
             {allMode ? (
-              <span className="min-w-[8rem] text-center text-base font-bold text-gray-400">전체 보기</span>
+              <span className="min-w-[8rem] text-center text-base font-bold text-gray-500">전체 보기</span>
             ) : (
               <input
                 type="month"
@@ -534,7 +534,7 @@ export default function SettlementPage() {
                 className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-base font-bold text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
               />
             )}
-            <button onClick={() => { setAllMode(false); moveMonth(1) }} disabled={allMode}
+            <button onClick={() => { setAllMode(false); moveMonth(1) }} disabled={allMode} aria-label="다음 달"
               className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -595,10 +595,10 @@ export default function SettlementPage() {
               <CardBody className="p-4">
                 <div className="flex items-baseline justify-between">
                   <p className="text-[11px] font-medium text-gray-500">전체</p>
-                  <p className="text-[11px] font-semibold text-gray-400">총 {summary.count}건</p>
+                  <p className="text-[11px] font-semibold text-gray-500">총 {summary.count}건</p>
                 </div>
-                <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.totalFee)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-                <p className="mt-0.5 text-[10px] text-gray-400">
+                <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">{fmtComma(summary.totalFee)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                <p className="mt-0.5 text-[10px] text-gray-500">
                   = 공급가 {fmtComma(summary.supplySum)} + VAT {fmtComma(summary.totalFee - summary.supplySum)}
                 </p>
               </CardBody>
@@ -606,8 +606,8 @@ export default function SettlementPage() {
             <Card>
               <CardBody className="p-4">
                 <p className="text-[11px] font-medium text-gray-500">담당자</p>
-                <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.assigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-                <p className="mt-0.5 text-[10px] text-gray-400">
+                <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.assigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                <p className="mt-0.5 text-[10px] text-gray-500">
                   = 실수령 {fmtComma(summary.takeHomeSum)} + 원천 {fmtComma(summary.assigneeSum - summary.takeHomeSum)}
                 </p>
               </CardBody>
@@ -616,8 +616,8 @@ export default function SettlementPage() {
               <Card>
                 <CardBody className="p-4">
                   <p className="text-[11px] font-medium text-gray-500">사무실</p>
-                  <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-400">원</span></p>
-                  <p className="mt-0.5 text-[10px] text-gray-400">
+                  <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                  <p className="mt-0.5 text-[10px] text-gray-500">
                     = 공급가 {fmtComma(summary.supplySum)} − 담당자 {fmtComma(summary.assigneeSum)}
                   </p>
                 </CardBody>
@@ -627,17 +627,17 @@ export default function SettlementPage() {
                 <CardBody className="p-4">
                   <p className="text-[11px] font-medium text-gray-500">전월 대비</p>
                   {(() => {
-                    if (allMode) return <p className="mt-1 text-xl font-black text-gray-400">전체 모드</p>
-                    if (prevMonthTakeHome == null) return <p className="mt-1 text-xl font-black text-gray-400">—</p>
+                    if (allMode) return <p className="mt-1 text-xl font-black text-gray-500">전체 모드</p>
+                    if (prevMonthTakeHome == null) return <p className="mt-1 text-xl font-black text-gray-500">—</p>
                     if (prevMonthTakeHome === 0) return (<>
                       <p className="mt-1 text-xl font-black text-gray-500">신규</p>
-                      <p className="mt-0.5 text-[10px] text-gray-400">전월 데이터 없음</p>
+                      <p className="mt-0.5 text-[10px] text-gray-500">전월 데이터 없음</p>
                     </>)
                     const pct = Math.round((summary.takeHomeSum - prevMonthTakeHome) / prevMonthTakeHome * 100)
                     const cls = pct >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'
                     return (<>
-                      <p className={`mt-1 text-xl font-black ${cls}`}>{pct >= 0 ? '+' : ''}{pct}<span className="ml-0.5 text-xs font-medium text-gray-400">%</span></p>
-                      <p className="mt-0.5 text-[10px] text-gray-400">전월 실수령 {fmtComma(prevMonthTakeHome)}원</p>
+                      <p className={`mt-1 text-xl font-black ${cls}`}>{pct >= 0 ? '+' : ''}{pct}<span className="ml-0.5 text-xs font-medium text-gray-500">%</span></p>
+                      <p className="mt-0.5 text-[10px] text-gray-500">전월 실수령 {fmtComma(prevMonthTakeHome)}원</p>
                     </>)
                   })()}
                 </CardBody>
@@ -763,7 +763,7 @@ export default function SettlementPage() {
                 <tr>
                   <td colSpan={15} className="border-t border-gray-100 dark:border-gray-800">
                     <button onClick={addNewRow}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-400 transition-colors">
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-500 transition-colors">
                       <Plus className="h-3.5 w-3.5" />정산 등록
                     </button>
                   </td>

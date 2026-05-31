@@ -47,7 +47,7 @@ export default async function RegionSidoPage({ params }: { params: Promise<Param
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <nav className="mb-3 text-xs text-gray-400">
+        <nav className="mb-3 text-xs text-gray-500" aria-label="경로">
           <Link href="/" className="hover:text-blue-600">홈</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <span className="text-gray-700 dark:text-gray-300 font-medium">{sidoN}</span>
@@ -62,7 +62,7 @@ export default async function RegionSidoPage({ params }: { params: Promise<Param
         </p>
 
         {sigungus.length === 0 ? (
-          <div className="mt-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
+          <div className="mt-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
             아직 이 지역에 활성 요청이 없어요.
             <Link href="/request/new" className="text-blue-600 hover:underline ml-1">첫 요청 등록하기</Link>
           </div>

@@ -274,7 +274,7 @@ export default function BrokerResourcesPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-      <div className="text-gray-400 text-sm">불러오는 중...</div>
+      <div className="text-gray-500 text-sm">불러오는 중...</div>
     </div>
   )
 
@@ -288,7 +288,7 @@ export default function BrokerResourcesPage() {
               <FolderOpen className="h-6 w-6 text-blue-600" />
               자료실
             </h1>
-            <p className="mt-0.5 text-sm text-gray-400">{broker?.office_name} · 사무소 내부 공유</p>
+            <p className="mt-0.5 text-sm text-gray-500">{broker?.office_name} · 사무소 내부 공유</p>
           </div>
           {!showForm && (
             <button
@@ -312,7 +312,7 @@ export default function BrokerResourcesPage() {
             </div>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">제목 *</label>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">제목 *</label>
                 <input
                   value={title}
                   onChange={e => setTitle(e.target.value.slice(0, 120))}
@@ -322,7 +322,7 @@ export default function BrokerResourcesPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">설명·메모 (선택)</label>
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">설명·메모 (선택)</label>
                 <textarea
                   value={description}
                   onChange={e => setDescription(e.target.value.slice(0, 2000))}
@@ -331,10 +331,10 @@ export default function BrokerResourcesPage() {
                   maxLength={2000}
                   className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
-                <p className="mt-1 text-[11px] text-gray-400">{description.length}/2000</p>
+                <p className="mt-1 text-[11px] text-gray-500">{description.length}/2000</p>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">
                   파일 첨부 (선택, 최대 {MAX_FILES}개, 각 20MB)
                 </label>
                 <input ref={fileRef} type="file" multiple onChange={onFilePick} className="hidden" />
@@ -365,24 +365,24 @@ export default function BrokerResourcesPage() {
                     {files.map((f, i) => (
                       <div key={`${f.name}-${i}`} className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 px-3 py-2 text-sm">
                         <div className="flex items-center gap-2 min-w-0">
-                          <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-500" />
                           <span className="truncate text-gray-700 dark:text-gray-300">{f.name}</span>
-                          <span className="flex-shrink-0 text-xs text-gray-400">({formatFileSize(f.size)})</span>
+                          <span className="flex-shrink-0 text-xs text-gray-500">({formatFileSize(f.size)})</span>
                         </div>
                         <button onClick={() => removeFileAt(i)}
-                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-400">
+                          className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-gray-500 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-500">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
-                    <p className="text-[11px] text-gray-400">총 {files.length}개</p>
+                    <p className="text-[11px] text-gray-500">총 {files.length}개</p>
                   </div>
                 )}
               </div>
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => { setShowForm(false); resetForm() }}
-                  className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950"
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950"
                 >
                   취소
                 </button>
@@ -402,7 +402,7 @@ export default function BrokerResourcesPage() {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center">
             <FolderOpen className="mx-auto h-10 w-10 text-gray-200 mb-3" />
             <p className="text-sm font-semibold text-gray-500">아직 올라온 자료가 없어요</p>
-            <p className="mt-1 text-xs text-gray-400">같은 사무소 직원과 계약서 양식·매물지·교육자료를 공유해보세요</p>
+            <p className="mt-1 text-xs text-gray-500">같은 사무소 직원과 계약서 양식·매물지·교육자료를 공유해보세요</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -432,7 +432,7 @@ export default function BrokerResourcesPage() {
                         return (
                           <>
                             <p
-                              className={`mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400 ${
+                              className={`mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-500 ${
                                 long && !open ? 'line-clamp-3' : ''
                               }`}
                             >
@@ -449,7 +449,7 @@ export default function BrokerResourcesPage() {
                           </>
                         )
                       })()}
-                      <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+                      <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                         <span>{uploaderName}</span>
                         <span>·</span>
                         <span>{formatDate(r.created_at)}</span>
@@ -472,7 +472,7 @@ export default function BrokerResourcesPage() {
                                 <Download className="h-3.5 w-3.5 flex-shrink-0" />
                                 <span className="truncate">{f.file_name}</span>
                               </span>
-                              <span className="flex-shrink-0 text-[11px] text-gray-400">{formatFileSize(f.file_size)}</span>
+                              <span className="flex-shrink-0 text-[11px] text-gray-500">{formatFileSize(f.file_size)}</span>
                             </button>
                           ))}
                         </div>

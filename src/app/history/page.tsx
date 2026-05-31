@@ -112,7 +112,7 @@ export default function HistoryPage() {
           </div>
           {history.length > 0 && (
             <button onClick={clearAll} disabled={clearing}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors">
+              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors">
               <Trash2 className="h-3.5 w-3.5" />
               {clearing ? '삭제 중...' : '전체 삭제'}
             </button>
@@ -129,7 +129,7 @@ export default function HistoryPage() {
                 tab === t.key ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}>
               <t.icon className="h-4 w-4" />
-              {t.label} {counts[t.key] > 0 && <span className={`ml-0.5 text-xs ${tab === t.key ? 'text-blue-100' : 'text-gray-400'}`}>{counts[t.key]}</span>}
+              {t.label} {counts[t.key] > 0 && <span className={`ml-0.5 text-xs ${tab === t.key ? 'text-blue-100' : 'text-gray-500'}`}>{counts[t.key]}</span>}
             </button>
           ))}
         </div>
@@ -142,7 +142,7 @@ export default function HistoryPage() {
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
             <Clock className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">최근 본 기록이 없어요</p>
-            <p className="mt-1 text-sm text-gray-400">중개사 또는 요청 페이지를 방문하면 여기에 기록돼요</p>
+            <p className="mt-1 text-sm text-gray-500">중개사 또는 요청 페이지를 방문하면 여기에 기록돼요</p>
           </div>
         ) : (
           <ul className="space-y-2">
@@ -160,7 +160,7 @@ export default function HistoryPage() {
                           {b.is_verified && <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
                         </div>
                         <p className="text-xs text-gray-500 truncate">{b.office_name ?? '—'}</p>
-                        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
+                        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
                           <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
                             <Star className="h-3 w-3 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
                           </span>
@@ -170,7 +170,7 @@ export default function HistoryPage() {
                       </div>
                     </Link>
                     <button onClick={() => removeOne(h.id)} title="기록 삭제"
-                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors">
+                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </li>
@@ -185,11 +185,11 @@ export default function HistoryPage() {
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
                           {r.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{r.deal_type}</span>}
-                          {r.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-400">{r.room_type}</span>}
+                          {r.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-500">{r.room_type}</span>}
                           {r.status === 'closed' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">마감</span>}
                         </div>
                         <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                          <MapPin className="h-3.5 w-3.5 text-gray-500" />
                           {[r.city, r.district, r.dong].filter(Boolean).join(' ') || '지역 미지정'}
                         </p>
                         {r.min_price != null && r.max_price != null && (
@@ -197,14 +197,14 @@ export default function HistoryPage() {
                             {formatPrice(r.min_price)} ~ {formatPrice(r.max_price)}
                           </p>
                         )}
-                        <div className="mt-1.5 flex items-center justify-between text-xs text-gray-400">
+                        <div className="mt-1.5 flex items-center justify-between text-xs text-gray-500">
                           <span className="text-blue-500 font-medium">{r.proposal_count ?? 0}개 제안</span>
                           <span>{formatDate(h.viewed_at)}</span>
                         </div>
                       </div>
                     </Link>
                     <button onClick={() => removeOne(h.id)} title="기록 삭제"
-                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors">
+                      className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </li>
@@ -223,7 +223,7 @@ function DeletedItem({ label, onRemove }: { label: string; onRemove: () => void 
     <li className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4 flex items-center justify-between">
       <p className="text-sm text-gray-500">삭제된 {label}</p>
       <button onClick={onRemove}
-        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
         목록에서 빼기
       </button>
     </li>

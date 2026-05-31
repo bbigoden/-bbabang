@@ -238,7 +238,7 @@ export default function AdminStatsPage() {
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+            <Link href="/admin" aria-label="관리자 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
               <ArrowLeft className="h-4 w-4 text-gray-300" />
             </Link>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/20">
@@ -246,7 +246,7 @@ export default function AdminStatsPage() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">통계·분석</h1>
-              <p className="text-xs text-gray-400">시계열 추이 및 지역별 분포</p>
+              <p className="text-xs text-gray-500">시계열 추이 및 지역별 분포</p>
             </div>
           </div>
 
@@ -255,7 +255,7 @@ export default function AdminStatsPage() {
               {([7, 30, 90] as const).map(d => (
                 <button key={d} onClick={() => setRange(d)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    range === d ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    range === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
                   }`}>
                   {d}일
                 </button>
@@ -366,7 +366,7 @@ function SummaryCard({ label, value, icon: Icon, color }: { label: string; value
         <Icon className="h-4 w-4" />
       </div>
       <p className="text-2xl font-black text-white">{value}</p>
-      <p className="mt-0.5 text-xs text-gray-400">{label}</p>
+      <p className="mt-0.5 text-xs text-gray-500">{label}</p>
     </div>
   )
 }
@@ -375,7 +375,7 @@ function ChartCard({ title, icon: Icon, children }: { title: string; icon: any; 
   return (
     <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
       <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-gray-400" />
+        <Icon className="h-4 w-4 text-gray-500" />
         <h2 className="font-bold text-white">{title}</h2>
       </div>
       {children}

@@ -148,7 +148,7 @@ export default function RequestEditPage() {
   if (initialLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400">불러오는 중...</div>
+        <div className="text-gray-500">불러오는 중...</div>
       </div>
     )
   }
@@ -157,6 +157,7 @@ export default function RequestEditPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-xl px-4 py-10">
+        <h1 className="sr-only">요청 수정</h1>
         {/* 스텝 인디케이터 */}
         <div className="mb-8">
           <div className="flex items-center">
@@ -164,7 +165,7 @@ export default function RequestEditPage() {
               <div key={s} className="flex items-center">
                 <div className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all',
-                  i < step ? 'bg-blue-600 text-white' : i === step ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-400'
+                  i < step ? 'bg-blue-600 text-white' : i === step ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-gray-200 text-gray-500'
                 )}>
                   {i < step ? <CheckCircle className="h-4 w-4" /> : i + 1}
                 </div>
@@ -175,7 +176,7 @@ export default function RequestEditPage() {
             ))}
           </div>
           <div className="mt-4">
-            <p className="text-xs text-gray-400">Step {step + 1} / {STEPS.length} · 요청 수정</p>
+            <p className="text-xs text-gray-500">Step {step + 1} / {STEPS.length} · 요청 수정</p>
             <h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{STEPS[step]}</h2>
           </div>
         </div>
@@ -187,7 +188,7 @@ export default function RequestEditPage() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">거래 유형</p>
-                  <span className="text-xs text-gray-400">중복 선택 가능</span>
+                  <span className="text-xs text-gray-500">중복 선택 가능</span>
                 </div>
                 <div className="flex gap-3">
                   {DEAL_TYPES.map((type) => (
@@ -202,12 +203,12 @@ export default function RequestEditPage() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">매물 유형</p>
-                  <span className="text-xs text-gray-400">중복 선택 가능</span>
+                  <span className="text-xs text-gray-500">중복 선택 가능</span>
                 </div>
                 <div className="space-y-3">
                   {PROPERTY_CATEGORIES.map((cat) => (
                     <div key={cat.label}>
-                      <p className="mb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{cat.label}</p>
+                      <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{cat.label}</p>
                       <div className="flex flex-wrap gap-2">
                         {cat.types.map((type) => (
                           <button key={type} onClick={() => togglePropertyType(type)}
@@ -255,7 +256,7 @@ export default function RequestEditPage() {
           {/* Step 2 */}
           {step === 2 && (
             <div className="space-y-5">
-              <p className="text-sm text-gray-500">희망 예산 범위를 입력해주세요 <span className="text-gray-400">(단위: 만원)</span></p>
+              <p className="text-sm text-gray-500">희망 예산 범위를 입력해주세요 <span className="text-gray-500">(단위: 만원)</span></p>
               {(dealTypes.includes('전세') || dealTypes.includes('매매')) && (
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="최소값 (만원)" type="number" placeholder="20000" value={form.min_price} onChange={(e) => update('min_price', e.target.value)} />
@@ -288,7 +289,7 @@ export default function RequestEditPage() {
               </div>
               <Input label="입주 희망일" type="date" value={form.move_in_date} onChange={(e) => update('move_in_date', e.target.value)} />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">추가 요청사항 <span className="text-gray-400 font-normal">(선택)</span></label>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">추가 요청사항 <span className="text-gray-500 font-normal">(선택)</span></label>
                 <textarea placeholder="예: 반려동물 가능, 주차 필수, 역세권 선호" value={form.description}
                   onChange={(e) => update('description', e.target.value)} rows={4}
                   maxLength={1000}
@@ -296,10 +297,10 @@ export default function RequestEditPage() {
               </div>
               <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-4 text-sm space-y-1">
                 <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">수정 요약</p>
-                <p className="text-gray-600 dark:text-gray-400">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
-                <p className="text-gray-600 dark:text-gray-400">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
-                <p className="text-gray-600 dark:text-gray-400">📍 위치: <span className="font-medium">{form.city} {form.district}</span></p>
-                <p className="text-gray-600 dark:text-gray-400">💰 예산: <span className="font-medium">{Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원</span></p>
+                <p className="text-gray-600 dark:text-gray-500">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-500">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-500">📍 위치: <span className="font-medium">{form.city} {form.district}</span></p>
+                <p className="text-gray-600 dark:text-gray-500">💰 예산: <span className="font-medium">{Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원</span></p>
               </div>
             </div>
           )}

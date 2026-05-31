@@ -99,7 +99,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
 
       {/* 검색 */}
       <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
         <input
           type="text"
           placeholder="지역, 유형으로 검색..."
@@ -109,7 +109,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
         />
         {search && (
           <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-            <X className="h-4 w-4 text-gray-400" />
+            <X className="h-4 w-4 text-gray-500" />
           </button>
         )}
       </div>
@@ -172,10 +172,10 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
       {/* 요청 목록 */}
       <div className="space-y-3">
         {loading ? (
-          <Card><CardBody className="py-8 text-center text-sm text-gray-400">불러오는 중...</CardBody></Card>
+          <Card><CardBody className="py-8 text-center text-sm text-gray-500">불러오는 중...</CardBody></Card>
         ) : filtered.length === 0 ? (
           <Card>
-            <CardBody className="py-8 text-center text-sm text-gray-400">
+            <CardBody className="py-8 text-center text-sm text-gray-500">
               {hasFilter || search ? '검색 결과가 없습니다' : '현재 신규 요청이 없습니다'}
             </CardBody>
           </Card>
@@ -198,7 +198,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
                   <div className="font-bold text-blue-600">
                     {formatPrice(req.min_price)}~{formatPrice(req.max_price)}
                   </div>
-                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                  <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
                     <MapPin className="h-3.5 w-3.5" />
                     {req.city} {req.district}
                     <span className="mx-1">·</span>

@@ -162,7 +162,7 @@ export default function ReviewPage() {
   }
 
   if (initialLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-400">불러오는 중...</div>
+    return <div className="min-h-screen flex items-center justify-center text-gray-500">불러오는 중...</div>
   }
 
   if (done) {
@@ -228,7 +228,7 @@ export default function ReviewPage() {
           {/* 후기 */}
           <div className="mb-5">
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              후기 <span className="text-gray-400 font-normal">(선택)</span>
+              후기 <span className="text-gray-500 font-normal">(선택)</span>
             </label>
             <textarea
               placeholder="중개사님과의 거래 경험을 자유롭게 작성해주세요"
@@ -243,7 +243,7 @@ export default function ReviewPage() {
           {/* 사진 첨부 */}
           <div className="mb-6">
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              사진 첨부 <span className="text-gray-400 font-normal">(선택, 최대 {MAX_IMAGES}장)</span>
+              사진 첨부 <span className="text-gray-500 font-normal">(선택, 최대 {MAX_IMAGES}장)</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               {previews.map((url, i) => (
@@ -257,14 +257,14 @@ export default function ReviewPage() {
               ))}
               {files.length < MAX_IMAGES && (
                 <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                  <ImagePlus className="h-5 w-5 text-gray-400" />
+                  <ImagePlus className="h-5 w-5 text-gray-500" />
                   <span className="text-[10px] text-gray-500">추가</span>
                   <input type="file" accept="image/*" multiple className="hidden"
                     onChange={e => { onPickFiles(e.target.files); e.target.value = '' }} />
                 </label>
               )}
             </div>
-            <p className="mt-1.5 text-xs text-gray-400">집·매물 사진으로 다른 고객에게 더 유익한 후기가 돼요</p>
+            <p className="mt-1.5 text-xs text-gray-500">집·매물 사진으로 다른 고객에게 더 유익한 후기가 돼요</p>
           </div>
 
           {error && (

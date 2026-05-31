@@ -24,7 +24,7 @@ export function SettingsSidebar({ isBroker }: { isBroker: boolean }) {
   const items = ITEMS.filter(i => !i.brokerOnly || isBroker)
 
   return (
-    <nav className="md:sticky md:top-20">
+    <nav className="md:sticky md:top-20" aria-label="설정 메뉴">
       <ul className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible">
         {items.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/')

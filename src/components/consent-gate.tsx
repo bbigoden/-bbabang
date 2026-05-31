@@ -159,7 +159,7 @@ export function ConsentGate() {
           {submitting ? '처리 중...' : '모두 동의하고 계속하기'}
         </button>
 
-        <p className="mt-3 text-center text-xs text-gray-400">
+        <p className="mt-3 text-center text-xs text-gray-500">
           동의하지 않으면 일부 서비스 이용이 제한될 수 있어요.
         </p>
       </div>

@@ -157,7 +157,7 @@ export default function SettingsNotificationsPage() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              {pushSubscribed ? <Bell className="h-4 w-4 text-blue-500" /> : <BellOff className="h-4 w-4 text-gray-400" />}
+              {pushSubscribed ? <Bell className="h-4 w-4 text-blue-500" /> : <BellOff className="h-4 w-4 text-gray-500" />}
               브라우저 푸시 알림
             </h2>
             <p className="mt-1 text-xs text-gray-500">
@@ -171,7 +171,7 @@ export default function SettingsNotificationsPage() {
           {pushSupported && pushPermission !== 'denied' && (
             pushSubscribed
               ? <button onClick={disablePush} disabled={pushBusy}
-                  className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors flex-shrink-0">
+                  className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors flex-shrink-0">
                   {pushBusy ? '해제 중...' : '해제'}
                 </button>
               : <button onClick={enablePush} disabled={pushBusy}
@@ -197,7 +197,7 @@ export default function SettingsNotificationsPage() {
                     className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700">
                   <MapPin className="h-3 w-3" />
                   <span>{r.sido} {r.sigungu}{r.dong ? ` ${r.dong}` : ' 전체'}</span>
-                  <button type="button" onClick={() => removeRegion(i)} className="text-blue-500 hover:text-blue-700 ml-0.5">
+                  <button type="button" onClick={() => removeRegion(i)} className="text-blue-500 hover:text-blue-700 ml-0.5" aria-label={`${r.sido} ${r.sigungu}${r.dong ? ` ${r.dong}` : ' 전체'} 제거`}>
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </li>
@@ -219,7 +219,7 @@ export default function SettingsNotificationsPage() {
           )}
 
           {regions.length === 0 && (
-            <p className="mt-3 text-xs text-gray-400">
+            <p className="mt-3 text-xs text-gray-500">
               아직 관심 지역이 없어요. 위 검색창에 동 이름을 입력해서 추가해주세요.
             </p>
           )}
@@ -233,15 +233,15 @@ export default function SettingsNotificationsPage() {
         <ul className="divide-y divide-gray-100">
           {CATEGORIES.map(({ key, label, desc, icon: Icon }) => (
             <li key={key} className="flex items-center gap-4 py-3.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-50 dark:bg-gray-950 text-gray-400 flex-shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-50 dark:bg-gray-950 text-gray-500 flex-shrink-0">
                 <Icon className="h-4 w-4" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{label}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
               </div>
               <button onClick={() => toggle(key)} disabled={saving}
-                role="switch" aria-checked={prefs[key]}
+                role="switch" aria-checked={prefs[key]} aria-label={label}
                 className={`relative h-6 w-11 rounded-full transition-colors flex-shrink-0 ${prefs[key] ? 'bg-blue-600' : 'bg-gray-300'}`}>
                 <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white dark:bg-gray-900 shadow transition-transform ${prefs[key] ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>

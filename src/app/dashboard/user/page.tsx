@@ -161,7 +161,7 @@ export default async function UserDashboardPage() {
                   <div className={`flex flex-col items-center gap-1 rounded-xl px-3 py-2 ${step.active ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-900 text-gray-500'}`}>
                     <step.icon className="h-4 w-4" />
                     <span className="text-xs font-bold">{step.label}</span>
-                    <span className={`text-[10px] ${step.active ? 'text-blue-100' : 'text-gray-400'}`}>{step.desc}</span>
+                    <span className={`text-[10px] ${step.active ? 'text-blue-100' : 'text-gray-500'}`}>{step.desc}</span>
                   </div>
                   {i < 3 && <ChevronRight className="h-4 w-4 text-blue-300 flex-shrink-0" />}
                 </div>
@@ -180,7 +180,7 @@ export default async function UserDashboardPage() {
             <CardBody className="py-16 text-center">
               <Home className="mx-auto mb-4 h-12 w-12 text-gray-200" />
               <p className="font-semibold text-gray-500">활성 요청이 없습니다</p>
-              <p className="mt-1 text-sm text-gray-400">조건을 등록하면 중개사들이 매물을 제안합니다</p>
+              <p className="mt-1 text-sm text-gray-500">조건을 등록하면 중개사들이 매물을 제안합니다</p>
               <Link href="/request/new" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
                 <Plus className="h-4 w-4" />첫 요청 등록하기
               </Link>
@@ -211,7 +211,7 @@ export default async function UserDashboardPage() {
                         <div className="mt-1 text-sm text-blue-600 font-semibold">
                           {formatPrice(req.min_price)} ~ {formatPrice(req.max_price)}
                         </div>
-                        <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+                        <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
                           <span className="flex items-center gap-1">
                             <MessageCircle className="h-3.5 w-3.5" />
                             제안 {req.proposal_count ?? 0}건
@@ -232,7 +232,7 @@ export default async function UserDashboardPage() {
         {closedRequests.length > 0 && (
           <div className="mt-8">
             <div className="mb-4 flex items-center gap-2">
-              <Archive className="h-4 w-4 text-gray-400" />
+              <Archive className="h-4 w-4 text-gray-500" />
               <h2 className="font-bold text-gray-500">마감된 요청 ({closedRequests.length})</h2>
             </div>
             <div className="space-y-3">
@@ -254,7 +254,7 @@ export default async function UserDashboardPage() {
                           <div className="mt-1 text-sm text-gray-500">
                             {formatPrice(req.min_price)} ~ {formatPrice(req.max_price)}
                           </div>
-                          <div className="mt-1 flex items-center gap-3 text-xs text-gray-400">
+                          <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                             <span className="flex items-center gap-1">
                               <MessageCircle className="h-3.5 w-3.5" />
                               제안 {req.proposal_count ?? 0}건
@@ -262,7 +262,7 @@ export default async function UserDashboardPage() {
                             <span>마감: {formatDate(req.closed_at ?? req.created_at)}</span>
                           </div>
                         </div>
-                        <span className="text-xs text-gray-400">기록 보기 →</span>
+                        <span className="text-xs text-gray-500">기록 보기 →</span>
                       </div>
                     </CardBody>
                   </Card>

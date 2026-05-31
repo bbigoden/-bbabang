@@ -98,13 +98,13 @@ export function BrokerChatsClient({ user }: { user: any }) {
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-2">
                 <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
-                <p className="text-xs text-gray-400">불러오는 중...</p>
+                <p className="text-xs text-gray-500">불러오는 중...</p>
               </div>
             ) : chatRooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center px-4">
                 <MessageCircle className="h-10 w-10 text-gray-200 mb-3" />
                 <p className="text-sm font-semibold text-gray-500">아직 대화가 없습니다</p>
-                <p className="mt-1 text-xs text-gray-400">고객 요청에 제안하면 대화가 시작됩니다</p>
+                <p className="mt-1 text-xs text-gray-500">고객 요청에 제안하면 대화가 시작됩니다</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
@@ -136,7 +136,7 @@ export function BrokerChatsClient({ user }: { user: any }) {
                           <span className={cn('text-sm font-bold truncate', isSelected ? 'text-blue-800' : 'text-gray-900')}>
                             {customerName}
                           </span>
-                          <span className="text-[10px] text-gray-400 flex-shrink-0">
+                          <span className="text-[10px] text-gray-500 flex-shrink-0">
                             {formatDate(proposal?.created_at ?? room.created_at)}
                           </span>
                         </div>
@@ -171,7 +171,7 @@ export function BrokerChatsClient({ user }: { user: any }) {
                 <MessageCircle className="h-8 w-8 text-blue-500" />
               </div>
               <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">대화를 선택하세요</h3>
-              <p className="mt-1.5 text-sm text-gray-400">왼쪽 목록에서 대화를 클릭하면<br />채팅 내용을 확인할 수 있어요</p>
+              <p className="mt-1.5 text-sm text-gray-500">왼쪽 목록에서 대화를 클릭하면<br />채팅 내용을 확인할 수 있어요</p>
             </div>
           )}
         </div>

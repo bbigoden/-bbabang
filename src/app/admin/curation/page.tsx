@@ -139,7 +139,7 @@ export default function AdminCurationPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+          <Link href="/admin" aria-label="관리자 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
             <ArrowLeft className="h-4 w-4 text-gray-300" />
           </Link>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/20">
@@ -147,7 +147,7 @@ export default function AdminCurationPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">메인 노출 관리</h1>
-            <p className="text-xs text-gray-400">상단 배너·추천 사무소·추천 매물을 직접 골라 메인에 노출</p>
+            <p className="text-xs text-gray-500">상단 배너·추천 사무소·추천 매물을 직접 골라 메인에 노출</p>
           </div>
         </div>
       </header>
@@ -255,7 +255,7 @@ function BannerSection({ banners, onReload, supabase, onToggle, onRemove, onMove
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{b.title}</p>
-                {b.body && <p className="text-xs text-gray-400 truncate">{b.body}</p>}
+                {b.body && <p className="text-xs text-gray-500 truncate">{b.body}</p>}
                 {b.link && <p className="text-[11px] text-blue-400 truncate">{b.link}</p>}
               </div>
               <CurationControls c={b} onToggle={onToggle} onRemove={onRemove} />
@@ -371,7 +371,7 @@ function FeaturedSection({ kind, title, icon: Icon, items, onReload, supabase, o
               <span className="text-xs font-bold text-gray-500 w-5 text-center">{i + 1}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{it._label}</p>
-                {it._sub && <p className="text-xs text-gray-400 truncate">{it._sub}</p>}
+                {it._sub && <p className="text-xs text-gray-500 truncate">{it._sub}</p>}
               </div>
               {it.ref_id && (
                 <Link href={kind === 'featured_broker' ? `/broker/${it.ref_id}` : `/property/${it.ref_id}`} target="_blank"

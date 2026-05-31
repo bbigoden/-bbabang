@@ -174,7 +174,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
             {request.description && (
               <p className="mt-2 text-xs text-gray-500 leading-relaxed line-clamp-3">{request.description}</p>
             )}
-            <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-400">
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
               {request.min_size && <span>최소 {request.min_size}평</span>}
               {request.max_size && <span>최대 {request.max_size}평</span>}
               {request.move_in_date && <span>입주 희망: {String(request.move_in_date)}</span>}
@@ -235,7 +235,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
             {proposals.length === 0 ? (
               <div className="py-12 text-center">
                 <Home className="mx-auto mb-2 h-8 w-8 text-gray-200" />
-                <p className="text-sm text-gray-400">아직 제안이 없습니다</p>
+                <p className="text-sm text-gray-500">아직 제안이 없습니다</p>
                 <p className="mt-1 text-xs text-gray-300">인근 중개사들에게 알림이 발송됩니다</p>
               </div>
             ) : (
@@ -301,7 +301,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                       )}
 
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[10px] text-gray-400">{formatDate(proposal.created_at)}</span>
+                        <span className="text-[10px] text-gray-500">{formatDate(proposal.created_at)}</span>
                         {proposal.status === 'accepted' && (
                           <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">✓ 수락됨</span>
                         )}
@@ -367,7 +367,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               ) : (
                 <>
                   <h3 className="text-base font-bold text-gray-800">제안을 선택하세요</h3>
-                  <p className="mt-1.5 text-sm text-gray-400">왼쪽에서 중개사 제안을 클릭하면<br />바로 대화를 시작할 수 있어요</p>
+                  <p className="mt-1.5 text-sm text-gray-500">왼쪽에서 중개사 제안을 클릭하면<br />바로 대화를 시작할 수 있어요</p>
                 </>
               )}
             </div>
@@ -413,7 +413,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
             비교하기
           </button>
           <button onClick={() => setCompareIds(new Set())} aria-label="선택 해제"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -443,7 +443,7 @@ function CompareModal({ proposals, onClose, onSelect }: {
             <GitCompare className="h-4 w-4 text-amber-500" />
             제안 비교 ({proposals.length}개)
           </h3>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -489,7 +489,7 @@ function CompareModal({ proposals, onClose, onSelect }: {
                             </div>
                           ))}
                         </div>
-                      ) : <span className="text-xs text-gray-400">없음</span>}
+                      ) : <span className="text-xs text-gray-500">없음</span>}
                     </td>
                   ))}
                 </tr>
@@ -570,8 +570,8 @@ function RejectModal({ proposal, onClose, onConfirm }: {
             <XCircle className="h-4 w-4 text-red-500" />
             제안 거절
           </h3>
-          <button onClick={onClose} disabled={busy}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
+          <button onClick={onClose} disabled={busy} aria-label="닫기"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -585,7 +585,7 @@ function RejectModal({ proposal, onClose, onConfirm }: {
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-medium text-gray-700">거절 사유 <span className="text-gray-400 font-normal">(선택)</span></p>
+            <p className="mb-2 text-sm font-medium text-gray-700">거절 사유 <span className="text-gray-500 font-normal">(선택)</span></p>
             <div className="grid grid-cols-2 gap-2">
               {REJECT_REASONS.map(r => (
                 <button key={r} type="button" onClick={() => setReason(r)}

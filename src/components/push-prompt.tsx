@@ -108,12 +108,12 @@ export function PushPrompt({
               {state === 'subscribing' ? '설정 중...' : '허용하기'}
             </button>
             <button onClick={dismiss}
-              className="rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 text-gray-600 dark:text-gray-400 text-xs font-semibold px-3 transition-colors">
+              className="rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 text-gray-600 dark:text-gray-500 text-xs font-semibold px-3 transition-colors">
               나중에
             </button>
           </div>
         </div>
-        <button onClick={dismiss} className="text-gray-300 hover:text-gray-500 -mr-1 -mt-1">
+        <button onClick={dismiss} aria-label="닫기" className="text-gray-300 hover:text-gray-500 -mr-1 -mt-1">
           <X className="h-4 w-4" />
         </button>
       </div>

@@ -196,7 +196,7 @@ export default function BrokerRegisterPage() {
               className={cn('rounded-xl border-2 p-4 text-left transition-all',
                 joinType === opt.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
               )}>
-              <opt.icon className={cn('mb-2 h-5 w-5', joinType === opt.value ? 'text-blue-600' : 'text-gray-400')} />
+              <opt.icon className={cn('mb-2 h-5 w-5', joinType === opt.value ? 'text-blue-600' : 'text-gray-500')} />
               <div className={cn('font-semibold text-sm', joinType === opt.value ? 'text-blue-700' : 'text-gray-700')}>
                 {opt.label}
               </div>
@@ -221,7 +221,7 @@ export default function BrokerRegisterPage() {
                     placeholder="예: A1B2C3" maxLength={6}
                     className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-center text-xl font-mono font-bold tracking-widest text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
                   />
-                  {codeChecking && <p className="mt-1.5 text-xs text-gray-400">조회 중...</p>}
+                  {codeChecking && <p className="mt-1.5 text-xs text-gray-500">조회 중...</p>}
                   {codeError && <p className="mt-1.5 text-xs text-red-500">⚠️ {codeError}</p>}
                   {codePreview && (
                     <div className="mt-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3">

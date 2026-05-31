@@ -195,8 +195,8 @@ export default function NewPropertyPage() {
 
       <div className="mx-auto max-w-xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">
-          <Link href="/broker/properties" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
-            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          <Link href="/broker/properties" aria-label="매물 목록" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
+            <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-500" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">매물 등록</h1>
@@ -237,7 +237,7 @@ export default function NewPropertyPage() {
                 <div className="space-y-3">
                   {PROPERTY_CATEGORIES.map(cat => (
                     <div key={cat.label}>
-                      <p className="mb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{cat.label}</p>
+                      <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{cat.label}</p>
                       <div className="grid grid-cols-4 gap-2">
                         {cat.types.map(t => (
                           <button
@@ -381,7 +381,7 @@ export default function NewPropertyPage() {
             <Card>
               <CardBody>
                 <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  매물 사진 <span className="text-gray-400 font-normal">(선택 · 최대 5장)</span>
+                  매물 사진 <span className="text-gray-500 font-normal">(선택 · 최대 5장)</span>
                 </p>
                 <div className="flex flex-wrap gap-3">
                   {imagePreviews.map((src, i) => (
@@ -397,7 +397,7 @@ export default function NewPropertyPage() {
                     </div>
                   ))}
                   {images.length < 5 && (
-                    <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors">
+                    <label className="flex h-24 w-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors">
                       <ImagePlus className="h-6 w-6 mb-1" />
                       <span className="text-xs">사진 추가</span>
                       <input
@@ -447,7 +447,7 @@ export default function NewPropertyPage() {
                     className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
-                <p className="text-xs text-gray-400">🔒 고객에게 노출되지 않습니다</p>
+                <p className="text-xs text-gray-500">🔒 고객에게 노출되지 않습니다</p>
               </CardBody>
             </Card>
 

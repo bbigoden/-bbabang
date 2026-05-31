@@ -158,6 +158,7 @@ function RequestNewPageInner() {
       <Header />
 
       <div className="mx-auto max-w-xl px-4 py-10">
+        <h1 className="sr-only">새 요청 작성</h1>
         {/* 공동중개 배너 */}
         {isCoBroker && (
           <div className="mb-6 flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
@@ -178,7 +179,7 @@ function RequestNewPageInner() {
                       ? 'bg-blue-600 text-white'
                       : i === step
                       ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-                      : 'bg-gray-200 text-gray-400'
+                      : 'bg-gray-200 text-gray-500'
                   )}
                 >
                   {i < step ? <CheckCircle className="h-4 w-4" /> : i + 1}
@@ -195,7 +196,7 @@ function RequestNewPageInner() {
             ))}
           </div>
           <div className="mt-4">
-            <p className="text-xs text-gray-400">Step {step + 1} / {STEPS.length}</p>
+            <p className="text-xs text-gray-500">Step {step + 1} / {STEPS.length}</p>
             <h2 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{STEPS[step]}</h2>
           </div>
         </div>
@@ -210,7 +211,7 @@ function RequestNewPageInner() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">거래 유형</p>
-                  <span className="text-xs text-gray-400">중복 선택 가능</span>
+                  <span className="text-xs text-gray-500">중복 선택 가능</span>
                 </div>
                 <div className="flex gap-3">
                   {DEAL_TYPES.map((type) => (
@@ -237,12 +238,12 @@ function RequestNewPageInner() {
               <div>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">매물 유형</p>
-                  <span className="text-xs text-gray-400">중복 선택 가능</span>
+                  <span className="text-xs text-gray-500">중복 선택 가능</span>
                 </div>
                 <div className="space-y-3">
                   {PROPERTY_CATEGORIES.map((cat) => (
                     <div key={cat.label}>
-                      <p className="mb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                      <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         {cat.label}
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -271,7 +272,7 @@ function RequestNewPageInner() {
 
               {/* 선택 요약 */}
               {(dealTypes.length > 0 || propertyTypes.length > 0) && (
-                <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-3 text-xs text-gray-600 dark:text-gray-400">
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-3 text-xs text-gray-600 dark:text-gray-500">
                   {dealTypes.length > 0 && (
                     <p>거래: <span className="font-semibold text-blue-600">{dealTypes.join(' · ')}</span></p>
                   )}
@@ -305,7 +306,7 @@ function RequestNewPageInner() {
           {step === 2 && (
             <div className="space-y-5">
               <p className="text-sm text-gray-500">
-                희망 예산 범위를 입력해주세요 <span className="text-gray-400">(단위: 만원)</span>
+                희망 예산 범위를 입력해주세요 <span className="text-gray-500">(단위: 만원)</span>
               </p>
 
               {/* 전세 / 매매 */}
@@ -413,7 +414,7 @@ function RequestNewPageInner() {
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   추가 요청사항{' '}
-                  <span className="text-gray-400 font-normal">(선택)</span>
+                  <span className="text-gray-500 font-normal">(선택)</span>
                 </label>
                 <textarea
                   placeholder="예: 반려동물 가능, 주차 필수, 역세권 선호, 1층 제외 등"
@@ -428,10 +429,10 @@ function RequestNewPageInner() {
               {/* 최종 요약 */}
               <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-4 text-sm space-y-1">
                 <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">등록 요약</p>
-                <p className="text-gray-600 dark:text-gray-400">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
-                <p className="text-gray-600 dark:text-gray-400">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
-                <p className="text-gray-600 dark:text-gray-400">📍 위치: <span className="font-medium">{region ? `${region.sido} ${region.sigungu}${region.dong ? ` ${region.dong}` : ''}` : '-'}</span></p>
-                <p className="text-gray-600 dark:text-gray-400">💰 예산:&nbsp;
+                <p className="text-gray-600 dark:text-gray-500">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-500">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
+                <p className="text-gray-600 dark:text-gray-500">📍 위치: <span className="font-medium">{region ? `${region.sido} ${region.sigungu}${region.dong ? ` ${region.dong}` : ''}` : '-'}</span></p>
+                <p className="text-gray-600 dark:text-gray-500">💰 예산:&nbsp;
                   <span className="font-medium">
                     {Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원
                     {dealTypes.includes('월세') && form.min_monthly && ` / 월세 ${Number(form.min_monthly).toLocaleString()}만~${Number(form.max_monthly).toLocaleString()}만`}

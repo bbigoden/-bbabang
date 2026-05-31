@@ -105,7 +105,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <nav className="mb-3 text-xs text-gray-400" aria-label="경로">
+        <nav className="mb-3 text-xs text-gray-500" aria-label="경로">
           <Link href="/" className="hover:text-blue-600">홈</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <Link href={`/regions/${sido}`} className="hover:text-blue-600">{sidoN}</Link>
@@ -158,7 +158,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
                       <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
                     </div>
                     <p className="text-xs text-gray-500 truncate">{b.office_name}</p>
-                    <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
+                    <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
                       <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
                         <Star className="h-3 w-3 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
                       </span>
@@ -220,7 +220,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
                       <h3 className="text-base font-bold text-gray-900 dark:text-white">{dongName}</h3>
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{info.count}건</span>
                     </div>
-                    <p className="text-xs text-gray-400">최근: {new Date(info.latest).toLocaleDateString('ko-KR')}</p>
+                    <p className="text-xs text-gray-500">최근: {new Date(info.latest).toLocaleDateString('ko-KR')}</p>
                   </Link>
                 </li>
               ))}
@@ -232,7 +232,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         <section className="mt-10">
           <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-white">{sigunguN} 최근 요청</h2>
           {requestsArr.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-400">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
               아직 이 지역에 활성 요청이 없어요.
               <Link href={`/request/new?city=${encodeURIComponent(sidoN)}&district=${encodeURIComponent(sigunguN)}`} className="text-blue-600 hover:underline ml-1">
                 첫 요청 등록하기
@@ -246,13 +246,13 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
                     className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
-                      <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">{r.room_type || '매물'}</span>
+                      <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-500">{r.room_type || '매물'}</span>
                       {r.dong && <span className="text-xs text-gray-500">{r.dong}</span>}
                     </div>
                     <div className="text-sm font-semibold text-gray-900 dark:text-white">
                       {r.min_price != null && r.max_price != null
                         ? `${formatPrice(r.min_price)} ~ ${formatPrice(r.max_price)}`
-                        : <span className="text-gray-400">가격 미지정</span>}
+                        : <span className="text-gray-500">가격 미지정</span>}
                     </div>
                   </Link>
                 </li>
@@ -264,7 +264,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         {/* FAQ */}
         <section className="mt-12 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
-            <HelpCircle className="h-5 w-5 text-gray-400" />
+            <HelpCircle className="h-5 w-5 text-gray-500" />
             {sigunguN} 부동산 FAQ
           </h2>
           <dl className="space-y-4 text-sm">

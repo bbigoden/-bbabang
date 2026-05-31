@@ -104,7 +104,7 @@ interface Finding {
   consoleErrors: string[]
   pageErrors: string[]
   networkFailures: { url: string; status: number }[]
-  a11y: { violations: number; serious: number; ruleIds: string[] } | { error: string } | null
+  a11y: { violations: number; serious: number; ruleIds: string[]; nodes: Array<{ rule: string; impact: string; target: string; html: string; failureSummary: string }> } | { error: string } | null
   textTruncation: { count: number; samples: string[] }
   loadTimeMs: number
   screenshot: string
@@ -162,7 +162,9 @@ async function runAxe(page: Page): Promise<Finding['a11y']> {
   try {
     const ok = await injectAxe(page)
     if (!ok) return { error: 'axe-core not installed' }
-    type AxeResult = { violations: Array<{ id: string; impact?: string }> }
+    type AxeNode = { html?: string; target?: string[]; failureSummary?: string }
+    type AxeViolation = { id: string; impact?: string; nodes: AxeNode[] }
+    type AxeResult = { violations: AxeViolation[] }
     const results = await page.evaluate(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       async () => (await (window as any).axe.run({ resultTypes: ['violations'] })) as AxeResult,
@@ -172,6 +174,13 @@ async function runAxe(page: Page): Promise<Finding['a11y']> {
       violations: violations.length,
       serious: violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').length,
       ruleIds: violations.map((v) => v.id).slice(0, 10),
+      nodes: violations.flatMap(v => v.nodes.slice(0, 3).map(n => ({
+        rule: v.id,
+        impact: v.impact ?? 'unknown',
+        target: (n.target ?? []).join(' '),
+        html: (n.html ?? '').slice(0, 200),
+        failureSummary: (n.failureSummary ?? '').slice(0, 300),
+      }))).slice(0, 30),
     }
   } catch (e) {
     return { error: String(e).slice(0, 200) }

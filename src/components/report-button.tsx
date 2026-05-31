@@ -77,7 +77,7 @@ export function ReportButton({ type, id, variant = 'compact', label }: Props) {
   }
 
   const triggerClass = variant === 'text'
-    ? 'inline-flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors'
+    ? 'inline-flex items-center gap-1 text-xs text-gray-500 hover:text-red-500 transition-colors'
     : 'inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-50 hover:text-red-500 transition-colors'
 
   return (
@@ -97,7 +97,7 @@ export function ReportButton({ type, id, variant = 'compact', label }: Props) {
                 {TARGET_LABEL[type]} 신고
               </h3>
               <button onClick={() => setOpen(false)} disabled={busy}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -146,7 +146,7 @@ export function ReportButton({ type, id, variant = 'compact', label }: Props) {
                       placeholder="구체적인 상황을 알려주세요 (최소 5자)"
                       className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
                     />
-                    <p className="mt-1 text-right text-xs text-gray-400">{content.length}/1000</p>
+                    <p className="mt-1 text-right text-xs text-gray-500">{content.length}/1000</p>
                   </div>
 
                   {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
@@ -154,7 +154,7 @@ export function ReportButton({ type, id, variant = 'compact', label }: Props) {
 
                 <div className="flex gap-2 border-t border-gray-100 dark:border-gray-800 px-5 py-4">
                   <button onClick={() => setOpen(false)} disabled={busy}
-                    className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
+                    className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50">
                     취소
                   </button>
                   <button onClick={submit} disabled={busy}

@@ -98,8 +98,9 @@ export default function UpdatePasswordPage() {
               <button
                 type="button"
                 onClick={() => setShowPw(v => !v)}
-                className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 dark:text-gray-400"
+                className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-600 dark:text-gray-500"
                 tabIndex={-1}
+                aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 보이기'}
               >
                 {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>

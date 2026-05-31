@@ -76,7 +76,7 @@ export const Hoverable: Story = {
       </CardHeader>
       <CardBody>
         <p className="text-sm text-gray-600">보증금 3,000만원 / 월세 150만원</p>
-        <p className="mt-1 text-xs text-gray-400">전용 33㎡ · 2층</p>
+        <p className="mt-1 text-xs text-gray-500">전용 33㎡ · 2층</p>
       </CardBody>
     </Card>
   ),

@@ -153,7 +153,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
                 role === option.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
               )}
             >
-              <option.icon className={cn('mb-2 h-5 w-5', role === option.value ? 'text-blue-600' : 'text-gray-400')} />
+              <option.icon className={cn('mb-2 h-5 w-5', role === option.value ? 'text-blue-600' : 'text-gray-500')} />
               <div className={cn('font-semibold text-sm', role === option.value ? 'text-blue-700' : 'text-gray-700')}>
                 {option.label}
               </div>
@@ -161,8 +161,8 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
             </button>
           ))}
         </div>
-        <p className="mb-6 text-xs text-gray-400 leading-relaxed">
-          소속 직원도 <span className="font-semibold text-gray-600 dark:text-gray-400">중개사·직원</span>을 선택하세요. 다음 단계에서 사장님께 받은 <span className="font-semibold text-gray-600 dark:text-gray-400">6자리 사무소 코드</span>로 합류할 수 있어요.
+        <p className="mb-6 text-xs text-gray-500 leading-relaxed">
+          소속 직원도 <span className="font-semibold text-gray-600 dark:text-gray-500">중개사·직원</span>을 선택하세요. 다음 단계에서 사장님께 받은 <span className="font-semibold text-gray-600 dark:text-gray-500">6자리 사무소 코드</span>로 합류할 수 있어요.
         </p>
 
         <form onSubmit={handleSignup} className="space-y-4">
@@ -185,8 +185,9 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
             <button
               type="button"
               onClick={() => setShowPw(v => !v)}
-              className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600 dark:text-gray-400"
+              className="absolute right-3 top-[38px] text-gray-500 hover:text-gray-600 dark:text-gray-500"
               tabIndex={-1}
+              aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 보이기'}
             >
               {showPw ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
@@ -220,9 +221,9 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
               onChange={(e) => setAgreeTerms(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-700 accent-blue-600"
             />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-gray-600 dark:text-gray-500">
               <Link href="/terms" className="text-blue-600 hover:underline">이용약관</Link>과{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의하며, <span className="font-medium">만 14세 이상</span>입니다 <span className="text-red-500">*</span> <span className="text-gray-400">(필수)</span>
+              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의하며, <span className="font-medium">만 14세 이상</span>입니다 <span className="text-red-500">*</span> <span className="text-gray-500">(필수)</span>
             </span>
           </label>
 
@@ -234,9 +235,9 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
               onChange={(e) => setAgreeMarketing(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-700 accent-blue-600"
             />
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              마케팅 알림 수신에 동의합니다 <span className="text-gray-400">(선택)</span>
-              <span className="block text-xs text-gray-400 mt-0.5">
+            <span className="text-sm text-gray-600 dark:text-gray-500">
+              마케팅 알림 수신에 동의합니다 <span className="text-gray-500">(선택)</span>
+              <span className="block text-xs text-gray-500 mt-0.5">
                 할인·이벤트·신규 기능 소식 등을 이메일·푸시로 받아요. 설정에서 언제든 변경 가능.
               </span>
             </span>

@@ -241,7 +241,7 @@ export default function AdminBrokersPage() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="border-b border-gray-800 bg-gray-900 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center gap-3">
-          <Link href="/admin" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
+          <Link href="/admin" aria-label="관리자 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors">
             <ArrowLeft className="h-4 w-4 text-gray-300" />
           </Link>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/20">
@@ -249,7 +249,7 @@ export default function AdminBrokersPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">사무소 검수</h1>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
               미인증 <span className="font-bold text-yellow-400">{unverifiedCount}</span>곳 ·
               인증 <span className="font-bold text-blue-400">{verifiedCount}</span>곳
             </p>
@@ -283,7 +283,7 @@ export default function AdminBrokersPage() {
             ] as const).map(t => (
               <button key={t.key} onClick={() => setStatus(t.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.label}
               </button>
@@ -298,7 +298,7 @@ export default function AdminBrokersPage() {
         ) : offices.length === 0 ? (
           <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
             <Building2 className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
-            <p className="font-semibold text-gray-400">조건에 맞는 사무소가 없어요</p>
+            <p className="font-semibold text-gray-500">조건에 맞는 사무소가 없어요</p>
           </div>
         ) : (
           <>
@@ -330,7 +330,7 @@ export default function AdminBrokersPage() {
                         <div className="border-t border-gray-800">
                           <button
                             onClick={() => toggleExpand(g.owner.id)}
-                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
+                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-800/40 transition-colors"
                           >
                             <span className="flex items-center gap-1.5">
                               <Users className="h-3.5 w-3.5" />
@@ -432,8 +432,8 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
               </span>
             )}
           </div>
-          <button onClick={onClose} disabled={busy}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
+          <button onClick={onClose} disabled={busy} aria-label="닫기"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -446,7 +446,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
             </div>
             <div>
               <p className="text-lg font-bold text-white">{broker.office_name ?? '—'}</p>
-              <p className="text-sm text-gray-400">대표 · {broker.profiles?.name ?? '(이름 없음)'}</p>
+              <p className="text-sm text-gray-500">대표 · {broker.profiles?.name ?? '(이름 없음)'}</p>
             </div>
           </div>
 
@@ -483,7 +483,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
           {/* 검증 정보 */}
           {Object.keys(v).length > 0 && (
             <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
-              <p className="mb-2 text-xs font-semibold text-gray-400">자동 검증 결과</p>
+              <p className="mb-2 text-xs font-semibold text-gray-500">자동 검증 결과</p>
               <pre className="overflow-x-auto rounded-lg bg-gray-950 px-3 py-2.5 text-[11px] text-gray-300 font-mono">
 {JSON.stringify(v, null, 2)}
               </pre>
@@ -538,7 +538,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">사무소 인증 반려</h3>
-                <p className="text-xs text-gray-400">{broker.office_name ?? '—'}</p>
+                <p className="text-xs text-gray-500">{broker.office_name ?? '—'}</p>
               </div>
             </div>
 

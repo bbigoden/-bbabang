@@ -139,7 +139,7 @@ export default function LandingPage() {
             <Card className="border-red-100">
               <CardBody>
                 <h3 className="mb-4 font-bold text-red-600 dark:text-red-400">😩 기존 플랫폼</h3>
-                <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-500">
                   {[
                     '수백 개 매물을 직접 찾아다녀야 함',
                     '허위매물에 낚여 시간 낭비',
@@ -258,11 +258,11 @@ export default function LandingPage() {
                         <span className="text-xs text-gray-500">{req.rooms} {req.type}</span>
                         <div className="mt-0.5 text-xs font-medium text-blue-600">{req.budget}</div>
                       </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{req.time}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-500">{req.time}</span>
                     </div>
                   ))}
                 </div>
-                <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">* 예시 데이터입니다</p>
+                <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-500">* 예시 데이터입니다</p>
               </div>
             </div>
           </div>

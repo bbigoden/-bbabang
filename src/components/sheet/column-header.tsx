@@ -112,20 +112,20 @@ export function ColumnHeader({
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden min-w-[260px]" style={style}
           onClick={e => e.stopPropagation()}>
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            {isFixed && <Lock className="h-3 w-3 text-gray-400" />}
+            {isFixed && <Lock className="h-3 w-3 text-gray-500" />}
             {label}
           </div>
 
           {!isCustom && onHide && (
             <button onClick={() => { onHide?.(); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
-              <EyeOff className="h-3.5 w-3.5 text-gray-400" />이 칼럼 숨기기
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
+              <EyeOff className="h-3.5 w-3.5 text-gray-500" />이 칼럼 숨기기
             </button>
           )}
 
           {onChangeAreaUnit && (
             <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-800">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">면적 단위</div>
+              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">면적 단위</div>
               <div className="flex gap-1">
                 {(['평', 'm²'] as const).map(u => (
                   <button key={u} onClick={() => onChangeAreaUnit(u)}
@@ -152,13 +152,13 @@ export function ColumnHeader({
                 </div>
               ) : (
                 <button onClick={() => { setRenaming(true); setRenameVal(label) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
-                  <span className="text-gray-400">✏️</span>칼럼 이름 변경
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors">
+                  <span className="text-gray-500">✏️</span>칼럼 이름 변경
                 </button>
               )}
               {onChangeType && colType && (
                 <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-800">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
+                  <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">칼럼 유형</div>
                   <div className="flex gap-1">
                     <button onClick={() => onChangeType('text')}
                       className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>
@@ -181,7 +181,7 @@ export function ColumnHeader({
           {/* 고정칼럼 + colType (text/select 토글) — 고객/매물/일지 공통 */}
           {!isCustom && onChangeType && colType && (
             <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-800">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">칼럼 유형</div>
+              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">칼럼 유형</div>
               <div className="flex gap-1">
                 <button onClick={() => onChangeType('text')}
                   className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${colType === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>
@@ -201,7 +201,7 @@ export function ColumnHeader({
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">다중 선택</span>
                 <button type="button"
                   onClick={() => onChangeMulti(!isMulti)}
-                  role="switch" aria-checked={!!isMulti}
+                  role="switch" aria-checked={!!isMulti} aria-label="다중 선택"
                   className={`relative h-5 w-9 rounded-full transition-colors flex-shrink-0 ${isMulti ? 'bg-blue-600' : 'bg-gray-300'}`}>
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white dark:bg-gray-900 shadow transition-transform ${isMulti ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
@@ -212,13 +212,14 @@ export function ColumnHeader({
           {hasOptions && options && onSetOptions && (
             <>
               {(!isFixed || isCustom) && !onChangeMulti && <div className="border-t border-gray-100 dark:border-gray-800" />}
-              <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">선택 항목</div>
+              <div className="px-3 pt-2 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">선택 항목</div>
               <div className="px-2 pb-1 grid grid-cols-2 gap-1">
                 {options.map(opt => (
                   <div key={opt} className="group/opt flex items-center gap-1 px-1.5 py-1 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 min-w-0">
                     <span className="flex-1 text-xs text-gray-700 dark:text-gray-300 truncate">{opt}</span>
                     <button onClick={() => onSetOptions?.(options.filter(o => o !== opt))}
-                      className="opacity-40 sm:opacity-0 sm:group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all flex-shrink-0">
+                      className="opacity-40 sm:opacity-0 sm:group-hover/opt:opacity-100 flex h-4 w-4 items-center justify-center rounded text-gray-300 hover:text-red-400 transition-all flex-shrink-0"
+                      aria-label={`${opt} 옵션 제거`}>
                       <X className="h-3 w-3" />
                     </button>
                   </div>

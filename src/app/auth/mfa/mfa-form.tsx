@@ -93,7 +93,7 @@ export function MfaForm() {
               <Shield className="h-7 w-7 text-blue-600" />
             </div>
           </div>
-          <p className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">2단계 인증</p>
+          <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">2단계 인증</h1>
           <p className="mt-2 text-sm text-gray-500">인증 앱에 표시된 6자리 코드를 입력해주세요</p>
         </div>
 
@@ -131,7 +131,7 @@ export function MfaForm() {
             </button>
           </form>
 
-          <p className="mt-5 text-center text-xs text-gray-400">
+          <p className="mt-5 text-center text-xs text-gray-500">
             인증 앱이 없거나 코드를 받을 수 없으면{' '}
             <Link href={`${process.env.NEXT_PUBLIC_CONTACT_EMAIL ? `mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL}` : '/support'}`}
               className="underline hover:text-blue-600">
