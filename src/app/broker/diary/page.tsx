@@ -169,12 +169,9 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, onRemove, read
 }) {
   const selected = (propIds ?? []).map(id => allProperties.find(p => p.id === id)).filter(Boolean) as Property[]
   const formatDetail = (p: Property) => {
-    const fmt = (n: number) => n >= 10000
-      ? Math.floor(n / 10000) + '억' + (n % 10000 > 0 ? ' ' + (n % 10000).toLocaleString() + '만' : '')
-      : n.toLocaleString() + '만'
-    const price = p.price == null ? '미정'
-      : p.deal_type === '월세' ? `${fmt(p.price)}/${(p.monthly_rent ?? 0).toLocaleString()}만`
-      : fmt(p.price)
+    const price = p.deal_type === '월세'
+      ? `${p.price != null ? p.price.toLocaleString() + '만' : '—'}/${p.monthly_rent != null ? p.monthly_rent.toLocaleString() + '만' : '—'}`
+      : p.price != null ? `${p.price.toLocaleString()}만` : '—'
     return `${p.deal_type} · ${p.room_type} · ${price}`
   }
   if (selected.length === 0) {
@@ -230,12 +227,12 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
     setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
   const formatPrice = (p: Property) => {
-    if (p.price == null) return '미정'
-    const fmt = (n: number) => n >= 10000
-      ? Math.floor(n / 10000) + '억' + (n % 10000 > 0 ? ' ' + (n % 10000).toLocaleString() + '만' : '')
-      : n.toLocaleString() + '만'
-    if (p.deal_type === '월세') return `${fmt(p.price)}/${(p.monthly_rent ?? 0).toLocaleString()}만`
-    return fmt(p.price)
+    if (p.deal_type === '월세') {
+      const dep = p.price != null ? `${p.price.toLocaleString()}만` : '—'
+      const mo = p.monthly_rent != null ? `${p.monthly_rent.toLocaleString()}만` : '—'
+      return `${dep}/${mo}`
+    }
+    return p.price != null ? `${p.price.toLocaleString()}만` : '—'
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
