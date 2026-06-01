@@ -337,10 +337,27 @@ export function BrokerStatsPanel() {
                     </p>
                   </div>
 
-                  {/* 카드 3: 대표=사무실 수익 / 직원=전월 대비 */}
+                  {/* 카드 3: 대표=사무실 수익 + 전월 대비% / 직원=전월 대비 */}
                   {isOwnerView ? (
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-                      <p className="text-[11px] font-medium text-gray-500">사무실</p>
+                      <div className="flex items-baseline justify-between">
+                        <p className="text-[11px] font-medium text-gray-500">사무실</p>
+                        {(() => {
+                          const prevShare = prev ? Math.max(0, prev.supply - prev.assignee) : 0
+                          if (!prev || prevShare === 0) {
+                            return officeShare > 0
+                              ? <span className="text-[10px] font-bold text-gray-500">신규</span>
+                              : null
+                          }
+                          const pct = Math.round(((officeShare - prevShare) / prevShare) * 100)
+                          const cls = pct >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'
+                          return (
+                            <span className={`text-[10px] font-bold ${cls}`} title={`전월 ${fmtComma(prevShare)}원`}>
+                              전월比 {pct >= 0 ? '+' : ''}{pct}%
+                            </span>
+                          )
+                        })()}
+                      </div>
                       <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">
                         {fmtComma(officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span>
                       </p>
