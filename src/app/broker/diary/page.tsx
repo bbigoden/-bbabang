@@ -70,7 +70,7 @@ interface Customer {
   request: string | null; custom_fields: Record<string, string> | null
 }
 interface Property {
-  id: string; address: string; deal_type: string; room_type: string
+  id: string; seq_no: number | null; address: string; deal_type: string; room_type: string
   price: number; monthly_rent: number | null
 }
 interface DiaryCustomerRow {
@@ -185,7 +185,10 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, onRemove, read
   return (
     <div className="flex flex-wrap gap-1 items-center px-1 py-0.5">
       {selected.map(p => (
-        <span key={p.id} className="group/chip inline-flex items-center gap-0.5 rounded-lg bg-indigo-50 pl-2 pr-0.5 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px]" title={`${p.address || '주소없음'}\n${formatDetail(p)}`}>
+        <span key={p.id} className="group/chip inline-flex items-center gap-1 rounded-lg bg-indigo-50 pl-1.5 pr-0.5 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[180px]" title={`${p.seq_no != null ? `#${p.seq_no} ` : ''}${p.address || '주소없음'}\n${formatDetail(p)}`}>
+          {p.seq_no != null && (
+            <span className="flex-shrink-0 rounded bg-indigo-200/70 px-1 text-[10px] font-bold text-indigo-800 tabular-nums">{p.seq_no}</span>
+          )}
           <span className="truncate">{p.address || '주소없음'}</span>
           {!readOnly && (
             <button
@@ -215,11 +218,13 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds))
   const q = search.toLowerCase()
+  const qDigits = search.replace(/[^0-9]/g, '')
   const filtered = allProperties.filter(p =>
     !search
     || (p.address ?? '').toLowerCase().includes(q)
     || (p.deal_type ?? '').includes(search)
     || (p.room_type ?? '').includes(search)
+    || (qDigits !== '' && p.seq_no != null && String(p.seq_no).includes(qDigits))
   ).slice(0, 30)
   const toggle = (id: string) => {
     setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
@@ -237,7 +242,7 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
         </div>
         <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800">
           <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+            placeholder="매물번호, 주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
         </div>
         <div className="max-h-64 overflow-y-auto">
           {filtered.length === 0
@@ -248,6 +253,11 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
                 <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${selected.has(p.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-gray-700'}`}>
                   {selected.has(p.id) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
+                {p.seq_no != null && (
+                  <span className="flex-shrink-0 inline-flex items-center justify-center rounded-md bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[11px] font-semibold text-gray-500 tabular-nums min-w-[2.25rem]">
+                    {p.seq_no}
+                  </span>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.address}</div>
                   <div className="text-xs text-gray-500">{p.deal_type} · {p.room_type} · {formatPrice(p)}</div>
@@ -601,7 +611,7 @@ export default function BrokerDiaryPage() {
       const all: any[] = []
       for (let from = 0; ; from += PAGE) {
         const { data: page } = await supabase.from('broker_properties')
-          .select('id, address, deal_type, room_type, price, monthly_rent')
+          .select('id, seq_no, address, deal_type, room_type, price, monthly_rent')
           .in('broker_id', brokerIds).order('created_at', { ascending: false }).range(from, from + PAGE - 1)
         if (!page || page.length === 0) break
         all.push(...page)
