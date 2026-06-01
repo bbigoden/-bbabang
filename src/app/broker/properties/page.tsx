@@ -993,7 +993,7 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
           <div className="max-h-64 overflow-y-auto py-1">
             {rows.map(c => (
               <div key={c.key}
-                className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 cursor-pointer"
+                className="flex items-center justify-between px-3 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 cursor-pointer"
                 onClick={() => onToggle(c.key)}>
                 <span className={`text-xs font-medium ${visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`}>{c.label}</span>
                 <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${visible.includes(c.key) ? 'text-gray-500' : 'text-gray-200'}`} />
