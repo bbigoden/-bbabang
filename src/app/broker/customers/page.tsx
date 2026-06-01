@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Search, Users, Eye, MoreHorizontal, X, Lock, Download, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, Users, Eye, MoreHorizontal, X, Lock, Download, Check } from 'lucide-react'
+import { Pagination } from '@/components/sheet/pagination'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -1068,41 +1069,14 @@ export default function BrokerCustomersPage() {
           </div>
         </div>
 
-        {/* 페이지네이션 */}
-        <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
-            {totalPages > 1 && (
-              <>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="이전 페이지"
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
-                ><ChevronLeft className="h-4 w-4" /></button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
-                  .reduce<(number | '...')[]>((acc, n, i, arr) => {
-                    if (i > 0 && (n as number) - (arr[i - 1] as number) > 1) acc.push('...')
-                    acc.push(n); return acc
-                  }, [])
-                  .map((n, i) => n === '...'
-                    ? <span key={`e${i}`} className="px-1 text-gray-500">…</span>
-                    : <button key={n} onClick={() => setPage(n as number)}
-                        className={`h-9 w-9 rounded-xl border text-sm font-semibold transition-colors ${page === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
-                      >{n}</button>
-                  )
-                }
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="다음 페이지"
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-40 transition-colors"
-                ><ChevronRight className="h-4 w-4" /></button>
-              </>
-            )}
-            <div className="flex items-center gap-1 ml-3">
-              <span className="text-sm text-gray-500">페이지당</span>
-              {[10, 20, 50, 100].map(n => (
-                <button key={n} onClick={() => setPageSize(n)}
-                  className={`h-8 px-2.5 rounded-lg border text-xs font-semibold transition-colors ${pageSize === n ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
-                >{n}개</button>
-              ))}
-              <span className="text-sm text-gray-500 ml-1">| 총 {filtered.length}개</span>
-            </div>
-          </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalCount={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* 불러오기 모달 */}
