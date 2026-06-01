@@ -2468,8 +2468,8 @@ function BrokerPropertiesContent() {
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={syncedOrder.length + 2} className="py-20 text-center text-sm text-gray-500">
-                    {searchQuery || filterDealType || filterRoomTypes.length > 0 ? '검색 결과가 없습니다' : '등록된 매물이 없습니다'}
+                  <td colSpan={syncedOrder.length + 2} className="py-16 text-center text-sm text-gray-500">
+                    {searchQuery || filterDealType || filterRoomTypes.length > 0 ? '검색 결과가 없어요' : '아직 등록된 매물이 없어요'}
                   </td>
                 </tr>
               ) : paginated.map((p) => (

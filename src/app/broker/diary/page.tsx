@@ -1030,7 +1030,7 @@ export default function BrokerDiaryPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
-      <div className="mx-auto max-w-screen-xl px-3 py-4 sm:px-4 sm:py-6 space-y-4">
+      <div className="px-4 py-6 space-y-4">
 
         {/* 날짜 헤더 */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1123,7 +1123,7 @@ export default function BrokerDiaryPage() {
                 </thead>
                 <tbody>
                   {diaryCustomers.length === 0 ? (
-                    <tr><td colSpan={activeCols.length + 1} className="py-12 text-center text-sm text-gray-500">아래 버튼으로 고객을 추가하세요</td></tr>
+                    <tr><td colSpan={activeCols.length + 1} className="py-16 text-center text-sm text-gray-500">아래 버튼으로 고객을 추가하세요</td></tr>
                   ) : diaryCustomers.map((c) => (
                     <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
                       {activeCols.map(col => (
@@ -1135,7 +1135,7 @@ export default function BrokerDiaryPage() {
                   {effectiveCanEdit && (
                     <tr><td colSpan={activeCols.length + 1} className="border-t border-gray-100 dark:border-gray-800">
                       <div className="flex items-center divide-x divide-gray-100">
-                        <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
+                        <button onClick={() => setShowPicker(true)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-600 dark:text-gray-500 hover:bg-gray-50/80 transition-colors">
                           <Plus className="h-3.5 w-3.5" />고객 등록
                         </button>
                         <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
