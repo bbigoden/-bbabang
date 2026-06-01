@@ -15,6 +15,7 @@ type Range = 30 | 90 | 365
 interface Bucket { date: string; count: number }
 interface Row { key: string; count: number }
 interface MonthBucket { month: string; total: number; assignee: number; takeHome: number }
+interface Member { id: string; name: string }
 
 export function BrokerStatsPanel() {
   const supabaseRef = useRef(createClient())
@@ -35,6 +36,9 @@ export function BrokerStatsPanel() {
   })
   const [settlementSeries, setSettlementSeries] = useState<MonthBucket[]>([])
   const [isOwnerView, setIsOwnerView] = useState(false)
+  const [members, setMembers] = useState<Member[]>([])
+  // 정산 직원 필터 — '' = 사무소 전체, <broker_id> = 그 직원만
+  const [settlementAssigneeId, setSettlementAssigneeId] = useState<string>('')
 
   const load = useCallback(async () => {
     if (!auth.user) return
@@ -50,6 +54,18 @@ export function BrokerStatsPanel() {
     const isOwner = !!broker.is_owner
     const officeId = isOwner ? broker.id : broker.parent_broker_id
     setIsOwnerView(isOwner)
+
+    // 대표일 때만 사무소 멤버 목록 로드 (직원 필터용)
+    if (isOwner && officeId) {
+      const { data: mems } = await supabase
+        .from('broker_profiles')
+        .select('id, is_owner, is_approved, profiles:user_id(name)')
+        .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`)
+      const list: Member[] = ((mems ?? []) as any[])
+        .filter(m => m.is_owner || m.is_approved)
+        .map(m => ({ id: m.id, name: m.profiles?.name ?? '이름 없음' }))
+      setMembers(list)
+    }
 
     supabase.rpc('refresh_broker_metrics', { p_broker_id: broker.id }).then(() => {}, () => {})
 
@@ -170,9 +186,13 @@ export function BrokerStatsPanel() {
         .from('settlements')
         .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override, record_month, assignee_broker_id')
         .in('record_month', months)
-      sq = isOwner
-        ? sq.eq('office_broker_id', officeId)
-        : sq.eq('assignee_broker_id', broker.id)
+      if (isOwner) {
+        sq = sq.eq('office_broker_id', officeId)
+        // 대표가 특정 직원 필터를 걸었으면 그 직원 정산만
+        if (settlementAssigneeId) sq = sq.eq('assignee_broker_id', settlementAssigneeId)
+      } else {
+        sq = sq.eq('assignee_broker_id', broker.id)
+      }
 
       const { data: sRows } = await sq
       const settlements = (sRows ?? []) as any[]
@@ -205,7 +225,7 @@ export function BrokerStatsPanel() {
     }
 
     setLoading(false)
-  }, [auth.user, range, supabase])
+  }, [auth.user, range, supabase, settlementAssigneeId])
 
   useEffect(() => {
     if (auth.profile?.role === 'broker') load()
@@ -266,12 +286,36 @@ export function BrokerStatsPanel() {
           </ChartCard>
 
           {/* ── 정산 요약 ─────────────────────────────────── */}
-          <div className="mt-6 mb-3 flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-teal-600" />
-            <h3 className="font-bold text-gray-900 dark:text-white">정산 요약</h3>
-            <span className="text-xs text-gray-500">
-              · {isOwnerView ? '사무소 전체' : '내 담당'} · 최근 {range === 30 ? '1개월' : range === 90 ? '3개월' : '12개월'} 기록월 기준
-            </span>
+          <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-teal-600" />
+              <h3 className="font-bold text-gray-900 dark:text-white">정산 요약</h3>
+              <span className="text-xs text-gray-500">
+                · {isOwnerView
+                  ? (settlementAssigneeId
+                      ? `${members.find(m => m.id === settlementAssigneeId)?.name ?? '직원'} 담당`
+                      : '사무소 전체')
+                  : '내 담당'} · 최근 {range === 30 ? '1개월' : range === 90 ? '3개월' : '12개월'} 기록월 기준
+              </span>
+            </div>
+            {/* 대표 전용: 직원 필터 셀렉트 */}
+            {isOwnerView && members.length > 0 && (
+              <select
+                value={settlementAssigneeId}
+                onChange={e => setSettlementAssigneeId(e.target.value)}
+                aria-label="정산 직원 필터"
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${
+                  settlementAssigneeId
+                    ? 'border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                }`}
+              >
+                <option value="">전체 직원</option>
+                {members.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           {(() => {
             // 마지막 2개월 비교 → 전월 대비 증감 화살표
