@@ -169,9 +169,12 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, onRemove, read
 }) {
   const selected = (propIds ?? []).map(id => allProperties.find(p => p.id === id)).filter(Boolean) as Property[]
   const formatDetail = (p: Property) => {
-    const price = p.deal_type === '월세'
-      ? `${Math.round(p.price / 10000)}/${Math.round((p.monthly_rent ?? 0) / 10000)}만`
-      : `${Math.round(p.price / 10000)}만`
+    const fmt = (n: number) => n >= 10000
+      ? Math.floor(n / 10000) + '억' + (n % 10000 > 0 ? ' ' + (n % 10000).toLocaleString() + '만' : '')
+      : n.toLocaleString() + '만'
+    const price = p.price == null ? '미정'
+      : p.deal_type === '월세' ? `${fmt(p.price)}/${(p.monthly_rent ?? 0).toLocaleString()}만`
+      : fmt(p.price)
     return `${p.deal_type} · ${p.room_type} · ${price}`
   }
   if (selected.length === 0) {
@@ -227,8 +230,12 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
     setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
   }
   const formatPrice = (p: Property) => {
-    if (p.deal_type === '월세') return `${(p.price/10000).toFixed(0)}/${(p.monthly_rent??0)/10000}만`
-    return `${(p.price/10000).toFixed(0)}만`
+    if (p.price == null) return '미정'
+    const fmt = (n: number) => n >= 10000
+      ? Math.floor(n / 10000) + '억' + (n % 10000 > 0 ? ' ' + (n % 10000).toLocaleString() + '만' : '')
+      : n.toLocaleString() + '만'
+    if (p.deal_type === '월세') return `${fmt(p.price)}/${(p.monthly_rent ?? 0).toLocaleString()}만`
+    return fmt(p.price)
   }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
@@ -250,6 +257,11 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
                 <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${selected.has(p.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-gray-700'}`}>
                   {selected.has(p.id) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
+                {search && p.seq_no != null && (
+                  <span className="flex-shrink-0 inline-flex items-center justify-center rounded-md bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[11px] font-semibold text-gray-500 tabular-nums min-w-[2.25rem]">
+                    {p.seq_no}
+                  </span>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.address}</div>
                   <div className="text-xs text-gray-500">{p.deal_type} · {p.room_type} · {formatPrice(p)}</div>
