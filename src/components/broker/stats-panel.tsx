@@ -5,13 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import {
   BarChart3, TrendingUp, MapPin, Calendar,
-  Target, Clock, Star,
+  Target, Clock, Star, Calculator, FileText, ThumbsUp, Wallet,
 } from 'lucide-react'
+import { calcSettlement, fmtComma } from '@/lib/settlement'
 
 type Range = 30 | 90 | 365
 
 interface Bucket { date: string; count: number }
 interface Row { key: string; count: number }
+interface MonthBucket { month: string; total: number; assignee: number; takeHome: number }
 
 export function BrokerStatsPanel() {
   const supabaseRef = useRef(createClient())
@@ -27,6 +29,11 @@ export function BrokerStatsPanel() {
     proposals: 0, accepted: 0, rejected: 0, pending: 0,
     acceptanceRate: 0, avgResponseHours: 0, deals: 0, rating: 0, reviewCount: 0,
   })
+  const [settlementTotals, setSettlementTotals] = useState({
+    count: 0, totalFee: 0, assigneeSum: 0, takeHomeSum: 0,
+  })
+  const [settlementSeries, setSettlementSeries] = useState<MonthBucket[]>([])
+  const [isOwnerView, setIsOwnerView] = useState(false)
 
   const load = useCallback(async () => {
     if (!auth.user) return
@@ -34,10 +41,14 @@ export function BrokerStatsPanel() {
 
     const { data: broker } = await supabase
       .from('broker_profiles')
-      .select('id, deal_count, rating, review_count')
+      .select('id, deal_count, rating, review_count, is_owner, parent_broker_id')
       .eq('user_id', auth.user.id)
       .single()
     if (!broker) { setLoading(false); return }
+
+    const isOwner = !!broker.is_owner
+    const officeId = isOwner ? broker.id : broker.parent_broker_id
+    setIsOwnerView(isOwner)
 
     supabase.rpc('refresh_broker_metrics', { p_broker_id: broker.id }).then(() => {}, () => {})
 
@@ -139,6 +150,52 @@ export function BrokerStatsPanel() {
     })
     setByRegion(Array.from(regMap.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count).slice(0, 10))
 
+    // ── 정산 데이터 ─────────────────────────────────────────
+    // 기간을 기록월 개수로 매핑: 30일 → 1개월, 90일 → 3개월, 365일 → 12개월
+    const monthCount = range === 30 ? 1 : range === 90 ? 3 : 12
+    const now = new Date()
+    const months: string[] = []
+    for (let i = monthCount - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+
+    if (officeId) {
+      let sq = supabase
+        .from('settlements')
+        .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override, record_month, assignee_broker_id')
+        .in('record_month', months)
+      sq = isOwner
+        ? sq.eq('office_broker_id', officeId)
+        : sq.eq('assignee_broker_id', broker.id)
+
+      const { data: sRows } = await sq
+      const settlements = (sRows ?? []) as any[]
+
+      let count = 0, totalFee = 0, assigneeSum = 0, takeHomeSum = 0
+      const monthMap = new Map<string, { total: number; assignee: number; takeHome: number }>()
+      for (const m of months) monthMap.set(m, { total: 0, assignee: 0, takeHome: 0 })
+
+      for (const s of settlements) {
+        const c = calcSettlement(s)
+        count += 1
+        totalFee += c.total
+        assigneeSum += c.assignee
+        takeHomeSum += c.takeHome
+        const m = monthMap.get(s.record_month)
+        if (m) {
+          m.total += c.total
+          m.assignee += c.assignee
+          m.takeHome += c.takeHome
+        }
+      }
+      setSettlementTotals({ count, totalFee, assigneeSum, takeHomeSum })
+      setSettlementSeries(months.map(m => ({ month: m, ...(monthMap.get(m)!) })))
+    } else {
+      setSettlementTotals({ count: 0, totalFee: 0, assigneeSum: 0, takeHomeSum: 0 })
+      setSettlementSeries(months.map(m => ({ month: m, total: 0, assignee: 0, takeHome: 0 })))
+    }
+
     setLoading(false)
   }, [auth.user, range, supabase])
 
@@ -198,6 +255,25 @@ export function BrokerStatsPanel() {
               primary={proposalSeries.all} primaryLabel="전체" primaryColor="bg-blue-500"
               secondary={proposalSeries.accepted} secondaryLabel="수락됨" secondaryColor="bg-green-500"
             />
+          </ChartCard>
+
+          {/* ── 정산 요약 ─────────────────────────────────── */}
+          <div className="mt-6 mb-3 flex items-center gap-2">
+            <Calculator className="h-5 w-5 text-teal-600" />
+            <h3 className="font-bold text-gray-900 dark:text-white">정산 요약</h3>
+            <span className="text-xs text-gray-500">
+              · {isOwnerView ? '사무소 전체' : '내 담당'} · 최근 {range === 30 ? '1개월' : range === 90 ? '3개월' : '12개월'} 기록월 기준
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <Summary icon={FileText} label="계약 건수" value={`${settlementTotals.count}건`} sub="정산 등록 기준" color="bg-gray-50 text-gray-500" />
+            <Summary icon={Calculator} label="총수수료" value={`${fmtComma(settlementTotals.totalFee)}원`} sub="매도+매수 합" color="bg-teal-50 text-teal-500" />
+            <Summary icon={ThumbsUp} label={isOwnerView ? '담당자 몫' : '내 수수료'} value={`${fmtComma(settlementTotals.assigneeSum)}원`} sub="원천 전" color="bg-blue-50 text-blue-500" />
+            <Summary icon={Wallet} label="실수령" value={`${fmtComma(settlementTotals.takeHomeSum)}원`} sub="원천 후" color="bg-indigo-50 text-indigo-500" />
+          </div>
+
+          <ChartCard title="월별 수수료 추이" icon={TrendingUp} subtitle={`최근 ${range === 30 ? 1 : range === 90 ? 3 : 12}개월`}>
+            <SettlementBars series={settlementSeries} isOwnerView={isOwnerView} />
           </ChartCard>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -283,6 +359,32 @@ function DualBars({ primary, primaryLabel, primaryColor, secondary, secondaryLab
       <div className="mt-2 flex justify-between text-[10px] text-gray-500">
         <span>{primary[0]?.date.slice(5)}</span>
         <span>{primary[primary.length - 1]?.date.slice(5)}</span>
+      </div>
+    </div>
+  )
+}
+
+function SettlementBars({ series, isOwnerView }: { series: MonthBucket[]; isOwnerView: boolean }) {
+  if (series.every(s => s.total === 0)) {
+    return <p className="py-8 text-center text-sm text-gray-500">해당 기간 정산 데이터가 없어요</p>
+  }
+  const max = Math.max(1, ...series.map(s => s.total))
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-4 text-xs">
+        <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-teal-400" />총수수료</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-blue-500" />{isOwnerView ? '담당자 몫' : '내 수수료'}</span>
+      </div>
+      <div className="flex items-end gap-1 h-32">
+        {series.map((s) => (
+          <div key={s.month} className="flex-1 flex flex-col items-center gap-1 group relative">
+            <div className="w-full flex items-end gap-px h-full justify-center">
+              <div className="bg-teal-400 rounded-t-sm flex-1" style={{ height: `${(s.total / max) * 100}%` }} title={`총수수료 ${fmtComma(s.total)}원`} />
+              <div className="bg-blue-500 rounded-t-sm flex-1" style={{ height: `${(s.assignee / max) * 100}%` }} title={`담당자 ${fmtComma(s.assignee)}원`} />
+            </div>
+            <span className="text-[10px] text-gray-500">{s.month.slice(5)}월</span>
+          </div>
+        ))}
       </div>
     </div>
   )
