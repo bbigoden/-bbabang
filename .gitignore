@@ -58,3 +58,6 @@ storybook-static
 test-results/
 playwright-report/
 .gitignore.append
+
+# 로컬 시안·임시 파일
+tmp/

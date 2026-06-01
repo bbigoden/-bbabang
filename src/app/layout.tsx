@@ -66,7 +66,7 @@ export const viewport: import('next').Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: '#2563EB',
+  themeColor: '#14274e',
 }
 
 export default function RootLayout({
