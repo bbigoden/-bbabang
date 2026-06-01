@@ -150,7 +150,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800"><span className="text-xs font-medium text-gray-500">표에 표시하기</span></div>
           <div className="max-h-64 overflow-y-auto py-1">
             {rows.map(c => (
-              <div key={c.key} className={`flex items-center justify-between px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !c.fixed && onToggle(c.key)}>
+              <div key={c.key} className={`flex items-center justify-between px-3 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !c.fixed && onToggle(c.key)}>
                 <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`}>{c.label}</span>
                 <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${c.fixed || visible.includes(c.key) ? 'text-gray-500' : 'text-gray-200'}`} />
               </div>
