@@ -185,10 +185,7 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, onRemove, read
   return (
     <div className="flex flex-wrap gap-1 items-center px-1 py-0.5">
       {selected.map(p => (
-        <span key={p.id} className="group/chip inline-flex items-center gap-1 rounded-lg bg-indigo-50 pl-1.5 pr-0.5 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[180px]" title={`${p.seq_no != null ? `#${p.seq_no} ` : ''}${p.address || '주소없음'}\n${formatDetail(p)}`}>
-          {p.seq_no != null && (
-            <span className="flex-shrink-0 rounded bg-indigo-200/70 px-1 text-[10px] font-bold text-indigo-800 tabular-nums">{p.seq_no}</span>
-          )}
+        <span key={p.id} className="group/chip inline-flex items-center gap-0.5 rounded-lg bg-indigo-50 pl-2 pr-0.5 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px]" title={`${p.seq_no != null ? `#${p.seq_no} ` : ''}${p.address || '주소없음'}\n${formatDetail(p)}`}>
           <span className="truncate">{p.address || '주소없음'}</span>
           {!readOnly && (
             <button
@@ -253,11 +250,6 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
                 <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-colors ${selected.has(p.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300 dark:border-gray-700'}`}>
                   {selected.has(p.id) && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
-                {p.seq_no != null && (
-                  <span className="flex-shrink-0 inline-flex items-center justify-center rounded-md bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[11px] font-semibold text-gray-500 tabular-nums min-w-[2.25rem]">
-                    {p.seq_no}
-                  </span>
-                )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{p.address}</div>
                   <div className="text-xs text-gray-500">{p.deal_type} · {p.room_type} · {formatPrice(p)}</div>
