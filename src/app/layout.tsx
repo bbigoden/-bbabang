@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     description: '내 조건만 올리면 공인중개사가 먼저 제안합니다. 전세·월세·매매 부동산 역경매 매칭 플랫폼',
     images: [
       {
-        url: '/og-image.svg',
+        url: '/og-image.png',
         width: 1200,
         height: 630,
         alt: '빠방 - 부동산 중개 매칭 플랫폼',
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '빠방 - 조건만 올리면 중개사가 찾아드립니다',
     description: '내 조건만 올리면 공인중개사가 먼저 제안합니다.',
-    images: ['/og-image.svg'],
+    images: ['/og-image.png'],
   },
   robots: {
     index: true,
@@ -136,10 +136,10 @@ export default function RootLayout({
               <NotificationsProvider>
                 <ToastProvider>
                   <BrokerGlobalLayout>
-                    <main id="main">{children}</main>
+                    <main id="main" className="flex-1">{children}</main>
+                    <Footer />
                   </BrokerGlobalLayout>
                   <ConsentGate />
-                  <Footer />
                   <BottomNav />
                   <InstallPrompt />
                 </ToastProvider>
