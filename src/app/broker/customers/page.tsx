@@ -1066,9 +1066,10 @@ export default function BrokerCustomersPage() {
               </tbody>
             </table>
           </div>
+        </div>
 
-          {/* 페이지네이션 */}
-          <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+        {/* 페이지네이션 */}
+        <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
             {totalPages > 1 && (
               <>
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="이전 페이지"
@@ -1102,7 +1103,6 @@ export default function BrokerCustomersPage() {
               <span className="text-sm text-gray-500 ml-1">| 총 {filtered.length}개</span>
             </div>
           </div>
-        </div>
       </div>
 
       {/* 불러오기 모달 */}
