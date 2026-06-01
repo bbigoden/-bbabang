@@ -5,8 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import {
   BarChart3, TrendingUp, MapPin, Calendar,
-  Target, Clock, Star, Calculator, FileText, ThumbsUp, Wallet,
-  ArrowUpRight, ArrowDownRight, Minus,
+  Target, Clock, Star, Calculator,
 } from 'lucide-react'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
 
@@ -14,7 +13,7 @@ type Range = 30 | 90 | 365
 
 interface Bucket { date: string; count: number }
 interface Row { key: string; count: number }
-interface MonthBucket { month: string; total: number; assignee: number; takeHome: number }
+interface MonthBucket { month: string; total: number; supply: number; assignee: number; takeHome: number; count: number }
 interface Member { id: string; name: string }
 
 export function BrokerStatsPanel() {
@@ -30,9 +29,6 @@ export function BrokerStatsPanel() {
   const [totals, setTotals] = useState({
     proposals: 0, accepted: 0, rejected: 0, pending: 0,
     acceptanceRate: 0, avgResponseHours: 0, deals: 0, rating: 0, reviewCount: 0,
-  })
-  const [settlementTotals, setSettlementTotals] = useState({
-    count: 0, totalFee: 0, assigneeSum: 0, takeHomeSum: 0,
   })
   const [settlementSeries, setSettlementSeries] = useState<MonthBucket[]>([])
   const [isOwnerView, setIsOwnerView] = useState(false)
@@ -168,9 +164,8 @@ export function BrokerStatsPanel() {
     setByRegion(Array.from(regMap.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count).slice(0, 10))
 
     // ── 정산 데이터 ─────────────────────────────────────────
-    // 카드 합계 기간: 30일=1개월, 90일=3개월, 365일=12개월
-    // 차트 추이: 365일이면 12개월, 그 외엔 항상 6개월 (상승·하락 비교 위해 단발성 1개월은 무의미)
-    const totalMonths = range === 30 ? 1 : range === 90 ? 3 : 12
+    // 카드 = '이번 달(가장 최근 기록월)' 단일 — 정산 페이지와 동일 사고방식
+    // 차트 추이: 365일이면 12개월, 그 외엔 6개월 (월별 상승·하락 비교)
     const chartMonths = range === 365 ? 12 : 6
     const now = new Date()
     const months: string[] = []
@@ -178,8 +173,6 @@ export function BrokerStatsPanel() {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
     }
-    // 카드 집계 대상 (차트 기간의 마지막 N개월)
-    const totalMonthSet = new Set(months.slice(-totalMonths))
 
     if (officeId) {
       let sq = supabase
@@ -197,31 +190,23 @@ export function BrokerStatsPanel() {
       const { data: sRows } = await sq
       const settlements = (sRows ?? []) as any[]
 
-      let count = 0, totalFee = 0, assigneeSum = 0, takeHomeSum = 0
-      const monthMap = new Map<string, { total: number; assignee: number; takeHome: number }>()
-      for (const m of months) monthMap.set(m, { total: 0, assignee: 0, takeHome: 0 })
+      const monthMap = new Map<string, { total: number; supply: number; assignee: number; takeHome: number; count: number }>()
+      for (const m of months) monthMap.set(m, { total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0 })
 
       for (const s of settlements) {
         const c = calcSettlement(s)
         const m = monthMap.get(s.record_month)
         if (m) {
           m.total += c.total
+          m.supply += c.supply
           m.assignee += c.assignee
           m.takeHome += c.takeHome
-        }
-        // 카드 합계는 사용자가 선택한 range 기간만
-        if (totalMonthSet.has(s.record_month)) {
-          count += 1
-          totalFee += c.total
-          assigneeSum += c.assignee
-          takeHomeSum += c.takeHome
+          m.count += 1
         }
       }
-      setSettlementTotals({ count, totalFee, assigneeSum, takeHomeSum })
       setSettlementSeries(months.map(m => ({ month: m, ...(monthMap.get(m)!) })))
     } else {
-      setSettlementTotals({ count: 0, totalFee: 0, assigneeSum: 0, takeHomeSum: 0 })
-      setSettlementSeries(months.map(m => ({ month: m, total: 0, assignee: 0, takeHome: 0 })))
+      setSettlementSeries(months.map(m => ({ month: m, total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0 })))
     }
 
     setLoading(false)
@@ -285,52 +270,106 @@ export function BrokerStatsPanel() {
             />
           </ChartCard>
 
-          {/* ── 정산 요약 ─────────────────────────────────── */}
-          <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Calculator className="h-5 w-5 text-teal-600" />
-              <h3 className="font-bold text-gray-900 dark:text-white">정산 요약</h3>
-              <span className="text-xs text-gray-500">
-                · {isOwnerView
-                  ? (settlementAssigneeId
-                      ? `${members.find(m => m.id === settlementAssigneeId)?.name ?? '직원'} 담당`
-                      : '사무소 전체')
-                  : '내 담당'} · 최근 {range === 30 ? '1개월' : range === 90 ? '3개월' : '12개월'} 기록월 기준
-              </span>
-            </div>
-            {/* 대표 전용: 직원 필터 셀렉트 */}
-            {isOwnerView && members.length > 0 && (
-              <select
-                value={settlementAssigneeId}
-                onChange={e => setSettlementAssigneeId(e.target.value)}
-                aria-label="정산 직원 필터"
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${
-                  settlementAssigneeId
-                    ? 'border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300'
-                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'
-                }`}
-              >
-                <option value="">전체 직원</option>
-                {members.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
+          {/* ── 정산 요약 ─ 정산 페이지와 동일한 3카드 구조 ─── */}
           {(() => {
-            // 마지막 2개월 비교 → 전월 대비 증감 화살표
-            const last = settlementSeries[settlementSeries.length - 1]
-            const prev = settlementSeries[settlementSeries.length - 2]
-            const totalDelta = last && prev ? deltaPct(last.total, prev.total) : null
-            const assigneeDelta = last && prev ? deltaPct(last.assignee, prev.assignee) : null
-            const takeHomeDelta = last && prev ? deltaPct(last.takeHome, prev.takeHome) : null
+            const last = settlementSeries[settlementSeries.length - 1] ?? { total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0, month: '' }
+            const prev = settlementSeries[settlementSeries.length - 2] ?? null
+            const officeShare = Math.max(0, last.supply - last.assignee)
+            const labelMonth = last.month ? `${Number(last.month.slice(5))}월` : '이번 달'
             return (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                <SettlementCard icon={FileText} label="계약 건수" value={`${settlementTotals.count}건`} sub="정산 등록 기준" color="bg-gray-50 text-gray-500" />
-                <SettlementCard icon={Calculator} label="총수수료" value={`${fmtComma(settlementTotals.totalFee)}원`} sub="매도+매수 합" color="bg-teal-50 text-teal-500" delta={totalDelta} />
-                <SettlementCard icon={ThumbsUp} label={isOwnerView ? '담당자 몫' : '내 수수료'} value={`${fmtComma(settlementTotals.assigneeSum)}원`} sub="원천 전" color="bg-blue-50 text-blue-500" delta={assigneeDelta} />
-                <SettlementCard icon={Wallet} label="실수령" value={`${fmtComma(settlementTotals.takeHomeSum)}원`} sub="원천 후" color="bg-indigo-50 text-indigo-500" delta={takeHomeDelta} />
-              </div>
+              <>
+                <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-teal-600" />
+                    <h3 className="font-bold text-gray-900 dark:text-white">정산 요약</h3>
+                    <span className="text-xs text-gray-500">
+                      · {isOwnerView
+                        ? (settlementAssigneeId
+                            ? `${members.find(m => m.id === settlementAssigneeId)?.name ?? '직원'} 담당`
+                            : '사무소 전체')
+                        : '내 담당'} · {labelMonth} 기록월 기준
+                    </span>
+                  </div>
+                  {/* 대표 전용: 직원 필터 셀렉트 */}
+                  {isOwnerView && members.length > 0 && (
+                    <select
+                      value={settlementAssigneeId}
+                      onChange={e => setSettlementAssigneeId(e.target.value)}
+                      aria-label="정산 직원 필터"
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${
+                        settlementAssigneeId
+                          ? 'border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300'
+                          : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                      }`}
+                    >
+                      <option value="">전체 직원</option>
+                      {members.map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* 정산 페이지와 동일한 3카드 구조 */}
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3 mb-4">
+                  {/* 카드 1: 전체 (총수수료 = 공급가 + VAT) */}
+                  <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+                    <div className="flex items-baseline justify-between">
+                      <p className="text-[11px] font-medium text-gray-500">전체</p>
+                      <p className="text-[11px] font-semibold text-gray-500">총 {last.count}건</p>
+                    </div>
+                    <p className="mt-1 text-xl font-black text-gray-900 dark:text-white">
+                      {fmtComma(last.total)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span>
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-gray-500">
+                      = 공급가 {fmtComma(last.supply)} + VAT {fmtComma(last.total - last.supply)}
+                    </p>
+                  </div>
+
+                  {/* 카드 2: 담당자 */}
+                  <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+                    <p className="text-[11px] font-medium text-gray-500">담당자</p>
+                    <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">
+                      {fmtComma(last.assignee)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span>
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-gray-500">
+                      = 실수령 {fmtComma(last.takeHome)} + 원천 {fmtComma(last.assignee - last.takeHome)}
+                    </p>
+                  </div>
+
+                  {/* 카드 3: 대표=사무실 수익 / 직원=전월 대비 */}
+                  {isOwnerView ? (
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+                      <p className="text-[11px] font-medium text-gray-500">사무실</p>
+                      <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">
+                        {fmtComma(officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span>
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-gray-500">
+                        = 공급가 {fmtComma(last.supply)} − 담당자 {fmtComma(last.assignee)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+                      <p className="text-[11px] font-medium text-gray-500">전월 대비</p>
+                      {(() => {
+                        if (!prev || prev.takeHome === 0) {
+                          if (last.takeHome === 0) return <p className="mt-1 text-xl font-black text-gray-500">—</p>
+                          return (<>
+                            <p className="mt-1 text-xl font-black text-gray-500">신규</p>
+                            <p className="mt-0.5 text-[10px] text-gray-500">전월 데이터 없음</p>
+                          </>)
+                        }
+                        const pct = Math.round(((last.takeHome - prev.takeHome) / prev.takeHome) * 100)
+                        const cls = pct >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'
+                        return (<>
+                          <p className={`mt-1 text-xl font-black ${cls}`}>{pct >= 0 ? '+' : ''}{pct}<span className="ml-0.5 text-xs font-medium text-gray-500">%</span></p>
+                          <p className="mt-0.5 text-[10px] text-gray-500">전월 실수령 {fmtComma(prev.takeHome)}원</p>
+                        </>)
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </>
             )
           })()}
 
@@ -422,41 +461,6 @@ function DualBars({ primary, primaryLabel, primaryColor, secondary, secondaryLab
         <span>{primary[0]?.date.slice(5)}</span>
         <span>{primary[primary.length - 1]?.date.slice(5)}</span>
       </div>
-    </div>
-  )
-}
-
-function deltaPct(curr: number, prev: number): number | null {
-  if (prev === 0) return curr === 0 ? 0 : null  // 전월 0이면 % 무의미
-  return Math.round(((curr - prev) / prev) * 100)
-}
-
-function SettlementCard({ icon: Icon, label, value, sub, color, delta }: {
-  icon: any; label: string; value: string; sub: string; color: string; delta?: number | null
-}) {
-  const showDelta = delta != null
-  const isUp = (delta ?? 0) > 0
-  const isDown = (delta ?? 0) < 0
-  const DeltaIcon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus
-  const deltaCls = isUp ? 'text-emerald-600 bg-emerald-50'
-    : isDown ? 'text-red-600 bg-red-50'
-    : 'text-gray-500 bg-gray-100'
-  return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
-          <Icon className="h-4 w-4" />
-        </div>
-        {showDelta && (
-          <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${deltaCls}`} title="전월 대비">
-            <DeltaIcon className="h-3 w-3" />
-            {Math.abs(delta!)}%
-          </span>
-        )}
-      </div>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-xl font-black text-gray-900 dark:text-white">{value}</p>
-      <p className="mt-0.5 text-[11px] text-gray-500">{sub}</p>
     </div>
   )
 }
