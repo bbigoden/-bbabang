@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import type { User } from '@supabase/supabase-js'
@@ -190,7 +190,7 @@ export default function NewPropertyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header role="broker" />
 
       <div className="mx-auto max-w-xl px-4 py-8">

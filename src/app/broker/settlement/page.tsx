@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -480,7 +480,7 @@ export default function SettlementPage() {
 
   if (auth.loading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <div className="bg-gray-50 dark:bg-gray-950">
         <Header />
         <div className="px-4 py-8 text-center text-sm text-gray-500">불러오는 중…</div>
       </div>
@@ -489,7 +489,7 @@ export default function SettlementPage() {
 
   if (!officeId) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <div className="bg-gray-50 dark:bg-gray-950">
         <Header />
         <div className="px-4 py-8 text-center text-sm text-gray-500">
           사무소 정보를 찾을 수 없습니다. <Link href="/broker/register" className="text-blue-600 underline">사무소 등록</Link>이 필요합니다.
@@ -499,7 +499,7 @@ export default function SettlementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
+    <div className="bg-gray-50 dark:bg-gray-950 overflow-x-hidden">
       <Header />
 
       <div className="px-4 py-6">

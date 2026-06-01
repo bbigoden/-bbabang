@@ -251,7 +251,7 @@ export default function EditPropertyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
 
       <div className="mx-auto max-w-xl px-4 py-8">

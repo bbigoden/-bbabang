@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense, memo } from 'react'
 import { createPortal } from 'react-dom'
@@ -2072,7 +2072,7 @@ function BrokerPropertiesContent() {
   )
 
   if (accessDenied) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="text-5xl">🔒</div>
@@ -2083,7 +2083,7 @@ function BrokerPropertiesContent() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
 
       {lightbox && (

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -1015,9 +1015,9 @@ export default function BrokerDiaryPage() {
 
   const linkedIds = new Set(diaryCustomers.map(c => c.id))
 
-  if (loading) return <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center"><div className="text-gray-500 text-sm">불러오는 중...</div></div>
+  if (loading) return <div className="bg-gray-50 dark:bg-gray-950 flex items-center justify-center"><div className="text-gray-500 text-sm">불러오는 중...</div></div>
   if (accessDenied) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <div className="text-5xl">🔒</div>
@@ -1028,7 +1028,7 @@ export default function BrokerDiaryPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-screen-xl px-3 py-4 sm:px-4 sm:py-6 space-y-4">
 

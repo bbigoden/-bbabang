@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -200,13 +200,13 @@ export default function BrokerTeamPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+    <div className="bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
       <div className="text-gray-500 text-sm">불러오는 중...</div>
     </div>
   )
 
   if (!isOwner) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <Shield className="mx-auto h-12 w-12 text-gray-200 mb-4" />
@@ -217,7 +217,7 @@ export default function BrokerTeamPage() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-2xl px-4 py-8">
 

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -87,7 +87,7 @@ export default function TrashPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
       <main className="mx-auto max-w-4xl px-4 py-6">
         <div className="mb-4 flex items-center gap-2">

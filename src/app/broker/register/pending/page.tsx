@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { Header } from '@/components/layout/header'
 import { Clock, CheckCircle } from 'lucide-react'
@@ -96,7 +96,7 @@ export default function PendingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         {approved ? (

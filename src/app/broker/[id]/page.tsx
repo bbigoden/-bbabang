@@ -191,7 +191,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} />
       <ViewTracker type="broker" id={brokerId} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />

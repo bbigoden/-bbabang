@@ -1,4 +1,4 @@
-import type { User } from '@supabase/supabase-js'
+﻿import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
@@ -121,7 +121,7 @@ export default async function BrokerDashboardPage() {
   const maxMonthly = Math.max(...monthlyStats.map(m => m.total), 1)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
 
       <div className="mx-auto max-w-5xl px-4 py-8">

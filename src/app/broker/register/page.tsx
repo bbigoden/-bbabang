@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -173,7 +173,7 @@ export default function BrokerRegisterPage() {
   const ownerReady = !!(form.office_name && form.license_number && form.office_reg_number && form.business_reg_number && form.address)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-xl px-4 py-10">
 
