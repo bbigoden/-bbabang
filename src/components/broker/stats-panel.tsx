@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import {
   BarChart3, TrendingUp, MapPin, Calendar,
   Target, Clock, Star, Calculator, FileText, ThumbsUp, Wallet,
+  ArrowUpRight, ArrowDownRight, Minus,
 } from 'lucide-react'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
 
@@ -151,14 +152,18 @@ export function BrokerStatsPanel() {
     setByRegion(Array.from(regMap.entries()).map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count).slice(0, 10))
 
     // ── 정산 데이터 ─────────────────────────────────────────
-    // 기간을 기록월 개수로 매핑: 30일 → 1개월, 90일 → 3개월, 365일 → 12개월
-    const monthCount = range === 30 ? 1 : range === 90 ? 3 : 12
+    // 카드 합계 기간: 30일=1개월, 90일=3개월, 365일=12개월
+    // 차트 추이: 365일이면 12개월, 그 외엔 항상 6개월 (상승·하락 비교 위해 단발성 1개월은 무의미)
+    const totalMonths = range === 30 ? 1 : range === 90 ? 3 : 12
+    const chartMonths = range === 365 ? 12 : 6
     const now = new Date()
     const months: string[] = []
-    for (let i = monthCount - 1; i >= 0; i--) {
+    for (let i = chartMonths - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
     }
+    // 카드 집계 대상 (차트 기간의 마지막 N개월)
+    const totalMonthSet = new Set(months.slice(-totalMonths))
 
     if (officeId) {
       let sq = supabase
@@ -178,15 +183,18 @@ export function BrokerStatsPanel() {
 
       for (const s of settlements) {
         const c = calcSettlement(s)
-        count += 1
-        totalFee += c.total
-        assigneeSum += c.assignee
-        takeHomeSum += c.takeHome
         const m = monthMap.get(s.record_month)
         if (m) {
           m.total += c.total
           m.assignee += c.assignee
           m.takeHome += c.takeHome
+        }
+        // 카드 합계는 사용자가 선택한 range 기간만
+        if (totalMonthSet.has(s.record_month)) {
+          count += 1
+          totalFee += c.total
+          assigneeSum += c.assignee
+          takeHomeSum += c.takeHome
         }
       }
       setSettlementTotals({ count, totalFee, assigneeSum, takeHomeSum })
@@ -265,15 +273,25 @@ export function BrokerStatsPanel() {
               · {isOwnerView ? '사무소 전체' : '내 담당'} · 최근 {range === 30 ? '1개월' : range === 90 ? '3개월' : '12개월'} 기록월 기준
             </span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <Summary icon={FileText} label="계약 건수" value={`${settlementTotals.count}건`} sub="정산 등록 기준" color="bg-gray-50 text-gray-500" />
-            <Summary icon={Calculator} label="총수수료" value={`${fmtComma(settlementTotals.totalFee)}원`} sub="매도+매수 합" color="bg-teal-50 text-teal-500" />
-            <Summary icon={ThumbsUp} label={isOwnerView ? '담당자 몫' : '내 수수료'} value={`${fmtComma(settlementTotals.assigneeSum)}원`} sub="원천 전" color="bg-blue-50 text-blue-500" />
-            <Summary icon={Wallet} label="실수령" value={`${fmtComma(settlementTotals.takeHomeSum)}원`} sub="원천 후" color="bg-indigo-50 text-indigo-500" />
-          </div>
+          {(() => {
+            // 마지막 2개월 비교 → 전월 대비 증감 화살표
+            const last = settlementSeries[settlementSeries.length - 1]
+            const prev = settlementSeries[settlementSeries.length - 2]
+            const totalDelta = last && prev ? deltaPct(last.total, prev.total) : null
+            const assigneeDelta = last && prev ? deltaPct(last.assignee, prev.assignee) : null
+            const takeHomeDelta = last && prev ? deltaPct(last.takeHome, prev.takeHome) : null
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <SettlementCard icon={FileText} label="계약 건수" value={`${settlementTotals.count}건`} sub="정산 등록 기준" color="bg-gray-50 text-gray-500" />
+                <SettlementCard icon={Calculator} label="총수수료" value={`${fmtComma(settlementTotals.totalFee)}원`} sub="매도+매수 합" color="bg-teal-50 text-teal-500" delta={totalDelta} />
+                <SettlementCard icon={ThumbsUp} label={isOwnerView ? '담당자 몫' : '내 수수료'} value={`${fmtComma(settlementTotals.assigneeSum)}원`} sub="원천 전" color="bg-blue-50 text-blue-500" delta={assigneeDelta} />
+                <SettlementCard icon={Wallet} label="실수령" value={`${fmtComma(settlementTotals.takeHomeSum)}원`} sub="원천 후" color="bg-indigo-50 text-indigo-500" delta={takeHomeDelta} />
+              </div>
+            )
+          })()}
 
-          <ChartCard title="월별 수수료 추이" icon={TrendingUp} subtitle={`최근 ${range === 30 ? 1 : range === 90 ? 3 : 12}개월`}>
-            <SettlementBars series={settlementSeries} isOwnerView={isOwnerView} />
+          <ChartCard title="월별 수수료 추이" icon={TrendingUp} subtitle={`최근 ${settlementSeries.length}개월 · 상승·하락 한눈에`}>
+            <SettlementLineChart series={settlementSeries} isOwnerView={isOwnerView} />
           </ChartCard>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -364,28 +382,122 @@ function DualBars({ primary, primaryLabel, primaryColor, secondary, secondaryLab
   )
 }
 
-function SettlementBars({ series, isOwnerView }: { series: MonthBucket[]; isOwnerView: boolean }) {
+function deltaPct(curr: number, prev: number): number | null {
+  if (prev === 0) return curr === 0 ? 0 : null  // 전월 0이면 % 무의미
+  return Math.round(((curr - prev) / prev) * 100)
+}
+
+function SettlementCard({ icon: Icon, label, value, sub, color, delta }: {
+  icon: any; label: string; value: string; sub: string; color: string; delta?: number | null
+}) {
+  const showDelta = delta != null
+  const isUp = (delta ?? 0) > 0
+  const isDown = (delta ?? 0) < 0
+  const DeltaIcon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus
+  const deltaCls = isUp ? 'text-emerald-600 bg-emerald-50'
+    : isDown ? 'text-red-600 bg-red-50'
+    : 'text-gray-500 bg-gray-100'
+  return (
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <div className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        {showDelta && (
+          <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${deltaCls}`} title="전월 대비">
+            <DeltaIcon className="h-3 w-3" />
+            {Math.abs(delta!)}%
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xl font-black text-gray-900 dark:text-white">{value}</p>
+      <p className="mt-0.5 text-[11px] text-gray-500">{sub}</p>
+    </div>
+  )
+}
+
+// 월별 수수료 추이 — SVG 라인 차트 (상승·하락 한눈에)
+function SettlementLineChart({ series, isOwnerView }: { series: MonthBucket[]; isOwnerView: boolean }) {
   if (series.every(s => s.total === 0)) {
     return <p className="py-8 text-center text-sm text-gray-500">해당 기간 정산 데이터가 없어요</p>
   }
-  const max = Math.max(1, ...series.map(s => s.total))
+  const W = 600, H = 200, P = 32  // viewBox / padding
+  const max = Math.max(1, ...series.map(s => Math.max(s.total, s.assignee)))
+  const xStep = (W - P * 2) / Math.max(1, series.length - 1)
+  const yOf = (v: number) => H - P - (v / max) * (H - P * 2)
+  const xOf = (i: number) => P + i * xStep
+
+  const pathOf = (key: 'total' | 'assignee') =>
+    series.map((s, i) => `${i === 0 ? 'M' : 'L'} ${xOf(i)} ${yOf(s[key])}`).join(' ')
+
+  const areaOf = (key: 'total' | 'assignee') => {
+    const top = series.map((s, i) => `${i === 0 ? 'M' : 'L'} ${xOf(i)} ${yOf(s[key])}`).join(' ')
+    return `${top} L ${xOf(series.length - 1)} ${H - P} L ${xOf(0)} ${H - P} Z`
+  }
+
+  // y축 눈금 (3단계)
+  const yTicks = [0, max / 2, max]
+  const assigneeLabel = isOwnerView ? '담당자 몫' : '내 수수료'
+
   return (
     <div>
-      <div className="mb-3 flex items-center gap-4 text-xs">
-        <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-teal-400" />총수수료</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-blue-500" />{isOwnerView ? '담당자 몫' : '내 수수료'}</span>
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs">
+        <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-teal-500" />총수수료</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-blue-500" />{assigneeLabel}</span>
       </div>
-      <div className="flex items-end gap-1 h-32">
-        {series.map((s) => (
-          <div key={s.month} className="flex-1 flex flex-col items-center gap-1 group relative">
-            <div className="w-full flex items-end gap-px h-full justify-center">
-              <div className="bg-teal-400 rounded-t-sm flex-1" style={{ height: `${(s.total / max) * 100}%` }} title={`총수수료 ${fmtComma(s.total)}원`} />
-              <div className="bg-blue-500 rounded-t-sm flex-1" style={{ height: `${(s.assignee / max) * 100}%` }} title={`담당자 ${fmtComma(s.assignee)}원`} />
-            </div>
-            <span className="text-[10px] text-gray-500">{s.month.slice(5)}월</span>
-          </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-48" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="grad-total" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#14b8a6" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="grad-assignee" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* y축 가이드라인 */}
+        {yTicks.map((t, i) => (
+          <g key={i}>
+            <line x1={P} y1={yOf(t)} x2={W - P} y2={yOf(t)} stroke="#e5e7eb" strokeDasharray="3 3" />
+            <text x={P - 6} y={yOf(t) + 3} textAnchor="end" fontSize="9" fill="#9ca3af">
+              {t === 0 ? '0' : t >= 10000000 ? `${Math.round(t / 10000000)}천만` : t >= 10000 ? `${Math.round(t / 10000)}만` : Math.round(t)}
+            </text>
+          </g>
         ))}
-      </div>
+
+        {/* 면적 (총수수료) */}
+        <path d={areaOf('total')} fill="url(#grad-total)" />
+        {/* 라인 (총수수료) */}
+        <path d={pathOf('total')} fill="none" stroke="#14b8a6" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {/* 면적 (담당자) */}
+        <path d={areaOf('assignee')} fill="url(#grad-assignee)" />
+        {/* 라인 (담당자) */}
+        <path d={pathOf('assignee')} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* 데이터 포인트 + 값 */}
+        {series.map((s, i) => {
+          const isLast = i === series.length - 1
+          return (
+            <g key={s.month}>
+              <circle cx={xOf(i)} cy={yOf(s.total)} r={isLast ? 4 : 3} fill="#14b8a6" stroke="white" strokeWidth="1.5" />
+              <circle cx={xOf(i)} cy={yOf(s.assignee)} r={isLast ? 4 : 3} fill="#3b82f6" stroke="white" strokeWidth="1.5" />
+              {/* x축 라벨 */}
+              <text x={xOf(i)} y={H - P + 14} textAnchor="middle" fontSize="10" fill="#6b7280">
+                {Number(s.month.slice(5))}월
+              </text>
+              {/* 마지막 점 값 강조 */}
+              {isLast && s.total > 0 && (
+                <text x={xOf(i)} y={yOf(s.total) - 8} textAnchor="middle" fontSize="10" fontWeight="700" fill="#0f766e">
+                  {fmtComma(s.total)}
+                </text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
     </div>
   )
 }
