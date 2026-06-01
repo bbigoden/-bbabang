@@ -163,9 +163,9 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
 }
 
 // ── ProposedPropertiesCell ────────────────────────────
-function ProposedPropertiesCell({ propIds, allProperties, onOpen, readOnly }: {
+function ProposedPropertiesCell({ propIds, allProperties, onOpen, onRemove, readOnly }: {
   propIds: string[] | null; allProperties: Property[]
-  onOpen: () => void; readOnly?: boolean
+  onOpen: () => void; onRemove: (id: string) => void; readOnly?: boolean
 }) {
   const selected = (propIds ?? []).map(id => allProperties.find(p => p.id === id)).filter(Boolean) as Property[]
   const formatDetail = (p: Property) => {
@@ -185,8 +185,17 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, readOnly }: {
   return (
     <div className="flex flex-wrap gap-1 items-center px-1 py-0.5">
       {selected.map(p => (
-        <span key={p.id} className="inline-flex items-center rounded-lg bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px] truncate" title={`${p.address || '주소없음'}\n${formatDetail(p)}`}>
-          {p.address || '주소없음'}
+        <span key={p.id} className="group/chip inline-flex items-center gap-0.5 rounded-lg bg-indigo-50 pl-2 pr-0.5 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px]" title={`${p.address || '주소없음'}\n${formatDetail(p)}`}>
+          <span className="truncate">{p.address || '주소없음'}</span>
+          {!readOnly && (
+            <button
+              onClick={e => { e.stopPropagation(); onRemove(p.id) }}
+              aria-label="매물 제거"
+              className="flex h-3.5 w-3.5 items-center justify-center rounded text-indigo-400 hover:bg-indigo-200 hover:text-indigo-700 transition-colors flex-shrink-0"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          )}
         </span>
       ))}
       {!readOnly && (
@@ -205,9 +214,12 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
 }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds))
+  const q = search.toLowerCase()
   const filtered = allProperties.filter(p =>
-    !search || p.address.toLowerCase().includes(search.toLowerCase()) ||
-    p.deal_type.includes(search) || p.room_type.includes(search)
+    !search
+    || (p.address ?? '').toLowerCase().includes(q)
+    || (p.deal_type ?? '').includes(search)
+    || (p.room_type ?? '').includes(search)
   ).slice(0, 30)
   const toggle = (id: string) => {
     setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
@@ -985,7 +997,7 @@ export default function BrokerDiaryPage() {
       case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" multi={settings.multi['source']} />
       case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" multi={settings.multi['status']} />
       case 'consult_note':  return <LongTextCell value={(c as any).consult_note ?? ''} onSave={v => saveCustomerField(c.id, 'consult_note', v || null)} placeholder="상담내용" readOnly={ro} />
-      case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} allProperties={allProperties} onOpen={() => setPropertyPickerLinkId(c.link_id)} readOnly={ro} />
+      case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} allProperties={allProperties} onOpen={() => setPropertyPickerLinkId(c.link_id)} onRemove={id => saveProposedProperties(c.link_id, (c.proposed_property_ids ?? []).filter(x => x !== id))} readOnly={ro} />
       default: return null
     }
   }
