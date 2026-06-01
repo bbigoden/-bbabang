@@ -9,7 +9,7 @@
  */
 import { Copy, Trash2 } from 'lucide-react'
 
-const HEADER_CLASS = 'px-2 py-2.5 bg-gray-50 sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]'
+const HEADER_CLASS = 'px-2 py-2.5 bg-gray-50 sticky right-0 z-20 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]'
 const CELL_CLASS = 'px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]'
 const DEFAULT_WIDTH = 64
 
