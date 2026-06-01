@@ -16,9 +16,9 @@ export function BrokerGlobalLayout({ children }: { children: React.ReactNode }) 
   if (loading || profile?.role !== 'broker') return <>{children}</>
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <BrokerSidebar />
-      <div className="flex-1 min-w-0 flex flex-col bg-gray-50 dark:bg-gray-950">{children}</div>
+      <div className="flex-1 min-w-0 flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950">{children}</div>
     </div>
   )
 }
