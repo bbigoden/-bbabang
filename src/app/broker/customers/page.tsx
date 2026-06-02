@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Users, Eye, MoreHorizontal, X, Lock, Download, Check } from 'lucide-react'
 import { Pagination } from '@/components/sheet/pagination'
+import { EmptyRow } from '@/components/sheet/empty-row'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -808,7 +809,7 @@ export default function BrokerCustomersPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
-      <div className="mx-auto max-w-screen-xl px-4 py-6">
+      <div className="px-4 py-6">
 
         {/* 헤더 */}
         <div className="mb-5 flex items-center justify-between">
@@ -1026,11 +1027,10 @@ export default function BrokerCustomersPage() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={activeCols.length + 1} className="py-16 text-center text-sm text-gray-500">
-                      {customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
-                    </td>
-                  </tr>
+                  <EmptyRow
+                    colSpan={activeCols.length + 1}
+                    message={customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
+                  />
                 ) : paginated.map((c, _idx) => (
                   <tr key={c.id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
                     {activeCols.map(col => (

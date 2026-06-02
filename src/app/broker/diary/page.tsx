@@ -11,6 +11,7 @@ import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { ColumnHeader } from '@/components/sheet/column-header'
+import { EmptyRow } from '@/components/sheet/empty-row'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
@@ -1123,7 +1124,7 @@ export default function BrokerDiaryPage() {
                 </thead>
                 <tbody>
                   {diaryCustomers.length === 0 ? (
-                    <tr><td colSpan={activeCols.length + 1} className="py-16 text-center text-sm text-gray-500">아래 버튼으로 고객을 추가하세요</td></tr>
+                    <EmptyRow colSpan={activeCols.length + 1} message="아래 버튼으로 고객을 추가하세요" />
                   ) : diaryCustomers.map((c) => (
                     <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
                       {activeCols.map(col => (

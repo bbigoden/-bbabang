@@ -20,6 +20,7 @@ import {
   Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { Pagination } from '@/components/sheet/pagination'
+import { EmptyRow } from '@/components/sheet/empty-row'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
@@ -2468,11 +2469,10 @@ function BrokerPropertiesContent() {
             </thead>
             <tbody>
               {paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={syncedOrder.length + 2} className="py-16 text-center text-sm text-gray-500">
-                    {searchQuery || filterDealType || filterRoomTypes.length > 0 ? '검색 결과가 없어요' : '아직 등록된 매물이 없어요'}
-                  </td>
-                </tr>
+                <EmptyRow
+                  colSpan={syncedOrder.length + 2}
+                  message={searchQuery || filterDealType || filterRoomTypes.length > 0 ? '검색 결과가 없어요' : '아직 등록된 매물이 없어요'}
+                />
               ) : paginated.map((p) => (
                 <PropertyRow
                   key={p.id}
