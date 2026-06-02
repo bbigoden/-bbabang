@@ -124,7 +124,7 @@ describe('Input', () => {
     render(<Input error="필수 입력입니다" />)
     const errEl = screen.getByText('필수 입력입니다')
     expect(errEl).toBeInTheDocument()
-    expect(errEl).toHaveClass('text-red-500')
+    expect(errEl).toHaveClass('text-red-600')
   })
 
   it('error 있으면 hint 숨김', () => {

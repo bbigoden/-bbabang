@@ -420,7 +420,7 @@ export default function BrokerResourcesPage() {
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="font-bold text-gray-900 dark:text-white break-keep">{r.title}</h3>
                         {canDelete && (
-                          <button onClick={() => removeResource(r)}
+                          <button onClick={() => removeResource(r)} aria-label={`${r.title} 자료 삭제`} title="자료 삭제"
                             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

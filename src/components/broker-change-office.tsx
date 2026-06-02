@@ -43,7 +43,7 @@ export function BrokerChangeOffice({ brokerId, parentBrokerId }: { brokerId: str
 
   return (
     <button onClick={handleLeave} disabled={loading}
-      className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50">
+      className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
       <LogOut className="h-4 w-4" />
       {loading ? '처리 중...' : '사무소 탈퇴'}
     </button>

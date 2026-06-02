@@ -337,7 +337,7 @@ export default function ProposePage() {
                 />
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    제안 내용 <span className="text-red-500">*</span>
+                    제안 내용 <span className="text-red-600">*</span>
                   </label>
                   <textarea
                     placeholder="매물의 특징, 장점, 옵션 등을 자유롭게 적어주세요&#10;예: 풀옵션 원룸, 역 도보 3분, 반려동물 가능, 즉시 입주 가능"

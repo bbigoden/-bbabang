@@ -170,7 +170,7 @@ function SearchInner() {
                         <p className="text-xs text-gray-500 truncate">{b.office_name}</p>
                         <p className="text-xs text-gray-500 truncate"><MapPin className="inline h-3 w-3 mr-0.5" />{b.address}</p>
                         <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
-                          <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
+                          <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
                             <Star className="h-3 w-3 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
                           </span>
                           <span>후기 {b.review_count ?? 0}</span>

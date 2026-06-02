@@ -297,7 +297,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                     <p className="text-xs text-gray-500 truncate">{broker.office_name}</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       {broker.rating > 0 && (
-                        <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
+                        <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
                           <Star className="h-3 w-3 fill-current" /> {Number(broker.rating).toFixed(1)}
                         </span>
                       )}

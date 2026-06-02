@@ -55,6 +55,8 @@ export function OfficeCodeCard({ brokerId, initialCode }: OfficeCodeCardProps) {
               </span>
               <button
                 onClick={handleCopy}
+                aria-label={copied ? '복사 완료' : '초대 코드 복사'}
+                title={copied ? '복사 완료' : '초대 코드 복사'}
                 className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 transition-colors"
               >
                 {copied

@@ -1015,7 +1015,7 @@ function StageTracker({ currentStage, isBroker, onStageChange }: {
             )
           })}
           <button onClick={() => change('canceled')} disabled={busy}
-            className="col-span-3 sm:col-span-6 mt-1 flex items-center justify-center gap-1 rounded-lg border border-red-200 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50 disabled:opacity-50">
+            className="col-span-3 sm:col-span-6 mt-1 flex items-center justify-center gap-1 rounded-lg border border-red-200 bg-white dark:bg-gray-900 px-2 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
             <XOctagon className="h-3 w-3" /> 거래 취소로 변경
           </button>
         </div>

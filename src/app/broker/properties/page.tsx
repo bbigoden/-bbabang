@@ -668,7 +668,7 @@ function ImageCell({ images, onSave, onView }: {
     <div ref={ref} className="relative">
       <div ref={btnRef} onClick={handleOpen} className="cursor-pointer flex gap-1 items-center hover:bg-blue-50 rounded px-1 py-0.5 min-h-[22px]">
         {localImgs.length === 0
-          ? <span className="text-xs text-gray-300">사진</span>
+          ? <span className="text-xs text-gray-500">사진</span>
           : <>
               <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 dark:border-gray-800 flex-shrink-0">
                 <img src={localImgs[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-full w-full object-cover" />
@@ -1082,7 +1082,7 @@ const PropertyRow = memo(function PropertyRow({
               if (key === 'room_type') return <span className="rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-500">{p.room_type}</span>
               if (key === 'images') return p.images?.length > 0
                 ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-500">+{p.images.length - 1}</span>}</div>
-                : <span className="text-xs text-gray-300">—</span>
+                : <span className="text-xs text-gray-500">—</span>
               // 중개사 메모는 본인 매물 아니면 숨김
               if (key === 'memo' && !isMine) return <span className="text-gray-200 select-none">—</span>
               const raw: any = (p as any)[key]

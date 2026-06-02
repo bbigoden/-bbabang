@@ -271,7 +271,7 @@ export default function EditPropertyPage() {
             {/* 거래 유형 */}
             <Card>
               <CardBody>
-                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">거래 유형 <span className="text-red-500">*</span></p>
+                <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">거래 유형 <span className="text-red-600">*</span></p>
                 <div className="flex gap-2">
                   {DEAL_TYPES.map(t => (
                     <button

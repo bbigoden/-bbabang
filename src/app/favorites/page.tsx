@@ -179,7 +179,7 @@ export default function FavoritesPage() {
                       {b.profiles?.name && <p className="text-xs text-gray-500 mt-0.5">대표: {b.profiles.name}</p>}
                     </div>
                     <div className="mt-3 flex items-center gap-3 text-xs">
-                      <span className="flex items-center gap-0.5 text-amber-500 font-semibold">
+                      <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
                         <Star className="h-3.5 w-3.5 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
                       </span>
                       <span className="text-gray-500">후기 {b.review_count ?? 0}</span>

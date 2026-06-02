@@ -176,9 +176,9 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, onRemove, read
     return `${p.deal_type} · ${p.room_type} · ${price}`
   }
   if (selected.length === 0) {
-    if (readOnly) return <span className="text-xs text-gray-300 px-1">—</span>
+    if (readOnly) return <span className="text-xs text-gray-500 px-1">—</span>
     return (
-      <button onClick={onOpen} className="flex items-center gap-1 px-1 py-0.5 text-xs text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors w-full">
+      <button onClick={onOpen} className="flex items-center gap-1 px-1 py-0.5 text-xs text-gray-500 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors w-full">
         <Plus className="h-3 w-3" />매물 추가
       </button>
     )
@@ -338,7 +338,7 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId: _ow
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">담당자</th>
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">구분</th>
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">유입</th>
-                  <th className="px-3 py-2.5" style={{ width: 64 }} />
+                  <th className="px-3 py-2.5" style={{ width: 64 }}><span className="sr-only">액션</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -423,7 +423,7 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
         )}
         {saving && <span className="text-xs text-gray-500 ml-2">저장 중...</span>}
         {!readOnly && !renaming && (
-          <button onClick={() => onDelete(def.id)}
+          <button onClick={() => onDelete(def.id)} aria-label={`${def.title} 일지 삭제`} title="삭제"
             className="ml-auto opacity-0 group-hover/header:opacity-100 flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-all">
             <X className="h-3.5 w-3.5" />
           </button>
@@ -1047,6 +1047,7 @@ export default function BrokerDiaryPage() {
                   else if (v.startsWith('ex:')) { setViewingBrokerId(v.slice(3)); setViewingExEmployee(true) }
                   else { setViewingBrokerId(v); setViewingExEmployee(false) }
                 }}
+                aria-label="업무일지 작성자 선택"
                 className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 cursor-pointer"
               >
                 <option value="">내 일지</option>

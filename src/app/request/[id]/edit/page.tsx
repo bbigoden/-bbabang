@@ -230,7 +230,7 @@ export default function RequestEditPage() {
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">시 / 도</p>
-                <select value={form.city} onChange={(e) => handleCityChange(e.target.value)}
+                <select value={form.city} onChange={(e) => handleCityChange(e.target.value)} aria-label="시/도 선택"
                   className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
                   {CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
                 </select>

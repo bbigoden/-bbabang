@@ -334,7 +334,7 @@ function RequestNewPageInner() {
                     />
                   </div>
                   {form.min_price && form.max_price && Number(form.min_price) > Number(form.max_price) && (
-                    <p className="text-xs text-red-500">최소값이 최대값보다 클 수 없습니다</p>
+                    <p className="text-xs text-red-600">최소값이 최대값보다 클 수 없습니다</p>
                   )}
                 </div>
               )}
@@ -377,7 +377,7 @@ function RequestNewPageInner() {
                     />
                   </div>
                   {form.min_monthly && form.max_monthly && Number(form.min_monthly) > Number(form.max_monthly) && (
-                    <p className="text-xs text-red-500">월세 최소값이 최대값보다 클 수 없습니다</p>
+                    <p className="text-xs text-red-600">월세 최소값이 최대값보다 클 수 없습니다</p>
                   )}
                 </div>
               )}

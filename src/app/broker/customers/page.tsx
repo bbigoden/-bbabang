@@ -847,7 +847,7 @@ export default function BrokerCustomersPage() {
               <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm">
                 <div className="text-xs font-semibold text-gray-500 mb-3">담당자</div>
                 {assigneeDist.length === 0 ? (
-                  <div className="text-xs text-gray-300 text-center py-6">데이터 없음</div>
+                  <div className="text-xs text-gray-500 text-center py-6">데이터 없음</div>
                 ) : (
                   <div className="flex items-center gap-3">
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
@@ -873,7 +873,7 @@ export default function BrokerCustomersPage() {
               <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm">
                 <div className="text-xs font-semibold text-gray-500 mb-3">구분</div>
                 {categoryDist.length === 0 ? (
-                  <div className="text-xs text-gray-300 text-center py-6">데이터 없음</div>
+                  <div className="text-xs text-gray-500 text-center py-6">데이터 없음</div>
                 ) : (
                   <div className="flex items-center gap-3">
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
@@ -899,7 +899,7 @@ export default function BrokerCustomersPage() {
               <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm">
                 <div className="text-xs font-semibold text-gray-500 mb-3">유입</div>
                 {sourceDist.length === 0 ? (
-                  <div className="text-xs text-gray-300 text-center py-6">데이터 없음</div>
+                  <div className="text-xs text-gray-500 text-center py-6">데이터 없음</div>
                 ) : (
                   <div className="flex items-center gap-3">
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>

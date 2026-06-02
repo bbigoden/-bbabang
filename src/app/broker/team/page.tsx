@@ -261,7 +261,7 @@ export default function BrokerTeamPage() {
                         승인
                       </button>
                       <button onClick={() => rejectEmployee(emp.id)}
-                        className="rounded-xl px-3 py-1.5 text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 transition-colors">
+                        className="rounded-xl px-3 py-1.5 text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
                         거절
                       </button>
                     </div>
@@ -296,7 +296,7 @@ export default function BrokerTeamPage() {
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
               <Users className="mx-auto h-8 w-8 text-gray-200 mb-3" />
               <p className="text-sm text-gray-500">아직 팀원이 없어요</p>
-              <p className="text-xs text-gray-300 mt-1">직원에게 사무소 코드를 알려주세요</p>
+              <p className="text-xs text-gray-500 mt-1">직원에게 사무소 코드를 알려주세요</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -319,7 +319,7 @@ export default function BrokerTeamPage() {
                           editingId === emp.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>
                         권한 설정
                       </button>
-                      <button onClick={() => removeEmployee(emp.id)}
+                      <button onClick={() => removeEmployee(emp.id)} aria-label="직원 제거" title="직원 제거"
                         className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
                         <X className="h-3.5 w-3.5" />
                       </button>

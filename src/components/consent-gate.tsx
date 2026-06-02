@@ -123,7 +123,7 @@ export function ConsentGate() {
                   <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                     {TYPE_LABEL[t.type] ?? t.type} v{t.version}
                   </span>
-                  <span className="text-xs font-medium text-red-500">(필수)</span>
+                  <span className="text-xs font-medium text-red-600">(필수)</span>
                 </div>
                 {t.summary && (
                   <p className="mt-0.5 text-xs text-gray-500">{t.summary}</p>

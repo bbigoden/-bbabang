@@ -34,7 +34,7 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-100 transition-colors"
+        className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
       >
         <XCircle className="h-4 w-4" />
         요청 마감

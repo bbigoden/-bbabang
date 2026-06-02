@@ -19,6 +19,7 @@ export function SheetActionHeader({ children, width = DEFAULT_WIDTH }: {
 }) {
   return (
     <th className={HEADER_CLASS} style={{ width, minWidth: width }}>
+      <span className="sr-only">액션</span>
       <div className="flex items-center justify-end gap-0.5">
         {children}
       </div>

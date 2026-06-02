@@ -236,7 +236,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               <div className="py-12 text-center">
                 <Home className="mx-auto mb-2 h-8 w-8 text-gray-200" />
                 <p className="text-sm text-gray-500">아직 제안이 없습니다</p>
-                <p className="mt-1 text-xs text-gray-300">인근 중개사들에게 알림이 발송됩니다</p>
+                <p className="mt-1 text-xs text-gray-500">인근 중개사들에게 알림이 발송됩니다</p>
               </div>
             ) : (
               <div className="space-y-2 pb-4">

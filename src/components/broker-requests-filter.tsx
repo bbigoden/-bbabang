@@ -162,7 +162,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
           </div>
 
           {hasFilter && (
-            <button onClick={clearFilters} className="text-xs text-red-500 hover:text-red-600 font-medium">
+            <button onClick={clearFilters} className="text-xs text-red-600 hover:text-red-700 font-medium">
               필터 초기화
             </button>
           )}

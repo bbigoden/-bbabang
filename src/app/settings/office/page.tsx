@@ -148,10 +148,11 @@ export default function SettingsOfficePage() {
 }
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const id = `office-field-${label.replace(/\s+/g, '-')}`
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-      <input value={value} onChange={e => onChange(e.target.value)} required
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+      <input id={id} value={value} onChange={e => onChange(e.target.value)} required aria-label={label}
         className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
     </div>
   )

@@ -505,7 +505,7 @@ export default function SettlementPage() {
       <div className="px-4 py-6">
         {/* 헤더 */}
         <div className="mb-2 flex items-center gap-3">
-          <button onClick={() => router.back()} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={() => router.back()} aria-label="뒤로 가기" title="뒤로" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="text-xl font-black text-gray-900 dark:text-white">정산</h1>
@@ -531,6 +531,7 @@ export default function SettlementPage() {
                 type="month"
                 value={month}
                 onChange={e => { if (e.target.value) setMonth(e.target.value) }}
+                aria-label="정산 기준 월 선택"
                 className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-base font-bold text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
               />
             )}
@@ -557,6 +558,7 @@ export default function SettlementPage() {
               <select
                 value={filterAssigneeId}
                 onChange={e => setFilterAssigneeId(e.target.value)}
+                aria-label="정산 직원 필터"
                 className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${filterAssigneeId
                   ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                   : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}
@@ -747,6 +749,7 @@ export default function SettlementPage() {
                             disabled={!canEditMoney}
                             onChange={e => { if (e.target.value) updateRow(r.id, { record_month: e.target.value }) }}
                             title="다른 달로 옮기기"
+                            aria-label="기록월 변경"
                             className="h-6 w-6 cursor-pointer rounded border-none bg-transparent p-0 text-transparent text-gray-300 hover:bg-blue-50 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-40 [&::-webkit-datetime-edit]:hidden [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                           />
                           {canEditMoney && (
