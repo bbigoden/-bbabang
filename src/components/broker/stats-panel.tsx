@@ -250,27 +250,7 @@ export function BrokerStatsPanel() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <Summary icon={Target} label="수락률" value={`${totals.acceptanceRate}%`} sub={`전체 ${totals.proposals}건`} color="bg-blue-50 text-blue-500" />
-            <Summary icon={Clock} label="평균 응답" value={totals.avgResponseHours > 0 ? formatHours(totals.avgResponseHours) : '—'} sub={`${range}일 기준`} color="bg-emerald-50 text-emerald-500" />
-            <Summary icon={Star} label="평점" value={totals.rating > 0 ? totals.rating.toFixed(1) : '신규'} sub={`리뷰 ${totals.reviewCount}개`} color="bg-amber-50 text-amber-500" />
-            <Summary icon={TrendingUp} label="총 거래" value={`${totals.deals}건`} sub="누적" color="bg-purple-50 text-purple-500" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <MiniStat label="대기 중" value={totals.pending} color="text-yellow-600 bg-yellow-50" />
-            <MiniStat label="수락됨" value={totals.accepted} color="text-green-600 bg-green-50" />
-            <MiniStat label="거절됨" value={totals.rejected} color="text-red-600 bg-red-50" />
-          </div>
-
-          <ChartCard title="제안 추이" icon={TrendingUp} subtitle={`최근 ${range}일`}>
-            <DualBars
-              primary={proposalSeries.all} primaryLabel="전체" primaryColor="bg-blue-500"
-              secondary={proposalSeries.accepted} secondaryLabel="수락됨" secondaryColor="bg-green-500"
-            />
-          </ChartCard>
-
-          {/* ── 정산 요약 ─ 정산 페이지와 동일한 3카드 구조 ─── */}
+          {/* ── 정산 요약 ─ 정산 페이지와 동일한 3카드 구조 (먼저 노출) ─── */}
           {(() => {
             const last = settlementSeries[settlementSeries.length - 1] ?? { total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0, month: '' }
             const prev = settlementSeries[settlementSeries.length - 2] ?? null
@@ -278,7 +258,7 @@ export function BrokerStatsPanel() {
             const labelMonth = last.month ? `${Number(last.month.slice(5))}월` : '이번 달'
             return (
               <>
-                <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Calculator className="h-5 w-5 text-teal-600" />
                     <h3 className="font-bold text-gray-900 dark:text-white">정산 요약</h3>
@@ -392,6 +372,33 @@ export function BrokerStatsPanel() {
 
           <ChartCard title="월별 수수료 추이" icon={TrendingUp} subtitle={`최근 ${settlementSeries.length}개월 · 상승·하락 한눈에`}>
             <SettlementLineChart series={settlementSeries} isOwnerView={isOwnerView} />
+          </ChartCard>
+
+          {/* ── 영업 활동 (제안·수락 등) ─ 정산 뒤로 이동 ─── */}
+          <div className="mt-6 mb-3 flex items-center gap-2">
+            <Target className="h-5 w-5 text-blue-600" />
+            <h3 className="font-bold text-gray-900 dark:text-white">영업 활동</h3>
+            <span className="text-xs text-gray-500">· 제안·수락·응답 시간</span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <Summary icon={Target} label="수락률" value={`${totals.acceptanceRate}%`} sub={`전체 ${totals.proposals}건`} color="bg-blue-50 text-blue-500" />
+            <Summary icon={Clock} label="평균 응답" value={totals.avgResponseHours > 0 ? formatHours(totals.avgResponseHours) : '—'} sub={`${range}일 기준`} color="bg-emerald-50 text-emerald-500" />
+            <Summary icon={Star} label="평점" value={totals.rating > 0 ? totals.rating.toFixed(1) : '신규'} sub={`리뷰 ${totals.reviewCount}개`} color="bg-amber-50 text-amber-500" />
+            <Summary icon={TrendingUp} label="총 거래" value={`${totals.deals}건`} sub="누적" color="bg-purple-50 text-purple-500" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <MiniStat label="대기 중" value={totals.pending} color="text-yellow-600 bg-yellow-50" />
+            <MiniStat label="수락됨" value={totals.accepted} color="text-green-600 bg-green-50" />
+            <MiniStat label="거절됨" value={totals.rejected} color="text-red-600 bg-red-50" />
+          </div>
+
+          <ChartCard title="제안 추이" icon={TrendingUp} subtitle={`최근 ${range}일`}>
+            <DualBars
+              primary={proposalSeries.all} primaryLabel="전체" primaryColor="bg-blue-500"
+              secondary={proposalSeries.accepted} secondaryLabel="수락됨" secondaryColor="bg-green-500"
+            />
           </ChartCard>
 
           <div className="mt-4 grid gap-4 md:grid-cols-2">
