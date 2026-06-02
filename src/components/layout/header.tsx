@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Home, Menu, X, Settings, Heart, Search } from 'lucide-react'
+import { Menu, X, Settings, Heart, Search } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -43,9 +43,8 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* 로고 — 로그인 유저는 대시보드로, 비로그인은 홈으로 */}
         <Link href={user ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user') : '/'} className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
-            <Home className="h-5 w-5 text-white" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon.svg" alt="빠방 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
           <span className="text-xl font-bold text-gray-900 dark:text-white">
             빠<span className="text-blue-600">방</span>
           </span>

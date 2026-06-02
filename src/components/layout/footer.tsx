@@ -39,6 +39,8 @@ export function Footer() {
           {/* 회사·사업자 정보 */}
           <div className="md:col-span-2">
             <div className="mb-3 flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icon.svg" alt="빠방 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
               <span className="text-base font-bold text-gray-900 dark:text-white">
                 빠<span className="text-blue-600">방</span>
               </span>
