@@ -11,6 +11,7 @@ import {
   Sparkles, ArrowLeft, Megaphone, Building2, Home, Plus, Trash2,
   Eye, EyeOff, ArrowUp, ArrowDown, Search, ExternalLink
 } from 'lucide-react'
+import { EmptyState } from '@/components/empty-state'
 
 type Kind = 'banner' | 'featured_property' | 'featured_broker'
 
@@ -244,7 +245,7 @@ function BannerSection({ banners, onReload, supabase, onToggle, onRemove, onMove
 
       {/* 목록 */}
       {banners.length === 0 ? (
-        <p className="mt-4 py-6 text-center text-sm text-gray-500">등록된 배너가 없어요</p>
+        <EmptyState variant="inline" message="등록된 배너가 없어요" className="mt-4 py-6" />
       ) : (
         <ul className="mt-4 space-y-2">
           {banners.map((b, i) => (
@@ -359,7 +360,7 @@ function FeaturedSection({ kind, title, icon: Icon, items, onReload, supabase, o
 
       {/* 노출 목록 */}
       {items.length === 0 ? (
-        <p className="mt-4 py-6 text-center text-sm text-gray-500">노출 중인 항목이 없어요</p>
+        <EmptyState variant="inline" message="노출 중인 항목이 없어요" className="mt-4 py-6" />
       ) : (
         <ul className="mt-4 space-y-2">
           {items.map((it, i) => (

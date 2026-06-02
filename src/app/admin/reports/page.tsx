@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import { logAdminAction } from '@/lib/audit'
+import { EmptyState } from '@/components/empty-state'
 import {
   Flag, MessageCircle, ArrowLeft, ExternalLink, Check, X,
   AlertCircle, Clock, CheckCircle2, XCircle, ChevronDown, Mail
@@ -166,10 +167,7 @@ export default function AdminReportsPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <Flag className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
-            <p className="font-semibold text-gray-500">조건에 맞는 항목이 없어요</p>
-          </div>
+          <EmptyState variant="full" icon={Flag} message="조건에 맞는 항목이 없어요" darkBg />
         ) : (
           <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">
             {items.map(r => {

@@ -8,6 +8,7 @@ import {
   Target, Clock, Star, Calculator,
 } from 'lucide-react'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
+import { EmptyState } from '@/components/empty-state'
 
 type Range = 30 | 90 | 365
 
@@ -495,7 +496,7 @@ function DualBars({ primary, primaryLabel, primaryColor, secondary, secondaryLab
 // 월별 수수료 추이 — SVG 라인 차트 (상승·하락 한눈에)
 function SettlementLineChart({ series, isOwnerView }: { series: MonthBucket[]; isOwnerView: boolean }) {
   if (series.every(s => s.total === 0)) {
-    return <p className="py-8 text-center text-sm text-gray-500">해당 기간 정산 데이터가 없어요</p>
+    return <EmptyState variant="inline" message="해당 기간 정산 데이터가 없어요" />
   }
   const W = 600, H = 200, P = 32  // viewBox / padding
   const max = Math.max(1, ...series.map(s => Math.max(s.total, s.assignee)))
@@ -578,7 +579,7 @@ function SettlementLineChart({ series, isOwnerView }: { series: MonthBucket[]; i
 }
 
 function RankBars({ rows, barColor }: { rows: Row[]; barColor: string }) {
-  if (rows.length === 0) return <p className="py-8 text-center text-sm text-gray-500">데이터가 없어요</p>
+  if (rows.length === 0) return <EmptyState variant="inline" message="데이터가 없어요" />
   const max = Math.max(1, ...rows.map(r => r.count))
   return (
     <ul className="space-y-2">

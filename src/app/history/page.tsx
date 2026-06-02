@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { Clock, Building2, FileText, ShieldCheck, MapPin, Star, Trash2, X } from 'lucide-react'
+import { EmptyState } from '@/components/empty-state'
 
 type Tab = 'broker' | 'request'
 
@@ -139,11 +140,13 @@ export default function HistoryPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : tabRows.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
-            <Clock className="mx-auto mb-3 h-12 w-12 text-gray-200" />
-            <p className="font-semibold text-gray-500">최근 본 기록이 없어요</p>
-            <p className="mt-1 text-sm text-gray-500">중개사 또는 요청 페이지를 방문하면 여기에 기록돼요</p>
-          </div>
+          <EmptyState
+            variant="full"
+            icon={Clock}
+            message="최근 본 기록이 없어요"
+            description="중개사 또는 요청 페이지를 방문하면 여기에 기록돼요"
+            darkBg
+          />
         ) : (
           <ul className="space-y-2">
             {tabRows.map(h => {

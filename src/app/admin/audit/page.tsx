@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import { AUDIT_ACTION_META, AUDIT_TARGET_LABEL, auditActionLabel } from '@/lib/audit'
+import { EmptyState } from '@/components/empty-state'
 import {
   ScrollText, ArrowLeft, X, Search, RefreshCw, ShieldCheck, User as UserIcon
 } from 'lucide-react'
@@ -174,10 +175,7 @@ export default function AdminAuditPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <ScrollText className="mx-auto mb-3 h-12 w-12 text-gray-700" />
-            <p className="font-semibold text-gray-500">기록된 활동이 없어요</p>
-          </div>
+          <EmptyState variant="full" icon={ScrollText} message="기록된 활동이 없어요" darkBg />
         ) : (
           <>
             <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">

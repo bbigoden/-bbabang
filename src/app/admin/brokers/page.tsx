@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
+import { EmptyState } from '@/components/empty-state'
 import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
 
@@ -296,10 +297,7 @@ export default function AdminBrokersPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
         ) : offices.length === 0 ? (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <Building2 className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
-            <p className="font-semibold text-gray-500">조건에 맞는 사무소가 없어요</p>
-          </div>
+          <EmptyState variant="full" icon={Building2} message="조건에 맞는 사무소가 없어요" darkBg />
         ) : (
           <>
             <ul className="space-y-3 list-none p-0">

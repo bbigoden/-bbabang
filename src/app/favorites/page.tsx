@@ -10,6 +10,7 @@ import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
 import { formatDate, formatPrice, maskAddressByType } from '@/lib/utils'
 import { Heart, Building2, Home as HomeIcon, FileText, Star, MapPin, ShieldCheck, Clock } from 'lucide-react'
+import { EmptyState } from '@/components/empty-state'
 
 type Tab = 'broker' | 'property' | 'request'
 
@@ -140,19 +141,21 @@ export default function FavoritesPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : tabFavs.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
-            <Heart className="mx-auto mb-3 h-12 w-12 text-gray-200" />
-            <p className="font-semibold text-gray-500">
-              {tab === 'broker' && '찜한 중개사가 없어요'}
-              {tab === 'property' && '찜한 매물이 없어요'}
-              {tab === 'request' && '찜한 요청이 없어요'}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              {tab === 'broker' && <>마음에 드는 중개사 카드의 ♡ 버튼을 눌러 모아보세요</>}
-              {tab === 'property' && <>관심 매물의 ♡ 버튼을 눌러 모아보세요</>}
-              {tab === 'request' && <>관심 요청의 ♡ 버튼을 눌러 모아보세요</>}
-            </p>
-          </div>
+          <EmptyState
+            variant="full"
+            icon={Heart}
+            message={
+              tab === 'broker' ? '찜한 중개사가 없어요'
+                : tab === 'property' ? '찜한 매물이 없어요'
+                : '찜한 요청이 없어요'
+            }
+            description={
+              tab === 'broker' ? '마음에 드는 중개사 카드의 ♡ 버튼을 눌러 모아보세요'
+                : tab === 'property' ? '관심 매물의 ♡ 버튼을 눌러 모아보세요'
+                : '관심 요청의 ♡ 버튼을 눌러 모아보세요'
+            }
+            darkBg
+          />
         ) : tab === 'broker' ? (
           <ul className="grid gap-3 md:grid-cols-2">
             {tabFavs.map(f => {

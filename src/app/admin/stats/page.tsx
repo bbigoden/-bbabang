@@ -10,6 +10,7 @@ import {
   BarChart3, ArrowLeft, Users, FileText, Home, TrendingUp,
   MapPin, Calendar, Building2, Download
 } from 'lucide-react'
+import { EmptyState } from '@/components/empty-state'
 
 type Range = 7 | 30 | 90
 
@@ -435,10 +436,10 @@ function DualLineBars({ primary, primaryLabel, primaryColor, secondary, secondar
 function FunnelChart({ stages }: { stages: FunnelStage[] }) {
   const top = stages[0]?.count ?? 0
   if (stages.length === 0) {
-    return <p className="py-8 text-center text-sm text-gray-500">데이터가 없어요</p>
+    return <EmptyState variant="inline" message="데이터가 없어요" />
   }
   if (top === 0) {
-    return <p className="py-8 text-center text-sm text-gray-500">아직 의뢰가 없어 전환을 계산할 수 없어요</p>
+    return <EmptyState variant="inline" message="아직 의뢰가 없어 전환을 계산할 수 없어요" />
   }
   return (
     <ul className="space-y-2.5">
@@ -477,7 +478,7 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
 function RankBars({ rows, barColor }: { rows: RegionRow[]; barColor: string }) {
   const max = Math.max(1, ...rows.map(r => r.count))
   if (rows.length === 0) {
-    return <p className="py-8 text-center text-sm text-gray-500">데이터가 없어요</p>
+    return <EmptyState variant="inline" message="데이터가 없어요" />
   }
   return (
     <ul className="space-y-2">

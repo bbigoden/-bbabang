@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header'
 import Image from 'next/image'
 import { Star, Edit2, Trash2, Check, X, AlertTriangle, Building2, ShieldCheck } from 'lucide-react'
 import { formatDate, cn } from '@/lib/utils'
+import { EmptyState } from '@/components/empty-state'
 
 interface Review {
   id: string
@@ -97,11 +98,13 @@ export default function MyReviewsPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : reviews.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
-            <Star className="mx-auto mb-3 h-12 w-12 text-gray-200" />
-            <p className="font-semibold text-gray-500">작성한 리뷰가 없어요</p>
-            <p className="mt-1 text-sm text-gray-500">중개사와 거래를 마치면 리뷰를 남길 수 있어요</p>
-          </div>
+          <EmptyState
+            variant="full"
+            icon={Star}
+            message="작성한 리뷰가 없어요"
+            description="중개사와 거래를 마치면 리뷰를 남길 수 있어요"
+            darkBg
+          />
         ) : (
           <ul className="space-y-3">
             {reviews.map(r => (

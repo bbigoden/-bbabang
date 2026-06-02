@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { formatDate } from '@/lib/utils'
 import { logAdminAction } from '@/lib/audit'
+import { EmptyState } from '@/components/empty-state'
 import {
   AlertOctagon, ArrowLeft, X, CheckCircle2, Clock, EyeOff, Search,
   Globe, AlertCircle, RefreshCw
@@ -234,10 +235,7 @@ export default function AdminErrorsPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <AlertOctagon className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
-            <p className="font-semibold text-gray-500">조건에 맞는 에러가 없어요</p>
-          </div>
+          <EmptyState variant="full" icon={AlertOctagon} message="조건에 맞는 에러가 없어요" darkBg />
         ) : (
           <>
             <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">

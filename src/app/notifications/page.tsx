@@ -8,6 +8,7 @@ import { useNotificationsCtx, type Notification } from '@/lib/notifications-cont
 import { Header } from '@/components/layout/header'
 import { Bell, Check, CheckCheck } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { EmptyState } from '@/components/empty-state'
 
 const PAGE_SIZE = 30
 
@@ -172,13 +173,13 @@ export default function NotificationsPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-20 text-center">
-            <Bell className="mx-auto mb-3 h-12 w-12 text-gray-200" />
-            <p className="font-semibold text-gray-500">
-              {filter === 'unread' ? '안 읽은 알림이 없어요' : '알림이 없어요'}
-            </p>
-            <p className="mt-1 text-sm text-gray-500">새 알림이 도착하면 여기에 표시돼요</p>
-          </div>
+          <EmptyState
+            variant="full"
+            icon={Bell}
+            message={filter === 'unread' ? '안 읽은 알림이 없어요' : '알림이 없어요'}
+            description="새 알림이 도착하면 여기에 표시돼요"
+            darkBg
+          />
         ) : (
           <>
             <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">

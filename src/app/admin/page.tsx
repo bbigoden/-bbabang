@@ -19,6 +19,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
+import { EmptyState, EmptyTableRow } from '@/components/empty-state'
 
 // ── 모달 래퍼 ──────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -586,7 +587,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {recentUsers.length === 0 ? (
-                    <tr><td colSpan={3} className="px-3 sm:px-5 py-8 text-center text-gray-500">회원이 없습니다</td></tr>
+                    <EmptyTableRow colSpan={3} message="회원이 없습니다" />
                   ) : (
                     recentUsers.map(u => (
                       <tr
@@ -635,7 +636,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {recentRequests.length === 0 ? (
-                    <tr><td colSpan={3} className="px-3 sm:px-5 py-8 text-center text-gray-500">요청이 없습니다</td></tr>
+                    <EmptyTableRow colSpan={3} message="요청이 없습니다" />
                   ) : (
                     recentRequests.map(req => (
                       <tr
@@ -772,7 +773,7 @@ export default function AdminPage() {
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
               </div>
             ) : brokerReviews.length === 0 ? (
-              <p className="rounded-xl border border-gray-800 bg-gray-800/40 py-4 text-center text-xs text-gray-500">리뷰가 없습니다</p>
+              <EmptyState variant="card" message="리뷰가 없습니다" darkBg />
             ) : (
               <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
                 {brokerReviews.map(r => (
@@ -804,7 +805,7 @@ export default function AdminPage() {
                   <span className="rounded-full bg-gray-700 px-1.5 py-0.5 text-gray-300">{props.length}건</span>
                 </p>
                 {props.length === 0 ? (
-                  <p className="rounded-xl border border-gray-800 bg-gray-800/40 py-4 text-center text-xs text-gray-500">등록된 매물이 없습니다</p>
+                  <EmptyState variant="card" message="등록된 매물이 없습니다" darkBg />
                 ) : (
                   <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                     {props.map(p => (

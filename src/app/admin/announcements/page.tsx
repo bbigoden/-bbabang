@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
 import { formatDate } from '@/lib/utils'
+import { EmptyState } from '@/components/empty-state'
 import {
   Megaphone, ArrowLeft, Send, AlertCircle, Check, Users, Building2,
   Globe, ExternalLink, Eye, EyeOff, Trash2
@@ -321,7 +322,7 @@ export default function AdminAnnouncementsPage() {
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             </div>
           ) : recent.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-500">아직 발행한 공지가 없어요</p>
+            <EmptyState variant="inline" message="아직 발행한 공지가 없어요" />
           ) : (
             <ul className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
               {recent.map((a, i) => (
