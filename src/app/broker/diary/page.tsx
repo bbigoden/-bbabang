@@ -1153,18 +1153,20 @@ export default function BrokerDiaryPage() {
           )}
         </div>
 
-        {/* Sections 2-5 */}
-        {!diaryLoading && (<>
-          {sections.map((def, idx) => (
-            <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
-              onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!canEditSections} />
-          ))}
-          {effectiveCanEdit && (
-            <button onClick={addSection} className="w-full flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-colors">
-              <Plus className="h-4 w-4" />섹션 추가
-            </button>
-          )}
-        </>)}
+        {/* Sections 2-5 — 2열 그리드 */}
+        {!diaryLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sections.map((def, idx) => (
+              <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
+                onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!canEditSections} />
+            ))}
+            {effectiveCanEdit && (
+              <button onClick={addSection} className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-colors">
+                <Plus className="h-4 w-4" />섹션 추가
+              </button>
+            )}
+          </div>
+        )}
 
       </div>
 
