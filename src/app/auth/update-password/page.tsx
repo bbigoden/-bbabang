@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Home, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
 
@@ -72,9 +72,8 @@ export default function UpdatePasswordPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
-              <Home className="h-5 w-5 text-white" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="빠방 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
             <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">새 비밀번호 설정</h1>
