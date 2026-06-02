@@ -62,6 +62,12 @@ export const metadata: Metadata = {
       { url: '/apple-touch-icon-152.png', sizes: '152x152', type: 'image/png' },
     ],
   },
+  // iOS PWA standalone 모드 + 상단 상태바 네이비 통일
+  appleWebApp: {
+    capable: true,
+    title: '빠방',
+    statusBarStyle: 'black-translucent',
+  },
   manifest: '/manifest.webmanifest',
 }
 
