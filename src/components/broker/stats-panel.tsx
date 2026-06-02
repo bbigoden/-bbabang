@@ -252,8 +252,17 @@ export function BrokerStatsPanel() {
         <>
           {/* ── 정산 요약 ─ 정산 페이지와 동일한 3카드 구조 (먼저 노출) ─── */}
           {(() => {
-            const last = settlementSeries[settlementSeries.length - 1] ?? { total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0, month: '' }
-            const prev = settlementSeries[settlementSeries.length - 2] ?? null
+            // 카드 기준일: 데이터가 있는 가장 최근 달 (이번 달이 비었으면 자동으로 이전 달)
+            // 차트는 그대로 6/12개월 추이 그대로
+            const empty = { total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0, month: '' }
+            const lastIdx = (() => {
+              for (let i = settlementSeries.length - 1; i >= 0; i--) {
+                if (settlementSeries[i].count > 0) return i
+              }
+              return settlementSeries.length - 1  // 데이터 전혀 없으면 가장 최근 달
+            })()
+            const last = settlementSeries[lastIdx] ?? empty
+            const prev = lastIdx > 0 ? settlementSeries[lastIdx - 1] : null
             const officeShare = Math.max(0, last.supply - last.assignee)
             const labelMonth = last.month ? `${Number(last.month.slice(5))}월` : '이번 달'
             return (
