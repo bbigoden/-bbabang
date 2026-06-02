@@ -226,24 +226,6 @@ export function BrokerStatsPanel() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-blue-600" />
-          <h2 className="font-bold text-gray-900 dark:text-white">실적 분석</h2>
-          <span className="text-xs text-gray-500">· 제안·수락·응답 시간을 한눈에</span>
-        </div>
-        <div className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
-          {([30, 90, 365] as const).map(d => (
-            <button key={d} onClick={() => setRange(d)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                range === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}>
-              {d === 365 ? '1년' : `${d}일`}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
@@ -267,10 +249,10 @@ export function BrokerStatsPanel() {
             const labelMonth = last.month ? `${Number(last.month.slice(5))}월` : '이번 달'
             return (
               <>
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Calculator className="h-5 w-5 text-teal-600" />
-                    <h3 className="font-bold text-gray-900 dark:text-white">정산 요약</h3>
+                    <h2 className="font-bold text-gray-900 dark:text-white">정산 요약</h2>
                     <span className="text-xs text-gray-500">
                       · {isOwnerView
                         ? (settlementAssigneeId
@@ -383,11 +365,23 @@ export function BrokerStatsPanel() {
             <SettlementLineChart series={settlementSeries} isOwnerView={isOwnerView} />
           </ChartCard>
 
-          {/* ── 영업 활동 (제안·수락 등) ─ 정산 뒤로 이동 ─── */}
-          <div className="mt-6 mb-3 flex items-center gap-2">
-            <Target className="h-5 w-5 text-blue-600" />
-            <h3 className="font-bold text-gray-900 dark:text-white">영업 활동</h3>
-            <span className="text-xs text-gray-500">· 제안·수락·응답 시간</span>
+          {/* ── 실적 분석 (영업·제안·수락 등) ─ 정산과 독립 패널 ─── */}
+          <div className="mt-10 border-t border-gray-200 dark:border-gray-800 pt-6 mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              <h2 className="font-bold text-gray-900 dark:text-white">실적 분석</h2>
+              <span className="text-xs text-gray-500">· 제안·수락·응답 시간을 한눈에</span>
+            </div>
+            <div className="flex items-center gap-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
+              {([30, 90, 365] as const).map(d => (
+                <button key={d} onClick={() => setRange(d)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    range === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}>
+                  {d === 365 ? '1년' : `${d}일`}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
