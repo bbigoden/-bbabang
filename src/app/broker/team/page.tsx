@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -11,63 +11,11 @@ import { transferBrokerData } from '@/lib/leave-office'
 import { OfficeCodeCard } from '@/components/office-code-card'
 import { useToast } from '@/components/toast'
 
-interface Permission {
-  view: boolean
-  edit: boolean
-}
-interface Permissions {
-  properties: Permission
-}
-
-const DEFAULT_PERMISSIONS: Permissions = {
-  properties: { view: true, edit: true },
-}
-
 interface Employee {
   id: string
   user_id: string
-  permissions: Permissions | null
   is_approved: boolean
   profiles: { name: string; email: string } | null
-}
-
-function PermissionEditor({ perms, onChange }: {
-  perms: Permissions
-  onChange: (p: Permissions) => void
-}) {
-  const toggle = (field: 'view' | 'edit') => {
-    const cur = perms.properties
-    if (field === 'view' && cur.view) {
-      onChange({ properties: { view: false, edit: false } })
-    } else if (field === 'edit' && !cur.view) {
-      onChange({ properties: { view: true, edit: true } })
-    } else {
-      onChange({ properties: { ...cur, [field]: !cur[field] } })
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <p className="text-[11px] text-gray-500 mb-2">
-        고객·업무일지는 본인이 등록·담당한 것만 보이므로 별도 권한이 없어요. 매물목록만 설정해요.
-      </p>
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">매물목록</span>
-        <div className="flex gap-1.5">
-          {(['view', 'edit'] as const).map(field => (
-            <button key={field} onClick={() => toggle(field)}
-              className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors',
-                perms.properties[field]
-                  ? field === 'edit' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              )}>
-              {field === 'view' ? '조회' : '편집'}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
 }
 
 export default function BrokerTeamPage() {
@@ -82,16 +30,7 @@ export default function BrokerTeamPage() {
   const [pending, setPending] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [isOwner, setIsOwner] = useState(false)
-
-  // 승인 폼
   const [approvingId, setApprovingId] = useState<string | null>(null)
-  const [approvePerms, setApprovePerms] = useState<Permissions>(DEFAULT_PERMISSIONS)
-  const [approving, setApproving] = useState(false)
-
-  // 권한 편집
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editPerms, setEditPerms] = useState<Permissions>(DEFAULT_PERMISSIONS)
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (auth.loading) return
@@ -112,7 +51,7 @@ export default function BrokerTeamPage() {
     if (owner) {
       const { data: emps } = await supabase
         .from('broker_profiles')
-        .select('id, user_id, permissions, is_approved, profiles(name, email)')
+        .select('id, user_id, is_approved, profiles(name, email)')
         .eq('parent_broker_id', b.id)
 
       const list = (emps ?? []) as unknown as Employee[]
@@ -124,22 +63,21 @@ export default function BrokerTeamPage() {
   }
 
   const approveEmployee = async (empId: string) => {
-    setApproving(true)
+    setApprovingId(empId)
     const { error } = await supabase.from('broker_profiles')
-      .update({ is_approved: true, permissions: approvePerms })
+      .update({ is_approved: true })
       .eq('id', empId)
     if (error) {
       toast.error('승인 중 오류가 발생했습니다: ' + error.message)
-      setApproving(false)
+      setApprovingId(null)
       return
     }
     const emp = pending.find(e => e.id === empId)
     if (emp) {
-      setApproved(prev => [...prev, { ...emp, is_approved: true, permissions: approvePerms }])
+      setApproved(prev => [...prev, { ...emp, is_approved: true }])
       setPending(prev => prev.filter(e => e.id !== empId))
     }
     setApprovingId(null)
-    setApproving(false)
   }
 
   const rejectEmployee = async (empId: string) => {
@@ -153,26 +91,10 @@ export default function BrokerTeamPage() {
     setPending(prev => prev.filter(e => e.id !== empId))
   }
 
-  const saveEmployeePerms = async (empId: string) => {
-    if (!confirm('이 직원의 권한을 변경할까요?\n변경 즉시 직원의 화면에 반영됩니다.')) return
-    setSaving(true)
-    const { error } = await supabase.from('broker_profiles').update({ permissions: editPerms }).eq('id', empId)
-    if (error) {
-      console.error('[team] update perms failed', error)
-      toast.error(`권한 저장 실패: ${error.message}`)
-      setSaving(false)
-      return
-    }
-    setApproved(prev => prev.map(e => e.id === empId ? { ...e, permissions: editPerms } : e))
-    setEditingId(null)
-    setSaving(false)
-  }
-
   const removeEmployee = async (empId: string) => {
-    if (!confirm('이 직원을 팀에서 제거할까요?\n직원이 입력한 고객·매물·업무일지·채팅·제안·리뷰 등 모든 영업 기록은 사무소(대표)에 귀속됩니다.')) return
+    if (!confirm('이 직원을 사무소에서 제거할까요?\n직원이 입력한 고객·매물·업무일지·채팅·제안·리뷰 등 모든 영업 기록은 사무소(대표)에 귀속됩니다.')) return
     if (!broker) return
 
-    // 모든 영업 기록을 대표 broker_id로 이전 (법적 책임 보존)
     const { error: transferErr } = await transferBrokerData(supabase, empId, broker.id)
     if (transferErr) {
       console.error('[team] data transfer failed', transferErr)
@@ -180,7 +102,6 @@ export default function BrokerTeamPage() {
       return
     }
 
-    // 직원 프로필 사무소 연결 해제 (SECURITY DEFINER RPC — RLS WITH CHECK 우회)
     const { error } = await supabase.rpc('remove_employee_from_office', { emp_broker_id: empId })
     if (error) {
       console.error('[team] detach failed', error)
@@ -201,7 +122,7 @@ export default function BrokerTeamPage() {
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <Shield className="mx-auto h-12 w-12 text-gray-200 mb-4" />
-        <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">팀원 관리는 대표 계정에서만 가능해요</h2>
+        <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">직원 관리는 대표 계정에서만 가능해요</h2>
         <p className="text-sm text-gray-500">대표 중개사 계정으로 로그인 후 이용해주세요.</p>
       </div>
     </div>
@@ -213,18 +134,16 @@ export default function BrokerTeamPage() {
       <div className="mx-auto max-w-2xl px-4 py-8">
 
         <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white">팀 관리</h1>
-          <p className="text-sm text-gray-500 mt-0.5">직원 등록 신청을 승인하고 권한을 설정해요</p>
+          <h1 className="text-2xl font-black text-gray-900 dark:text-white">직원</h1>
+          <p className="text-sm text-gray-500 mt-0.5">직원 등록 신청을 승인하고 관리해요</p>
         </div>
 
-        {/* 사무소 코드 */}
         {broker && (
           <div className="mb-6">
             <OfficeCodeCard brokerId={broker.id} initialCode={broker.office_code ?? null} />
           </div>
         )}
 
-        {/* 승인 대기 */}
         {pending.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
@@ -243,13 +162,9 @@ export default function BrokerTeamPage() {
                       <div className="text-xs text-gray-500">{emp.profiles?.email}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => {
-                        if (approvingId === emp.id) { setApprovingId(null) }
-                        else { setApprovingId(emp.id); setApprovePerms(DEFAULT_PERMISSIONS) }
-                      }}
-                        className={cn('rounded-xl px-3 py-1.5 text-xs font-bold transition-colors',
-                          approvingId === emp.id ? 'bg-blue-600 text-white' : 'bg-green-600 text-white hover:bg-green-700')}>
-                        승인
+                      <button onClick={() => approveEmployee(emp.id)} disabled={approvingId === emp.id}
+                        className="rounded-xl px-3 py-1.5 text-xs font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors">
+                        {approvingId === emp.id ? '승인 중...' : '승인'}
                       </button>
                       <button onClick={() => rejectEmployee(emp.id)}
                         className="rounded-xl px-3 py-1.5 text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
@@ -257,36 +172,21 @@ export default function BrokerTeamPage() {
                       </button>
                     </div>
                   </div>
-                  {approvingId === emp.id && (
-                    <div className="border-t border-yellow-200 bg-white dark:bg-gray-900 p-4">
-                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-500 mb-2">권한 설정 후 승인</p>
-                      <PermissionEditor perms={approvePerms} onChange={setApprovePerms} />
-                      <div className="flex gap-2 mt-3">
-                        <button onClick={() => setApprovingId(null)}
-                          className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
-                        <button onClick={() => approveEmployee(emp.id)} disabled={approving}
-                          className="flex-1 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                          {approving ? '승인 중...' : '승인 완료'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* 현재 팀원 */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Users className="h-4 w-4 text-gray-500" />
-            <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">현재 팀원 ({approved.length}명)</h2>
+            <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">직원 ({approved.length}명)</h2>
           </div>
           {approved.length === 0 ? (
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
               <Users className="mx-auto h-8 w-8 text-gray-200 mb-3" />
-              <p className="text-sm text-gray-500">아직 팀원이 없어요</p>
+              <p className="text-sm text-gray-500">아직 직원이 없어요</p>
               <p className="text-xs text-gray-500 mt-1">직원에게 사무소 코드를 알려주세요</p>
             </div>
           ) : (
@@ -301,34 +201,11 @@ export default function BrokerTeamPage() {
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{emp.profiles?.name ?? '—'}</div>
                       <div className="text-xs text-gray-500">{emp.profiles?.email}</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => {
-                        if (editingId === emp.id) { setEditingId(null) }
-                        else { setEditingId(emp.id); setEditPerms(emp.permissions ?? DEFAULT_PERMISSIONS) }
-                      }}
-                        className={cn('rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
-                          editingId === emp.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}>
-                        권한 설정
-                      </button>
-                      <button onClick={() => removeEmployee(emp.id)} aria-label="직원 제거" title="직원 제거"
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <button onClick={() => removeEmployee(emp.id)} aria-label="직원 제거" title="직원 제거"
+                      className={cn('flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors')}>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  {editingId === emp.id && (
-                    <div className="border-t border-gray-100 dark:border-gray-800 p-4">
-                      <PermissionEditor perms={editPerms} onChange={setEditPerms} />
-                      <div className="flex gap-2 mt-3">
-                        <button onClick={() => setEditingId(null)}
-                          className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
-                        <button onClick={() => saveEmployeePerms(emp.id)} disabled={saving}
-                          className="flex-1 rounded-xl bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                          {saving ? '저장 중...' : '저장'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

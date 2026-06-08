@@ -1356,9 +1356,6 @@ function BrokerPropertiesContent() {
     setIsOwner(owner)
     if (!owner) {
       if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
-      const perms = b.permissions
-      if (perms?.properties?.view === false) { setAccessDenied(true); setLoading(false); return }
-      setCanEdit(perms ? perms.properties?.edit !== false : true)
     }
 
     // ── 팀원 이름 목록 (담당자 드롭다운용) ──────────────
