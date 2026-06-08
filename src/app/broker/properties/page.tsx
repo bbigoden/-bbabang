@@ -1379,7 +1379,8 @@ function BrokerPropertiesContent() {
     setCustomColumns(cols)
 
     // ── 데이터 범위 결정 ───────────────────────────────
-    // 룰: 대표=사무소 전체. 직원=사무소 전체 중 본인 작성(broker_id) 또는 본인 담당(assignee=본인이름).
+    // 룰: 대표·직원 모두 사무소 전체 매물을 봄. 다른 직원 매물은 셀 단위로 읽기 전용 렌더링되고
+    //     중개사 메모(memo)는 본인 매물에만 노출됨. 편집은 RLS의 can_edit_broker_property가 차단.
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
@@ -1401,10 +1402,7 @@ function BrokerPropertiesContent() {
       collected.push(...page)
       if (page.length < PAGE) break
     }
-    const filtered = owner
-      ? collected
-      : collected.filter((p: any) => p.broker_id === b.id || (myName && p.assignee === myName))
-    setProperties(filtered)
+    setProperties(collected)
     setLoading(false)
   }
 
