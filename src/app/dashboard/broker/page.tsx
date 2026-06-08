@@ -12,6 +12,7 @@ import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { PushPrompt } from '@/components/push-prompt'
 import { BrokerStatsPanel } from '@/components/broker/stats-panel'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
+import { EmptyState } from '@/components/empty-state'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -381,8 +382,8 @@ export default async function BrokerDashboardPage() {
             <div className="space-y-3">
               {(!proposals || proposals.length === 0) ? (
                 <Card>
-                  <CardBody className="py-8 text-center text-sm text-gray-500">
-                    아직 제안이 없습니다
+                  <CardBody>
+                    <EmptyState variant="inline" message="아직 제안이 없습니다" />
                   </CardBody>
                 </Card>
               ) : (

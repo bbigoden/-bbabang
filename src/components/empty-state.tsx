@@ -17,16 +17,16 @@ import { cn } from '@/lib/utils'
  */
 
 interface EmptyStateProps {
-  /** 변형 — full(큰 박스, 기본), inline(작은 인라인), card(보더 박스) */
-  variant?: 'full' | 'inline' | 'card'
-  /** Lucide 아이콘 컴포넌트 (variant=full에서만 사용) */
+  /** 변형 — full(큰 박스, 기본 py-20), medium(py-10), inline(작은 인라인 py-8), card(보더 박스 py-4) */
+  variant?: 'full' | 'medium' | 'inline' | 'card'
+  /** Lucide 아이콘 컴포넌트 (full/medium에서 사용) */
   icon?: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
   /** 메시지 */
   message: string
   /** 보조 설명 (선택) */
   description?: string
-  /** CTA 버튼 (선택) */
-  cta?: { label: string; href: string }
+  /** CTA — Link href 또는 button onClick 둘 다 지원 */
+  cta?: { label: string; href: string } | { label: string; onClick: () => void }
   className?: string
   /** dark 모드용 별도 배경 (관리자 페이지의 bg-gray-900 등) */
   darkBg?: boolean
@@ -64,36 +64,57 @@ export function EmptyState({
     )
   }
 
-  // full
+  // full or medium
+  const isMedium = variant === 'medium'
+  const padding = isMedium ? 'py-10' : 'py-20'
+  const iconSize = isMedium ? 'h-10 w-10' : 'h-12 w-12'
+  const textSize = isMedium ? 'text-sm' : ''
+
+  // CTA: href면 Link, onClick이면 button
+  const ctaEl = cta && (
+    'href' in cta ? (
+      <Link
+        href={cta.href}
+        className="mt-4 inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+      >
+        {cta.label}
+      </Link>
+    ) : (
+      <button
+        type="button"
+        onClick={cta.onClick}
+        className="mt-4 inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+      >
+        {cta.label}
+      </button>
+    )
+  )
+
   return (
     <div
       className={cn(
-        'rounded-2xl border py-20 text-center',
+        'rounded-2xl border text-center',
+        padding,
         // darkBg=true는 admin 등 강제 다크 컨테이너용 — light mode 영향 안 받음
-        darkBg
-          ? 'border-gray-800 bg-gray-900'
-          : 'border-gray-200 bg-white',
+        darkBg ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white',
         className,
       )}
     >
       {Icon && (
         <Icon
-          className={cn('mx-auto mb-3 h-12 w-12', darkBg ? 'text-gray-600' : 'text-gray-500')}
+          className={cn('mx-auto mb-3', iconSize, darkBg ? 'text-gray-600' : 'text-gray-500')}
           aria-hidden
         />
       )}
-      <p className={cn('font-semibold', darkBg ? 'text-gray-300' : 'text-gray-700')}>{message}</p>
+      <p className={cn('font-semibold', textSize, darkBg ? 'text-gray-300' : 'text-gray-700')}>
+        {message}
+      </p>
       {description && (
-        <p className={cn('mt-1 text-sm', darkBg ? 'text-gray-500' : 'text-gray-500')}>{description}</p>
+        <p className={cn('mt-1 text-sm', darkBg ? 'text-gray-500' : 'text-gray-500')}>
+          {description}
+        </p>
       )}
-      {cta && (
-        <Link
-          href={cta.href}
-          className="mt-4 inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          {cta.label}
-        </Link>
-      )}
+      {ctaEl}
     </div>
   )
 }

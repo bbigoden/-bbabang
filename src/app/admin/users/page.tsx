@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
+import { EmptyState } from '@/components/empty-state'
 import { logAdminAction } from '@/lib/audit'
 
 type AccountStatus = 'active' | 'suspended' | 'banned'
@@ -402,10 +403,7 @@ export default function AdminUsersPage() {
             {/* 대표 필터: 대표만 평면 목록 */}
             {role === 'owner' && (
               flatOwners.length === 0 ? (
-                <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
-                  <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700" />
-                  <p className="text-sm font-semibold text-gray-500">조건에 맞는 대표가 없어요</p>
-                </div>
+                <EmptyState variant="medium" icon={Building2} message="조건에 맞는 대표가 없어요" darkBg />
               ) : (
                 <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800 list-none p-0">
                   {flatOwners.map(({ u, officeName }) => {
@@ -443,10 +441,7 @@ export default function AdminUsersPage() {
             {/* 직원/전체 필터: 사무소 그룹 카드 */}
             {(role === 'employee' || role === 'all') && (
               officeGroups.length === 0 ? (
-                <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
-                  <Building2 className="mx-auto mb-2 h-10 w-10 text-gray-700" />
-                  <p className="text-sm font-semibold text-gray-500">조건에 맞는 사무소가 없어요</p>
-                </div>
+                <EmptyState variant="medium" icon={Building2} message="조건에 맞는 사무소가 없어요" darkBg />
               ) : (
                 <ul className="space-y-3 list-none p-0">
                   {officeGroups.map(g => {
@@ -541,10 +536,7 @@ export default function AdminUsersPage() {
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
               </div>
             ) : items.length === 0 ? (
-              <div className="rounded-2xl border border-gray-800 bg-gray-900 py-10 text-center">
-                <Users className="mx-auto mb-2 h-10 w-10 text-gray-700 dark:text-gray-300" />
-                <p className="text-sm font-semibold text-gray-500">조건에 맞는 사용자가 없어요</p>
-              </div>
+              <EmptyState variant="medium" icon={Users} message="조건에 맞는 사용자가 없어요" darkBg />
             ) : (
               <>
                 <ul className="rounded-2xl border border-gray-800 bg-gray-900 overflow-hidden divide-y divide-gray-800">

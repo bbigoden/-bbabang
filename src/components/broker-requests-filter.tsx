@@ -8,6 +8,7 @@ import { formatDate, formatPrice } from '@/lib/utils'
 import { MapPin, Clock, Search, SlidersHorizontal, X } from 'lucide-react'
 import Link from 'next/link'
 import { ALL_ROOM_TYPES as ROOM_TYPES } from '@/lib/property-types'
+import { EmptyState } from '@/components/empty-state'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 
@@ -175,8 +176,11 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
           <Card><CardBody className="py-8 text-center text-sm text-gray-500">불러오는 중...</CardBody></Card>
         ) : filtered.length === 0 ? (
           <Card>
-            <CardBody className="py-8 text-center text-sm text-gray-500">
-              {hasFilter || search ? '검색 결과가 없습니다' : '현재 신규 요청이 없습니다'}
+            <CardBody>
+              <EmptyState
+                variant="inline"
+                message={hasFilter || search ? '검색 결과가 없습니다' : '현재 신규 요청이 없습니다'}
+              />
             </CardBody>
           </Card>
         ) : (

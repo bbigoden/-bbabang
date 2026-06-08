@@ -15,6 +15,7 @@ import {
   EyeOff, Eye, Trash2, AlertTriangle, ExternalLink, StickyNote, Calendar, Hash
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { EmptyState } from '@/components/empty-state'
 
 interface Property {
   id: string
@@ -374,18 +375,17 @@ export default function AdminPropertiesPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-800 bg-gray-900 py-20 text-center">
-            <Home className="mx-auto mb-3 h-12 w-12 text-gray-700 dark:text-gray-300" />
-            <p className="font-semibold text-gray-500">조건에 맞는 매물이 없어요</p>
-            {(search || status !== 'all' || showReportedOnly) && (
-              <button
-                onClick={() => { setSearch(''); setStatus('all'); setShowReportedOnly(false) }}
-                className="mt-4 rounded-xl border border-gray-700 bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-300 hover:bg-gray-700"
-              >
-                필터 초기화
-              </button>
-            )}
-          </div>
+          <EmptyState
+            variant="full"
+            icon={Home}
+            message="조건에 맞는 매물이 없어요"
+            cta={
+              (search || status !== 'all' || showReportedOnly)
+                ? { label: '필터 초기화', onClick: () => { setSearch(''); setStatus('all'); setShowReportedOnly(false) } }
+                : undefined
+            }
+            darkBg
+          />
         ) : (
           <>
             <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">

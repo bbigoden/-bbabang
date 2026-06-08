@@ -18,6 +18,7 @@ import { TextCell } from '@/components/sheet/cells/text-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
+import { EmptyState } from '@/components/empty-state'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -248,7 +249,7 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
         </div>
         <div className="max-h-64 overflow-y-auto">
           {filtered.length === 0
-            ? <div className="py-8 text-center text-sm text-gray-500">매물 없음</div>
+            ? <EmptyState variant="inline" message="매물 없음" />
             : filtered.map(p => (
               <div key={p.id} onClick={() => toggle(p.id)}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0">

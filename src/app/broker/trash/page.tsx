@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import { ArrowLeft, Trash2, RotateCcw, AlertTriangle, Building2, Users } from 'lucide-react'
+import { EmptyState } from '@/components/empty-state'
 
 interface TrashProperty {
   id: string; broker_id: string; address: string; deal_type: string; room_type: string
@@ -120,7 +121,7 @@ export default function TrashPage() {
           <div className="py-20 text-center text-sm text-gray-500">불러오는 중...</div>
         ) : tab === 'properties' ? (
           props.length === 0 ? (
-            <div className="py-20 text-center text-sm text-gray-500">휴지통이 비어있습니다.</div>
+            <EmptyState variant="full" icon={Trash2} message="휴지통이 비어있습니다." />
           ) : (
             <ul className="space-y-2">
               {props.map(p => (
@@ -147,7 +148,7 @@ export default function TrashPage() {
           )
         ) : (
           custs.length === 0 ? (
-            <div className="py-20 text-center text-sm text-gray-500">휴지통이 비어있습니다.</div>
+            <EmptyState variant="full" icon={Trash2} message="휴지통이 비어있습니다." />
           ) : (
             <ul className="space-y-2">
               {custs.map(c => (
