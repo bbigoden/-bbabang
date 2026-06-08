@@ -551,9 +551,6 @@ export default function BrokerDiaryPage() {
     setIsOwner(owner)
     if (!owner) {
       if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
-      const perms = b.permissions
-      if (perms?.diary?.view === false) { setAccessDenied(true); setLoading(false); return }
-      setCanEdit(perms ? perms.diary?.edit !== false : true)
     }
 
     // 본인 섹션 초기 로드 — 직원 일지 viewing 시는 아래 useEffect가 덮어씀

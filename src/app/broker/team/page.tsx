@@ -16,14 +16,10 @@ interface Permission {
   edit: boolean
 }
 interface Permissions {
-  customers: Permission
-  diary: Permission
   properties: Permission
 }
 
 const DEFAULT_PERMISSIONS: Permissions = {
-  customers:  { view: true, edit: true },
-  diary:      { view: true, edit: true },
   properties: { view: true, edit: true },
 }
 
@@ -35,46 +31,41 @@ interface Employee {
   profiles: { name: string; email: string } | null
 }
 
-const PAGE_LABELS: Record<string, string> = {
-  customers:  '고객목록',
-  diary:      '업무일지',
-  properties: '매물목록',
-}
-
 function PermissionEditor({ perms, onChange }: {
   perms: Permissions
   onChange: (p: Permissions) => void
 }) {
-  const toggle = (page: 'customers' | 'diary' | 'properties', field: 'view' | 'edit') => {
-    const cur = perms[page]
+  const toggle = (field: 'view' | 'edit') => {
+    const cur = perms.properties
     if (field === 'view' && cur.view) {
-      onChange({ ...perms, [page]: { view: false, edit: false } })
+      onChange({ properties: { view: false, edit: false } })
     } else if (field === 'edit' && !cur.view) {
-      onChange({ ...perms, [page]: { view: true, edit: true } })
+      onChange({ properties: { view: true, edit: true } })
     } else {
-      onChange({ ...perms, [page]: { ...cur, [field]: !cur[field] } })
+      onChange({ properties: { ...cur, [field]: !cur[field] } })
     }
   }
 
   return (
     <div className="space-y-2">
-      {(['customers', 'diary', 'properties'] as const).map(page => (
-        <div key={page} className="flex items-center justify-between">
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{PAGE_LABELS[page]}</span>
-          <div className="flex gap-1.5">
-            {(['view', 'edit'] as const).map(field => (
-              <button key={field} onClick={() => toggle(page, field)}
-                className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors',
-                  perms[page][field]
-                    ? field === 'edit' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                )}>
-                {field === 'view' ? '조회' : '편집'}
-              </button>
-            ))}
-          </div>
+      <p className="text-[11px] text-gray-500 mb-2">
+        고객·업무일지는 본인이 등록·담당한 것만 보이므로 별도 권한이 없어요. 매물목록만 설정해요.
+      </p>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">매물목록</span>
+        <div className="flex gap-1.5">
+          {(['view', 'edit'] as const).map(field => (
+            <button key={field} onClick={() => toggle(field)}
+              className={cn('rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors',
+                perms.properties[field]
+                  ? field === 'edit' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              )}>
+              {field === 'view' ? '조회' : '편집'}
+            </button>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   )
 }
