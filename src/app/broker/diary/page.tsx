@@ -291,10 +291,15 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId: _ow
   const [search, setSearch] = useState('')
 
   // 일지 주인 담당자(assignee) 매칭 + 아직 일지에 안 들어간 것만
-  // broker_id가 아니라 assignee 이름으로 매칭 — 봇 등 다른 계정이 등록해도 담당자 일지에 보임
-  const eligible = allCustomers.filter(c =>
-    (!ownerName || c.assignee === ownerName) && !linkedIds.has(c.id)
-  )
+  // broker_id가 아니라 assignee 이름으로 매칭 — 봇 등 다른 계정이 등록해도 담당자 일지에 보임.
+  // 공동담당("오혜진, 권세현, 김규영")도 콤마로 분리해서 각 담당자에게 모두 잡히게 함.
+  const eligible = allCustomers.filter(c => {
+    if (linkedIds.has(c.id)) return false
+    if (!ownerName) return true
+    if (!c.assignee) return false
+    const names = c.assignee.split(',').map(s => s.trim())
+    return names.includes(ownerName)
+  })
 
   const q = search.toLowerCase()
   const filtered = !q ? eligible : eligible.filter(c =>

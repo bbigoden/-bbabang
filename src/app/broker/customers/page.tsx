@@ -418,9 +418,15 @@ export default function BrokerCustomersPage() {
 
     const { data: rawData } = await supabase.from('broker_customers').select('*')
       .in('broker_id', brokerIds).order('received_date', { ascending: false }).order('created_at', { ascending: false })
+    // 직원 시점: 본인 작성(broker_id) 또는 본인이 담당자에 포함된 행만 노출.
+    // 공동담당("오혜진, 권세현")도 콤마 분리 후 매칭해야 각 직원에게 잡힘.
     const data = owner
       ? (rawData ?? [])
-      : (rawData ?? []).filter((c: any) => c.broker_id === b.id || (myName && c.assignee === myName))
+      : (rawData ?? []).filter((c: any) => {
+          if (c.broker_id === b.id) return true
+          if (!myName || !c.assignee) return false
+          return c.assignee.split(',').map((s: string) => s.trim()).includes(myName)
+        })
     setCustomers(data)
     setLoading(false)
   }
