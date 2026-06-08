@@ -74,7 +74,7 @@ export default async function UserDashboardPage() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
               안녕하세요, {profile?.name ?? '회원'}님 👋
             </h1>
-            <p className="mt-1 text-sm text-gray-500">내 방 찾기 현황을 확인하세요</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">내 방 찾기 현황을 확인하세요</p>
           </div>
           <Link href="/request/new" className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             <Plus className="h-4 w-4" />
@@ -179,8 +179,8 @@ export default async function UserDashboardPage() {
           <Card>
             <CardBody className="py-16 text-center">
               <Home className="mx-auto mb-4 h-12 w-12 text-gray-200" />
-              <p className="font-semibold text-gray-500">활성 요청이 없습니다</p>
-              <p className="mt-1 text-sm text-gray-500">조건을 등록하면 중개사들이 매물을 제안합니다</p>
+              <p className="font-semibold text-gray-700 dark:text-gray-300">활성 요청이 없습니다</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">조건을 등록하면 중개사들이 매물을 제안합니다</p>
               <Link href="/request/new" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
                 <Plus className="h-4 w-4" />첫 요청 등록하기
               </Link>

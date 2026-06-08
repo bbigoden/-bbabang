@@ -119,7 +119,7 @@ export default function LandingPage() {
                     <item.icon className="h-6 w-6" />
                   </div>
                   <h3 className="mb-2 text-lg font-bold text-gray-900 dark:text-white">{item.title}</h3>
-                  <p className="text-sm leading-relaxed text-gray-500">{item.desc}</p>
+                  <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{item.desc}</p>
                 </CardBody>
               </Card>
             ))}
@@ -211,7 +211,7 @@ export default function LandingPage() {
                 중개사님,<br />
                 고객이 먼저 찾아옵니다
               </h2>
-              <p className="mb-6 text-gray-500 leading-relaxed">
+              <p className="mb-6 text-gray-700 dark:text-gray-300 leading-relaxed">
                 더 이상 매물 홍보에 광고비를 쏟지 마세요.<br />
                 빠방에서는 원하는 매물이 있는 고객에게만 제안할 수 있습니다.
               </p>

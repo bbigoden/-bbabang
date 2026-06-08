@@ -36,7 +36,7 @@ export default function AccountSuspendedPage() {
           {isBanned ? '계정이 차단되었어요' : '계정이 일시 정지되었어요'}
         </h1>
 
-        <p className="text-sm text-gray-500 leading-relaxed">
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
           {isBanned ? (
             <>이용약관 위반 등으로 빠방 서비스를 더 이상 이용할 수 없습니다.<br />문의 사항이 있다면 고객지원으로 연락 주세요.</>
           ) : (

@@ -73,7 +73,7 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6">
           <h1 className="text-2xl font-black text-gray-900 dark:text-white">실시간 부동산 요청</h1>
-          <p className="mt-1 text-sm text-gray-500">전국에서 올라온 요청을 한곳에서 둘러보세요</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">전국에서 올라온 요청을 한곳에서 둘러보세요</p>
         </div>
 
         {/* 필터 */}

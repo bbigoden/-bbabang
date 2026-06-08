@@ -43,7 +43,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   if (variant === 'inline') {
     return (
-      <p className={cn('py-8 text-center text-sm text-gray-500', className)}>{message}</p>
+      <p className={cn('py-8 text-center text-sm text-gray-600 dark:text-gray-400', className)}>{message}</p>
     )
   }
 
@@ -54,8 +54,8 @@ export function EmptyState({
           'rounded-xl border py-4 text-center text-xs',
           // darkBg=true는 admin 등 강제 다크 컨테이너용 — light mode 영향 안 받음
           darkBg
-            ? 'border-gray-800 bg-gray-800/40 text-gray-500'
-            : 'border-gray-200 bg-gray-50 text-gray-500',
+            ? 'border-gray-800 bg-gray-800/40 text-gray-400'
+            : 'border-gray-200 bg-gray-50 text-gray-600 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400',
           className,
         )}
       >
@@ -102,15 +102,15 @@ export function EmptyState({
     >
       {Icon && (
         <Icon
-          className={cn('mx-auto mb-3', iconSize, darkBg ? 'text-gray-600' : 'text-gray-500')}
+          className={cn('mx-auto mb-3', iconSize, darkBg ? 'text-gray-600' : 'text-gray-400 dark:text-gray-600')}
           aria-hidden
         />
       )}
-      <p className={cn('font-semibold', textSize, darkBg ? 'text-gray-300' : 'text-gray-700')}>
+      <p className={cn('font-semibold', textSize, darkBg ? 'text-gray-300' : 'text-gray-700 dark:text-gray-300')}>
         {message}
       </p>
       {description && (
-        <p className={cn('mt-1 text-sm', darkBg ? 'text-gray-500' : 'text-gray-500')}>
+        <p className={cn('mt-1 text-sm', darkBg ? 'text-gray-400' : 'text-gray-600 dark:text-gray-400')}>
           {description}
         </p>
       )}
@@ -135,7 +135,7 @@ export function EmptyTableRow({
     <tr>
       <td
         colSpan={colSpan}
-        className={cn('px-3 sm:px-5 py-8 text-center text-sm text-gray-500', className)}
+        className={cn('px-3 sm:px-5 py-8 text-center text-sm text-gray-600 dark:text-gray-400', className)}
       >
         {message}
       </td>

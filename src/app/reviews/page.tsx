@@ -90,7 +90,7 @@ export default function MyReviewsPage() {
             <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
             내 리뷰
           </h1>
-          <p className="mt-1 text-sm text-gray-500">중개사에게 작성한 리뷰를 관리해요</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">중개사에게 작성한 리뷰를 관리해요</p>
         </div>
 
         {loading ? (
@@ -304,7 +304,7 @@ function DeleteReviewModal({ review, onClose, onDeleted, supabase }: {
             <AlertTriangle className="h-6 w-6 text-red-500" />
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">리뷰를 삭제할까요?</h3>
-          <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
             삭제하면 중개사 페이지에서 사라지고<br />다시 복구할 수 없어요.
           </p>
         </div>

@@ -87,7 +87,7 @@ export default function SavedSearchesPage() {
             <Bookmark className="h-6 w-6 text-blue-500" />
             저장한 검색
           </h1>
-          <p className="mt-1 text-sm text-gray-500">조건에 맞는 새 데이터가 등록되면 알림으로 알려드려요</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">조건에 맞는 새 데이터가 등록되면 알림으로 알려드려요</p>
         </div>
 
         {loading ? (

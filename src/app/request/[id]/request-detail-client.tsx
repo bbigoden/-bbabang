@@ -172,7 +172,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               />
             </div>
             {request.description && (
-              <p className="mt-2 text-xs text-gray-500 leading-relaxed line-clamp-3">{request.description}</p>
+              <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3">{request.description}</p>
             )}
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
               {request.min_size && <span>최소 {request.min_size}평</span>}

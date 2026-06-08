@@ -160,8 +160,8 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
             </button>
           ))}
         </div>
-        <p className="mb-6 text-xs text-gray-500 leading-relaxed">
-          소속 직원도 <span className="font-semibold text-gray-600 dark:text-gray-500">중개사·직원</span>을 선택하세요. 다음 단계에서 사장님께 받은 <span className="font-semibold text-gray-600 dark:text-gray-500">6자리 사무소 코드</span>로 합류할 수 있어요.
+        <p className="mb-6 text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+          소속 직원도 <span className="font-semibold text-gray-900 dark:text-white">중개사·직원</span>을 선택하세요. 다음 단계에서 사장님께 받은 <span className="font-semibold text-gray-900 dark:text-white">6자리 사무소 코드</span>로 합류할 수 있어요.
         </p>
 
         <form onSubmit={handleSignup} className="space-y-4">

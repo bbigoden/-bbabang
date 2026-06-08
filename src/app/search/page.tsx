@@ -137,8 +137,8 @@ function SearchInner() {
         {!hasQuery ? (
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
-            <p className="font-semibold text-gray-500">검색어를 2자 이상 입력해주세요</p>
-            <p className="mt-1 text-sm text-gray-500">중개사 · 매물 · 요청을 한 번에 찾아드려요</p>
+            <p className="font-semibold text-gray-700 dark:text-gray-300">검색어를 2자 이상 입력해주세요</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">중개사 · 매물 · 요청을 한 번에 찾아드려요</p>
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-20">

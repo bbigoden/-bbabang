@@ -109,7 +109,7 @@ export default function HistoryPage() {
               <Clock className="h-6 w-6 text-blue-500" />
               최근 본 항목
             </h1>
-            <p className="mt-1 text-sm text-gray-500">최근에 본 중개사·요청을 모아봐요</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">최근에 본 중개사·요청을 모아봐요</p>
           </div>
           {history.length > 0 && (
             <button onClick={clearAll} disabled={clearing}

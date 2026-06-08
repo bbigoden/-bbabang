@@ -73,7 +73,7 @@ export function OnboardingModal() {
             <Icon className="h-8 w-8" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{s.title}</h2>
-          <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
+          <p className="text-[15px] text-gray-700 dark:text-gray-300 leading-relaxed">{s.desc}</p>
         </div>
 
         {/* 인디케이터 */}

@@ -108,7 +108,7 @@ export default function FavoritesPage() {
             <Heart className="h-6 w-6 fill-pink-500 text-pink-500" />
             찜 목록
           </h1>
-          <p className="mt-1 text-sm text-gray-500">찜한 중개사·매물·요청을 모아봐요</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">찜한 중개사·매물·요청을 모아봐요</p>
         </div>
 
         {/* 탭 */}

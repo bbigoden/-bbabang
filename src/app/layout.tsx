@@ -22,7 +22,7 @@ const BASE_URL = 'https://bbabang.vercel.app'
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: '빠방 - 조건만 올리면 중개사가 찾아드립니다',
+    default: '조건만 올리면 중개사가 찾아드립니다',
     template: '%s | 빠방',
   },
   description: '내 조건만 올리면 공인중개사가 먼저 제안합니다. 전세·월세·매매 부동산 역경매 매칭 플랫폼',

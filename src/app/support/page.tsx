@@ -19,7 +19,7 @@ export default function SupportPage() {
             <MessageCircle className="h-7 w-7 text-blue-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">고객지원</h1>
-          <p className="mt-2 text-gray-500 leading-relaxed">
+          <p className="mt-2 text-gray-700 dark:text-gray-300 leading-relaxed">
             이용 중 불편한 점이나 문의사항을 알려주세요.
           </p>
         </div>

@@ -192,7 +192,7 @@ export default function ReviewPage() {
               {brokerName[0]}
             </div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">{brokerName} 중개사</h1>
-            <p className="mt-1 text-sm text-gray-500">거래는 만족스러우셨나요? 솔직한 후기를 남겨주세요</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">거래는 만족스러우셨나요? 솔직한 후기를 남겨주세요</p>
           </div>
 
           {/* 별점 */}

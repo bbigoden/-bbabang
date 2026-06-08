@@ -135,7 +135,7 @@ export default function NotificationsPage() {
               <Bell className="h-6 w-6 text-blue-600" />
               알림
             </h1>
-            <p className="mt-1 text-sm text-gray-500">새 제안·메시지·공지 등 받은 알림을 모아봐요</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">새 제안·메시지·공지 등 받은 알림을 모아봐요</p>
           </div>
           {unreadCount > 0 && (
             <button

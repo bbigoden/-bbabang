@@ -163,7 +163,7 @@ export default function RecommendationsPage() {
             <Sparkles className="h-6 w-6 text-amber-500" />
             추천 매물
           </h1>
-          <p className="mt-1 text-sm text-gray-500">내 요청·찜한 중개사 기반 맞춤 매물</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">내 요청·찜한 중개사 기반 맞춤 매물</p>
         </div>
 
         {loading ? (

@@ -653,8 +653,8 @@ export default function ChatPage() {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="mb-3 text-4xl">👋</div>
-              <p className="font-semibold text-gray-600 dark:text-gray-500">{otherName}님과 대화를 시작해보세요</p>
-              <p className="mt-1 text-sm text-gray-500">매물 정보, 계약 조건 등을 자유롭게 문의하세요</p>
+              <p className="font-semibold text-gray-700 dark:text-gray-300">{otherName}님과 대화를 시작해보세요</p>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">매물 정보, 계약 조건 등을 자유롭게 문의하세요</p>
               {isBroker && (
                 <button
                   onClick={openPropertyPicker}
