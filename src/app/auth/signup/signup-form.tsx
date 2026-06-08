@@ -221,8 +221,8 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
               className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-gray-700 accent-blue-600"
             />
             <span className="text-sm text-gray-600 dark:text-gray-500">
-              <Link href="/terms" className="text-blue-600 hover:underline">이용약관</Link>과{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">개인정보처리방침</Link>에 동의하며, <span className="font-medium">만 14세 이상</span>입니다 <span className="text-red-500">*</span> <span className="text-gray-500">(필수)</span>
+              <Link href="/terms" className="text-blue-600 underline">이용약관</Link>과{' '}
+              <Link href="/privacy" className="text-blue-600 underline">개인정보처리방침</Link>에 동의하며, <span className="font-medium">만 14세 이상</span>입니다 <span className="text-red-500">*</span> <span className="text-gray-500">(필수)</span>
             </span>
           </label>
 

@@ -10,5 +10,10 @@ export default async function BrokerChatsPage() {
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (profile?.role !== 'broker') redirect('/dashboard/user')
 
-  return <BrokerChatsClient user={user} />
+  return (
+    <>
+      <h1 className="sr-only">중개사 채팅 목록</h1>
+      <BrokerChatsClient user={user} />
+    </>
+  )
 }

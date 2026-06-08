@@ -36,7 +36,7 @@ export function AdminSidebar() {
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-white">빠방 관리자</p>
-          <p className="truncate text-[11px] text-gray-500">Admin Dashboard</p>
+          <p className="truncate text-[11px] text-gray-400">Admin Dashboard</p>
         </div>
       </div>
 
@@ -53,7 +53,7 @@ export function AdminSidebar() {
                     'flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
                     active
                       ? 'bg-blue-500/15 text-blue-300'
-                      : 'text-gray-500 hover:bg-gray-800 hover:text-white',
+                      : 'text-gray-300 hover:bg-gray-800 hover:text-white',
                   )}
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
@@ -70,7 +70,7 @@ export function AdminSidebar() {
           href="/?as_visitor=1"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-800 hover:text-white transition-colors"
+          className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
         >
           <ExternalLink className="h-4 w-4 flex-shrink-0" />
           사이트 보기

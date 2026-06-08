@@ -99,7 +99,7 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
             <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
           </Link>
           <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">다시 만나서 반가워요 👋</p>
-          <p className="mt-2 text-sm text-gray-500">로그인하고 내 방 찾기를 계속하세요</p>
+          <p className="mt-2 text-sm text-gray-500">빠방과 함께 좋은 하루 보내세요</p>
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
