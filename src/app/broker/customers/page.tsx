@@ -736,10 +736,16 @@ export default function BrokerCustomersPage() {
     const restSum = entries.slice(7).reduce((s, [, v]) => s + v, 0)
     return [...top, ['기타', restSum]]
   }
-  // 도넛은 현재 필터(월/담당자/검색)에 맞춘 filtered 기준으로 계산
+  // 도넛은 현재 필터(월/담당자/검색)에 맞춘 filtered 기준으로 계산.
+  // 공동담당("오혜진, 권세현")은 개별로 분리하지 않고 "공동담당" 한 슬라이스로 묶음
+  // → 슬라이스 합계 = 실제 고객 수가 유지됨 (중복 카운트 방지).
   const assigneeDist = (() => {
     const map: Record<string, number> = {}
-    filtered.forEach(c => { if (c.assignee) map[c.assignee] = (map[c.assignee] ?? 0) + 1 })
+    filtered.forEach(c => {
+      if (!c.assignee) return
+      const key = c.assignee.includes(',') ? '공동담당' : c.assignee.trim()
+      map[key] = (map[key] ?? 0) + 1
+    })
     return distribute(map)
   })()
   const categoryDist = (() => {
