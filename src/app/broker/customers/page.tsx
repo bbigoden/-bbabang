@@ -627,19 +627,40 @@ export default function BrokerCustomersPage() {
   }
 
   // 필터/통계
-  const months = (() => {
-    const set = new Set<string>()
-    customers.forEach(c => { if (c.received_date) set.add(c.received_date.slice(0, 7)) })
-    return ['전체', ...Array.from(set).sort((a, b) => b.localeCompare(a))]
+  // 월별 카운트 (단일 순회)
+  const monthCounts = (() => {
+    const counts: Record<string, number> = {}
+    customers.forEach(c => {
+      if (!c.received_date) return
+      const m = c.received_date.slice(0, 7)
+      counts[m] = (counts[m] || 0) + 1
+    })
+    return counts
   })()
-  const assignees = (() => {
-    const set = new Set<string>()
-    customers.forEach(c => { if (c.assignee) set.add(c.assignee) })
-    return ['전체', ...Array.from(set).sort()]
+  const months = ['전체', ...Object.keys(monthCounts).sort((a, b) => b.localeCompare(a))]
+
+  // 담당자별 카운트 — assignee의 콤마 분리해서 개별 이름 단위로 누적
+  // (공동 담당 "오혜진, 김규영"은 오혜진 1건 + 김규영 1건으로 카운트)
+  const assigneeCounts = (() => {
+    const counts: Record<string, number> = {}
+    customers.forEach(c => {
+      if (!c.assignee) return
+      c.assignee.split(',').forEach(n => {
+        const name = n.trim()
+        if (name) counts[name] = (counts[name] || 0) + 1
+      })
+    })
+    return counts
   })()
+  const assignees = ['전체', ...Object.keys(assigneeCounts).sort()]
+
   const filtered = customers.filter(c => {
     if (monthFilter !== '전체' && (!c.received_date || !c.received_date.startsWith(monthFilter))) return false
-    if (assigneeFilter !== '전체' && c.assignee !== assigneeFilter) return false
+    if (assigneeFilter !== '전체') {
+      if (!c.assignee) return false
+      const names = c.assignee.split(',').map(s => s.trim())
+      if (!names.includes(assigneeFilter)) return false
+    }
     if (search) {
       const q = search.toLowerCase()
       const fields = [
@@ -928,29 +949,27 @@ export default function BrokerCustomersPage() {
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="전체 검색..."
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
           </div>
-          {isOwner && assignees.length > 1 && (
-            <div className="flex gap-1 flex-wrap">
-              {assignees.map(a => (
-                <button key={a} onClick={() => setAssigneeFilter(a)}
-                  className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                    assigneeFilter === a ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
-                  )}>{a}</button>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* 월 탭 */}
-        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
-          {months.map(m => (
-            <button key={m} onClick={() => setMonthFilter(m)}
-              className={cn('flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                monthFilter === m ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-              )}>
-              {m === '전체' ? '전체' : (() => { const [y, mo] = m.split('-'); return `${y.slice(2)}년 ${parseInt(mo)}월` })()}
-              {m !== '전체' && <span className="ml-1.5 text-[10px] opacity-60">{customers.filter(c => c.received_date?.startsWith(m)).length}</span>}
-            </button>
-          ))}
+          <select aria-label="월별 필터" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+            className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+            {months.map(m => {
+              const label = m === '전체'
+                ? '월별 전체'
+                : (() => { const [y, mo] = m.split('-'); return `${y.slice(2)}년 ${parseInt(mo)}월 (${monthCounts[m]})` })()
+              return <option key={m} value={m}>{label}</option>
+            })}
+          </select>
+
+          {isOwner && assignees.length > 1 && (
+            <select aria-label="담당자 필터" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
+              className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+              {assignees.map(a => (
+                <option key={a} value={a}>
+                  {a === '전체' ? '담당자 전체' : `${a} (${assigneeCounts[a]})`}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* 테이블 */}
