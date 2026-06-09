@@ -7,6 +7,7 @@ import { formatDate, formatPrice } from '@/lib/utils'
 import { Plus, Home, MessageCircle, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History, Sparkles, Bookmark } from 'lucide-react'
 import { OnboardingModal } from '@/components/onboarding-modal'
 import { PageHeader } from '@/components/layout/page-header'
+import { ReopenRequestButton } from '@/components/reopen-request-button'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -261,7 +262,10 @@ export default async function UserDashboardPage() {
                             <span>마감: {formatDate(req.closed_at ?? req.created_at)}</span>
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500">기록 보기 →</span>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <ReopenRequestButton requestId={req.id} variant="compact" />
+                          <span className="text-xs text-gray-500">기록 보기 →</span>
+                        </div>
                       </div>
                     </CardBody>
                   </Card>

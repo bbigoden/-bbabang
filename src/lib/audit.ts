@@ -15,8 +15,10 @@ export type AuditAction =
   | 'report.status_change'
   | 'announcement.publish'
   | 'announcement.recall'
+  | 'request.force_close'
+  | 'request.delete'
 
-export type AuditTargetType = 'broker' | 'user' | 'property' | 'error' | 'report' | 'announcement'
+export type AuditTargetType = 'broker' | 'user' | 'property' | 'error' | 'report' | 'announcement' | 'request'
 
 /** 액션 → 한글 라벨 + 색상 (활동 로그 뷰어용) */
 export const AUDIT_ACTION_META: Record<string, { label: string; tone: 'green' | 'red' | 'blue' | 'yellow' | 'gray' | 'purple' }> = {
@@ -34,6 +36,8 @@ export const AUDIT_ACTION_META: Record<string, { label: string; tone: 'green' | 
   'report.status_change':    { label: '신고 처리',        tone: 'blue' },
   'announcement.publish':    { label: '공지 발행',        tone: 'green' },
   'announcement.recall':     { label: '공지 회수',        tone: 'red' },
+  'request.force_close':     { label: '요청 강제 마감',   tone: 'yellow' },
+  'request.delete':          { label: '요청 삭제',        tone: 'red' },
 }
 
 export const auditActionLabel = (action: string): string =>
@@ -47,6 +51,7 @@ export const AUDIT_TARGET_LABEL: Record<string, string> = {
   error: '에러',
   report: '신고',
   announcement: '공지',
+  request: '요청',
 }
 
 type AuditInput = {

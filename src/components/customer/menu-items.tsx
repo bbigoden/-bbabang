@@ -5,7 +5,7 @@
 import {
   Home, Plus, Sparkles, Building2, Search, Compass,
   Heart, History, Bookmark, Star, Settings, User,
-  Palette, Bell, HelpCircle, FileText,
+  Palette, Bell, HelpCircle, FileText, Inbox,
 } from 'lucide-react'
 
 export interface CustomerSubItemDef {
@@ -32,6 +32,7 @@ export const CUSTOMER_ITEMS: CustomerItemDef[] = [
   {
     id: 'my', label: '내 활동', icon: FileText,
     children: [
+      { href: '/my/proposals',   label: '받은 제안',   icon: Inbox },
       { href: '/favorites',      label: '찜 목록',     icon: Heart },
       { href: '/history',        label: '최근 본',     icon: History },
       { href: '/saved-searches', label: '저장한 검색', icon: Bookmark },

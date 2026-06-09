@@ -12,6 +12,7 @@ import {
   Pencil, Archive, XCircle, X, AlertTriangle, GitCompare, Check
 } from 'lucide-react'
 import { CloseRequestButton } from '@/components/close-request-button'
+import { ReopenRequestButton } from '@/components/reopen-request-button'
 import { ShareButton } from '@/components/share-button'
 import { ChatPanel } from '@/components/chat-panel'
 import { ReportButton } from '@/components/report-button'
@@ -200,6 +201,13 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                     <Pencil className="mr-1 h-3.5 w-3.5" />수정
                   </Button>
                 </Link>
+              </div>
+            )}
+
+            {/* 재오픈 버튼 — 마감된 요청 본인에게만 */}
+            {isOwner && request.status === 'closed' && (
+              <div className="mt-3">
+                <ReopenRequestButton requestId={request.id} />
               </div>
             )}
 
