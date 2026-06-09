@@ -200,7 +200,7 @@ export default function NewPropertyPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">매물 등록</h1>
-            <p className="text-sm text-gray-500">채팅에서 바로 공유할 수 있어요</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">채팅에서 바로 공유할 수 있어요</p>
           </div>
         </div>
 

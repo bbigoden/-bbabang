@@ -182,7 +182,7 @@ export default function BrokerRegisterPage() {
             <Shield className="h-8 w-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">중개사 등록</h1>
-          <p className="mt-2 text-sm text-gray-500">등록 완료 후 서비스를 이용할 수 있습니다</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">등록 완료 후 서비스를 이용할 수 있습니다</p>
         </div>
 
         {/* 가입 유형 선택 */}

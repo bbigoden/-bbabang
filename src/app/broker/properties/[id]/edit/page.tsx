@@ -261,7 +261,7 @@ export default function EditPropertyPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">매물 수정</h1>
-            <p className="text-sm text-gray-500">매물 정보를 수정할 수 있어요</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">매물 정보를 수정할 수 있어요</p>
           </div>
         </div>
 

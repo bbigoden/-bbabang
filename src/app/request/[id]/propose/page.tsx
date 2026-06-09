@@ -288,7 +288,7 @@ export default function ProposePage() {
             뒤로가기
           </button>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">매물 제안하기</h1>
-          <p className="mt-1 text-sm text-gray-500">고객의 조건에 맞는 매물을 제안해보세요</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">고객의 조건에 맞는 매물을 제안해보세요</p>
         </div>
 
         {alreadyProposed ? (
