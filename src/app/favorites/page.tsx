@@ -10,6 +10,7 @@ import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
 import { formatDate, formatPrice, maskAddressByType } from '@/lib/utils'
 import { Heart, Building2, Home as HomeIcon, FileText, Star, MapPin, ShieldCheck, Clock } from 'lucide-react'
+import { PageHeader } from '@/components/layout/page-header'
 import { EmptyState } from '@/components/empty-state'
 
 type Tab = 'broker' | 'property' | 'request'
@@ -103,13 +104,12 @@ export default function FavoritesPage() {
       <Header />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-            <Heart className="h-6 w-6 fill-pink-500 text-pink-500" />
-            찜 목록
-          </h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">찜한 중개사·매물·요청을 모아봐요</p>
-        </div>
+        <PageHeader
+          icon={Heart}
+          iconColor="fill-pink-500 text-pink-500"
+          title="찜 목록"
+          description="찜한 중개사·매물·요청을 모아봐요"
+        />
 
         {/* 탭 */}
         <div className="mb-6 flex gap-2 overflow-x-auto" role="tablist" aria-label="찜 카테고리">

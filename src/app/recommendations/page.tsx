@@ -10,6 +10,7 @@ import { FavoriteButton } from '@/components/favorite-button'
 import { PropertyCard } from '@/components/property-card'
 import { formatPrice } from '@/lib/utils'
 import { Sparkles, FileText, Heart, Building2, Plus } from 'lucide-react'
+import { PageHeader } from '@/components/layout/page-header'
 
 interface Match {
   property: any
@@ -158,13 +159,12 @@ export default function RecommendationsPage() {
       <Header />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-            <Sparkles className="h-6 w-6 text-amber-500" />
-            추천 매물
-          </h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">내 요청·찜한 중개사 기반 맞춤 매물</p>
-        </div>
+        <PageHeader
+          icon={Sparkles}
+          iconColor="text-amber-500"
+          title="추천 매물"
+          description="내 요청·찜한 중개사 기반 맞춤 매물"
+        />
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

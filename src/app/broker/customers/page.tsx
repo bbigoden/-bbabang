@@ -844,8 +844,8 @@ export default function BrokerCustomersPage() {
         {/* 헤더 */}
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white">고객목록</h1>
-            <p className="text-sm text-gray-500 mt-0.5">전체 {customers.length}명 · 검색 {filtered.length}명</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">고객목록</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">전체 {customers.length}명 · 검색 {filtered.length}명</p>
           </div>
         </div>
 

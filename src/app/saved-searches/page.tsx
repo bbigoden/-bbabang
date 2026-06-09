@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { formatDate } from '@/lib/utils'
 import { Bookmark, Trash2, Building2, FileText, Home, ExternalLink } from 'lucide-react'
+import { PageHeader } from '@/components/layout/page-header'
 
 interface SavedSearch {
   id: string
@@ -82,13 +83,12 @@ export default function SavedSearchesPage() {
       <Header />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-            <Bookmark className="h-6 w-6 text-blue-500" />
-            저장한 검색
-          </h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">조건에 맞는 새 데이터가 등록되면 알림으로 알려드려요</p>
-        </div>
+        <PageHeader
+          icon={Bookmark}
+          iconColor="text-blue-500"
+          title="저장한 검색"
+          description="조건에 맞는 새 데이터가 등록되면 알림으로 알려드려요"
+        />
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

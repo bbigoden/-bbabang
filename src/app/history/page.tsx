@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { Clock, Building2, FileText, ShieldCheck, MapPin, Star, Trash2, X } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/layout/page-header'
 
 type Tab = 'broker' | 'request'
 
@@ -103,22 +104,19 @@ export default function HistoryPage() {
       <Header />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6 flex items-start justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-              <Clock className="h-6 w-6 text-blue-500" />
-              최근 본 항목
-            </h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">최근에 본 중개사·요청을 모아봐요</p>
-          </div>
-          {history.length > 0 && (
+        <PageHeader
+          icon={Clock}
+          iconColor="text-blue-500"
+          title="최근 본 항목"
+          description="최근에 본 중개사·요청을 모아봐요"
+          actions={history.length > 0 && (
             <button onClick={clearAll} disabled={clearing}
               className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors">
               <Trash2 className="h-3.5 w-3.5" />
               {clearing ? '삭제 중...' : '전체 삭제'}
             </button>
           )}
-        </div>
+        />
 
         <div className="mb-6 flex gap-2" role="tablist" aria-label="최근 본 기록 카테고리">
           {([

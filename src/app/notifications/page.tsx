@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header'
 import { Bell, Check, CheckCheck } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/layout/page-header'
 
 const PAGE_SIZE = 30
 
@@ -129,15 +130,12 @@ export default function NotificationsPage() {
       <Header />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-              <Bell className="h-6 w-6 text-blue-600" />
-              알림
-            </h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">새 제안·메시지·공지 등 받은 알림을 모아봐요</p>
-          </div>
-          {unreadCount > 0 && (
+        <PageHeader
+          icon={Bell}
+          iconColor="text-blue-600"
+          title="알림"
+          description="새 제안·메시지·공지 등 받은 알림을 모아봐요"
+          actions={unreadCount > 0 && (
             <button
               onClick={markAllRead}
               disabled={busy}
@@ -147,7 +145,7 @@ export default function NotificationsPage() {
               {busy ? '처리 중...' : '모두 읽음'}
             </button>
           )}
-        </div>
+        />
 
         <div className="mb-4 flex gap-2">
           {([

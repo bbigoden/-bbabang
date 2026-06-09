@@ -10,6 +10,7 @@ import Image from 'next/image'
 import { Star, Edit2, Trash2, Check, X, AlertTriangle, Building2, ShieldCheck } from 'lucide-react'
 import { formatDate, cn } from '@/lib/utils'
 import { EmptyState } from '@/components/empty-state'
+import { PageHeader } from '@/components/layout/page-header'
 
 interface Review {
   id: string
@@ -85,13 +86,12 @@ export default function MyReviewsPage() {
       <Header />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-            <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
-            내 리뷰
-          </h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">중개사에게 작성한 리뷰를 관리해요</p>
-        </div>
+        <PageHeader
+          icon={Star}
+          iconColor="fill-yellow-400 text-yellow-400"
+          title="내 리뷰"
+          description="중개사에게 작성한 리뷰를 관리해요"
+        />
 
         {loading ? (
           <div className="flex items-center justify-center py-20">

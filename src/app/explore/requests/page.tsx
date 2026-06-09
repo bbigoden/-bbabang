@@ -6,6 +6,7 @@ import { SaveSearchButton } from '@/components/save-search-button'
 import Link from 'next/link'
 import { MapPin, Clock, Home as HomeIcon, Filter } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
+import { PageHeader } from '@/components/layout/page-header'
 
 export const metadata: Metadata = {
   title: '실시간 부동산 요청 모아보기',
@@ -71,10 +72,10 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white">실시간 부동산 요청</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">전국에서 올라온 요청을 한곳에서 둘러보세요</p>
-        </div>
+        <PageHeader
+          title="실시간 부동산 요청"
+          description="전국에서 올라온 요청을 한곳에서 둘러보세요"
+        />
 
         {/* 필터 */}
         <form action="/explore/requests" method="GET" className="mb-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">

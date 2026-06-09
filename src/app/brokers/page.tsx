@@ -6,6 +6,7 @@ import { SaveSearchButton } from '@/components/save-search-button'
 import Link from 'next/link'
 import { Filter, Clock, Target } from 'lucide-react'
 import { OfficeCard } from '@/components/office-card'
+import { PageHeader } from '@/components/layout/page-header'
 
 function formatHours(h: number | null | undefined): string | null {
   if (h == null || h <= 0) return null
@@ -56,10 +57,10 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white">인증 공인중개사</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">지역·평점으로 신뢰할 수 있는 중개사를 찾아보세요</p>
-        </div>
+        <PageHeader
+          title="인증 공인중개사"
+          description="지역·평점으로 신뢰할 수 있는 중개사를 찾아보세요"
+        />
 
         <form action="/brokers" method="GET" className="mb-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
           <div className="flex flex-wrap items-end gap-3">
