@@ -281,7 +281,7 @@ export default function BrokerResourcesPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex items-end justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">

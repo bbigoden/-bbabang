@@ -114,7 +114,7 @@ function SearchInner() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
-      <div className="mx-auto max-w-4xl px-4 py-6">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         <h1 className="sr-only">통합 검색</h1>
         <div className="mb-5 relative">
           <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />

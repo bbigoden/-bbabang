@@ -278,7 +278,7 @@ export default function ProposePage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-xl px-4 py-10">
+      <div className="mx-auto max-w-2xl px-4 py-10">
         <div className="mb-6">
           <button
             onClick={() => router.push(`/request/${requestId}`)}

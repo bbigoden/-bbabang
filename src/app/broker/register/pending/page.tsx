@@ -98,7 +98,7 @@ export default function PendingPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
-      <div className="mx-auto max-w-xl px-4 py-20 text-center">
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
         {approved ? (
           <>
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">

@@ -196,7 +196,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
       <ViewTracker type="broker" id={brokerId} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         {/* 프로필 카드 */}
         <Card className="mb-6 overflow-hidden">
           <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-400" />

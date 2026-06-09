@@ -254,7 +254,7 @@ export default function EditPropertyPage() {
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
 
-      <div className="mx-auto max-w-xl px-4 py-8">
+      <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">
           <Link href="/broker/properties" aria-label="매물 목록" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
             <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-500" />

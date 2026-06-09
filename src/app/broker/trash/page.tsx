@@ -90,7 +90,7 @@ export default function TrashPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
-      <section className="mx-auto max-w-4xl px-4 py-6">
+      <section className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-4 flex items-center gap-2">
           <Link href="/dashboard/broker" aria-label="사무소 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 hover:bg-white dark:bg-gray-900">
             <ArrowLeft className="h-4 w-4" />

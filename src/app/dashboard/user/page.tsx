@@ -67,7 +67,7 @@ export default async function UserDashboardPage() {
       {/* 신규 사용자 (활성 요청 0개)일 때만 가이드 모달 노출 */}
       {activeRequests.length === 0 && <OnboardingModal />}
 
-      <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         {/* 상단 인사 */}
         <div className="mb-6 flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">

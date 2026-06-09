@@ -150,7 +150,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       <ViewTracker type="property" id={id} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className="mx-auto max-w-3xl px-4 py-6">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         {/* 빵 부스러기 */}
         <nav className="mb-3 text-xs text-gray-500" aria-label="경로">
           <Link href="/" className="hover:text-blue-600">홈</Link>

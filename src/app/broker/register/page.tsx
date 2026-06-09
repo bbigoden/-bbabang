@@ -175,7 +175,7 @@ export default function BrokerRegisterPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
-      <div className="mx-auto max-w-xl px-4 py-10">
+      <div className="mx-auto max-w-2xl px-4 py-10">
 
         <div className="mb-6 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600">

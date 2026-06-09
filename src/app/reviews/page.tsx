@@ -84,7 +84,7 @@ export default function MyReviewsPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6">
           <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
             <Star className="h-6 w-6 fill-yellow-400 text-yellow-400" />
