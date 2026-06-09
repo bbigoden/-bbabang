@@ -28,10 +28,14 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   const user = userProp !== undefined ? userProp : auth.user
   const role = roleProp !== undefined ? roleProp : (auth.profile?.role ?? null)
 
-  // broker는 BrokerGlobalLayout이 모든 페이지에 사이드바를 표시하므로 헤더 항상 숨김
+  // broker는 BrokerGlobalLayout이 모든 viewport에서 사이드바를 표시하므로 헤더 항상 숨김
   // (사이드바가 홈/대시보드/공동요청/알림/로그아웃 모두 처리)
   const isBrokerSidebarArea = role === 'broker'
   if (isBrokerSidebarArea) return null
+
+  // 고객(로그인 user)은 데스크탑에 사이드바가 있으므로 데스크탑에선 헤더 숨김.
+  // 모바일(< md)에선 헤더 그대로 보임 (사이드바는 hidden md:flex).
+  const isCustomerSidebarArea = !!user && role !== 'broker' && role !== 'admin'
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -55,7 +59,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
+    <header className={`sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 ${isCustomerSidebarArea ? 'md:hidden' : ''}`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* 좌측: 모바일 서브 페이지엔 ← 뒤로 (PWA에서 브라우저 뒤로가 없음). 그 외엔 로고. */}
         {!isRootPage ? (
