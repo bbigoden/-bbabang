@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Menu, X, Settings, Heart, Search } from 'lucide-react'
+import { Menu, X, Settings, Heart, Search, ArrowLeft } from 'lucide-react'
 import { useState, useRef } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -16,7 +16,7 @@ interface HeaderProps {
 }
 
 export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCount = 0 }: HeaderProps) {
-  const _router = useRouter()
+  const router = useRouter()
   const pathname = usePathname()
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
@@ -38,17 +38,53 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
     window.location.href = '/'
   }
 
+  // 뒤로가기 버튼 노출 조건 — 모바일·PWA에서 서브 페이지에 있을 때.
+  // 루트 페이지(홈/대시보드 등)는 "뒤로 갈 곳"이 없으므로 제외.
+  const ROOT_PATHS = new Set(['/', '/dashboard/user', '/dashboard/broker', '/admin'])
+  const isRootPage = ROOT_PATHS.has(pathname ?? '/')
+  const homeHref = user
+    ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user')
+    : '/'
+  const handleBack = () => {
+    // 히스토리가 있으면 한 단계 뒤로, 없으면(직접 URL 진입·PWA 첫 화면) 역할별 홈으로
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push(homeHref)
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        {/* 로고 — 로그인 유저는 대시보드로, 비로그인은 홈으로 */}
-        <Link href={user ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user') : '/'} className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="빠방 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
-          <span className="text-xl font-bold text-gray-900 dark:text-white">
-            빠<span className="text-blue-600">방</span>
-          </span>
-        </Link>
+        {/* 좌측: 모바일 서브 페이지엔 ← 뒤로 (PWA에서 브라우저 뒤로가 없음). 그 외엔 로고. */}
+        {!isRootPage ? (
+          <div className="flex items-center gap-1 md:gap-2">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="md:hidden flex h-10 w-10 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors -ml-1"
+              aria-label="뒤로 가기"
+            >
+              <ArrowLeft className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+            </button>
+            <Link href={homeHref} className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icon.svg" alt="빠방 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
+              <span className="text-xl font-bold text-gray-900 dark:text-white">
+                빠<span className="text-blue-600">방</span>
+              </span>
+            </Link>
+          </div>
+        ) : (
+          <Link href={homeHref} className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="빠방 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
+            <span className="text-xl font-bold text-gray-900 dark:text-white">
+              빠<span className="text-blue-600">방</span>
+            </span>
+          </Link>
+        )}
 
         {/* 데스크탑 네비 */}
         <nav className="hidden items-center gap-1 md:flex" aria-label="주 네비게이션">
