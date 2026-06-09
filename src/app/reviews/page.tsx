@@ -108,7 +108,7 @@ export default function MyReviewsPage() {
         ) : (
           <ul className="space-y-3">
             {reviews.map(r => (
-              <li key={r.id} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+              <li key={r.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <Link href={`/broker/${r.broker_id}`} className="flex items-center gap-3 min-w-0 flex-1 group">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">

@@ -38,7 +38,7 @@ export default function SupportPage() {
         </div>
 
         {/* FAQ */}
-        <div className="mt-10 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
+        <div className="mt-10 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
           <h2 className="mb-4 font-bold text-gray-900 dark:text-white">자주 묻는 질문</h2>
           <div className="space-y-4">
             {[

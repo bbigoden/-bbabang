@@ -243,7 +243,7 @@ function PropertyMatchCard({ match, favorited }: { match: Match; favorited: bool
 
 function EmptyState({ hasActiveRequests }: { hasActiveRequests: boolean }) {
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
+    <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center shadow-sm">
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50">
         <Sparkles className="h-7 w-7 text-amber-500" />
       </div>

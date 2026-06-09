@@ -180,7 +180,7 @@ export default function NotificationsPage() {
           />
         ) : (
           <>
-            <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+            <ul className="divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
               {items.map(n => (
                 <li key={n.id}>
                   <button
