@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { Plus, Home, MessageCircle, Archive, ChevronRight, FileText, Users, MessageSquare, FileCheck, Heart, Star, History, Sparkles, Bookmark } from 'lucide-react'
 import { OnboardingModal } from '@/components/onboarding-modal'
+import { PageHeader } from '@/components/layout/page-header'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
@@ -69,18 +70,16 @@ export default async function UserDashboardPage() {
 
       <div className="mx-auto max-w-5xl px-4 py-8">
         {/* 상단 인사 */}
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
-              안녕하세요, {profile?.name ?? '회원'}님 👋
-            </h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">내 방 찾기 현황을 확인하세요</p>
-          </div>
-          <Link href="/request/new" className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-            <Plus className="h-4 w-4" />
-            요청 등록
-          </Link>
-        </div>
+        <PageHeader
+          title={<span className="truncate">안녕하세요, {profile?.name ?? '회원'}님 👋</span>}
+          description="내 방 찾기 현황을 확인하세요"
+          actions={
+            <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+              <Plus className="h-4 w-4" />
+              요청 등록
+            </Link>
+          }
+        />
 
         {/* 빠른 진입 */}
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 auto-rows-fr">

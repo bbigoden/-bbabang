@@ -1,5 +1,6 @@
 import { Header } from '@/components/layout/header'
 import { SettingsSidebar } from '@/components/settings/sidebar'
+import { PageHeader } from '@/components/layout/page-header'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
@@ -22,10 +23,10 @@ export default async function SettingsLayout({ children }: { children: React.Rea
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">설정</h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">계정·알림·보안 등 모든 환경을 관리해요</p>
-        </div>
+        <PageHeader
+          title="설정"
+          description="계정·알림·보안 등 모든 환경을 관리해요"
+        />
         {isBroker ? (
           // broker는 root layout의 BrokerGlobalLayout이 좌측 사이드바를 표시 → settings 자체 사이드바 생략
           <div className="min-w-0">{children}</div>

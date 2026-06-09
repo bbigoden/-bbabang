@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { FolderOpen, Plus, FileText, Download, Trash2, Link as LinkIcon, Paperclip, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useToast } from '@/components/toast'
+import { PageHeader } from '@/components/layout/page-header'
 
 interface ResourceFile {
   id: string
@@ -282,15 +283,12 @@ export default function BrokerResourcesPage() {
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-6 flex items-end justify-between">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-black text-gray-900 dark:text-white">
-              <FolderOpen className="h-6 w-6 text-blue-600" />
-              자료실
-            </h1>
-            <p className="mt-0.5 text-sm text-gray-500">{broker?.office_name} · 사무소 내부 공유</p>
-          </div>
-          {!showForm && (
+        <PageHeader
+          icon={FolderOpen}
+          iconColor="text-blue-600"
+          title="자료실"
+          description={broker?.office_name ? `${broker.office_name} · 사무소 내부 공유` : '사무소 내부 공유'}
+          actions={!showForm && (
             <button
               onClick={() => setShowForm(true)}
               className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors"
@@ -299,7 +297,7 @@ export default function BrokerResourcesPage() {
               자료 올리기
             </button>
           )}
-        </div>
+        />
 
         {showForm && (
           <div className="mb-6 rounded-2xl border border-blue-100 bg-white dark:bg-gray-900 p-5 shadow-sm">
