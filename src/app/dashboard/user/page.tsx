@@ -81,8 +81,8 @@ export default async function UserDashboardPage() {
           }
         />
 
-        {/* 빠른 진입 */}
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 auto-rows-fr">
+        {/* 빠른 진입 — 데스크탑은 사이드바와 중복이라 모바일에만 노출 */}
+        <div className="md:hidden mb-8 grid grid-cols-2 gap-3 auto-rows-fr">
           <Link href="/favorites" className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 hover:border-pink-300 hover:bg-pink-50/30 transition-colors">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-50 text-pink-500 flex-shrink-0">
               <Heart className="h-5 w-5" />
