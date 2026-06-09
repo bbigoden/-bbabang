@@ -77,7 +77,7 @@ export default function UpdatePasswordPage() {
             <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">새 비밀번호 설정</h1>
-          <p className="mt-2 text-sm text-gray-500">8자 이상의 새 비밀번호를 입력해주세요</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">8자 이상의 새 비밀번호를 입력해주세요</p>
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">

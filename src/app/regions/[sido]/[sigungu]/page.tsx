@@ -117,7 +117,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
           <MapPin className="h-7 w-7 text-blue-600" />
           {sidoN} {sigunguN}
         </h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           활성 요청 <span className="font-bold text-gray-800 dark:text-gray-100">{requestsArr.length}</span>건 · 관심 등록 중개사 <span className="font-bold text-gray-800 dark:text-gray-100">{brokerCount ?? 0}</span>명
         </p>
 

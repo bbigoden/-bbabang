@@ -296,7 +296,7 @@ export default function ProposePage() {
             <CardBody className="py-12 text-center">
               <CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">이미 제안을 보내셨어요</h2>
-              <p className="mt-2 text-sm text-gray-500">이 요청에는 제안을 한 번만 보낼 수 있습니다.</p>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">이 요청에는 제안을 한 번만 보낼 수 있습니다.</p>
               <button
                 onClick={() => router.push(`/request/${requestId}`)}
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"

@@ -68,7 +68,7 @@ export default function ResetPasswordPage() {
             <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">비밀번호 찾기</h1>
-          <p className="mt-2 text-sm text-gray-500">가입한 이메일로 재설정 링크를 보내드려요</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">가입한 이메일로 재설정 링크를 보내드려요</p>
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">

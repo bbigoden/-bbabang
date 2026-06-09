@@ -133,7 +133,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
           <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
         </Link>
         <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">빠방에 오신 걸 환영해요 🏠</p>
-        <p className="mt-2 text-sm text-gray-500">무료로 시작하세요</p>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">무료로 시작하세요</p>
       </div>
 
       <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">

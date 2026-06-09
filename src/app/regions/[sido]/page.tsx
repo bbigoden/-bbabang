@@ -57,7 +57,7 @@ export default async function RegionSidoPage({ params }: { params: Promise<Param
           <MapPin className="h-7 w-7 text-blue-600" />
           {sidoN}
         </h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
           활성 요청 <span className="font-bold text-gray-800 dark:text-gray-100">{requests?.length ?? 0}</span>건이 진행 중. 시·군·구를 선택해 더 자세히 보세요.
         </p>
 

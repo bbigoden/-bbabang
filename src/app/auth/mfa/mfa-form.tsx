@@ -93,7 +93,7 @@ export function MfaForm() {
             </div>
           </div>
           <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">2단계 인증</h1>
-          <p className="mt-2 text-sm text-gray-500">인증 앱에 표시된 6자리 코드를 입력해주세요</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">인증 앱에 표시된 6자리 코드를 입력해주세요</p>
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
