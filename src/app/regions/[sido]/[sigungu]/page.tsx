@@ -152,7 +152,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
               {brokers.map((b: any) => (
                 <li key={b.id}>
                   <Link href={`/broker/${b.id}`}
-                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="flex items-center gap-1.5 mb-1">
                       <p className="font-bold text-gray-900 dark:text-white truncate flex-1">{b.user_name ?? '(이름 없음)'}</p>
                       <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
@@ -184,7 +184,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
               <TrendingUp className="h-5 w-5 text-emerald-500" />
               {sigunguN} 인기 거래 유형
             </h2>
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+            <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
               <ul className="space-y-2.5">
                 {dealTypes.map(([dt, count]) => {
                   const pct = Math.round((count / requestsArr.length) * 100)
@@ -214,7 +214,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
                 <li key={dongName}>
                   <Link
                     href={`/regions/${sido}/${sigungu}/${encodeURIComponent(dongName)}`}
-                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <h3 className="text-base font-bold text-gray-900 dark:text-white">{dongName}</h3>
@@ -232,7 +232,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         <section className="mt-10">
           <h2 className="mb-3 text-lg font-bold text-gray-900 dark:text-white">{sigunguN} 최근 요청</h2>
           {requestsArr.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
+            <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
               아직 이 지역에 활성 요청이 없어요.
               <Link href={`/request/new?city=${encodeURIComponent(sidoN)}&district=${encodeURIComponent(sigunguN)}`} className="text-blue-600 hover:underline ml-1">
                 첫 요청 등록하기
@@ -243,7 +243,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
               {requestsArr.slice(0, 12).map(r => (
                 <li key={r.id}>
                   <Link href={`/auth/login?redirect=/request/${r.id}`}
-                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="mb-2 flex items-center gap-2">
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
                       <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-500">{r.room_type || '매물'}</span>
@@ -262,7 +262,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
         </section>
 
         {/* FAQ */}
-        <section className="mt-12 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <section className="mt-12 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white">
             <HelpCircle className="h-5 w-5 text-gray-500" />
             {sigunguN} 부동산 FAQ

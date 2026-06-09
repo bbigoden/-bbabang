@@ -166,7 +166,7 @@ export default function FavoritesPage() {
               return (
                 <li key={f.id} className="relative">
                   <Link href={`/broker/${b.id}`}
-                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="flex-1 min-w-0 pr-8">
                       <div className="flex items-center gap-1.5 mb-1">
                         <h2 className="text-base font-bold text-gray-900 dark:text-white truncate">{b.office_name || '(상호 없음)'}</h2>
@@ -203,7 +203,7 @@ export default function FavoritesPage() {
                 <DeletedCard key={f.id} type="property" id={f.target_id} onUnfav={load} />
               )
               return (
-                <li key={f.id} className="relative rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
+                <li key={f.id} className="relative rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
                   <Link href={`/broker/${p.broker_id}`}>
                     {p.images?.[0] && (
                       <div className="relative h-32 w-full">
@@ -242,7 +242,7 @@ export default function FavoritesPage() {
               return (
                 <li key={f.id} className="relative">
                   <Link href={`/request/${r.id}`}
-                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="mb-2 flex items-center gap-2 pr-8">
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
                       <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-500">{r.room_type || '매물'}</span>
@@ -296,7 +296,7 @@ function DeletedCard({ type, id, onUnfav }: { type: Tab; id: string; onUnfav: ()
       <p className="text-sm font-semibold text-gray-500">삭제된 {label}</p>
       <p className="mt-1 text-xs text-gray-500">원본이 삭제되어 표시할 수 없어요</p>
       <button onClick={remove} disabled={removing}
-        className="mt-3 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 disabled:opacity-50">
+        className="mt-3 rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 disabled:opacity-50">
         {removing ? '삭제 중...' : '목록에서 빼기'}
       </button>
     </li>

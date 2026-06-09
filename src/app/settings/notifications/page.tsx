@@ -153,7 +153,7 @@ export default function SettingsNotificationsPage() {
   return (
     <div className="space-y-4">
       {/* 푸시 구독 마스터 토글 */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -184,7 +184,7 @@ export default function SettingsNotificationsPage() {
 
       {/* 관심 지역 (중개사 전용) */}
       {brokerId && (
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
           <h2 className="font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
             <MapPin className="h-4 w-4 text-blue-500" /> 관심 지역
           </h2>
@@ -227,7 +227,7 @@ export default function SettingsNotificationsPage() {
       )}
 
       {/* 카테고리별 토글 */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <h2 className="font-bold text-gray-900 dark:text-white mb-1">카테고리</h2>
         <p className="text-xs text-gray-500 mb-4">어떤 종류의 알림을 받을지 선택해요</p>
         <ul className="divide-y divide-gray-100">

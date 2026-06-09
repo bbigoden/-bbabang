@@ -124,7 +124,7 @@ function SearchInner() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="지역·매물·중개사 통합 검색 (예: 강남구, 원룸, 부동산)"
-            className="w-full rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 pl-11 pr-11 py-3.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="w-full rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-11 pr-11 py-3.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
           {query && (
             <button onClick={() => setQuery('')} aria-label="지우기"
@@ -135,7 +135,7 @@ function SearchInner() {
         </div>
 
         {!hasQuery ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-700 dark:text-gray-300">검색어를 2자 이상 입력해주세요</p>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">중개사 · 매물 · 요청을 한 번에 찾아드려요</p>
@@ -145,7 +145,7 @@ function SearchInner() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : total === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">&quot;{debounced}&quot;에 대한 결과가 없어요</p>
             <p className="mt-1 text-sm text-gray-500">다른 키워드로 검색해보세요</p>
@@ -162,7 +162,7 @@ function SearchInner() {
                   {brokers.map(b => (
                     <li key={b.id}>
                       <Link href={`/broker/${b.id}`}
-                        className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-purple-300 hover:shadow-sm transition-all">
+                        className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-purple-300 hover:shadow-sm transition-all">
                         <div className="flex items-center gap-1.5 mb-1">
                           <p className="font-bold text-gray-900 dark:text-white truncate flex-1">{b.profiles?.name ?? '(이름 없음)'}</p>
                           {b.is_verified && <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />}
@@ -208,7 +208,7 @@ function SearchInner() {
                   {requests.map(r => (
                     <li key={r.id}>
                       <Link href={`/request/${r.id}`}
-                        className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                        className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                         <div className="flex flex-wrap gap-1.5 mb-1.5">
                           {r.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{r.deal_type}</span>}
                           {r.room_type && <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:text-gray-500">{r.room_type}</span>}

@@ -167,7 +167,7 @@ export default async function BrokerDashboardPage() {
 
         {/* 사무소 탈퇴 버튼 — 승인된 직원에게만 표시 */}
         {broker.is_owner === false && broker.is_approved === true && broker.parent_broker_id && (
-          <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4">
+          <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4">
             <div>
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{broker.office_name}</p>
               <p className="text-xs text-gray-500 mt-0.5">소속 사무소</p>

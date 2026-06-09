@@ -114,7 +114,7 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
     <div ref={containerRef} className="relative">
       <button ref={btnRef} onClick={handleOpen} className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">+</button>
       {open && (
-        <div className="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
+        <div className="flex flex-col gap-2 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
           <input ref={inputRef} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }} placeholder="칼럼 이름 입력" className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 w-44" />
           <div className="flex gap-1">
             <button onClick={() => setType('text')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>텍스트</button>
@@ -147,7 +147,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
     <div ref={containerRef} className="relative">
       <button ref={btnRef} onClick={handleOpen} aria-label="더보기" className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors"><MoreHorizontal className="h-3.5 w-3.5" /></button>
       {open && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
           <div className="p-2 border-b border-gray-100 dark:border-gray-800"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="속성을 검색하세요" autoFocus className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400" /></div>
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800"><span className="text-xs font-medium text-gray-500">표에 표시하기</span></div>
           <div className="max-h-64 overflow-y-auto py-1">
@@ -414,7 +414,7 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
     setSaving(true); await onSave(draft); setSaving(false)
   }
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+    <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 group/header">
         <span className="text-sm font-bold text-gray-500 flex-shrink-0">{num}.</span>
         {renaming ? (
@@ -1051,7 +1051,7 @@ export default function BrokerDiaryPage() {
                   else { setViewingBrokerId(v); setViewingExEmployee(false) }
                 }}
                 aria-label="업무일지 작성자 선택"
-                className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 cursor-pointer"
+                className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 cursor-pointer"
               >
                 <option value="">내 일지</option>
                 {employees.length > 0 && (
@@ -1079,20 +1079,20 @@ export default function BrokerDiaryPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {effectiveCanEdit && (
               <button onClick={() => { setImportDate(''); setShowImport(true) }}
-                className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
                 <Download className="h-3.5 w-3.5" />불러오기
               </button>
             )}
-            <button onClick={() => changeDate(-1)} aria-label="이전 날짜" className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
-            <div className="min-w-[8rem] rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium">
+            <button onClick={() => changeDate(-1)} aria-label="이전 날짜" className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
+            <div className="min-w-[8rem] rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-medium">
               <DateCell value={diaryDate} onSave={v => { if (v) setDiaryDate(v) }} />
             </div>
-            <button onClick={() => changeDate(1)} aria-label="다음 날짜" className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
+            <button onClick={() => changeDate(1)} aria-label="다음 날짜" className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
 
         {/* Section 1: 고객정보 */}
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50">
             <span className="text-sm font-bold text-gray-800 dark:text-gray-100">1. 고객정보({viewingName})</span>
             <span className="text-xs text-gray-500">{diaryCustomers.length}명</span>

@@ -87,7 +87,7 @@ export default function SettingsOfficePage() {
   if (loading) return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" /></div>
 
   if (forbidden) return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+    <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
       <div className="flex items-start gap-3">
         <AlertCircle className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
         <p className="text-sm text-gray-600 dark:text-gray-500">{forbidden}</p>
@@ -117,7 +117,7 @@ export default function SettingsOfficePage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <h2 className="mb-1 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Building2 className="h-4 w-4 text-gray-500" /> 사무소 정보
         </h2>

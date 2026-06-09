@@ -212,7 +212,7 @@ export default function SettingsAccountPage() {
   return (
     <div className="space-y-4">
       {/* 프로필 헤더 */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <div className="flex items-center gap-4 pb-5 border-b border-gray-100 dark:border-gray-800">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600 text-xl font-bold flex-shrink-0">
             {(name || user?.email || '?')[0].toUpperCase()}
@@ -237,7 +237,7 @@ export default function SettingsAccountPage() {
       </div>
 
       {/* 정보 수정 */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <h2 className="mb-4 font-bold text-gray-900 dark:text-white flex items-center gap-2"><User className="h-4 w-4 text-gray-500" /> 정보 수정</h2>
         <div className="space-y-3">
           <div>
@@ -264,7 +264,7 @@ export default function SettingsAccountPage() {
       </div>
 
       {/* 비밀번호 변경 */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <h2 className="mb-4 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Lock className="h-4 w-4 text-gray-500" /> 비밀번호 변경
         </h2>
@@ -293,7 +293,7 @@ export default function SettingsAccountPage() {
       </div>
 
       {/* 2단계 인증 (2FA) */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
         <h2 className="mb-1 font-bold text-gray-900 dark:text-white flex items-center gap-2">
           {mfaFactorId
             ? <ShieldCheck className="h-4 w-4 text-green-500" />

@@ -62,7 +62,7 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
           description="지역·평점으로 신뢰할 수 있는 중개사를 찾아보세요"
         />
 
-        <form action="/brokers" method="GET" className="mb-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+        <form action="/brokers" method="GET" className="mb-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
           <div className="flex flex-wrap items-end gap-3">
             <Field name="sido" label="시·도" defaultValue={sp.sido} placeholder="예: 충청남도" />
             <Field name="sigungu" label="시·군·구" defaultValue={sp.sigungu} placeholder="예: 천안시 서북구" />
@@ -94,7 +94,7 @@ export default async function BrokersPage({ searchParams }: { searchParams: Prom
         {error ? (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">데이터 조회 실패</div>
         ) : !rows || rows.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
             조건에 맞는 중개사가 없어요
           </div>
         ) : (
@@ -159,7 +159,7 @@ function Field({ name, label, defaultValue, placeholder }: {
     <div className="w-full sm:flex-1 sm:min-w-[140px]">
       <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
       <input name={name} defaultValue={defaultValue ?? ''} placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
+        className="w-full rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
     </div>
   )
 }

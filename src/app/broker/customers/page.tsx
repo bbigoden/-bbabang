@@ -119,7 +119,7 @@ function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddC
         }>
         {asHeaderButton ? <>헤더 추가</> : '+'}</div>
       {open && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={style}
+        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={style}
           onClick={e => e.stopPropagation()}>
 
           {/* 고정 칼럼 섹션 */}
@@ -211,7 +211,7 @@ function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') =
         +
       </button>
       {open && (
-        <div className="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
+        <div className="flex flex-col gap-2 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
           <input ref={inputRef} value={name} onChange={e => setName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }}
             placeholder="칼럼 이름 입력"
@@ -271,7 +271,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
         <MoreHorizontal className="h-3.5 w-3.5" />
       </button>
       {open && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
           <div className="p-2 border-b border-gray-100 dark:border-gray-800">
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="속성을 검색하세요" autoFocus
@@ -959,11 +959,11 @@ export default function BrokerCustomersPage() {
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="전체 검색..."
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
+              className="w-full rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
           </div>
 
           <select aria-label="월별 필터" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-            className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+            className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
             {months.map(m => {
               const label = m === '전체'
                 ? '월별 전체'
@@ -974,7 +974,7 @@ export default function BrokerCustomersPage() {
 
           {isOwner && assignees.length > 1 && (
             <select aria-label="담당자 필터" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-              className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+              className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
               {assignees.map(a => (
                 <option key={a} value={a}>
                   {a === '전체' ? '담당자 전체' : `${a} (${assigneeCounts[a]})`}
@@ -985,7 +985,7 @@ export default function BrokerCustomersPage() {
         </div>
 
         {/* 테이블 */}
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
               <thead>

@@ -95,7 +95,7 @@ export default function SavedSearchesPage() {
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <Bookmark className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">저장한 검색이 없어요</p>
             <p className="mt-1 text-sm text-gray-500">중개사·요청 페이지에서 필터 + &apos;조건 저장&apos; 버튼을 사용해보세요</p>
@@ -103,7 +103,7 @@ export default function SavedSearchesPage() {
               <Link href="/brokers" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 중개사 찾기
               </Link>
-              <Link href="/explore/requests" className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+              <Link href="/explore/requests" className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
                 요청 둘러보기
               </Link>
             </div>
@@ -115,7 +115,7 @@ export default function SavedSearchesPage() {
               const Icon = meta.icon
               const link = meta.basePath + meta.param(s.filters)
               return (
-                <li key={s.id} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 transition-colors">
+                <li key={s.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap mb-2">

@@ -111,7 +111,7 @@ export default function HistoryPage() {
           description="최근에 본 중개사·요청을 모아봐요"
           actions={history.length > 0 && (
             <button onClick={clearAll} disabled={clearing}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors">
+              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950 disabled:opacity-50 transition-colors">
               <Trash2 className="h-3.5 w-3.5" />
               {clearing ? '삭제 중...' : '전체 삭제'}
             </button>
@@ -154,7 +154,7 @@ export default function HistoryPage() {
                 return (
                   <li key={h.id} className="relative">
                     <Link href={`/broker/${b.id}`}
-                      className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                      className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="flex items-center gap-1.5 mb-1">
                           <p className="text-base font-bold text-gray-900 dark:text-white truncate">{b.profiles?.name ?? '(이름 없음)'}</p>
@@ -182,7 +182,7 @@ export default function HistoryPage() {
                 return (
                   <li key={h.id} className="relative">
                     <Link href={`/request/${r.id}`}
-                      className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                      className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="mb-1.5 flex items-center gap-1.5 flex-wrap">
                           {r.deal_type && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">{r.deal_type}</span>}
@@ -224,7 +224,7 @@ function DeletedItem({ label, onRemove }: { label: string; onRemove: () => void 
     <li className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4 flex items-center justify-between">
       <p className="text-sm text-gray-500">삭제된 {label}</p>
       <button onClick={onRemove}
-        className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
+        className="rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
         목록에서 빼기
       </button>
     </li>

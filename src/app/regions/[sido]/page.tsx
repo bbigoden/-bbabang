@@ -62,7 +62,7 @@ export default async function RegionSidoPage({ params }: { params: Promise<Param
         </p>
 
         {sigungus.length === 0 ? (
-          <div className="mt-8 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
+          <div className="mt-8 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
             아직 이 지역에 활성 요청이 없어요.
             <Link href="/request/new" className="text-blue-600 hover:underline ml-1">첫 요청 등록하기</Link>
           </div>
@@ -73,7 +73,7 @@ export default async function RegionSidoPage({ params }: { params: Promise<Param
               {sigungus.map(([sigunguName, info]) => (
                 <li key={sigunguName}>
                   <Link href={`/regions/${sido}/${encodeURIComponent(sigunguName)}`}
-                    className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
                     <div className="flex items-center justify-between mb-1">
                       <h3 className="text-base font-bold text-gray-900 dark:text-white">{sigunguName}</h3>
                       <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">{info.count}건</span>

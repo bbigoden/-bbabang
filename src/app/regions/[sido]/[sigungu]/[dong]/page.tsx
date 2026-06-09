@@ -93,7 +93,7 @@ export default async function RegionDongPage({ params }: { params: Promise<Param
         {/* 요청 목록 */}
         <h2 className="mt-10 mb-3 text-lg font-bold text-gray-900 dark:text-white">{dongN} 최근 요청</h2>
         {(!requests || requests.length === 0) ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
             아직 이 지역에 활성 요청이 없어요. <Link href="/request/new" className="text-blue-600 hover:underline ml-1">첫 요청 등록하기</Link>
           </div>
         ) : (
@@ -101,7 +101,7 @@ export default async function RegionDongPage({ params }: { params: Promise<Param
             {requests.map((r: any) => (
               <li key={r.id}>
                 <Link href={`/auth/login?redirect=/request/${r.id}`}
-                  className="block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                  className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
                   <div className="mb-2 flex items-center gap-2">
                     <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{r.deal_type || '거래'}</span>
                     <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-500">{r.room_type || '매물'}</span>

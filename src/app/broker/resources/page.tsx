@@ -316,7 +316,7 @@ export default function BrokerResourcesPage() {
                   onChange={e => setTitle(e.target.value.slice(0, 120))}
                   placeholder="예: 2025 표준 임대차계약서 패키지"
                   maxLength={120}
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
               <div>
@@ -327,7 +327,7 @@ export default function BrokerResourcesPage() {
                   placeholder="자료 설명, 링크, 메모 등을 자유롭게 입력하세요"
                   rows={4}
                   maxLength={2000}
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
                 <p className="mt-1 text-[11px] text-gray-500">{description.length}/2000</p>
               </div>
@@ -397,7 +397,7 @@ export default function BrokerResourcesPage() {
         )}
 
         {resources.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center">
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center">
             <FolderOpen className="mx-auto h-10 w-10 text-gray-200 mb-3" />
             <p className="text-sm font-semibold text-gray-500">아직 올라온 자료가 없어요</p>
             <p className="mt-1 text-xs text-gray-500">같은 사무소 직원과 계약서 양식·매물지·교육자료를 공유해보세요</p>
@@ -409,7 +409,7 @@ export default function BrokerResourcesPage() {
               const uploaderName = r.uploader?.profiles?.name ?? '—'
               const attachmentCount = r.files?.length ?? 0
               return (
-                <div key={r.id} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-200 hover:shadow-sm transition-all">
+                <div key={r.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-200 hover:shadow-sm transition-all">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                       {attachmentCount > 0 ? <FileText className="h-5 w-5" /> : <LinkIcon className="h-5 w-5" />}
