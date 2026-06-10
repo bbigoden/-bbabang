@@ -1177,6 +1177,7 @@ function BrokerPropertiesContent() {
   const [loading, setLoading] = useState(true)
   const [filterDealType, setFilterDealType] = useState('')
   const [filterRoomTypes, setFilterRoomTypes] = useState<string[]>([])  // 다중 선택
+  const [filterStatus, setFilterStatus] = useState<'' | 'available' | 'contracted'>('')  // 매물상태 (가능/완료)
   const toggleRoomType = (t: string) => {
     setFilterRoomTypes(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
   }
@@ -1291,7 +1292,7 @@ function BrokerPropertiesContent() {
     if (!auth.broker) { router.push('/broker/register'); return }
     init()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
-  useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, searchQuery, pageSize])
+  useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, filterStatus, searchQuery, pageSize])
 
   // 카카오맵 SDK는 useKakaoMapSdk 훅에서 로드
 
@@ -1692,6 +1693,7 @@ function BrokerPropertiesContent() {
     let list = properties
     if (filterDealType) list = list.filter(p => (p.deal_type ?? '').split(',').map(s => s.trim()).includes(filterDealType))
     if (filterRoomTypes.length > 0) list = list.filter(p => filterRoomTypes.includes(p.room_type))
+    if (filterStatus) list = list.filter(p => p.status === filterStatus)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
       // 숫자만 입력하면 매물번호 정확 매칭 우선 (예: "984" → seq_no 984)
@@ -1733,7 +1735,7 @@ function BrokerPropertiesContent() {
       })
     }
     return list
-  }, [properties, filterDealType, filterRoomTypes, searchQuery])
+  }, [properties, filterDealType, filterRoomTypes, filterStatus, searchQuery])
 
   // 지도 뷰 렌더링 — Marker(SVG 핀) + MarkerClusterer + 클릭 시 정보 오버레이
   useEffect(() => {
@@ -2154,16 +2156,26 @@ function BrokerPropertiesContent() {
           </div>
           <button
             onClick={() => setShowFilter(v => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomTypes.length > 0) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomTypes.length > 0 || filterStatus) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            필터{(filterDealType || filterRoomTypes.length > 0) ? ` · ${(filterDealType ? 1 : 0) + filterRoomTypes.length}` : ''}
+            필터{(filterDealType || filterRoomTypes.length > 0 || filterStatus) ? ` · ${(filterDealType ? 1 : 0) + filterRoomTypes.length + (filterStatus ? 1 : 0)}` : ''}
           </button>
         </div>
 
         {/* 필터 패널 */}
         {showFilter && (
           <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 space-y-3 shadow-sm">
+            <div>
+              <p className="mb-2 text-xs font-semibold text-gray-500">매물상태</p>
+              <div className="flex flex-wrap gap-1.5">
+                {([['available', '가능'], ['contracted', '완료']] as const).map(([v, label]) => (
+                  <button key={v} onClick={() => setFilterStatus(filterStatus === v ? '' : v)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterStatus === v ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
             <div>
               <p className="mb-2 text-xs font-semibold text-gray-500">거래형태</p>
               <div className="flex flex-wrap gap-1.5">
@@ -2205,8 +2217,8 @@ function BrokerPropertiesContent() {
                 })}
               </div>
             </div>
-            {(filterDealType || filterRoomTypes.length > 0) && (
-              <button onClick={() => { setFilterDealType(''); setFilterRoomTypes([]) }}
+            {(filterDealType || filterRoomTypes.length > 0 || filterStatus) && (
+              <button onClick={() => { setFilterDealType(''); setFilterRoomTypes([]); setFilterStatus('') }}
                 className="text-xs text-red-500 hover:text-red-600 font-medium">
                 필터 초기화
               </button>
@@ -2466,7 +2478,7 @@ function BrokerPropertiesContent() {
               {paginated.length === 0 ? (
                 <EmptyRow
                   colSpan={syncedOrder.length + 2}
-                  message={searchQuery || filterDealType || filterRoomTypes.length > 0 ? '검색 결과가 없어요' : '아직 등록된 매물이 없어요'}
+                  message={searchQuery || filterDealType || filterRoomTypes.length > 0 || filterStatus ? '검색 결과가 없어요' : '아직 등록된 매물이 없어요'}
                 />
               ) : paginated.map((p) => (
                 <PropertyRow
