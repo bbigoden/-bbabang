@@ -86,11 +86,20 @@ export function BrokerSidebar() {
         collapsed ? 'md:w-14' : 'md:w-56',
       )}
     >
-      {/* 상단: 접기/펼치기 토글 */}
+      {/* 상단: 로고 + 접기/펼치기 토글 (CustomerSidebar와 동일 패턴) */}
       <div className={cn(
         'flex items-center border-b border-gray-200 dark:border-gray-800 py-3',
-        collapsed ? 'justify-center px-2' : 'justify-end px-3',
+        collapsed ? 'justify-center px-2' : 'justify-between px-3',
       )}>
+        {!collapsed && (
+          <Link href="/dashboard/broker" className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="빠방 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
+            <span className="text-base font-bold text-gray-900 dark:text-white">
+              빠<span className="text-blue-600">방</span>
+            </span>
+          </Link>
+        )}
         <button
           type="button"
           onClick={toggleCollapsed}

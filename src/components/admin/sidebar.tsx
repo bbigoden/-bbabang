@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Shield, LogOut, ExternalLink } from 'lucide-react'
+import { LogOut, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -30,14 +30,18 @@ export function AdminSidebar() {
   // 데스크톱 사이드바만 — 모바일은 BottomNav로 이동 (broker와 패턴 통일)
   return (
     <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-gray-800 md:bg-gray-900 sticky top-0 h-screen">
-      <div className="flex h-16 items-center gap-2.5 border-b border-gray-800 px-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
-          <Shield className="h-5 w-5 text-white" />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-white">빠방 관리자</p>
-          <p className="truncate text-[11px] text-gray-400">Admin Dashboard</p>
-        </div>
+      {/* CustomerSidebar/BrokerSidebar와 동일 패턴: 로고 PNG + 빠방 텍스트 + 권한 부제 */}
+      <div className="flex items-center gap-2 border-b border-gray-800 px-3 py-3">
+        <Link href="/admin" className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon.svg" alt="빠방 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
+          <div className="min-w-0">
+            <p className="text-base font-bold text-white">
+              빠<span className="text-blue-400">방</span>
+              <span className="ml-1.5 text-[11px] font-medium text-gray-400">관리자</span>
+            </p>
+          </div>
+        </Link>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="관리자 사이드바">

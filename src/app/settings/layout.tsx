@@ -31,10 +31,14 @@ export default async function SettingsLayout({ children }: { children: React.Rea
           // broker는 root layout의 BrokerGlobalLayout이 좌측 사이드바를 표시 → settings 자체 사이드바 생략
           <div className="min-w-0">{children}</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
-            <SettingsSidebar isBroker={false} />
+          <>
+            {/* 모바일만: 글로벌 사이드바가 없으니 가로 스크롤 탭 표시 */}
+            <div className="md:hidden mb-4">
+              <SettingsSidebar isBroker={false} />
+            </div>
+            {/* 데스크톱: 글로벌 CustomerSidebar가 이미 설정 자식 메뉴를 처리 → 중복 제거 */}
             <div className="min-w-0">{children}</div>
-          </div>
+          </>
         )}
       </div>
     </div>
