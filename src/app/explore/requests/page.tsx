@@ -153,15 +153,7 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
           </ul>
         )}
 
-        {userRole === 'broker' ? (
-          <div className="mt-10 rounded-2xl bg-blue-50 border border-blue-100 p-6 text-center">
-            <p className="text-sm text-blue-800 mb-2">공동중개 요청을 올려보세요</p>
-            <p className="text-xs text-blue-600 mb-4">다른 사무소에 매물을 공동으로 찾아달라고 요청할 수 있어요</p>
-            <Link href="/request/new?co_broker=true" className="inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-              공동중개 요청 등록
-            </Link>
-          </div>
-        ) : userRole !== 'admin' && (
+        {userRole !== 'broker' && userRole !== 'admin' && (
           <div className="mt-10 rounded-2xl bg-blue-50 border border-blue-100 p-6 text-center">
             <p className="text-sm text-blue-800 mb-2">내 조건도 등록해보세요</p>
             <p className="text-xs text-blue-600 mb-4">전국 중개사가 내 조건에 맞는 매물을 직접 제안합니다</p>
