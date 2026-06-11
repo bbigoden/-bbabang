@@ -7,17 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { PropertyCard } from '@/components/property-card'
 import { formatPrice, formatDate } from '@/lib/utils'
-import { Search as SearchIcon, X, Building2, Home, FileText, MapPin, Star, ShieldCheck } from 'lucide-react'
+import { Search as SearchIcon, X, Home, FileText, MapPin } from 'lucide-react'
 
-interface BrokerHit {
-  id: string
-  office_name: string | null
-  address: string | null
-  rating: number | null
-  review_count: number | null
-  is_verified: boolean | null
-  profiles: { name: string | null } | null
-}
 interface PropertyHit {
   id: string
   broker_id: string
@@ -52,7 +43,6 @@ function SearchInner() {
   const [query, setQuery] = useState(initialQ)
   const [debounced, setDebounced] = useState(initialQ)
   const [loading, setLoading] = useState(false)
-  const [brokers, setBrokers] = useState<BrokerHit[]>([])
   const [properties, setProperties] = useState<PropertyHit[]>([])
   const [requests, setRequests] = useState<RequestHit[]>([])
 
@@ -72,18 +62,12 @@ function SearchInner() {
 
   const search = useCallback(async (q: string) => {
     if (!q || q.length < 2) {
-      setBrokers([]); setProperties([]); setRequests([])
+      setProperties([]); setRequests([])
       return
     }
     setLoading(true)
     const like = `%${q}%`
-    const [bRes, pRes, rRes] = await Promise.all([
-      supabase
-        .from('broker_profiles')
-        .select('id, office_name, address, rating, review_count, is_verified, profiles!inner(name)')
-        .or(`office_name.ilike.${like},address.ilike.${like},district.ilike.${like}`)
-        .eq('is_verified', true)
-        .limit(10),
+    const [pRes, rRes] = await Promise.all([
       supabase
         .from('broker_properties')
         .select('id, seq_no, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name, profiles(name))')
@@ -99,7 +83,6 @@ function SearchInner() {
         .order('created_at', { ascending: false })
         .limit(10),
     ])
-    setBrokers((bRes.data ?? []) as any)
     setProperties((pRes.data ?? []) as any)
     setRequests((rRes.data ?? []) as any)
     setLoading(false)
@@ -107,7 +90,7 @@ function SearchInner() {
 
   useEffect(() => { search(debounced) }, [debounced, search])
 
-  const total = brokers.length + properties.length + requests.length
+  const total = properties.length + requests.length
   const hasQuery = debounced.length >= 2
 
   return (
@@ -123,7 +106,7 @@ function SearchInner() {
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="지역·매물·중개사 통합 검색 (예: 강남구, 원룸, 부동산)"
+            placeholder="지역·매물 통합 검색 (예: 강남구, 원룸)"
             className="w-full rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-11 pr-11 py-3.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
           {query && (
@@ -138,7 +121,7 @@ function SearchInner() {
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-700 dark:text-gray-300">검색어를 2자 이상 입력해주세요</p>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">중개사 · 매물 · 요청을 한 번에 찾아드려요</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">매물 · 요청을 한 번에 찾아드려요</p>
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-20">
@@ -152,36 +135,6 @@ function SearchInner() {
           </div>
         ) : (
           <div className="space-y-8">
-            {brokers.length > 0 && (
-              <section>
-                <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900 dark:text-white">
-                  <Building2 className="h-4 w-4 text-purple-500" />
-                  중개사 <span className="text-purple-600">{brokers.length}</span>
-                </h2>
-                <ul className="grid gap-2 md:grid-cols-2">
-                  {brokers.map(b => (
-                    <li key={b.id}>
-                      <Link href={`/broker/${b.id}`}
-                        className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-purple-300 hover:shadow-sm transition-all">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <p className="font-bold text-gray-900 dark:text-white truncate flex-1">{b.profiles?.name ?? '(이름 없음)'}</p>
-                          {b.is_verified && <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />}
-                        </div>
-                        <p className="text-xs text-gray-500 truncate">{b.office_name}</p>
-                        <p className="text-xs text-gray-500 truncate"><MapPin className="inline h-3 w-3 mr-0.5" />{b.address}</p>
-                        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
-                          <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
-                            <Star className="h-3 w-3 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
-                          </span>
-                          <span>후기 {b.review_count ?? 0}</span>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
             {properties.length > 0 && (
               <section>
                 <h2 className="mb-3 flex items-center gap-2 font-bold text-gray-900 dark:text-white">
@@ -191,7 +144,7 @@ function SearchInner() {
                 <ul className="grid gap-2 md:grid-cols-2">
                   {properties.map(p => (
                     <li key={p.id}>
-                      <PropertyCard property={p} href={`/broker/${p.broker_id}`} size="sm" />
+                      <PropertyCard property={p} href={`/property/${p.id}`} size="sm" />
                     </li>
                   ))}
                 </ul>

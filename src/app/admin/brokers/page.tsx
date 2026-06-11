@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
   Building2, ArrowLeft, Search, X, ShieldCheck, ShieldOff,
-  CheckCircle2, XCircle, Hash, MapPin, ExternalLink,
+  CheckCircle2, XCircle, Hash, MapPin,
   Users, Phone, Mail, Calendar, FileText, ChevronDown, AlertCircle
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -515,11 +515,6 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
               </button>
             )}
 
-            <Link href={`/broker/${broker.id}`} target="_blank"
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-700 py-2.5 text-sm font-medium text-gray-300 hover:bg-gray-800">
-              <ExternalLink className="h-4 w-4" />
-              공개 프로필 보기
-            </Link>
           </div>
         </div>
       </div>

@@ -250,7 +250,6 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               <div className="space-y-2 pb-4">
                 {proposals.map((proposal: any) => {
                   const broker = proposal.broker_profiles
-                  const brokerProfile = broker?.profiles
                   const isSelected = selectedId === proposal.id
                   const isCompared = compareIds.has(proposal.id)
                   return (
@@ -277,17 +276,14 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                         </button>
                       )}
                       <div className="flex items-center gap-2.5">
-                        <Link href={`/broker/${broker?.id}`} onClick={e => e.stopPropagation()}>
-                          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm hover:ring-2 hover:ring-blue-300 transition-all">
-                            {brokerProfile?.name?.[0] ?? 'B'}
-                          </div>
-                        </Link>
+                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
+                          {broker?.office_name?.[0] ?? 'B'}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-gray-900 truncate">{broker?.office_name ?? brokerProfile?.name ?? '중개사'}</span>
+                            <span className="text-sm font-bold text-gray-900 truncate">{broker?.office_name ?? '중개사'}</span>
                             {broker?.is_verified && <CheckCircle className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
                           </div>
-                          <p className="text-xs text-gray-500 truncate">{broker?.office_name && broker?.is_owner !== false ? brokerProfile?.name : ''}</p>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="text-sm font-black text-blue-600">{formatPrice(proposal.price)}</div>

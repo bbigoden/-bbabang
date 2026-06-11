@@ -340,9 +340,6 @@ export default async function BrokerDashboardPage() {
                 <Star className="h-5 w-5 text-yellow-500 fill-yellow-400" />
                 <h2 className="font-bold text-gray-900 dark:text-white">최근 고객 리뷰</h2>
               </div>
-              <Link href={`/broker/${broker.id}`} className="text-xs text-blue-600 hover:underline">
-                전체 보기 →
-              </Link>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {recentReviews.map((review: any) => (

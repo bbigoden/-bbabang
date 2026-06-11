@@ -173,7 +173,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         <nav className="mb-3 text-xs text-gray-500" aria-label="경로">
           <Link href="/" className="hover:text-blue-600">홈</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
-          <Link href={`/broker/${ownerBrokerId}`} className="hover:text-blue-600">{broker?.office_name ?? '중개사'}</Link>
+          <span>{broker?.office_name ?? '중개사'}</span>
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <span className="text-gray-700 dark:text-gray-300 font-medium">매물</span>
         </nav>
@@ -305,35 +305,32 @@ export default async function PropertyDetailPage({ params }: Props) {
 
         {/* 중개사 정보 */}
         {broker && (
-          <Link href={`/broker/${ownerBrokerId}`}>
-            <Card className="mb-5 hover:border-blue-300 transition-colors cursor-pointer">
-              <CardBody>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 text-lg font-bold">
-                    {broker.office_name?.[0] ?? 'B'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <h3 className="font-bold text-gray-900 dark:text-white truncate">{broker.office_name ?? '공인중개사사무소'}</h3>
-                      {broker.is_verified && <ShieldCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />}
-                    </div>
-                    {brokerProfile?.name && <p className="text-xs text-gray-500 truncate">대표 {brokerProfile.name}</p>}
-                    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                      {broker.rating > 0 && (
-                        <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
-                          <Star className="h-3 w-3 fill-current" /> {Number(broker.rating).toFixed(1)}
-                        </span>
-                      )}
-                      <span>후기 {broker.review_count ?? 0}</span>
-                      {broker.deal_count > 0 && <span>거래 {broker.deal_count}</span>}
-                      {broker.acceptance_rate != null && <span className="text-blue-600">수락 {broker.acceptance_rate}%</span>}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 flex-shrink-0 text-gray-300" />
+          <Card className="mb-5">
+            <CardBody>
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 text-lg font-bold">
+                  {broker.office_name?.[0] ?? 'B'}
                 </div>
-              </CardBody>
-            </Card>
-          </Link>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <h3 className="font-bold text-gray-900 dark:text-white truncate">{broker.office_name ?? '공인중개사사무소'}</h3>
+                    {broker.is_verified && <ShieldCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />}
+                  </div>
+                  {brokerProfile?.name && <p className="text-xs text-gray-500 truncate">대표 {brokerProfile.name}</p>}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    {broker.rating > 0 && (
+                      <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
+                        <Star className="h-3 w-3 fill-current" /> {Number(broker.rating).toFixed(1)}
+                      </span>
+                    )}
+                    <span>후기 {broker.review_count ?? 0}</span>
+                    {broker.deal_count > 0 && <span>거래 {broker.deal_count}</span>}
+                    {broker.acceptance_rate != null && <span className="text-blue-600">수락 {broker.acceptance_rate}%</span>}
+                  </div>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
         )}
 
         {/* 같은 중개사 다른 매물 */}

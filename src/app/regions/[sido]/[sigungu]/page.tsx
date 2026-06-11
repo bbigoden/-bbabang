@@ -151,13 +151,12 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
             <ul className="grid gap-3 md:grid-cols-2">
               {brokers.map((b: any) => (
                 <li key={b.id}>
-                  <Link href={`/broker/${b.id}`}
-                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                  <div
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <p className="font-bold text-gray-900 dark:text-white truncate flex-1">{b.user_name ?? '(이름 없음)'}</p>
+                      <p className="font-bold text-gray-900 dark:text-white truncate flex-1">{b.office_name ?? '(상호 없음)'}</p>
                       <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
                     </div>
-                    <p className="text-xs text-gray-500 truncate">{b.office_name}</p>
                     <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
                       <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
                         <Star className="h-3 w-3 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
@@ -165,15 +164,10 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
                       <span>후기 {b.review_count ?? 0}</span>
                       {b.deal_count > 0 && <span>거래 {b.deal_count}</span>}
                     </div>
-                  </Link>
+                  </div>
                 </li>
               ))}
             </ul>
-            <div className="mt-3 text-right">
-              <Link href={`/brokers?sigungu=${encodeURIComponent(sigunguN)}&verified=1`} className="text-xs text-blue-600 hover:underline">
-                전체 중개사 보기 →
-              </Link>
-            </div>
           </section>
         )}
 

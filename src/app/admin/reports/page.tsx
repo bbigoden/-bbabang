@@ -49,7 +49,7 @@ const TARGET_LABEL: Record<NonNullable<Report['target_type']>, string> = {
 }
 
 const TARGET_LINK = (type: NonNullable<Report['target_type']>, id: string): string => {
-  if (type === 'broker') return `/broker/${id}`
+  if (type === 'broker') return '/admin/brokers'  // 공개 프로필 페이지 제거됨 — 검수 화면으로
   if (type === 'request') return `/request/${id}`
   if (type === 'property') return `/property/${id}`
   if (type === 'review') return `/reviews?highlight=${id}`

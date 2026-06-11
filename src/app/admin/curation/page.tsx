@@ -374,8 +374,8 @@ function FeaturedSection({ kind, title, icon: Icon, items, onReload, supabase, o
                 <p className="text-sm font-semibold text-white truncate">{it._label}</p>
                 {it._sub && <p className="text-xs text-gray-500 truncate">{it._sub}</p>}
               </div>
-              {it.ref_id && (
-                <Link href={kind === 'featured_broker' ? `/broker/${it.ref_id}` : `/property/${it.ref_id}`} target="_blank"
+              {it.ref_id && kind !== 'featured_broker' && (
+                <Link href={`/property/${it.ref_id}`} target="_blank"
                   className="text-gray-500 hover:text-white"><ExternalLink className="h-4 w-4" /></Link>
               )}
               <CurationControls c={it} onToggle={onToggle} onRemove={onRemove} />

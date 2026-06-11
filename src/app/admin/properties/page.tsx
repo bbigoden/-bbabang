@@ -653,9 +653,9 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
               <p className="font-semibold text-white">{property.broker_profiles?.profiles?.name}</p>
               <span className="text-xs text-gray-500">{property.broker_profiles?.office_name}</span>
             </div>
-            <Link href={`/broker/${property.broker_id}`} target="_blank"
+            <Link href={`/property/${property.id}`} target="_blank"
               className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
-              <ExternalLink className="h-3 w-3" /> 중개사 프로필 열기
+              <ExternalLink className="h-3 w-3" /> 공개 매물 페이지 열기
             </Link>
           </div>
 

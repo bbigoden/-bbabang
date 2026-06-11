@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
@@ -110,22 +109,21 @@ export default function MyReviewsPage() {
             {reviews.map(r => (
               <li key={r.id} className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  <Link href={`/broker/${r.broker_id}`} className="flex items-center gap-3 min-w-0 flex-1 group">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                       <Building2 className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
-                          {r.broker_profiles?.profiles?.name ?? '(알 수 없음)'}
+                        <p className="font-semibold text-gray-900 dark:text-white truncate">
+                          {r.broker_profiles?.office_name ?? '(알 수 없음)'}
                         </p>
                         {r.broker_profiles?.is_verified && (
                           <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 truncate">{r.broker_profiles?.office_name ?? ''}</p>
                     </div>
-                  </Link>
+                  </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => setEditing(r)}

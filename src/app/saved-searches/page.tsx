@@ -98,12 +98,9 @@ export default function SavedSearchesPage() {
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
             <Bookmark className="mx-auto mb-3 h-12 w-12 text-gray-200" />
             <p className="font-semibold text-gray-500">저장한 검색이 없어요</p>
-            <p className="mt-1 text-sm text-gray-500">중개사·요청 페이지에서 필터 + &apos;조건 저장&apos; 버튼을 사용해보세요</p>
+            <p className="mt-1 text-sm text-gray-500">요청 페이지에서 필터 + &apos;조건 저장&apos; 버튼을 사용해보세요</p>
             <div className="mt-5 flex justify-center gap-2">
-              <Link href="/brokers" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-                중개사 찾기
-              </Link>
-              <Link href="/explore/requests" className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">
+              <Link href="/explore/requests" className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 요청 둘러보기
               </Link>
             </div>

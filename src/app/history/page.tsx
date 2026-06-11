@@ -153,14 +153,13 @@ export default function HistoryPage() {
                 if (!b) return <DeletedItem key={h.id} label="중개사" onRemove={() => removeOne(h.id)} />
                 return (
                   <li key={h.id} className="relative">
-                    <Link href={`/broker/${b.id}`}
-                      className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all">
+                    <div
+                      className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
                       <div className="flex-1 min-w-0 pr-8">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <p className="text-base font-bold text-gray-900 dark:text-white truncate">{b.profiles?.name ?? '(이름 없음)'}</p>
+                          <p className="text-base font-bold text-gray-900 dark:text-white truncate">{b.office_name ?? '(상호 없음)'}</p>
                           {b.is_verified && <ShieldCheck className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
                         </div>
-                        <p className="text-xs text-gray-500 truncate">{b.office_name ?? '—'}</p>
                         <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
                           <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
                             <Star className="h-3 w-3 fill-current" /> {Number(b.rating ?? 0).toFixed(1)}
@@ -169,7 +168,7 @@ export default function HistoryPage() {
                           <span className="ml-auto">{formatDate(h.viewed_at)}</span>
                         </div>
                       </div>
-                    </Link>
+                    </div>
                     <button onClick={() => removeOne(h.id)} title="기록 삭제"
                       className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 hover:text-gray-700 dark:text-gray-300 transition-colors">
                       <X className="h-3.5 w-3.5" />

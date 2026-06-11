@@ -51,7 +51,6 @@ export function BottomNav() {
     items = [
       { href: '/', label: '홈', icon: Home },
       { href: '/explore/requests', label: '요청', icon: Search },
-      { href: '/brokers', label: '중개사', icon: Building2 },
       { href: '/auth/login', label: '로그인', icon: User },
     ]
   } else if (role === 'broker') {

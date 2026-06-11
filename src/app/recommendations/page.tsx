@@ -9,7 +9,7 @@ import { Header } from '@/components/layout/header'
 import { FavoriteButton } from '@/components/favorite-button'
 import { PropertyCard } from '@/components/property-card'
 import { formatPrice } from '@/lib/utils'
-import { Sparkles, FileText, Heart, Building2, Plus } from 'lucide-react'
+import { Sparkles, FileText, Heart, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
 
 interface Match {
@@ -206,7 +206,7 @@ export default function RecommendationsPage() {
                     <li key={p.id}>
                       <PropertyCard
                         property={p}
-                        href={`/broker/${p.broker_id}`}
+                        href={`/property/${p.id}`}
                         size="md"
                         overlay={<FavoriteButton type="property" id={p.id} initialFavorited={favSet.has(p.id)} />}
                       />
@@ -228,7 +228,7 @@ function PropertyMatchCard({ match, favorited }: { match: Match; favorited: bool
     <li>
       <PropertyCard
         property={p}
-        href={`/broker/${p.broker_id}`}
+        href={`/property/${p.id}`}
         size="lg"
         overlay={<FavoriteButton type="property" id={p.id} initialFavorited={favorited} />}
         footer={match.reasons.length > 0 ? (
@@ -265,14 +265,7 @@ function EmptyState({ hasActiveRequests }: { hasActiveRequests: boolean }) {
       ) : (
         <>
           <p className="font-semibold text-gray-700 dark:text-gray-300">조건에 맞는 매물이 아직 없어요</p>
-          <p className="mt-1 text-sm text-gray-500">중개사가 매물을 등록하면 자동으로 추천돼요. 중개사 둘러보고 ♡로 찜해두세요!</p>
-          <div className="mt-5 flex justify-center gap-2">
-            <Link href="/brokers"
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-              <Building2 className="h-4 w-4" />
-              중개사 둘러보기
-            </Link>
-          </div>
+          <p className="mt-1 text-sm text-gray-500">중개사가 매물을 등록하면 자동으로 추천해드려요</p>
         </>
       )}
     </div>

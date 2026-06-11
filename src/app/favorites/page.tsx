@@ -165,8 +165,8 @@ export default function FavoritesPage() {
               )
               return (
                 <li key={f.id} className="relative">
-                  <Link href={`/broker/${b.id}`}
-                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 hover:shadow-sm transition-all">
+                  <div
+                    className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
                     <div className="flex-1 min-w-0 pr-8">
                       <div className="flex items-center gap-1.5 mb-1">
                         <h2 className="text-base font-bold text-gray-900 dark:text-white truncate">{b.office_name || '(상호 없음)'}</h2>
@@ -187,7 +187,7 @@ export default function FavoritesPage() {
                       </span>
                       <span className="text-gray-500">후기 {b.review_count ?? 0}</span>
                     </div>
-                  </Link>
+                  </div>
                   <div className="absolute right-4 top-4">
                     <FavoriteButton type="broker" id={b.id} initialFavorited={true} />
                   </div>
@@ -204,7 +204,7 @@ export default function FavoritesPage() {
               )
               return (
                 <li key={f.id} className="relative rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden hover:border-blue-300 hover:shadow-sm transition-all">
-                  <Link href={`/broker/${p.broker_id}`}>
+                  <Link href={`/property/${p.id}`}>
                     {p.images?.[0] && (
                       <div className="relative h-32 w-full">
                         <Image src={p.images[0]} alt={p.address ?? ''} fill className="object-cover" sizes="(max-width: 640px) 100vw, 50vw" />
