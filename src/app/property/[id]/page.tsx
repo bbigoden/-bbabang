@@ -97,18 +97,10 @@ export default async function PropertyDetailPage({ params }: Props) {
     .order('changed_at', { ascending: false })
     .limit(5)
 
-  // 같은 중개사의 다른 매물 (4개)
-  const { data: otherProps } = await supabase
-    .from('broker_properties')
-    .select('id, seq_no, address, deal_type, room_type, price, monthly_rent, images')
-    .eq('broker_id', prop.broker_id)
-    .eq('status', 'available')
-    .neq('id', id)
-    .order('created_at', { ascending: false })
-    .limit(4)
-
-  // 직원 계정 매물이면 대표(부모 사무소) 이름으로 표시 — 직원 개인정보 노출 방지
+  // 직원 계정 매물이면 대표(부모 사무소) 기준으로 표시 — 직원 개인정보 노출 방지
+  // ownerBrokerId: 사무소 대표 계정 ID (링크·소개 표기용)
   let brokerProfile = broker?.profiles
+  const ownerBrokerId: string = broker?.parent_broker_id ?? prop.broker_id
   if (broker?.parent_broker_id) {
     const { data: parent } = await supabase
       .from('broker_profiles')
@@ -118,6 +110,22 @@ export default async function PropertyDetailPage({ params }: Props) {
     const parentProfile = (parent?.profiles as { name?: string } | null) ?? null
     if (parentProfile?.name) brokerProfile = parentProfile
   }
+
+  // 같은 사무소(대표+승인 직원)의 다른 매물 (4개)
+  const { data: officeStaff } = await supabase
+    .from('broker_profiles')
+    .select('id')
+    .eq('parent_broker_id', ownerBrokerId)
+    .eq('is_approved', true)
+  const officeIds = [ownerBrokerId, ...(officeStaff ?? []).map((r: any) => r.id)]
+  const { data: otherProps } = await supabase
+    .from('broker_properties')
+    .select('id, seq_no, address, deal_type, room_type, price, monthly_rent, images')
+    .in('broker_id', officeIds)
+    .eq('status', 'available')
+    .neq('id', id)
+    .order('created_at', { ascending: false })
+    .limit(4)
   const priceText = prop.deal_type === '월세'
     ? `보증금 ${formatPrice(prop.price)} · 월 ${formatPrice(prop.monthly_rent ?? 0)}`
     : prop.price ? formatPrice(prop.price) : '가격 협의'
@@ -165,7 +173,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         <nav className="mb-3 text-xs text-gray-500" aria-label="경로">
           <Link href="/" className="hover:text-blue-600">홈</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
-          <Link href={`/broker/${prop.broker_id}`} className="hover:text-blue-600">{broker?.office_name ?? '중개사'}</Link>
+          <Link href={`/broker/${ownerBrokerId}`} className="hover:text-blue-600">{broker?.office_name ?? '중개사'}</Link>
           <ChevronRight className="inline h-3 w-3 mx-1" />
           <span className="text-gray-700 dark:text-gray-300 font-medium">매물</span>
         </nav>
@@ -297,19 +305,19 @@ export default async function PropertyDetailPage({ params }: Props) {
 
         {/* 중개사 정보 */}
         {broker && (
-          <Link href={`/broker/${prop.broker_id}`}>
+          <Link href={`/broker/${ownerBrokerId}`}>
             <Card className="mb-5 hover:border-blue-300 transition-colors cursor-pointer">
               <CardBody>
                 <div className="flex items-start gap-3">
                   <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 text-lg font-bold">
-                    {brokerProfile?.name?.[0] ?? 'B'}
+                    {broker.office_name?.[0] ?? 'B'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <h3 className="font-bold text-gray-900 dark:text-white truncate">{brokerProfile?.name ?? '공인중개사'}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-white truncate">{broker.office_name ?? '공인중개사사무소'}</h3>
                       {broker.is_verified && <ShieldCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />}
                     </div>
-                    <p className="text-xs text-gray-500 truncate">{broker.office_name}</p>
+                    {brokerProfile?.name && <p className="text-xs text-gray-500 truncate">대표 {brokerProfile.name}</p>}
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       {broker.rating > 0 && (
                         <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
@@ -331,7 +339,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         {/* 같은 중개사 다른 매물 */}
         {otherProps && otherProps.length > 0 && (
           <div className="mb-6">
-            <h2 className="mb-3 font-bold text-gray-900 dark:text-white">{brokerProfile?.name} 중개사의 다른 매물</h2>
+            <h2 className="mb-3 font-bold text-gray-900 dark:text-white">{broker?.office_name ?? '이 사무소'}의 다른 매물</h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {otherProps.map((p: any) => (
                 <li key={p.id}>

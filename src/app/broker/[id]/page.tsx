@@ -17,7 +17,7 @@ function formatHours(h: number | null | undefined): string | null {
 }
 import { formatDate } from '@/lib/utils'
 import Image from 'next/image'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -47,8 +47,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const district = data?.district ?? ''
   const rating = data?.rating ?? null
   const reviewCount = data?.review_count ?? 0
-  const title = `${name} (${office}) | 빠방`
-  const description = `${district ? district + ' ' : ''}${office} ${name} 중개사 — ${rating ? `평점 ${rating.toFixed(1)} (${reviewCount}개) · ` : ''}빠방 인증 부동산 중개사 프로필.`
+  // 사무소명 우선 — 개인 이름은 제목에 노출하지 않음
+  const title = `${office} | 빠방`
+  const description = `${district ? district + ' ' : ''}${office} (대표 ${name}) — ${rating ? `평점 ${rating.toFixed(1)} (${reviewCount}개) · ` : ''}빠방 인증 부동산 중개사 프로필.`
   return {
     title,
     description,
@@ -81,6 +82,31 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   } catch { /* 비로그인으로 표시 */ }
 
   let broker: any = null
+  try {
+    const { data: b } = await supabase
+      .from('broker_profiles')
+      .select('id, office_name, address, district, rating, review_count, deal_count, is_verified, office_reg_number, avg_response_hours, acceptance_rate, parent_broker_id, profiles(name, phone)')
+      .eq('id', brokerId)
+      .single()
+    broker = b
+  } catch { /* 데이터 로드 실패 시 빈 상태 */ }
+
+  if (!broker) notFound()
+
+  // 직원 계정 공개 페이지는 대표(사무소) 페이지로 통합 — 직원 개인 노출 방지
+  if (broker.parent_broker_id) redirect(`/broker/${broker.parent_broker_id}`)
+
+  // 사무소 전체 계정 ID (대표 + 승인된 직원) — 매물·리뷰를 사무소 단위로 합산 표시
+  let officeIds: string[] = [brokerId]
+  try {
+    const { data: staffRows } = await supabase
+      .from('broker_profiles')
+      .select('id')
+      .eq('parent_broker_id', brokerId)
+      .eq('is_approved', true)
+    officeIds = [brokerId, ...(staffRows ?? []).map((r: any) => r.id)]
+  } catch { /* 직원 조회 실패 시 대표 매물만 표시 */ }
+
   let reviews: any[] = []
   let properties: any[] = []
   try {
@@ -90,7 +116,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
       const all: any[] = []
       for (let from = 0; ; from += PAGE) {
         const { data: page } = await supabase
-          .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, images').eq('broker_id', brokerId).eq('status', 'available')
+          .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, images').in('broker_id', officeIds).eq('status', 'available')
           .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
         if (!page || page.length === 0) break
         all.push(...page)
@@ -98,40 +124,25 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
       }
       return all
     }
-    const [{ data: b }, { data: r }, p] = await Promise.all([
-      supabase
-        .from('broker_profiles')
-        .select('id, office_name, address, district, rating, review_count, deal_count, is_verified, office_reg_number, avg_response_hours, acceptance_rate, parent_broker_id, profiles(name, phone)')
-        .eq('id', brokerId)
-        .single(),
+    const [{ data: r }, p] = await Promise.all([
       supabase
         .from('reviews')
         .select('*, profiles(name)')
-        .eq('broker_id', brokerId)
+        .in('broker_id', officeIds)
         .order('created_at', { ascending: false }),
       fetchAllProps(),
     ])
-    broker = b
     reviews = r ?? []
     properties = p ?? []
   } catch { /* 데이터 로드 실패 시 빈 상태 */ }
 
-  if (!broker) notFound()
+  // 평점·리뷰 수도 사무소 합산 기준으로 표시
+  broker.review_count = reviews.length
+  broker.rating = reviews.length > 0
+    ? reviews.reduce((s: number, rv: any) => s + (rv.rating ?? 0), 0) / reviews.length
+    : 0
 
-  // 직원 계정이면 공개 페이지엔 대표(부모 사무소)의 이름·연락처만 노출
-  // — 직원 개인 번호가 사무소 대표번호처럼 보이는 문제 방지
-  let ownerProfile: { name?: string | null; phone?: string | null } | null = broker.profiles ?? null
-  if (broker.parent_broker_id) {
-    try {
-      const { data: parent } = await supabase
-        .from('broker_profiles')
-        .select('profiles(name, phone)')
-        .eq('id', broker.parent_broker_id)
-        .maybeSingle()
-      const parentProfile = (parent?.profiles as { name?: string; phone?: string } | null) ?? null
-      if (parentProfile) ownerProfile = parentProfile
-    } catch { /* 대표 조회 실패 시 기존 표시 유지 */ }
-  }
+  const ownerProfile: { name?: string | null; phone?: string | null } | null = broker.profiles ?? null
 
   // 최근 7일 가격 인하 매물 ID 조회 — 1300+ 매물에서 .in() URL 길이 문제 회피하려 broker_id JOIN 사용
   const recentDropIds = new Set<string>()
@@ -141,7 +152,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
       const { data: drops } = await supabase
         .from('property_price_history')
         .select('property_id, old_price, new_price, broker_properties!inner(broker_id)')
-        .eq('broker_properties.broker_id', brokerId)
+        .in('broker_properties.broker_id', officeIds)
         .gte('changed_at', sinceISO)
       ;(drops ?? []).forEach((d: any) => {
         if (d.new_price != null && d.old_price != null && d.new_price < d.old_price) {
