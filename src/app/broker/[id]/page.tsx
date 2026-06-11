@@ -28,10 +28,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('broker_profiles')
-    .select('office_name, district, rating, review_count, profiles(name)')
+    .select('office_name, district, rating, review_count, parent_broker_id, profiles(name)')
     .eq('id', id)
     .maybeSingle()
-  const profile = (data?.profiles as { name?: string } | null) ?? null
+  // 직원 계정이면 대표(부모 사무소) 이름으로 표시
+  let profile = (data?.profiles as { name?: string } | null) ?? null
+  if (data?.parent_broker_id) {
+    const { data: parent } = await supabase
+      .from('broker_profiles')
+      .select('profiles(name)')
+      .eq('id', data.parent_broker_id)
+      .maybeSingle()
+    const parentProfile = (parent?.profiles as { name?: string } | null) ?? null
+    if (parentProfile?.name) profile = parentProfile
+  }
   const name = profile?.name ?? '중개사'
   const office = data?.office_name ?? '공인중개사사무소'
   const district = data?.district ?? ''
@@ -91,7 +101,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
     const [{ data: b }, { data: r }, p] = await Promise.all([
       supabase
         .from('broker_profiles')
-        .select('id, office_name, address, district, rating, review_count, deal_count, is_verified, office_reg_number, avg_response_hours, acceptance_rate, profiles(name, email, phone)')
+        .select('id, office_name, address, district, rating, review_count, deal_count, is_verified, office_reg_number, avg_response_hours, acceptance_rate, parent_broker_id, profiles(name, phone)')
         .eq('id', brokerId)
         .single(),
       supabase
@@ -107,6 +117,21 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
   } catch { /* 데이터 로드 실패 시 빈 상태 */ }
 
   if (!broker) notFound()
+
+  // 직원 계정이면 공개 페이지엔 대표(부모 사무소)의 이름·연락처만 노출
+  // — 직원 개인 번호가 사무소 대표번호처럼 보이는 문제 방지
+  let ownerProfile: { name?: string | null; phone?: string | null } | null = broker.profiles ?? null
+  if (broker.parent_broker_id) {
+    try {
+      const { data: parent } = await supabase
+        .from('broker_profiles')
+        .select('profiles(name, phone)')
+        .eq('id', broker.parent_broker_id)
+        .maybeSingle()
+      const parentProfile = (parent?.profiles as { name?: string; phone?: string } | null) ?? null
+      if (parentProfile) ownerProfile = parentProfile
+    } catch { /* 대표 조회 실패 시 기존 표시 유지 */ }
+  }
 
   // 최근 7일 가격 인하 매물 ID 조회 — 1300+ 매물에서 .in() URL 길이 문제 회피하려 broker_id JOIN 사용
   const recentDropIds = new Set<string>()
@@ -160,12 +185,12 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: '홈', item: 'https://bbabang.vercel.app' },
           { '@type': 'ListItem', position: 2, name: '중개사', item: 'https://bbabang.vercel.app/brokers' },
-          { '@type': 'ListItem', position: 3, name: broker.profiles?.name ?? '중개사', item: `https://bbabang.vercel.app/broker/${brokerId}` },
+          { '@type': 'ListItem', position: 3, name: ownerProfile?.name ?? '중개사', item: `https://bbabang.vercel.app/broker/${brokerId}` },
         ],
       },
       {
         '@type': 'RealEstateAgent',
-        name: broker.profiles?.name ?? '공인중개사',
+        name: ownerProfile?.name ?? '공인중개사',
         url: `https://bbabang.vercel.app/broker/${brokerId}`,
         ...(broker.office_name && { brand: { '@type': 'Organization', name: broker.office_name } }),
         ...(broker.address && { address: { '@type': 'PostalAddress', streetAddress: broker.address, addressCountry: 'KR' } }),
@@ -249,18 +274,18 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
                   <span>등록번호 <span className="font-mono text-gray-800 dark:text-gray-100">{broker.office_reg_number}</span></span>
                 </div>
               )}
-              {broker.profiles?.phone && (
+              {ownerProfile?.phone && (
                 <div className="flex items-start gap-2 min-w-0">
                   <Phone className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
-                  <a href={`tel:${broker.profiles.phone}`} className="text-blue-600 hover:underline">
-                    {broker.profiles.phone}
+                  <a href={`tel:${ownerProfile.phone}`} className="text-blue-600 hover:underline">
+                    {ownerProfile.phone}
                   </a>
                 </div>
               )}
-              {broker.profiles?.name && (
+              {ownerProfile?.name && (
                 <div className="flex items-start gap-2 min-w-0">
                   <User className="h-4 w-4 text-gray-500 flex-shrink-0 mt-0.5" />
-                  <span>대표 <span className="font-semibold text-gray-800 dark:text-gray-100">{broker.profiles.name}</span></span>
+                  <span>대표 <span className="font-semibold text-gray-800 dark:text-gray-100">{ownerProfile.name}</span></span>
                 </div>
               )}
             </div>

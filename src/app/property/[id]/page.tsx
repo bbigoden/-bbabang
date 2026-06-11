@@ -55,7 +55,7 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   const { data: prop } = await supabase
     .from('broker_properties')
-    .select('*, broker_profiles(id, office_name, address, district, rating, review_count, deal_count, is_verified, avg_response_hours, acceptance_rate, profiles(name, phone))')
+    .select('*, broker_profiles(id, office_name, address, district, rating, review_count, deal_count, is_verified, avg_response_hours, acceptance_rate, parent_broker_id, profiles(name))')
     .eq('id', id)
     .maybeSingle()
 
@@ -107,7 +107,17 @@ export default async function PropertyDetailPage({ params }: Props) {
     .order('created_at', { ascending: false })
     .limit(4)
 
-  const brokerProfile = broker?.profiles
+  // 직원 계정 매물이면 대표(부모 사무소) 이름으로 표시 — 직원 개인정보 노출 방지
+  let brokerProfile = broker?.profiles
+  if (broker?.parent_broker_id) {
+    const { data: parent } = await supabase
+      .from('broker_profiles')
+      .select('profiles(name)')
+      .eq('id', broker.parent_broker_id)
+      .maybeSingle()
+    const parentProfile = (parent?.profiles as { name?: string } | null) ?? null
+    if (parentProfile?.name) brokerProfile = parentProfile
+  }
   const priceText = prop.deal_type === '월세'
     ? `보증금 ${formatPrice(prop.price)} · 월 ${formatPrice(prop.monthly_rent ?? 0)}`
     : prop.price ? formatPrice(prop.price) : '가격 협의'
