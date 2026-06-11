@@ -84,10 +84,15 @@ export default function RecommendationsPage() {
       const { data: props } = await q
       ;(props ?? []).forEach((p: any) => {
         if (seenProperties.has(p.id)) return
+        // 거래유형이 다른 매물 제외 — 요청·매물 모두 콤마 멀티값 지원 (예: "매매, 월세")
+        const reqDeals = (req.deal_type ?? '').split(',').map(t => t.trim()).filter(Boolean)
+        const propDeals = (p.deal_type ?? '').split(',').map((t: string) => t.trim()).filter(Boolean)
+        const dealMatched = reqDeals.length === 0 || propDeals.length === 0 || reqDeals.some(t => propDeals.includes(t))
+        if (!dealMatched) return
         seenProperties.add(p.id)
         const reasons: string[] = []
         reasons.push(`'${region}' 지역 매칭`)
-        if (req.deal_type && p.deal_type && req.deal_type.split(',').some(t => t.trim() === p.deal_type)) {
+        if (reqDeals.length > 0 && propDeals.length > 0) {
           reasons.push(`거래 유형 ${p.deal_type}`)
         }
         if (req.room_type && p.room_type && req.room_type.split(',').some(t => t.trim() === p.room_type)) {
