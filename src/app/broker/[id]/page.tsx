@@ -90,7 +90,7 @@ export default async function BrokerPublicProfilePage({ params }: Props) {
       const all: any[] = []
       for (let from = 0; ; from += PAGE) {
         const { data: page } = await supabase
-          .from('broker_properties').select('id, broker_id, deal_type, room_type, address, price, monthly_rent, images').eq('broker_id', brokerId).eq('status', 'available')
+          .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, images').eq('broker_id', brokerId).eq('status', 'available')
           .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
         if (!page || page.length === 0) break
         all.push(...page)

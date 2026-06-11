@@ -5,6 +5,7 @@ import { formatAddress, formatPrice, maskAddressByType } from '@/lib/utils'
 
 export type PropertyCardData = {
   id: string | number
+  seq_no?: number | null
   images?: string[] | null
   deal_type?: string | null
   room_type?: string | null
@@ -80,17 +81,19 @@ export function PropertyCard({
               {p.room_type}
             </span>
           )}
+          {p.seq_no != null && (
+            <span className="rounded-full border border-gray-200 dark:border-gray-700 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+              매물번호 {p.seq_no}
+            </span>
+          )}
         </div>
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{masked}</p>
         <p className="mt-1 text-sm font-black text-blue-600">{priceLine}</p>
-        {showBroker && (p.broker_profiles?.profiles?.name || p.broker_profiles?.office_name) && (
+        {/* 담당 직원 개인 이름은 비노출 — 사무소명만 표시 (고객은 매물번호로 문의) */}
+        {showBroker && p.broker_profiles?.office_name && (
           <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500 truncate max-w-full">
             <Building2 className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">
-              {p.broker_profiles?.profiles?.name}
-              {p.broker_profiles?.profiles?.name && p.broker_profiles?.office_name ? ' · ' : ''}
-              {p.broker_profiles?.office_name}
-            </span>
+            <span className="truncate">{p.broker_profiles.office_name}</span>
           </p>
         )}
         {footer && <div className="mt-2">{footer}</div>}

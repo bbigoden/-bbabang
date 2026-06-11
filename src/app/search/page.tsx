@@ -86,7 +86,7 @@ function SearchInner() {
         .limit(10),
       supabase
         .from('broker_properties')
-        .select('id, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name, profiles(name))')
+        .select('id, seq_no, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name, profiles(name))')
         .ilike('address', like)
         .eq('status', 'available')
         .order('created_at', { ascending: false })

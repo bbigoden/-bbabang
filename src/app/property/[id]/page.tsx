@@ -100,7 +100,7 @@ export default async function PropertyDetailPage({ params }: Props) {
   // 같은 중개사의 다른 매물 (4개)
   const { data: otherProps } = await supabase
     .from('broker_properties')
-    .select('id, address, deal_type, room_type, price, monthly_rent, images')
+    .select('id, seq_no, address, deal_type, room_type, price, monthly_rent, images')
     .eq('broker_id', prop.broker_id)
     .eq('status', 'available')
     .neq('id', id)
@@ -208,6 +208,11 @@ export default async function PropertyDetailPage({ params }: Props) {
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             {prop.deal_type && <Badge variant="info">{prop.deal_type}</Badge>}
             {prop.room_type && <Badge variant="default">{prop.room_type}</Badge>}
+            {prop.seq_no != null && (
+              <span className="rounded-full border border-gray-200 dark:border-gray-700 px-2 py-0.5 text-xs font-medium text-gray-500">
+                매물번호 {prop.seq_no}
+              </span>
+            )}
             {prop.status === 'contracted' && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">계약 완료</span>}
             {prop.status === 'hidden' && <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-500">숨김</span>}
           </div>
