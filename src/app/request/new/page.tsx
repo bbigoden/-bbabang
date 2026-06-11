@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { validateBudgetRange, validateArea } from '@/lib/validation'
 import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
 import { RegionPicker, type RegionValue } from '@/components/region-picker'
-import { PROPERTY_CATEGORIES } from '@/lib/property-types'
+import { CUSTOMER_PROPERTY_CATEGORIES } from '@/lib/property-types'
 
 // ─── 거래 유형 ───
 const DEAL_TYPES = ['매매', '월세', '전세']
@@ -241,7 +241,7 @@ function RequestNewPageInner() {
                   <span className="text-xs text-gray-500">중복 선택 가능</span>
                 </div>
                 <div className="space-y-3">
-                  {PROPERTY_CATEGORIES.map((cat) => (
+                  {CUSTOMER_PROPERTY_CATEGORIES.map((cat) => (
                     <div key={cat.label}>
                       <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                         {cat.label}

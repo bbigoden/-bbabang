@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/header'
 import { cn } from '@/lib/utils'
 import { validateBudgetRange, validateArea } from '@/lib/validation'
 import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
-import { PROPERTY_CATEGORIES } from '@/lib/property-types'
+import { CUSTOMER_PROPERTY_CATEGORIES, toCustomerRoomTypes } from '@/lib/property-types'
 
 const DEAL_TYPES = ['매매', '월세', '전세']
 const REGIONS: Record<string, string[]> = {
@@ -75,7 +75,7 @@ export default function RequestEditPage() {
       if (data.user_id !== user.id) { router.push('/dashboard/user'); return }
 
       setDealTypes(data.deal_type ? data.deal_type.split(',').map((s: string) => s.trim()) : [])
-      setPropertyTypes(data.room_type ? data.room_type.split(',').map((s: string) => s.trim()) : [])
+      setPropertyTypes(data.room_type ? toCustomerRoomTypes(data.room_type.split(',').map((s: string) => s.trim())) : [])
       setForm({
         city: data.city ?? '서울특별시',
         district: data.district ?? '',
@@ -206,7 +206,7 @@ export default function RequestEditPage() {
                   <span className="text-xs text-gray-500">중복 선택 가능</span>
                 </div>
                 <div className="space-y-3">
-                  {PROPERTY_CATEGORIES.map((cat) => (
+                  {CUSTOMER_PROPERTY_CATEGORIES.map((cat) => (
                     <div key={cat.label}>
                       <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{cat.label}</p>
                       <div className="flex flex-wrap gap-2">
