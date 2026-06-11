@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const rating = data?.rating ?? null
   const reviewCount = data?.review_count ?? 0
   // 사무소명 우선 — 개인 이름은 제목에 노출하지 않음
-  const title = `${office} | 빠방`
+  const title = office  // 루트 layout의 '%s | 빠방' 템플릿이 접미사를 붙임
   const description = `${district ? district + ' ' : ''}${office} (대표 ${name}) — ${rating ? `평점 ${rating.toFixed(1)} (${reviewCount}개) · ` : ''}빠방 인증 부동산 중개사 프로필.`
   return {
     title,

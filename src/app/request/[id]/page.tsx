@@ -12,9 +12,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     .select('city, district, dong, deal_type, room_type, min_price, max_price')
     .eq('id', id)
     .maybeSingle()
-  if (!data) return { title: '요청 | 빠방' }
+  if (!data) return { title: '요청' }
   const region = [data.city, data.district, data.dong].filter(Boolean).join(' ')
-  const title = `${region} ${data.deal_type ?? ''} ${data.room_type ?? ''} 요청 | 빠방`.replace(/\s+/g, ' ').trim()
+  // 루트 layout의 '%s | 빠방' 템플릿이 접미사를 붙이므로 여기선 안 붙임
+  const title = `${region} ${data.deal_type ?? ''} ${data.room_type ?? ''} 요청`.replace(/\s+/g, ' ').trim()
   const priceRange = data.min_price && data.max_price ? ` (${data.min_price}~${data.max_price}만원)` : ''
   const description = `${region} ${data.room_type ?? ''} ${data.deal_type ?? ''}${priceRange} — 공인중개사 제안을 받아보세요.`
   return {
