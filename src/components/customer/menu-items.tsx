@@ -3,7 +3,7 @@
  * 한 곳에서만 수정하면 두 UI에 동시 반영됨 (broker 패턴과 동일).
  */
 import {
-  Home, Plus, Sparkles, Search, Compass,
+  Home, Plus, Sparkles, Search,
   Heart, History, Bookmark, Star, Settings, User,
   Palette, Bell, HelpCircle, FileText, Inbox,
 } from 'lucide-react'
@@ -26,7 +26,6 @@ export const CUSTOMER_ITEMS: CustomerItemDef[] = [
   { id: 'dashboard',   href: '/dashboard/user',    label: '홈',         icon: Home },
   { id: 'request-new', href: '/request/new',       label: '매물 요청',  icon: Plus },
   { id: 'recommend',   href: '/recommendations',   label: '추천 매물',  icon: Sparkles },
-  { id: 'explore',     href: '/explore/requests',  label: '실시간 요청', icon: Compass },
   { id: 'search',      href: '/search',            label: '통합 검색',  icon: Search },
   {
     id: 'my', label: '내 활동', icon: FileText,
