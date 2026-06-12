@@ -240,10 +240,10 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const [hasReview, setHasReview] = useState<boolean | null>(null)
   const [showEventModal, setShowEventModal] = useState(false)
   const [showQuickReplies, setShowQuickReplies] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const scrollToBottom = useCallback(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [])
+  const scrollToBottom = useCallback(() => { const el = scrollContainerRef.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }) }, [])
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
 
   useEffect(() => {
@@ -545,7 +545,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       )}
 
       {/* 메시지 목록 */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50 dark:bg-gray-950">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-3 py-3 bg-gray-50 dark:bg-gray-950">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-3xl mb-2">👋</div>
@@ -616,7 +616,6 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             </div>
           ))}
         </div>
-        <div ref={bottomRef} />
       </div>
 
       {/* 매물 상세 모달 */}
