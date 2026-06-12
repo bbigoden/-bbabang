@@ -844,9 +844,9 @@ export default function ChatPage() {
                   if (!pickerSearch) return true
                   const q = pickerSearch.toLowerCase()
                   return (
-                    p.address.toLowerCase().includes(q) ||
-                    p.deal_type.includes(q) ||
-                    p.room_type.includes(q) ||
+                    (p.address ?? '').toLowerCase().includes(q) ||
+                    (p.deal_type ?? '').includes(q) ||
+                    (p.room_type ?? '').includes(q) ||
                     (p.description ?? '').toLowerCase().includes(q)
                   )
                 })
