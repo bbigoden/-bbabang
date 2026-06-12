@@ -6,7 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 const RECENT_KEYS = new Set<string>()
 const RECENT_LIMIT_MS = 60_000 // 같은 에러 1분 내 중복 전송 차단
 
-function reportError(payload: {
+// Next.js 라우트 에러 바운더리(app/error.tsx, app/global-error.tsx)에서도 호출 →
+// React 렌더 크래시가 error_logs에 남아 /admin/errors·이메일 알림으로 확인 가능
+export function reportError(payload: {
   message: string
   stack?: string | null
   source: string
