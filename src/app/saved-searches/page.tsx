@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { formatDate } from '@/lib/utils'
-import { Bookmark, Trash2, Building2, FileText, Home, ExternalLink } from 'lucide-react'
+import { Bookmark, Trash2, FileText, Home, ExternalLink } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
 
 interface SavedSearch {
@@ -19,8 +19,9 @@ interface SavedSearch {
   created_at: string
 }
 
-const TARGET_META: Record<SavedSearch['target'], { label: string; icon: any; color: string; basePath: string; param: (f: Record<string, any>) => string }> = {
-  broker:   { label: '중개사', icon: Building2, color: 'bg-purple-50 text-purple-600 border-purple-200', basePath: '/brokers', param: f => buildQS({ sido: f.sido, sigungu: f.sigungu, verified: f.verified ? '1' : '' }) },
+// 중개사 둘러보기 페이지(/brokers) 제거됨 → broker 타입 검색은 더 이상 열 곳이 없어 제외.
+// 기존 broker 저장검색(레거시)이 있어도 메타가 없으면 목록에서 건너뜀.
+const TARGET_META: Partial<Record<SavedSearch['target'], { label: string; icon: any; color: string; basePath: string; param: (f: Record<string, any>) => string }>> = {
   request:  { label: '요청', icon: FileText, color: 'bg-blue-50 text-blue-600 border-blue-200', basePath: '/explore/requests', param: f => buildQS({ city: f.city, district: f.district, dong: f.dong, deal_type: f.deal_type }) },
   property: { label: '매물', icon: Home, color: 'bg-emerald-50 text-emerald-600 border-emerald-200', basePath: '/search', param: f => buildQS({ q: f.q }) },
 }
@@ -109,6 +110,7 @@ export default function SavedSearchesPage() {
           <ul className="space-y-3">
             {items.map(s => {
               const meta = TARGET_META[s.target]
+              if (!meta) return null // 제거된 타입(중개사 등) 레거시 저장검색은 표시 안 함
               const Icon = meta.icon
               const link = meta.basePath + meta.param(s.filters)
               return (

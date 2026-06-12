@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
   if (prop.status !== 'available') return NextResponse.json({ ok: true, sent: 0, skipped: 'not_available' })
 
   // notifications 테이블에서 이 매물 알림을 받은 사용자 id 목록 조회 (트리거가 이미 채움)
-  const link = `/broker/${prop.broker_id}`
+  // 링크는 매물 상세 기준 — 중개사 공개 프로필 페이지 제거됨 (트리거와 형식 일치 필수)
+  const link = `/property/${prop.id}`
   const { data: notifs } = await supabase
     .from('notifications')
     .select('user_id')
