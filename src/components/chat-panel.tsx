@@ -667,7 +667,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                 const filtered = brokerProperties.filter(p => {
                   if (!pickerSearch) return true
                   const q = pickerSearch.toLowerCase()
-                  return p.address.toLowerCase().includes(q) || p.deal_type.includes(q) || p.room_type.includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q)
+                  return (p.address ?? '').toLowerCase().includes(q) || (p.deal_type ?? '').includes(q) || (p.room_type ?? '').includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q)
                 })
                 if (filtered.length === 0) return <div className="py-12 text-center text-sm text-gray-500">검색 결과가 없습니다</div>
                 return (
