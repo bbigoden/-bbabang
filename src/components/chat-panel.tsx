@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useToast } from '@/components/toast'
 
 // ── Types ─────────────────────────────────────────
 export interface Message {
@@ -223,6 +224,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
 }) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
+  const toast = useToast()
   const [room, setRoom] = useState<any>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -388,7 +390,8 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   })
 
   const sendSelectedProperties = async () => {
-    if (!room || selectedPropIds.size === 0 || sendingProps) return
+    if (selectedPropIds.size === 0 || sendingProps) return
+    if (!room) { toast.error('채팅방을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.'); return }
     setSendingProps(true)
     const toSend = brokerProperties.filter(p => selectedPropIds.has(p.id))
     const rows = toSend.map(prop => ({
@@ -399,7 +402,13 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       property_id: prop.id,
     }))
     if (rows.length > 0) {
-      await supabase.from('chat_messages').insert(rows)
+      const { error } = await supabase.from('chat_messages').insert(rows)
+      if (error) {
+        console.error('[chat-panel] sendSelectedProperties failed', error)
+        toast.error(`매물 발송 실패: ${error.message}`)
+        setSendingProps(false)
+        return
+      }
     }
     notifyRecipient(`🏠 매물 ${toSend.length}건을 공유했어요`)
     setSendingProps(false); setShowPicker(false); setSelectedPropIds(new Set()); setPickerSearch('')
