@@ -368,7 +368,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
       const collected: any[] = []
       for (let from = 0; ; from += PAGE) {
         const { data: page } = await supabase
-          .from('broker_properties').select('id, deal_type, room_type, address, price, monthly_rent, size_pyeong, area_type, area_unit, floor, total_floors, options, description, images, brief_memo').eq('broker_id', broker.id).eq('status', 'available')
+          .from('broker_properties').select('id, seq_no, deal_type, room_type, address, price, monthly_rent, size_pyeong, area_type, area_unit, floor, total_floors, options, description, images, brief_memo').eq('broker_id', broker.id).eq('status', 'available')
           .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
         if (!page || page.length === 0) break
         collected.push(...page)
@@ -636,7 +636,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                   <Search className="h-4 w-4 text-gray-500 flex-shrink-0" />
                   <input type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
                     aria-label="매물 검색"
-                    placeholder="주소, 거래유형, 방종류 검색..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-500" autoFocus />
+                    placeholder="매물번호, 주소, 거래유형, 방종류 검색..." className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-500" autoFocus />
                   {pickerSearch && <button onClick={() => setPickerSearch('')} className="text-gray-500 hover:text-gray-600 dark:text-gray-500"><X className="h-3.5 w-3.5" /></button>}
                 </div>
               </div>
@@ -667,7 +667,8 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                 const filtered = brokerProperties.filter(p => {
                   if (!pickerSearch) return true
                   const q = pickerSearch.toLowerCase()
-                  return (p.address ?? '').toLowerCase().includes(q) || (p.deal_type ?? '').includes(q) || (p.room_type ?? '').includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q)
+                  const digits = q.replace(/\D/g, '')
+                  return (p.address ?? '').toLowerCase().includes(q) || (p.deal_type ?? '').includes(q) || (p.room_type ?? '').includes(q) || (p.brief_memo ?? '').toLowerCase().includes(q) || (digits !== '' && p.seq_no != null && String(p.seq_no).includes(digits))
                 })
                 if (filtered.length === 0) return <div className="py-12 text-center text-sm text-gray-500">검색 결과가 없습니다</div>
                 return (
@@ -684,7 +685,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                           <span className={cn('inline-flex items-center justify-center rounded-lg px-1.5 py-1 text-xs font-bold', dealColors[p.deal_type] ?? 'bg-gray-100 text-gray-600')}>{p.deal_type}</span>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{p.address}</p>
-                            <p className="text-xs text-gray-500 truncate">{p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}</p>
+                            <p className="text-xs text-gray-500 truncate">{p.seq_no != null ? `#${p.seq_no} · ` : ''}{p.room_type}{p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}{p.floor ? ` · ${p.floor}층` : ''}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-sm font-black text-blue-600 whitespace-nowrap">{priceText}</p>

@@ -39,6 +39,7 @@ interface Message {
 
 interface BrokerProperty {
   id: string
+  seq_no: number | null
   deal_type: string
   room_type: string
   address: string
@@ -490,7 +491,7 @@ export default function ChatPage() {
     if (broker) {
       const { data } = await supabase
         .from('broker_properties')
-        .select('id, deal_type, room_type, address, price, monthly_rent, size_pyeong, floor, total_floors, options, description, images, status')
+        .select('id, seq_no, deal_type, room_type, address, price, monthly_rent, size_pyeong, floor, total_floors, options, description, images, status')
         .eq('broker_id', broker.id)
         .eq('status', 'available')
         .order('created_at', { ascending: false })
@@ -796,7 +797,7 @@ export default function ChatPage() {
                     type="text"
                     value={pickerSearch}
                     onChange={e => setPickerSearch(e.target.value)}
-                    placeholder="주소, 거래유형, 방종류 검색..."
+                    placeholder="매물번호, 주소, 거래유형, 방종류 검색..."
                     className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-500"
                     autoFocus
                   />
@@ -843,11 +844,13 @@ export default function ChatPage() {
                 const filtered = brokerProperties.filter(p => {
                   if (!pickerSearch) return true
                   const q = pickerSearch.toLowerCase()
+                  const digits = q.replace(/\D/g, '')
                   return (
                     (p.address ?? '').toLowerCase().includes(q) ||
                     (p.deal_type ?? '').includes(q) ||
                     (p.room_type ?? '').includes(q) ||
-                    (p.description ?? '').toLowerCase().includes(q)
+                    (p.description ?? '').toLowerCase().includes(q) ||
+                    (digits !== '' && p.seq_no != null && String(p.seq_no).includes(digits))
                   )
                 })
                 if (filtered.length === 0) return (
@@ -884,7 +887,7 @@ export default function ChatPage() {
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{prop.address}</p>
                             <p className="text-xs text-gray-500 truncate">
-                              {prop.room_type}{prop.size_pyeong ? ` · ${prop.size_pyeong}평` : ''}{prop.floor ? ` · ${prop.floor}층` : ''}
+                              {prop.seq_no != null ? `#${prop.seq_no} · ` : ''}{prop.room_type}{prop.size_pyeong ? ` · ${prop.size_pyeong}평` : ''}{prop.floor ? ` · ${prop.floor}층` : ''}
                             </p>
                           </div>
                           <div className="text-right">
