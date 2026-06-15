@@ -126,7 +126,7 @@ export default async function MyProposalsPage({ searchParams }: { searchParams: 
                   return (
                     <li key={p.id}>
                       <Link
-                        href={`/chat/${p.id}`}
+                        href={`/request/${p.request_id}?p=${p.id}`}
                         className="block rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
                       >
                         <div className="flex gap-3">

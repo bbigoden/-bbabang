@@ -25,15 +25,16 @@ interface Props {
   proposals: any[]
   user: any
   userRole: string | null
+  initialSelectedId?: string | null
 }
 
-export function RequestDetailClient({ request, proposals: initialProposals, user, userRole }: Props) {
+export function RequestDetailClient({ request, proposals: initialProposals, user, userRole, initialSelectedId = null }: Props) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const [proposals, setProposals] = useState(initialProposals)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId)
   const [isCreatingProposal, setIsCreatingProposal] = useState(false)
-  const [mobileTab, setMobileTab] = useState<'proposals' | 'chat'>('proposals')
+  const [mobileTab, setMobileTab] = useState<'proposals' | 'chat'>(initialSelectedId ? 'chat' : 'proposals')
   const [rejectingProposal, setRejectingProposal] = useState<any>(null)
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [showCompare, setShowCompare] = useState(false)

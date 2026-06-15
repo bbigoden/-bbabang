@@ -26,8 +26,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function RequestDetailPage({ params, searchParams }: { params: Promise<{ id: string }>, searchParams: Promise<{ p?: string }> }) {
   const { id } = await params
+  const { p } = await searchParams
   const supabase = await createClient()
 
   let user: User | null = null
@@ -65,12 +66,16 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
   if (!request) notFound()
 
+  // ?p=<proposalId> 로 들어오면 해당 제안의 대화를 바로 열어줌 (받은 제안·알림에서 진입)
+  const initialSelectedId = p && proposals.some((pr: any) => pr.id === p) ? p : null
+
   return (
     <RequestDetailClient
       request={request}
       proposals={proposals}
       user={user}
       userRole={userRole}
+      initialSelectedId={initialSelectedId}
     />
   )
 }
