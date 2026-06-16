@@ -713,24 +713,38 @@ function ImageCell({ images, onSave, onView }: {
 }
 
 // ── 매물상태 토글 셀 (가능 ↔ 완료) ─────────────────────────────
-function StatusToggleCell({ value, onSave }: {
+// readOnly면 동일한 모양의 비활성 박스로 렌더 → 편집 가능 셀과 시각적으로 통일
+// (직원이 남의 매물을 볼 때도 본인 매물과 동일하게 보이도록)
+function StatusToggleCell({ value, onSave, readOnly }: {
   value: 'available' | 'contracted' | 'hidden'
-  onSave: (v: 'available' | 'contracted') => void
+  onSave?: (v: 'available' | 'contracted') => void
+  readOnly?: boolean
 }) {
   const isCompleted = value === 'contracted'
+  const colorCls = isCompleted
+    ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500'
+    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+  const label = isCompleted ? '완료' : '가능'
+
+  if (readOnly) {
+    return (
+      <div className={cn('w-full rounded-md px-2 py-1 text-xs font-semibold text-center min-h-[22px]', colorCls)}>
+        {label}
+      </div>
+    )
+  }
   return (
     <button
       type="button"
-      onClick={() => onSave(isCompleted ? 'available' : 'contracted')}
+      onClick={() => onSave?.(isCompleted ? 'available' : 'contracted')}
       title="클릭하여 전환"
       className={cn(
         'w-full rounded-md px-2 py-1 text-xs font-semibold transition-colors min-h-[22px]',
-        isCompleted
-          ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500'
-          : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300'
+        colorCls,
+        isCompleted ? 'hover:bg-gray-200' : 'hover:bg-green-200'
       )}
     >
-      {isCompleted ? '완료' : '가능'}
+      {label}
     </button>
   )
 }
@@ -1055,17 +1069,7 @@ const PropertyRow = memo(function PropertyRow({
           if (isAdminView || !canEdit || !isMine) {
             const readVal = (() => {
               if (key === 'status') {
-                const isCompleted = p.status === 'contracted'
-                return (
-                  <span className={cn(
-                    'rounded-md px-2 py-0.5 text-xs font-semibold',
-                    isCompleted
-                      ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500'
-                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                  )}>
-                    {isCompleted ? '완료' : '가능'}
-                  </span>
-                )
+                return <StatusToggleCell value={p.status} readOnly />
               }
               if (key === 'price') {
                 if (p.deal_type === '월세') {
