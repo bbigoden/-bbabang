@@ -11,8 +11,9 @@ import { cn } from '@/lib/utils'
 
 interface Thread {
   id: string
-  kind: 'group' | 'dm'
+  kind: 'group' | 'dm' | 'team'
   dm_key: string | null
+  title: string | null
   office_broker_id: string
 }
 interface Msg {
@@ -50,6 +51,8 @@ export default function BrokerMessengerPage() {
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [showNewDm, setShowNewDm] = useState(false)
+  const [newSel, setNewSel] = useState<Set<string>>(new Set())
+  const [newTitle, setNewTitle] = useState('')
   const [sending, setSending] = useState(false)
 
   const activeRef = useRef<string | null>(null)
@@ -65,6 +68,7 @@ export default function BrokerMessengerPage() {
 
   const threadLabel = useCallback((t: Thread) => {
     if (t.kind === 'group') return '사무소 전체'
+    if (t.kind === 'team') return t.title || '단체방'
     const other = otherOfDm(t)
     return other ? (nameOf[other] ?? '직원') : '대화'
   }, [otherOfDm, nameOf])
@@ -111,10 +115,10 @@ export default function BrokerMessengerPage() {
     const lr: Record<string, string> = {}
     for (const r of myMemberRows ?? []) lr[r.thread_id] = r.last_read_at
 
+    // RLS(oct_select)가 group=사무소소속, dm/team=멤버만 반환하므로 그대로 사용
     const { data: allThreads } = await supabase
       .from('office_chat_threads').select('*').eq('office_broker_id', office)
-    const mine = (allThreads ?? []).filter((t: Thread) =>
-      t.kind === 'group' || (t.dm_key && myId && t.dm_key.split('__').includes(myId))) as Thread[]
+    const mine = (allThreads ?? []) as Thread[]
     mine.sort((a, b) => (a.kind === 'group' ? -1 : b.kind === 'group' ? 1 : 0))
     setThreads(mine)
 
@@ -194,17 +198,40 @@ export default function BrokerMessengerPage() {
     )
   }
 
-  // ── DM 시작 (RPC로 원자적 생성 — RLS 닭-달걀 회피) ──────
-  const startDm = async (otherId: string) => {
-    if (!office || !myId) return
-    const { data: threadId, error } = await supabase.rpc('get_or_create_dm', { p_office: office, p_other: otherId })
-    if (error || !threadId) { toast.error('대화를 시작하지 못했어요'); return }
+  // ── 새 대화 만들기 (1명=DM, 2명+=단체방) ────────────────
+  const addThreadToList = async (threadId: string) => {
     if (!threads.some(t => t.id === threadId)) {
       const { data: t } = await supabase.from('office_chat_threads').select('*').eq('id', threadId).maybeSingle()
       if (t) setThreads(prev => prev.some(x => x.id === t.id) ? prev : [...prev, t as Thread])
     }
-    setActive(threadId as string)
+    setActive(threadId)
     setShowNewDm(false)
+    setNewSel(new Set())
+    setNewTitle('')
+  }
+
+  const startDm = async (otherId: string) => {
+    if (!office || !myId) return
+    const { data: threadId, error } = await supabase.rpc('get_or_create_dm', { p_office: office, p_other: otherId })
+    if (error || !threadId) { toast.error('대화를 시작하지 못했어요'); return }
+    await addThreadToList(threadId as string)
+  }
+
+  const createTeam = async (memberIds: string[], title: string) => {
+    if (!office || !myId) return
+    const { data: threadId, error } = await supabase.rpc('create_team_thread', {
+      p_office: office, p_title: title.trim() || null, p_members: memberIds,
+    })
+    if (error || !threadId) { toast.error('단체방을 만들지 못했어요' + (error ? ': ' + error.message : '')); return }
+    await addThreadToList(threadId as string)
+  }
+
+  // 새 대화 모달 확정
+  const confirmNew = async () => {
+    const ids = [...newSel]
+    if (ids.length === 0) return
+    if (ids.length === 1) await startDm(ids[0])
+    else await createTeam(ids, newTitle)
   }
 
   // ── 메시지 전송 ─────────────────────────────────────────
@@ -257,8 +284,8 @@ export default function BrokerMessengerPage() {
                     className={cn('flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-50 dark:border-gray-800/50',
                       t.id === active && 'bg-blue-50/60 dark:bg-blue-500/10')}>
                     <div className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl',
-                      t.kind === 'group' ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800')}>
-                      {t.kind === 'group' ? <Hash className="h-4 w-4" /> : (threadLabel(t)[0] ?? '·')}
+                      t.kind === 'dm' ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400')}>
+                      {t.kind === 'group' ? <Hash className="h-4 w-4" /> : t.kind === 'team' ? <Users className="h-4 w-4" /> : (threadLabel(t)[0] ?? '·')}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
@@ -291,8 +318,8 @@ export default function BrokerMessengerPage() {
                     <ArrowLeft className="h-5 w-5 text-gray-600" />
                   </button>
                   <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg',
-                    activeThread.kind === 'group' ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800')}>
-                    {activeThread.kind === 'group' ? <Hash className="h-4 w-4" /> : (threadLabel(activeThread)[0] ?? '·')}
+                    activeThread.kind === 'dm' ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400')}>
+                    {activeThread.kind === 'group' ? <Hash className="h-4 w-4" /> : activeThread.kind === 'team' ? <Users className="h-4 w-4" /> : (threadLabel(activeThread)[0] ?? '·')}
                   </div>
                   <span className="font-bold text-gray-900 dark:text-white">{threadLabel(activeThread)}</span>
                   {activeThread.kind === 'group' && <span className="text-xs text-gray-400">· {members.length}명</span>}
@@ -348,23 +375,50 @@ export default function BrokerMessengerPage() {
         </div>
       </div>
 
-      {/* 새 DM 모달 */}
+      {/* 새 대화 모달 — 1명 선택=1:1, 2명+ 선택=단체방 */}
       {showNewDm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowNewDm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => { setShowNewDm(false); setNewSel(new Set()); setNewTitle('') }}>
           <div className="w-full max-w-xs rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-4 py-3">
               <h2 className="font-bold text-gray-900 dark:text-white">새 대화</h2>
-              <button onClick={() => setShowNewDm(false)} aria-label="닫기"><X className="h-5 w-5 text-gray-500" /></button>
+              <button onClick={() => { setShowNewDm(false); setNewSel(new Set()); setNewTitle('') }} aria-label="닫기"><X className="h-5 w-5 text-gray-500" /></button>
             </div>
-            <div className="max-h-80 overflow-y-auto py-1">
+
+            <p className="px-4 pt-3 text-xs text-gray-400">대화할 직원을 고르세요. 2명 이상이면 단체방이 됩니다.</p>
+            <div className="max-h-64 overflow-y-auto py-1">
               {dmCandidates.length === 0 && <p className="px-4 py-6 text-center text-sm text-gray-400">대화할 직원이 없어요</p>}
-              {dmCandidates.map(m => (
-                <button key={m.id} onClick={() => startDm(m.id)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-400">{m.name[0]}</span>
-                  <span className="text-sm text-gray-800 dark:text-gray-200">{m.name}</span>
-                </button>
-              ))}
+              {dmCandidates.map(m => {
+                const checked = newSel.has(m.id)
+                return (
+                  <button key={m.id}
+                    onClick={() => setNewSel(prev => { const n = new Set(prev); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n })}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <span className={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border',
+                      checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300 dark:border-gray-600')}>
+                      {checked && <span className="text-[11px] leading-none">✓</span>}
+                    </span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-400">{m.name[0]}</span>
+                    <span className="text-sm text-gray-800 dark:text-gray-200">{m.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 2명 이상이면 단체방 이름 입력 */}
+            {newSel.size >= 2 && (
+              <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+                <input value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                  placeholder="단체방 이름 (선택)"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+              </div>
+            )}
+
+            <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+              <button onClick={confirmNew} disabled={newSel.size === 0}
+                className="w-full rounded-lg bg-blue-600 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40">
+                {newSel.size <= 1 ? '대화 시작' : `단체방 만들기 (${newSel.size}명)`}
+              </button>
             </div>
           </div>
         </div>
