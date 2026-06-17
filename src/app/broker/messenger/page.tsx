@@ -213,11 +213,15 @@ export default function BrokerMessengerPage() {
     if (!body || !active || !myId || sending) return
     setSending(true)
     setDraft('')
-    const { error } = await supabase.from('office_chat_messages').insert({
+    const { data, error } = await supabase.from('office_chat_messages').insert({
       thread_id: active, sender_broker_id: myId, body,
-    })
+    }).select().single()
     setSending(false)
-    if (error) { toast.error('전송 실패: ' + error.message); setDraft(body) }
+    if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); setDraft(body); return }
+    // 낙관적 반영 — 실시간 이벤트가 늦거나 안 와도 즉시 보이게 (중복은 id로 방지)
+    const msg = data as Msg
+    setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
+    setPreviews(prev => ({ ...prev, [msg.thread_id]: { body: msg.body, at: msg.created_at } }))
   }
 
   const activeThread = threads.find(t => t.id === active) ?? null
