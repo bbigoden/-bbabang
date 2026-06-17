@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/toast'
-import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X } from 'lucide-react'
+import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, ImagePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Thread {
@@ -21,6 +21,7 @@ interface Msg {
   thread_id: string
   sender_broker_id: string | null
   body: string
+  image_url?: string | null
   created_at: string
 }
 
@@ -245,10 +246,43 @@ export default function BrokerMessengerPage() {
     }).select().single()
     setSending(false)
     if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); setDraft(body); return }
-    // 낙관적 반영 — 실시간 이벤트가 늦거나 안 와도 즉시 보이게 (중복은 id로 방지)
-    const msg = data as Msg
+    appendOptimistic(data as Msg, body)
+    notify(active, body)
+  }
+
+  // 낙관적 반영 (실시간 이벤트가 늦거나 안 와도 즉시 보이게, 중복은 id로 방지)
+  const appendOptimistic = (msg: Msg, previewText: string) => {
     setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
-    setPreviews(prev => ({ ...prev, [msg.thread_id]: { body: msg.body, at: msg.created_at } }))
+    setPreviews(prev => ({ ...prev, [msg.thread_id]: { body: previewText, at: msg.created_at } }))
+  }
+
+  // 상대 멤버에게 푸시 (실패는 무시 — 메시지 전송 자체엔 영향 없음)
+  const notify = (threadId: string, preview: string) => {
+    fetch('/api/messenger/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threadId, preview }),
+    }).catch(() => {})
+  }
+
+  // 사진 전송
+  const fileRef = useRef<HTMLInputElement>(null)
+  const sendImage = async (file: File) => {
+    if (!active || !myId || !office || sending) return
+    if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 보낼 수 있어요'); return }
+    if (file.size > 10 * 1024 * 1024) { toast.error('10MB 이하 이미지만 가능해요'); return }
+    setSending(true)
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${office}/${active}/${crypto.randomUUID()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('office-chat-images').upload(path, file)
+    if (upErr) { setSending(false); toast.error('사진 업로드 실패: ' + upErr.message); return }
+    const { data: pub } = supabase.storage.from('office-chat-images').getPublicUrl(path)
+    const { data, error } = await supabase.from('office_chat_messages').insert({
+      thread_id: active, sender_broker_id: myId, body: '', image_url: pub.publicUrl,
+    }).select().single()
+    setSending(false)
+    if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); return }
+    appendOptimistic(data as Msg, '사진')
+    notify(active, '사진을 보냈습니다')
   }
 
   const activeThread = threads.find(t => t.id === active) ?? null
@@ -337,10 +371,17 @@ export default function BrokerMessengerPage() {
                       <div key={m.id} className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
                         {showSender && <span className="mb-0.5 ml-1 text-[11px] text-gray-400">{m.sender_broker_id ? (nameOf[m.sender_broker_id] ?? '직원') : '(퇴사)'}</span>}
                         <div className={cn('flex items-end gap-1.5', mine && 'flex-row-reverse')}>
-                          <div className={cn('max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm',
-                            mine ? 'bg-blue-600 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
-                            {m.body}
-                          </div>
+                          {m.image_url ? (
+                            <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="block max-w-[60%]">
+                              <img src={m.image_url} alt="사진" loading="lazy"
+                                className="max-h-60 rounded-2xl border border-gray-200 dark:border-gray-700 object-cover" />
+                            </a>
+                          ) : (
+                            <div className={cn('max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm',
+                              mine ? 'bg-blue-600 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
+                              {m.body}
+                            </div>
+                          )}
                           <span className="mb-0.5 text-[10px] text-gray-400 flex-shrink-0">{timeLabel(m.created_at)}</span>
                         </div>
                       </div>
@@ -350,6 +391,12 @@ export default function BrokerMessengerPage() {
                 </div>
 
                 <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-800 px-3 py-2.5">
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) sendImage(f); e.target.value = '' }} />
+                  <button onClick={() => fileRef.current?.click()} disabled={sending}
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40" title="사진 보내기" aria-label="사진 보내기">
+                    <ImagePlus className="h-5 w-5" />
+                  </button>
                   <input
                     value={draft}
                     onChange={e => setDraft(e.target.value)}
