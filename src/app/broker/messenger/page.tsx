@@ -46,7 +46,7 @@ export default function BrokerMessengerPage() {
   const [active, setActive] = useState<string | null>(null)
   const [messages, setMessages] = useState<Msg[]>([])
   const [previews, setPreviews] = useState<Record<string, { body: string; at: string }>>({})
-  const [lastRead, setLastRead] = useState<Record<string, string>>({})
+  const [unread, setUnread] = useState<Record<string, number>>({})
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [showNewDm, setShowNewDm] = useState(false)
@@ -57,8 +57,6 @@ export default function BrokerMessengerPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // DM 키
-  const dmKey = (a: string, b: string) => [a, b].sort().join('__')
   const otherOfDm = useCallback((t: Thread) => {
     if (t.kind !== 'dm' || !t.dm_key || !myId) return null
     const [a, b] = t.dm_key.split('__')
@@ -119,17 +117,23 @@ export default function BrokerMessengerPage() {
       t.kind === 'group' || (t.dm_key && myId && t.dm_key.split('__').includes(myId))) as Thread[]
     mine.sort((a, b) => (a.kind === 'group' ? -1 : b.kind === 'group' ? 1 : 0))
     setThreads(mine)
-    setLastRead(lr)
 
-    // 각 thread의 마지막 메시지 (프리뷰)
+    // 각 thread의 마지막 메시지(프리뷰) + 안 읽음 수
     const pv: Record<string, { body: string; at: string }> = {}
+    const uc: Record<string, number> = {}
     await Promise.all(mine.map(async t => {
       const { data: last } = await supabase
         .from('office_chat_messages').select('body, created_at').eq('thread_id', t.id)
         .order('created_at', { ascending: false }).limit(1).maybeSingle()
       if (last) pv[t.id] = { body: last.body, at: last.created_at }
+      let cq = supabase.from('office_chat_messages').select('id', { count: 'exact', head: true })
+        .eq('thread_id', t.id).neq('sender_broker_id', myId)
+      if (lr[t.id]) cq = cq.gt('created_at', lr[t.id])
+      const { count } = await cq
+      uc[t.id] = count ?? 0
     }))
     setPreviews(pv)
+    setUnread(uc)
 
     // 기본 선택: group
     if (!activeRef.current && groupId) setActive(groupId)
@@ -155,6 +159,9 @@ export default function BrokerMessengerPage() {
           setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
           // 열려있는 방이면 즉시 읽음 처리
           if (msg.sender_broker_id !== myId) markRead(msg.thread_id)
+        } else if (msg.sender_broker_id !== myId) {
+          // 다른 방의 새 메시지 → 안 읽음 +1
+          setUnread(prev => ({ ...prev, [msg.thread_id]: (prev[msg.thread_id] ?? 0) + 1 }))
         }
       })
       .subscribe()
@@ -180,34 +187,23 @@ export default function BrokerMessengerPage() {
   const markRead = async (threadId: string) => {
     if (!myId) return
     const now = new Date().toISOString()
-    setLastRead(prev => ({ ...prev, [threadId]: now }))
+    setUnread(prev => ({ ...prev, [threadId]: 0 }))
     await supabase.from('office_chat_members').upsert(
       { thread_id: threadId, broker_id: myId, last_read_at: now },
       { onConflict: 'thread_id,broker_id' },
     )
   }
 
-  // ── DM 시작 ─────────────────────────────────────────────
+  // ── DM 시작 (RPC로 원자적 생성 — RLS 닭-달걀 회피) ──────
   const startDm = async (otherId: string) => {
     if (!office || !myId) return
-    const key = dmKey(myId, otherId)
-    // 기존 DM?
-    const existing = threads.find(t => t.kind === 'dm' && t.dm_key === key)
-    if (existing) { setActive(existing.id); setShowNewDm(false); return }
-    const { data: found } = await supabase.from('office_chat_threads').select('*').eq('dm_key', key).maybeSingle()
-    let thread = found as Thread | null
-    if (!thread) {
-      const { data: ins, error } = await supabase
-        .from('office_chat_threads').insert({ office_broker_id: office, kind: 'dm', dm_key: key }).select().maybeSingle()
-      if (error || !ins) { toast.error('대화를 시작하지 못했어요'); return }
-      thread = ins as Thread
-      await supabase.from('office_chat_members').insert([
-        { thread_id: thread.id, broker_id: myId },
-        { thread_id: thread.id, broker_id: otherId },
-      ])
+    const { data: threadId, error } = await supabase.rpc('get_or_create_dm', { p_office: office, p_other: otherId })
+    if (error || !threadId) { toast.error('대화를 시작하지 못했어요'); return }
+    if (!threads.some(t => t.id === threadId)) {
+      const { data: t } = await supabase.from('office_chat_threads').select('*').eq('id', threadId).maybeSingle()
+      if (t) setThreads(prev => prev.some(x => x.id === t.id) ? prev : [...prev, t as Thread])
     }
-    setThreads(prev => prev.some(t => t.id === thread!.id) ? prev : [...prev, thread!])
-    setActive(thread.id)
+    setActive(threadId as string)
     setShowNewDm(false)
   }
 
@@ -226,13 +222,6 @@ export default function BrokerMessengerPage() {
 
   const activeThread = threads.find(t => t.id === active) ?? null
   const dmCandidates = useMemo(() => members.filter(m => m.id !== myId), [members, myId])
-
-  const unreadOf = (t: Thread) => {
-    const pv = previews[t.id]
-    if (!pv) return false
-    const lr = lastRead[t.id]
-    return !lr || new Date(pv.at) > new Date(lr)
-  }
 
   if (auth.loading || loading) return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen flex items-center justify-center">
@@ -257,7 +246,8 @@ export default function BrokerMessengerPage() {
             </div>
             <div className="flex-1 overflow-y-auto">
               {threads.map(t => {
-                const unread = unreadOf(t) && t.id !== active
+                const cnt = t.id === active ? 0 : (unread[t.id] ?? 0)
+                const isUnread = cnt > 0
                 return (
                   <button key={t.id} onClick={() => setActive(t.id)}
                     className={cn('flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b border-gray-50 dark:border-gray-800/50',
@@ -268,14 +258,18 @@ export default function BrokerMessengerPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className={cn('truncate text-sm', unread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300')}>
+                        <span className={cn('truncate text-sm', isUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300')}>
                           {threadLabel(t)}
                         </span>
                         {previews[t.id] && <span className="text-[10px] text-gray-400 flex-shrink-0">{timeLabel(previews[t.id].at)}</span>}
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="truncate text-xs text-gray-400">{previews[t.id]?.body ?? '대화를 시작해보세요'}</span>
-                        {unread && <span className="ml-auto h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />}
+                        {isUnread && (
+                          <span className="ml-auto flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                            {cnt > 99 ? '99+' : cnt}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </button>
