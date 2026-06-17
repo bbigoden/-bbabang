@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/toast'
-import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, ImagePlus } from 'lucide-react'
+import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Thread {
@@ -22,6 +22,8 @@ interface Msg {
   sender_broker_id: string | null
   body: string
   image_url?: string | null
+  file_url?: string | null
+  file_name?: string | null
   created_at: string
 }
 
@@ -289,35 +291,46 @@ export default function BrokerMessengerPage() {
     }).catch(() => {})
   }
 
-  // 사진 전송
+  // 첨부 전송 (이미지=썸네일, 그 외=파일 카드)
   const fileRef = useRef<HTMLInputElement>(null)
-  const sendImage = async (file: File) => {
+  const sendAttachment = async (file: File) => {
     if (!active || !myId || !office || sending) return
-    if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 보낼 수 있어요'); return }
-    if (file.size > 10 * 1024 * 1024) { toast.error('10MB 이하 이미지만 가능해요'); return }
+    if (file.size > 20 * 1024 * 1024) { toast.error('20MB 이하 파일만 보낼 수 있어요'); return }
     setSending(true)
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const isImage = file.type.startsWith('image/')
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
     const path = `${office}/${active}/${crypto.randomUUID()}.${ext}`
-    const { error: upErr } = await supabase.storage.from('office-chat-images').upload(path, file)
-    if (upErr) { setSending(false); toast.error('사진 업로드 실패: ' + upErr.message); return }
+    const { error: upErr } = await supabase.storage.from('office-chat-images').upload(path, file, { contentType: file.type || undefined })
+    if (upErr) { setSending(false); toast.error('업로드 실패: ' + upErr.message); return }
     const { data: pub } = supabase.storage.from('office-chat-images').getPublicUrl(path)
-    const { data, error } = await supabase.from('office_chat_messages').insert({
-      thread_id: active, sender_broker_id: myId, body: '', image_url: pub.publicUrl,
-    }).select().single()
+    const payload: Record<string, unknown> = { thread_id: active, sender_broker_id: myId, body: '' }
+    if (isImage) payload.image_url = pub.publicUrl
+    else { payload.file_url = pub.publicUrl; payload.file_name = file.name }
+    const { data, error } = await supabase.from('office_chat_messages').insert(payload).select().single()
     setSending(false)
     if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); return }
-    appendOptimistic(data as Msg, '사진')
-    notify(active, '사진을 보냈습니다')
+    appendOptimistic(data as Msg, isImage ? '사진' : '파일')
+    notify(active, isImage ? '사진을 보냈습니다' : `파일: ${file.name}`)
   }
 
   const activeThread = threads.find(t => t.id === active) ?? null
   const dmCandidates = useMemo(() => members.filter(m => m.id !== myId), [members, myId])
 
-  // 내가 보낸 메시지를 아직 안 읽은 멤버 수 (group은 멤버가 lazy 등록이라 부정확 → 표시 안 함)
+  // 내가 보낸 메시지를 아직 안 읽은 멤버 수
   const unreadByOthers = (msg: Msg): number | null => {
-    if (!activeThread || activeThread.kind === 'group') return null
+    if (!activeThread) return null
+    const msgTime = new Date(msg.created_at).getTime()
+    if (activeThread.kind === 'group') {
+      // 사무소 전체 = 전원(나 제외) - 읽은 사람. 멤버는 읽을 때 lazy 등록되므로
+      // 읽은 수만 office_chat_members로 세고, 분모는 사무소 전원(members)으로 계산.
+      const total = Math.max(0, members.length - 1)
+      const readCount = activeMembers.filter(m =>
+        m.broker_id !== myId && m.last_read_at && new Date(m.last_read_at).getTime() >= msgTime
+      ).length
+      return Math.max(0, total - readCount)
+    }
     return activeMembers.filter(m =>
-      m.broker_id !== myId && (!m.last_read_at || new Date(m.last_read_at) < new Date(msg.created_at))
+      m.broker_id !== myId && (!m.last_read_at || new Date(m.last_read_at).getTime() < msgTime)
     ).length
   }
 
@@ -409,6 +422,14 @@ export default function BrokerMessengerPage() {
                               <img src={m.image_url} alt="사진" loading="lazy"
                                 className="max-h-60 rounded-2xl border border-gray-200 dark:border-gray-700 object-cover" />
                             </a>
+                          ) : m.file_url ? (
+                            <a href={m.file_url} target="_blank" rel="noopener noreferrer" download
+                              className={cn('flex max-w-[78%] items-center gap-2 rounded-2xl border px-3 py-2 text-sm',
+                                mine ? 'bg-blue-600 border-blue-500 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
+                              <FileText className="h-4 w-4 flex-shrink-0" />
+                              <span className="truncate">{m.file_name || '파일'}</span>
+                              <Download className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
+                            </a>
                           ) : (
                             <div className={cn('max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm',
                               mine ? 'bg-blue-600 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
@@ -433,11 +454,11 @@ export default function BrokerMessengerPage() {
                 </div>
 
                 <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-800 px-3 py-2.5">
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden"
-                    onChange={e => { const f = e.target.files?.[0]; if (f) sendImage(f); e.target.value = '' }} />
+                  <input ref={fileRef} type="file" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) sendAttachment(f); e.target.value = '' }} />
                   <button onClick={() => fileRef.current?.click()} disabled={sending}
-                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40" title="사진 보내기" aria-label="사진 보내기">
-                    <ImagePlus className="h-5 w-5" />
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40" title="파일·사진 첨부" aria-label="파일·사진 첨부">
+                    <Paperclip className="h-5 w-5" />
                   </button>
                   <input
                     value={draft}
