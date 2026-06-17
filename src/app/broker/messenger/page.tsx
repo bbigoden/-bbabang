@@ -291,26 +291,42 @@ export default function BrokerMessengerPage() {
     }).catch(() => {})
   }
 
-  // 첨부 전송 (이미지=썸네일, 그 외=파일 카드)
+  // 첨부 전송 (이미지=썸네일, 그 외=파일 카드). 드롭 다중 업로드를 위해 ref 가드로 순차 처리.
   const fileRef = useRef<HTMLInputElement>(null)
+  const uploadingRef = useRef(false)
   const sendAttachment = async (file: File) => {
-    if (!active || !myId || !office || sending) return
+    if (!active || !myId || !office || uploadingRef.current) return
     if (file.size > 20 * 1024 * 1024) { toast.error('20MB 이하 파일만 보낼 수 있어요'); return }
+    uploadingRef.current = true
     setSending(true)
-    const isImage = file.type.startsWith('image/')
-    const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
-    const path = `${office}/${active}/${crypto.randomUUID()}.${ext}`
-    const { error: upErr } = await supabase.storage.from('office-chat-images').upload(path, file, { contentType: file.type || undefined })
-    if (upErr) { setSending(false); toast.error('업로드 실패: ' + upErr.message); return }
-    const { data: pub } = supabase.storage.from('office-chat-images').getPublicUrl(path)
-    const payload: Record<string, unknown> = { thread_id: active, sender_broker_id: myId, body: '' }
-    if (isImage) payload.image_url = pub.publicUrl
-    else { payload.file_url = pub.publicUrl; payload.file_name = file.name }
-    const { data, error } = await supabase.from('office_chat_messages').insert(payload).select().single()
-    setSending(false)
-    if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); return }
-    appendOptimistic(data as Msg, isImage ? '사진' : '파일')
-    notify(active, isImage ? '사진을 보냈습니다' : `파일: ${file.name}`)
+    try {
+      const isImage = file.type.startsWith('image/')
+      const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
+      const path = `${office}/${active}/${crypto.randomUUID()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('office-chat-images').upload(path, file, { contentType: file.type || undefined })
+      if (upErr) { toast.error('업로드 실패: ' + upErr.message); return }
+      const { data: pub } = supabase.storage.from('office-chat-images').getPublicUrl(path)
+      const payload: Record<string, unknown> = { thread_id: active, sender_broker_id: myId, body: '' }
+      if (isImage) payload.image_url = pub.publicUrl
+      else { payload.file_url = pub.publicUrl; payload.file_name = file.name }
+      const { data, error } = await supabase.from('office_chat_messages').insert(payload).select().single()
+      if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); return }
+      appendOptimistic(data as Msg, isImage ? '사진' : '파일')
+      notify(active, isImage ? '사진을 보냈습니다' : `파일: ${file.name}`)
+    } finally {
+      uploadingRef.current = false
+      setSending(false)
+    }
+  }
+
+  // 드래그&드롭 업로드
+  const [isDragging, setIsDragging] = useState(false)
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    if (!active) return
+    const files = Array.from(e.dataTransfer.files)
+    for (const f of files) await sendAttachment(f)
   }
 
   const activeThread = threads.find(t => t.id === active) ?? null
@@ -390,7 +406,19 @@ export default function BrokerMessengerPage() {
           </aside>
 
           {/* ── 우측: 대화 ── */}
-          <section className={cn('flex flex-1 flex-col min-w-0', !active && 'hidden sm:flex')}>
+          <section
+            className={cn('relative flex flex-1 flex-col min-w-0', !active && 'hidden sm:flex')}
+            onDragOver={e => { if (active) { e.preventDefault(); setIsDragging(true) } }}
+            onDragLeave={e => { e.preventDefault(); if (e.currentTarget === e.target) setIsDragging(false) }}
+            onDrop={handleDrop}
+          >
+            {activeThread && isDragging && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-500/10 border-2 border-dashed border-blue-400 m-2 rounded-xl pointer-events-none">
+                <div className="rounded-xl bg-white dark:bg-gray-900 px-4 py-3 text-sm font-semibold text-blue-600 shadow-lg flex items-center gap-2">
+                  <Paperclip className="h-4 w-4" /> 여기에 놓으면 전송돼요
+                </div>
+              </div>
+            )}
             {activeThread ? (
               <>
                 <div className="flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3">
