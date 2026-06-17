@@ -49,6 +49,7 @@ export default function BrokerMessengerPage() {
   const [messages, setMessages] = useState<Msg[]>([])
   const [previews, setPreviews] = useState<Record<string, { body: string; at: string }>>({})
   const [unread, setUnread] = useState<Record<string, number>>({})
+  const [activeMembers, setActiveMembers] = useState<{ broker_id: string; last_read_at: string | null }[]>([])
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [showNewDm, setShowNewDm] = useState(false)
@@ -183,7 +184,31 @@ export default function BrokerMessengerPage() {
         .order('created_at', { ascending: true }).limit(200)
       setMessages((data ?? []) as Msg[])
       markRead(active)
+      // 멤버 읽음 시각 (읽음 표시용)
+      const { data: mems } = await supabase
+        .from('office_chat_members').select('broker_id, last_read_at').eq('thread_id', active)
+      setActiveMembers((mems ?? []) as { broker_id: string; last_read_at: string | null }[])
     })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
+
+  // 활성 스레드 멤버의 읽음 시각 실시간 추적
+  useEffect(() => {
+    if (!active) return
+    const ch = supabase
+      .channel(`oc-members:${active}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'office_chat_members', filter: `thread_id=eq.${active}` }, (payload) => {
+        const row = payload.new as { broker_id?: string; last_read_at?: string }
+        if (!row?.broker_id) return
+        setActiveMembers(prev => {
+          const i = prev.findIndex(m => m.broker_id === row.broker_id)
+          const next = { broker_id: row.broker_id!, last_read_at: row.last_read_at ?? null }
+          if (i >= 0) { const c = [...prev]; c[i] = next; return c }
+          return [...prev, next]
+        })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
@@ -288,6 +313,14 @@ export default function BrokerMessengerPage() {
   const activeThread = threads.find(t => t.id === active) ?? null
   const dmCandidates = useMemo(() => members.filter(m => m.id !== myId), [members, myId])
 
+  // 내가 보낸 메시지를 아직 안 읽은 멤버 수 (group은 멤버가 lazy 등록이라 부정확 → 표시 안 함)
+  const unreadByOthers = (msg: Msg): number | null => {
+    if (!activeThread || activeThread.kind === 'group') return null
+    return activeMembers.filter(m =>
+      m.broker_id !== myId && (!m.last_read_at || new Date(m.last_read_at) < new Date(msg.created_at))
+    ).length
+  }
+
   if (auth.loading || loading) return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen flex items-center justify-center">
       <div className="text-gray-500 text-sm">불러오는 중...</div>
@@ -382,7 +415,16 @@ export default function BrokerMessengerPage() {
                               {m.body}
                             </div>
                           )}
-                          <span className="mb-0.5 text-[10px] text-gray-400 flex-shrink-0">{timeLabel(m.created_at)}</span>
+                          <div className="mb-0.5 flex flex-col items-end flex-shrink-0 leading-tight">
+                            {mine && (() => {
+                              const u = unreadByOthers(m)
+                              if (u === null) return null
+                              return u > 0
+                                ? <span className="text-[10px] font-bold text-amber-500">{u}</span>
+                                : <span className="text-[10px] text-gray-400">읽음</span>
+                            })()}
+                            <span className="text-[10px] text-gray-400">{timeLabel(m.created_at)}</span>
+                          </div>
                         </div>
                       </div>
                     )
