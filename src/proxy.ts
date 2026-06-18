@@ -15,14 +15,24 @@ const PROTECTED = [
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // A/B 실험 쿠키 자동 배정 (active 실험이 있을 때만 동작)
-  const activeExperiments = EXPERIMENTS.filter(e => e.active)
-  const abResponse = NextResponse.next()
-  for (const exp of activeExperiments) {
+  // A/B 실험 쿠키 자동 배정 (active 실험이 있을 때만 동작).
+  // 미들웨어는 경로별로 서로 다른 응답을 반환하므로, 여기선 "배정해야 할 쿠키"만
+  // 모아두고 applyAb()로 실제 반환 응답에 싣는다. (예전엔 별도 abResponse에만 set 하고
+  // 그 응답을 반환하지 않아 active 실험이 켜져도 쿠키가 전송되지 않는 버그가 있었음.)
+  const abAssignments: Array<{ name: string; value: string }> = []
+  for (const exp of EXPERIMENTS) {
+    if (!exp.active) continue
     const cookieName = `${AB_COOKIE_PREFIX}${exp.id}`
     const existing = request.cookies.get(cookieName)?.value
     if (!existing || !exp.variants.some(v => v.id === existing)) {
-      abResponse.cookies.set(cookieName, pickVariant(exp), {
+      abAssignments.push({ name: cookieName, value: pickVariant(exp) })
+    }
+  }
+  // 반환 직전 모든 응답에 A/B 쿠키를 싣는 헬퍼. 배정이 없으면 no-op이라
+  // 기존 동작(Set-Cookie 없음 → 공개 페이지 CDN 캐시 가능)을 그대로 보존한다.
+  const applyAb = <T extends NextResponse>(res: T): T => {
+    for (const { name, value } of abAssignments) {
+      res.cookies.set(name, value, {
         maxAge: AB_COOKIE_MAX_AGE,
         path: '/',
         sameSite: 'lax',
@@ -30,11 +40,12 @@ export async function proxy(request: NextRequest) {
         secure: process.env.NODE_ENV === 'production',
       })
     }
+    return res
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseKey) return NextResponse.next()
+  if (!supabaseUrl || !supabaseKey) return applyAb(NextResponse.next())
 
   // 비로그인 + 비보호 경로면 auth 호출 없이 통과 (홈 등 공개 페이지 CDN 캐시 가능)
   const isProtected = PROTECTED.some(p => pathname.startsWith(p))
@@ -44,7 +55,7 @@ export async function proxy(request: NextRequest) {
     c => c.name.startsWith('sb-') && /-auth-token(\.\d+)?$/.test(c.name)
   )
   if (!isProtected && !isRoot && !hasSessionCookie) {
-    return NextResponse.next()
+    return applyAb(NextResponse.next())
   }
 
   // Next.js 링크 prefetch 요청은 토큰 갱신(getUser)을 건너뛴다.
@@ -62,9 +73,9 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone()
       url.pathname = '/auth/login'
       url.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(url)
+      return applyAb(NextResponse.redirect(url))
     }
-    return NextResponse.next({ request })
+    return applyAb(NextResponse.next({ request }))
   }
 
   const response = NextResponse.next({ request })
@@ -87,7 +98,7 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch {
-    return response
+    return applyAb(response)
   }
 
   // 보호된 경로: 로그인 필요
@@ -95,7 +106,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     url.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(url)
+    return applyAb(NextResponse.redirect(url))
   }
 
   // 홈(/): 로그인된 사용자는 적절한 대시보드로 redirect (page.tsx가 정적 캐시 가능하도록)
@@ -106,10 +117,10 @@ export async function proxy(request: NextRequest) {
     const role = profile?.role
     const url = request.nextUrl.clone()
     url.pathname = role === 'admin' ? '/admin' : role === 'broker' ? '/dashboard/broker' : '/dashboard/user'
-    return NextResponse.redirect(url)
+    return applyAb(NextResponse.redirect(url))
   }
 
-  return response
+  return applyAb(response)
 }
 
 export const config = {
