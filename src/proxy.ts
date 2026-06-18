@@ -39,9 +39,32 @@ export async function proxy(request: NextRequest) {
   // 비로그인 + 비보호 경로면 auth 호출 없이 통과 (홈 등 공개 페이지 CDN 캐시 가능)
   const isProtected = PROTECTED.some(p => pathname.startsWith(p))
   const isRoot = pathname === '/'
-  const hasSessionCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
+  // 세션 쿠키 감지 — 세션이 크면 @supabase/ssr이 'sb-...-auth-token.0/.1'로 쪼개므로 둘 다 인식
+  const hasSessionCookie = request.cookies.getAll().some(
+    c => c.name.startsWith('sb-') && /-auth-token(\.\d+)?$/.test(c.name)
+  )
   if (!isProtected && !isRoot && !hasSessionCookie) {
     return NextResponse.next()
+  }
+
+  // Next.js 링크 prefetch 요청은 토큰 갱신(getUser)을 건너뛴다.
+  // 링크가 많은 페이지는 prefetch가 한꺼번에 미들웨어를 수십 번 때리는데, 각 요청이
+  // 만료된 토큰을 동시에 refresh하면 Supabase refresh token rotation 탓에 먼저 회전된
+  // 쪽이 나머지 토큰을 무효화한다 → 'refresh_token_not_found'/'session_not_found' →
+  // 모바일에서 로그인이 자꾸 풀림. prefetch는 화면에 안 보이고 실제 클릭 시 미들웨어가
+  // 다시 정식 검증하므로, 여기선 네트워크 호출 없이 쿠키 유무로만 보호 경로를 막는다.
+  const isPrefetch =
+    request.headers.get('next-router-prefetch') === '1' ||
+    request.headers.get('purpose') === 'prefetch' ||
+    (request.headers.get('sec-purpose')?.includes('prefetch') ?? false)
+  if (isPrefetch) {
+    if (isProtected && !hasSessionCookie) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
+    }
+    return NextResponse.next({ request })
   }
 
   const response = NextResponse.next({ request })
