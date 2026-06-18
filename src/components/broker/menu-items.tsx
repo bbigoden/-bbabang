@@ -30,7 +30,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2 },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },
-  { id: 'explore',    href: '/explore/requests', label: '고객 요청', icon: Compass },
+  { id: 'explore',    href: '/explore/requests', label: '고객요청', icon: Compass },
   { id: 'messenger',  href: '/broker/messenger', label: '대화목록', icon: MessagesSquare },
   { id: 'schedule',   href: '/broker/schedule', label: '일정관리', icon: CalendarDays },
   { id: 'co-broker',  href: '/request/new?co_broker=true', label: '공동요청', icon: Handshake },

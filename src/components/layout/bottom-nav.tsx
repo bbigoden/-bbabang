@@ -7,8 +7,8 @@ import { useAuthOptional } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
   Home, Search, Bell, Heart, User, Building2, Briefcase,
-  Users, ClipboardList, MoreHorizontal, X, ChevronDown, LogOut,
-  LayoutDashboard, Flag,
+  MoreHorizontal, X, ChevronDown, LogOut,
+  LayoutDashboard, Flag, CalendarDays, MessagesSquare,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -56,9 +56,9 @@ export function BottomNav() {
   } else if (role === 'broker') {
     items = [
       { href: '/dashboard/broker', label: '홈', icon: Home },
-      { href: '/broker/customers', label: '고객', icon: Users },
       { href: '/broker/properties', label: '매물', icon: Building2 },
-      { href: '/broker/diary', label: '일지', icon: ClipboardList },
+      { href: '/broker/schedule', label: '일정', icon: CalendarDays },
+      { href: '/broker/messenger', label: '대화', icon: MessagesSquare },
       { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
     ]
   } else if (role === 'admin') {
