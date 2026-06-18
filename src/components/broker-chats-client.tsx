@@ -31,7 +31,7 @@ interface ChatRoom {
   } | null
 }
 
-export function BrokerChatsClient({ user }: { user: any }) {
+export function BrokerChatsClient({ user, embedded }: { user: any; embedded?: boolean }) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
 
@@ -71,8 +71,8 @@ export function BrokerChatsClient({ user }: { user: any }) {
   }
 
   return (
-    <div className="flex flex-col bg-gray-50 dark:bg-gray-950" style={{ height: '100dvh' }}>
-      <Header user={user} role="broker" />
+    <div className={cn('flex flex-col bg-gray-50 dark:bg-gray-950', embedded && 'flex-1 min-h-0')} style={embedded ? undefined : { height: '100dvh' }}>
+      {!embedded && <Header user={user} role="broker" />}
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── 왼쪽 패널: 대화 목록 ── */}

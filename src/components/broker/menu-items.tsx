@@ -3,7 +3,7 @@
  * 한 곳에서만 수정하면 두 UI에 동시 반영됨.
  */
 import {
-  Home, Users, Building2, ClipboardList, MessageCircle,
+  Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
   User, Bell, Palette, Handshake, Compass, TrendingUp, CalendarDays, MessagesSquare,
 } from 'lucide-react'
@@ -32,8 +32,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },
   { id: 'schedule',   href: '/broker/schedule', label: '일정', icon: CalendarDays },
   { id: 'explore',    href: '/explore/requests', label: '고객 요청', icon: Compass },
-  { id: 'chats',      href: '/broker/chats', label: '대화목록', icon: MessageCircle },
-  { id: 'messenger',  href: '/broker/messenger', label: '사내 대화', icon: MessagesSquare },
+  { id: 'messenger',  href: '/broker/messenger', label: '대화', icon: MessagesSquare },
   { id: 'co-broker',  href: '/request/new?co_broker=true', label: '공동요청', icon: Handshake },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },

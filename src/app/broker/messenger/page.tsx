@@ -6,7 +6,8 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/toast'
-import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download } from 'lucide-react'
+import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download, Pencil } from 'lucide-react'
+import { BrokerChatsClient } from '@/components/broker-chats-client'
 import { cn } from '@/lib/utils'
 
 interface Thread {
@@ -54,6 +55,7 @@ export default function BrokerMessengerPage() {
   const [activeMembers, setActiveMembers] = useState<{ broker_id: string; last_read_at: string | null }[]>([])
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
+  const [chatTab, setChatTab] = useState<'office' | 'customer'>('office')
   const [showNewDm, setShowNewDm] = useState(false)
   const [newSel, setNewSel] = useState<Set<string>>(new Set())
   const [newTitle, setNewTitle] = useState('')
@@ -226,6 +228,18 @@ export default function BrokerMessengerPage() {
     )
   }
 
+  // 단체방 이름 변경 (team만, group=사무소 전체는 고정)
+  const renameActiveThread = async () => {
+    const t = threads.find(x => x.id === active)
+    if (!t || t.kind !== 'team') return
+    const name = window.prompt('단체방 이름', t.title ?? '')
+    if (name === null) return
+    const title = name.trim() || null
+    const { error } = await supabase.from('office_chat_threads').update({ title }).eq('id', t.id)
+    if (error) { toast.error('이름 변경 실패: ' + error.message); return }
+    setThreads(prev => prev.map(x => x.id === t.id ? { ...x, title } : x))
+  }
+
   // ── 새 대화 만들기 (1명=DM, 2명+=단체방) ────────────────
   const addThreadToList = async (threadId: string) => {
     if (!threads.some(t => t.id === threadId)) {
@@ -359,8 +373,24 @@ export default function BrokerMessengerPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
       <Header user={auth.user} role="broker" />
-      <div className="mx-auto max-w-5xl px-0 sm:px-4 py-0 sm:py-6">
-        <div className="flex h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-8rem)] overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+      <div className="mx-auto max-w-5xl px-0 sm:px-4 py-0 sm:py-3">
+        {/* 대화 종류 탭 — 사내 대화(직원) / 고객 상담(고객 채팅) */}
+        <div className="flex gap-1 px-3 sm:px-0 pt-2 pb-2">
+          {([['office', '사내 대화'], ['customer', '고객 상담']] as const).map(([k, l]) => (
+            <button key={k} onClick={() => setChatTab(k)}
+              className={cn('rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors',
+                chatTab === k ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800')}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {chatTab === 'customer' ? (
+          <div className="flex h-[calc(100vh-7rem)] sm:h-[calc(100vh-9.5rem)] overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+            <BrokerChatsClient user={auth.user} embedded />
+          </div>
+        ) : (
+        <div className="flex h-[calc(100vh-7rem)] sm:h-[calc(100vh-9.5rem)] overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
 
           {/* ── 좌측: 스레드 목록 ── */}
           <aside className={cn('w-full sm:w-64 flex-shrink-0 border-r border-gray-100 dark:border-gray-800 flex flex-col',
@@ -431,6 +461,11 @@ export default function BrokerMessengerPage() {
                   </div>
                   <span className="font-bold text-gray-900 dark:text-white">{threadLabel(activeThread)}</span>
                   {activeThread.kind === 'group' && <span className="text-xs text-gray-400">· {members.length}명</span>}
+                  {activeThread.kind === 'team' && (
+                    <button onClick={renameActiveThread} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600" title="방 이름 변경" aria-label="방 이름 변경">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
@@ -511,6 +546,7 @@ export default function BrokerMessengerPage() {
             )}
           </section>
         </div>
+        )}
       </div>
 
       {/* 새 대화 모달 — 1명 선택=1:1, 2명+ 선택=단체방 */}

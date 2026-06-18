@@ -1,19 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { BrokerChatsClient } from '@/components/broker-chats-client'
 
-export default async function BrokerChatsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
-
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'broker') redirect('/dashboard/user')
-
-  return (
-    <>
-      <h1 className="sr-only">중개사 채팅 목록</h1>
-      <BrokerChatsClient user={user} />
-    </>
-  )
+// 고객 채팅은 '대화'(/broker/messenger)의 '고객 상담' 탭으로 통합됨 — 기존 링크 보존용 리다이렉트
+export default function BrokerChatsPage() {
+  redirect('/broker/messenger')
 }
