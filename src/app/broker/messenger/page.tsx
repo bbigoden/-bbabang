@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/toast'
-import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download, Pencil } from 'lucide-react'
+import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download, Pencil, UserPlus } from 'lucide-react'
 import { BrokerChatsClient } from '@/components/broker-chats-client'
 import { cn } from '@/lib/utils'
 
@@ -56,6 +56,8 @@ export default function BrokerMessengerPage() {
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [chatTab, setChatTab] = useState<'office' | 'customer'>('office')
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteSel, setInviteSel] = useState<Set<string>>(new Set())
   const [showNewDm, setShowNewDm] = useState(false)
   const [newSel, setNewSel] = useState<Set<string>>(new Set())
   const [newTitle, setNewTitle] = useState('')
@@ -240,6 +242,19 @@ export default function BrokerMessengerPage() {
     setThreads(prev => prev.map(x => x.id === t.id ? { ...x, title } : x))
   }
 
+  // 단체방에 멤버 초대 (team만). RLS: 멤버면 can_access_office_thread로 추가 허용.
+  const doInvite = async () => {
+    if (!active) return
+    const ids = [...inviteSel]
+    if (ids.length === 0) return
+    const rows = ids.map(broker_id => ({ thread_id: active, broker_id }))
+    const { error } = await supabase.from('office_chat_members').insert(rows)
+    if (error) { toast.error('초대 실패: ' + error.message); return }
+    setActiveMembers(prev => [...prev, ...ids.filter(id => !prev.some(m => m.broker_id === id)).map(id => ({ broker_id: id, last_read_at: null }))])
+    setShowInvite(false)
+    setInviteSel(new Set())
+  }
+
   // ── 새 대화 만들기 (1명=DM, 2명+=단체방) ────────────────
   const addThreadToList = async (threadId: string) => {
     if (!threads.some(t => t.id === threadId)) {
@@ -335,6 +350,18 @@ export default function BrokerMessengerPage() {
 
   // 드래그&드롭 업로드
   const [isDragging, setIsDragging] = useState(false)
+  // 드롭하지 않고 드래그를 끝내거나 창 밖으로 나가도 오버레이가 사라지도록 안전망
+  useEffect(() => {
+    const clear = () => setIsDragging(false)
+    window.addEventListener('dragend', clear)
+    window.addEventListener('drop', clear)
+    window.addEventListener('mouseup', clear)
+    return () => {
+      window.removeEventListener('dragend', clear)
+      window.removeEventListener('drop', clear)
+      window.removeEventListener('mouseup', clear)
+    }
+  }, [])
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
@@ -345,6 +372,11 @@ export default function BrokerMessengerPage() {
 
   const activeThread = threads.find(t => t.id === active) ?? null
   const dmCandidates = useMemo(() => members.filter(m => m.id !== myId), [members, myId])
+  // 초대 후보: 사무소 멤버 중 현재 방에 없는 사람
+  const inviteCandidates = useMemo(() => {
+    const cur = new Set(activeMembers.map(m => m.broker_id))
+    return members.filter(m => m.id !== myId && !cur.has(m.id))
+  }, [members, activeMembers, myId])
 
   // 내가 보낸 메시지를 아직 안 읽은 멤버 수
   const unreadByOthers = (msg: Msg): number | null => {
@@ -438,8 +470,8 @@ export default function BrokerMessengerPage() {
           {/* ── 우측: 대화 ── */}
           <section
             className={cn('relative flex flex-1 flex-col min-w-0', !active && 'hidden sm:flex')}
-            onDragOver={e => { if (active) { e.preventDefault(); setIsDragging(true) } }}
-            onDragLeave={e => { e.preventDefault(); if (e.currentTarget === e.target) setIsDragging(false) }}
+            onDragOver={e => { if (active && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setIsDragging(true) } }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIsDragging(false) }}
             onDrop={handleDrop}
           >
             {activeThread && isDragging && (
@@ -462,10 +494,17 @@ export default function BrokerMessengerPage() {
                   <span className="font-bold text-gray-900 dark:text-white">{threadLabel(activeThread)}</span>
                   {activeThread.kind === 'group' && <span className="text-xs text-gray-400">· {members.length}명</span>}
                   {activeThread.kind === 'team' && (
-                    <button onClick={renameActiveThread} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600" title="방 이름 변경" aria-label="방 이름 변경">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
+                    <>
+                      <button onClick={renameActiveThread} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600" title="방 이름 변경" aria-label="방 이름 변경">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => { setInviteSel(new Set()); setShowInvite(true) }} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600" title="멤버 초대" aria-label="멤버 초대">
+                        <UserPlus className="h-4 w-4" />
+                      </button>
+                    </>
                   )}
+                  <span className="ml-auto" />
+                  {(activeThread.kind === 'team') && <span className="text-xs text-gray-400">{activeMembers.length}명</span>}
                 </div>
 
                 <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
@@ -486,7 +525,7 @@ export default function BrokerMessengerPage() {
                                 className="max-h-60 rounded-2xl border border-gray-200 dark:border-gray-700 object-cover" />
                             </a>
                           ) : m.file_url ? (
-                            <a href={m.file_url} target="_blank" rel="noopener noreferrer" download
+                            <a href={`${m.file_url}?download=${encodeURIComponent(m.file_name || 'file')}`} target="_blank" rel="noopener noreferrer"
                               className={cn('flex max-w-[78%] items-center gap-2 rounded-2xl border px-3 py-2 text-sm',
                                 mine ? 'bg-blue-600 border-blue-500 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
                               <FileText className="h-4 w-4 flex-shrink-0" />
@@ -592,6 +631,43 @@ export default function BrokerMessengerPage() {
               <button onClick={confirmNew} disabled={newSel.size === 0}
                 className="w-full rounded-lg bg-blue-600 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40">
                 {newSel.size <= 1 ? '대화 시작' : `단체방 만들기 (${newSel.size}명)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 단체방 멤버 초대 모달 */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => { setShowInvite(false); setInviteSel(new Set()) }}>
+          <div className="w-full max-w-xs rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-4 py-3">
+              <h2 className="font-bold text-gray-900 dark:text-white">멤버 초대</h2>
+              <button onClick={() => { setShowInvite(false); setInviteSel(new Set()) }} aria-label="닫기"><X className="h-5 w-5 text-gray-500" /></button>
+            </div>
+            <div className="max-h-72 overflow-y-auto py-1">
+              {inviteCandidates.length === 0 && <p className="px-4 py-6 text-center text-sm text-gray-400">초대할 직원이 없어요</p>}
+              {inviteCandidates.map(m => {
+                const checked = inviteSel.has(m.id)
+                return (
+                  <button key={m.id}
+                    onClick={() => setInviteSel(prev => { const n = new Set(prev); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n })}
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <span className={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border',
+                      checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300 dark:border-gray-600')}>
+                      {checked && <span className="text-[11px] leading-none">✓</span>}
+                    </span>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-sm font-bold text-gray-600 dark:text-gray-400">{m.name[0]}</span>
+                    <span className="text-sm text-gray-800 dark:text-gray-200">{m.name}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
+              <button onClick={doInvite} disabled={inviteSel.size === 0}
+                className="w-full rounded-lg bg-blue-600 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40">
+                초대{inviteSel.size > 0 ? ` (${inviteSel.size}명)` : ''}
               </button>
             </div>
           </div>
