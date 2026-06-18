@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, Fragment } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/toast'
-import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download, Pencil, UserPlus, LogOut } from 'lucide-react'
+import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download, Pencil, UserPlus, LogOut, CornerUpLeft, Copy, Trash2 } from 'lucide-react'
 import { BrokerChatsClient } from '@/components/broker-chats-client'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +25,7 @@ interface Msg {
   image_url?: string | null
   file_url?: string | null
   file_name?: string | null
+  reply_to_id?: string | null
   created_at: string
 }
 
@@ -35,6 +36,17 @@ const timeLabel = (iso: string) => {
   const sameDay = d.toDateString() === now.toDateString()
   return sameDay ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : `${d.getMonth() + 1}/${d.getDate()}`
 }
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+const dateLabel = (iso: string) => {
+  const d = new Date(iso)
+  const now = new Date()
+  const yest = new Date(now); yest.setDate(now.getDate() - 1)
+  if (d.toDateString() === now.toDateString()) return '오늘'
+  if (d.toDateString() === yest.toDateString()) return '어제'
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()} (${WEEKDAYS[d.getDay()]})`
+}
+const msgPreviewText = (m: { image_url?: string | null; file_url?: string | null; file_name?: string | null; body: string }) =>
+  m.image_url ? '사진' : m.file_url ? (m.file_name || '파일') : m.body
 
 export default function BrokerMessengerPage() {
   const supabase = createClient()
@@ -53,6 +65,7 @@ export default function BrokerMessengerPage() {
   const [previews, setPreviews] = useState<Record<string, { body: string; at: string }>>({})
   const [unread, setUnread] = useState<Record<string, number>>({})
   const [activeMembers, setActiveMembers] = useState<{ broker_id: string; last_read_at: string | null }[]>([])
+  const [replyTo, setReplyTo] = useState<Msg | null>(null)
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(true)
   const [chatTab, setChatTab] = useState<'office' | 'customer'>('office')
@@ -176,6 +189,10 @@ export default function BrokerMessengerPage() {
           setUnread(prev => ({ ...prev, [msg.thread_id]: (prev[msg.thread_id] ?? 0) + 1 }))
         }
       })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'office_chat_messages' }, (payload) => {
+        const old = payload.old as { id?: string }
+        if (old?.id) setMessages(prev => prev.filter(m => m.id !== old.id))
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,6 +272,19 @@ export default function BrokerMessengerPage() {
     setInviteSel(new Set())
   }
 
+  // 메시지 삭제 (본인 메시지만). 낙관적 제거 + 실시간 DELETE로 상대도 반영.
+  const deleteMessage = async (id: string) => {
+    if (!window.confirm('이 메시지를 삭제할까요?')) return
+    setMessages(prev => prev.filter(m => m.id !== id))
+    const { error } = await supabase.from('office_chat_messages').delete().eq('id', id)
+    if (error) toast.error('삭제 실패: ' + error.message)
+  }
+
+  // 메시지 복사
+  const copyMessage = async (text: string) => {
+    try { await navigator.clipboard.writeText(text) } catch { toast.error('복사하지 못했어요') }
+  }
+
   // 대화방 나가기 (team/dm만, 사무소 전체는 불가). 본인 멤버 행 삭제 → 내 목록에서 사라짐.
   const leaveThread = async () => {
     if (!active || !myId) return
@@ -307,10 +337,12 @@ export default function BrokerMessengerPage() {
   const send = async () => {
     const body = draft.trim()
     if (!body || !active || !myId || sending) return
+    const replyId = replyTo?.id ?? null
     setSending(true)
     setDraft('')
+    setReplyTo(null)
     const { data, error } = await supabase.from('office_chat_messages').insert({
-      thread_id: active, sender_broker_id: myId, body,
+      thread_id: active, sender_broker_id: myId, body, reply_to_id: replyId,
     }).select().single()
     setSending(false)
     if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); setDraft(body); return }
@@ -532,45 +564,78 @@ export default function BrokerMessengerPage() {
                     const mine = m.sender_broker_id === myId
                     const prev = messages[i - 1]
                     const showSender = activeThread.kind === 'group' && !mine && (!prev || prev.sender_broker_id !== m.sender_broker_id)
+                    const showDate = !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString()
+                    const replied = m.reply_to_id ? messages.find(x => x.id === m.reply_to_id) : null
+                    const isText = !m.image_url && !m.file_url
                     return (
-                      <div key={m.id} className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
-                        {showSender && <span className="mb-0.5 ml-1 text-[11px] text-gray-400">{m.sender_broker_id ? (nameOf[m.sender_broker_id] ?? '직원') : '(퇴사)'}</span>}
-                        <div className={cn('flex items-end gap-1.5', mine && 'flex-row-reverse')}>
-                          {m.image_url ? (
-                            <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="block max-w-[60%]">
-                              <img src={m.image_url} alt="사진" loading="lazy"
-                                className="max-h-60 rounded-2xl border border-gray-200 dark:border-gray-700 object-cover" />
-                            </a>
-                          ) : m.file_url ? (
-                            <a href={`${m.file_url}?download=${encodeURIComponent(m.file_name || 'file')}`} target="_blank" rel="noopener noreferrer"
-                              className={cn('flex max-w-[78%] items-center gap-2 rounded-2xl border px-3 py-2 text-sm',
-                                mine ? 'bg-blue-600 border-blue-500 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
-                              <FileText className="h-4 w-4 flex-shrink-0" />
-                              <span className="truncate">{m.file_name || '파일'}</span>
-                              <Download className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
-                            </a>
-                          ) : (
-                            <div className={cn('max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm',
-                              mine ? 'bg-blue-600 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
-                              {m.body}
+                      <Fragment key={m.id}>
+                        {showDate && (
+                          <div className="flex justify-center py-1.5">
+                            <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-0.5 text-[11px] text-gray-500">{dateLabel(m.created_at)}</span>
+                          </div>
+                        )}
+                        <div className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
+                          {showSender && <span className="mb-0.5 ml-1 text-[11px] text-gray-400">{m.sender_broker_id ? (nameOf[m.sender_broker_id] ?? '직원') : '(퇴사)'}</span>}
+                          {replied && (
+                            <div className={cn('mb-0.5 max-w-[78%] truncate rounded-lg border-l-2 border-blue-400 bg-gray-50 dark:bg-gray-800/60 px-2 py-1 text-[11px] text-gray-500', mine ? 'mr-1' : 'ml-1')}>
+                              <span className="font-semibold">{replied.sender_broker_id ? (nameOf[replied.sender_broker_id] ?? '직원') : '(퇴사)'}</span>{' '}
+                              {msgPreviewText(replied)}
                             </div>
                           )}
-                          <div className="mb-0.5 flex flex-col items-end flex-shrink-0 leading-tight">
-                            {mine && (() => {
-                              const u = unreadByOthers(m)
-                              if (u === null) return null
-                              return u > 0
-                                ? <span className="text-[10px] font-bold text-amber-500">{u}</span>
-                                : <span className="text-[10px] text-gray-400">읽음</span>
-                            })()}
-                            <span className="text-[10px] text-gray-400">{timeLabel(m.created_at)}</span>
+                          <div className={cn('flex items-end gap-1 group', mine && 'flex-row-reverse')}>
+                            {m.image_url ? (
+                              <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="block max-w-[60%]">
+                                <img src={m.image_url} alt="사진" loading="lazy"
+                                  className="max-h-60 rounded-2xl border border-gray-200 dark:border-gray-700 object-cover" />
+                              </a>
+                            ) : m.file_url ? (
+                              <a href={`${m.file_url}?download=${encodeURIComponent(m.file_name || 'file')}`} target="_blank" rel="noopener noreferrer"
+                                className={cn('flex max-w-[78%] items-center gap-2 rounded-2xl border px-3 py-2 text-sm',
+                                  mine ? 'bg-blue-600 border-blue-500 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
+                                <FileText className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate">{m.file_name || '파일'}</span>
+                                <Download className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
+                              </a>
+                            ) : (
+                              <div className={cn('max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm',
+                                mine ? 'bg-blue-600 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
+                                {m.body}
+                              </div>
+                            )}
+                            {/* 호버 액션: 답장 · 복사 · 삭제 */}
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                              <button onClick={() => setReplyTo(m)} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" title="답장"><CornerUpLeft className="h-3.5 w-3.5" /></button>
+                              {isText && <button onClick={() => copyMessage(m.body)} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" title="복사"><Copy className="h-3.5 w-3.5" /></button>}
+                              {mine && <button onClick={() => deleteMessage(m.id)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500" title="삭제"><Trash2 className="h-3.5 w-3.5" /></button>}
+                            </div>
+                            <div className="mb-0.5 flex flex-col items-end flex-shrink-0 leading-tight">
+                              {mine && (() => {
+                                const u = unreadByOthers(m)
+                                if (u === null) return null
+                                return u > 0
+                                  ? <span className="text-[10px] font-bold text-amber-500">{u}</span>
+                                  : <span className="text-[10px] text-gray-400">읽음</span>
+                              })()}
+                              <span className="text-[10px] text-gray-400">{timeLabel(m.created_at)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </Fragment>
                     )
                   })}
                   <div ref={bottomRef} />
                 </div>
+
+                {replyTo && (
+                  <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-2">
+                    <CornerUpLeft className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-semibold text-blue-600">{replyTo.sender_broker_id ? (nameOf[replyTo.sender_broker_id] ?? '직원') : '(퇴사)'}에게 답장</p>
+                      <p className="truncate text-xs text-gray-500">{msgPreviewText(replyTo)}</p>
+                    </div>
+                    <button onClick={() => setReplyTo(null)} className="rounded p-1 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700" aria-label="답장 취소"><X className="h-4 w-4" /></button>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-800 px-3 py-2.5">
                   <input ref={fileRef} type="file" className="hidden"
