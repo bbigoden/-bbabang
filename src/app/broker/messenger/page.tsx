@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/toast'
-import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download, Pencil, UserPlus } from 'lucide-react'
+import { Send, Users, Plus, ArrowLeft, MessageSquare, Hash, X, Paperclip, FileText, Download, Pencil, UserPlus, LogOut } from 'lucide-react'
 import { BrokerChatsClient } from '@/components/broker-chats-client'
 import { cn } from '@/lib/utils'
 
@@ -253,6 +253,18 @@ export default function BrokerMessengerPage() {
     setActiveMembers(prev => [...prev, ...ids.filter(id => !prev.some(m => m.broker_id === id)).map(id => ({ broker_id: id, last_read_at: null }))])
     setShowInvite(false)
     setInviteSel(new Set())
+  }
+
+  // 대화방 나가기 (team/dm만, 사무소 전체는 불가). 본인 멤버 행 삭제 → 내 목록에서 사라짐.
+  const leaveThread = async () => {
+    if (!active || !myId) return
+    const t = threads.find(x => x.id === active)
+    if (!t || t.kind === 'group') return
+    if (!window.confirm('이 대화방에서 나갈까요? 내 목록에서 사라집니다.')) return
+    const { error } = await supabase.from('office_chat_members').delete().eq('thread_id', active).eq('broker_id', myId)
+    if (error) { toast.error('나가기 실패: ' + error.message); return }
+    setThreads(prev => prev.filter(x => x.id !== active))
+    setActive(null)
   }
 
   // ── 새 대화 만들기 (1명=DM, 2명+=단체방) ────────────────
@@ -504,7 +516,12 @@ export default function BrokerMessengerPage() {
                     </>
                   )}
                   <span className="ml-auto" />
-                  {(activeThread.kind === 'team') && <span className="text-xs text-gray-400">{activeMembers.length}명</span>}
+                  {activeThread.kind === 'team' && <span className="text-xs text-gray-400">{activeMembers.length}명</span>}
+                  {activeThread.kind !== 'group' && (
+                    <button onClick={leaveThread} className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10" title="대화방 나가기" aria-label="대화방 나가기">
+                      <LogOut className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
 
                 <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
