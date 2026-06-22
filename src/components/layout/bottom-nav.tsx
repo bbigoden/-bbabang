@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { BROKER_ITEMS, type ItemDef } from '@/components/broker/menu-items'
 import { ADMIN_ITEMS } from '@/components/admin/menu-items'
+import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
 // 풀스크린이거나 자체 하단 UI가 있는 페이지는 BottomNav 숨김
 const HIDDEN_PATHS = [
@@ -32,6 +33,7 @@ export function BottomNav() {
   const pathname = usePathname() ?? ''
   const { user, profile, broker, loading } = useAuthOptional()
   const { unread } = useNotificationsCtx()
+  const chatUnread = useOfficeChatUnread()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
@@ -58,7 +60,7 @@ export function BottomNav() {
       { href: '/dashboard/broker', label: '홈', icon: Home },
       { href: '/broker/properties', label: '매물', icon: Building2 },
       { href: '/broker/schedule', label: '일정', icon: CalendarDays },
-      { href: '/broker/messenger', label: '대화', icon: MessagesSquare },
+      { href: '/broker/messenger', label: '대화', icon: MessagesSquare, badge: chatUnread },
       { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
     ]
   } else if (role === 'admin') {

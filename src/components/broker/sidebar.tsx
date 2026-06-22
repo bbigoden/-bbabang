@@ -11,6 +11,7 @@ import { useAuthOptional } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import { createClient } from '@/lib/supabase/client'
 import { BROKER_ITEMS as ITEMS, type ItemDef } from './menu-items'
+import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
 const COLLAPSED_KEY = 'bbabang_broker_sidebar_collapsed'
 
@@ -18,6 +19,7 @@ export function BrokerSidebar() {
   const pathname = usePathname() ?? ''
   const { profile, broker, loading } = useAuthOptional()
   const { unread } = useNotificationsCtx()
+  const chatUnread = useOfficeChatUnread()
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState(false)
 
@@ -168,6 +170,7 @@ export function BrokerSidebar() {
               )
             }
             const active = isActive(item.href!)
+            const badge = item.id === 'messenger' ? chatUnread : 0
             return (
               <li key={item.id}>
                 <Link
@@ -181,8 +184,24 @@ export function BrokerSidebar() {
                     collapsed ? 'justify-center px-0' : 'px-3',
                   )}
                 >
-                  <Icon className="h-4 w-4 flex-shrink-0" />
-                  {!collapsed && item.label}
+                  <span className="relative flex-shrink-0">
+                    <Icon className="h-4 w-4" />
+                    {badge > 0 && collapsed && (
+                      <span className="absolute -top-1 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                        {badge > 9 ? '9+' : badge}
+                      </span>
+                    )}
+                  </span>
+                  {!collapsed && (
+                    <span className="flex flex-1 items-center justify-between gap-2">
+                      <span>{item.label}</span>
+                      {badge > 0 && (
+                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                          {badge > 9 ? '9+' : badge}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </Link>
               </li>
             )
