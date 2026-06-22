@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthOptional } from '@/lib/auth-context'
 
@@ -11,6 +11,7 @@ import { useAuthOptional } from '@/lib/auth-context'
 export function useOfficeChatUnread(): number {
   const auth = useAuthOptional()
   const [count, setCount] = useState(0)
+  const uid = useId() // 컴포넌트 인스턴스마다 고유 — 같은 채널명 공유로 인한 subscribe 충돌 방지
 
   useEffect(() => {
     if (auth.loading || auth.profile?.role !== 'broker' || !auth.broker) { setCount(0); return }
@@ -24,7 +25,7 @@ export function useOfficeChatUnread(): number {
     refresh()
 
     const ch = supabase
-      .channel(`oc-unread:${auth.broker.id}`)
+      .channel(`oc-unread:${auth.broker.id}:${uid}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'office_chat_messages' }, refresh)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'office_chat_messages' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'office_chat_members' }, refresh)
