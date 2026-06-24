@@ -96,37 +96,25 @@ export default function BrokerRegisterPage() {
       const user = authData.user
       if (!user) { router.push('/auth/login'); return }
 
-      const { data: parentBroker } = await supabase
-        .from('broker_profiles')
-        .select('id, office_name, address, district')
-        .eq('office_code', officeCode)
-        .single()
-      if (!parentBroker) { setError('사무소 코드를 다시 확인해주세요.'); setLoading(false); return }
-
       // 사무소 주소 → 시·군·구 자동 추출해 alert_regions 시드 (실패해도 빈 배열로 진행)
-      const seed = await seedRegionFromAddress(parentBroker.address)
+      const seed = await seedRegionFromAddress(codePreview.address)
 
-      const { error: insertError } = await supabase.from('broker_profiles').insert({
-        user_id: user.id,
-        office_name: parentBroker.office_name,
-        address: parentBroker.address,
-        district: parentBroker.district,
-        license_number: '',
-        rating: 0, review_count: 0, deal_count: 0,
-        is_verified: false, is_owner: false,
-        parent_broker_id: parentBroker.id,
-        permissions: null,
-        is_approved: false,
-        alert_regions: seed ? [seed] : [],
+      // 합류는 원자적 RPC로 처리: 직원 프로필 생성 + 대표 코드 1회용 재발급 + role 전환.
+      // (코드 재발급은 남(대표)의 행 UPDATE라 클라이언트 RLS로는 막혀 조용히 실패했었음 → DEFINER로 일원화)
+      const { data: joinRes, error: joinError } = await supabase.rpc('join_office_by_code', {
+        p_code: officeCode,
+        p_alert_regions: seed ? [seed] : [],
       })
-      if (insertError) { setError('등록 중 오류가 발생했습니다.'); setLoading(false); return }
-
-      // 코드 1회용 — 사용 후 자동 재발급
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-      const newCode = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-      await supabase.from('broker_profiles').update({ office_code: newCode }).eq('id', parentBroker.id)
-
-      await supabase.from('profiles').update({ role: 'broker' }).eq('id', user.id)
+      if (joinError || !(joinRes as { ok?: boolean } | null)?.ok) {
+        const msg = joinError?.message ?? ''
+        setError(
+          msg.includes('already_registered') ? '이미 등록된 계정입니다.'
+          : msg.includes('invalid_code') ? '사무소 코드를 다시 확인해주세요.'
+          : '등록 중 오류가 발생했습니다.'
+        )
+        setLoading(false)
+        return
+      }
       router.push('/broker/register/pending')
     } catch {
       setError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
