@@ -1060,7 +1060,7 @@ export default function BrokerCustomersPage() {
                     message={customers.length === 0 ? '아직 등록된 고객이 없어요' : '검색 결과가 없어요'}
                   />
                 ) : paginated.map((c, _idx) => (
-                  <tr key={c.id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
+                  <tr key={c.id} data-row-id={c.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                     {activeCols.map(col => (
                       <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800"
                         style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
