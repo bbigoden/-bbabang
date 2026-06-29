@@ -1036,6 +1036,7 @@ interface PropertyRowProps {
   isAdding: boolean
   isAutoFilling: boolean
   teamMembers: string[]
+  ownerName: string
   saveField: (id: string, field: string, value: any) => void
   autoFillRow: (id: string, addr: string, bcode?: string) => void
   saveCustomField: (propertyId: string, colId: string, value: string) => void
@@ -1047,12 +1048,16 @@ interface PropertyRowProps {
 const PropertyRow = memo(function PropertyRow({
   p, syncedOrder, customColumns, settings,
   isAdminView, canEdit, isOwner, brokerSelfId,
-  isAdding, isAutoFilling, teamMembers,
+  isAdding, isAutoFilling, teamMembers, ownerName,
   saveField, autoFillRow, saveCustomField, setLightbox,
   onDelete, onCopy,
 }: PropertyRowProps) {
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
   const isMine = isOwner || p.broker_id === brokerSelfId
+  // 중개사메모 열람 권한: 본인 매물 + 담당자에 대표가 포함된 매물(사무소 공용 성격)은 전체 직원 공개.
+  // assignee는 "김용유, 김가주"처럼 콤마로 다중 저장됨(select-cell.tsx와 동일 파싱).
+  const memoVisible = isMine ||
+    (!!ownerName && (p.assignee ?? '').split(',').map(s => s.trim()).includes(ownerName))
   return (
     <tr data-row-id={p.id}
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
@@ -1087,8 +1092,8 @@ const PropertyRow = memo(function PropertyRow({
               if (key === 'images') return p.images?.length > 0
                 ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-500">+{p.images.length - 1}</span>}</div>
                 : <span className="text-xs text-gray-500">—</span>
-              // 중개사 메모는 본인 매물 아니면 숨김
-              if (key === 'memo' && !isMine) return <span className="text-gray-200 select-none">—</span>
+              // 중개사 메모는 열람 권한 없으면 숨김 (본인 매물 또는 담당자에 대표 포함)
+              if (key === 'memo' && !memoVisible) return <span className="text-gray-200 select-none">—</span>
               const raw: any = (p as any)[key]
               return raw != null && raw !== '' ? String(raw) : '—'
             })()
@@ -1177,6 +1182,7 @@ function BrokerPropertiesContent() {
   const [isAdminView, setIsAdminView] = useState(false)
   const [isOwner, setIsOwner] = useState(true)
   const [teamMembers, setTeamMembers] = useState<string[]>([])
+  const [ownerName, setOwnerName] = useState('')  // 사무소 대표 이름 (중개사메모 공개 판정용)
   const [adminViewBrokerName, setAdminViewBrokerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterDealType, setFilterDealType] = useState('')
@@ -1367,6 +1373,7 @@ function BrokerPropertiesContent() {
     const { data: prof } = await supabase.from('profiles').select('name').eq('id', u.id).single()
     const myName = prof?.name as string | undefined
     if (owner) {
+      setOwnerName(myName ?? '')  // 대표 본인 → 내 이름이 곧 대표 이름
       const { data: emps } = await supabase
         .from('broker_profiles')
         .select('profiles(name)')
@@ -1376,6 +1383,12 @@ function BrokerPropertiesContent() {
       setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
     } else {
       setTeamMembers(myName ? [myName] : [])
+      // 직원 → 대표(parent_broker_id) 이름 조회. 담당자에 대표 이름이 잡힌 매물의 메모를 열람하기 위함.
+      if (b.parent_broker_id) {
+        const { data: ownerBroker } = await supabase
+          .from('broker_profiles').select('profiles(name)').eq('id', b.parent_broker_id).single()
+        setOwnerName((ownerBroker?.profiles as any)?.name ?? '')
+      }
     }
 
     // ── 커스텀 칼럼 로드 ───────────────────────────────
@@ -2498,6 +2511,7 @@ function BrokerPropertiesContent() {
                   isAdding={p.id === addingId}
                   isAutoFilling={autoFillingId === p.id}
                   teamMembers={teamMembers}
+                  ownerName={ownerName}
                   saveField={saveField}
                   autoFillRow={autoFillRow}
                   saveCustomField={saveCustomField}
