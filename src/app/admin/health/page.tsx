@@ -205,7 +205,7 @@ export default function AdminHealthPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <Activity24h icon={FileText} label="신규 요청" value={data.recent.requestsLast24h} color="text-green-400 bg-green-500/10" />
                 <Activity24h icon={Building2} label="신규 매물" value={data.recent.propertiesLast24h} color="text-emerald-400 bg-emerald-500/10" />
-                <Activity24h icon={MessageCircle} label="제안" value={data.recent.proposalsLast24h} color="text-blue-400 bg-blue-500/10" />
+                <Activity24h icon={MessageCircle} label="제안" value={data.recent.proposalsLast24h} color="text-blue-300 bg-blue-500/10" />
                 <Activity24h icon={MessageCircle} label="채팅 메시지" value={data.recent.chatMessagesLast24h} color="text-purple-400 bg-purple-500/10" />
                 <Activity24h icon={Bell} label="알림 발송" value={data.recent.notifsLast24h} color="text-yellow-400 bg-yellow-500/10" />
                 <Activity24h icon={AlertOctagon} label="에러" value={data.recent.errorsLast24h} color={data.recent.errorsLast24h > 0 ? "text-red-400 bg-red-500/10" : "text-gray-400 bg-gray-800"} />

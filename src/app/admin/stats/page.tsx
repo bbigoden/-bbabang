@@ -284,7 +284,7 @@ export default function AdminStatsPage() {
           <>
             {/* 요약 통계 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <SummaryCard label={`신규 회원 (${range}일)`} value={totals.newUsers} icon={Users} color="text-blue-400 bg-blue-500/10" />
+              <SummaryCard label={`신규 회원 (${range}일)`} value={totals.newUsers} icon={Users} color="text-blue-300 bg-blue-500/10" />
               <SummaryCard label={`신규 중개사 (${range}일)`} value={totals.newBrokers} icon={Building2} color="text-purple-400 bg-purple-500/10" />
               <SummaryCard label={`신규 요청 (${range}일)`} value={totals.newRequests} icon={FileText} color="text-green-400 bg-green-500/10" />
               <SummaryCard label={`신규 매물 (${range}일)`} value={totals.newProperties} icon={Home} color="text-amber-400 bg-amber-500/10" />

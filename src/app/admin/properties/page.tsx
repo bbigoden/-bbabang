@@ -436,7 +436,7 @@ export default function AdminPropertiesPage() {
                                 {p.room_type && <span className="rounded-md bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">{p.room_type}</span>}
                               </div>
                               <p className="mt-1 text-sm font-semibold text-white truncate">{p.address || '주소 없음'}</p>
-                              <p className="text-xs text-blue-400">
+                              <p className="text-xs text-blue-300">
                                 {!p.price ? '가격 협의'
                                   : p.deal_type === '월세' ? `${formatPrice(p.price)} / 월 ${formatPrice(p.monthly_rent ?? 0)}`
                                   : formatPrice(p.price)}
@@ -500,7 +500,7 @@ export default function AdminPropertiesPage() {
       {/* 일괄 선택 액션바 */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-2xl border border-gray-700 bg-gray-900 px-4 py-3 shadow-2xl">
-          <span className="text-sm font-semibold text-white"><span className="text-blue-400">{selectedIds.size}건</span> 선택됨</span>
+          <span className="text-sm font-semibold text-white"><span className="text-blue-300">{selectedIds.size}건</span> 선택됨</span>
           <span className="h-5 w-px bg-gray-700" />
           <button
             onClick={() => setBulkConfirm({ kind: 'available', count: selectedIds.size })}
@@ -649,12 +649,12 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
 
           <div className="rounded-xl bg-gray-800/50 p-4">
             <div className="flex items-center gap-2 mb-1">
-              <Building2 className="h-4 w-4 text-blue-400" />
+              <Building2 className="h-4 w-4 text-blue-300" />
               <p className="font-semibold text-white">{property.broker_profiles?.profiles?.name}</p>
               <span className="text-xs text-gray-400">{property.broker_profiles?.office_name}</span>
             </div>
             <Link href={`/property/${property.id}`} target="_blank"
-              className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+              className="inline-flex items-center gap-1 text-xs text-blue-300 hover:text-blue-300">
               <ExternalLink className="h-3 w-3" /> 공개 매물 페이지 열기
             </Link>
           </div>

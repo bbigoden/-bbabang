@@ -298,7 +298,7 @@ export default function AdminAnnouncementsPage() {
                     <p className="text-sm font-semibold text-white">{title.trim()}</p>
                     {body.trim() && <p className="mt-1 text-xs text-gray-400 whitespace-pre-line">{body.trim()}</p>}
                     {link.trim() && (
-                      <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-blue-400">
+                      <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-blue-300">
                         <ExternalLink className="h-3 w-3" /> {link.trim()}
                       </p>
                     )}
@@ -337,7 +337,7 @@ export default function AdminAnnouncementsPage() {
                       <span className="inline-flex items-center gap-0.5 rounded-md bg-gray-700/60 px-1.5 py-0.5">
                         <Users className="h-3 w-3" /> {a.count}명
                       </span>
-                      {a.link && <span className="inline-flex items-center gap-0.5 text-blue-400 truncate"><ExternalLink className="h-3 w-3" /> {a.link}</span>}
+                      {a.link && <span className="inline-flex items-center gap-0.5 text-blue-300 truncate"><ExternalLink className="h-3 w-3" /> {a.link}</span>}
                     </div>
                     <button
                       type="button"

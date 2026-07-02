@@ -51,7 +51,7 @@ const STATUS_META: Record<AccountStatus, { label: string; color: string; icon: a
 }
 
 const DISPLAY_ROLE_META: Record<DisplayRole, { label: string; color: string }> = {
-  user: { label: '고객', color: 'bg-blue-500/20 text-blue-400' },
+  user: { label: '고객', color: 'bg-blue-500/20 text-blue-300' },
   owner: { label: '대표', color: 'bg-purple-500/20 text-purple-400' },
   employee: { label: '직원', color: 'bg-indigo-500/20 text-indigo-300' },
   admin: { label: '관리자', color: 'bg-red-500/20 text-red-400' },
@@ -59,7 +59,7 @@ const DISPLAY_ROLE_META: Record<DisplayRole, { label: string; color: string }> =
 
 // 역할 변경 모달에서 쓰는 raw role meta (profiles.role 단위)
 const ROLE_META: Record<Role, { label: string; color: string }> = {
-  user: { label: '고객', color: 'bg-blue-500/20 text-blue-400' },
+  user: { label: '고객', color: 'bg-blue-500/20 text-blue-300' },
   broker: { label: '중개사', color: 'bg-purple-500/20 text-purple-400' },
   admin: { label: '관리자', color: 'bg-red-500/20 text-red-400' },
 }
@@ -325,7 +325,7 @@ export default function AdminUsersPage() {
             <ArrowLeft className="h-4 w-4 text-gray-300" />
           </Link>
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/20">
-            <Users className="h-5 w-5 text-blue-400" />
+            <Users className="h-5 w-5 text-blue-300" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">사용자 관리</h1>
@@ -528,7 +528,7 @@ export default function AdminUsersPage() {
         {showFlatList && (
           <section className="space-y-3">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-blue-400" />
+              <Users className="h-4 w-4 text-blue-300" />
               <h2 className="text-sm font-bold text-white">고객·관리자</h2>
             </div>
             {loading ? (
@@ -811,7 +811,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
               </p>
               {!editingNote ? (
                 <button onClick={() => { setEditingNote(true); setNote(user.admin_note ?? '') }}
-                  className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300">
+                  className="inline-flex items-center gap-1 text-[11px] text-blue-300 hover:text-blue-300">
                   <Pencil className="h-3 w-3" /> 수정
                 </button>
               ) : (

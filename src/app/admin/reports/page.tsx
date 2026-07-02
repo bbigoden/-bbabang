@@ -177,7 +177,7 @@ export default function AdminReportsPage() {
                 <li key={r.id}>
                   <button onClick={() => setSelected(r)}
                     className="w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-gray-800/60 transition-colors">
-                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${r.kind === 'report' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${r.kind === 'report' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-300'}`}>
                       {r.kind === 'report' ? <Flag className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -276,7 +276,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
-            <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${report.kind === 'report' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
+            <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${report.kind === 'report' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-300'}`}>
               {report.kind === 'report' ? <Flag className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
             </div>
             <h3 className="font-bold text-white">{report.kind === 'report' ? '신고 상세' : '문의 상세'}</h3>
@@ -297,7 +297,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
             <p className="text-sm text-white">{report.reporter?.name ?? '익명'}</p>
             {(report.reporter?.email || report.reporter_email) && (
               <a href={`mailto:${report.reporter?.email ?? report.reporter_email}`}
-                className="mt-0.5 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                className="mt-0.5 inline-flex items-center gap-1 text-xs text-blue-300 hover:text-blue-300">
                 <Mail className="h-3 w-3" /> {report.reporter?.email ?? report.reporter_email}
               </a>
             )}

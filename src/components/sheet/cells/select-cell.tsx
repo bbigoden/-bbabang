@@ -160,7 +160,7 @@ function MultiSelectCell({
     <div className={containerCls}>
       {selected.length > 0
         ? renderChips(selected)
-        : <div className="rounded px-2 py-0.5 text-xs font-semibold bg-gray-50 dark:bg-gray-950 text-gray-300">{placeholder || '—'}</div>
+        : <div className="rounded px-2 py-0.5 text-xs font-semibold bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400">{placeholder || '—'}</div>
       }
     </div>
   )
@@ -185,7 +185,7 @@ function MultiSelectCell({
       >
         {selected.length > 0
           ? renderChips(selected, false, true)
-          : <span className="text-xs font-semibold text-gray-300">{placeholder || '—'}</span>
+          : <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{placeholder || '—'}</span>
         }
       </div>
       {open && (

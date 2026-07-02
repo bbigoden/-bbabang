@@ -377,7 +377,7 @@ function NumberCell({ value, onSave, suffix = '만', placeholder }: {
       <div ref={cellRef} onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true); setHovered(false) }}
         onMouseEnter={() => { if (!!value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 dark:text-gray-100 font-semibold' : 'text-gray-300'}`}
+        className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 dark:text-gray-100 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}
       >
         {displayText}
       </div>

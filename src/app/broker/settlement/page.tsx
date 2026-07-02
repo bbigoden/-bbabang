@@ -76,7 +76,7 @@ function MoneyCell({ value, onSave, readOnly, accent }: {
 
   if (readOnly) {
     return (
-      <div className={`w-full px-1 py-0.5 text-xs text-right font-mono ${value ? colorCls : 'text-gray-300'} min-h-[22px]`}>
+      <div className={`w-full px-1 py-0.5 text-xs text-right font-mono ${value ? colorCls : 'text-gray-500 dark:text-gray-400'} min-h-[22px]`}>
         {value != null ? value.toLocaleString() : '—'}
       </div>
     )
@@ -93,7 +93,7 @@ function MoneyCell({ value, onSave, readOnly, accent }: {
   }
   return (
     <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
-      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] ${value ? colorCls : 'text-gray-300'}`}>
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] ${value ? colorCls : 'text-gray-500 dark:text-gray-400'}`}>
       {value != null && value !== 0 ? value.toLocaleString() : '0'}
     </div>
   )

@@ -386,7 +386,7 @@ export default function AdminPage() {
                   <span className="text-xs font-semibold">3일+ 미인증 사무소</span>
                 </div>
                 <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleBrokers}<span className="ml-1 text-sm font-medium text-gray-400">곳</span></p>
-                <Link href="/admin/brokers" className="text-[11px] text-blue-400 hover:underline">사무소 검수로 →</Link>
+                <Link href="/admin/brokers" className="text-[11px] text-blue-300 hover:underline">사무소 검수로 →</Link>
               </div>
               <div className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
                 <div className="flex items-center gap-2 text-red-300">
@@ -394,7 +394,7 @@ export default function AdminPage() {
                   <span className="text-xs font-semibold">3일+ 미처리 신고</span>
                 </div>
                 <p className="mt-1.5 text-2xl font-black text-white">{alerts.staleReports}<span className="ml-1 text-sm font-medium text-gray-400">건</span></p>
-                <Link href="/admin/reports" className="text-[11px] text-blue-400 hover:underline">신고 처리로 →</Link>
+                <Link href="/admin/reports" className="text-[11px] text-blue-300 hover:underline">신고 처리로 →</Link>
               </div>
             </div>
 
@@ -430,7 +430,7 @@ export default function AdminPage() {
         {/* ── 통계 ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-400', action: () => openStatModal('users', 'all') },
+            { label: '전체 회원', value: stats.users, icon: Users, color: 'bg-blue-500/10 text-blue-300', action: () => openStatModal('users', 'all') },
             { label: '중개사', value: stats.brokers, icon: Building2, color: 'bg-purple-500/10 text-purple-400', action: () => openStatModal('users', 'broker') },
             { label: '매물 요청', value: stats.requests, icon: FileText, color: 'bg-green-500/10 text-green-400', action: () => openStatModal('requests') },
             { label: '제안', value: stats.proposals, icon: MessageCircle, color: 'bg-yellow-500/10 text-yellow-400', action: () => openStatModal('proposals') },
@@ -468,7 +468,7 @@ export default function AdminPage() {
               <div className="flex flex-col items-center gap-2 text-gray-400">
                 <CheckCircle className="h-8 w-8 text-green-500/60" />
                 <p className="font-semibold text-gray-400">인증 대기 중인 사무소가 없어요</p>
-                <Link href="/admin/brokers" className="mt-1 text-xs text-blue-400 hover:underline">
+                <Link href="/admin/brokers" className="mt-1 text-xs text-blue-300 hover:underline">
                   전체 사무소 보러 가기 →
                 </Link>
               </div>
@@ -603,7 +603,7 @@ export default function AdminPage() {
                           <span className={`rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                             u.role === 'admin' ? 'bg-red-500/20 text-red-400' :
                             u.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
-                            'bg-blue-500/20 text-blue-400'
+                            'bg-blue-500/20 text-blue-300'
                           }`}>
                             {u.role === 'admin' ? '관리자' : u.role === 'broker' ? '중개사' : '일반'}
                           </span>
@@ -710,14 +710,14 @@ export default function AdminPage() {
         <Modal title="중개사 상세 정보" onClose={() => setBrokerModal(null)}>
           {/* 헤더 */}
           <div className="mb-5 flex items-center gap-4">
-            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/20 text-2xl font-black text-blue-400">
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/20 text-2xl font-black text-blue-300">
               {brokerModal.profiles?.name?.[0]}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold text-white">{brokerModal.profiles?.name}</span>
                 {brokerModal.is_verified
-                  ? <span className="flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-semibold text-blue-400"><CheckCircle className="h-3 w-3" />인증됨</span>
+                  ? <span className="flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-semibold text-blue-300"><CheckCircle className="h-3 w-3" />인증됨</span>
                   : <span className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-400"><XCircle className="h-3 w-3" />미인증</span>
                 }
               </div>
@@ -854,7 +854,7 @@ export default function AdminPage() {
             <Link
               href={`/broker/properties?broker_id=${brokerModal.id}`}
               target="_blank"
-              className="w-full rounded-xl border border-blue-500/40 bg-blue-500/10 py-2.5 text-sm font-semibold text-blue-400 hover:bg-blue-500/20 transition-colors flex items-center justify-center gap-1.5"
+              className="w-full rounded-xl border border-blue-500/40 bg-blue-500/10 py-2.5 text-sm font-semibold text-blue-300 hover:bg-blue-500/20 transition-colors flex items-center justify-center gap-1.5"
             >
               <Table2 className="h-4 w-4" />
               매물장 전체 보기 (읽기 전용)
@@ -876,7 +876,7 @@ export default function AdminPage() {
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
                   userModal.role === 'admin' ? 'bg-red-500/20 text-red-400' :
                   userModal.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
-                  'bg-blue-500/20 text-blue-400'
+                  'bg-blue-500/20 text-blue-300'
                 }`}>
                   {userModal.role === 'admin' ? '관리자' : userModal.role === 'broker' ? '중개사' : '일반 회원'}
                 </span>
@@ -977,7 +977,7 @@ export default function AdminPage() {
 
           {/* 중개사 */}
           <div className="mb-4 flex items-center gap-3 rounded-xl bg-gray-800/60 px-4 py-3">
-            <Building2 className="h-5 w-5 text-blue-400" />
+            <Building2 className="h-5 w-5 text-blue-300" />
             <div>
               <p className="font-semibold text-white">{propertyModal.broker_profiles?.profiles?.name}</p>
               <p className="text-xs text-gray-400">{propertyModal.broker_profiles?.office_name}</p>
@@ -1100,7 +1100,7 @@ export default function AdminPage() {
                             <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${
                               u.role === 'admin' ? 'bg-red-500/20 text-red-400' :
                               u.role === 'broker' ? 'bg-purple-500/20 text-purple-400' :
-                              'bg-blue-500/20 text-blue-400'
+                              'bg-blue-500/20 text-blue-300'
                             }`}>
                               {u.role === 'admin' ? '관리자' : u.role === 'broker' ? '중개사' : '고객'}
                             </span>
@@ -1172,7 +1172,7 @@ export default function AdminPage() {
                               </span>
                             </div>
                           )}
-                          {p.price && <div className="mt-2 text-sm font-bold text-blue-400">{formatPrice(p.price)}</div>}
+                          {p.price && <div className="mt-2 text-sm font-bold text-blue-300">{formatPrice(p.price)}</div>}
                           {p.message && <p className="mt-1.5 text-xs text-gray-400 line-clamp-2">{p.message}</p>}
                         </div>
                       )

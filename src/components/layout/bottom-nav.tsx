@@ -128,7 +128,7 @@ export function BottomNav() {
             )
 
             const labelClass = `flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-semibold transition-colors w-full ${
-              active ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'
+              active ? 'text-blue-600' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
             }`
 
             return (

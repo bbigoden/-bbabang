@@ -257,7 +257,7 @@ function BannerSection({ banners, onReload, supabase, onToggle, onRemove, onMove
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{b.title}</p>
                 {b.body && <p className="text-xs text-gray-400 truncate">{b.body}</p>}
-                {b.link && <p className="text-[11px] text-blue-400 truncate">{b.link}</p>}
+                {b.link && <p className="text-[11px] text-blue-300 truncate">{b.link}</p>}
               </div>
               <CurationControls c={b} onToggle={onToggle} onRemove={onRemove} />
             </li>

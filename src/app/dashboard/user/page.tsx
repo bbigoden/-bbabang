@@ -239,7 +239,7 @@ export default async function UserDashboardPage() {
               {closedRequests.map((req) => (
                 <Link key={req.id} href={`/request/${req.id}`}>
                   <Card>
-                    <CardBody className="opacity-75">
+                    <CardBody>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex flex-wrap gap-2 mb-2">

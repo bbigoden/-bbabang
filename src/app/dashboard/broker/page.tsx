@@ -142,7 +142,7 @@ export default async function BrokerDashboardPage() {
                 </div>
                 <p className="text-gray-500 dark:text-gray-500 truncate">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
                 <div className="mt-2 flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+                  <span className="flex items-center gap-1 text-yellow-700 dark:text-yellow-400">
                     <Star className="h-4 w-4 fill-yellow-400" />
                     <strong>{broker.rating?.toFixed(1) ?? '0.0'}</strong>
                     <span className="text-gray-500 dark:text-gray-500">({broker.review_count ?? 0})</span>
@@ -160,7 +160,7 @@ export default async function BrokerDashboardPage() {
             <Clock className="h-5 w-5 text-yellow-500 flex-shrink-0" />
             <div>
               <p className="text-sm font-bold text-yellow-800">승인 대기 중</p>
-              <p className="text-xs text-yellow-600 mt-0.5">대표가 아직 등록 신청을 승인하지 않았어요. 대표에게 문의해주세요.</p>
+              <p className="text-xs text-yellow-700 mt-0.5">대표가 아직 등록 신청을 승인하지 않았어요. 대표에게 문의해주세요.</p>
             </div>
           </div>
         )}

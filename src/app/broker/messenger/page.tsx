@@ -494,10 +494,10 @@ export default function BrokerMessengerPage() {
                         <span className={cn('truncate text-sm', isUnread ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300')}>
                           {threadLabel(t)}
                         </span>
-                        {previews[t.id] && <span className="text-[10px] text-gray-400 flex-shrink-0">{timeLabel(previews[t.id].at)}</span>}
+                        {previews[t.id] && <span className="text-[10px] text-gray-600 dark:text-gray-400 flex-shrink-0">{timeLabel(previews[t.id].at)}</span>}
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="truncate text-xs text-gray-400">{previews[t.id]?.body ?? '대화를 시작해보세요'}</span>
+                        <span className="truncate text-xs text-gray-600 dark:text-gray-400">{previews[t.id]?.body ?? '대화를 시작해보세요'}</span>
                         {isUnread && (
                           <span className="ml-auto flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
                             {cnt > 99 ? '99+' : cnt}
@@ -578,7 +578,7 @@ export default function BrokerMessengerPage() {
                           </div>
                         )}
                         <div className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
-                          {showSender && <span className="mb-0.5 ml-1 text-[11px] text-gray-400">{m.sender_broker_id ? (nameOf[m.sender_broker_id] ?? '직원') : '(퇴사)'}</span>}
+                          {showSender && <span className="mb-0.5 ml-1 text-[11px] text-gray-500 dark:text-gray-400">{m.sender_broker_id ? (nameOf[m.sender_broker_id] ?? '직원') : '(퇴사)'}</span>}
                           {replied && (
                             <div className={cn('mb-0.5 max-w-[78%] truncate rounded-lg border-l-2 border-blue-400 bg-gray-50 dark:bg-gray-800/60 px-2 py-1 text-[11px] text-gray-500', mine ? 'mr-1' : 'ml-1')}>
                               <span className="font-semibold">{replied.sender_broker_id ? (nameOf[replied.sender_broker_id] ?? '직원') : '(퇴사)'}</span>{' '}

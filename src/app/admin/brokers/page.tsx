@@ -252,7 +252,7 @@ export default function AdminBrokersPage() {
             <h1 className="text-lg font-bold text-white">사무소 검수</h1>
             <p className="text-xs text-gray-400">
               미인증 <span className="font-bold text-yellow-400">{unverifiedCount}</span>곳 ·
-              인증 <span className="font-bold text-blue-400">{verifiedCount}</span>곳
+              인증 <span className="font-bold text-blue-300">{verifiedCount}</span>곳
             </p>
           </div>
         </div>
@@ -421,7 +421,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-white">사무소 상세</h3>
             {broker.is_verified ? (
-              <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">
                 <ShieldCheck className="h-3 w-3" /> 인증됨
               </span>
             ) : (
