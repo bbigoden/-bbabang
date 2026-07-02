@@ -651,7 +651,7 @@ export default function BrokerMessengerPage() {
                     placeholder="메시지 입력"
                     className="flex-1 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-300"
                   />
-                  <button onClick={send} disabled={!draft.trim() || sending}
+                  <button onClick={send} disabled={!draft.trim() || sending} aria-label="전송" title="전송"
                     className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40">
                     <Send className="h-4 w-4" />
                   </button>
