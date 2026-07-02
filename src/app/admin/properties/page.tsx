@@ -45,10 +45,12 @@ interface Property {
 
 type StatusFilter = 'all' | 'available' | 'contracted' | 'hidden'
 
+// admin은 강제 다크(bg-gray-950) 컨테이너 — html.dark가 없어 공유 badge의 text-*-400이
+// 다크 틴트 위에서 대비 부족. admin 전용 다크-안전(-300) 색으로 오버라이드.
 const STATUS_META: Record<Property['status'], { label: string; color: string }> = {
-  available: { label: PROPERTY_STATUS_META.available.label, color: PROPERTY_STATUS_META.available.badge },
-  contracted: { label: PROPERTY_STATUS_META.contracted.label, color: PROPERTY_STATUS_META.contracted.badge },
-  hidden: { label: PROPERTY_STATUS_META.hidden.label, color: PROPERTY_STATUS_META.hidden.badge },
+  available: { label: PROPERTY_STATUS_META.available.label, color: 'bg-green-500/20 text-green-300 border-green-500/30' },
+  contracted: { label: PROPERTY_STATUS_META.contracted.label, color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+  hidden: { label: PROPERTY_STATUS_META.hidden.label, color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' },
 }
 
 const PAGE_SIZE = 50

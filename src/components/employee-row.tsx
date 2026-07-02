@@ -75,13 +75,13 @@ export function EmployeeRow({
             </span>
           )}
         </div>
-        <p className="text-[11px] text-gray-500 truncate">
+        <p className="text-[11px] text-gray-400 truncate">
           {employee.email ?? '—'}
           {employee.phone && ` · ${employee.phone}`}
         </p>
       </div>
       {rightSlot ?? (employee.created_at && (
-        <span className="text-[11px] text-gray-500 flex-shrink-0">{formatDate(employee.created_at)}</span>
+        <span className="text-[11px] text-gray-400 flex-shrink-0">{formatDate(employee.created_at)}</span>
       ))}
     </div>
   )

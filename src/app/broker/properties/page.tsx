@@ -428,8 +428,7 @@ function FloorCell({ floor, totalFloors, onSave }: {
   }
   return (
     <div onClick={() => { setDraft(display); setEditing(true) }}
-      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
-      style={{ color: display ? '#374151' : '#d1d5db' }}>
+      className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", display ? 'text-gray-700 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400')}>
       {display || '예: 3/15'}
     </div>
   )
@@ -486,9 +485,9 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
   return (
     <div className="w-full cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs text-right overflow-hidden whitespace-nowrap text-ellipsis"
       onClick={() => { setDraftPrice(price != null ? String(price) : ''); setDraftRent(rent != null ? String(rent) : ''); setEditing(true) }}>
-      <span className={`font-semibold ${price ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300'}`}>{dep}</span>
+      <span className={`font-semibold ${price ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{dep}</span>
       <span className="text-gray-500 mx-0.5">/</span>
-      <span className={`font-semibold ${rent ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300'}`}>{mo}</span>
+      <span className={`font-semibold ${rent ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{mo}</span>
     </div>
   )
 }
@@ -565,8 +564,7 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
         onClick={handleOpen}
         onMouseEnter={() => { if (!open && displayText) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
-        style={{ color: displayText ? '#374151' : '#d1d5db' }}
+        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", displayText ? 'text-gray-700 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400')}
       >
         {displayText ?? '전용/공급'}
       </div>
@@ -722,7 +720,7 @@ function StatusToggleCell({ value, onSave, readOnly }: {
 }) {
   const isCompleted = value === 'contracted'
   const colorCls = isCompleted
-    ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500'
+    ? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
     : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
   const label = isCompleted ? '완료' : '가능'
 
