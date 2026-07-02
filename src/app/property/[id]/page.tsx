@@ -166,7 +166,8 @@ export default async function PropertyDetailPage({ params }: Props) {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={user} />
       <ViewTracker type="property" id={id} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {/* JSON-LD: 사용자 작성 description/주소가 포함되므로 `<`를 이스케이프해 </script> 브레이크아웃(XSS) 차단 */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
         {/* 빵 부스러기 */}

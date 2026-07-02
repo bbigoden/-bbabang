@@ -102,7 +102,8 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {/* JSON-LD: 지역명 등 외부 입력 포함 → `<` 이스케이프로 </script> 브레이크아웃(XSS) 차단 */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
 
       <div className="mx-auto max-w-5xl px-4 py-8">
         <nav className="mb-3 text-xs text-gray-500" aria-label="경로">
