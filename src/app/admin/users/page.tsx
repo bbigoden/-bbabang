@@ -329,7 +329,7 @@ export default function AdminUsersPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">사용자 관리</h1>
-            <p className="text-xs text-gray-500">계정 상태·역할 변경, 관리자 메모</p>
+            <p className="text-xs text-gray-400">계정 상태·역할 변경, 관리자 메모</p>
           </div>
         </div>
       </header>
@@ -338,7 +338,7 @@ export default function AdminUsersPage() {
         <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex-1 min-w-[280px] flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 value={search}
@@ -362,7 +362,7 @@ export default function AdminUsersPage() {
             ] as const).map(t => (
               <button key={t.key} onClick={() => setRole(t.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  role === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                  role === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.label}
               </button>
@@ -378,7 +378,7 @@ export default function AdminUsersPage() {
             ] as const).map(t => (
               <button key={t.key} onClick={() => setStatus(t.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.label}
               </button>
@@ -394,7 +394,7 @@ export default function AdminUsersPage() {
               <h2 className="text-sm font-bold text-white">
                 {role === 'owner' ? '대표' : role === 'employee' ? '직원' : '사무소별 중개사'}
               </h2>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-400">
                 {role === 'owner' ? `${flatOwners.length}명`
                   : `${officeGroups.length}곳`}
               </span>
@@ -426,10 +426,10 @@ export default function AdminUsersPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500 truncate">{u.email}</p>
-                            {officeName && <p className="text-xs text-gray-500 truncate">{officeName}</p>}
+                            <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                            {officeName && <p className="text-xs text-gray-400 truncate">{officeName}</p>}
                           </div>
-                          <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
+                          <span className="text-xs text-gray-400 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
                         </button>
                       </li>
                     )
@@ -462,7 +462,7 @@ export default function AdminUsersPage() {
                           }}
                         >
                           {!g.owner && (
-                            <div className="border-t border-gray-800 px-5 py-2.5 text-xs text-gray-500">
+                            <div className="border-t border-gray-800 px-5 py-2.5 text-xs text-gray-400">
                               대표 정보 없음 · 직원 {g.employees.length}명
                             </div>
                           )}
@@ -471,7 +471,7 @@ export default function AdminUsersPage() {
                               {role !== 'employee' && (
                                 <button
                                   onClick={() => setExpandedOfficeKey(isOpen ? null : g.key)}
-                                  className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-800/40 transition-colors"
+                                  className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
                                 >
                                   <span className="flex items-center gap-1.5">
                                     <Users className="h-3.5 w-3.5" />
@@ -565,9 +565,9 @@ export default function AdminUsersPage() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                            <p className="text-xs text-gray-400 truncate">{u.email}</p>
                           </div>
-                          <span className="text-xs text-gray-500 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
+                          <span className="text-xs text-gray-400 flex-shrink-0">{u.created_at && formatDate(u.created_at)}</span>
                         </button>
                       </li>
                     )
@@ -701,7 +701,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
             {isSelf && <span className="rounded-md bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400">본인</span>}
           </div>
           <button onClick={onClose} disabled={busy} aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white">
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -719,7 +719,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
             </div>
             <div>
               <p className="text-lg font-bold text-white">{user.name || '(이름 없음)'}</p>
-              {officeName && <p className="text-xs text-gray-500">{officeName}</p>}
+              {officeName && <p className="text-xs text-gray-400">{officeName}</p>}
               <div className="mt-1 flex items-center gap-1.5">
                 <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${rm.color}`}>{rm.label}</span>
                 <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${sm.color}`}>
@@ -743,7 +743,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
 
           {/* 상태 변경 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-3 text-xs font-semibold text-gray-500">계정 상태</p>
+            <p className="mb-3 text-xs font-semibold text-gray-400">계정 상태</p>
             <div className="grid grid-cols-3 gap-2">
               {(['active', 'suspended', 'banned'] as const).map(s => {
                 const m = STATUS_META[s]
@@ -751,7 +751,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
                 return (
                   <button key={s} onClick={() => setStatus(s)} disabled={busy || active}
                     className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs font-semibold transition-all ${
-                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-500 hover:bg-gray-700'
+                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-400 hover:bg-gray-700'
                     } disabled:opacity-50`}>
                     <m.icon className="h-4 w-4" />
                     {m.label}
@@ -762,25 +762,25 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
 
             {user.account_status !== 'suspended' && (
               <div className="mt-3">
-                <p className="mb-1.5 text-[11px] font-semibold text-gray-500">정지 기간 (일)</p>
+                <p className="mb-1.5 text-[11px] font-semibold text-gray-400">정지 기간 (일)</p>
                 <div className="flex items-center gap-2">
                   {[1, 7, 30, 90].map(d => (
                     <button key={d} onClick={() => setSuspendDays(d)}
                       className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                        suspendDays === d ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'
+                        suspendDays === d ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                       }`}>
                       {d}일
                     </button>
                   ))}
                 </div>
-                <p className="mt-1.5 text-[11px] text-gray-500">&apos;일시 정지&apos; 클릭 시 위에서 선택한 기간만큼 정지됩니다</p>
+                <p className="mt-1.5 text-[11px] text-gray-400">&apos;일시 정지&apos; 클릭 시 위에서 선택한 기간만큼 정지됩니다</p>
               </div>
             )}
           </div>
 
           {/* 역할 변경 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-3 text-xs font-semibold text-gray-500">역할</p>
+            <p className="mb-3 text-xs font-semibold text-gray-400">역할</p>
             <div className="grid grid-cols-3 gap-2">
               {(['user', 'broker', 'admin'] as const).map(r => {
                 const m = ROLE_META[r]
@@ -788,7 +788,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
                 return (
                   <button key={r} onClick={() => setRole(r)} disabled={busy || active}
                     className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold transition-all ${
-                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-500 hover:bg-gray-700'
+                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-400 hover:bg-gray-700'
                     } disabled:opacity-50`}>
                     {r === 'admin' && <Shield className="h-3 w-3" />}
                     {r === 'broker' && <Building2 className="h-3 w-3" />}
@@ -798,7 +798,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
                 )
               })}
             </div>
-            <p className="mt-2 text-[11px] text-gray-500">
+            <p className="mt-2 text-[11px] text-gray-400">
               ⚠️ 여기서는 고객·중개사·관리자 전환만. 중개사 내부의 대표↔직원 구분은 사무소 검수 페이지에서 처리해요.
             </p>
           </div>
@@ -806,7 +806,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
           {/* 관리자 메모 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
             <div className="mb-2 flex items-center justify-between">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-400">
                 <FileText className="h-3.5 w-3.5" /> 관리자 메모 (내부용)
               </p>
               {!editingNote ? (
@@ -832,7 +832,7 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
             ) : user.admin_note ? (
               <p className="text-sm text-gray-200 whitespace-pre-line">{user.admin_note}</p>
             ) : (
-              <p className="text-xs text-gray-500">메모 없음</p>
+              <p className="text-xs text-gray-400">메모 없음</p>
             )}
           </div>
 
@@ -855,9 +855,9 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
 function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3 py-2.5">
-      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-500" />
+      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-gray-500 mb-0.5">{label}</p>
+        <p className="text-[11px] text-gray-400 mb-0.5">{label}</p>
         <div className="text-sm text-gray-200">{value}</div>
       </div>
     </div>

@@ -156,7 +156,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
               <div className={cn('font-semibold text-sm', role === option.value ? 'text-blue-700' : 'text-gray-700')}>
                 {option.label}
               </div>
-              <div className="text-xs text-gray-500 mt-0.5">{option.desc}</div>
+              <div className="text-xs text-gray-600 mt-0.5">{option.desc}</div>
             </button>
           ))}
         </div>

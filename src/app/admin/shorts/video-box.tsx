@@ -173,7 +173,7 @@ export function VideoBox({ scriptId: _scriptId, voiceoverText, bRollKeywords, au
       </div>
 
       {!audioUrl && phase === 'idle' && (
-        <div className="rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2.5 text-center text-xs text-gray-500">
+        <div className="rounded-lg border border-gray-700 bg-gray-900/50 px-3 py-2.5 text-center text-xs text-gray-400">
           먼저 위에서 「음성 만들기」를 해주세요
         </div>
       )}
@@ -197,7 +197,7 @@ export function VideoBox({ scriptId: _scriptId, voiceoverText, bRollKeywords, au
           <div className="h-2 w-full overflow-hidden rounded-full bg-gray-800">
             <div className="h-full bg-purple-500 transition-all" style={{ width: `${progressPct}%` }} />
           </div>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-gray-400">
             * Creatomate 서버에서 합성 중. 사장님 PC는 안 씁니다. 탭 닫지 마세요.
           </p>
         </div>
@@ -240,7 +240,7 @@ export function VideoBox({ scriptId: _scriptId, voiceoverText, bRollKeywords, au
               다시 만들기
             </button>
           </div>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-gray-400">
             * MP4는 새 탭에서 열립니다. 우클릭 → 「다른 이름으로 비디오 저장」 으로 다운로드. 그대로 유튜브 스튜디오에 업로드 가능.
           </p>
         </div>

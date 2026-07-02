@@ -250,7 +250,7 @@ export default function AdminBrokersPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">사무소 검수</h1>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-400">
               미인증 <span className="font-bold text-yellow-400">{unverifiedCount}</span>곳 ·
               인증 <span className="font-bold text-blue-400">{verifiedCount}</span>곳
             </p>
@@ -262,7 +262,7 @@ export default function AdminBrokersPage() {
         <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex-1 min-w-[280px] flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 value={search}
@@ -284,7 +284,7 @@ export default function AdminBrokersPage() {
             ] as const).map(t => (
               <button key={t.key} onClick={() => setStatus(t.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.label}
               </button>
@@ -328,7 +328,7 @@ export default function AdminBrokersPage() {
                         <div className="border-t border-gray-800">
                           <button
                             onClick={() => toggleExpand(g.owner.id)}
-                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-500 hover:bg-gray-800/40 transition-colors"
+                            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-gray-400 hover:bg-gray-800/40 transition-colors"
                           >
                             <span className="flex items-center gap-1.5">
                               <Users className="h-3.5 w-3.5" />
@@ -431,7 +431,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
             )}
           </div>
           <button onClick={onClose} disabled={busy} aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white">
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -444,7 +444,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
             </div>
             <div>
               <p className="text-lg font-bold text-white">{broker.office_name ?? '—'}</p>
-              <p className="text-sm text-gray-500">대표 · {broker.profiles?.name ?? '(이름 없음)'}</p>
+              <p className="text-sm text-gray-400">대표 · {broker.profiles?.name ?? '(이름 없음)'}</p>
             </div>
           </div>
 
@@ -481,7 +481,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
           {/* 검증 정보 */}
           {Object.keys(v).length > 0 && (
             <div className="rounded-xl border border-gray-800 bg-gray-800/40 p-4">
-              <p className="mb-2 text-xs font-semibold text-gray-500">자동 검증 결과</p>
+              <p className="mb-2 text-xs font-semibold text-gray-400">자동 검증 결과</p>
               <pre className="overflow-x-auto rounded-lg bg-gray-950 px-3 py-2.5 text-[11px] text-gray-300 font-mono">
 {JSON.stringify(v, null, 2)}
               </pre>
@@ -531,7 +531,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">사무소 인증 반려</h3>
-                <p className="text-xs text-gray-500">{broker.office_name ?? '—'}</p>
+                <p className="text-xs text-gray-400">{broker.office_name ?? '—'}</p>
               </div>
             </div>
 
@@ -544,7 +544,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
               placeholder="예) 자격증 번호와 사업자등록번호가 일치하지 않습니다. 자격증 사본을 다시 첨부해주세요."
               className="mt-3 w-full rounded-xl border border-gray-700 bg-gray-800 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 resize-none"
             />
-            <p className="mt-1 text-right text-xs text-gray-500">{rejectReason.length}/500 (최소 5자)</p>
+            <p className="mt-1 text-right text-xs text-gray-400">{rejectReason.length}/500 (최소 5자)</p>
 
             <div className="mt-4 flex gap-2">
               <button onClick={() => setRejectOpen(false)} disabled={busy}
@@ -566,9 +566,9 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
 function Row({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-3 py-2.5">
-      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-500" />
+      <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-gray-500 mb-0.5">{label}</p>
+        <p className="text-[11px] text-gray-400 mb-0.5">{label}</p>
         <div className="text-sm text-gray-200 break-all">{value || '—'}</div>
       </div>
     </div>
@@ -579,7 +579,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-800/40 py-3 text-center">
       <p className="text-xl font-black text-white">{value}</p>
-      <p className="mt-0.5 text-[11px] text-gray-500">{label}</p>
+      <p className="mt-0.5 text-[11px] text-gray-400">{label}</p>
     </div>
   )
 }

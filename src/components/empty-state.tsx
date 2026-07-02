@@ -43,7 +43,12 @@ export function EmptyState({
 }: EmptyStateProps) {
   if (variant === 'inline') {
     return (
-      <p className={cn('py-8 text-center text-sm text-gray-600 dark:text-gray-400', className)}>{message}</p>
+      <p className={cn(
+        'py-8 text-center text-sm',
+        // darkBg=true는 admin 등 강제 다크 컨테이너용 — light mode에서도 gray-400 유지
+        darkBg ? 'text-gray-400' : 'text-gray-600 dark:text-gray-400',
+        className,
+      )}>{message}</p>
     )
   }
 

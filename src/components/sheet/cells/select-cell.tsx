@@ -52,7 +52,7 @@ function SingleSelectCell({
     <div className="max-w-full overflow-hidden">
       <div
         className={`rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-full ${
-          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-300'
+          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-500'
         }`}
       >
         {value || placeholder || '—'}
@@ -77,7 +77,7 @@ function SingleSelectCell({
         ref={btnRef}
         onClick={handleOpen}
         className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-full hover:opacity-80 ${
-          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-300'
+          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-500 dark:text-gray-400'
         }`}
       >
         {value || placeholder || '—'}

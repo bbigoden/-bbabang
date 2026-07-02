@@ -148,7 +148,7 @@ export default function AdminCurationPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">메인 노출 관리</h1>
-            <p className="text-xs text-gray-500">상단 배너·추천 사무소·추천 매물을 직접 골라 메인에 노출</p>
+            <p className="text-xs text-gray-400">상단 배너·추천 사무소·추천 매물을 직접 골라 메인에 노출</p>
           </div>
         </div>
       </header>
@@ -221,7 +221,7 @@ function BannerSection({ banners, onReload, supabase, onToggle, onRemove, onMove
       <div className="mb-4 flex items-center gap-2">
         <Megaphone className="h-4 w-4 text-amber-400" />
         <h2 className="font-bold text-white">상단 배너</h2>
-        <span className="text-xs text-gray-500">메인 최상단 띠 배너</span>
+        <span className="text-xs text-gray-400">메인 최상단 띠 배너</span>
       </div>
 
       {/* 작성 */}
@@ -245,18 +245,18 @@ function BannerSection({ banners, onReload, supabase, onToggle, onRemove, onMove
 
       {/* 목록 */}
       {banners.length === 0 ? (
-        <EmptyState variant="inline" message="등록된 배너가 없어요" className="mt-4 py-6" />
+        <EmptyState variant="inline" message="등록된 배너가 없어요" darkBg className="mt-4 py-6" />
       ) : (
         <ul className="mt-4 space-y-2">
           {banners.map((b, i) => (
             <li key={b.id} className={`flex items-center gap-3 rounded-xl border border-gray-800 p-3 ${b.is_active ? 'bg-gray-800/40' : 'bg-gray-900 opacity-60'}`}>
               <div className="flex flex-col gap-0.5">
-                <button onClick={() => onMove(i, -1)} disabled={i === 0} className="text-gray-500 hover:text-white disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
-                <button onClick={() => onMove(i, 1)} disabled={i === banners.length - 1} className="text-gray-500 hover:text-white disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+                <button onClick={() => onMove(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button onClick={() => onMove(i, 1)} disabled={i === banners.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{b.title}</p>
-                {b.body && <p className="text-xs text-gray-500 truncate">{b.body}</p>}
+                {b.body && <p className="text-xs text-gray-400 truncate">{b.body}</p>}
                 {b.link && <p className="text-[11px] text-blue-400 truncate">{b.link}</p>}
               </div>
               <CurationControls c={b} onToggle={onToggle} onRemove={onRemove} />
@@ -324,13 +324,13 @@ function FeaturedSection({ kind, title, icon: Icon, items, onReload, supabase, o
       <div className="mb-4 flex items-center gap-2">
         <Icon className="h-4 w-4 text-purple-400" />
         <h2 className="font-bold text-white">{title}</h2>
-        <span className="text-xs text-gray-500">{items.length}개 노출 중</span>
+        <span className="text-xs text-gray-400">{items.length}개 노출 중</span>
       </div>
 
       {/* 검색 추가 */}
       <form onSubmit={search} className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input value={q} onChange={e => setQ(e.target.value)}
             placeholder={kind === 'featured_broker' ? '사무소명 검색' : '매물 주소 검색'}
             className="w-full rounded-lg border border-gray-700 bg-gray-800 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none" />
@@ -346,7 +346,7 @@ function FeaturedSection({ kind, title, icon: Icon, items, onReload, supabase, o
               <li key={r.id} className="flex items-center gap-3 px-3 py-2">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white truncate">{r.label}</p>
-                  {r.sub && <p className="text-xs text-gray-500 truncate">{r.sub}</p>}
+                  {r.sub && <p className="text-xs text-gray-400 truncate">{r.sub}</p>}
                 </div>
                 <button onClick={() => addRef(r.id)} disabled={already}
                   className="inline-flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 disabled:opacity-40">
@@ -360,23 +360,23 @@ function FeaturedSection({ kind, title, icon: Icon, items, onReload, supabase, o
 
       {/* 노출 목록 */}
       {items.length === 0 ? (
-        <EmptyState variant="inline" message="노출 중인 항목이 없어요" className="mt-4 py-6" />
+        <EmptyState variant="inline" message="노출 중인 항목이 없어요" darkBg className="mt-4 py-6" />
       ) : (
         <ul className="mt-4 space-y-2">
           {items.map((it, i) => (
             <li key={it.id} className={`flex items-center gap-3 rounded-xl border border-gray-800 p-3 ${it.is_active ? 'bg-gray-800/40' : 'bg-gray-900 opacity-60'}`}>
               <div className="flex flex-col gap-0.5">
-                <button onClick={() => onMove(i, -1)} disabled={i === 0} className="text-gray-500 hover:text-white disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
-                <button onClick={() => onMove(i, 1)} disabled={i === items.length - 1} className="text-gray-500 hover:text-white disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+                <button onClick={() => onMove(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+                <button onClick={() => onMove(i, 1)} disabled={i === items.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
               </div>
-              <span className="text-xs font-bold text-gray-500 w-5 text-center">{i + 1}</span>
+              <span className="text-xs font-bold text-gray-400 w-5 text-center">{i + 1}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{it._label}</p>
-                {it._sub && <p className="text-xs text-gray-500 truncate">{it._sub}</p>}
+                {it._sub && <p className="text-xs text-gray-400 truncate">{it._sub}</p>}
               </div>
               {it.ref_id && kind !== 'featured_broker' && (
                 <Link href={`/property/${it.ref_id}`} target="_blank"
-                  className="text-gray-500 hover:text-white"><ExternalLink className="h-4 w-4" /></Link>
+                  className="text-gray-400 hover:text-white"><ExternalLink className="h-4 w-4" /></Link>
               )}
               <CurationControls c={it} onToggle={onToggle} onRemove={onRemove} />
             </li>
@@ -396,7 +396,7 @@ function CurationControls({ c, onToggle, onRemove }: {
     <div className="flex items-center gap-1 flex-shrink-0">
       <button onClick={() => onToggle(c)}
         title={c.is_active ? '노출 끄기' : '노출 켜기'}
-        className={`flex h-8 w-8 items-center justify-center rounded-lg ${c.is_active ? 'text-green-400 hover:bg-green-500/10' : 'text-gray-500 hover:bg-gray-800'}`}>
+        className={`flex h-8 w-8 items-center justify-center rounded-lg ${c.is_active ? 'text-green-400 hover:bg-green-500/10' : 'text-gray-400 hover:bg-gray-800'}`}>
         {c.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
       </button>
       <button onClick={() => onRemove(c)} title="제거"

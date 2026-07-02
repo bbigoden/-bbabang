@@ -29,7 +29,7 @@ const TONE_COLOR: Record<string, string> = {
   blue: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   yellow: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
   purple: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-  gray: 'bg-gray-500/20 text-gray-500 border-gray-500/30',
+  gray: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 }
 
 const PAGE_SIZE = 50
@@ -135,7 +135,7 @@ export default function AdminAuditPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">관리자 활동 로그</h1>
-            <p className="text-xs text-gray-500">전체 <span className="font-bold text-indigo-400">{total}</span>건 · 누가 언제 무엇을 바꿨는지 기록</p>
+            <p className="text-xs text-gray-400">전체 <span className="font-bold text-indigo-400">{total}</span>건 · 누가 언제 무엇을 바꿨는지 기록</p>
           </div>
           <button onClick={() => { setPage(0); load(true) }} disabled={loading}
             className="ml-auto flex h-9 w-9 items-center justify-center rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
@@ -149,7 +149,7 @@ export default function AdminAuditPage() {
         <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex-1 min-w-[260px] flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 aria-label="액션·대상 ID 검색"
                 placeholder="액션·대상 ID 검색"
@@ -162,7 +162,7 @@ export default function AdminAuditPage() {
             {TARGET_FILTERS.map(t => (
               <button key={t} onClick={() => setTargetFilter(t)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  targetFilter === t ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                  targetFilter === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t === 'all' ? '전체' : AUDIT_TARGET_LABEL[t] ?? t}
               </button>
@@ -199,14 +199,14 @@ export default function AdminAuditPage() {
                               {AUDIT_TARGET_LABEL[row.target_type] ?? row.target_type}
                             </span>
                           )}
-                          <span className="text-xs text-gray-500">{formatDate(row.created_at)}</span>
+                          <span className="text-xs text-gray-400">{formatDate(row.created_at)}</span>
                         </div>
                         <p className="flex items-center gap-1 text-sm text-gray-200">
-                          <UserIcon className="h-3 w-3 text-gray-500" />
+                          <UserIcon className="h-3 w-3 text-gray-400" />
                           {row.admin?.name ?? row.admin?.email ?? '(알 수 없음)'}
                         </p>
                         {row.metadata && summarizeMeta(row.metadata) && (
-                          <p className="mt-0.5 text-xs text-gray-500 truncate">{summarizeMeta(row.metadata)}</p>
+                          <p className="mt-0.5 text-xs text-gray-400 truncate">{summarizeMeta(row.metadata)}</p>
                         )}
                       </div>
                     </button>
@@ -262,7 +262,7 @@ function AuditDetailModal({ row, onClose }: { row: AuditRow; onClose: () => void
               {auditActionLabel(row.action)}
             </span>
           </div>
-          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -275,7 +275,7 @@ function AuditDetailModal({ row, onClose }: { row: AuditRow; onClose: () => void
           <KV label="시각" value={formatDate(row.created_at)} />
           {row.metadata && Object.keys(row.metadata).length > 0 && (
             <div>
-              <p className="mb-1.5 text-xs font-semibold text-gray-500">상세 데이터</p>
+              <p className="mb-1.5 text-xs font-semibold text-gray-400">상세 데이터</p>
               <pre className="overflow-x-auto rounded-xl bg-gray-950 px-3 py-2.5 text-[11px] text-gray-300 font-mono whitespace-pre-wrap">
 {JSON.stringify(row.metadata, null, 2)}
               </pre>
@@ -290,7 +290,7 @@ function AuditDetailModal({ row, onClose }: { row: AuditRow; onClose: () => void
 function KV({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-gray-800/60 pb-2.5 last:border-0">
-      <span className="text-xs text-gray-500 flex-shrink-0">{label}</span>
+      <span className="text-xs text-gray-400 flex-shrink-0">{label}</span>
       <span className="text-sm text-gray-200 text-right">{value}</span>
     </div>
   )

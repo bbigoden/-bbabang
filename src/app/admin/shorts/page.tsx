@@ -155,7 +155,7 @@ export default function AdminShortsPage() {
             </div>
             <div className="min-w-0">
               <h1 className="text-lg font-bold text-white truncate">쇼츠 공장</h1>
-              <p className="text-xs text-gray-500 truncate">AI가 유튜브 쇼츠 대본을 자동 생성해요</p>
+              <p className="text-xs text-gray-400 truncate">AI가 유튜브 쇼츠 대본을 자동 생성해요</p>
             </div>
           </div>
 
@@ -187,12 +187,12 @@ export default function AdminShortsPage() {
               <Film className="h-8 w-8 text-pink-400" />
             </div>
             <h2 className="mb-2 text-lg font-bold text-white">아직 생성된 대본이 없어요</h2>
-            <p className="mb-6 text-sm text-gray-500">
+            <p className="mb-6 text-sm text-gray-400">
               위 「오늘의 쇼츠 5개 생성」 버튼을 누르면<br />
               AI가 5개 카테고리의 부동산 쇼츠 대본을 만들어줍니다.
             </p>
             <div className="inline-block rounded-xl border border-gray-800 bg-gray-950 px-4 py-3 text-left">
-              <p className="mb-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wide">카테고리</p>
+              <p className="mb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">카테고리</p>
               <p className="text-xs text-gray-300">전세사기 · 원룸 화재 · 층간소음 · 계약서 함정 · 임대인 갑질</p>
             </div>
           </div>
@@ -388,13 +388,13 @@ function ScriptRow({
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-950/40 px-4 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400">
           <Icon className="h-3.5 w-3.5" />
           {label}
         </div>
         <button
           onClick={() => copy(copyText, copyKey)}
-          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-gray-500 hover:bg-gray-800 hover:text-white transition-colors"
+          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
         >
           {copiedKey === copyKey ? (
             <><CheckCircle2 className="h-3 w-3 text-green-400" /> <span className="text-green-400">복사됨</span></>

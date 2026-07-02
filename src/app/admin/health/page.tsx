@@ -145,7 +145,7 @@ export default function AdminHealthPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">시스템 상태</h1>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-400">
               {lastChecked && <>마지막 점검 {formatDate(lastChecked.toISOString())} · </>}
               실시간 카운트·24h 활동
             </p>
@@ -161,7 +161,7 @@ export default function AdminHealthPage() {
                   key={o.v}
                   onClick={() => setAutoRefreshSec(o.v)}
                   className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                    autoRefreshSec === o.v ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                    autoRefreshSec === o.v ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}
                   aria-pressed={autoRefreshSec === o.v}
                 >
@@ -190,7 +190,7 @@ export default function AdminHealthPage() {
               <span className={`h-3 w-3 rounded-full ${data.status.color} animate-pulse`} />
               <div className="flex-1">
                 <p className="text-lg font-bold text-white">시스템 {data.status.label}</p>
-                <p className="text-xs text-gray-500">24시간 내 에러 {data.recent.errorsLast24h}건</p>
+                <p className="text-xs text-gray-400">24시간 내 에러 {data.recent.errorsLast24h}건</p>
               </div>
               {data.recent.errorsLast24h > 0 && (
                 <Link href="/admin/errors" className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 hover:bg-red-500/20">
@@ -208,7 +208,7 @@ export default function AdminHealthPage() {
                 <Activity24h icon={MessageCircle} label="제안" value={data.recent.proposalsLast24h} color="text-blue-400 bg-blue-500/10" />
                 <Activity24h icon={MessageCircle} label="채팅 메시지" value={data.recent.chatMessagesLast24h} color="text-purple-400 bg-purple-500/10" />
                 <Activity24h icon={Bell} label="알림 발송" value={data.recent.notifsLast24h} color="text-yellow-400 bg-yellow-500/10" />
-                <Activity24h icon={AlertOctagon} label="에러" value={data.recent.errorsLast24h} color={data.recent.errorsLast24h > 0 ? "text-red-400 bg-red-500/10" : "text-gray-500 bg-gray-800"} />
+                <Activity24h icon={AlertOctagon} label="에러" value={data.recent.errorsLast24h} color={data.recent.errorsLast24h > 0 ? "text-red-400 bg-red-500/10" : "text-gray-400 bg-gray-800"} />
               </div>
             </section>
 
@@ -253,7 +253,7 @@ function Activity24h({ icon: Icon, label, value, color }: { icon: LucideIcon; la
         <Icon className="h-4 w-4" />
       </div>
       <p className="text-xl font-black text-white">{value}</p>
-      <p className="mt-0.5 text-[11px] text-gray-500">{label}</p>
+      <p className="mt-0.5 text-[11px] text-gray-400">{label}</p>
     </div>
   )
 }
@@ -261,9 +261,9 @@ function Activity24h({ icon: Icon, label, value, color }: { icon: LucideIcon; la
 function TableRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 px-4 py-3 flex items-center gap-3">
-      <Icon className="h-4 w-4 text-gray-500" />
+      <Icon className="h-4 w-4 text-gray-400" />
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-gray-500">{label}</p>
+        <p className="text-[11px] text-gray-400">{label}</p>
         <p className="text-base font-bold text-white">{value.toLocaleString()}</p>
       </div>
     </div>
@@ -277,7 +277,7 @@ function ExternalRow({ label, status, note }: { label: string; status: boolean |
       <span className={`h-2 w-2 rounded-full ${dot}`} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-white">{label}</p>
-        <p className="text-xs text-gray-500">{note}</p>
+        <p className="text-xs text-gray-400">{note}</p>
       </div>
     </div>
   )

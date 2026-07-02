@@ -869,7 +869,7 @@ export default function BrokerCustomersPage() {
                 </div>
                 <div>
                   <div className="text-3xl font-black text-blue-600 leading-none">{monthFilter === '전체' ? newThisMonth : filtered.length}<span className="text-sm font-normal text-gray-500 ml-1">명</span></div>
-                  <div className="text-[10px] text-gray-300 mt-1">{monthFilter === '전체' ? '이번달 신규 고객' : `${monthFilter.slice(2, 4)}년 ${parseInt(monthFilter.slice(5, 7), 10)}월 신규 고객`}</div>
+                  <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{monthFilter === '전체' ? '이번달 신규 고객' : `${monthFilter.slice(2, 4)}년 ${parseInt(monthFilter.slice(5, 7), 10)}월 신규 고객`}</div>
                 </div>
               </div>
 

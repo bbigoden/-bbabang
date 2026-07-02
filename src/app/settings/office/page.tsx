@@ -112,7 +112,7 @@ export default function SettingsOfficePage() {
           <ShieldCheck className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-green-700">인증된 사무소</p>
-            <p className="text-xs text-green-600 mt-0.5">정보를 수정하면 재승인이 필요해요.</p>
+            <p className="text-xs text-green-700 mt-0.5">정보를 수정하면 재승인이 필요해요.</p>
           </div>
         </div>
       )}

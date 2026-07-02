@@ -38,7 +38,7 @@ const STATUS_META: Record<Report['status'], { label: string; color: string; icon
   open: { label: '미처리', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: AlertCircle },
   in_progress: { label: '처리 중', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: Clock },
   resolved: { label: '완료', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: CheckCircle2 },
-  rejected: { label: '반려', color: 'bg-gray-500/20 text-gray-500 border-gray-500/30', icon: XCircle },
+  rejected: { label: '반려', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30', icon: XCircle },
 }
 
 const TARGET_LABEL: Record<NonNullable<Report['target_type']>, string> = {
@@ -119,7 +119,7 @@ export default function AdminReportsPage() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">신고·문의 관리</h1>
-              <p className="text-xs text-gray-500">미처리 {counts.open}건 · 전체 {items.length}건</p>
+              <p className="text-xs text-gray-400">미처리 {counts.open}건 · 전체 {items.length}건</p>
             </div>
           </div>
         </div>
@@ -138,7 +138,7 @@ export default function AdminReportsPage() {
             ] as const).map(t => (
               <button key={t.key} onClick={() => setStatus(t.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.label}
               </button>
@@ -152,7 +152,7 @@ export default function AdminReportsPage() {
             ]).map(t => (
               <button key={t.key} onClick={() => setKind(t.key)}
                 className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  kind === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                  kind === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.icon && <t.icon className="h-3 w-3" />}
                 {t.label}
@@ -190,16 +190,16 @@ export default function AdminReportsPage() {
                             {TARGET_LABEL[r.target_type]}
                           </span>
                         )}
-                        <span className="text-xs text-gray-500">{formatDate(r.created_at)}</span>
+                        <span className="text-xs text-gray-400">{formatDate(r.created_at)}</span>
                       </div>
                       <p className="text-sm font-semibold text-white truncate">{r.subject ?? '(제목 없음)'}</p>
-                      <p className="mt-0.5 text-xs text-gray-500 line-clamp-1">{r.content}</p>
-                      <p className="mt-1 text-[11px] text-gray-500">
+                      <p className="mt-0.5 text-xs text-gray-400 line-clamp-1">{r.content}</p>
+                      <p className="mt-1 text-[11px] text-gray-400">
                         {r.reporter?.name ?? r.reporter_email ?? '익명'}
                         {r.reporter?.email && <span className="ml-1">({r.reporter.email})</span>}
                       </p>
                     </div>
-                    <ChevronDown className="h-4 w-4 text-gray-600 dark:text-gray-500 rotate-[-90deg] flex-shrink-0 mt-1" />
+                    <ChevronDown className="h-4 w-4 text-gray-400 rotate-[-90deg] flex-shrink-0 mt-1" />
                   </button>
                 </li>
               )
@@ -285,7 +285,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
             </span>
           </div>
           <button onClick={onClose} disabled={saving} aria-label="닫기"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800 hover:text-white">
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -293,7 +293,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
         <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-5">
           {/* 신고자 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-2 text-xs font-semibold text-gray-500">신고자</p>
+            <p className="mb-2 text-xs font-semibold text-gray-400">신고자</p>
             <p className="text-sm text-white">{report.reporter?.name ?? '익명'}</p>
             {(report.reporter?.email || report.reporter_email) && (
               <a href={`mailto:${report.reporter?.email ?? report.reporter_email}`}
@@ -301,16 +301,16 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
                 <Mail className="h-3 w-3" /> {report.reporter?.email ?? report.reporter_email}
               </a>
             )}
-            <p className="mt-1 text-xs text-gray-500">{formatDate(report.created_at)}</p>
+            <p className="mt-1 text-xs text-gray-400">{formatDate(report.created_at)}</p>
           </div>
 
           {/* 대상 */}
           {report.target_type && report.target_id && (
             <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-              <p className="mb-2 text-xs font-semibold text-gray-500">신고 대상</p>
+              <p className="mb-2 text-xs font-semibold text-gray-400">신고 대상</p>
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-white">
-                  {TARGET_LABEL[report.target_type]} · <span className="font-mono text-xs text-gray-500">{report.target_id.slice(0, 8)}...</span>
+                  {TARGET_LABEL[report.target_type]} · <span className="font-mono text-xs text-gray-400">{report.target_id.slice(0, 8)}...</span>
                 </span>
                 {targetHref !== '#' && targetHref && (
                   <Link href={targetHref} target="_blank"
@@ -325,15 +325,15 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
 
           {/* 내용 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-2 text-xs font-semibold text-gray-500">제목 / 사유</p>
+            <p className="mb-2 text-xs font-semibold text-gray-400">제목 / 사유</p>
             <p className="text-sm font-semibold text-white">{report.subject ?? '(없음)'}</p>
-            <p className="mt-3 mb-1.5 text-xs font-semibold text-gray-500">내용</p>
+            <p className="mt-3 mb-1.5 text-xs font-semibold text-gray-400">내용</p>
             <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{report.content}</p>
           </div>
 
           {/* 처리 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-2 text-xs font-semibold text-gray-500">상태 변경</p>
+            <p className="mb-2 text-xs font-semibold text-gray-400">상태 변경</p>
             <div className="grid grid-cols-4 gap-2">
               {(['open', 'in_progress', 'resolved', 'rejected'] as const).map(s => {
                 const m = STATUS_META[s]
@@ -341,7 +341,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
                 return (
                   <button key={s} onClick={() => setStatus(s)}
                     className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold transition-all ${
-                      active ? m.color : 'border-gray-700 bg-transparent text-gray-500 hover:bg-gray-800'
+                      active ? m.color : 'border-gray-700 bg-transparent text-gray-400 hover:bg-gray-800'
                     }`}>
                     <m.icon className="h-3 w-3" />
                     {m.label}
@@ -350,7 +350,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
               })}
             </div>
 
-            <p className="mt-4 mb-1.5 text-xs font-semibold text-gray-500">관리자 메모 (내부용)</p>
+            <p className="mt-4 mb-1.5 text-xs font-semibold text-gray-400">관리자 메모 (내부용)</p>
             <textarea
               value={adminNote}
               onChange={e => setAdminNote(e.target.value)}
@@ -360,7 +360,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
             />
 
             {report.resolved_at && (
-              <p className="mt-2 text-xs text-gray-500">처리 완료: {formatDate(report.resolved_at)}</p>
+              <p className="mt-2 text-xs text-gray-400">처리 완료: {formatDate(report.resolved_at)}</p>
             )}
           </div>
 

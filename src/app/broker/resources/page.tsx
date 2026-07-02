@@ -396,6 +396,8 @@ export default function BrokerResourcesPage() {
           </div>
         )}
 
+        {/* 카드 제목(h3) 위에 섹션 h2를 두어 heading-order(h1→h2→h3) 유지 — 폼 숨김 시 h1→h3 건너뜀 방지 */}
+        <h2 className="sr-only">자료 목록</h2>
         {resources.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-12 text-center">
             <FolderOpen className="mx-auto h-10 w-10 text-gray-200 mb-3" />

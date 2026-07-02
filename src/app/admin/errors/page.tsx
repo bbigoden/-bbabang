@@ -34,7 +34,7 @@ const STATUS_META: Record<ErrLog['status'], { label: string; color: string; icon
   open: { label: '미처리', color: 'bg-red-500/20 text-red-400 border-red-500/30', icon: AlertCircle },
   investigating: { label: '조사 중', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', icon: Clock },
   resolved: { label: '해결', color: 'bg-green-500/20 text-green-400 border-green-500/30', icon: CheckCircle2 },
-  ignored: { label: '무시', color: 'bg-gray-500/20 text-gray-500 border-gray-500/30', icon: EyeOff },
+  ignored: { label: '무시', color: 'bg-gray-500/20 text-gray-400 border-gray-500/30', icon: EyeOff },
 }
 
 const PAGE_SIZE = 50
@@ -187,7 +187,7 @@ export default function AdminErrorsPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">에러 로그</h1>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-400">
               미처리 <span className="font-bold text-red-400">{counts.open}</span>건 · 24h <span className="font-bold text-yellow-400">{counts.today}</span>건
             </p>
           </div>
@@ -203,7 +203,7 @@ export default function AdminErrorsPage() {
         <div className="flex flex-wrap gap-3">
           <form onSubmit={handleSearch} className="flex-1 min-w-[280px] flex gap-2">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 aria-label="메시지·URL 검색"
                 placeholder="메시지·URL 검색"
@@ -222,7 +222,7 @@ export default function AdminErrorsPage() {
             ] as const).map(t => (
               <button key={t.key} onClick={() => setStatus(t.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                  status === t.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}>
                 {t.label}
               </button>
@@ -254,11 +254,11 @@ export default function AdminErrorsPage() {
                           <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
                             <Icon className="h-3 w-3" /> {meta.label}
                           </span>
-                          {e.source && <span className="rounded-md bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">{e.source}</span>}
-                          <span className="text-xs text-gray-500">{formatDate(e.created_at)}</span>
+                          {e.source && <span className="rounded-md bg-gray-800 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">{e.source}</span>}
+                          <span className="text-xs text-gray-400">{formatDate(e.created_at)}</span>
                         </div>
                         <p className="text-sm font-semibold text-white truncate">{e.message}</p>
-                        {e.url && <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-gray-500 truncate"><Globe className="h-3 w-3" />{e.url}</p>}
+                        {e.url && <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-gray-400 truncate"><Globe className="h-3 w-3" />{e.url}</p>}
                       </div>
                     </button>
                   </li>
@@ -335,20 +335,20 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
               <meta.icon className="h-3 w-3" /> {meta.label}
             </span>
           </div>
-          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-800">
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="px-4 sm:px-6 py-4 sm:py-5 space-y-4">
           <div>
-            <p className="mb-1.5 text-xs font-semibold text-gray-500">메시지</p>
+            <p className="mb-1.5 text-xs font-semibold text-gray-400">메시지</p>
             <p className="text-sm text-white break-words font-mono bg-gray-800/50 rounded-xl px-3 py-2.5">{err.message}</p>
           </div>
 
           {err.stack && (
             <div>
-              <p className="mb-1.5 text-xs font-semibold text-gray-500">스택</p>
+              <p className="mb-1.5 text-xs font-semibold text-gray-400">스택</p>
               <pre className="overflow-x-auto rounded-xl bg-gray-950 px-3 py-2.5 text-[11px] text-gray-300 font-mono whitespace-pre-wrap">
 {err.stack}
               </pre>
@@ -364,7 +364,7 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
           </div>
 
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-3 text-xs font-semibold text-gray-500">처리 상태</p>
+            <p className="mb-3 text-xs font-semibold text-gray-400">처리 상태</p>
             <div className="grid grid-cols-4 gap-2">
               {(['open', 'investigating', 'resolved', 'ignored'] as const).map(s => {
                 const m = STATUS_META[s]
@@ -372,7 +372,7 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
                 return (
                   <button key={s} onClick={() => handleChange(s)} disabled={busy || active}
                     className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold transition-all ${
-                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-500 hover:bg-gray-700'
+                      active ? `${m.color} border-current` : 'border-gray-700 bg-transparent text-gray-400 hover:bg-gray-700'
                     } disabled:opacity-50`}>
                     <m.icon className="h-3 w-3" />
                     {m.label}
@@ -393,7 +393,7 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
 
           {/* 관리자 메모 */}
           <div className="rounded-xl border border-gray-800 bg-gray-800/50 p-4">
-            <p className="mb-2 text-xs font-semibold text-gray-500">관리자 메모 (내부용)</p>
+            <p className="mb-2 text-xs font-semibold text-gray-400">관리자 메모 (내부용)</p>
             <textarea
               value={note}
               onChange={e => setNote(e.target.value)}
@@ -403,7 +403,7 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
               className="w-full rounded-xl border border-gray-700 bg-gray-900 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
             />
             <div className="mt-2 flex items-center justify-between">
-              <p className="text-[11px] text-gray-500">{note.length}/1000</p>
+              <p className="text-[11px] text-gray-400">{note.length}/1000</p>
               <button
                 onClick={handleSaveNote}
                 disabled={noteSaving || !noteDirty}
@@ -422,7 +422,7 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
 function KV({ label, value, full }: { label: string; value: string; full?: boolean }) {
   return (
     <div className={`rounded-lg bg-gray-800/40 px-3 py-2 ${full ? 'col-span-2' : ''}`}>
-      <p className="text-[10px] text-gray-500">{label}</p>
+      <p className="text-[10px] text-gray-400">{label}</p>
       <p className="text-xs text-gray-200 break-all">{value}</p>
     </div>
   )

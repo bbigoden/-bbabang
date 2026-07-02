@@ -120,7 +120,7 @@ export function BottomNav() {
               <span className="relative">
                 <Icon className={`h-5 w-5 ${active ? 'stroke-[2.5]' : ''}`} />
                 {it.badge !== undefined && it.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                  <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
                     {it.badge > 9 ? '9+' : it.badge}
                   </span>
                 )}
@@ -260,7 +260,7 @@ export function BottomNav() {
                 <span className="relative">
                   <Bell className="h-4 w-4" />
                   {unread > 0 && (
-                    <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                    <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
                       {unread > 9 ? '9+' : unread}
                     </span>
                   )}

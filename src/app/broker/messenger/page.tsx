@@ -499,7 +499,7 @@ export default function BrokerMessengerPage() {
                       <div className="flex items-center gap-1">
                         <span className="truncate text-xs text-gray-400">{previews[t.id]?.body ?? '대화를 시작해보세요'}</span>
                         {isUnread && (
-                          <span className="ml-auto flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                          <span className="ml-auto flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
                             {cnt > 99 ? '99+' : cnt}
                           </span>
                         )}
@@ -518,6 +518,9 @@ export default function BrokerMessengerPage() {
             onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIsDragging(false) }}
             onDrop={handleDrop}
           >
+            {/* 모바일 대화뷰에선 좌측 aside(h1 "사내 대화")가 숨겨지므로, 화면에 h1이 없어짐.
+                sr-only h1을 두되 sm 이상에선 aside h1과 중복되지 않도록 display:none 처리 */}
+            <h1 className="sr-only sm:hidden">사내 대화</h1>
             {activeThread && isDragging && (
               <div className="absolute inset-0 z-20 flex items-center justify-center bg-blue-500/10 border-2 border-dashed border-blue-400 m-2 rounded-xl pointer-events-none">
                 <div className="rounded-xl bg-white dark:bg-gray-900 px-4 py-3 text-sm font-semibold text-blue-600 shadow-lg flex items-center gap-2">
@@ -536,7 +539,7 @@ export default function BrokerMessengerPage() {
                     {activeThread.kind === 'group' ? <Hash className="h-4 w-4" /> : activeThread.kind === 'team' ? <Users className="h-4 w-4" /> : (threadLabel(activeThread)[0] ?? '·')}
                   </div>
                   <span className="font-bold text-gray-900 dark:text-white">{threadLabel(activeThread)}</span>
-                  {activeThread.kind === 'group' && <span className="text-xs text-gray-400">· {members.length}명</span>}
+                  {activeThread.kind === 'group' && <span className="text-xs text-gray-500 dark:text-gray-400">· {members.length}명</span>}
                   {activeThread.kind === 'team' && (
                     <>
                       <button onClick={renameActiveThread} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600" title="방 이름 변경" aria-label="방 이름 변경">
@@ -548,7 +551,7 @@ export default function BrokerMessengerPage() {
                     </>
                   )}
                   <span className="ml-auto" />
-                  {activeThread.kind === 'team' && <span className="text-xs text-gray-400">{activeMembers.length}명</span>}
+                  {activeThread.kind === 'team' && <span className="text-xs text-gray-500 dark:text-gray-400">{activeMembers.length}명</span>}
                   {activeThread.kind !== 'group' && (
                     <button onClick={leaveThread} className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10" title="대화방 나가기" aria-label="대화방 나가기">
                       <LogOut className="h-4 w-4" />
@@ -571,7 +574,7 @@ export default function BrokerMessengerPage() {
                       <Fragment key={m.id}>
                         {showDate && (
                           <div className="flex justify-center py-1.5">
-                            <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-0.5 text-[11px] text-gray-500">{dateLabel(m.created_at)}</span>
+                            <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-0.5 text-[11px] text-gray-600 dark:text-gray-400">{dateLabel(m.created_at)}</span>
                           </div>
                         )}
                         <div className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}>
@@ -614,9 +617,9 @@ export default function BrokerMessengerPage() {
                                 if (u === null) return null
                                 return u > 0
                                   ? <span className="text-[10px] font-bold text-amber-500">{u}</span>
-                                  : <span className="text-[10px] text-gray-400">읽음</span>
+                                  : <span className="text-[10px] text-gray-500 dark:text-gray-400">읽음</span>
                               })()}
-                              <span className="text-[10px] text-gray-400">{timeLabel(m.created_at)}</span>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">{timeLabel(m.created_at)}</span>
                             </div>
                           </div>
                         </div>

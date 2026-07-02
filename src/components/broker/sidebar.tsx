@@ -187,7 +187,7 @@ export function BrokerSidebar() {
                   <span className="relative flex-shrink-0">
                     <Icon className="h-4 w-4" />
                     {badge > 0 && collapsed && (
-                      <span className="absolute -top-1 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                      <span className="absolute -top-1 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
                         {badge > 9 ? '9+' : badge}
                       </span>
                     )}
@@ -196,7 +196,7 @@ export function BrokerSidebar() {
                     <span className="flex flex-1 items-center justify-between gap-2">
                       <span>{item.label}</span>
                       {badge > 0 && (
-                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
                           {badge > 9 ? '9+' : badge}
                         </span>
                       )}
@@ -227,7 +227,7 @@ export function BrokerSidebar() {
             <Bell className="h-4 w-4" />
             {unread > 0 && (
               <span className={cn(
-                'absolute flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white',
+                'absolute flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white',
                 collapsed ? '-top-1 -right-1.5' : '-top-1.5 -right-2',
               )}>
                 {unread > 9 ? '9+' : unread}

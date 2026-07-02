@@ -247,7 +247,7 @@ export default function AdminStatsPage() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">통계·분석</h1>
-              <p className="text-xs text-gray-500">시계열 추이 및 지역별 분포</p>
+              <p className="text-xs text-gray-400">시계열 추이 및 지역별 분포</p>
             </div>
           </div>
 
@@ -256,7 +256,7 @@ export default function AdminStatsPage() {
               {([7, 30, 90] as const).map(d => (
                 <button key={d} onClick={() => setRange(d)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    range === d ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-800 hover:text-white'
+                    range === d ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}>
                   {d}일
                 </button>
@@ -367,7 +367,7 @@ function SummaryCard({ label, value, icon: Icon, color }: { label: string; value
         <Icon className="h-4 w-4" />
       </div>
       <p className="text-2xl font-black text-white">{value}</p>
-      <p className="mt-0.5 text-xs text-gray-500">{label}</p>
+      <p className="mt-0.5 text-xs text-gray-400">{label}</p>
     </div>
   )
 }
@@ -376,7 +376,7 @@ function ChartCard({ title, icon: Icon, children }: { title: string; icon: any; 
   return (
     <div className="rounded-2xl border border-gray-800 bg-gray-900 p-5">
       <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-gray-500" />
+        <Icon className="h-4 w-4 text-gray-400" />
         <h2 className="font-bold text-white">{title}</h2>
       </div>
       {children}
@@ -425,7 +425,7 @@ function DualLineBars({ primary, primaryLabel, primaryColor, secondary, secondar
           )
         })}
       </div>
-      <div className="mt-2 flex justify-between text-[10px] text-gray-500">
+      <div className="mt-2 flex justify-between text-[10px] text-gray-400">
         <span>{primary[0]?.date.slice(5)}</span>
         <span>{primary[primary.length - 1]?.date.slice(5)}</span>
       </div>
@@ -436,10 +436,10 @@ function DualLineBars({ primary, primaryLabel, primaryColor, secondary, secondar
 function FunnelChart({ stages }: { stages: FunnelStage[] }) {
   const top = stages[0]?.count ?? 0
   if (stages.length === 0) {
-    return <EmptyState variant="inline" message="데이터가 없어요" />
+    return <EmptyState variant="inline" message="데이터가 없어요" darkBg />
   }
   if (top === 0) {
-    return <EmptyState variant="inline" message="아직 의뢰가 없어 전환을 계산할 수 없어요" />
+    return <EmptyState variant="inline" message="아직 의뢰가 없어 전환을 계산할 수 없어요" darkBg />
   }
   return (
     <ul className="space-y-2.5">
@@ -452,7 +452,7 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
           <li key={s.key}>
             <div className="mb-1 flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 text-gray-300">
-                <span className="text-gray-500">{i + 1}.</span> {s.label}
+                <span className="text-gray-400">{i + 1}.</span> {s.label}
                 {stepRate != null && (
                   <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-bold ${
                     stepRate >= 50 ? 'bg-green-500/15 text-green-400' : stepRate >= 20 ? 'bg-yellow-500/15 text-yellow-400' : 'bg-red-500/15 text-red-400'
@@ -461,7 +461,7 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
                   </span>
                 )}
               </span>
-              <span className="font-bold text-white">{s.count}<span className="ml-1 text-[10px] font-medium text-gray-500">({overallPct}%)</span></span>
+              <span className="font-bold text-white">{s.count}<span className="ml-1 text-[10px] font-medium text-gray-400">({overallPct}%)</span></span>
             </div>
             <div className="h-6 rounded-lg bg-gray-800 overflow-hidden">
               <div className={`h-full ${s.color} rounded-lg transition-all flex items-center justify-end pr-2`} style={{ width: `${widthPct}%` }}>
@@ -478,7 +478,7 @@ function FunnelChart({ stages }: { stages: FunnelStage[] }) {
 function RankBars({ rows, barColor }: { rows: RegionRow[]; barColor: string }) {
   const max = Math.max(1, ...rows.map(r => r.count))
   if (rows.length === 0) {
-    return <EmptyState variant="inline" message="데이터가 없어요" />
+    return <EmptyState variant="inline" message="데이터가 없어요" darkBg />
   }
   return (
     <ul className="space-y-2">
@@ -486,7 +486,7 @@ function RankBars({ rows, barColor }: { rows: RegionRow[]; barColor: string }) {
         <li key={r.region}>
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-gray-300">
-              <span className="text-gray-500 mr-1.5">{i + 1}.</span> {r.region}
+              <span className="text-gray-400 mr-1.5">{i + 1}.</span> {r.region}
             </span>
             <span className="font-bold text-white">{r.count}</span>
           </div>
