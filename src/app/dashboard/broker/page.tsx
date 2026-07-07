@@ -8,7 +8,6 @@ import { Star, MapPin, CheckCircle, Target, Clock, Calculator, MessageCircle, Th
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
-import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { PushPrompt } from '@/components/push-prompt'
 import { BrokerStatsPanel } from '@/components/broker/stats-panel'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
@@ -165,14 +164,11 @@ export default async function BrokerDashboardPage() {
           </div>
         )}
 
-        {/* 사무소 탈퇴 버튼 — 승인된 직원에게만 표시 */}
+        {/* 소속 사무소 표시 — 승인된 직원에게만 (탈퇴는 설정 > 내 계정으로 이동) */}
         {broker.is_owner === false && broker.is_approved === true && broker.parent_broker_id && (
-          <div className="mb-6 flex items-center justify-between rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4">
-            <div>
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{broker.office_name}</p>
-              <p className="text-xs text-gray-500 mt-0.5">소속 사무소</p>
-            </div>
-            <BrokerChangeOffice brokerId={broker.id} parentBrokerId={broker.parent_broker_id} />
+          <div className="mb-6 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-5 py-4">
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{broker.office_name}</p>
+            <p className="text-xs text-gray-500 mt-0.5">소속 사무소</p>
           </div>
         )}
 

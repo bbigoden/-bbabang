@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2, Shield, ShieldCheck, ShieldOff, Copy } from 'lucide-react'
+import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2, Shield, ShieldCheck, ShieldOff, Copy, LogOut } from 'lucide-react'
 import { transferBrokerData } from '@/lib/leave-office'
+import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
 
 export default function SettingsAccountPage() {
@@ -12,6 +13,7 @@ export default function SettingsAccountPage() {
   const supabase = createClient()
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null)
   const [profile, setProfile] = useState<{ name?: string; phone?: string; role?: string; created_at?: string } | null>(null)
+  const [broker, setBroker] = useState<{ id: string; is_owner: boolean | null; is_approved: boolean | null; parent_broker_id: string | null; office_name: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
 
   // 기본 정보
@@ -51,6 +53,12 @@ export default function SettingsAccountPage() {
       setUser({ id: user.id, email: user.email })
       const { data: p } = await supabase.from('profiles').select('name, phone, role, created_at').eq('id', user.id).single()
       if (p) { setProfile(p); setName(p.name ?? ''); setPhone(p.phone ?? '') }
+      // 소속 직원이면 '사무소 탈퇴' 노출용 중개사 프로필 조회
+      const { data: bp } = await supabase.from('broker_profiles')
+        .select('id, is_owner, is_approved, parent_broker_id, office_name')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (bp) setBroker(bp)
       // 2FA 등록 여부 조회
       const { data: factors } = await supabase.auth.mfa.listFactors()
       const totp = factors?.totp?.find(f => f.status === 'verified')
@@ -383,6 +391,20 @@ export default function SettingsAccountPage() {
               </button>
         )}
       </div>
+
+      {/* 사무소 탈퇴 — 승인된 소속 직원에게만 표시 */}
+      {broker && broker.is_owner === false && broker.is_approved === true && broker.parent_broker_id && (
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
+          <h2 className="mb-1 font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <LogOut className="h-4 w-4 text-gray-500" /> 사무소 탈퇴
+          </h2>
+          <p className="mb-4 text-sm text-gray-500">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{broker.office_name}</span> 소속에서 나갑니다.
+            입력한 매물·고객·업무일지 등 영업 기록은 사무소(대표)에 귀속되고, 새 사무소 코드로 다시 등록할 수 있어요.
+          </p>
+          <BrokerChangeOffice brokerId={broker.id} parentBrokerId={broker.parent_broker_id} />
+        </div>
+      )}
 
       {/* 회원탈퇴 */}
       <div className="rounded-2xl border border-red-100 bg-white dark:bg-gray-900 p-6">
