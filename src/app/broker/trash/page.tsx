@@ -87,6 +87,9 @@ export default function TrashPage() {
     setCusts(prev => prev.filter(c => c.id !== id))
   }
 
+  // 영구삭제는 대표(사무소 운영자)·솔로 중개사만. 소속 직원은 소프트 삭제(휴지통)까지만 가능.
+  const canPurge = auth.broker?.is_owner !== false
+
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
@@ -102,7 +105,10 @@ export default function TrashPage() {
 
         <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-          <p>삭제된 매물·고객은 <b>30일 동안</b> 휴지통에 보관되고 자동으로 영구 삭제됩니다. 그 전엔 언제든 복원 가능합니다.</p>
+          <p>
+            삭제된 매물·고객은 <b>30일 동안</b> 휴지통에 보관되고 자동으로 영구 삭제됩니다. 그 전엔 언제든 복원 가능합니다.
+            {!canPurge && <span className="block mt-1">영구삭제는 대표(사무소 운영자)만 할 수 있어요.</span>}
+          </p>
         </div>
 
         {/* 탭 */}
@@ -138,10 +144,12 @@ export default function TrashPage() {
                     className="flex items-center gap-1 rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50">
                     <RotateCcw className="h-3.5 w-3.5" />복원
                   </button>
-                  <button onClick={() => purgeProperty(p.id)} disabled={busy === p.id}
-                    className="flex items-center gap-1 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
-                    <Trash2 className="h-3.5 w-3.5" />영구삭제
-                  </button>
+                  {canPurge && (
+                    <button onClick={() => purgeProperty(p.id)} disabled={busy === p.id}
+                      className="flex items-center gap-1 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
+                      <Trash2 className="h-3.5 w-3.5" />영구삭제
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -163,10 +171,12 @@ export default function TrashPage() {
                     className="flex items-center gap-1 rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50">
                     <RotateCcw className="h-3.5 w-3.5" />복원
                   </button>
-                  <button onClick={() => purgeCustomer(c.id)} disabled={busy === c.id}
-                    className="flex items-center gap-1 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
-                    <Trash2 className="h-3.5 w-3.5" />영구삭제
-                  </button>
+                  {canPurge && (
+                    <button onClick={() => purgeCustomer(c.id)} disabled={busy === c.id}
+                      className="flex items-center gap-1 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
+                      <Trash2 className="h-3.5 w-3.5" />영구삭제
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
