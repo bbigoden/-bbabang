@@ -700,11 +700,12 @@ export default function BrokerDiaryPage() {
   // 고객 피커: 기존 고객 추가 (direction에 따라 위/아래)
   const addExistingCustomer = async (c: Customer) => {
     if (!broker) return
+    const targetBrokerId = viewingBrokerId ?? broker.id  // 직원 일지 보는 중이면 그 직원 일지에 저장
     const orders = diaryCustomers.map(d => d.sort_order)
     const nextOrder = direction === 'up'
       ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
       : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
-    const { data, error } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: c.id, sort_order: nextOrder }).select('id').single()
+    const { data, error } = await supabase.from('broker_diary_customers').insert({ broker_id: targetBrokerId, diary_date: diaryDate, customer_id: c.id, sort_order: nextOrder }).select('id').single()
     if (!error && data) {
       setDiaryCustomers(prev => direction === 'up'
         ? [{ link_id: data.id, sort_order: nextOrder, proposed_property_ids: [], ...c }, ...prev]
@@ -719,9 +720,10 @@ export default function BrokerDiaryPage() {
   const createAndAddCustomer = async () => {
     if (!broker) return
     setShowPicker(false)
+    const targetBrokerId = viewingBrokerId ?? broker.id  // 직원 일지 보는 중이면 그 직원 소유로 생성
     const { data: newCust, error: ce } = await supabase.from('broker_customers').insert({
-      broker_id: broker.id, client_name: '', request: '', contact: null,
-      received_date: null, assignee: profile?.name ?? null, source: null,
+      broker_id: targetBrokerId, client_name: '', request: '', contact: null,
+      received_date: null, assignee: viewingName || null, source: null,  // 담당자도 보고 있는 대상
       category: '', status: '',
     }).select().single()
     if (ce || !newCust) return
@@ -730,7 +732,7 @@ export default function BrokerDiaryPage() {
     const nextOrder = direction === 'up'
       ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
       : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
-    const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: broker.id, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
+    const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: targetBrokerId, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
     if (link) {
       setDiaryCustomers(prev => direction === 'up'
         ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
@@ -924,17 +926,18 @@ export default function BrokerDiaryPage() {
   const importFromDate = async () => {
     if (!broker || !importDate) return
     setImporting(true)
+    const targetBrokerId = viewingBrokerId ?? broker.id  // 직원 일지 보는 중이면 그 직원 일지로 불러오기
     const [{ data: sourceLinks }, { data: sourceDiary }] = await Promise.all([
       supabase.from('broker_diary_customers')
         .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
-        .eq('broker_id', broker.id).eq('diary_date', importDate).order('sort_order'),
-      supabase.from('broker_diary').select('sections_content').eq('broker_id', broker.id).eq('date', importDate).maybeSingle(),
+        .eq('broker_id', targetBrokerId).eq('diary_date', importDate).order('sort_order'),
+      supabase.from('broker_diary').select('sections_content').eq('broker_id', targetBrokerId).eq('date', importDate).maybeSingle(),
     ])
     // 현재 날짜 고객 링크 삭제 후 재삽입
-    await supabase.from('broker_diary_customers').delete().eq('broker_id', broker.id).eq('diary_date', diaryDate)
+    await supabase.from('broker_diary_customers').delete().eq('broker_id', targetBrokerId).eq('diary_date', diaryDate)
     if (sourceLinks && sourceLinks.length > 0) {
       const inserts = sourceLinks.map((l: any, idx: number) => ({
-        broker_id: broker.id, diary_date: diaryDate,
+        broker_id: targetBrokerId, diary_date: diaryDate,
         customer_id: (l.broker_customers as any).id, sort_order: idx,
         proposed_property_ids: l.proposed_property_ids ?? [],
       }))
@@ -948,11 +951,11 @@ export default function BrokerDiaryPage() {
     // 섹션 내용 복사
     const newContent = sourceDiary?.sections_content ?? {}
     const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
-    const { data: existingDiary } = await supabase.from('broker_diary').select('id').eq('broker_id', broker.id).eq('date', diaryDate).maybeSingle()
+    const { data: existingDiary } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
     if (existingDiary) await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
     else {
-      await supabase.from('broker_diary').insert({ broker_id: broker.id, date: diaryDate, ...payload })
-      notifyOwnerOfBrokerAction(broker.id, 'diary', `/broker/diary?date=${diaryDate}&broker=${broker.id}`)
+      await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
+      notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
     }
     setSectionContent(newContent)
     setImporting(false)
