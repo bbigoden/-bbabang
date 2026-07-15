@@ -91,6 +91,28 @@ const DEFAULT_SECTIONS: SectionDef[] = [
   { id: 's_suggest',  title: '건의사항' },
   { id: 's_delivery', title: '전달사항' },
 ]
+// 기본 섹션 id의 이름 — 레거시 데이터에서 이름을 복원할 때 사용
+const KNOWN_SECTION_TITLES: Record<string, string> = {
+  s_work: '업무요약', s_ad: '광고현황', s_suggest: '건의사항', s_delivery: '전달사항',
+}
+
+// 이 날짜에 보여줄 섹션 목록을 결정한다.
+// 1) 날짜별 섹션(perDate)이 있으면 그대로 사용 — 이 날짜에서 추가/삭제한 결과가 우선
+//    (의도적으로 삭제한 섹션이 되살아나면 안 되므로 perDate가 있으면 안전망 미적용)
+// 2) 없으면(레거시 날짜) 이 사람의 기존 전역 섹션(legacy) → 그것도 없으면 기본값
+// 3) 안전망: 기본 섹션(업무요약·광고현황·건의사항·전달사항)에 내용이 있는데 목록에서
+//    빠졌다면 되살린다. 전역에서 지워진 기본 섹션의 과거 내용이 사라지지 않게 하는 용도.
+//    이름을 알 수 없는 옛 커스텀 키는 되살리지 않는다(애매한 '기타' 박스 남발 방지).
+//    — 어느 경우든 내용 자체는 DB(sections_content)에 그대로 보존됨.
+function resolveSections(perDate: any, legacy: any, contentKeys: string[]): SectionDef[] {
+  if (Array.isArray(perDate) && perDate.length > 0) return perDate as SectionDef[]
+  const base: SectionDef[] = (Array.isArray(legacy) && legacy.length > 0) ? legacy as SectionDef[] : DEFAULT_SECTIONS
+  const have = new Set(base.map(s => s.id))
+  const extra = contentKeys
+    .filter(k => KNOWN_SECTION_TITLES[k] && !have.has(k))
+    .map(k => ({ id: k, title: KNOWN_SECTION_TITLES[k] }))
+  return extra.length > 0 ? [...base, ...extra] : base
+}
 
 
 
@@ -476,6 +498,7 @@ export default function BrokerDiaryPage() {
   const [showPicker, setShowPicker] = useState(false)
   const [propertyPickerLinkId, setPropertyPickerLinkId] = useState<string | null>(null) // 매물 피커 대상
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null) // link_id
+  const [sectionDeleteConfirm, setSectionDeleteConfirm] = useState<{ id: string; title: string } | null>(null) // 섹션 삭제 확인
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const wasDragRef = useRef(false)
@@ -483,7 +506,6 @@ export default function BrokerDiaryPage() {
   // Section 2-5 데이터
   const [sections, setSections] = useState<SectionDef[]>(DEFAULT_SECTIONS)
   const [sectionContent, setSectionContent] = useState<Record<string, string>>({})
-  const sectionsDebounceRef = useRef<any>(null)
 
   // 날짜
   const [diaryDate, setDiaryDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -521,31 +543,6 @@ export default function BrokerDiaryPage() {
   }, [auth.loading, auth.user?.id, auth.broker?.id])
   useEffect(() => { if (broker) loadDiaryData(diaryDate) }, [diaryDate, broker?.id, viewingBrokerId, viewingExEmployee])
 
-  // viewingBrokerId 변경 시 그 직원의 일지 섹션 정의를 로드 (직원별 다른 섹션 지원)
-  useEffect(() => {
-    if (!broker) return
-    // 퇴사자는 broker_profiles 행이 없을 수 있고 col_settings도 의미 없음 — 기본 섹션 사용
-    if (viewingExEmployee) {
-      setSections(DEFAULT_SECTIONS)
-      return
-    }
-    const targetId = viewingBrokerId ?? broker.id
-    if (targetId === broker.id) {
-      const saved = (broker.col_settings as any)?.diary_sections?.sections
-      setSections(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SECTIONS)
-      return
-    }
-    ;(async () => {
-      const { data } = await supabase
-        .from('broker_profiles')
-        .select('col_settings')
-        .eq('id', targetId)
-        .maybeSingle()
-      const saved = (data?.col_settings as any)?.diary_sections?.sections
-      setSections(Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_SECTIONS)
-    })()
-  }, [broker?.id, viewingBrokerId, viewingExEmployee, supabase])
-
   const init = async () => {
     const u = auth.user!
     const b = auth.broker!
@@ -557,10 +554,6 @@ export default function BrokerDiaryPage() {
     if (!owner) {
       if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
     }
-
-    // 본인 섹션 초기 로드 — 직원 일지 viewing 시는 아래 useEffect가 덮어씀
-    const savedSections = b.col_settings?.['diary_sections']?.sections
-    if (Array.isArray(savedSections) && savedSections.length > 0) setSections(savedSections)
 
     // 대표: 직원 목록 + 퇴사자 목록 로드
     if (owner) {
@@ -649,7 +642,7 @@ export default function BrokerDiaryPage() {
           .eq('diary_date', date)
           .order('sort_order'),
         supabase.from('broker_diary_archive')
-          .select('sections_content, work_summary, ad_status, suggestions, delivery_notes')
+          .select('sections, sections_content, work_summary, ad_status, suggestions, delivery_notes')
           .eq('office_broker_id', broker.id)
           .eq('author_broker_id', viewingBrokerId)
           .eq('date', date)
@@ -681,19 +674,30 @@ export default function BrokerDiaryPage() {
         content = fallback
       }
       setSectionContent(content)
+      // 퇴사자는 전역 섹션 정의가 없으므로 기본값 기준으로 복원
+      setSections(resolveSections((archDiary as any)?.sections, DEFAULT_SECTIONS, Object.keys(content)))
       setDiaryLoading(false)
       return
     }
 
     const targetId = viewingBrokerId ?? broker.id
+    // 이 대상의 레거시 전역 섹션 — 날짜별 섹션이 아직 없을 때 fallback 기준
+    let legacySections: any = null
+    if (targetId === broker.id) legacySections = (broker.col_settings as any)?.diary_sections?.sections
+    else {
+      const { data: prof } = await supabase.from('broker_profiles').select('col_settings').eq('id', targetId).maybeSingle()
+      legacySections = (prof?.col_settings as any)?.diary_sections?.sections
+    }
     const [{ data: links }, { data: diaryRow }] = await Promise.all([
       supabase.from('broker_diary_customers')
         .select('id, sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
         .eq('broker_id', targetId).eq('diary_date', date).order('sort_order'),
-      supabase.from('broker_diary').select('sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
+      supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
     ])
     setDiaryCustomers((links ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
-    setSectionContent(diaryRow?.sections_content ?? {})
+    const content = (diaryRow?.sections_content as any) ?? {}
+    setSectionContent(content)
+    setSections(resolveSections((diaryRow as any)?.sections, legacySections, Object.keys(content)))
     setDiaryLoading(false)
   }
 
@@ -839,6 +843,7 @@ export default function BrokerDiaryPage() {
           author_name: (nameRow as any)?.name ?? null,
           date: diaryDate,
           sections_content: newContent,
+          sections,  // 현재 구조를 함께 기록 (이 날짜 고정)
         })
       }
       setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
@@ -846,48 +851,72 @@ export default function BrokerDiaryPage() {
     }
 
     const targetBrokerId = viewingBrokerId ?? broker.id
+    const wasEmpty = Object.keys(sectionContent).length === 0  // 이 날 첫 내용인지
     const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
     const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
-    if (existing) await supabase.from('broker_diary').update(payload).eq('id', existing.id)
-    else {
-      await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
+    if (existing) {
+      await supabase.from('broker_diary').update(payload).eq('id', existing.id)
+      // 섹션 추가 등으로 행이 먼저 생겼다가 이제 첫 내용이 들어오는 경우도 알림
+      if (wasEmpty && value) notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
+    } else {
+      // 그날 첫 일지 작성 — 현재 섹션 구조를 함께 기록해 이 날짜에 고정
+      await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload, sections })
       // 그날 첫 일지 작성 시 대표에게 알림 (이후 셀 update는 알림 없음)
       notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
     }
     setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
-  }, [broker, diaryDate, sectionContent, viewingBrokerId, viewingExEmployee])
+  }, [broker, diaryDate, sectionContent, sections, viewingBrokerId, viewingExEmployee])
 
   // 섹션 이름 변경
   const renameSection = (id: string, title: string) => {
     const newSections = sections.map(s => s.id === id ? { ...s, title } : s)
     setSections(newSections)
-    saveSectionConfig(newSections)
+    persistSections(newSections)
   }
 
-  // 섹션 삭제
+  // 섹션 삭제 (이 날짜에서만 제거 — 다른 날짜는 영향 없음, 작성된 내용은 DB에 보존)
   const deleteSection = (id: string) => {
     const newSections = sections.filter(s => s.id !== id)
     setSections(newSections)
-    saveSectionConfig(newSections)
+    persistSections(newSections)
   }
 
-  // 섹션 추가
+  // 섹션 추가 (이 날짜에서만)
   const addSection = () => {
     const id = `s_${Date.now()}`
     const newSections = [...sections, { id, title: '새 섹션' }]
     setSections(newSections)
-    saveSectionConfig(newSections)
+    persistSections(newSections)
   }
 
-  // 섹션 설정 저장
-  const saveSectionConfig = async (newSections: SectionDef[]) => {
+  // 섹션 구조 저장 — 날짜별 (viewing 대상의 그날 일지 행에 저장)
+  // 퇴사자 archive 모드면 archive 행에 저장 (대표만). 행이 없으면 새로 만든다.
+  const persistSections = async (newSections: SectionDef[]) => {
     if (!broker) return
-    if (sectionsDebounceRef.current) clearTimeout(sectionsDebounceRef.current)
-    sectionsDebounceRef.current = setTimeout(async () => {
-      const { data } = await supabase.from('broker_profiles').select('col_settings').eq('id', broker.id).single()
-      const existing = data?.col_settings ?? {}
-      await supabase.from('broker_profiles').update({ col_settings: { ...existing, diary_sections: { sections: newSections } } }).eq('id', broker.id)
-    }, 500)
+    if (viewingExEmployee && viewingBrokerId) {
+      const { data: existing } = await supabase.from('broker_diary_archive')
+        .select('id')
+        .eq('office_broker_id', broker.id)
+        .eq('author_broker_id', viewingBrokerId)
+        .eq('date', diaryDate)
+        .maybeSingle()
+      if (existing) await supabase.from('broker_diary_archive').update({ sections: newSections }).eq('id', existing.id)
+      else {
+        const { data: prof } = await supabase.from('broker_profiles').select('user_id').eq('id', viewingBrokerId).maybeSingle()
+        const { data: nameRow } = prof?.user_id
+          ? await supabase.from('profiles').select('name').eq('id', prof.user_id).maybeSingle()
+          : { data: null }
+        await supabase.from('broker_diary_archive').insert({
+          office_broker_id: broker.id, author_broker_id: viewingBrokerId,
+          author_name: (nameRow as any)?.name ?? null, date: diaryDate, sections: newSections,
+        })
+      }
+      return
+    }
+    const targetBrokerId = viewingBrokerId ?? broker.id
+    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
+    if (existing) await supabase.from('broker_diary').update({ sections: newSections, updated_at: new Date().toISOString() }).eq('id', existing.id)
+    else await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, sections: newSections })
   }
 
   // 칼럼 설정 헬퍼
@@ -931,7 +960,7 @@ export default function BrokerDiaryPage() {
       supabase.from('broker_diary_customers')
         .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
         .eq('broker_id', targetBrokerId).eq('diary_date', importDate).order('sort_order'),
-      supabase.from('broker_diary').select('sections_content').eq('broker_id', targetBrokerId).eq('date', importDate).maybeSingle(),
+      supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetBrokerId).eq('date', importDate).maybeSingle(),
     ])
     // 현재 날짜 고객 링크 삭제 후 재삽입
     await supabase.from('broker_diary_customers').delete().eq('broker_id', targetBrokerId).eq('diary_date', diaryDate)
@@ -948,9 +977,10 @@ export default function BrokerDiaryPage() {
     } else {
       setDiaryCustomers([])
     }
-    // 섹션 내용 복사
+    // 섹션 내용 + 구조 복사 (불러온 날의 섹션 구성을 이 날짜로 가져옴)
     const newContent = sourceDiary?.sections_content ?? {}
-    const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
+    const newSections = resolveSections((sourceDiary as any)?.sections, sections, Object.keys(newContent))
+    const payload = { sections_content: newContent, sections: newSections, updated_at: new Date().toISOString() }
     const { data: existingDiary } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
     if (existingDiary) await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
     else {
@@ -958,6 +988,7 @@ export default function BrokerDiaryPage() {
       notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
     }
     setSectionContent(newContent)
+    setSections(newSections)
     setImporting(false)
     setShowImport(false)
   }
@@ -1166,7 +1197,7 @@ export default function BrokerDiaryPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sections.map((def, idx) => (
               <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
-                onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={deleteSection} readOnly={!canEditSections} />
+                onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={(id) => setSectionDeleteConfirm({ id, title: def.title })} readOnly={!canEditSections} />
             ))}
             {effectiveCanEdit && (
               <button onClick={addSection} className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-colors">
@@ -1229,6 +1260,20 @@ export default function BrokerDiaryPage() {
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={() => unlinkCustomer(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">제거</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 섹션 삭제 확인 */}
+      {sectionDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">‘{sectionDeleteConfirm.title}’ 섹션을 삭제할까요?</h3>
+            <p className="text-sm text-gray-500 mb-6">이 섹션은 <span className="font-semibold text-gray-700 dark:text-gray-300">모든 날짜의 업무일지</span>에서 사라져요. 이미 작성한 내용은 남아 있어, 같은 섹션을 다시 만들면 복구됩니다.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setSectionDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+              <button onClick={() => { deleteSection(sectionDeleteConfirm.id); setSectionDeleteConfirm(null) }} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
             </div>
           </div>
         </div>
