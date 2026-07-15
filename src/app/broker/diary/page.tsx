@@ -1270,7 +1270,7 @@ export default function BrokerDiaryPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">‘{sectionDeleteConfirm.title}’ 섹션을 삭제할까요?</h3>
-            <p className="text-sm text-gray-500 mb-6">이 섹션은 <span className="font-semibold text-gray-700 dark:text-gray-300">모든 날짜의 업무일지</span>에서 사라져요. 이미 작성한 내용은 남아 있어, 같은 섹션을 다시 만들면 복구됩니다.</p>
+            <p className="text-sm text-gray-500 mb-6"><span className="font-semibold text-gray-700 dark:text-gray-300">이 날짜의 일지에서만</span> 사라지고, 다른 날짜는 그대로예요. 작성한 내용은 남아 있어, 같은 날 이 섹션을 다시 만들면 복구됩니다.</p>
             <div className="flex gap-3">
               <button onClick={() => setSectionDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={() => { deleteSection(sectionDeleteConfirm.id); setSectionDeleteConfirm(null) }} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
