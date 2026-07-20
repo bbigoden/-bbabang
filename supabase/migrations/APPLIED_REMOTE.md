@@ -159,7 +159,13 @@ Supabase MCP `list_migrations` 결과 (2026-05-28 기준, 152개).
 20260527080042_assignee_notification_trigger_generalized
 20260527080622_internal_config_table
 20260527150613_lock_down_new_security_definer_functions
+20260707065245_block_employee_purge_from_trash
+20260715020742_add_per_date_sections_to_diary
+20260720072610_diary_customers_keep_history_after_soft_delete
 ```
+
+> 위 세 건은 원격에만 적용돼 있고 이 목록에서 누락돼 있던 것을 2026-07-20에 보충 기록했다.
+> (`supabase_migrations.schema_migrations` 기준으로 대조)
 
 ## 향후 정책
 
