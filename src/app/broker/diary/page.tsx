@@ -18,6 +18,7 @@ import { TextCell } from '@/components/sheet/cells/text-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { EmptyState } from '@/components/empty-state'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
@@ -611,22 +612,6 @@ export default function BrokerDiaryPage() {
 
     // 피커 데이터(고객·매물 전건)는 화면을 막지 않고 뒤에서 채운다 — await 하지 않음
     void loadPickerData(b, owner)
-  }
-
-  // 1000건씩 끊어서 전부 가져오기 (PostgREST 기본 max-rows 우회)
-  const fetchAllPaged = async (
-    build: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
-  ) => {
-    const PAGE = 1000
-    const all: any[] = []
-    for (let from = 0; ; from += PAGE) {
-      const { data: page, error } = await build(from, from + PAGE - 1)
-      if (error) throw error
-      if (!page || page.length === 0) break
-      all.push(...page)
-      if (page.length < PAGE) break
-    }
-    return all
   }
 
   // 일지 피커용 매물·고객 로드 — 대표는 사무소 전체, 직원도 사무소 전체 fetch

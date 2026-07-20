@@ -15,6 +15,7 @@ import { useClickOutside } from '@/lib/use-click-outside'
 import { useToast } from '@/components/toast'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
@@ -416,8 +417,10 @@ export default function BrokerCustomersPage() {
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
-    const { data: rawData } = await supabase.from('broker_customers').select('*')
+    // 1000건에서 조용히 잘리면 고객이 목록에서 사라지므로 반드시 전건 페이지네이션
+    const rawData = await fetchAllPaged((from, to) => supabase.from('broker_customers').select('*')
       .in('broker_id', brokerIds).order('received_date', { ascending: false }).order('created_at', { ascending: false })
+      .range(from, to))
     // 직원 시점: 본인 작성(broker_id) 또는 본인이 담당자에 포함된 행만 노출.
     // 공동담당("오혜진, 권세현")도 콤마 분리 후 매칭해야 각 직원에게 잡힘.
     const data = owner

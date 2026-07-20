@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Calculator, FileText, Coins, Building2, Users, Crown, Trophy, TrendingUp } from 'lucide-react'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
 import { PROPERTY_STATUS_META } from '@/lib/property-status'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
 // 사장(대표) 전용 경영 현황 대시보드 — 사무소 전체 매출·직원별 실적·매물/고객 현황
 // 데이터 출처: settlements(office_broker_id), broker_properties/broker_customers(broker_id in 멤버)
@@ -60,6 +61,7 @@ export default async function OfficeDashboardPage() {
   let properties: any[] = []
   let customers: any[] = []
   try {
+    // 매물·고객은 1000건을 넘으면 조용히 잘려 집계가 실제보다 적게 나온다 → 전건 페이지네이션
     const [st, pr, cu] = await Promise.all([
       supabase
         .from('settlements')
@@ -67,15 +69,15 @@ export default async function OfficeDashboardPage() {
         .eq('office_broker_id', office)
         .gte('record_month', sixAgo),
       memberIds.length
-        ? supabase.from('broker_properties').select('broker_id, status').in('broker_id', memberIds)
-        : Promise.resolve({ data: [] as any[] }),
+        ? fetchAllPaged((from, to) => supabase.from('broker_properties').select('broker_id, status').in('broker_id', memberIds).range(from, to))
+        : Promise.resolve([] as any[]),
       memberIds.length
-        ? supabase.from('broker_customers').select('broker_id, status').in('broker_id', memberIds)
-        : Promise.resolve({ data: [] as any[] }),
+        ? fetchAllPaged((from, to) => supabase.from('broker_customers').select('broker_id, status').in('broker_id', memberIds).range(from, to))
+        : Promise.resolve([] as any[]),
     ])
     settlements = st.data ?? []
-    properties = pr.data ?? []
-    customers = cu.data ?? []
+    properties = pr
+    customers = cu
   } catch {
     // 빈 상태로 렌더
   }
