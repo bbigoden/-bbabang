@@ -788,17 +788,23 @@ export default function BrokerDiaryPage() {
       const { data: prof } = await supabase.from('broker_profiles').select('col_settings').eq('id', targetId).maybeSingle()
       legacySections = (prof?.col_settings as any)?.diary_sections?.sections
     }
-    const [{ data: links }, { data: diaryRow }] = await Promise.all([
-      supabase.from('broker_diary_customers')
-        .select('id, sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
-        .eq('broker_id', targetId).eq('diary_date', date).order('sort_order'),
+    // 일반 조인 대신 RPC를 쓰는 이유: broker_customers RLS가 deleted_at IS NULL을
+    // 요구해서, 고객을 휴지통에 보내면 과거 일지에서까지 사라졌다. 일지는 그날의
+    // 기록이므로 삭제된 고객도 그대로 남아야 한다(is_deleted로 구분해서 받는다).
+    const [{ data: links, error: linkErr }, { data: diaryRow }] = await Promise.all([
+      supabase.rpc('diary_customers_for_date', { p_broker_id: targetId, p_date: date }),
       supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
     ])
+    if (linkErr) throw linkErr
     if (stale()) return
-    // 휴지통으로 간 고객은 RLS에 걸려 조인이 null → 그대로 펼치면 빈 유령 행이 생긴다.
-    // 링크는 남겨두고 표시만 건너뛴다(휴지통에서 복구하면 다시 보여야 함).
-    setDiaryCustomers((links ?? []).filter((l: any) => l.broker_customers)
-      .map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
+    setDiaryCustomers((links ?? []).map((l: any) => ({
+      link_id: l.link_id, sort_order: l.sort_order,
+      proposed_property_ids: l.proposed_property_ids ?? [],
+      id: l.id, client_name: l.client_name, contact: l.contact,
+      received_date: l.received_date, assignee: l.assignee, category: l.category,
+      source: l.source, status: l.status, request: l.request, interest: l.interest,
+      consult_note: l.consult_note, custom_fields: l.custom_fields,
+    })))
     const content = (diaryRow?.sections_content as any) ?? {}
     setSectionContent(content)
     setSections(resolveSections((diaryRow as any)?.sections, legacySections, Object.keys(content)))
@@ -1064,9 +1070,7 @@ export default function BrokerDiaryPage() {
     try {
       // 1) 원본을 먼저 읽는다 — 여기서 실패하면 현재 일지는 손도 대지 않는다
       const [{ data: sourceLinks, error: srcLinkErr }, { data: sourceDiary, error: srcDiaryErr }] = await Promise.all([
-        supabase.from('broker_diary_customers')
-          .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
-          .eq('broker_id', targetBrokerId).eq('diary_date', importDate).order('sort_order'),
+        supabase.rpc('diary_customers_for_date', { p_broker_id: targetBrokerId, p_date: importDate }),
         supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetBrokerId).eq('date', importDate).maybeSingle(),
       ])
       if (srcLinkErr) throw srcLinkErr
@@ -1077,23 +1081,28 @@ export default function BrokerDiaryPage() {
         .delete().eq('broker_id', targetBrokerId).eq('diary_date', diaryDate)
       if (delErr) throw delErr
 
-      // 휴지통으로 간 고객은 RLS(deleted_at IS NULL)에 걸려 조인이 null로 온다.
-      // 링크 행은 남아있으므로 그대로 .id를 읽으면 터진다 → 건너뛴다.
-      // (삭제가 아니라 건너뛰기 — 고객을 휴지통에서 복구하면 다시 따라와야 하므로)
-      const liveLinks = (sourceLinks ?? []).filter((l: any) => l.broker_customers)
+      // 휴지통에 있는 고객은 새 일지로 가져오지 않는다. 과거 일지에는 기록으로 남지만,
+      // 불러오기는 "오늘 일지를 새로 만드는" 동작이라 정리한 고객이 되살아나면 안 된다.
+      const liveLinks = (sourceLinks ?? []).filter((l: any) => !l.is_deleted)
       if (liveLinks.length > 0) {
         const inserts = liveLinks.map((l: any, idx: number) => ({
           broker_id: targetBrokerId, diary_date: diaryDate,
-          customer_id: (l.broker_customers as any).id, sort_order: idx,
+          customer_id: l.id, sort_order: idx,
           proposed_property_ids: l.proposed_property_ids ?? [],
         }))
-        // proposed_property_ids를 select에 포함해야 제안매물이 화면에 그대로 따라온다
-        const { data: newLinks, error: insErr } = await supabase.from('broker_diary_customers')
-          .insert(inserts)
-          .select('id, sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
-          .order('sort_order')
+        const { error: insErr } = await supabase.from('broker_diary_customers').insert(inserts)
         if (insErr) throw insErr
-        setDiaryCustomers((newLinks ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
+        // 삽입 결과를 되읽지 않고 RPC로 다시 불러온다 — 표시 규칙을 로드 경로와 일치시키기 위해
+        const { data: fresh, error: freshErr } = await supabase.rpc('diary_customers_for_date', { p_broker_id: targetBrokerId, p_date: diaryDate })
+        if (freshErr) throw freshErr
+        setDiaryCustomers((fresh ?? []).map((l: any) => ({
+          link_id: l.link_id, sort_order: l.sort_order,
+          proposed_property_ids: l.proposed_property_ids ?? [],
+          id: l.id, client_name: l.client_name, contact: l.contact,
+          received_date: l.received_date, assignee: l.assignee, category: l.category,
+          source: l.source, status: l.status, request: l.request, interest: l.interest,
+          consult_note: l.consult_note, custom_fields: l.custom_fields,
+        })))
       } else {
         setDiaryCustomers([])
       }
