@@ -232,8 +232,9 @@ function ProposedPropertiesCell({ propIds, allProperties, onOpen, onRemove, read
 }
 
 // ── PropertyPicker ────────────────────────────────────
-function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
+function PropertyPicker({ allProperties, selectedIds, loading, onConfirm, onClose }: {
   allProperties: Property[]; selectedIds: string[]
+  loading: boolean  // 매물 목록이 아직 백그라운드 로드 중
   onConfirm: (ids: string[]) => void; onClose: () => void
 }) {
   const [search, setSearch] = useState('')
@@ -271,7 +272,7 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
         </div>
         <div className="max-h-64 overflow-y-auto">
           {filtered.length === 0
-            ? <EmptyState variant="inline" message="매물 없음" />
+            ? <EmptyState variant="inline" message={loading ? '매물 불러오는 중...' : '매물 없음'} />
             : filtered.map(p => (
               <div key={p.id} onClick={() => toggle(p.id)}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0">
@@ -303,9 +304,10 @@ function PropertyPicker({ allProperties, selectedIds, onConfirm, onClose }: {
 }
 
 // ── CustomerPicker ────────────────────────────────────
-function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId: _ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
+function CustomerPicker({ allCustomers, linkedIds, ownerName, loading, ownerBrokerId: _ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
   allCustomers: Customer[]; linkedIds: Set<string>
   ownerName: string  // 일지 주인 이름 — 표시용
+  loading: boolean   // 고객 목록이 아직 백그라운드 로드 중
   ownerBrokerId: string | null  // 일지 주인 broker_id — 그 사람 소유 고객만 필터
   onAddExisting: (c: Customer) => void
   onCreateNew: () => void; onClose: () => void
@@ -354,7 +356,9 @@ function CustomerPicker({ allCustomers, linkedIds, ownerName, ownerBrokerId: _ow
         <div className="flex-1 overflow-auto">
           {filtered.length === 0 ? (
             <div className="py-16 text-center text-sm text-gray-500">
-              {search ? '검색 결과 없음' : (ownerName ? `${ownerName} 담당의 가능 고객이 없어요` : '추가 가능한 고객이 없어요')}
+              {loading ? '고객 목록 불러오는 중...'
+                : search ? '검색 결과 없음'
+                : (ownerName ? `${ownerName} 담당의 가능 고객이 없어요` : '추가 가능한 고객이 없어요')}
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -495,6 +499,7 @@ export default function BrokerDiaryPage() {
   const [addingId, setAddingId] = useState<string | null>(null)
   const [allCustomers, setAllCustomers] = useState<Customer[]>([])   // 고객 피커용
   const [allProperties, setAllProperties] = useState<Property[]>([]) // 매물 피커용
+  const [pickersLoading, setPickersLoading] = useState(true)         // 피커 데이터 백그라운드 로드 중
   const [showPicker, setShowPicker] = useState(false)
   const [propertyPickerLinkId, setPropertyPickerLinkId] = useState<string | null>(null) // 매물 피커 대상
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null) // link_id
@@ -547,12 +552,24 @@ export default function BrokerDiaryPage() {
     const u = auth.user!
     const b = auth.broker!
     const prof = auth.profile
+    const owner = b.is_owner !== false
+    try {
+      await initEssential(u, b, prof, owner)
+    } catch (e) {
+      // 여기서 막히면 "불러오는 중..."에서 영영 멈추므로 반드시 화면은 띄운다
+      console.error('[diary] init 실패:', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 화면 표시에 꼭 필요한 것만 — 끝나는 즉시 일지가 렌더된다
+  const initEssential = async (u: any, b: any, prof: any, owner: boolean) => {
     setUser(u)
     setProfile(prof); setBroker(b)
-    const owner = b.is_owner !== false
     setIsOwner(owner)
     if (!owner) {
-      if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
+      if (b.is_approved === false) { setAccessDenied(true); return }
     }
 
     // 대표: 직원 목록 + 퇴사자 목록 로드
@@ -592,8 +609,31 @@ export default function BrokerDiaryPage() {
       setTeamMembers(prof?.name ? [prof.name] : [])
     }
 
-    // 일지 피커용 매물·고객 로드 — 대표는 사무소 전체, 직원도 사무소 전체 fetch
-    // (고객 피커는 UI에서 ownerName으로 다시 필터링되므로 본인 것만 노출됨)
+    // 피커 데이터(고객·매물 전건)는 화면을 막지 않고 뒤에서 채운다 — await 하지 않음
+    void loadPickerData(b, owner)
+  }
+
+  // 1000건씩 끊어서 전부 가져오기 (PostgREST 기본 max-rows 우회)
+  const fetchAllPaged = async (
+    build: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: any }>,
+  ) => {
+    const PAGE = 1000
+    const all: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await build(from, from + PAGE - 1)
+      if (error) throw error
+      if (!page || page.length === 0) break
+      all.push(...page)
+      if (page.length < PAGE) break
+    }
+    return all
+  }
+
+  // 일지 피커용 매물·고객 로드 — 대표는 사무소 전체, 직원도 사무소 전체 fetch
+  // (고객 피커는 UI에서 ownerName으로 다시 필터링되므로 본인 것만 노출됨)
+  const loadPickerData = async (b: any, owner: boolean) => {
+    setPickersLoading(true)
+    try {
     let brokerIds: string[] = [b.id]
     if (owner) {
       const { data: emps } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
@@ -603,34 +643,44 @@ export default function BrokerDiaryPage() {
       if (sibs) brokerIds = sibs.map((e: any) => e.id)
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
-    // 매물은 1000건씩 페이지네이션 (PostgREST max-rows 우회)
-    const fetchAllProps = async () => {
-      const PAGE = 1000
-      const all: any[] = []
-      for (let from = 0; ; from += PAGE) {
-        const { data: page } = await supabase.from('broker_properties')
-          .select('id, seq_no, address, deal_type, room_type, price, monthly_rent')
-          .in('broker_id', brokerIds).order('created_at', { ascending: false }).range(from, from + PAGE - 1)
-        if (!page || page.length === 0) break
-        all.push(...page)
-        if (page.length < PAGE) break
-      }
-      return all
-    }
-    const [{ data: custs }, props] = await Promise.all([
-      supabase.from('broker_customers')
+    // 고객도 매물도 1000건을 넘길 수 있으므로 양쪽 다 페이지네이션
+    const [custs, props] = await Promise.all([
+      fetchAllPaged((from, to) => supabase.from('broker_customers')
         .select('id, broker_id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields')
-        .in('broker_id', brokerIds).order('created_at', { ascending: false }),
-      fetchAllProps(),
+        .in('broker_id', brokerIds).order('created_at', { ascending: false }).range(from, to)),
+      fetchAllPaged((from, to) => supabase.from('broker_properties')
+        .select('id, seq_no, address, deal_type, room_type, price, monthly_rent')
+        .in('broker_id', brokerIds).order('created_at', { ascending: false }).range(from, to)),
     ])
-    setAllCustomers(custs ?? [])
+    setAllCustomers(custs)
     setAllProperties(props)
-    setLoading(false)
+    } catch (e) {
+      console.error('[diary] 피커 데이터 로드 실패:', e)
+    } finally {
+      setPickersLoading(false)
+    }
   }
+
+  // 날짜를 빠르게 넘기면 늦게 도착한 이전 응답이 최신 화면을 덮어쓰므로 요청 순번으로 차단
+  const diaryReqRef = useRef(0)
 
   const loadDiaryData = async (date: string) => {
     if (!broker) return
+    const req = ++diaryReqRef.current
     setDiaryLoading(true)
+    try {
+      await loadDiaryInner(date, req)
+    } catch (e) {
+      // 실패해도 로딩 표시는 반드시 걷는다
+      console.error('[diary] 일지 로드 실패:', e)
+    } finally {
+      if (req === diaryReqRef.current) setDiaryLoading(false)
+    }
+  }
+
+  const loadDiaryInner = async (date: string, req: number) => {
+    if (!broker) return
+    const stale = () => req !== diaryReqRef.current
 
     // 퇴사자 archive 모드 — 사무소 archive 테이블에서 읽기 전용 로드
     if (viewingExEmployee && viewingBrokerId) {
@@ -648,6 +698,7 @@ export default function BrokerDiaryPage() {
           .eq('date', date)
           .maybeSingle(),
       ])
+      if (stale()) return
       setDiaryCustomers((archLinks ?? []).map((l: any) => ({
         link_id: l.id,
         sort_order: l.sort_order,
@@ -676,7 +727,6 @@ export default function BrokerDiaryPage() {
       setSectionContent(content)
       // 퇴사자는 전역 섹션 정의가 없으므로 기본값 기준으로 복원
       setSections(resolveSections((archDiary as any)?.sections, DEFAULT_SECTIONS, Object.keys(content)))
-      setDiaryLoading(false)
       return
     }
 
@@ -694,11 +744,11 @@ export default function BrokerDiaryPage() {
         .eq('broker_id', targetId).eq('diary_date', date).order('sort_order'),
       supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
     ])
+    if (stale()) return
     setDiaryCustomers((links ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
     const content = (diaryRow?.sections_content as any) ?? {}
     setSectionContent(content)
     setSections(resolveSections((diaryRow as any)?.sections, legacySections, Object.keys(content)))
-    setDiaryLoading(false)
   }
 
   // 고객 피커: 기존 고객 추가 (direction에 따라 위/아래)
@@ -951,46 +1001,71 @@ export default function BrokerDiaryPage() {
   const [showImport, setShowImport] = useState(false)
   const [importDate, setImportDate] = useState('')
   const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
 
   const importFromDate = async () => {
     if (!broker || !importDate) return
     setImporting(true)
+    setImportError(null)
     const targetBrokerId = viewingBrokerId ?? broker.id  // 직원 일지 보는 중이면 그 직원 일지로 불러오기
-    const [{ data: sourceLinks }, { data: sourceDiary }] = await Promise.all([
-      supabase.from('broker_diary_customers')
-        .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
-        .eq('broker_id', targetBrokerId).eq('diary_date', importDate).order('sort_order'),
-      supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetBrokerId).eq('date', importDate).maybeSingle(),
-    ])
-    // 현재 날짜 고객 링크 삭제 후 재삽입
-    await supabase.from('broker_diary_customers').delete().eq('broker_id', targetBrokerId).eq('diary_date', diaryDate)
-    if (sourceLinks && sourceLinks.length > 0) {
-      const inserts = sourceLinks.map((l: any, idx: number) => ({
-        broker_id: targetBrokerId, diary_date: diaryDate,
-        customer_id: (l.broker_customers as any).id, sort_order: idx,
-        proposed_property_ids: l.proposed_property_ids ?? [],
-      }))
-      const { data: newLinks } = await supabase.from('broker_diary_customers')
-        .insert(inserts)
-        .select('id, sort_order, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
-      setDiaryCustomers((newLinks ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
-    } else {
-      setDiaryCustomers([])
+    try {
+      // 1) 원본을 먼저 읽는다 — 여기서 실패하면 현재 일지는 손도 대지 않는다
+      const [{ data: sourceLinks, error: srcLinkErr }, { data: sourceDiary, error: srcDiaryErr }] = await Promise.all([
+        supabase.from('broker_diary_customers')
+          .select('sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
+          .eq('broker_id', targetBrokerId).eq('diary_date', importDate).order('sort_order'),
+        supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetBrokerId).eq('date', importDate).maybeSingle(),
+      ])
+      if (srcLinkErr) throw srcLinkErr
+      if (srcDiaryErr) throw srcDiaryErr
+
+      // 2) 현재 날짜 고객 링크 삭제 후 재삽입
+      const { error: delErr } = await supabase.from('broker_diary_customers')
+        .delete().eq('broker_id', targetBrokerId).eq('diary_date', diaryDate)
+      if (delErr) throw delErr
+
+      if (sourceLinks && sourceLinks.length > 0) {
+        const inserts = sourceLinks.map((l: any, idx: number) => ({
+          broker_id: targetBrokerId, diary_date: diaryDate,
+          customer_id: (l.broker_customers as any).id, sort_order: idx,
+          proposed_property_ids: l.proposed_property_ids ?? [],
+        }))
+        // proposed_property_ids를 select에 포함해야 제안매물이 화면에 그대로 따라온다
+        const { data: newLinks, error: insErr } = await supabase.from('broker_diary_customers')
+          .insert(inserts)
+          .select('id, sort_order, proposed_property_ids, broker_customers(id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields)')
+          .order('sort_order')
+        if (insErr) throw insErr
+        setDiaryCustomers((newLinks ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
+      } else {
+        setDiaryCustomers([])
+      }
+
+      // 3) 섹션 내용 + 구조 복사 (불러온 날의 섹션 구성을 이 날짜로 가져옴)
+      const newContent = sourceDiary?.sections_content ?? {}
+      const newSections = resolveSections((sourceDiary as any)?.sections, sections, Object.keys(newContent))
+      const payload = { sections_content: newContent, sections: newSections, updated_at: new Date().toISOString() }
+      const { data: existingDiary, error: findErr } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
+      if (findErr) throw findErr
+      if (existingDiary) {
+        const { error } = await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
+        if (error) throw error
+        notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
+      }
+      setSectionContent(newContent)
+      setSections(newSections)
+      setShowImport(false)
+    } catch (e: any) {
+      // 조용히 끝내면 삭제만 된 채로 일지가 비어 보인다 — 알리고 DB 기준으로 되돌린다
+      console.error('[diary] 불러오기 실패:', e)
+      setImportError(e?.message ?? '불러오기에 실패했습니다. 다시 시도해 주세요.')
+      await loadDiaryData(diaryDate)
+    } finally {
+      setImporting(false)
     }
-    // 섹션 내용 + 구조 복사 (불러온 날의 섹션 구성을 이 날짜로 가져옴)
-    const newContent = sourceDiary?.sections_content ?? {}
-    const newSections = resolveSections((sourceDiary as any)?.sections, sections, Object.keys(newContent))
-    const payload = { sections_content: newContent, sections: newSections, updated_at: new Date().toISOString() }
-    const { data: existingDiary } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
-    if (existingDiary) await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
-    else {
-      await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
-      notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
-    }
-    setSectionContent(newContent)
-    setSections(newSections)
-    setImporting(false)
-    setShowImport(false)
   }
 
   // 날짜 포맷
@@ -1211,7 +1286,7 @@ export default function BrokerDiaryPage() {
 
       {/* 고객 피커 */}
       {showPicker && (
-        <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds} ownerName={viewingName} ownerBrokerId={viewingBrokerId ?? broker?.id ?? null}
+        <CustomerPicker allCustomers={allCustomers} linkedIds={linkedIds} ownerName={viewingName} loading={pickersLoading} ownerBrokerId={viewingBrokerId ?? broker?.id ?? null}
           onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
       )}
 
@@ -1222,6 +1297,7 @@ export default function BrokerDiaryPage() {
           <PropertyPicker
             allProperties={allProperties}
             selectedIds={row?.proposed_property_ids ?? []}
+            loading={pickersLoading}
             onConfirm={ids => saveProposedProperties(propertyPickerLinkId, ids)}
             onClose={() => setPropertyPickerLinkId(null)}
           />
@@ -1240,8 +1316,11 @@ export default function BrokerDiaryPage() {
                 onChange={e => setImportDate(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 cursor-pointer" />
             </div>
+            {importError && (
+              <p className="mb-4 rounded-xl bg-red-50 dark:bg-red-950/40 px-3 py-2.5 text-xs font-medium text-red-600 dark:text-red-400">{importError}</p>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setShowImport(false)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+              <button onClick={() => { setShowImport(false); setImportError(null) }} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={importFromDate} disabled={!importDate || importing}
                 className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
                 {importing ? '불러오는 중...' : '불러오기'}
