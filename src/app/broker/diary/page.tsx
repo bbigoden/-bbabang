@@ -795,7 +795,10 @@ export default function BrokerDiaryPage() {
       supabase.from('broker_diary').select('sections, sections_content').eq('broker_id', targetId).eq('date', date).maybeSingle(),
     ])
     if (stale()) return
-    setDiaryCustomers((links ?? []).map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
+    // 휴지통으로 간 고객은 RLS에 걸려 조인이 null → 그대로 펼치면 빈 유령 행이 생긴다.
+    // 링크는 남겨두고 표시만 건너뛴다(휴지통에서 복구하면 다시 보여야 함).
+    setDiaryCustomers((links ?? []).filter((l: any) => l.broker_customers)
+      .map((l: any) => ({ link_id: l.id, sort_order: l.sort_order, proposed_property_ids: l.proposed_property_ids ?? [], ...l.broker_customers as Customer })))
     const content = (diaryRow?.sections_content as any) ?? {}
     setSectionContent(content)
     setSections(resolveSections((diaryRow as any)?.sections, legacySections, Object.keys(content)))
@@ -1050,11 +1053,13 @@ export default function BrokerDiaryPage() {
   const [importDate, setImportDate] = useState('')
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [importNotice, setImportNotice] = useState<string | null>(null)  // 건너뛴 행 안내 (실패는 아님)
 
   const importFromDate = async () => {
     if (!broker || !importDate) return
     setImporting(true)
     setImportError(null)
+    setImportNotice(null)
     const targetBrokerId = viewingBrokerId ?? broker.id  // 직원 일지 보는 중이면 그 직원 일지로 불러오기
     try {
       // 1) 원본을 먼저 읽는다 — 여기서 실패하면 현재 일지는 손도 대지 않는다
@@ -1072,8 +1077,12 @@ export default function BrokerDiaryPage() {
         .delete().eq('broker_id', targetBrokerId).eq('diary_date', diaryDate)
       if (delErr) throw delErr
 
-      if (sourceLinks && sourceLinks.length > 0) {
-        const inserts = sourceLinks.map((l: any, idx: number) => ({
+      // 휴지통으로 간 고객은 RLS(deleted_at IS NULL)에 걸려 조인이 null로 온다.
+      // 링크 행은 남아있으므로 그대로 .id를 읽으면 터진다 → 건너뛴다.
+      // (삭제가 아니라 건너뛰기 — 고객을 휴지통에서 복구하면 다시 따라와야 하므로)
+      const liveLinks = (sourceLinks ?? []).filter((l: any) => l.broker_customers)
+      if (liveLinks.length > 0) {
+        const inserts = liveLinks.map((l: any, idx: number) => ({
           broker_id: targetBrokerId, diary_date: diaryDate,
           customer_id: (l.broker_customers as any).id, sort_order: idx,
           proposed_property_ids: l.proposed_property_ids ?? [],
@@ -1105,7 +1114,10 @@ export default function BrokerDiaryPage() {
       }
       setSectionContent(newContent)
       setSections(newSections)
-      setShowImport(false)
+      // 건너뛴 게 있으면 모달을 닫지 않고 알린다 — 조용히 빠지면 왜 줄었는지 알 수 없다
+      const skipped = (sourceLinks ?? []).length - liveLinks.length
+      if (skipped > 0) setImportNotice(`불러왔어요. 다만 휴지통에 있는 고객 ${skipped}명은 제외했습니다.`)
+      else setShowImport(false)
     } catch (e: any) {
       // 조용히 끝내면 삭제만 된 채로 일지가 비어 보인다 — 알리고 DB 기준으로 되돌린다
       console.error('[diary] 불러오기 실패:', e)
@@ -1366,8 +1378,11 @@ export default function BrokerDiaryPage() {
             {importError && (
               <p className="mb-4 rounded-xl bg-red-50 dark:bg-red-950/40 px-3 py-2.5 text-xs font-medium text-red-600 dark:text-red-400">{importError}</p>
             )}
+            {importNotice && (
+              <p className="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 text-xs font-medium text-amber-700 dark:text-amber-400">{importNotice}</p>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => { setShowImport(false); setImportError(null) }} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+              <button onClick={() => { setShowImport(false); setImportError(null); setImportNotice(null) }} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">{importNotice ? '닫기' : '취소'}</button>
               <button onClick={importFromDate} disabled={!importDate || importing}
                 className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
                 {importing ? '불러오는 중...' : '불러오기'}
