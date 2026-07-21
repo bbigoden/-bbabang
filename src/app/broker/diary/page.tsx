@@ -748,22 +748,40 @@ export default function BrokerDiaryPage() {
           .eq('date', date)
           .maybeSingle(),
       ])
+      // archive 테이블은 이름·연락처만 저장한다(요청사항·진행상황 등은 없음).
+      // 빠방 고객은 대부분 이름을 비우고 요청사항에 핵심을 적으므로, archive만
+      // 읽으면 연락처만 남아 "고객정보가 사라진" 것처럼 보인다. 원본 고객이
+      // 아직 살아있으면(퇴사자 고객이 대표에게 이관돼 대개 살아있다) 원본에서
+      // 요청사항·진행상황 등을 채워 넣는다. 원본이 없을 때만 archive 스냅샷 사용.
+      const custIds = Array.from(new Set((archLinks ?? []).map((l: any) => l.customer_id).filter(Boolean)))
+      let liveMap: Record<string, any> = {}
+      if (custIds.length > 0) {
+        const { data: liveCusts } = await supabase.from('broker_customers')
+          .select('id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields')
+          .in('id', custIds)
+        for (const c of liveCusts ?? []) liveMap[(c as any).id] = c
+      }
       if (stale()) return
-      setDiaryCustomers((archLinks ?? []).map((l: any) => ({
-        link_id: l.id,
-        sort_order: l.sort_order,
-        proposed_property_ids: l.proposed_property_ids ?? [],
-        id: l.customer_id ?? l.id,
-        client_name: l.customer_name ?? '',
-        contact: l.customer_contact ?? null,
-        received_date: null,
-        assignee: null,
-        category: '',
-        source: null,
-        status: '',
-        request: null,
-        custom_fields: null,
-      })))
+      setDiaryCustomers((archLinks ?? []).map((l: any) => {
+        const live = l.customer_id ? liveMap[l.customer_id] : null
+        if (live) return {
+          link_id: l.id, sort_order: l.sort_order,
+          proposed_property_ids: l.proposed_property_ids ?? [],
+          id: live.id, client_name: live.client_name ?? '', contact: live.contact ?? null,
+          received_date: live.received_date, assignee: live.assignee, category: live.category ?? '',
+          source: live.source, status: live.status ?? '', request: live.request,
+          interest: live.interest, consult_note: live.consult_note, custom_fields: live.custom_fields,
+        }
+        // 원본이 없으면(정말 삭제된 고객) archive 스냅샷의 이름·연락처만 남는다
+        return {
+          link_id: l.id, sort_order: l.sort_order,
+          proposed_property_ids: l.proposed_property_ids ?? [],
+          id: l.customer_id ?? l.id,
+          client_name: l.customer_name ?? '', contact: l.customer_contact ?? null,
+          received_date: null, assignee: null, category: '', source: null,
+          status: '', request: null, custom_fields: null,
+        }
+      }))
       // sections_content 우선, 없으면 레거시 4개 컬럼을 기본 섹션 키로 매핑
       let content: Record<string, string> = (archDiary?.sections_content as any) ?? {}
       if (Object.keys(content).length === 0 && archDiary) {
