@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -35,6 +35,9 @@ export default function AdminAnnouncementsPage() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [link, setLink] = useState('')
+  const titleId = useId()
+  const bodyId = useId()
+  const linkId = useId()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [okMsg, setOkMsg] = useState<string | null>(null)
@@ -252,22 +255,22 @@ export default function AdminAnnouncementsPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">제목 *</label>
-                <input type="text" value={title} onChange={e => setTitle(e.target.value)} maxLength={100}
+                <label htmlFor={titleId} className="mb-1.5 block text-xs font-semibold text-gray-400">제목 *</label>
+                <input id={titleId} type="text" value={title} onChange={e => setTitle(e.target.value)} maxLength={100}
                   placeholder="공지 제목"
                   className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                 <p className="mt-1 text-right text-xs text-gray-400">{title.length}/100</p>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">본문 (선택)</label>
-                <textarea value={body} onChange={e => setBody(e.target.value)} maxLength={500} rows={5}
+                <label htmlFor={bodyId} className="mb-1.5 block text-xs font-semibold text-gray-400">본문 (선택)</label>
+                <textarea id={bodyId} value={body} onChange={e => setBody(e.target.value)} maxLength={500} rows={5}
                   placeholder="공지 내용"
                   className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
                 <p className="mt-1 text-right text-xs text-gray-400">{body.length}/500</p>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">링크 (선택)</label>
-                <input type="text" value={link} onChange={e => setLink(e.target.value)}
+                <label htmlFor={linkId} className="mb-1.5 block text-xs font-semibold text-gray-400">링크 (선택)</label>
+                <input id={linkId} type="text" value={link} onChange={e => setLink(e.target.value)}
                   placeholder="/event/2026 또는 https://..."
                   className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
               </div>

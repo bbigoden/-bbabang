@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
@@ -22,6 +22,7 @@ export default function ProposePage() {
   const [price, setPrice] = useState('')
   const [address, setAddress] = useState('')
   const [description, setDescription] = useState('')
+  const descriptionId = useId()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [alreadyProposed, setAlreadyProposed] = useState(false)
@@ -336,10 +337,11 @@ export default function ProposePage() {
                   onChange={(e) => setAddress(e.target.value)}
                 />
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={descriptionId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     제안 내용 <span className="text-red-600">*</span>
                   </label>
                   <textarea
+                    id={descriptionId}
                     placeholder="매물의 특징, 장점, 옵션 등을 자유롭게 적어주세요&#10;예: 풀옵션 원룸, 역 도보 3분, 반려동물 가능, 즉시 입주 가능"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -352,9 +354,9 @@ export default function ProposePage() {
 
                 {/* 매물 사진 */}
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <p className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     매물 사진 <span className="text-gray-500 font-normal">(최대 {MAX_IMAGES}장)</span>
-                  </label>
+                  </p>
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {existingImages.map((url, i) => (
                       <div key={`ex-${i}`} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 group">

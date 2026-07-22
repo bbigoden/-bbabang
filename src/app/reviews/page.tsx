@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -205,6 +205,7 @@ function EditReviewModal({ review, onClose, onSaved, supabase }: {
   const [content, setContent] = useState(review.content ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const titleId = useId()
 
   const save = async () => {
     if (rating < 1) { setErr('별점을 선택해주세요'); return }
@@ -226,10 +227,10 @@ function EditReviewModal({ review, onClose, onSaved, supabase }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !saving && onClose()}>
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !saving && onClose()}>
       <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-4">
-          <h3 className="font-bold text-gray-900 dark:text-white">리뷰 수정</h3>
+          <h3 id={titleId} className="font-bold text-gray-900 dark:text-white">리뷰 수정</h3>
           <button onClick={onClose} disabled={saving} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />
           </button>
@@ -280,6 +281,7 @@ function DeleteReviewModal({ review, onClose, onDeleted, supabase }: {
 }) {
   const [deleting, setDeleting] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const titleId = useId()
 
   const remove = async () => {
     setDeleting(true); setErr(null)
@@ -295,13 +297,13 @@ function DeleteReviewModal({ review, onClose, onDeleted, supabase }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !deleting && onClose()}>
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={() => !deleting && onClose()}>
       <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 shadow-xl p-6" onClick={e => e.stopPropagation()}>
         <div className="flex flex-col items-center text-center">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
             <AlertTriangle className="h-6 w-6 text-red-500" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">리뷰를 삭제할까요?</h3>
+          <h3 id={titleId} className="text-lg font-bold text-gray-900 dark:text-white">리뷰를 삭제할까요?</h3>
           <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
             삭제하면 중개사 페이지에서 사라지고<br />다시 복구할 수 없어요.
           </p>

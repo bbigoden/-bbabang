@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -61,6 +61,7 @@ export default function AdminPropertiesPage() {
   const supabase = supabaseRef.current
   const auth = useAuth()
   const toast = useToast()
+  const bulkConfirmTitleId = useId()
 
   const [items, setItems] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
@@ -538,7 +539,7 @@ export default function AdminPropertiesPage() {
 
       {/* 일괄 컨펌 모달 */}
       {bulkConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        <div role="dialog" aria-modal="true" aria-labelledby={bulkConfirmTitleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
           onClick={() => !bulkBusy && setBulkConfirm(null)}>
           <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-xl bg-gray-900 ${bulkConfirm.kind === 'delete' ? 'border-red-500/30' : 'border-gray-700'}`}
             onClick={e => e.stopPropagation()}>
@@ -552,7 +553,7 @@ export default function AdminPropertiesPage() {
                   bulkConfirm.kind === 'hide' ? <EyeOff className="h-6 w-6 text-yellow-400" /> :
                   <Eye className="h-6 w-6 text-green-400" />}
               </div>
-              <h3 className="text-lg font-bold text-white">
+              <h3 id={bulkConfirmTitleId} className="text-lg font-bold text-white">
                 {bulkConfirm.kind === 'delete' ? '매물을 영구 삭제할까요?' :
                   bulkConfirm.kind === 'hide' ? '매물을 일괄 숨길까요?' :
                   '매물을 일괄 공개할까요?'}
@@ -601,6 +602,7 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
 }) {
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const titleId = useId()
   const meta = STATUS_META[property.status]
 
   const handleStatus = async (s: Property['status']) => {
@@ -616,13 +618,13 @@ function PropertyDetailModal({ property, reportCount, onClose, onStatusChange, o
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
       onClick={() => !busy && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white">매물 상세</h3>
+            <h3 id={titleId} className="font-bold text-white">매물 상세</h3>
             <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
               {meta.label}
             </span>

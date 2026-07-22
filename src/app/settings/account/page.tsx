@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2, Shield, ShieldCheck, ShieldOff, Copy, LogOut } from 'lucide-react'
@@ -30,6 +30,7 @@ export default function SettingsAccountPage() {
 
   // 회원탈퇴
   const [showWithdraw, setShowWithdraw] = useState(false)
+  const withdrawTitleId = useId()
   const [withdrawing, setWithdrawing] = useState(false)
   const [withdrawErr, setWithdrawErr] = useState<string | null>(null)
 
@@ -419,12 +420,12 @@ export default function SettingsAccountPage() {
       </div>
 
       {showWithdraw && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div role="dialog" aria-modal="true" aria-labelledby={withdrawTitleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mx-auto">
               <Trash2 className="h-6 w-6 text-red-500" />
             </div>
-            <h3 className="text-center text-lg font-bold text-gray-900 dark:text-white mb-2">정말 탈퇴하시겠어요?</h3>
+            <h3 id={withdrawTitleId} className="text-center text-lg font-bold text-gray-900 dark:text-white mb-2">정말 탈퇴하시겠어요?</h3>
             <p className="text-center text-sm text-gray-500 mb-5">
               계정과 모든 데이터가 즉시 삭제되며<br />되돌릴 수 없어요.
             </p>

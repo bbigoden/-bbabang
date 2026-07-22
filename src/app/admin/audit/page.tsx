@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -252,12 +252,13 @@ function summarizeMeta(m: Record<string, any>): string {
 function AuditDetailModal({ row, onClose }: { row: AuditRow; onClose: () => void }) {
   const meta = AUDIT_ACTION_META[row.action]
   const tone = meta?.tone ?? 'gray'
+  const titleId = useId()
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white">활동 상세</h3>
+            <h3 id={titleId} className="font-bold text-white">활동 상세</h3>
             <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${TONE_COLOR[tone]}`}>
               {auditActionLabel(row.action)}
             </span>

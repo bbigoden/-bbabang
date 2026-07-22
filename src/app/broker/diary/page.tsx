@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
@@ -1102,6 +1102,7 @@ export default function BrokerDiaryPage() {
   // 불러오기
   const [showImport, setShowImport] = useState(false)
   const [importDate, setImportDate] = useState('')
+  const importDateId = useId()
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importNotice, setImportNotice] = useState<string | null>(null)  // 건너뛴 행 안내 (실패는 아님)
@@ -1424,8 +1425,8 @@ export default function BrokerDiaryPage() {
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">다른 날 업무일지 불러오기</h3>
             <p className="text-sm text-gray-500 mb-5">선택한 날짜의 고객·내용을 <span className="font-semibold text-gray-700 dark:text-gray-300">{formatDateHeader(diaryDate)}</span>에 덮어씁니다.</p>
             <div className="mb-5">
-              <label className="text-xs font-semibold text-gray-500 mb-1.5 block">불러올 날짜</label>
-              <input type="date" value={importDate} max={diaryDate}
+              <label htmlFor={importDateId} className="text-xs font-semibold text-gray-500 mb-1.5 block">불러올 날짜</label>
+              <input id={importDateId} type="date" value={importDate} max={diaryDate}
                 onChange={e => setImportDate(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 cursor-pointer" />
             </div>

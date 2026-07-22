@@ -172,8 +172,8 @@ function FilterField({ name, label, defaultValue, placeholder }: {
 }) {
   return (
     <div className="w-full sm:flex-1 sm:min-w-[140px]">
-      <label className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
-      <input name={name} defaultValue={defaultValue ?? ''} placeholder={placeholder}
+      <label htmlFor={`explore-requests-${name}`} className="mb-1 block text-xs font-semibold text-gray-500">{label}</label>
+      <input id={`explore-requests-${name}`} name={name} defaultValue={defaultValue ?? ''} placeholder={placeholder}
         className="w-full rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
     </div>
   )

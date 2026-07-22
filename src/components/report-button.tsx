@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -38,6 +38,7 @@ export function ReportButton({ type, id, variant = 'compact', label }: Props) {
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<string>('')
   const [content, setContent] = useState('')
+  const contentId = useId()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -137,8 +138,9 @@ export function ReportButton({ type, id, variant = 'compact', label }: Props) {
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">상세 내용</label>
+                    <label htmlFor={contentId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">상세 내용</label>
                     <textarea
+                      id={contentId}
                       value={content}
                       onChange={e => setContent(e.target.value)}
                       maxLength={1000}

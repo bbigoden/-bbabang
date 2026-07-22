@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthOptional } from '@/lib/auth-context'
@@ -22,6 +22,7 @@ export function SaveSearchButton({ target, filters, defaultLabel = '' }: Props) 
 
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState(defaultLabel)
+  const labelId = useId()
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -85,8 +86,8 @@ export function SaveSearchButton({ target, filters, defaultLabel = '' }: Props) 
             ) : (
               <>
                 <div className="px-5 py-5">
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">이름 (선택)</label>
-                  <input value={label} onChange={e => setLabel(e.target.value)} maxLength={50}
+                  <label htmlFor={labelId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">이름 (선택)</label>
+                  <input id={labelId} value={label} onChange={e => setLabel(e.target.value)} maxLength={50}
                     placeholder="예: 강남 원룸, 부산 매매"
                     className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                   <p className="mt-2 text-xs text-gray-500">저장한 조건은 [/favorites](/favorites)에서 모아볼 수 있어요</p>

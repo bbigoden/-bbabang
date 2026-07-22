@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -48,6 +48,7 @@ export default function RequestEditPage() {
 
   const [dealTypes, setDealTypes] = useState<string[]>([])
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])
+  const descriptionId = useId()
   const [form, setForm] = useState({
     city: '서울특별시', district: '',
     min_price: '', max_price: '',
@@ -289,8 +290,8 @@ export default function RequestEditPage() {
               </div>
               <Input label="입주 희망일" type="date" value={form.move_in_date} onChange={(e) => update('move_in_date', e.target.value)} />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">추가 요청사항 <span className="text-gray-500 font-normal">(선택)</span></label>
-                <textarea placeholder="예: 반려동물 가능, 주차 필수, 역세권 선호" value={form.description}
+                <label htmlFor={descriptionId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">추가 요청사항 <span className="text-gray-500 font-normal">(선택)</span></label>
+                <textarea id={descriptionId} placeholder="예: 반려동물 가능, 주차 필수, 역세권 선호" value={form.description}
                   onChange={(e) => update('description', e.target.value)} rows={4}
                   maxLength={1000}
                   className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />

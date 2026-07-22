@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import Link from 'next/link'
 import { FileText, Users, MessageSquare, Star, ChevronRight, ChevronLeft, X, Plus } from 'lucide-react'
 
@@ -36,6 +36,7 @@ const STEPS = [
 export function OnboardingModal() {
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(0)
+  const titleId = useId()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -56,12 +57,12 @@ export function OnboardingModal() {
   const Icon = s.icon
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center p-0 md:p-4"
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center p-0 md:p-4"
       onClick={() => close()}>
       <div className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
         <div className="relative flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-3.5">
-          <span className="text-xs font-bold text-gray-500">빠방 사용 가이드</span>
+          <span id={titleId} className="text-xs font-bold text-gray-500">빠방 사용 가이드</span>
           <button onClick={() => close()} aria-label="닫기"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />

@@ -99,7 +99,7 @@ export function BottomNav() {
   const handleLogout = async () => {
     try {
       const supabase = createClient()
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })  // 이 기기만 (기본 global은 전 기기 세션 삭제)
     } catch {}
     window.location.href = '/'
   }
@@ -156,8 +156,9 @@ export function BottomNav() {
       </nav>
 
       {/* broker·admin 더보기 드로어 — 모바일 풀스크린 시트 */}
+      {/* aria-label: 이름 없는 dialog는 스크린리더가 "대화상자"라고만 읽는다 */}
       {(role === 'broker' || role === 'admin') && drawerOpen && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="더보기 메뉴">
           {/* backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"

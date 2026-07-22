@@ -15,7 +15,7 @@ export default function AccountSuspendedPage() {
   const isBanned = reason === 'banned'
 
   const signOut = async () => {
-    await supabaseRef.current.auth.signOut()
+    await supabaseRef.current.auth.signOut({ scope: 'local' })  // 이 기기만
     window.location.href = '/'
   }
 

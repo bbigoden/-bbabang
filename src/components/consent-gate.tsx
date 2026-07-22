@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FileText, Check, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
@@ -33,6 +33,7 @@ export function ConsentGate() {
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const titleId = useId()
 
   // auth 상태 감지
   useEffect(() => {
@@ -87,7 +88,7 @@ export function ConsentGate() {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4">
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-2xl">
         {/* 헤더 */}
         <div className="mb-5 text-center">
@@ -96,7 +97,7 @@ export function ConsentGate() {
               <FileText className="h-7 w-7 text-blue-600" />
             </div>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">약관이 업데이트됐어요</h2>
+          <h2 id={titleId} className="text-xl font-bold text-gray-900 dark:text-white">약관이 업데이트됐어요</h2>
           <p className="mt-1.5 text-sm text-gray-500">
             서비스를 계속 이용하려면 아래 변경된 약관에 동의해주세요.
           </p>

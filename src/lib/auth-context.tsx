@@ -107,7 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 계정 상태 enforcement
     if (p?.account_status === 'banned') {
-      // 차단된 계정 — 즉시 로그아웃
+      // 차단된 계정 — 즉시 로그아웃. 여기만 기본 scope(global) 유지:
+      // 차단은 모든 기기에서 끊는 게 맞다(사용자가 누르는 로그아웃은 local).
       await supabase.auth.signOut()
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/account-suspended')) {
         window.location.href = '/account-suspended?reason=banned'
@@ -142,8 +143,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     fetchAll()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === 'SIGNED_OUT') {
+        // 토큰 갱신이 일시적으로 실패해도(모바일 네트워크 단절, 여러 탭이 동시에
+        // 갱신을 시도해 refresh token rotation이 엇갈림) SIGNED_OUT이 날아온다.
+        // 곧바로 세션을 버리면 멀쩡한 로그인이 풀리므로, 잠깐 뒤 실제로 세션이
+        // 없는지 다시 확인한 뒤에만 정리한다. 살아있으면 갱신에 성공한 것.
+        await new Promise(r => setTimeout(r, 1500))
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) { fetchAll(); return }
+
         const hadUser = user !== null  // 명시적 로그아웃 vs refresh token 만료 구분
         setUser(null); setProfile(null); setBroker(null)
         clearCache()

@@ -197,7 +197,7 @@ export function ColumnHeader({
 
           {hasOptions && onChangeMulti && (
             <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-800">
-              <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+              <div className="flex items-center justify-between gap-2 cursor-pointer select-none">
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">다중 선택</span>
                 <button type="button"
                   onClick={() => onChangeMulti(!isMulti)}
@@ -205,7 +205,7 @@ export function ColumnHeader({
                   className={`relative h-5 w-9 rounded-full transition-colors flex-shrink-0 ${isMulti ? 'bg-blue-600' : 'bg-gray-300'}`}>
                   <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white dark:bg-gray-900 shadow transition-transform ${isMulti ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
-              </label>
+              </div>
             </div>
           )}
 

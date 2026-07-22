@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
@@ -28,6 +28,7 @@ export default function BrokerRegisterPage() {
 
   // 직원 폼
   const [officeCode, setOfficeCode] = useState('')
+  const officeCodeId = useId()
   const [codePreview, setCodePreview] = useState<{ office_name: string; address: string } | null>(null)
   const [codeChecking, setCodeChecking] = useState(false)
   const [codeError, setCodeError] = useState('')
@@ -203,8 +204,8 @@ export default function BrokerRegisterPage() {
               </div>
               <form onSubmit={handleEmployeeSubmit} className="space-y-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">사무소 코드</label>
-                  <input type="text" value={officeCode}
+                  <label htmlFor={officeCodeId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">사무소 코드</label>
+                  <input id={officeCodeId} type="text" value={officeCode}
                     onChange={(e) => handleCodeChange(e.target.value)}
                     placeholder="예: A1B2C3" maxLength={6}
                     className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-center text-xl font-mono font-bold tracking-widest text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"

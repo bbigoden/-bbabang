@@ -155,10 +155,11 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
         {/* 필터 바 */}
         <form action="/admin/requests" method="GET" className="mb-5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[180px]">
-            <label className="mb-1 block text-xs font-semibold text-gray-500">검색</label>
+            <label htmlFor="admin-requests-q" className="mb-1 block text-xs font-semibold text-gray-500">검색</label>
             <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
+                id="admin-requests-q"
                 name="q"
                 defaultValue={q}
                 placeholder="지역·설명 검색"
@@ -168,8 +169,8 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-500">상태</label>
-            <select name="status" defaultValue={status} className="rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm">
+            <label htmlFor="admin-requests-status" className="mb-1 block text-xs font-semibold text-gray-500">상태</label>
+            <select id="admin-requests-status" name="status" defaultValue={status} className="rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm">
               <option value="all">전체</option>
               <option value="active">모집 중</option>
               <option value="closed">마감</option>

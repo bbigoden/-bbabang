@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatPrice, maskAddress, cn } from '@/lib/utils'
 import {
@@ -1063,6 +1063,11 @@ function EventComposeModal({ onClose, onSend }: {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const titleId = useId()
+  const dateId = useId()
+  const timeId = useId()
+  const locationId = useId()
+  const noteId = useId()
 
   const submit = async () => {
     if (!title.trim()) { setErr('일정 제목을 입력해주세요'); return }
@@ -1095,32 +1100,32 @@ function EventComposeModal({ onClose, onSend }: {
 
         <div className="px-5 py-5 space-y-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">제목 *</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} maxLength={100}
+            <label htmlFor={titleId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">제목 *</label>
+            <input id={titleId} value={title} onChange={e => setTitle(e.target.value)} maxLength={100}
               placeholder="예: 매물 방문 일정, 계약 일정"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">날짜 *</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              <label htmlFor={dateId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">날짜 *</label>
+              <input id={dateId} type="date" value={date} onChange={e => setDate(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">시간 *</label>
-              <input type="time" value={time} onChange={e => setTime(e.target.value)}
+              <label htmlFor={timeId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">시간 *</label>
+              <input id={timeId} type="time" value={time} onChange={e => setTime(e.target.value)}
                 className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
             </div>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">장소 (선택)</label>
-            <input value={location} onChange={e => setLocation(e.target.value)} maxLength={200}
+            <label htmlFor={locationId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">장소 (선택)</label>
+            <input id={locationId} value={location} onChange={e => setLocation(e.target.value)} maxLength={200}
               placeholder="주소 또는 만날 장소"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">메모 (선택)</label>
-            <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={300} rows={2}
+            <label htmlFor={noteId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">메모 (선택)</label>
+            <textarea id={noteId} value={note} onChange={e => setNote(e.target.value)} maxLength={300} rows={2}
               placeholder="준비물·특이사항"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none" />
           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { Badge } from '@/components/ui/badge'
@@ -440,11 +440,12 @@ function CompareModal({ proposals, onClose, onSelect }: {
   onClose: () => void
   onSelect: (id: string) => void
 }) {
+  const titleId = useId()
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 md:p-4" onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 md:p-4" onClick={onClose}>
       <div className="w-full max-w-5xl max-h-[95vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 flex-shrink-0">
-          <h3 className="flex items-center gap-2 font-bold text-gray-900">
+          <h3 id={titleId} className="flex items-center gap-2 font-bold text-gray-900">
             <GitCompare className="h-4 w-4 text-amber-500" />
             제안 비교 ({proposals.length}개)
           </h3>
@@ -556,6 +557,7 @@ function RejectModal({ proposal, onClose, onConfirm }: {
   const [reason, setReason] = useState<string>('')
   const [custom, setCustom] = useState('')
   const [busy, setBusy] = useState(false)
+  const titleId = useId()
 
   const submit = async () => {
     setBusy(true)
@@ -567,11 +569,11 @@ function RejectModal({ proposal, onClose, onConfirm }: {
   const brokerName = proposal.broker_profiles?.profiles?.name ?? proposal.broker_profiles?.office_name ?? '중개사'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={() => !busy && onClose()}>
       <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+          <h3 id={titleId} className="font-bold text-gray-900 flex items-center gap-2">
             <XCircle className="h-4 w-4 text-red-500" />
             제안 거절
           </h3>

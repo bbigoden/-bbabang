@@ -38,7 +38,9 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   const isCustomerSidebarArea = !!user && role !== 'broker' && role !== 'admin'
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    // scope:'local' — 이 기기만 로그아웃. 기본값 'global'은 서버에서 그 계정의
+    // 모든 세션을 지워서, PC에서 로그아웃하면 폰 PWA까지 같이 풀린다.
+    await supabase.auth.signOut({ scope: 'local' })
     window.location.href = '/'
   }
 

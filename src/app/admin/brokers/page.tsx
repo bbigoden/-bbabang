@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -396,6 +396,8 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
   const [busy, setBusy] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const titleId = useId()
+  const rejectTitleId = useId()
 
   const handleToggle = async () => { setBusy(true); await onToggleVerify(); setBusy(false) }
   const handleReject = async () => {
@@ -413,13 +415,13 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
   const rejectAt = typeof v.admin_reject_at === 'string' ? v.admin_reject_at : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
       onClick={() => !busy && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
         onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white">사무소 상세</h3>
+            <h3 id={titleId} className="font-bold text-white">사무소 상세</h3>
             {broker.is_verified ? (
               <span className="inline-flex items-center gap-0.5 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">
                 <ShieldCheck className="h-3 w-3" /> 인증됨
@@ -521,7 +523,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
 
       {/* 반려 모달 */}
       {rejectOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+        <div role="dialog" aria-modal="true" aria-labelledby={rejectTitleId} className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
           onClick={() => !busy && setRejectOpen(false)}>
           <div className="w-full max-w-md rounded-2xl border border-orange-500/40 bg-gray-900 p-6 shadow-xl"
             onClick={e => e.stopPropagation()}>
@@ -530,7 +532,7 @@ function BrokerDetailModal({ broker, onClose, onToggleVerify, onReject }: {
                 <AlertCircle className="h-5 w-5 text-orange-400" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">사무소 인증 반려</h3>
+                <h3 id={rejectTitleId} className="text-base font-bold text-white">사무소 인증 반려</h3>
                 <p className="text-xs text-gray-400">{broker.office_name ?? '—'}</p>
               </div>
             </div>

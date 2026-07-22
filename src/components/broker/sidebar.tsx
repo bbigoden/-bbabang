@@ -76,7 +76,7 @@ export function BrokerSidebar() {
   const handleLogout = async () => {
     try {
       const supabase = createClient()
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })  // 이 기기만 (기본 global은 전 기기 세션 삭제)
     } catch {}
     window.location.href = '/'
   }

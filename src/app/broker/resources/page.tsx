@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
@@ -55,6 +55,8 @@ export default function BrokerResourcesPage() {
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const titleId = useId()
+  const descriptionId = useId()
   const [files, setFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -310,8 +312,9 @@ export default function BrokerResourcesPage() {
             </div>
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">제목 *</label>
+                <label htmlFor={titleId} className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">제목 *</label>
                 <input
+                  id={titleId}
                   value={title}
                   onChange={e => setTitle(e.target.value.slice(0, 120))}
                   placeholder="예: 2025 표준 임대차계약서 패키지"
@@ -320,8 +323,9 @@ export default function BrokerResourcesPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">설명·메모 (선택)</label>
+                <label htmlFor={descriptionId} className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">설명·메모 (선택)</label>
                 <textarea
+                  id={descriptionId}
                   value={description}
                   onChange={e => setDescription(e.target.value.slice(0, 2000))}
                   placeholder="자료 설명, 링크, 메모 등을 자유롭게 입력하세요"
@@ -332,9 +336,9 @@ export default function BrokerResourcesPage() {
                 <p className="mt-1 text-[11px] text-gray-500">{description.length}/2000</p>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">
+                <p className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-500">
                   파일 첨부 (선택, 최대 {MAX_FILES}개, 각 20MB)
-                </label>
+                </p>
                 <input ref={fileRef} type="file" multiple onChange={onFilePick} className="hidden" />
 
                 {/* 드롭존 — 파일 있어도 계속 보이게 해서 추가 첨부 가능 */}

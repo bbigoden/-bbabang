@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useId, Suspense } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -44,6 +44,7 @@ function RequestNewPageInner() {
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])
 
   const [region, setRegion] = useState<RegionValue | null>(null)
+  const descriptionId = useId()
   const [form, setForm] = useState({
     min_price: '',       // 전세/매매: 금액 / 월세: 보증금
     max_price: '',
@@ -412,11 +413,12 @@ function RequestNewPageInner() {
                 onChange={(e) => update('move_in_date', e.target.value)}
               />
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor={descriptionId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   추가 요청사항{' '}
                   <span className="text-gray-500 font-normal">(선택)</span>
                 </label>
                 <textarea
+                  id={descriptionId}
                   placeholder="예: 반려동물 가능, 주차 필수, 역세권 선호, 1층 제외 등"
                   value={form.description}
                   onChange={(e) => update('description', e.target.value)}

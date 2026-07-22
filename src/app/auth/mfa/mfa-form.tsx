@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Shield } from 'lucide-react'
@@ -18,6 +18,7 @@ export function MfaForm() {
   const [error, setError] = useState('')
   const [factorId, setFactorId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const codeId = useId()
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -99,10 +100,11 @@ export function MfaForm() {
         <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
           <form onSubmit={verify} className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor={codeId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 인증 코드
               </label>
               <input
+                id={codeId}
                 ref={inputRef}
                 type="text"
                 inputMode="numeric"

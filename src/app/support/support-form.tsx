@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthOptional } from '@/lib/auth-context'
 import { Send, Check, AlertCircle } from 'lucide-react'
@@ -12,6 +12,9 @@ export function SupportForm() {
 
   const [subject, setSubject] = useState('')
   const [content, setContent] = useState('')
+  const subjectId = useId()
+  const emailId = useId()
+  const contentId = useId()
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
@@ -64,8 +67,9 @@ export function SupportForm() {
     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
       <div className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">제목</label>
+          <label htmlFor={subjectId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">제목</label>
           <input
+            id={subjectId}
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
@@ -77,8 +81,9 @@ export function SupportForm() {
 
         {!user && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">답변받을 이메일</label>
+            <label htmlFor={emailId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">답변받을 이메일</label>
             <input
+              id={emailId}
               type="email"
               autoComplete="email"
               inputMode="email"
@@ -92,8 +97,9 @@ export function SupportForm() {
         )}
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">내용</label>
+          <label htmlFor={contentId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">내용</label>
           <textarea
+            id={contentId}
             value={content}
             onChange={e => setContent(e.target.value)}
             rows={6}

@@ -15,7 +15,7 @@ export function AdminSidebar() {
 
   const handleLogout = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })  // 이 기기만 (기본 global은 전 기기 세션 삭제)
     router.push('/')
   }
 

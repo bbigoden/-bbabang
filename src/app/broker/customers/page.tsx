@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
@@ -359,6 +359,8 @@ export default function BrokerCustomersPage() {
   const [importItems, setImportItems] = useState<any[]>([])
   const [importSelected, setImportSelected] = useState<Set<string>>(new Set())
   const [importing, setImporting] = useState(false)
+  const importTitleId = useId()
+  const deleteTitleId = useId()
 
   // 칼럼 드래그
   const [dragCol, setDragCol] = useState<string | null>(null)
@@ -1112,12 +1114,12 @@ export default function BrokerCustomersPage() {
 
       {/* 불러오기 모달 */}
       {showImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-labelledby={importTitleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 shadow-xl mx-4 flex flex-col" style={{ maxHeight: '80vh' }}>
             {/* 헤더 */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
               <div>
-                <h3 className="text-base font-bold text-gray-900 dark:text-white">빠방 대화 불러오기</h3>
+                <h3 id={importTitleId} className="text-base font-bold text-gray-900 dark:text-white">빠방 대화 불러오기</h3>
                 <p className="text-xs text-gray-500 mt-0.5">선택한 고객을 고객목록에 추가해요</p>
               </div>
               <button onClick={() => setShowImport(false)} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
@@ -1182,9 +1184,9 @@ export default function BrokerCustomersPage() {
 
       {/* 삭제 확인 */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-labelledby={deleteTitleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">고객을 삭제할까요?</h3>
+            <h3 id={deleteTitleId} className="text-lg font-bold text-gray-900 dark:text-white mb-2">고객을 삭제할까요?</h3>
             <p className="text-sm text-gray-500 mb-6">삭제하면 복구할 수 없어요.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>

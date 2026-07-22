@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -232,6 +232,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
   const [adminNote, setAdminNote] = useState(report.admin_note ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const titleId = useId()
 
   const save = async () => {
     setSaving(true); setErr(null)
@@ -270,7 +271,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
   const targetHref = report.target_type && report.target_id ? TARGET_LINK(report.target_type, report.target_id) : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
       onClick={() => !saving && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
         onClick={e => e.stopPropagation()}>
@@ -279,7 +280,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
             <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${report.kind === 'report' ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-300'}`}>
               {report.kind === 'report' ? <Flag className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
             </div>
-            <h3 className="font-bold text-white">{report.kind === 'report' ? '신고 상세' : '문의 상세'}</h3>
+            <h3 id={titleId} className="font-bold text-white">{report.kind === 'report' ? '신고 상세' : '문의 상세'}</h3>
             <span className={`ml-2 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
               <meta.icon className="h-3 w-3" /> {meta.label}
             </span>

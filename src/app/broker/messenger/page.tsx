@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback, useMemo, Fragment } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, useId, Fragment } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
@@ -75,6 +75,8 @@ export default function BrokerMessengerPage() {
   const [newSel, setNewSel] = useState<Set<string>>(new Set())
   const [newTitle, setNewTitle] = useState('')
   const [sending, setSending] = useState(false)
+  const newDmTitleId = useId()
+  const inviteTitleId = useId()
 
   const activeRef = useRef<string | null>(null)
   activeRef.current = active
@@ -675,11 +677,11 @@ export default function BrokerMessengerPage() {
 
       {/* 새 대화 모달 — 1명 선택=1:1, 2명+ 선택=단체방 */}
       {showNewDm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        <div role="dialog" aria-modal="true" aria-labelledby={newDmTitleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => { setShowNewDm(false); setNewSel(new Set()); setNewTitle('') }}>
           <div className="w-full max-w-xs rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-4 py-3">
-              <h2 className="font-bold text-gray-900 dark:text-white">새 대화</h2>
+              <h2 id={newDmTitleId} className="font-bold text-gray-900 dark:text-white">새 대화</h2>
               <button onClick={() => { setShowNewDm(false); setNewSel(new Set()); setNewTitle('') }} aria-label="닫기"><X className="h-5 w-5 text-gray-500" /></button>
             </div>
 
@@ -724,11 +726,11 @@ export default function BrokerMessengerPage() {
 
       {/* 단체방 멤버 초대 모달 */}
       {showInvite && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        <div role="dialog" aria-modal="true" aria-labelledby={inviteTitleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => { setShowInvite(false); setInviteSel(new Set()) }}>
           <div className="w-full max-w-xs rounded-2xl bg-white dark:bg-gray-900 shadow-xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-4 py-3">
-              <h2 className="font-bold text-gray-900 dark:text-white">멤버 초대</h2>
+              <h2 id={inviteTitleId} className="font-bold text-gray-900 dark:text-white">멤버 초대</h2>
               <button onClick={() => { setShowInvite(false); setInviteSel(new Set()) }} aria-label="닫기"><X className="h-5 w-5 text-gray-500" /></button>
             </div>
             <div className="max-h-72 overflow-y-auto py-1">

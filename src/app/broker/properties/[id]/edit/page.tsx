@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useId } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -46,6 +46,9 @@ export default function EditPropertyPage() {
   const [assignee, setAssignee] = useState('')
   const [briefMemo, setBriefMemo] = useState('')
   const [memo, setMemo] = useState('')
+  const descriptionId = useId()
+  const briefMemoId = useId()
+  const memoId = useId()
   const [existingImages, setExistingImages] = useState<string[]>([])
   const [originalAddress, setOriginalAddress] = useState('')
   const [originalLat, setOriginalLat] = useState<number | null>(null)
@@ -513,8 +516,9 @@ export default function EditPropertyPage() {
             {/* 설명 */}
             <Card>
               <CardBody>
-                <label className="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">매물 설명 (선택)</label>
+                <label htmlFor={descriptionId} className="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">매물 설명 (선택)</label>
                 <textarea
+                  id={descriptionId}
                   placeholder="매물의 특징, 장점 등을 자유롭게 적어주세요&#10;예: 역세권 도보 5분, 채광 좋음, 신축"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -535,8 +539,9 @@ export default function EditPropertyPage() {
                   onChange={e => setAssignee(e.target.value)}
                 />
                 <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-300">간단메모</label>
+                  <label htmlFor={briefMemoId} className="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-300">간단메모</label>
                   <input
+                    id={briefMemoId}
                     type="text"
                     placeholder="목록에서 바로 보이는 짧은 메모"
                     value={briefMemo}
@@ -551,11 +556,12 @@ export default function EditPropertyPage() {
             {/* 중개사 메모 */}
             <Card>
               <CardBody>
-                <label className="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <label htmlFor={memoId} className="mb-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">
                   중개사 메모
                   <span className="ml-2 text-xs font-normal text-orange-500">🔒 나만 볼 수 있어요</span>
                 </label>
                 <textarea
+                  id={memoId}
                   placeholder="내부 메모, 집주인 연락처, 특이사항 등 개인 메모를 남기세요"
                   value={memo}
                   onChange={e => setMemo(e.target.value)}

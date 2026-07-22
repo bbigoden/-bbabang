@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -302,6 +302,7 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
   const [note, setNote] = useState(err.admin_note ?? '')
   const [noteSaving, setNoteSaving] = useState(false)
   const [bulkBusy, setBulkBusy] = useState(false)
+  const titleId = useId()
 
   useEffect(() => {
     setNote(err.admin_note ?? '')
@@ -326,11 +327,11 @@ function ErrorDetailModal({ err, onClose, onChangeStatus, onSaveNote, onBulkIgno
   const meta = STATUS_META[err.status]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4" onClick={() => !busy && onClose()}>
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4" onClick={() => !busy && onClose()}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white">에러 상세</h3>
+            <h3 id={titleId} className="font-bold text-white">에러 상세</h3>
             <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${meta.color}`}>
               <meta.icon className="h-3 w-3" /> {meta.label}
             </span>

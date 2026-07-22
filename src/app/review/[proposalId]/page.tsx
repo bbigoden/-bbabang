@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
@@ -22,6 +22,7 @@ export default function ReviewPage() {
   const [rating, setRating] = useState(0)
   const [hovered, setHovered] = useState(0)
   const [comment, setComment] = useState('')
+  const commentId = useId()
   const [brokerName, setBrokerName] = useState('')
   const [brokerId, setBrokerId] = useState('')
   const [error, setError] = useState('')
@@ -227,10 +228,11 @@ export default function ReviewPage() {
 
           {/* 후기 */}
           <div className="mb-5">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor={commentId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               후기 <span className="text-gray-500 font-normal">(선택)</span>
             </label>
             <textarea
+              id={commentId}
               placeholder="중개사님과의 거래 경험을 자유롭게 작성해주세요"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
@@ -242,9 +244,9 @@ export default function ReviewPage() {
 
           {/* 사진 첨부 */}
           <div className="mb-6">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <p className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               사진 첨부 <span className="text-gray-500 font-normal">(선택, 최대 {MAX_IMAGES}장)</span>
-            </label>
+            </p>
             <div className="grid grid-cols-3 gap-2">
               {previews.map((url, i) => (
                 <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 group">

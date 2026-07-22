@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useId } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { XCircle, AlertTriangle } from 'lucide-react'
@@ -13,6 +13,7 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
   const toast = useToast()
   const [loading, setLoading] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const titleId = useId()
 
   const handleClose = async () => {
     setLoading(true)
@@ -42,6 +43,9 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
 
       {showModal && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => !loading && setShowModal(false)}
         >
@@ -53,7 +57,7 @@ export function CloseRequestButton({ requestId }: { requestId: string }) {
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
                 <AlertTriangle className="h-7 w-7 text-red-500" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">요청을 마감할까요?</h3>
+              <h3 id={titleId} className="text-lg font-bold text-gray-900 dark:text-white">요청을 마감할까요?</h3>
               <p className="mt-2 text-sm text-gray-500 leading-relaxed">
                 마감하면 새로운 제안을 받을 수 없어요.<br />
                 이미 받은 제안들은 계속 확인할 수 있습니다.

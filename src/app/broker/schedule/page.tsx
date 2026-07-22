@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
@@ -281,6 +281,8 @@ function EventModal({ office, myId, memberNames, memberIds, initial, initialDate
   const [title, setTitle] = useState(initial?.title ?? '')
   const [starts, setStarts] = useState(toLocalInput(start0, initial?.all_day ?? false))
   const [ends, setEnds] = useState(initial?.ends_at ? toLocalInput(new Date(initial.ends_at), initial.all_day) : '')
+  const startsId = useId()
+  const endsId = useId()
   const [visibility, setVisibility] = useState<'office' | 'private'>(initial?.visibility ?? 'office')
   const [color, setColor] = useState(initial?.color ?? 'blue')
   const [location, setLocation] = useState(initial?.location ?? '')
@@ -396,12 +398,12 @@ function EventModal({ office, myId, memberNames, memberIds, initial, initialDate
           {/* 시작/종료 */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">시작</label>
-              <input type={allDay ? 'date' : 'datetime-local'} value={starts} onChange={e => setStarts(e.target.value)} disabled={!canEdit} className={fieldCls} />
+              <label htmlFor={startsId} className="mb-1 block text-xs font-medium text-gray-500">시작</label>
+              <input id={startsId} type={allDay ? 'date' : 'datetime-local'} value={starts} onChange={e => setStarts(e.target.value)} disabled={!canEdit} className={fieldCls} />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500">종료 <span className="text-gray-400">(선택)</span></label>
-              <input type={allDay ? 'date' : 'datetime-local'} value={ends} onChange={e => setEnds(e.target.value)} disabled={!canEdit} className={fieldCls} />
+              <label htmlFor={endsId} className="mb-1 block text-xs font-medium text-gray-500">종료 <span className="text-gray-400">(선택)</span></label>
+              <input id={endsId} type={allDay ? 'date' : 'datetime-local'} value={ends} onChange={e => setEnds(e.target.value)} disabled={!canEdit} className={fieldCls} />
             </div>
           </div>
 
