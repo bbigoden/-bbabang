@@ -125,3 +125,63 @@ CREATE POLICY profiles_update ON public.profiles
       AND admin_note IS NOT DISTINCT FROM (SELECT p.admin_note FROM public.profiles p WHERE p.id = profiles.id)
     )
   );
+
+------------------------------------------------------------------------------
+-- P0. 비로그인 상태로 중개사·직원·퇴사자의 실명/이메일/휴대폰이 전량 조회
+------------------------------------------------------------------------------
+-- profiles_select_anon_brokers 정책이 role='broker' 활성 행을 anon에게 열어주는데
+-- 컬럼 제한이 없어 /rest/v1/profiles?select=email,phone 한 번이면 전부 나왔다.
+-- 공개 화면이 anon으로 실제 읽는 건 broker_profiles→profiles(name)의 이름뿐이다.
+REVOKE SELECT ON public.profiles FROM anon;
+GRANT SELECT (id, name) ON public.profiles TO anon;
+
+-- broker_profiles도 전 컬럼이 anon에 열려 있었다. 특히 office_code(사무소 가입
+-- 코드)가 노출돼 아무나 join_office_by_code를 시도할 수 있었고, col_settings·
+-- permissions·license_number·business_reg_number·verification_info·
+-- default_settlement_rate(정산 요율)까지 읽혔다.
+REVOKE SELECT ON public.broker_profiles FROM anon;
+GRANT SELECT (
+  id, office_name, address, district,
+  rating, review_count, deal_count, is_verified,
+  avg_response_hours, acceptance_rate,
+  parent_broker_id, is_approved, alert_regions, created_at,
+  -- user_id는 PostgREST가 profiles(name) 임베딩을 풀 때 쓰는 조인 키다.
+  -- 빼면 매물 상세의 중개사 카드가 통째로 비어버린다.
+  user_id
+) ON public.broker_profiles TO anon;
+
+-- get_public_brokers는 SECURITY DEFINER라 컬럼 권한을 우회한다. 반환값의
+-- user_name(대표 실명)은 유일한 호출처(regions)에서 쓰지도 않으면서 anon에게
+-- 실명을 흘리고 있었다 → 반환 컬럼에서 제거.
+DROP FUNCTION IF EXISTS public.get_public_brokers(text, text, boolean, integer, integer);
+CREATE FUNCTION public.get_public_brokers(
+  p_sido text, p_sigungu text, p_only_verified boolean, p_limit integer, p_offset integer
+)
+RETURNS TABLE(
+  id uuid, office_name text, address text, district text,
+  rating numeric, review_count integer, deal_count integer,
+  is_verified boolean, avg_response_hours numeric, acceptance_rate integer
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    bp.id, bp.office_name, bp.address, bp.district,
+    COALESCE(bp.rating, 0)::NUMERIC AS rating,
+    COALESCE(bp.review_count, 0) AS review_count,
+    COALESCE(bp.deal_count, 0) AS deal_count,
+    COALESCE(bp.is_verified, false) AS is_verified,
+    bp.avg_response_hours,
+    bp.acceptance_rate
+  FROM public.broker_profiles bp
+  WHERE bp.is_owner = true
+    AND COALESCE(bp.is_approved, true) = true
+    AND (p_only_verified = false OR bp.is_verified = true)
+    AND (p_sido IS NULL OR bp.address ILIKE p_sido || '%')
+    AND (p_sigungu IS NULL OR bp.address ILIKE '%' || p_sigungu || '%')
+  ORDER BY bp.is_verified DESC NULLS LAST, COALESCE(bp.rating, 0) DESC, COALESCE(bp.review_count, 0) DESC
+  LIMIT GREATEST(LEAST(p_limit, 100), 1)
+  OFFSET GREATEST(p_offset, 0);
+$$;
+GRANT EXECUTE ON FUNCTION public.get_public_brokers(text, text, boolean, integer, integer) TO anon, authenticated;
