@@ -49,6 +49,29 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
   },
+  // 제거된 중개사 공개 페이지 → 홈 (직원 노출 금지 정책)
+  //
+  // 페이지 안에서 redirect()를 호출하면 스트리밍 컨텍스트라 HTTP 리다이렉트가
+  // 아니라 "클라이언트에서 이동하는 meta 태그"가 나간다(Next 문서 명시).
+  // 그래서 실제로는 200 + 홈과 같은 내용이 응답돼 검색엔진엔 중복 콘텐츠였고,
+  // 서버 HTML과 클라이언트 렌더가 어긋나 hydration 오류(React #418)도 났다.
+  // 문서 권고대로 렌더 이전 단계(라우팅)에서 처리한다.
+  async redirects() {
+    // /broker/* 는 중개사 업무 화면이라 실제 경로를 제외하고 나머지 한 세그먼트만
+    // 옛 공개 프로필로 간주한다. (빠뜨리면 업무 화면이 홈으로 튕기므로 주의)
+    const BROKER_ROUTES = [
+      'chats', 'customers', 'diary', 'messenger', 'office', 'properties',
+      'register', 'resources', 'schedule', 'settings', 'settlement', 'team', 'trash',
+    ].join('|')
+    return [
+      { source: '/brokers', destination: '/', permanent: true },
+      {
+        source: `/broker/:id((?!${BROKER_ROUTES}$)[^/]+)`,
+        destination: '/',
+        permanent: true,
+      },
+    ]
+  },
   // 16단계 보안 헤더 (CSP·HSTS·XFO 등)
   async headers() {
     return [
