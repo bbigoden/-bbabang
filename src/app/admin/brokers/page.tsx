@@ -90,7 +90,7 @@ export default function AdminBrokersPage() {
     // 1) 대표(사무소 단위) query — admin 인증 대상은 대표뿐
     let q = supabase
       .from('broker_profiles')
-      .select('*, profiles(name, email, phone)')
+      .select('*, profiles:profiles_visible(name, email, phone)')
       .eq('is_owner', true)
       .order('created_at', { ascending: false })
 
@@ -113,7 +113,7 @@ export default function AdminBrokersPage() {
     if (ownerIds.length > 0) {
       const { data: emps } = await supabase
         .from('broker_profiles')
-        .select('*, profiles(name, email, phone)')
+        .select('*, profiles:profiles_visible(name, email, phone)')
         .in('parent_broker_id', ownerIds)
         .order('created_at', { ascending: false })
       employees = (emps ?? []) as any as BrokerRow[]

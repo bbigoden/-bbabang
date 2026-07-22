@@ -122,7 +122,7 @@ export default function AdminUsersPage() {
     else setLoadingMore(true)
 
     let q = supabase
-      .from('profiles')
+      .from('profiles_visible')
       .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at')
       .order('created_at', { ascending: false })
 
@@ -173,7 +173,7 @@ export default function AdminUsersPage() {
 
     if (s) {
       // 1) 검색어 매칭 profiles (broker 한정) 페이지네이션
-      let pq = supabase.from('profiles')
+      let pq = supabase.from('profiles_visible')
         .select('id')
         .eq('role', 'broker')
         .or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
@@ -206,7 +206,7 @@ export default function AdminUsersPage() {
       // 검색어 없음: 대표만 페이지네이션
       const { data: owners } = await supabase
         .from('broker_profiles')
-        .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
+        .select('id, is_owner, office_name, parent_broker_id, profiles:profiles_visible!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
         .eq('is_owner', true)
         .order('created_at', { ascending: false })
         .range(targetPage * PAGE_SIZE, targetPage * PAGE_SIZE + PAGE_SIZE - 1)
@@ -221,7 +221,7 @@ export default function AdminUsersPage() {
       if (ownerIds.length > 0) {
         const { data: emps } = await supabase
           .from('broker_profiles')
-          .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
+          .select('id, is_owner, office_name, parent_broker_id, profiles:profiles_visible!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
           .in('parent_broker_id', ownerIds)
         let empRows: UserRow[] = (emps ?? []).map(mapBPRow)
         if (status !== 'all') empRows = empRows.filter(u => u.account_status === status)
@@ -246,7 +246,7 @@ export default function AdminUsersPage() {
     const ownerInList = ownerIds.join(',')
     const { data: fullBPs } = await supabase
       .from('broker_profiles')
-      .select('id, is_owner, office_name, parent_broker_id, profiles!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
+      .select('id, is_owner, office_name, parent_broker_id, profiles:profiles_visible!inner(id, email, name, phone, role, account_status, suspended_until, admin_note, created_at)')
       .or(`id.in.(${ownerInList}),parent_broker_id.in.(${ownerInList})`)
 
     let rows: UserRow[] = (fullBPs ?? []).map(mapBPRow)
@@ -627,15 +627,27 @@ function UserDetailModal({ user, adminId, onClose, onUpdated }: {
   const update = async (patch: Partial<UserRow>) => {
     if (busy) return
     setBusy(true); setErr(null); setOkMsg(null)
-    const { data, error } = await supabase
+    // 수정은 본체 테이블에, 되읽기는 profiles_visible 뷰로 나눈다.
+    // 이메일·휴대폰·관리자메모는 본체에서 SELECT 권한을 회수했기 때문
+    // (관계 없는 로그인 사용자가 전 회원 연락처를 긁어가던 것을 막으면서
+    //  관리자에겐 뷰가 그대로 전부 내려준다)
+    const { error } = await supabase
       .from('profiles')
       .update(patch as any)
       .eq('id', user.id)
+    if (error) {
+      setBusy(false)
+      setErr('변경 실패: ' + error.message)
+      return
+    }
+    const { data, error: readErr } = await supabase
+      .from('profiles_visible')
       .select('id, email, name, phone, role, account_status, suspended_until, admin_note, created_at')
+      .eq('id', user.id)
       .single()
     setBusy(false)
-    if (error || !data) {
-      setErr('변경 실패: ' + (error?.message ?? 'unknown'))
+    if (readErr || !data) {
+      setErr('변경 실패: ' + (readErr?.message ?? 'unknown'))
       return
     }
     await onUpdated(data as any as UserRow)

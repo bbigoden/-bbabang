@@ -51,7 +51,7 @@ export default function SettingsAccountPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       setUser({ id: user.id, email: user.email })
-      const { data: p } = await supabase.from('profiles').select('name, phone, role, created_at').eq('id', user.id).single()
+      const { data: p } = await supabase.from('profiles_visible').select('name, phone, role, created_at').eq('id', user.id).single()
       if (p) { setProfile(p); setName(p.name ?? ''); setPhone(p.phone ?? '') }
       // 소속 직원이면 '사무소 탈퇴' 노출용 중개사 프로필 조회
       const { data: bp } = await supabase.from('broker_profiles')

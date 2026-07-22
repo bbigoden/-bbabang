@@ -77,7 +77,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
   const userMap = new Map<string, { name: string | null; phone: string | null }>()
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
-      .from('profiles')
+      .from('profiles_visible')
       .select('id, name, phone')
       .in('id', userIds)
     for (const p of profiles ?? []) {

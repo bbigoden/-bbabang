@@ -87,7 +87,7 @@ export default function AdminAuditPage() {
     const adminIds = Array.from(new Set(rows.map(r => r.admin_user_id).filter(Boolean))) as string[]
     if (adminIds.length > 0) {
       const { data: admins } = await supabase
-        .from('profiles')
+        .from('profiles_visible')
         .select('id, name, email')
         .in('id', adminIds)
       const map = new Map((admins ?? []).map((a: any) => [a.id, { name: a.name, email: a.email }]))

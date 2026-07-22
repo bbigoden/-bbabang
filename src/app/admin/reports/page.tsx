@@ -78,7 +78,7 @@ export default function AdminReportsPage() {
     setLoading(true)
     let q = supabase
       .from('reports')
-      .select('*, reporter:profiles!reports_reporter_id_fkey(name, email)')
+      .select('*, reporter:profiles_visible!reporter_id(name, email)')
       .order('created_at', { ascending: false })
       .limit(200)
 

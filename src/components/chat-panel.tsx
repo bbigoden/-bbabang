@@ -266,7 +266,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const initChat = async () => {
     const { data: proposal } = await supabase
       .from('proposals')
-      .select('*, broker_profiles(*, profiles(*)), request_posts(*, profiles(*))')
+      .select('*, broker_profiles(*, profiles:profiles_visible(*)), request_posts(*, profiles:profiles_visible(*))')
       .eq('id', proposalId).single()
     if (!proposal) { setLoading(false); return }
 

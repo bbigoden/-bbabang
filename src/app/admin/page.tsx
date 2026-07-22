@@ -160,7 +160,7 @@ export default function AdminPage() {
     // 인증 관리는 대표(is_owner=true)만 대상. 직원 승인은 대표가 /broker/team에서 처리
     const { data: owners } = await supabase
       .from('broker_profiles')
-      .select('*, profiles(name, email, phone)')
+      .select('*, profiles:profiles_visible(name, email, phone)')
       .eq('is_owner', true)
       .order('created_at', { ascending: false })
     const ownerRows = owners ?? []
@@ -171,7 +171,7 @@ export default function AdminPage() {
     if (ownerIds.length > 0) {
       const { data: emps } = await supabase
         .from('broker_profiles')
-        .select('*, profiles(name, email, phone)')
+        .select('*, profiles:profiles_visible(name, email, phone)')
         .in('parent_broker_id', ownerIds)
         .order('created_at', { ascending: false })
       const map = new Map<string, any[]>()
@@ -195,7 +195,7 @@ export default function AdminPage() {
     ] = await Promise.all([
       // 제안 0건 + 진행중(active) 의뢰
       supabase.from('request_posts')
-        .select('id, deal_type, room_type, city, district, created_at, proposal_count, profiles(name, phone)', { count: 'exact' })
+        .select('id, deal_type, room_type, city, district, created_at, proposal_count, profiles:profiles_visible(name, phone)', { count: 'exact' })
         .eq('status', 'active')
         .eq('proposal_count', 0)
         .order('created_at', { ascending: false })
@@ -221,7 +221,7 @@ export default function AdminPage() {
 
   const loadRecentUsers = async () => {
     const { data } = await supabase
-      .from('profiles')
+      .from('profiles_visible')
       .select('id, name, email, role, phone, created_at')
       .order('created_at', { ascending: false })
       .limit(20)
@@ -240,7 +240,7 @@ export default function AdminPage() {
   const loadRecentRequests = async () => {
     const { data } = await supabase
       .from('request_posts')
-      .select('*, profiles(name, phone)')
+      .select('*, profiles:profiles_visible(name, phone)')
       .order('created_at', { ascending: false })
       .limit(20)
     setRecentRequests(data ?? [])
@@ -280,12 +280,12 @@ export default function AdminPage() {
     if (type === 'users') setUserFilter(userFilterInit)
     setLoadingModal(true)
     if (type === 'users' && allUsersAll.length === 0) {
-      const { data } = await supabase.from('profiles').select('id, name, email, role, phone, created_at').order('created_at', { ascending: false }).limit(500)
+      const { data } = await supabase.from('profiles_visible').select('id, name, email, role, phone, created_at').order('created_at', { ascending: false }).limit(500)
       setAllUsersAll(data ?? [])
     } else if (type === 'requests' && allRequestsAll.length === 0) {
       const { data } = await supabase
         .from('request_posts')
-        .select('id, status, city, district, deal_type, room_type, min_price, max_price, min_size, max_size, move_in_date, proposal_count, description, created_at, profiles(name, phone)')
+        .select('id, status, city, district, deal_type, room_type, min_price, max_price, min_size, max_size, move_in_date, proposal_count, description, created_at, profiles:profiles_visible(name, phone)')
         .order('created_at', { ascending: false })
         .limit(500)
       setAllRequestsAll(data ?? [])

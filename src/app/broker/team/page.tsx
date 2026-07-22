@@ -51,7 +51,7 @@ export default function BrokerTeamPage() {
     if (owner) {
       const { data: emps } = await supabase
         .from('broker_profiles')
-        .select('id, user_id, is_approved, profiles(name, email)')
+        .select('id, user_id, is_approved, profiles:profiles_visible(name, email)')
         .eq('parent_broker_id', b.id)
 
       const list = (emps ?? []) as unknown as Employee[]
