@@ -9,6 +9,7 @@ import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
 import { formatDate } from '@/lib/utils'
 import { EmptyState } from '@/components/empty-state'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import {
   Megaphone, ArrowLeft, Send, AlertCircle, Check, Users, Building2,
   Globe, ExternalLink, Eye, EyeOff, Trash2
@@ -100,12 +101,18 @@ export default function AdminAnnouncementsPage() {
     setBusy(true); setErr(null); setOkMsg(null)
 
     // 1) 대상 user_id 목록
-    let q = supabase.from('profiles').select('id, notification_preferences')
-    if (audience === 'user') q = q.eq('role', 'user')
-    else if (audience === 'broker') q = q.eq('role', 'broker')
-    const { data: profiles, error: pErr } = await q
-    if (pErr) {
-      setErr('대상 조회 실패: ' + pErr.message)
+    //    전건 조회라 range로 이어받아야 한다. 안 그러면 가입자가 1000명을 넘는
+    //    순간 1001번째부터는 공지를 영영 못 받는데 화면엔 "발행 완료"로 뜬다.
+    let profiles: Array<{ id: string; notification_preferences: unknown }>
+    try {
+      profiles = await fetchAllPaged<{ id: string; notification_preferences: unknown }>((from, to) => {
+        let q = supabase.from('profiles').select('id, notification_preferences').range(from, to)
+        if (audience === 'user') q = q.eq('role', 'user')
+        else if (audience === 'broker') q = q.eq('role', 'broker')
+        return q
+      })
+    } catch (e: unknown) {
+      setErr('대상 조회 실패: ' + (e instanceof Error ? e.message : String(e)))
       setBusy(false); setConfirm(false); return
     }
 

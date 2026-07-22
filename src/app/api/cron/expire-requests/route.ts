@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@supabase/supabase-js'
 import { sendPushToUser } from '@/lib/push-server'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
 /**
  * 매일 1회 호출 (Vercel cron). vercel.json에 정의.
@@ -124,24 +125,31 @@ export async function GET(req: NextRequest) {
   // 매물 자동 정리 — 180일 이상 available인 매물에게 갱신 권유
   // ─────────────────────────────────────────────
   const propertyOldSince = new Date(now - 180 * day).toISOString()
-  const { data: oldProperties } = await supa
-    .from('broker_properties')
-    .select('id, broker_id, address, broker_profiles(user_id)')
-    .eq('status', 'available')
-    .lte('created_at', propertyOldSince)
+  // 전건 조회라 range로 이어받는다 (PostgREST가 1000행에서 조용히 자름)
+  const oldProperties = await fetchAllPaged<{ id: string; broker_id: string; address: string | null; broker_profiles: unknown }>(
+    (from, to) => supa
+      .from('broker_properties')
+      .select('id, broker_id, address, broker_profiles(user_id)')
+      .eq('status', 'available')
+      .lte('created_at', propertyOldSince)
+      .range(from, to))
 
   let propertyNotified = 0
-  // 중복 체크를 한 번에 — 최근 30일 내 알림 조회
-  const propertyLinks = (oldProperties ?? []).map(p => `/broker/properties/${p.id}`)
+  // 중복 체크 — 최근 30일 내 알림 조회.
+  // .in()에 링크를 통째로 넣으면 대상이 수백 건일 때 GET URL이 수십 KB가 돼
+  // PostgREST/프록시가 414로 거절한다. 그러면 이 Set이 비어 "이미 보냈는지"를
+  // 알 수 없게 되고, 같은 알림이 30일마다가 아니라 매일 재발송된다.
+  // 링크로 좁히는 대신 기간+타입으로 받아 메모리에서 대조한다.
   const alreadyStaleNotified = new Set<string>()
-  if (propertyLinks.length > 0) {
-    const { data: existingStale } = await supa
-      .from('notifications')
-      .select('user_id, link')
-      .eq('type', 'property_stale_reminder')
-      .in('link', propertyLinks)
-      .gte('created_at', new Date(now - 30 * day).toISOString())
-    for (const e of existingStale ?? []) {
+  if (oldProperties.length > 0) {
+    const existingStale = await fetchAllPaged<{ user_id: string; link: string | null }>(
+      (from, to) => supa
+        .from('notifications')
+        .select('user_id, link')
+        .eq('type', 'property_stale_reminder')
+        .gte('created_at', new Date(now - 30 * day).toISOString())
+        .range(from, to))
+    for (const e of existingStale) {
       alreadyStaleNotified.add(`${e.user_id}|${e.link}`)
     }
   }

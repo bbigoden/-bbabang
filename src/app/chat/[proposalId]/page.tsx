@@ -370,13 +370,16 @@ export default function ChatPage() {
 
     setRoom({ ...chatRoom, proposal })
 
+    // 오름차순 + 상한 없음이면 메시지가 1000개를 넘는 순간 최신 쪽이 잘린다.
+    // 최신 500개를 받아 표시 순서만 되돌린다.
     const { data: msgs } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('room_id', chatRoom.id)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(500)
 
-    const loadedMessages = (msgs ?? []) as Message[]
+    const loadedMessages = ((msgs ?? []) as Message[]).reverse()
     setMessages(loadedMessages)
     setLoading(false)
 

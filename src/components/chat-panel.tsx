@@ -72,10 +72,17 @@ export function PropertyCard({ snapshot, isMine, onClick }: { snapshot: Property
 
 // ── 일정 카드 ──────────────────────────────────────
 export function EventCard({ event, isMine }: { event: EventPayload; isMine: boolean }) {
+  // event는 메시지 본문 JSON.parse 결과라 형태가 보장되지 않는다. datetime이
+  // 비었거나 깨졌으면 toISOString()이 RangeError를 던지는데, 렌더 중이라
+  // 메시지 한 건 때문에 채팅방 전체가 흰 화면이 된다.
   const dt = new Date(event.datetime)
-  const dateStr = dt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
-  const timeStr = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-  const calendarUrl = `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${dt.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}/${new Date(dt.getTime() + 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}${event.location ? `&location=${encodeURIComponent(event.location)}` : ''}${event.note ? `&details=${encodeURIComponent(event.note)}` : ''}`
+  const valid = !Number.isNaN(dt.getTime())
+  const dateStr = valid ? dt.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }) : '날짜 미상'
+  const timeStr = valid ? dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : ''
+  const gcal = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')
+  const calendarUrl = valid
+    ? `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${gcal(dt)}/${gcal(new Date(dt.getTime() + 60 * 60 * 1000))}${event.location ? `&location=${encodeURIComponent(event.location)}` : ''}${event.note ? `&details=${encodeURIComponent(event.note)}` : ''}`
+    : null
   return (
     <div className={cn('w-56 rounded-2xl border overflow-hidden shadow-sm', isMine ? 'border-emerald-200 bg-emerald-50' : 'border-gray-100 bg-white')}>
       <div className={cn('flex items-center gap-2 px-3 py-2 border-b text-xs font-semibold', isMine ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-emerald-50 border-emerald-100 text-emerald-700')}>
@@ -97,10 +104,12 @@ export function EventCard({ event, isMine }: { event: EventPayload; isMine: bool
           <p className={cn('text-xs leading-relaxed line-clamp-2 mt-1', isMine ? 'text-emerald-800' : 'text-gray-600')}>{event.note}</p>
         )}
       </div>
-      <a href={calendarUrl} target="_blank" rel="noopener noreferrer"
-        className={cn('block px-3 py-1.5 text-center text-xs font-semibold border-t', isMine ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'border-gray-100 text-blue-600 hover:bg-gray-50')}>
-        구글 캘린더에 추가
-      </a>
+      {calendarUrl && (
+        <a href={calendarUrl} target="_blank" rel="noopener noreferrer"
+          className={cn('block px-3 py-1.5 text-center text-xs font-semibold border-t', isMine ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-100' : 'border-gray-100 text-blue-600 hover:bg-gray-50')}>
+          구글 캘린더에 추가
+        </a>
+      )}
     </div>
   )
 }
@@ -277,8 +286,12 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
     if (!chatRoom) { setLoading(false); return }
 
     setRoom({ ...chatRoom, proposal })
-    const { data: msgs } = await supabase.from('chat_messages').select('*').eq('room_id', chatRoom.id).order('created_at', { ascending: true })
-    setMessages((msgs ?? []) as Message[])
+    // 오름차순 + 상한 없음이면 한 방의 메시지가 1000개를 넘는 순간 PostgREST가
+    // 뒤(=최신)를 잘라낸다. 오래된 것부터 남고 방금 보낸 게 안 보이는 최악의
+    // 형태라, 최신 500개를 받아 표시 순서만 되돌린다.
+    const { data: msgs } = await supabase.from('chat_messages').select('*').eq('room_id', chatRoom.id)
+      .order('created_at', { ascending: false }).limit(500)
+    setMessages(((msgs ?? []) as Message[]).reverse())
     setLoading(false)
 
     // 수락 상태이고 고객 본인일 때 리뷰 작성 여부 체크
