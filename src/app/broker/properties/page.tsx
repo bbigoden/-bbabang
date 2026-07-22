@@ -1070,6 +1070,16 @@ const PropertyRow = memo(function PropertyRow({
           const w = settings.widths[key] ?? 100
           // 읽기 전용 셀 (어드민 뷰 / 편집 권한 없음 / 본인 매물 아님)
           if (isAdminView || !canEdit || !isMine) {
+            // 긴 텍스트(메모/설명)는 읽기 전용이어도 hover 툴팁으로 전체 보이게 유지.
+            // 일반 div로 렌더하면 잘린 채 확인할 방법이 없어짐(직원이 남의 매물 볼 때).
+            if (key === 'memo' || key === 'brief_memo') {
+              const v = key === 'memo' ? (memoVisible ? p.memo : null) : p.brief_memo
+              return (
+                <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
+                  <LongTextCell value={v ?? null} onSave={() => {}} placeholder="—" readOnly />
+                </td>
+              )
+            }
             const readVal = (() => {
               if (key === 'status') {
                 return <StatusToggleCell value={p.status} readOnly />
@@ -1090,8 +1100,6 @@ const PropertyRow = memo(function PropertyRow({
               if (key === 'images') return p.images?.length > 0
                 ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-500">+{p.images.length - 1}</span>}</div>
                 : <span className="text-xs text-gray-500">—</span>
-              // 중개사 메모는 열람 권한 없으면 숨김 (본인 매물 또는 담당자에 대표 포함)
-              if (key === 'memo' && !memoVisible) return <span className="text-gray-200 select-none">—</span>
               const raw: any = (p as any)[key]
               return raw != null && raw !== '' ? String(raw) : '—'
             })()
