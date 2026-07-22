@@ -73,7 +73,7 @@ export default function RecommendationsPage() {
       // 가격 필터 (max_price 이하)
       let q = supabase
         .from('public_properties')
-        .select('*, broker_profiles(office_name, is_verified, profiles(name))')
+        .select('*, broker_profiles(office_name, is_verified)')
         .eq('status', 'available')
         .ilike('address', `%${region}%`)
         .order('created_at', { ascending: false })
@@ -118,7 +118,7 @@ export default function RecommendationsPage() {
     if (favBrokerIds.length > 0) {
       const { data } = await supabase
         .from('public_properties')
-        .select('*, broker_profiles(office_name, is_verified, profiles(name))')
+        .select('*, broker_profiles(office_name, is_verified)')
         .eq('status', 'available')
         .in('broker_id', favBrokerIds)
         .order('created_at', { ascending: false })

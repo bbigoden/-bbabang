@@ -18,7 +18,7 @@ interface PropertyHit {
   price: number | null
   monthly_rent: number | null
   images: string[] | null
-  broker_profiles: { office_name: string | null; profiles: { name: string | null } | null } | null
+  broker_profiles: { office_name: string | null } | null
 }
 interface RequestHit {
   id: string
@@ -70,7 +70,8 @@ function SearchInner() {
     const [pRes, rRes] = await Promise.all([
       supabase
         .from('public_properties')
-        .select('id, seq_no, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name, profiles(name))')
+        // 중개사 실명은 조회만 하고 화면엔 쓰지 않았다 — 공개 화면은 사무소명까지다
+        .select('id, seq_no, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name)')
         .ilike('address', like)
         .eq('status', 'available')
         .order('created_at', { ascending: false })

@@ -113,7 +113,7 @@ export function FeaturedMain() {
       if (brokerIds.length > 0) {
         const { data } = await supabaseRef.current
           .from('broker_profiles')
-          .select('id, office_name, rating, review_count, district, profiles(name)')
+          .select('id, office_name, rating, review_count, district')
           .in('id', brokerIds)
         if (!cancelled && data) {
           // 큐레이션 순서 유지

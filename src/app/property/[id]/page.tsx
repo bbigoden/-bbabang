@@ -57,7 +57,7 @@ export default async function PropertyDetailPage({ params }: Props) {
     // public_properties 뷰: 공개 안전 컬럼만 담는다. memo·assignee·custom_fields는
     // 관계자만 볼 수 있어야 하므로 테이블 직접 조회는 RLS로 막혀 있다.
     .from('public_properties')
-    .select('*, broker_profiles(id, office_name, address, district, rating, review_count, deal_count, is_verified, avg_response_hours, acceptance_rate, parent_broker_id, profiles(name))')
+    .select('*, broker_profiles(id, office_name, address, district, rating, review_count, deal_count, is_verified, avg_response_hours, acceptance_rate, parent_broker_id)')
     .eq('id', id)
     .maybeSingle()
 
@@ -65,8 +65,7 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   // 본인(매물 등록 중개사) 여부 — 본인이면 풀 주소, 아니면 마스킹
   const broker = prop.broker_profiles as any
-  const _isOwnProperty = !!(user && broker?.profiles && (broker as any).user_id === user.id)
-  // user_id가 broker_profiles에서 안 select되어 별도 체크
+  // 본인 여부는 아래에서 broker_profiles를 따로 조회해 판정한다
   let isMine = false
   if (user && prop.broker_id) {
     const { data: myBroker } = await supabase
@@ -101,17 +100,10 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   // 직원 계정 매물이면 대표(부모 사무소) 기준으로 표시 — 직원 개인정보 노출 방지
   // ownerBrokerId: 사무소 대표 계정 ID (링크·소개 표기용)
-  let brokerProfile = broker?.profiles
+  // 대표 실명은 표시하지 않는다: 공개 화면은 사무소명까지다(직원 노출 금지 정책).
+  // 실명을 읽으려면 anon에게 profiles를 열어줘야 하는데, 그 순간 전 회원의
+  // 이름·이메일·휴대폰이 REST로 통째로 나갔다.
   const ownerBrokerId: string = broker?.parent_broker_id ?? prop.broker_id
-  if (broker?.parent_broker_id) {
-    const { data: parent } = await supabase
-      .from('broker_profiles')
-      .select('profiles(name)')
-      .eq('id', broker.parent_broker_id)
-      .maybeSingle()
-    const parentProfile = (parent?.profiles as { name?: string } | null) ?? null
-    if (parentProfile?.name) brokerProfile = parentProfile
-  }
 
   // 같은 사무소(대표+승인 직원)의 다른 매물 (4개)
   const { data: officeStaff } = await supabase
@@ -158,7 +150,7 @@ export default async function PropertyDetailPage({ params }: Props) {
           price: prop.price,
           priceCurrency: 'KRW',
           availability: 'https://schema.org/InStock',
-          seller: brokerProfile?.name ? { '@type': 'RealEstateAgent', name: brokerProfile.name } : undefined,
+          seller: broker?.office_name ? { '@type': 'RealEstateAgent', name: broker.office_name } : undefined,
         } : undefined,
       },
     ],
@@ -319,7 +311,6 @@ export default async function PropertyDetailPage({ params }: Props) {
                     <h3 className="font-bold text-gray-900 dark:text-white truncate">{broker.office_name ?? '공인중개사사무소'}</h3>
                     {broker.is_verified && <ShieldCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />}
                   </div>
-                  {brokerProfile?.name && <p className="text-xs text-gray-500 truncate">대표 {brokerProfile.name}</p>}
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                     {broker.rating > 0 && (
                       <span className="flex items-center gap-0.5 text-amber-600 font-semibold">
