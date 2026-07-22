@@ -90,15 +90,8 @@ const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '�
 const _PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
-// 매물장 조회 칼럼 — 시트 렌더·전체검색·정렬·지도 마커가 모두 이 필드들을 쓴다.
-const PROPERTY_SELECT = 'id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields, lat, lng'
-
-// 첫 화면에 먼저 그릴 건수. 나머지는 백그라운드로 이어 받는다.
-// 사무소 매물이 1700건이 넘으면 전건(약 1.5MB)을 다 받을 때까지 화면이 비어 있어
-// 폰에서 몇 초씩 멈춘 것처럼 보였다. 첫 묶음만 받아 즉시 렌더한 뒤 나머지를 채운다.
-// (검색·정렬·지도 마커는 전건이 필요하므로 로드 자체를 없애지는 않는다)
-const FIRST_CHUNK = 200
-const REST_PAGE = 1000
+// 매물장 데이터는 search_office_properties RPC가 서버에서 필터·검색·정렬·페이지 처리.
+// (기존: 전건 1700건+/1.5MB를 받아 클라이언트에서 처리 → 폰에서 수 초 정지)
 // 거래형태 색상 (셀 라벨용 tailwind 클래스 — 매 렌더 재생성 방지하려 모듈 상수)
 const DEAL_TYPE_COLOR_MAP: Record<string, string> = {
   매매: 'bg-blue-100 text-blue-700',
@@ -1193,7 +1186,13 @@ function BrokerPropertiesContent() {
 
   const [user, setUser] = useState<any>(null)
   const [broker, setBroker] = useState<any>(null)
+  // 서버 페이지네이션: properties는 "현재 페이지 행"만 담는다.
+  // 필터·검색·정렬·페이지는 search_office_properties RPC가 DB에서 처리.
   const [properties, setProperties] = useState<Property[]>([])
+  const [brokerIdsState, setBrokerIdsState] = useState<string[] | null>(null)
+  const [totalCount, setTotalCount] = useState(0)   // 필터·검색 반영 총 건수
+  const [allCount, setAllCount] = useState(0)       // 필터 무관 전체 건수 (헤더 표시)
+  const [mapRows, setMapRows] = useState<Property[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
   const [canEdit, setCanEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [isAdminView, setIsAdminView] = useState(false)
@@ -1218,6 +1217,12 @@ function BrokerPropertiesContent() {
   }
   const [showFilter, setShowFilter] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  // 타이핑마다 서버 요청이 나가지 않도록 300ms 디바운스
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300)
+    return () => clearTimeout(t)
+  }, [searchQuery])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
@@ -1356,27 +1361,10 @@ function BrokerPropertiesContent() {
       setCustomColumns(cols)
       const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
       if (ownBroker) setSettingsBrokerId(ownBroker.id)
-      // 첫 묶음 먼저 렌더 → 나머지 백그라운드 (일반 매물장과 동일 전략)
-      const adminPageQuery = (from: number, to: number) => supabase
-        .from('broker_properties').select(PROPERTY_SELECT).eq('broker_id', b.id)
-        .order('created_at', { ascending: false }).order('id', { ascending: false })
-        .range(from, to)
-
-      const { data: firstPage } = await adminPageQuery(0, FIRST_CHUNK - 1)
-      setProperties(firstPage ?? [])
-      setLoading(false)
-      if (!firstPage || firstPage.length < FIRST_CHUNK) return
-
-      void (async () => {
-        const rest: any[] = []
-        for (let from = FIRST_CHUNK; ; from += REST_PAGE) {
-          const { data: page } = await adminPageQuery(from, from + REST_PAGE - 1)
-          if (!page || page.length === 0) break
-          rest.push(...page)
-          if (page.length < REST_PAGE) break
-        }
-        if (rest.length) setProperties(prev => [...prev, ...rest])
-      })()
+      // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다
+      setBrokerIdsState([b.id])
+      void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
+        .eq('broker_id', b.id).then(({ count }) => setAllCount(count ?? 0))
       return
     }
 
@@ -1434,31 +1422,61 @@ function BrokerPropertiesContent() {
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
-    // 첫 묶음만 먼저 받아 즉시 렌더 → 나머지는 백그라운드로 이어 받아 붙인다.
-    // created_at 동률에도 페이지 경계가 흔들리지 않도록 id를 2차 정렬키로 고정.
-    const pageQuery = (from: number, to: number) => supabase
-      .from('broker_properties').select(PROPERTY_SELECT).in('broker_id', brokerIds)
-      .order('created_at', { ascending: false }).order('id', { ascending: false })
-      .range(from, to)
-
-    const { data: firstPage } = await pageQuery(0, FIRST_CHUNK - 1)
-    setProperties(firstPage ?? [])
-    setLoading(false)
-
-    // 첫 묶음으로 다 받았으면 끝
-    if (!firstPage || firstPage.length < FIRST_CHUNK) return
-
-    void (async () => {
-      const rest: any[] = []
-      for (let from = FIRST_CHUNK; ; from += REST_PAGE) {
-        const { data: page } = await pageQuery(from, from + REST_PAGE - 1)
-        if (!page || page.length === 0) break
-        rest.push(...page)
-        if (page.length < REST_PAGE) break
-      }
-      if (rest.length) setProperties(prev => [...prev, ...rest])
-    })()
+    // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다
+    setBrokerIdsState(brokerIds)
+    void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
+      .in('broker_id', brokerIds).then(({ count }) => setAllCount(count ?? 0))
   }
+
+  // ── 서버 페이지네이션 — 현재 페이지 분량만 RPC로 조회 ──────────
+  // 필터·검색·정렬·방향이 바뀔 때마다 해당 조건으로 서버에서 다시 받는다.
+  // sortKey 없으면 등록순(direction: up=최신부터, down=오래된 것부터).
+  const rpcParams = useCallback((limit: number, offset: number) => ({
+    p_broker_ids: brokerIdsState,
+    p_q: debouncedQuery || null,
+    p_deal_type: filterDealType || null,
+    p_room_types: filterRoomTypes.length > 0 ? filterRoomTypes : null,
+    p_status: filterStatus || null,
+    p_sort_key: sortKey ?? 'created_at',
+    p_sort_dir: sortKey ? sortDir : (direction === 'up' ? 'desc' : 'asc'),
+    p_limit: limit,
+    p_offset: offset,
+  }), [brokerIdsState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, sortKey, sortDir, direction])
+
+  useEffect(() => {
+    if (!brokerIdsState) return
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase.rpc('search_office_properties', rpcParams(pageSize, (page - 1) * pageSize))
+      if (cancelled) return
+      if (error) {
+        console.error('[properties] page fetch failed', error)
+        toast.error(`매물 조회 실패: ${error.message}`)
+        setLoading(false)
+        return
+      }
+      const rows = (data ?? []).map((r: any) => r.data as Property)
+      setProperties(rows)
+      setTotalCount(Number(data?.[0]?.total_count ?? 0))
+      setLoading(false)
+      // 필터 변경 등으로 현재 페이지가 범위를 벗어나면 1페이지로
+      if (rows.length === 0 && page > 1) setPage(1)
+    })()
+    return () => { cancelled = true }
+  }, [brokerIdsState, page, pageSize, rpcParams])
+
+  // ── 지도 뷰 데이터 — 지도를 열 때만 현재 필터의 전체 매물 로드 ──
+  useEffect(() => {
+    if (!isMapView || !brokerIdsState) return
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase.rpc('search_office_properties', rpcParams(10000, 0))
+      if (cancelled) return
+      if (error) { console.error('[properties] map fetch failed', error); return }
+      setMapRows((data ?? []).map((r: any) => r.data as Property))
+    })()
+    return () => { cancelled = true }
+  }, [isMapView, brokerIdsState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, rpcParams])
 
   // 단일 필드 저장 (optimistic UI + 실패 시 롤백)
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
@@ -1692,8 +1710,10 @@ function BrokerPropertiesContent() {
       images: [],
     }).select().single()
     if (error || !data) return
-    // properties 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
+    // 새 행을 현재 페이지에 즉시 표시 (스크롤 effect가 페이지 이동을 처리)
     setProperties(prev => [data, ...prev])
+    setTotalCount(c => c + 1)
+    setAllCount(c => c + 1)
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
@@ -1716,6 +1736,8 @@ function BrokerPropertiesContent() {
         return
       }
       setProperties(prev => prev.filter(p => p.id !== deleteConfirm.id))
+      setTotalCount(c => Math.max(0, c - 1))
+      setAllCount(c => Math.max(0, c - 1))
     } else if (deleteConfirm.type === 'column') {
       const id = deleteConfirm.id
       const updated = customColumns.filter(c => c.id !== id)
@@ -1736,59 +1758,16 @@ function BrokerPropertiesContent() {
     const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
     if (error || !data) return
     setProperties(prev => [data, ...prev])
+    setTotalCount(c => c + 1)
+    setAllCount(c => c + 1)
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
     notifyOwnerOfBrokerAction(broker.id, 'property', `/broker/properties?focus=${data.id}`)
   }, [broker])
 
-  const filtered = useMemo(() => {
-    let list = properties
-    if (filterDealType) list = list.filter(p => (p.deal_type ?? '').split(',').map(s => s.trim()).includes(filterDealType))
-    if (filterRoomTypes.length > 0) list = list.filter(p => filterRoomTypes.includes(p.room_type))
-    if (filterStatus) list = list.filter(p => p.status === filterStatus)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
-      // 숫자만 입력하면 매물번호 정확 매칭 우선 (예: "984" → seq_no 984)
-      const qNum = /^\d+$/.test(q.trim()) ? Number(q.trim()) : null
-      // 매물 상태 한글 라벨도 검색 대상 (예: "계약완료" 검색 시 contracted 매물 매칭)
-      const statusLabel: Record<string, string> = {
-        available: PROPERTY_STATUS_META.available.label,
-        contracted: PROPERTY_STATUS_META.contracted.label,
-        hidden: PROPERTY_STATUS_META.hidden.label,
-      }
-      list = list.filter(p => {
-        if (qNum != null && p.seq_no === qNum) return true
-        // 모든 의미 있는 필드 (텍스트·숫자·날짜·배열·커스텀)를 검색 대상에 포함
-        const fields = [
-          p.seq_no != null ? String(p.seq_no) : null,
-          p.address, p.deal_type, p.room_type,
-          p.size_pyeong,
-          p.area_supplied != null ? String(p.area_supplied) : null,
-          p.area_type, p.area_unit,
-          p.price != null ? String(p.price) : null,
-          p.monthly_rent != null ? String(p.monthly_rent) : null,
-          p.management_fee != null ? String(p.management_fee) : null,
-          p.premium != null ? String(p.premium) : null,
-          p.floor != null ? String(p.floor) : null,
-          p.total_floors,
-          p.move_in_date, p.rooms_bathrooms,
-          p.approval_date, p.received_date,
-          p.parking, p.direction,
-          p.brief_memo, p.description, p.memo, p.assignee,
-          p.status, statusLabel[p.status],
-          (p.options ?? []).join(' '),  // 옵션 배열 (예: "풀옵션", "주차가능")
-        ]
-        if (fields.some(f => f?.toLowerCase().includes(q))) return true
-        // 커스텀 필드 값 검색
-        if (p.custom_fields) {
-          return Object.values(p.custom_fields).some((v: any) => v?.toLowerCase?.().includes(q))
-        }
-        return false
-      })
-    }
-    return list
-  }, [properties, filterDealType, filterRoomTypes, filterStatus, searchQuery])
+  // 필터·검색은 search_office_properties RPC가 서버에서 처리 (동일한 부분 문자열 매칭).
+  // 지도 뷰는 mapRows(필터 반영 전체), 시트는 properties(현재 페이지)를 쓴다.
 
   // 지도 뷰 렌더링 — Marker(SVG 핀) + MarkerClusterer + 클릭 시 정보 오버레이
   useEffect(() => {
@@ -1844,7 +1823,7 @@ function BrokerPropertiesContent() {
       markersRef.current = []
 
       const geocoder = new kakao.maps.services.Geocoder()
-      const targets = filtered.filter(p => p.address)
+      const targets = mapRows.filter(p => p.address)
       if (targets.length === 0) { setGeocoding(false); return }
 
       setGeocoding(true)
@@ -2003,9 +1982,9 @@ function BrokerPropertiesContent() {
         done++
         if (coords) {
           geocoded.push({ prop, lat: coords.lat, lng: coords.lng })
-          // DB에도 비동기로 저장 — 다음 페이지 로드부터는 카카오 호출 안 함
+          // DB에도 비동기로 저장 — 다음 지도 로드부터는 카카오 호출 안 함
           supabase.from('broker_properties').update({ lat: coords.lat, lng: coords.lng }).eq('id', prop.id).then(() => {
-            setProperties(prev => prev.map(p => p.id === prop.id ? { ...p, lat: coords.lat, lng: coords.lng } : p))
+            setMapRows(prev => prev.map(p => p.id === prop.id ? { ...p, lat: coords.lat, lng: coords.lng } : p))
           })
         }
         if (done === targets.length) buildAllMarkers()
@@ -2040,7 +2019,7 @@ function BrokerPropertiesContent() {
 
     requestAnimationFrame(renderMap)
     return () => { cancelled = true }
-  }, [isMapView, mapReady, filtered])
+  }, [isMapView, mapReady, mapRows])
 
   // 지도 뷰가 닫히면 인스턴스 무효화 — 다음 진입 시 새 컨테이너에 새 instance 생성 강제
   // (기존: 옛 DOM에 binding된 instance를 relayout만 했더니 타일이 안 그려지는 케이스 있었음)
@@ -2052,36 +2031,9 @@ function BrokerPropertiesContent() {
   }, [isMapView])
 
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-
-  // 정렬: sortKey 지정되면 그 컬럼 기준, 아니면 기존 created_at 정/역순
-  const sortedFiltered = useMemo(() => {
-    if (!sortKey) {
-      return direction === 'up' ? filtered : [...filtered].reverse()
-    }
-    const list = [...filtered]
-    const num = (v: any) => {
-      if (v == null || v === '') return null
-      const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.\-]/g, ''))
-      return isNaN(n) ? null : n
-    }
-    list.sort((a, b) => {
-      const av = (a as any)[sortKey]
-      const bv = (b as any)[sortKey]
-      // null은 항상 마지막
-      if (av == null || av === '') return bv == null || bv === '' ? 0 : 1
-      if (bv == null || bv === '') return -1
-      // 숫자 컬럼
-      const an = num(av), bn = num(bv)
-      if (an != null && bn != null) return sortDir === 'asc' ? an - bn : bn - an
-      // 문자열
-      const cmp = String(av).localeCompare(String(bv), 'ko')
-      return sortDir === 'asc' ? cmp : -cmp
-    })
-    return list
-  }, [filtered, sortKey, sortDir, direction])
-
-  const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize)
+  // 정렬·방향·페이지 슬라이스는 전부 서버(RPC)가 처리 — properties가 곧 현재 페이지다.
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const paginated = properties
 
   // 알림에서 ?focus=ID 로 진입 시 해당 매물 강조 (한 번만 처리)
   const focusedRef = useRef<string | null>(null)
@@ -2099,7 +2051,8 @@ function BrokerPropertiesContent() {
   // 새 행 추가 시: 페이지 이동 + 스크롤 + 첫 셀 클릭 (편집모드)
   useEffect(() => {
     if (!addingId) return
-    const targetPage = direction === 'up' ? 1 : Math.max(1, Math.ceil(properties.length / pageSize))
+    // 새 행은 등록순 최신 — up(최신부터)이면 1페이지, down(오래된 것부터)이면 마지막 페이지
+    const targetPage = direction === 'up' ? 1 : Math.max(1, Math.ceil(totalCount / pageSize))
     setPage(targetPage)
     const t = setTimeout(() => {
       const row = document.querySelector(`tr[data-row-id="${addingId}"]`) as HTMLElement | null
@@ -2115,7 +2068,7 @@ function BrokerPropertiesContent() {
       }
     }, 80)
     return () => clearTimeout(t)
-  }, [addingId, direction, properties.length, pageSize])
+  }, [addingId, direction, totalCount, pageSize])
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
@@ -2171,7 +2124,7 @@ function BrokerPropertiesContent() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
-            <p className="mt-0.5 text-sm text-gray-500">전체 {properties.length}건 · 검색 {filtered.length}건</p>
+            <p className="mt-0.5 text-sm text-gray-500">전체 {allCount}건 · 검색 {totalCount}건</p>
             <p className="mt-0.5 text-xs text-gray-500 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>
           </div>
           <div className="flex items-center gap-2">
@@ -2298,7 +2251,7 @@ function BrokerPropertiesContent() {
             {mapStatus !== 'error' && (!mapReady || geocoding) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10">
                 <Loader2 className="h-7 w-7 animate-spin text-blue-600 mb-2" />
-                <p className="text-sm text-gray-500">{!mapReady ? '지도 불러오는 중...' : `주소 변환 중... (${filtered.filter(p=>p.address).length}건)`}</p>
+                <p className="text-sm text-gray-500">{!mapReady ? '지도 불러오는 중...' : `주소 변환 중... (${mapRows.filter(p=>p.address).length}건)`}</p>
               </div>
             )}
             {/* 범례 */}
@@ -2312,7 +2265,7 @@ function BrokerPropertiesContent() {
               </div>
             )}
             {/* 검색 결과 없음 */}
-            {mapReady && !geocoding && filtered.filter(p => p.address).length === 0 && (
+            {mapReady && !geocoding && mapRows.filter(p => p.address).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
                 <p className="text-sm text-gray-500">주소가 있는 매물이 없습니다</p>
               </div>
@@ -2582,7 +2535,7 @@ function BrokerPropertiesContent() {
           page={page}
           totalPages={totalPages}
           pageSize={pageSize}
-          totalCount={filtered.length}
+          totalCount={totalCount}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
           pageSizes={PAGE_SIZE_OPTIONS}
