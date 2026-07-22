@@ -19,6 +19,7 @@ import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { EmptyState } from '@/components/empty-state'
+import { useToast } from '@/components/toast'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -607,6 +608,7 @@ export default function BrokerDiaryPage() {
   const settingsBrokerId = viewingExEmployee ? (broker?.id ?? null) : (viewingBrokerId ?? broker?.id ?? null)
   const { settings, update, loaded } = useColSettings('diary_cust', settingsBrokerId, DEFAULT_COL_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'diary')
+  const toast = useToast()
 
   useEffect(() => {
     if (auth.loading) return
@@ -754,7 +756,7 @@ export default function BrokerDiaryPage() {
       // 아직 살아있으면(퇴사자 고객이 대표에게 이관돼 대개 살아있다) 원본에서
       // 요청사항·진행상황 등을 채워 넣는다. 원본이 없을 때만 archive 스냅샷 사용.
       const custIds = Array.from(new Set((archLinks ?? []).map((l: any) => l.customer_id).filter(Boolean)))
-      let liveMap: Record<string, any> = {}
+      const liveMap: Record<string, any> = {}
       if (custIds.length > 0) {
         const { data: liveCusts } = await supabase.from('broker_customers')
           .select('id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields')
@@ -920,24 +922,49 @@ export default function BrokerDiaryPage() {
   }, [addingId])
 
   // 고객 필드 수정 (broker_customers 업데이트)
+  // 저장 실패(RLS 거부·오프라인·네트워크 단절)를 무시하면 화면에는 저장된 것처럼
+  // 보이고 DB엔 안 들어가, 새로고침해야 유실을 안다. 고객관리·매물 시트가 쓰는
+  // "실패 시 이전 값으로 되돌리고 알린다" 패턴을 일지에도 맞춘다.
   const saveCustomerField = useCallback(async (customerId: string, field: string, value: any) => {
-    await supabase.from('broker_customers').update({ [field]: value }).eq('id', customerId)
-    setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, [field]: value } : c))
+    let prevValue: any = undefined
+    setDiaryCustomers(prev => {
+      const row = prev.find(c => c.id === customerId) as any
+      if (row) prevValue = row[field]
+      return prev.map(c => c.id === customerId ? { ...c, [field]: value } : c)
+    })
+    const { error } = await supabase.from('broker_customers').update({ [field]: value }).eq('id', customerId)
+    if (error) {
+      console.error('[diary saveCustomerField] failed', error)
+      setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, [field]: prevValue } : c))
+      toast.error(`저장 실패: ${error.message}`)
+    }
     // 피커는 열 때마다 서버에서 다시 검색하므로 별도 로컬 캐시 동기화가 필요 없다
-  }, [])
+  }, [toast])
 
   const saveCustomField = useCallback(async (customerId: string, colId: string, value: string) => {
     const row = diaryCustomers.find(c => c.id === customerId)
+    const prevFields = row?.custom_fields ?? null
     const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
-    await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', customerId)
     setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, custom_fields: newFields } : c))
-  }, [diaryCustomers])
+    const { error } = await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', customerId)
+    if (error) {
+      console.error('[diary saveCustomField] failed', error)
+      setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, custom_fields: prevFields } : c))
+      toast.error(`저장 실패: ${error.message}`)
+    }
+  }, [diaryCustomers, toast])
 
   // 제안 매물 저장
   const saveProposedProperties = async (linkId: string, ids: string[]) => {
-    await supabase.from('broker_diary_customers').update({ proposed_property_ids: ids }).eq('id', linkId)
+    const prevIds = diaryCustomers.find(c => c.link_id === linkId)?.proposed_property_ids ?? []
     setDiaryCustomers(prev => prev.map(c => c.link_id === linkId ? { ...c, proposed_property_ids: ids } : c))
     setPropertyPickerLinkId(null)
+    const { error } = await supabase.from('broker_diary_customers').update({ proposed_property_ids: ids }).eq('id', linkId)
+    if (error) {
+      console.error('[diary saveProposedProperties] failed', error)
+      setDiaryCustomers(prev => prev.map(c => c.link_id === linkId ? { ...c, proposed_property_ids: prevIds } : c))
+      toast.error(`제안매물 저장 실패: ${error.message}`)
+    }
   }
 
   // 섹션 내용 저장 — viewing 대상의 broker_id에 저장 (사장님이 직원 일지 편집 가능하도록)

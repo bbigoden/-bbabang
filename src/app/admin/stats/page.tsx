@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { propertyStatusLabel } from '@/lib/property-status'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import {
   BarChart3, ArrowLeft, Users, FileText, Home, TrendingUp,
   MapPin, Calendar, Building2, Download
@@ -51,7 +52,7 @@ export default function AdminStatsPage() {
       { data: regionReqs },
       { data: props },
       { data: dts },
-      { data: pst },
+      pst,
       { count: newPropertiesCount },
     ] = await Promise.all([
       supabase.from('profiles').select('created_at, role').gte('created_at', since),
@@ -59,7 +60,11 @@ export default function AdminStatsPage() {
       supabase.from('request_posts').select('city'),
       supabase.from('broker_profiles').select('district'),
       supabase.from('request_posts').select('deal_type'),
-      supabase.from('broker_properties').select('status'),
+      // 매물 상태 분포는 전건 집계다. .range() 없이 select하면 PostgREST가
+      // 1000행에서 조용히 잘라, 매물이 1745건인 지금 실제의 57%만 반영됐다.
+      // (바로 아래 count는 정확해서 "신규 매물 수"와 합계가 어긋나 보였다)
+      fetchAllPaged<{ status: string | null }>((from, to) =>
+        supabase.from('broker_properties').select('status').range(from, to)),
       supabase.from('broker_properties').select('*', { count: 'exact', head: true }).gte('created_at', since),
     ])
 
@@ -120,7 +125,9 @@ export default function AdminStatsPage() {
     // 매물 상태
     const psMap = new Map<string, number>()
     ;(pst ?? []).forEach(p => {
-      psMap.set(p.status, (psMap.get(p.status) ?? 0) + 1)
+      // status가 비어 있는 행은 차트 라벨이 'null'로 찍혀 보이므로 '미지정'으로 묶는다
+      const key = p.status ?? '미지정'
+      psMap.set(key, (psMap.get(key) ?? 0) + 1)
     })
     setPropStatus(Array.from(psMap.entries()).map(([region, count]) => ({ region, count })))
 

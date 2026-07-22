@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { formatPrice, maskAddress, cn } from '@/lib/utils'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, ChevronLeft, Star, ImagePlus, Search } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -489,13 +490,18 @@ export default function ChatPage() {
       .single()
 
     if (broker) {
-      const { data } = await supabase
-        .from('broker_properties')
-        .select('id, seq_no, deal_type, room_type, address, price, monthly_rent, size_pyeong, floor, total_floors, options, description, images, status')
-        .eq('broker_id', broker.id)
-        .eq('status', 'available')
-        .order('created_at', { ascending: false })
-      setBrokerProperties(data ?? [])
+      // PostgREST가 1000행에서 조용히 자르기 때문에 이어받아야 한다.
+      // 실측: 플러스불당 공개 매물 1129건 → 오래된 129건이 피커에서 사라져 있었다.
+      // (chat-panel.tsx의 같은 피커는 이미 이 방식으로 고쳐져 있고 여기만 누락)
+      const rows = await fetchAllPaged<BrokerProperty>((from, to) =>
+        supabase
+          .from('broker_properties')
+          .select('id, seq_no, deal_type, room_type, address, price, monthly_rent, size_pyeong, floor, total_floors, options, description, images, status')
+          .eq('broker_id', broker.id)
+          .eq('status', 'available')
+          .order('created_at', { ascending: false })
+          .range(from, to))
+      setBrokerProperties(rows)
     }
     setLoadingProps(false)
   }

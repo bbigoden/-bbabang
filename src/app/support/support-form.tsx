@@ -61,23 +61,23 @@ export function SupportForm() {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-sm">
       <div className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">제목</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">제목</label>
           <input
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
             maxLength={200}
             placeholder="문의 제목"
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
 
         {!user && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">답변받을 이메일</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">답변받을 이메일</label>
             <input
               type="email"
               autoComplete="email"
@@ -85,21 +85,21 @@ export function SupportForm() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="example@email.com"
-              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">비로그인 상태에서는 이메일이 필요해요</p>
           </div>
         )}
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">내용</label>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">내용</label>
           <textarea
             value={content}
             onChange={e => setContent(e.target.value)}
             rows={6}
             maxLength={2000}
             placeholder="문의하실 내용을 자세히 적어주세요 (최소 5자)"
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
           />
           <p className="mt-1 text-right text-xs text-gray-500 dark:text-gray-500">{content.length}/2000</p>
         </div>
