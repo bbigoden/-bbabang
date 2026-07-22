@@ -177,6 +177,11 @@ purge_idle_sessions_14d                              ← supabase/migrations/202
 > Supabase의 inactivity timeout은 Pro 전용이라 DB 레벨에서 구현했다.
 > 적용 시 방치 세션 80건이 정리됐고(230 → 150), 실사용 직원 세션은 모두 유지됐다.
 
+> 같은 날 cron 정리: `purge_old_trash()`가 `purge_trash_daily`와 `purge-old-trash`
+> 두 이름으로 중복 등록돼 매일 같은 시각에 두 번 돌고 있었다. 옛 이름 쪽을
+> `cron.unschedule`로 제거하고 `purge-old-trash`만 남겼다(동작 변화 없음).
+> 현재 등록된 job은 `purge-old-trash`(03:00 KST), `purge-idle-sessions-14d`(03:30 KST) 둘뿐.
+
 ## 향후 정책
 
 - 신규 마이그레이션은 `apply_migration` MCP 도구로 적용 시 SQL 본문이 원격에만 저장됨
