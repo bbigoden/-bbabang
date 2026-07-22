@@ -45,14 +45,18 @@ export async function POST(req: NextRequest) {
   // notifications 테이블에서 이 매물 알림을 받은 사용자 id 목록 조회 (트리거가 이미 채움)
   // 링크는 매물 상세 기준 — 중개사 공개 프로필 페이지 제거됨 (트리거와 형식 일치 필수)
   const link = `/property/${prop.id}`
-  const { data: notifs } = await supabase
-    .from('notifications')
-    .select('user_id')
-    .eq('type', 'new_matching_property')
-    .eq('link', link)
-    .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()) // 최근 5분 내 (이 매물 등록 직후 트리거된 것들)
+  // notifications를 직접 읽으면 안 된다 — SELECT 정책이 "본인 알림만"이라
+  // 중개사 세션에서는 항상 0건이 나왔고, 그래서 푸시가 한 번도 나가지 않았다.
+  // 매물 소유를 검증하고 대상 user_id만 돌려주는 RPC를 쓴다(최근 5분 내 트리거분).
+  const { data: notifs, error: rpcErr } = await supabase
+    .rpc('matched_users_for_property', { p_property_id: prop.id })
+  if (rpcErr) {
+    console.error('[notify-customers] matched_users_for_property failed', rpcErr)
+    return NextResponse.json({ error: 'lookup_failed' }, { status: 500 })
+  }
 
-  const userIds = Array.from(new Set((notifs ?? []).map(n => n.user_id)))
+  const rows = (notifs ?? []) as Array<{ user_id: string }>
+  const userIds: string[] = Array.from(new Set(rows.map(n => n.user_id)))
   if (userIds.length === 0) return NextResponse.json({ ok: true, sent: 0, matched: 0 })
 
   const officeName = brokerProfile?.office_name ?? '중개사'

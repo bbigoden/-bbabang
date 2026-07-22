@@ -289,3 +289,45 @@ GRANT SELECT (
   notification_preferences, account_status, suspended_until,
   referral_code, referred_by
 ) ON public.profiles TO authenticated;
+
+------------------------------------------------------------------------------
+-- 매물 매칭 푸시가 한 번도 발송되지 않던 문제
+------------------------------------------------------------------------------
+-- /api/properties/notify-matches는 매물 등록 직후 "조건이 맞아 알림을 받은
+-- 고객"에게 푸시를 보낸다. 그런데 발송 대상을 중개사 세션으로 notifications에서
+-- 읽으려 했다. notifications의 SELECT 정책은 본인 알림만 허용하므로 중개사에겐
+-- 항상 0건이 돌아왔고, 결과적으로 푸시가 전혀 나가지 않았다.
+--
+-- 재현(트랜잭션 안에서 매물 등록 후 롤백):
+--   트리거가 만든 알림 → 중개사 세션에서 0건 / SECURITY DEFINER 조회로는 1건
+--
+-- 서비스 키를 쓰는 대신 매물 소유를 검증하고 대상 user_id만 돌려주는 함수를 둔다.
+-- 알림 내용은 노출하지 않고 발송 대상만 반환한다.
+CREATE OR REPLACE FUNCTION public.matched_users_for_property(p_property_id uuid)
+RETURNS TABLE(user_id uuid)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_broker uuid;
+BEGIN
+  SELECT broker_id INTO v_broker FROM broker_properties WHERE id = p_property_id;
+  IF v_broker IS NULL THEN
+    RETURN;
+  END IF;
+  IF NOT public.can_edit_broker_property(v_broker) THEN
+    RAISE EXCEPTION '권한 없음: 본인 사무소 매물만 조회할 수 있습니다';
+  END IF;
+
+  RETURN QUERY
+  SELECT DISTINCT n.user_id
+  FROM notifications n
+  WHERE n.type = 'new_matching_property'
+    AND n.link = '/property/' || p_property_id
+    AND n.created_at > now() - interval '5 minutes';
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.matched_users_for_property(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.matched_users_for_property(uuid) TO authenticated;
