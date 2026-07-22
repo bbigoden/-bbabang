@@ -167,6 +167,16 @@ Supabase MCP `list_migrations` 결과 (2026-05-28 기준, 152개).
 > 위 세 건은 원격에만 적용돼 있고 이 목록에서 누락돼 있던 것을 2026-07-20에 보충 기록했다.
 > (`supabase_migrations.schema_migrations` 기준으로 대조)
 
+### 2026-07-22
+
+```
+purge_idle_sessions_14d                              ← supabase/migrations/20260722_purge_idle_sessions_14d.sql 보존
+```
+
+> 2주간 미사용 로그인 세션 자동 만료(`purge_idle_sessions` + pg_cron `purge-idle-sessions-14d`).
+> Supabase의 inactivity timeout은 Pro 전용이라 DB 레벨에서 구현했다.
+> 적용 시 방치 세션 80건이 정리됐고(230 → 150), 실사용 직원 세션은 모두 유지됐다.
+
 ## 향후 정책
 
 - 신규 마이그레이션은 `apply_migration` MCP 도구로 적용 시 SQL 본문이 원격에만 저장됨
