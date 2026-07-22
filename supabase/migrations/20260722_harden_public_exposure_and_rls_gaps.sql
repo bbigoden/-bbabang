@@ -185,3 +185,59 @@ AS $$
   OFFSET GREATEST(p_offset, 0);
 $$;
 GRANT EXECUTE ON FUNCTION public.get_public_brokers(text, text, boolean, integer, integer) TO anon, authenticated;
+
+------------------------------------------------------------------------------
+-- 마무리: 공개 화면에서 실명 표기를 걷어낸 뒤 anon의 profiles 접근 완전 차단
+------------------------------------------------------------------------------
+-- search/recommendations/site-curation은 실명을 조회만 하고 쓰지 않았고,
+-- property/[id]의 '대표 OOO' 표기는 제거했다(직원 노출 금지 정책).
+-- 이제 anon이 profiles를 읽을 이유가 없다.
+REVOKE SELECT ON public.profiles FROM anon;
+DROP POLICY IF EXISTS profiles_select_anon_brokers ON public.profiles;
+-- 임베딩이 사라졌으므로 조인 키였던 user_id도 회수
+REVOKE SELECT (user_id) ON public.broker_profiles FROM anon;
+
+------------------------------------------------------------------------------
+-- 지역 페이지 '인증 공인중개사' 섹션이 항상 비어 있던 문제
+------------------------------------------------------------------------------
+-- 필터가 address ILIKE '충청남도%'인데 실제 주소는 '천안 서북구 불당동…',
+-- '충남 천안시 서북구…' 식이라 시도명이 축약/생략돼 한 건도 안 걸렸다.
+-- 사무소 주소는 위치일 뿐이고 담당 지역은 alert_regions에 명시돼 있다
+-- (같은 페이지의 '관심 등록 중개사' 카운트도 이미 이 값을 쓴다).
+CREATE OR REPLACE FUNCTION public.get_public_brokers(
+  p_sido text, p_sigungu text, p_only_verified boolean, p_limit integer, p_offset integer
+)
+RETURNS TABLE(
+  id uuid, office_name text, address text, district text,
+  rating numeric, review_count integer, deal_count integer,
+  is_verified boolean, avg_response_hours numeric, acceptance_rate integer
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    bp.id, bp.office_name, bp.address, bp.district,
+    COALESCE(bp.rating, 0)::NUMERIC AS rating,
+    COALESCE(bp.review_count, 0) AS review_count,
+    COALESCE(bp.deal_count, 0) AS deal_count,
+    COALESCE(bp.is_verified, false) AS is_verified,
+    bp.avg_response_hours,
+    bp.acceptance_rate
+  FROM public.broker_profiles bp
+  WHERE bp.is_owner = true
+    AND COALESCE(bp.is_approved, true) = true
+    AND (p_only_verified = false OR bp.is_verified = true)
+    AND (
+      p_sido IS NULL
+      OR bp.alert_regions @> jsonb_build_array(
+           CASE WHEN p_sigungu IS NULL
+                THEN jsonb_build_object('sido', p_sido)
+                ELSE jsonb_build_object('sido', p_sido, 'sigungu', p_sigungu)
+           END)
+    )
+  ORDER BY bp.is_verified DESC NULLS LAST, COALESCE(bp.rating, 0) DESC, COALESCE(bp.review_count, 0) DESC
+  LIMIT GREATEST(LEAST(p_limit, 100), 1)
+  OFFSET GREATEST(p_offset, 0);
+$$;
+GRANT EXECUTE ON FUNCTION public.get_public_brokers(text, text, boolean, integer, integer) TO anon, authenticated;
