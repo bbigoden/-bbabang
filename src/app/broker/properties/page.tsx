@@ -89,6 +89,16 @@ const ROOM_TYPES = ALL_ROOM_TYPES
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 const _PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+
+// 매물장 조회 칼럼 — 시트 렌더·전체검색·정렬·지도 마커가 모두 이 필드들을 쓴다.
+const PROPERTY_SELECT = 'id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields, lat, lng'
+
+// 첫 화면에 먼저 그릴 건수. 나머지는 백그라운드로 이어 받는다.
+// 사무소 매물이 1700건이 넘으면 전건(약 1.5MB)을 다 받을 때까지 화면이 비어 있어
+// 폰에서 몇 초씩 멈춘 것처럼 보였다. 첫 묶음만 받아 즉시 렌더한 뒤 나머지를 채운다.
+// (검색·정렬·지도 마커는 전건이 필요하므로 로드 자체를 없애지는 않는다)
+const FIRST_CHUNK = 200
+const REST_PAGE = 1000
 // 거래형태 색상 (셀 라벨용 tailwind 클래스 — 매 렌더 재생성 방지하려 모듈 상수)
 const DEAL_TYPE_COLOR_MAP: Record<string, string> = {
   매매: 'bg-blue-100 text-blue-700',
@@ -1346,19 +1356,27 @@ function BrokerPropertiesContent() {
       setCustomColumns(cols)
       const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
       if (ownBroker) setSettingsBrokerId(ownBroker.id)
-      // Supabase PostgREST max-rows=1000. 1000+ 매물 대응 — 1000건씩 페이지네이션해서 전체 수집.
-      const PAGE = 1000
-      const collected: any[] = []
-      for (let from = 0; ; from += PAGE) {
-        const { data: page } = await supabase
-          .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields, lat, lng').eq('broker_id', b.id)
-          .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
-        if (!page || page.length === 0) break
-        collected.push(...page)
-        if (page.length < PAGE) break
-      }
-      setProperties(collected)
+      // 첫 묶음 먼저 렌더 → 나머지 백그라운드 (일반 매물장과 동일 전략)
+      const adminPageQuery = (from: number, to: number) => supabase
+        .from('broker_properties').select(PROPERTY_SELECT).eq('broker_id', b.id)
+        .order('created_at', { ascending: false }).order('id', { ascending: false })
+        .range(from, to)
+
+      const { data: firstPage } = await adminPageQuery(0, FIRST_CHUNK - 1)
+      setProperties(firstPage ?? [])
       setLoading(false)
+      if (!firstPage || firstPage.length < FIRST_CHUNK) return
+
+      void (async () => {
+        const rest: any[] = []
+        for (let from = FIRST_CHUNK; ; from += REST_PAGE) {
+          const { data: page } = await adminPageQuery(from, from + REST_PAGE - 1)
+          if (!page || page.length === 0) break
+          rest.push(...page)
+          if (page.length < REST_PAGE) break
+        }
+        if (rest.length) setProperties(prev => [...prev, ...rest])
+      })()
       return
     }
 
@@ -1416,19 +1434,30 @@ function BrokerPropertiesContent() {
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
-    // 1000건씩 페이지네이션 (PostgREST max-rows 우회)
-    const PAGE = 1000
-    const collected: any[] = []
-    for (let from = 0; ; from += PAGE) {
-      const { data: page } = await supabase
-        .from('broker_properties').select('id, seq_no, broker_id, deal_type, room_type, address, price, monthly_rent, management_fee, premium, size_pyeong, area_type, area_unit, area_supplied, floor, total_floors, options, images, brief_memo, description, memo, assignee, move_in_date, rooms_bathrooms, approval_date, parking, direction, status, created_at, received_date, custom_fields, lat, lng').in('broker_id', brokerIds)
-        .order('created_at', { ascending: false }).range(from, from + PAGE - 1)
-      if (!page || page.length === 0) break
-      collected.push(...page)
-      if (page.length < PAGE) break
-    }
-    setProperties(collected)
+    // 첫 묶음만 먼저 받아 즉시 렌더 → 나머지는 백그라운드로 이어 받아 붙인다.
+    // created_at 동률에도 페이지 경계가 흔들리지 않도록 id를 2차 정렬키로 고정.
+    const pageQuery = (from: number, to: number) => supabase
+      .from('broker_properties').select(PROPERTY_SELECT).in('broker_id', brokerIds)
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .range(from, to)
+
+    const { data: firstPage } = await pageQuery(0, FIRST_CHUNK - 1)
+    setProperties(firstPage ?? [])
     setLoading(false)
+
+    // 첫 묶음으로 다 받았으면 끝
+    if (!firstPage || firstPage.length < FIRST_CHUNK) return
+
+    void (async () => {
+      const rest: any[] = []
+      for (let from = FIRST_CHUNK; ; from += REST_PAGE) {
+        const { data: page } = await pageQuery(from, from + REST_PAGE - 1)
+        if (!page || page.length === 0) break
+        rest.push(...page)
+        if (page.length < REST_PAGE) break
+      }
+      if (rest.length) setProperties(prev => [...prev, ...rest])
+    })()
   }
 
   // 단일 필드 저장 (optimistic UI + 실패 시 롤백)

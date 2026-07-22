@@ -10,7 +10,9 @@
  * 세부:
  * - 마운트 시 supabase.auth.getUser → profile/broker_profile parallel fetch
  * - supabase.auth.onAuthStateChange(SIGNED_IN/SIGNED_OUT/TOKEN_REFRESHED) → 자동 재조회
- * - sessionStorage 캐시로 새 탭/리로드 시 즉시 hydrate (round-trip 없이 화면 그림)
+ * - localStorage 캐시로 새 탭/리로드/앱 재시작 시 즉시 hydrate (round-trip 없이 화면 그림)
+ *   sessionStorage는 PWA를 완전히 종료하면 비워져 콜드스타트마다 캐시 미스가 났다.
+ *   → localStorage로 두어야 앱을 껐다 켜도 첫 화면이 즉시 뜬다. (로그아웃 시 clearCache)
  * - refresh()로 명시적 재조회 가능
  */
 
@@ -62,7 +64,7 @@ const CACHE_KEY = 'bbabang_auth_ctx_v1'
 function readCache(): { user: SupabaseUser; profile: Profile | null; broker: BrokerProfile | null } | null {
   if (typeof window === 'undefined') return null
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY)
+    const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
     const v = JSON.parse(raw)
     if (!v?.user?.id) return null
@@ -72,12 +74,12 @@ function readCache(): { user: SupabaseUser; profile: Profile | null; broker: Bro
 
 function writeCache(user: SupabaseUser, profile: Profile | null, broker: BrokerProfile | null) {
   if (typeof window === 'undefined') return
-  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ user, profile, broker })) } catch {}
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ user, profile, broker })) } catch {}
 }
 
 function clearCache() {
   if (typeof window === 'undefined') return
-  try { sessionStorage.removeItem(CACHE_KEY) } catch {}
+  try { localStorage.removeItem(CACHE_KEY); sessionStorage.removeItem(CACHE_KEY) } catch {}
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

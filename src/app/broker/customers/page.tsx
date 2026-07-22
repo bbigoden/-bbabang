@@ -419,21 +419,35 @@ export default function BrokerCustomersPage() {
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
-    // 1000건에서 조용히 잘리면 고객이 목록에서 사라지므로 반드시 전건 페이지네이션
-    const rawData = await fetchAllPaged((from, to) => supabase.from('broker_customers').select('*')
-      .in('broker_id', brokerIds).order('received_date', { ascending: false }).order('created_at', { ascending: false })
-      .range(from, to))
     // 직원 시점: 본인 작성(broker_id) 또는 본인이 담당자에 포함된 행만 노출.
     // 공동담당("오혜진, 권세현")도 콤마 분리 후 매칭해야 각 직원에게 잡힘.
-    const data = owner
-      ? (rawData ?? [])
-      : (rawData ?? []).filter((c: any) => {
+    const visibleRows = (rows: any[]) => owner
+      ? rows
+      : rows.filter((c: any) => {
           if (c.broker_id === b.id) return true
           if (!myName || !c.assignee) return false
           return c.assignee.split(',').map((s: string) => s.trim()).includes(myName)
         })
-    setCustomers(data)
+
+    // 첫 묶음만 먼저 받아 즉시 렌더 → 나머지는 백그라운드로 이어 붙임.
+    // (전건을 다 받은 뒤에야 화면이 뜨면 폰에서 수 초씩 빈 화면 — 매물장과 동일 전략)
+    // 1000건에서 조용히 잘리면 고객이 사라지므로 백그라운드 수집은 반드시 전건 페이지네이션.
+    const FIRST_CHUNK = 200
+    const custQuery = (from: number, to: number) => supabase.from('broker_customers').select('*')
+      .in('broker_id', brokerIds).order('received_date', { ascending: false }).order('created_at', { ascending: false })
+      .order('id', { ascending: false })  // 동률 시 페이지 경계 안정화 (중복/누락 방지)
+      .range(from, to)
+
+    const { data: firstPage } = await custQuery(0, FIRST_CHUNK - 1)
+    setCustomers(visibleRows(firstPage ?? []))
     setLoading(false)
+
+    if (firstPage && firstPage.length >= FIRST_CHUNK) {
+      void (async () => {
+        const rest = await fetchAllPaged((from, to) => custQuery(FIRST_CHUNK + from, FIRST_CHUNK + to))
+        if (rest?.length) setCustomers(prev => [...prev, ...visibleRows(rest)])
+      })()
+    }
   }
 
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
