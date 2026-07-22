@@ -53,7 +53,7 @@ export default function AdminHealthPage() {
       favorites, reports, errLogs, pushSubs,
       n24, p24, r24, pr24, m24, e24,
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('request_posts').select('*', { count: 'exact', head: true }),
       supabase.from('broker_profiles').select('*', { count: 'exact', head: true }),
       supabase.from('broker_properties').select('*', { count: 'exact', head: true }),

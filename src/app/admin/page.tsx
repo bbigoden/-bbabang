@@ -142,7 +142,7 @@ export default function AdminPage() {
       { count: openReports },
       { count: unverifiedBrokers },
     ] = await Promise.all([
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('broker_profiles').select('*', { count: 'exact', head: true }),
       supabase.from('request_posts').select('*', { count: 'exact', head: true }),
       supabase.from('proposals').select('*', { count: 'exact', head: true }),

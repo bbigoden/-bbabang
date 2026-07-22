@@ -393,7 +393,8 @@ export function BrokerStatsPanel() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 mb-4">
-            <MiniStat label="대기 중" value={totals.pending} color="text-yellow-600 bg-yellow-50" />
+            {/* yellow-50 위 yellow-600은 대비 2.84:1로 AA 미달 — 같은 조합을 700으로 통일 */}
+            <MiniStat label="대기 중" value={totals.pending} color="text-yellow-700 bg-yellow-50" />
             <MiniStat label="수락됨" value={totals.accepted} color="text-green-600 bg-green-50" />
             <MiniStat label="거절됨" value={totals.rejected} color="text-red-600 bg-red-50" />
           </div>

@@ -102,7 +102,8 @@ export default function SettingsOfficePage() {
           <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-yellow-800">재승인 대기 중</p>
-            <p className="text-xs text-yellow-600 mt-0.5">어드민 검토가 끝나면 인증 뱃지가 복구돼요.</p>
+            {/* yellow-50 위 yellow-600은 대비 2.84:1 — AA(4.5:1) 미달이라 700으로 */}
+            <p className="text-xs text-yellow-700 mt-0.5">어드민 검토가 끝나면 인증 뱃지가 복구돼요.</p>
           </div>
         </div>
       )}
