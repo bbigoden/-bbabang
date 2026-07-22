@@ -58,6 +58,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }
       }
     }
+    // 매물 상세 — robots에서 허용돼 있고 canonical·OG도 있는데 sitemap에만 빠져
+    // 있었다. 공개 안전 뷰에서 최신순으로 제출한다.
+    const { data: props } = await supabase
+      .from('public_properties')
+      .select('id, created_at')
+      .eq('status', 'available')
+      .order('created_at', { ascending: false })
+      .limit(500)
+    for (const p of (props ?? []) as Array<{ id: string; created_at: string }>) {
+      entries.push({
+        url: `${BASE_URL}/property/${p.id}`,
+        lastModified: p.created_at ? new Date(p.created_at) : now,
+        changeFrequency: 'weekly', priority: 0.6,
+      })
+    }
+
     return [...staticEntries, ...entries]
   } catch {
     return staticEntries
