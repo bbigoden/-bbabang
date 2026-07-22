@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const supabase = await createClient()
   const { data } = await supabase
-    .from('broker_properties')
+    .from('public_properties')
     .select('address, deal_type, room_type, price, monthly_rent')
     .eq('id', id)
     .maybeSingle()
@@ -54,7 +54,9 @@ export default async function PropertyDetailPage({ params }: Props) {
   } catch {/* 비로그인 */}
 
   const { data: prop } = await supabase
-    .from('broker_properties')
+    // public_properties 뷰: 공개 안전 컬럼만 담는다. memo·assignee·custom_fields는
+    // 관계자만 볼 수 있어야 하므로 테이블 직접 조회는 RLS로 막혀 있다.
+    .from('public_properties')
     .select('*, broker_profiles(id, office_name, address, district, rating, review_count, deal_count, is_verified, avg_response_hours, acceptance_rate, parent_broker_id, profiles(name))')
     .eq('id', id)
     .maybeSingle()
@@ -119,7 +121,7 @@ export default async function PropertyDetailPage({ params }: Props) {
     .eq('is_approved', true)
   const officeIds = [ownerBrokerId, ...(officeStaff ?? []).map((r: any) => r.id)]
   const { data: otherProps } = await supabase
-    .from('broker_properties')
+    .from('public_properties')
     .select('id, seq_no, address, deal_type, room_type, price, monthly_rent, images')
     .in('broker_id', officeIds)
     .eq('status', 'available')

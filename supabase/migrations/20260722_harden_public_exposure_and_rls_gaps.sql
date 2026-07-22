@@ -1,0 +1,127 @@
+-- 2026-07-22 풀스택 점검에서 발견된 노출·권한 구멍 일괄 차단
+-- (원격 DB에 이미 적용됨 — 기록 보존용)
+
+------------------------------------------------------------------------------
+-- P0. 비로그인 상태로 매물 메모의 집주인 연락처가 전량 조회되던 문제
+------------------------------------------------------------------------------
+-- broker_properties의 SELECT 정책이 status='available'이면 anon 포함 누구에게나
+-- "모든 컬럼"을 열어줬다. 화면에 안 보여도 브라우저에 노출된 anon 키로 REST를
+-- 직접 치면 memo/brief_memo/custom_fields(공개 매물 1404건 중 1105건에 휴대폰
+-- 번호 존재)와 assignee(직원 실명 1403건)가 통째로 덤프됐다.
+--
+-- Postgres는 행 정책으로 컬럼을 가릴 수 없으므로, 공개용 안전 컬럼만 담은 뷰를
+-- 만들고 테이블 직접 SELECT는 소유·사무소·관리자로 좁힌다.
+-- 행 가시성 규칙은 기존과 동일하게 유지해야 중개사가 자기 사무소의
+-- '계약완료/숨김' 매물 상세도 계속 열 수 있다.
+CREATE OR REPLACE VIEW public.public_properties AS
+SELECT
+  p.id, p.broker_id, p.seq_no,
+  p.deal_type, p.room_type, p.address,
+  p.price, p.monthly_rent, p.management_fee, p.premium,
+  p.size_pyeong, p.area_type, p.area_unit, p.area_supplied,
+  p.floor, p.total_floors, p.rooms_bathrooms,
+  p.options, p.images, p.description,
+  p.move_in_date, p.approval_date, p.parking, p.direction,
+  p.status, p.created_at
+FROM public.broker_properties p
+WHERE p.deleted_at IS NULL
+  AND (p.status = 'available' OR public.can_view_broker_property(p.broker_id));
+
+-- 뷰는 소유자 권한으로 실행되므로 위 WHERE가 유일한 관문이다.
+ALTER VIEW public.public_properties SET (security_invoker = false);
+GRANT SELECT ON public.public_properties TO anon, authenticated;
+
+DROP POLICY IF EXISTS bprop_select_active ON public.broker_properties;
+CREATE POLICY bprop_select_active ON public.broker_properties
+  FOR SELECT
+  USING (deleted_at IS NULL AND public.can_view_broker_property(broker_id));
+
+------------------------------------------------------------------------------
+-- P1. purge_old_trash() — 로그인만 하면 전 사무소 휴지통을 영구삭제
+------------------------------------------------------------------------------
+-- SECURITY DEFINER인데 본문에 auth.uid() 검사가 전혀 없었다. 아무 로그인
+-- 사용자가 RPC 한 번으로 30일 경과 soft-delete 행을 전사 물리삭제할 수 있었다.
+-- (다른 휴지통 함수는 소유·대표 검증이 제대로 있고 이 함수만 예외였다)
+CREATE OR REPLACE FUNCTION public.purge_old_trash()
+RETURNS TABLE(properties_purged int, customers_purged int)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  p_count int;
+  c_count int;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+  ) THEN
+    RAISE EXCEPTION '권한 없음: 휴지통 일괄 영구삭제는 관리자만 가능합니다';
+  END IF;
+
+  WITH d AS (
+    DELETE FROM broker_properties
+    WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '30 days'
+    RETURNING 1
+  ) SELECT count(*) INTO p_count FROM d;
+
+  WITH d AS (
+    DELETE FROM broker_customers
+    WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '30 days'
+    RETURNING 1
+  ) SELECT count(*) INTO c_count FROM d;
+
+  RETURN QUERY SELECT p_count, c_count;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.purge_old_trash() FROM anon;
+
+------------------------------------------------------------------------------
+-- P1. notifications INSERT — 타인에게 위조 알림(피싱 링크) 삽입 가능
+------------------------------------------------------------------------------
+-- WITH CHECK가 "로그인했는가"만 봤다. 푸시 경로가 이미 쓰는 can_notify_user
+-- (chat_room·같은 사무소·proposal 관계)를 DB 레벨에도 강제한다.
+-- 관리자 공지·중개사 승인/반려 알림은 관계 없는 대상에게도 보내야 하므로
+-- 관리자 분기를 명시적으로 둔다.
+DROP POLICY IF EXISTS notifications_insert ON public.notifications;
+CREATE POLICY notifications_insert ON public.notifications
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    user_id = (SELECT auth.uid())
+    OR public.can_notify_user(user_id)
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = (SELECT auth.uid()) AND p.role = 'admin')
+  );
+
+------------------------------------------------------------------------------
+-- P1. broker_customers UPDATE — 고객을 타 사무소로 이전 가능
+------------------------------------------------------------------------------
+-- WITH CHECK이 없어 수정 후 행을 검증하지 않았다. 내 사무소 고객의 broker_id를
+-- 타 사무소 값으로 바꿔 반출/주입할 수 있었다. bprop_update는 이미 양쪽을 건다.
+DROP POLICY IF EXISTS bcust_update ON public.broker_customers;
+CREATE POLICY bcust_update ON public.broker_customers
+  FOR UPDATE
+  USING (public.can_view_broker_data(broker_id))
+  WITH CHECK (public.can_view_broker_data(broker_id));
+
+------------------------------------------------------------------------------
+-- P1. profiles UPDATE — 정지된 계정이 스스로 제재를 해제
+------------------------------------------------------------------------------
+-- WITH CHECK이 role='admin'만 막아서, 차단된 사용자가 자기 account_status를
+-- 'active'로 되돌리거나 role을 broker로 승격할 수 있었다. 제재 판정이
+-- auth-context 클라이언트 코드에만 있고 서버 강제가 전혀 없었다.
+DROP POLICY IF EXISTS profiles_update ON public.profiles;
+CREATE POLICY profiles_update ON public.profiles
+  FOR UPDATE
+  USING (
+    (SELECT auth.uid()) = id
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = (SELECT auth.uid()) AND p.role = 'admin')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = (SELECT auth.uid()) AND p.role = 'admin')
+    OR (
+      -- 본인 수정: 역할·제재 상태·관리자 메모는 손댈 수 없다
+      role = (SELECT p.role FROM public.profiles p WHERE p.id = profiles.id)
+      AND account_status IS NOT DISTINCT FROM (SELECT p.account_status FROM public.profiles p WHERE p.id = profiles.id)
+      AND suspended_until IS NOT DISTINCT FROM (SELECT p.suspended_until FROM public.profiles p WHERE p.id = profiles.id)
+      AND admin_note IS NOT DISTINCT FROM (SELECT p.admin_note FROM public.profiles p WHERE p.id = profiles.id)
+    )
+  );

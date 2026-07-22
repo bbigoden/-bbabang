@@ -72,7 +72,7 @@ export default function RecommendationsPage() {
 
       // 가격 필터 (max_price 이하)
       let q = supabase
-        .from('broker_properties')
+        .from('public_properties')
         .select('*, broker_profiles(office_name, is_verified, profiles(name))')
         .eq('status', 'available')
         .ilike('address', `%${region}%`)
@@ -117,7 +117,7 @@ export default function RecommendationsPage() {
     let brokerProps: any[] = []
     if (favBrokerIds.length > 0) {
       const { data } = await supabase
-        .from('broker_properties')
+        .from('public_properties')
         .select('*, broker_profiles(office_name, is_verified, profiles(name))')
         .eq('status', 'available')
         .in('broker_id', favBrokerIds)

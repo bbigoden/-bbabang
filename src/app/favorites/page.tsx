@@ -61,7 +61,7 @@ export default function FavoritesPage() {
         ? supabase.from('broker_profiles').select('id, office_name, address, district, rating, review_count, is_verified, profiles(name)').in('id', brokerIds)
         : Promise.resolve({ data: [] as any[] }),
       propertyIds.length
-        ? supabase.from('broker_properties').select('id, address, deal_type, room_type, price, monthly_rent, status, images, broker_id, broker_profiles(office_name)').in('id', propertyIds)
+        ? supabase.from('public_properties').select('id, address, deal_type, room_type, price, monthly_rent, status, images, broker_id, broker_profiles(office_name)').in('id', propertyIds)
         : Promise.resolve({ data: [] as any[] }),
       requestIds.length
         ? supabase.from('request_posts').select('id, city, district, dong, deal_type, room_type, min_price, max_price, proposal_count, status, created_at').in('id', requestIds)

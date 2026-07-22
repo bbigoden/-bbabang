@@ -125,7 +125,7 @@ export function FeaturedMain() {
       }
       if (propIds.length > 0) {
         const { data } = await supabaseRef.current
-          .from('broker_properties')
+          .from('public_properties')
           .select('id, address, deal_type, room_type, price, monthly_rent, images')
           .in('id', propIds)
           .eq('status', 'available')

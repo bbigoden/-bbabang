@@ -69,7 +69,7 @@ function SearchInner() {
     const like = `%${q}%`
     const [pRes, rRes] = await Promise.all([
       supabase
-        .from('broker_properties')
+        .from('public_properties')
         .select('id, seq_no, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name, profiles(name))')
         .ilike('address', like)
         .eq('status', 'available')
