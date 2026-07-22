@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { cn } from '@/lib/utils'
 import { CellTooltip } from './cell-tooltip'
 
 /**
@@ -44,8 +45,7 @@ export function LongTextCell({
         ref={cellRef}
         onMouseEnter={() => { if (value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className="w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden text-ellipsis line-clamp-2 whitespace-pre-wrap break-words leading-snug"
-        style={{ color: value ? '#374151' : '#d1d5db' }}
+        className={cn("w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden text-ellipsis line-clamp-2 whitespace-pre-wrap break-words leading-snug", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}
       >
         {value || placeholder}
       </div>
@@ -74,8 +74,7 @@ export function LongTextCell({
         onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
         onMouseEnter={() => { if (value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden text-ellipsis line-clamp-2 whitespace-pre-wrap break-words leading-snug"
-        style={{ color: value ? '#374151' : '#d1d5db' }}
+        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px] overflow-hidden text-ellipsis line-clamp-2 whitespace-pre-wrap break-words leading-snug", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}
       >
         {value || placeholder}
       </div>

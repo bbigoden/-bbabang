@@ -313,8 +313,8 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
         className="group flex w-full items-center gap-1 rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 min-h-[22px]"
       >
         <span onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
-          className="min-w-0 flex-1 cursor-pointer overflow-hidden whitespace-nowrap text-ellipsis"
-          style={{ color: value ? '#374151' : '#d1d5db' }}
+          className={cn('min-w-0 flex-1 cursor-pointer overflow-hidden whitespace-nowrap text-ellipsis',
+            value ? 'text-gray-700 dark:text-gray-200' : 'text-gray-500 dark:text-gray-400')}
         >
           {value || placeholder}
         </span>

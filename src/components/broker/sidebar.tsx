@@ -83,6 +83,9 @@ export function BrokerSidebar() {
 
   return (
     <aside
+      // 같은 페이지에 aside가 둘 이상이면 스크린리더가 구분하지 못한다
+      // (axe landmark-unique). 랜드마크마다 고유 이름을 준다.
+      aria-label="중개사 메뉴"
       className={cn(
         'hidden md:flex md:flex-col md:border-r md:border-gray-200 md:bg-white dark:md:border-gray-800 dark:md:bg-gray-900 md:sticky md:top-0 md:h-screen md:overflow-y-auto transition-[width] duration-200',
         collapsed ? 'md:w-14' : 'md:w-56',

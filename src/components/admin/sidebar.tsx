@@ -29,7 +29,7 @@ export function AdminSidebar() {
 
   // 데스크톱 사이드바만 — 모바일은 BottomNav로 이동 (broker와 패턴 통일)
   return (
-    <aside className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-gray-800 md:bg-gray-900 sticky top-0 h-screen">
+    <aside aria-label="관리자 메뉴" className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-gray-800 md:bg-gray-900 sticky top-0 h-screen">
       {/* CustomerSidebar/BrokerSidebar와 동일 패턴: 로고 PNG + 빠방 텍스트 + 권한 부제 */}
       <div className="flex items-center gap-2 border-b border-gray-800 px-3 py-3">
         <Link href="/admin" className="flex items-center gap-2">

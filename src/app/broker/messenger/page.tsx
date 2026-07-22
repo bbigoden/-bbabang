@@ -469,7 +469,7 @@ export default function BrokerMessengerPage() {
         <div className="flex h-[calc(100vh-7rem)] sm:h-[calc(100vh-9.5rem)] overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
 
           {/* ── 좌측: 스레드 목록 ── */}
-          <aside className={cn('w-full sm:w-64 flex-shrink-0 border-r border-gray-100 dark:border-gray-800 flex flex-col',
+          <aside aria-label="대화 목록" className={cn('w-full sm:w-64 flex-shrink-0 border-r border-gray-100 dark:border-gray-800 flex flex-col',
             active && 'hidden sm:flex')}>
             <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-4 py-3">
               <h1 className="font-bold text-gray-900 dark:text-white">사내 대화</h1>

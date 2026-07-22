@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { cn } from '@/lib/utils'
 
 /**
  * 날짜 입력 셀.
@@ -61,7 +62,7 @@ export function DateCell({
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
 
   if (readOnly) return (
-    <div className="w-full px-1 py-0.5 text-xs min-h-[22px]" style={{ color: value ? '#374151' : '#d1d5db' }}>
+    <div className={cn("w-full px-1 py-0.5 text-xs min-h-[22px]", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}>
       {value || '—'}
     </div>
   )
@@ -104,8 +105,8 @@ export function DateCell({
   return (
     <div className="relative w-full">
       <div ref={btnRef} onClick={handleOpen}
-        className="w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis"
-        style={{ color: value ? '#374151' : '#d1d5db' }}>
+        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}
+       >
         {value || '날짜'}
       </div>
       {open && (

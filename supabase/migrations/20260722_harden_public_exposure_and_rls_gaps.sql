@@ -241,3 +241,13 @@ AS $$
   OFFSET GREATEST(p_offset, 0);
 $$;
 GRANT EXECUTE ON FUNCTION public.get_public_brokers(text, text, boolean, integer, integer) TO anon, authenticated;
+
+------------------------------------------------------------------------------
+-- 회귀 수정: anon에게서 profiles를 통째로 회수했더니 홈 큐레이션이 401
+------------------------------------------------------------------------------
+-- site_curations 등 여러 정책이 USING 안에서
+-- EXISTS(SELECT 1 FROM profiles WHERE id=auth.uid() AND role='admin')를 쓰는데,
+-- 정책 표현식도 조회 role의 컬럼 권한을 따르므로 평가 자체가 거부됐다.
+-- anon의 profiles 행 정책은 이미 제거했으므로, 컬럼 참조 권한을 돌려줘도
+-- anon이 읽을 수 있는 '행'은 0건이다(개인정보는 닫힌 채 정책 평가만 복구).
+GRANT SELECT (id, role) ON public.profiles TO anon;

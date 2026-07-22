@@ -84,6 +84,7 @@ export function CustomerSidebar() {
 
   return (
     <aside
+      aria-label="내 메뉴"
       className={cn(
         'hidden md:flex md:flex-col md:border-r md:border-gray-200 md:bg-white dark:md:border-gray-800 dark:md:bg-gray-900 md:sticky md:top-0 md:h-screen md:overflow-y-auto transition-[width] duration-200',
         collapsed ? 'md:w-14' : 'md:w-56',
