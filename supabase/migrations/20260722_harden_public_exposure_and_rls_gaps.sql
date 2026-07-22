@@ -251,3 +251,41 @@ GRANT EXECUTE ON FUNCTION public.get_public_brokers(text, text, boolean, integer
 -- anon의 profiles 행 정책은 이미 제거했으므로, 컬럼 참조 권한을 돌려줘도
 -- anon이 읽을 수 있는 '행'은 0건이다(개인정보는 닫힌 채 정책 평가만 복구).
 GRANT SELECT (id, role) ON public.profiles TO anon;
+
+------------------------------------------------------------------------------
+-- 로그인만 하면 전 회원 이메일·휴대폰을 긁어갈 수 있던 문제 (B안: 연락처만 가림)
+------------------------------------------------------------------------------
+-- profiles의 SELECT 정책이 USING(true)라 아무나 가입만 하면 전 회원의
+-- 연락처를 조회할 수 있었다(실측: 일반 고객 세션으로 12명 전원 email/phone).
+--
+-- 이름은 여러 화면에서 정상적으로 필요하므로 행은 막지 않고(=화면 유지)
+-- 연락처만 관계에 따라 가린다. Postgres는 행 정책으로 컬럼을 못 가리므로
+-- (1) 관계를 확인해 NULL로 내려주는 뷰를 제공하고
+-- (2) 본체 테이블에서 민감 컬럼의 SELECT 권한을 회수한다.
+CREATE OR REPLACE VIEW public.profiles_visible AS
+SELECT
+  p.id, p.name, p.role, p.avatar_url, p.created_at,
+  p.notification_preferences, p.account_status, p.suspended_until,
+  p.referral_code, p.referred_by,
+  CASE WHEN p.id = auth.uid()
+         OR EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.role = 'admin')
+         OR public.can_notify_user(p.id)
+       THEN p.email END AS email,
+  CASE WHEN p.id = auth.uid()
+         OR EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.role = 'admin')
+         OR public.can_notify_user(p.id)
+       THEN p.phone END AS phone,
+  CASE WHEN EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.role = 'admin')
+       THEN p.admin_note END AS admin_note
+FROM public.profiles p;
+
+ALTER VIEW public.profiles_visible SET (security_invoker = false);
+GRANT SELECT ON public.profiles_visible TO authenticated;
+
+-- 앱 코드가 뷰로 전환 배포된 뒤에 본체를 잠근다(순서를 지키지 않으면 라이브가 깨진다).
+REVOKE SELECT ON public.profiles FROM authenticated;
+GRANT SELECT (
+  id, name, role, avatar_url, created_at,
+  notification_preferences, account_status, suspended_until,
+  referral_code, referred_by
+) ON public.profiles TO authenticated;
