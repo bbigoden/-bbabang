@@ -10,6 +10,7 @@ import { Star, Edit2, Trash2, Check, X, AlertTriangle, Building2, ShieldCheck } 
 import { formatDate, cn } from '@/lib/utils'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
+import { Spinner } from '@/components/ui/spinner'
 
 interface Review {
   id: string
@@ -75,7 +76,7 @@ export default function MyReviewsPage() {
   if (auth.loading || !auth.user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        <Spinner size="md" />
       </div>
     )
   }
@@ -94,7 +95,7 @@ export default function MyReviewsPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : reviews.length === 0 ? (
           <EmptyState

@@ -18,6 +18,7 @@ import { ChatPanel } from '@/components/chat-panel'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
 import Link from 'next/link'
+import { Spinner } from '@/components/ui/spinner'
 
 // ── 메인 클라이언트 컴포넌트 ────────────────────────
 interface Props {
@@ -227,7 +228,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                 className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
                 {isCreatingProposal
-                  ? <><div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />준비 중...</>
+                  ? <><Spinner size="xs" tone="white" label={null} />준비 중...</>
                   : <><Home className="h-4 w-4" />이 고객에게 매물 제안하기</>
                 }
               </button>

@@ -7,6 +7,7 @@ import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2, Shield, ShieldC
 import { transferBrokerData } from '@/lib/leave-office'
 import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
+import { Spinner } from '@/components/ui/spinner'
 
 export default function SettingsAccountPage() {
   const router = useRouter()
@@ -211,7 +212,7 @@ export default function SettingsAccountPage() {
     })
   }
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" /></div>
+  if (loading) return <div className="flex items-center justify-center py-20"><Spinner size="md" /></div>
 
   const role = profile?.role ?? 'user'
   const roleLabel = role === 'broker' ? { text: '공인중개사', color: 'bg-blue-100 text-blue-700' }

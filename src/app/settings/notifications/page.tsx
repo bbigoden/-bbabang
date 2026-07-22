@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Bell, BellOff, MessageCircle, Sparkles, Check, AlertCircle, Megaphone, MapPin, X } from 'lucide-react'
 import { urlBase64ToUint8Array } from '@/lib/push'
 import { RegionPicker, type RegionValue } from '@/components/region-picker'
+import { Spinner } from '@/components/ui/spinner'
 
 type Prefs = {
   messages: boolean
@@ -148,7 +149,7 @@ export default function SettingsNotificationsPage() {
     setPushBusy(false)
   }
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" /></div>
+  if (loading) return <div className="flex items-center justify-center py-20"><Spinner size="md" /></div>
 
   return (
     <div className="space-y-4">

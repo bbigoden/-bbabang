@@ -29,6 +29,7 @@ import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 import { PROPERTY_STATUS_META } from '@/lib/property-status'
+import { Spinner } from '@/components/ui/spinner'
 
 interface Property {
   id: string
@@ -1164,7 +1165,7 @@ export default function BrokerPropertiesPage() {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     }>
       <BrokerPropertiesContent />
@@ -2089,7 +2090,7 @@ function BrokerPropertiesContent() {
 
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <Spinner size="lg" />
     </div>
   )
 

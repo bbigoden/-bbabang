@@ -13,6 +13,7 @@ import {
   AlertCircle, Clock, CheckCircle2, XCircle, ChevronDown, Mail
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 interface Report {
   id: string
@@ -97,7 +98,7 @@ export default function AdminReportsPage() {
   if (auth.loading || auth.profile?.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -164,7 +165,7 @@ export default function AdminReportsPage() {
         {/* 목록 */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : items.length === 0 ? (
           <EmptyState variant="full" icon={Flag} message="조건에 맞는 항목이 없어요" darkBg />

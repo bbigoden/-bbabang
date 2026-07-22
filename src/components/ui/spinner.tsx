@@ -12,12 +12,13 @@ import { cn } from '@/lib/utils'
  * 것처럼 읽는다. role="status"와 sr-only 라벨을 기본으로 붙인다.
  * 옆에 이미 "불러오는 중" 같은 문구가 있으면 label={null}로 중복을 없앤다.
  */
+// 크기·테두리 굵기는 기존에 쓰이던 조합을 그대로 옮긴 것이다(시각 변화 없음).
 const SIZES = {
   xs: 'h-4 w-4 border-2',
   sm: 'h-5 w-5 border-2',
   md: 'h-6 w-6 border-2',
-  lg: 'h-8 w-8 border-[3px]',
-  xl: 'h-12 w-12 border-4',
+  lg: 'h-8 w-8 border-4',
+  xl: 'h-10 w-10 border-4',
 } as const
 
 export type SpinnerSize = keyof typeof SIZES

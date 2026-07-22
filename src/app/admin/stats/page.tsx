@@ -12,6 +12,7 @@ import {
   MapPin, Calendar, Building2, Download
 } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
+import { Spinner } from '@/components/ui/spinner'
 
 type Range = 7 | 30 | 90
 
@@ -236,7 +237,7 @@ export default function AdminStatsPage() {
   if (auth.loading || auth.profile?.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -285,7 +286,7 @@ export default function AdminStatsPage() {
       <div className="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-8 space-y-6">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : (
           <>

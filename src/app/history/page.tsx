@@ -10,6 +10,7 @@ import { formatDate, formatPrice } from '@/lib/utils'
 import { Clock, Building2, FileText, ShieldCheck, MapPin, Star, Trash2, X } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
+import { Spinner } from '@/components/ui/spinner'
 
 type Tab = 'broker' | 'request'
 
@@ -88,7 +89,7 @@ export default function HistoryPage() {
   if (auth.loading || !auth.user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        <Spinner size="md" />
       </div>
     )
   }
@@ -135,7 +136,7 @@ export default function HistoryPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : tabRows.length === 0 ? (
           <EmptyState

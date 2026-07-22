@@ -12,6 +12,7 @@ import { formatDate, formatPrice, maskAddressByType } from '@/lib/utils'
 import { Heart, Building2, Home as HomeIcon, FileText, Star, MapPin, ShieldCheck, Clock } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
 import { EmptyState } from '@/components/empty-state'
+import { Spinner } from '@/components/ui/spinner'
 
 type Tab = 'broker' | 'property' | 'request'
 
@@ -86,7 +87,7 @@ export default function FavoritesPage() {
   if (auth.loading || !auth.user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        <Spinner size="md" />
       </div>
     )
   }
@@ -138,7 +139,7 @@ export default function FavoritesPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : tabFavs.length === 0 ? (
           <EmptyState

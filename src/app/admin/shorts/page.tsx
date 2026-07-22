@@ -11,6 +11,7 @@ import {
   Volume2, Download, Loader2,
 } from 'lucide-react'
 import { VideoBox } from './video-box'
+import { Spinner } from '@/components/ui/spinner'
 
 interface VoiceState {
   loading: boolean
@@ -137,7 +138,7 @@ export default function AdminShortsPage() {
   if (auth.loading || auth.profile?.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -166,7 +167,7 @@ export default function AdminShortsPage() {
           >
             {loading ? (
               <>
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <Spinner size="xs" tone="white" label={null} />
                 생성 중...
               </>
             ) : (

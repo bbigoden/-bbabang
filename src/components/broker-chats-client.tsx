@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/header'
 import { ChatPanel } from '@/components/chat-panel'
 import { cn, formatDate } from '@/lib/utils'
 import { MessageCircle } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 interface ChatRoom {
   id: string
@@ -97,7 +98,7 @@ export function BrokerChatsClient({ user, embedded }: { user: any; embedded?: bo
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full gap-2">
-                <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
+                <Spinner size="md" label={null} />
                 <p className="text-xs text-gray-500">불러오는 중...</p>
               </div>
             ) : chatRooms.length === 0 ? (

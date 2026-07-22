@@ -15,6 +15,7 @@ import {
   Globe, ExternalLink, Eye, EyeOff, Trash2
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 type Audience = 'all' | 'user' | 'broker'
 
@@ -202,7 +203,7 @@ export default function AdminAnnouncementsPage() {
   if (auth.loading || auth.profile?.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -329,7 +330,7 @@ export default function AdminAnnouncementsPage() {
           <h2 className="mb-3 font-bold text-white">최근 발행 이력</h2>
           {loadingRecent ? (
             <div className="flex items-center justify-center py-10">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              <Spinner size="sm" />
             </div>
           ) : recent.length === 0 ? (
             <EmptyState variant="inline" message="아직 발행한 공지가 없어요" darkBg />

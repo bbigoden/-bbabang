@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Building2, AlertCircle, CheckCircle, ShieldCheck } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 type Broker = {
   id: string
@@ -84,7 +85,7 @@ export default function SettingsOfficePage() {
     setTimeout(() => setMsg(null), 3000)
   }
 
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" /></div>
+  if (loading) return <div className="flex items-center justify-center py-20"><Spinner size="md" /></div>
 
   if (forbidden) return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">

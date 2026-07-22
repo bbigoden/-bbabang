@@ -20,6 +20,7 @@ import Image from 'next/image'
 import { OfficeCard } from '@/components/office-card'
 import { EmployeeRow } from '@/components/employee-row'
 import { EmptyState, EmptyTableRow } from '@/components/empty-state'
+import { Spinner } from '@/components/ui/spinner'
 
 // ── 모달 래퍼 ──────────────────────────────────────────
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -304,7 +305,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -771,7 +772,7 @@ export default function AdminPage() {
             </p>
             {reviewsLoading ? (
               <div className="flex items-center justify-center py-4">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                <Spinner size="sm" />
               </div>
             ) : brokerReviews.length === 0 ? (
               <EmptyState variant="card" message="리뷰가 없습니다" darkBg />
@@ -1048,7 +1049,7 @@ export default function AdminPage() {
         >
           {loadingModal ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              <Spinner size="md" />
             </div>
           ) : (
             <>

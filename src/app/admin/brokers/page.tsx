@@ -17,6 +17,7 @@ import { EmployeeRow } from '@/components/employee-row'
 import { EmptyState } from '@/components/empty-state'
 import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
+import { Spinner } from '@/components/ui/spinner'
 
 type StatusFilter = 'all' | 'unverified' | 'verified'
 
@@ -233,7 +234,7 @@ export default function AdminBrokersPage() {
   if (auth.loading || auth.profile?.role !== 'admin') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -294,7 +295,7 @@ export default function AdminBrokersPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : offices.length === 0 ? (
           <EmptyState variant="full" icon={Building2} message="조건에 맞는 사무소가 없어요" darkBg />

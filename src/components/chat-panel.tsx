@@ -12,6 +12,7 @@ import {
 import Image from 'next/image'
 import Link from 'next/link'
 import { useToast } from '@/components/toast'
+import { Spinner } from '@/components/ui/spinner'
 
 // ── Types ─────────────────────────────────────────
 export interface Message {
@@ -450,7 +451,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   if (loading) return (
     <div className="flex h-full items-center justify-center">
       <div className="flex flex-col items-center gap-2">
-        <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
+        <Spinner size="md" label={null} />
         <p className="text-xs text-gray-500">채팅 불러오는 중...</p>
       </div>
     </div>
@@ -674,7 +675,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
             <div className="flex-1 overflow-y-auto">
               {loadingProps ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-blue-600 border-t-transparent" />
+                  <Spinner size="md" label={null} />
                   <p className="text-sm text-gray-500">매물 불러오는 중...</p>
                 </div>
               ) : brokerProperties.length === 0 ? (

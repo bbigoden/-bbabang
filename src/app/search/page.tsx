@@ -8,6 +8,7 @@ import { Header } from '@/components/layout/header'
 import { PropertyCard } from '@/components/property-card'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Search as SearchIcon, X, Home, FileText, MapPin } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 
 interface PropertyHit {
   id: string
@@ -126,7 +127,7 @@ function SearchInner() {
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : total === 0 ? (
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
@@ -197,7 +198,7 @@ export default function SearchPage() {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        <Spinner size="md" />
       </div>
     }>
       <SearchInner />

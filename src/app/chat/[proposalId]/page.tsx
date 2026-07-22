@@ -10,6 +10,7 @@ import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight, ChevronLeft, Star, ImagePlus, Search } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Spinner } from '@/components/ui/spinner'
 
 // ── 타입 ──────────────────────────────────────────
 interface PropertySnapshot {
@@ -572,7 +573,7 @@ export default function ChatPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+          <Spinner size="lg" label={null} />
           <p className="text-sm text-gray-500">채팅방 불러오는 중...</p>
         </div>
       </div>
@@ -833,7 +834,7 @@ export default function ChatPage() {
             <div className="overflow-y-auto flex-1">
               {loadingProps ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                  <Spinner size="md" />
                 </div>
               ) : brokerProperties.length === 0 ? (
                 <div className="py-12 text-center">

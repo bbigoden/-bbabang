@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X, MapPin, Check } from 'lucide-react'
 import { useClickOutside } from '@/lib/use-click-outside'
+import { Spinner } from '@/components/ui/spinner'
 
 export type RegionValue = {
   sido: string         // 충청남도
@@ -92,7 +93,7 @@ export function RegionPicker({
         />
         {loading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <Spinner size="xs" />
           </div>
         )}
       </div>

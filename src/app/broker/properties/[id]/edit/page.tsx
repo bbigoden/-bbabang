@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
 import { geocodeAddress } from '@/lib/geocode'
 import { PROPERTY_CATEGORIES } from '@/lib/property-types'
+import { Spinner } from '@/components/ui/spinner'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 const OPTIONS = [
@@ -248,7 +249,7 @@ export default function EditPropertyPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <Spinner size="lg" />
       </div>
     )
   }

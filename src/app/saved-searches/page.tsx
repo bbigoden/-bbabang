@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header'
 import { formatDate } from '@/lib/utils'
 import { Bookmark, Trash2, FileText, Home, ExternalLink } from 'lucide-react'
 import { PageHeader } from '@/components/layout/page-header'
+import { Spinner } from '@/components/ui/spinner'
 
 interface SavedSearch {
   id: string
@@ -74,7 +75,7 @@ export default function SavedSearchesPage() {
   if (auth.loading || !auth.user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        <Spinner size="md" />
       </div>
     )
   }
@@ -93,7 +94,7 @@ export default function SavedSearchesPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            <Spinner size="md" />
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
