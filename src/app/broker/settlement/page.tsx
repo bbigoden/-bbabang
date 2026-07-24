@@ -650,7 +650,7 @@ export default function SettlementPage() {
         {/* 시트형 표 */}
         <Card>
           <div className="overflow-x-auto">
-            <table className="table-fixed text-xs whitespace-nowrap" style={{ minWidth: 1500 }}>
+            <table className="table-fixed text-xs whitespace-nowrap" style={{ minWidth: 1640 }}>
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800/50">
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 100 }}>계약일</th>
@@ -667,6 +667,7 @@ export default function SettlementPage() {
                   <th className="px-2 py-2 text-right text-[11px] font-bold text-gray-500" style={{ width: 100 }}>실수령</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매도입금일</th>
                   <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ width: 110 }}>매수입금일</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-bold text-gray-500" style={{ minWidth: 140 }}>비고</th>
                   <SheetActionHeader width={72}>{null}</SheetActionHeader>
                 </tr>
               </thead>
@@ -741,6 +742,9 @@ export default function SettlementPage() {
                           onSave={v => updateRow(r.id, { buyer_payment_date: v || null })}
                         />
                       </td>
+                      <td className="px-1 py-1">
+                        <TextCell value={r.memo} placeholder="—" readOnly={!canEditMoney} onSave={v => updateRow(r.id, { memo: v })} />
+                      </td>
                       <td className="px-2 py-1.5 bg-white sticky right-0 z-10 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)] dark:bg-gray-900">
                         <div className="flex items-center justify-center gap-1">
                           <input
@@ -764,7 +768,7 @@ export default function SettlementPage() {
                   )
                 })}
                 <tr>
-                  <td colSpan={15} className="border-t border-gray-100 dark:border-gray-800">
+                  <td colSpan={16} className="border-t border-gray-100 dark:border-gray-800">
                     <button onClick={addNewRow}
                       className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-500 transition-colors">
                       <Plus className="h-3.5 w-3.5" />정산 등록
