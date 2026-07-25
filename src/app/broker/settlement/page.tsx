@@ -51,6 +51,9 @@ interface Member {
 
 const yyyymm = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
+// 손익 분배 행 여부 — 사무실 수익 집계(분배 계산·사무실 카드)에서 제외해야 함
+const isDistributionRow = (r: Settlement) => !!r.contract_address?.endsWith('사무실 손익 분배')
+
 // ── 인라인 숫자 셀 (정산 전용 — 원 단위, 콤마 표시) ─────────
 function MoneyCell({ value, onSave, readOnly, accent }: {
   value: number | null
@@ -383,22 +386,29 @@ export default function SettlementPage() {
   const summary = useMemo(() => {
     let totalFee = 0, supplySum = 0, assigneeSum = 0, takeHomeSum = 0
     let myAssigneeSum = 0, myTakeHomeSum = 0
+    // 사무실 카드용 — 분배 행 제외 합 (분배 행은 수익을 나누는 행이지 수익이 아님)
+    let officeSupply = 0, officeAssignee = 0
     for (const r of visibleRows) {
       const c = calcSettlement(r)
       totalFee     += c.total
       supplySum    += c.supply
       assigneeSum  += c.assignee
       takeHomeSum  += c.takeHome
+      if (!isDistributionRow(r)) {
+        officeSupply   += c.supply
+        officeAssignee += c.assignee
+      }
       if (meBroker && r.assignee_broker_id === meBroker.id) {
         myAssigneeSum += c.assignee
         myTakeHomeSum += c.takeHome
       }
     }
 
-    // 사무실 수익: 공급가 합 − 담당자 수수료 합 (1계약 1행 구조)
-    const officeShare = isOwner ? (supplySum - assigneeSum) : 0
+    // 사무실 수익: 공급가 합 − 담당자 수수료 합 (1계약 1행 구조, 분배 행 제외)
+    const officeShare = isOwner ? (officeSupply - officeAssignee) : 0
 
-    return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum, officeShare,
+    return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum,
+      officeShare, officeSupply, officeAssignee,
       count: visibleRows.length }
   }, [visibleRows, isOwner, meBroker])
 
@@ -407,7 +417,7 @@ export default function SettlementPage() {
   const officeMonthProfit = useMemo(() => {
     let sum = 0
     for (const r of rows) {
-      if (r.contract_address?.endsWith('사무실 손익 분배')) continue
+      if (isDistributionRow(r)) continue
       const c = calcSettlement(r)
       sum += c.supply - c.assignee
     }
@@ -474,8 +484,6 @@ export default function SettlementPage() {
     }
     const expense = expenseSettings.monthly_expense
     const partnerRate = 1 - expenseSettings.partner_split
-    const net = officeMonthProfit - expense
-    if (!confirm(`사무실 수익 ${fmtComma(officeMonthProfit)} − 경비 ${fmtComma(expense)} = 순손익 ${fmtComma(net)}원\n동업자 몫 ${Math.round(partnerRate * 100)}% 행을 등록할까요?`)) return
     const { data, error } = await supabase
       .from('settlements')
       .insert({
@@ -688,7 +696,7 @@ export default function SettlementPage() {
                   <p className="text-[11px] font-medium text-gray-500">사무실</p>
                   <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
                   <p className="mt-0.5 text-[10px] text-gray-500">
-                    = 공급가 {fmtComma(summary.supplySum)} − 담당자 {fmtComma(summary.assigneeSum)}
+                    = 공급가 {fmtComma(summary.officeSupply)} − 담당자 {fmtComma(summary.officeAssignee)} (분배 행 제외)
                   </p>
                 </CardBody>
               </Card>
