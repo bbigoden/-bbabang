@@ -17,6 +17,7 @@ import { DateCell } from '@/components/sheet/cells/date-cell'
 import { SheetActionHeader } from '@/components/sheet/action-cell'
 import { calcSettlement, fmtComma } from '@/lib/settlement'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
 interface Settlement {
   id: string
@@ -74,9 +75,9 @@ function MoneyCell({ value, onSave, readOnly, accent }: {
   }
 
   const colorCls = value != null && value < 0 ? 'text-red-600 dark:text-red-400 font-semibold'
-    : accent === 'blue' ? 'text-blue-700 font-semibold'
-    : accent === 'emerald' ? 'text-emerald-700 font-semibold'
-    : 'text-gray-800'
+    : accent === 'blue' ? 'text-blue-700 dark:text-blue-300 font-semibold'
+    : accent === 'emerald' ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
+    : 'text-gray-800 dark:text-gray-200'
 
   if (readOnly) {
     return (
@@ -97,7 +98,7 @@ function MoneyCell({ value, onSave, readOnly, accent }: {
   }
   return (
     <div onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
-      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] ${value ? colorCls : 'text-gray-500 dark:text-gray-400'}`}>
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 dark:hover:bg-blue-500/10 min-h-[22px] ${value ? colorCls : 'text-gray-500 dark:text-gray-400'}`}>
       {value != null && value !== 0 ? value.toLocaleString() : '0'}
     </div>
   )
@@ -128,7 +129,7 @@ function SupplyCell({ supply, isManual, readOnly, onSave }: {
 
   if (readOnly) {
     return (
-      <div className={`w-full px-1 py-0.5 text-xs text-right font-mono min-h-[22px] ${isManual ? 'text-blue-700 font-semibold' : 'text-gray-700'}`}>
+      <div className={`w-full px-1 py-0.5 text-xs text-right font-mono min-h-[22px] ${isManual ? 'text-blue-700 dark:text-blue-300 font-semibold' : 'text-gray-700 dark:text-gray-300'}`}>
         {supply ? supply.toLocaleString() : '0'}
       </div>
     )
@@ -148,7 +149,7 @@ function SupplyCell({ supply, isManual, readOnly, onSave }: {
     <div
       onClick={() => { setDraft(String(supply)); setEditing(true) }}
       title={isManual ? '수동 입력 (현금/VAT 0). 빈 칸으로 만들면 자동(총수수료÷1.1) 복귀' : '자동 계산. 클릭해서 직접 입력 가능 (현금 케이스)'}
-      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] ${isManual ? 'text-blue-700 font-semibold' : 'text-gray-700'}`}
+      className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 dark:hover:bg-blue-500/10 min-h-[22px] ${isManual ? 'text-blue-700 dark:text-blue-300 font-semibold' : 'text-gray-700 dark:text-gray-300'}`}
     >
       {supply ? supply.toLocaleString() : '0'}
       {isManual && <span className="ml-0.5 text-[9px] text-blue-500">●</span>}
@@ -157,7 +158,8 @@ function SupplyCell({ supply, isManual, readOnly, onSave }: {
 }
 
 // ── 정산비 셀 (0.50 / 0.55 / 0.60 / 0.70 ...) ─────────────
-function RateCell({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+// 정산비는 보상 정책이므로 대표만 수정 (readOnly)
+function RateCell({ value, onSave, readOnly }: { value: number; onSave: (v: number) => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(value))
   const inputRef = useRef<HTMLInputElement>(null)
@@ -167,7 +169,18 @@ function RateCell({ value, onSave }: { value: number; onSave: (v: number) => voi
   const commit = () => {
     setEditing(false)
     const num = Number(draft)
-    if (!isNaN(num) && num !== value) onSave(num)
+    if (isNaN(num)) return
+    // 비율은 0~1 — 50을 입력해도 담당자수수료가 50배가 되지 않게 클램프
+    const clamped = Math.min(1, Math.max(0, num))
+    if (clamped !== value) onSave(clamped)
+  }
+
+  if (readOnly) {
+    return (
+      <div className="w-full px-1 py-0.5 text-xs text-right font-mono min-h-[22px] text-gray-800 dark:text-gray-200">
+        {value.toFixed(2)}
+      </div>
+    )
   }
 
   if (editing) {
@@ -181,7 +194,7 @@ function RateCell({ value, onSave }: { value: number; onSave: (v: number) => voi
   }
   return (
     <div onClick={() => { setDraft(String(value)); setEditing(true) }}
-      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 min-h-[22px] text-gray-800">
+      className="w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right font-mono hover:bg-blue-50 dark:hover:bg-blue-500/10 min-h-[22px] text-gray-800 dark:text-gray-200">
       {value.toFixed(2)}
     </div>
   )
@@ -282,10 +295,15 @@ export default function SettlementPage() {
       const memberNames = new Set<string>(
         (mems ?? []).map((m: any) => m.profiles?.name).filter(Boolean)
       )
-      const { data: dist } = await supabase
-        .from('settlements')
-        .select('assignee_broker_id, assignee_name')
-        .eq('office_broker_id', office)
+      // 전건 조회 — 1000행 넘으면 조용히 잘리므로 페이지네이션 필수
+      const dist = await fetchAllPaged<{ assignee_broker_id: string | null; assignee_name: string | null }>((from, to) =>
+        supabase
+          .from('settlements')
+          .select('assignee_broker_id, assignee_name')
+          .eq('office_broker_id', office)
+          .order('id', { ascending: true })
+          .range(from, to)
+      ).catch(() => null)
       if (dist) {
         const seen = new Set<string>()
         const exList: Array<{ key: string; name: string }> = []
@@ -310,17 +328,23 @@ export default function SettlementPage() {
   const loadRows = useCallback(async () => {
     if (!officeId) return
     setLoading(true)
-    let q = supabase
-      .from('settlements')
-      .select('*')
-      .eq('office_broker_id', officeId)
-    if (!allMode) {
-      q = q.eq('record_month', month)
-    }
-    const { data } = await q
-      .order('contract_date', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true })
-    setRows((data ?? []) as Settlement[])
+    // 전건 조회 — 특히 전체 보기는 1000행 넘으면 조용히 잘리므로 페이지네이션 필수.
+    // id 최종 정렬로 페이지 경계 고정 (created_at 동률 대비)
+    const data = await fetchAllPaged<Settlement>((from, to) => {
+      let q = supabase
+        .from('settlements')
+        .select('*')
+        .eq('office_broker_id', officeId)
+      if (!allMode) {
+        q = q.eq('record_month', month)
+      }
+      return q
+        .order('contract_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    }).catch(() => [] as Settlement[])
+    setRows(data)
     setLoading(false)
   }, [officeId, month, allMode, supabase])
 
@@ -406,19 +430,21 @@ export default function SettlementPage() {
 
   // 요약 합계
   const summary = useMemo(() => {
+    // 분배 행은 수익을 나누는 행이지 매출이 아님 —
+    // 전체(총수수료·공급가·건수)와 사무실 카드에서는 제외하고,
+    // 담당자 카드(나가는 돈)에는 동업자 몫도 포함한다.
     let totalFee = 0, supplySum = 0, assigneeSum = 0, takeHomeSum = 0
     let myAssigneeSum = 0, myTakeHomeSum = 0
-    // 사무실 카드용 — 분배 행 제외 합 (분배 행은 수익을 나누는 행이지 수익이 아님)
-    let officeSupply = 0, officeAssignee = 0
+    let officeAssignee = 0, count = 0
     for (const r of visibleRows) {
       const c = calcSettlement(withLiveProfit(r))
-      totalFee     += c.total
-      supplySum    += c.supply
       assigneeSum  += c.assignee
       takeHomeSum  += c.takeHome
       if (!isDistributionRow(r)) {
-        officeSupply   += c.supply
+        totalFee       += c.total
+        supplySum      += c.supply
         officeAssignee += c.assignee
+        count++
       }
       if (meBroker && r.assignee_broker_id === meBroker.id) {
         myAssigneeSum += c.assignee
@@ -427,11 +453,10 @@ export default function SettlementPage() {
     }
 
     // 사무실 수익: 공급가 합 − 담당자 수수료 합 (1계약 1행 구조, 분배 행 제외)
-    const officeShare = isOwner ? (officeSupply - officeAssignee) : 0
+    const officeShare = isOwner ? (supplySum - officeAssignee) : 0
 
     return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum,
-      officeShare, officeSupply, officeAssignee,
-      count: visibleRows.length }
+      officeShare, officeAssignee, count }
   }, [visibleRows, isOwner, meBroker, withLiveProfit])
 
   const moveMonth = (delta: number) => {
@@ -705,7 +730,7 @@ export default function SettlementPage() {
                   <p className="text-[11px] font-medium text-gray-500">사무실</p>
                   <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
                   <p className="mt-0.5 text-[10px] text-gray-500">
-                    = 공급가 {fmtComma(summary.officeSupply)} − 담당자 {fmtComma(summary.officeAssignee)} (분배 행 제외)
+                    = 공급가 {fmtComma(summary.supplySum)} − 담당자 {fmtComma(summary.officeAssignee)} (분배 행 제외)
                   </p>
                 </CardBody>
               </Card>
@@ -792,7 +817,7 @@ export default function SettlementPage() {
                         />
                       </td>
                       <td className="px-1 py-1">
-                        <RateCell value={Number(r.settlement_rate)} onSave={v => updateRow(r.id, { settlement_rate: v })} />
+                        <RateCell value={Number(r.settlement_rate)} readOnly={!isOwner} onSave={v => updateRow(r.id, { settlement_rate: v })} />
                       </td>
                       <td className="px-1 py-1">
                         {/* 분배 행의 매도칸(사무실 수익)은 현재 합계 실시간 파생 → 편집 차단 */}
@@ -843,7 +868,7 @@ export default function SettlementPage() {
                           <input
                             type="month"
                             value={r.record_month ?? ''}
-                            disabled={!canEditMoney}
+                            disabled={!canEditMoney || isDistributionRow(r)}
                             onChange={e => { if (e.target.value) updateRow(r.id, { record_month: e.target.value }) }}
                             title="다른 달로 옮기기"
                             aria-label="기록월 변경"
