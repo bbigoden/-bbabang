@@ -70,7 +70,8 @@ function MoneyCell({ value, onSave, readOnly, accent }: {
     if (!isNaN(num) && num !== value) onSave?.(num)
   }
 
-  const colorCls = accent === 'blue' ? 'text-blue-700 font-semibold'
+  const colorCls = value != null && value < 0 ? 'text-red-600 dark:text-red-400 font-semibold'
+    : accent === 'blue' ? 'text-blue-700 font-semibold'
     : accent === 'emerald' ? 'text-emerald-700 font-semibold'
     : 'text-gray-800'
 
@@ -513,10 +514,6 @@ export default function SettlementPage() {
     if (!officeId || !meBroker || !expenseSettings || allMode) return
     const net = officeMonthProfit - expenseSettings.monthly_expense
     const partnerShare = net - Math.round(net * expenseSettings.partner_split)
-    if (partnerShare <= 0) {
-      toast.error(`이 달은 분배할 수익이 없습니다 (순손익 ${fmtComma(net)}원)`)
-      return
-    }
     const label = `${month} 사무실 손익 분배`
     const dup = rows.find(r => r.record_month === month && r.contract_address === label)
     if (dup) {

@@ -33,7 +33,8 @@ export interface SettlementCalc {
 }
 
 export function calcSettlement(input: SettlementInput): SettlementCalc {
-  const total = Math.max(0, Math.round((input.seller_fee || 0) + (input.buyer_fee || 0)))
+  // 음수 허용 — 손실 달의 분배 행(마이너스 정산) 표시용
+  const total = Math.round((input.seller_fee || 0) + (input.buyer_fee || 0))
   let supply: number, vat: number
   if (input.vat_override != null) {
     vat = Math.max(0, Math.round(input.vat_override))
@@ -43,9 +44,7 @@ export function calcSettlement(input: SettlementInput): SettlementCalc {
     vat = total - supply
   }
   const assignee = Math.round(supply * (input.settlement_rate || 0))
-  const incomeTax = floorTo10(assignee * 0.03)
-  const localTax  = floorTo10(assignee * 0.003)
-  const withhold = input.withhold_exempt ? 0 : (incomeTax + localTax)
+  const withhold = input.withhold_exempt ? 0 : calcWithhold(assignee)
   const takeHome = assignee - withhold
   return { total, supply, vat, assignee, withhold, takeHome }
 }
