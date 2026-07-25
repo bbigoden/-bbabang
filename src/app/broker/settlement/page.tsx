@@ -504,8 +504,6 @@ export default function SettlementPage() {
       .single()
     if (error) { toast.error('분배 등록 실패: ' + error.message); return }
     setRows(prev => [...prev, data as Settlement])
-    setHighlightSettlementId((data as Settlement).id)
-    setTimeout(() => setHighlightSettlementId(null), 2500)
   }
 
   const deleteRow = async (r: Settlement) => {
