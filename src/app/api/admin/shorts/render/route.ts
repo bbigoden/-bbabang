@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 // Vercel Hobby 함수 최대 60초. 30초 영상은 보통 그 안에 완성됨.
 export const maxDuration = 60
 
-// b-roll/route.ts와 동일한 매핑 (재사용 위해 lib으로 빼는 게 좋지만 일단 인라인)
+// 한국어 부동산 키워드 → Pexels(영어) 검색어 매핑. 매핑 없으면 fallback 키워드로 검색.
 const KO_TO_EN: Record<string, string> = {
   '아파트': 'apartment building', '아파트 외관': 'apartment building exterior',
   '원룸': 'small apartment room', '원룸 복도': 'apartment corridor',

@@ -5,7 +5,8 @@
  *   1. EXPERIMENTS 배열에 항목 추가 (active: true)
  *   2. 각 variant의 weight 합계가 100이 되도록 설정
  *   3. 컴포넌트에서 useAb('experiment_id') 훅으로 variant 읽기
- *   4. 전환 이벤트는 trackAb() 유틸로 기록
+ *   4. 전환 이벤트 기록부는 2026-07 정리로 제거됨 — 실험 재개 시
+ *      기록 유틸(구 trackAb)·/api/ab/track·ab_events 테이블을 다시 추가할 것
  *
  * variant id 규칙: 'control' = 기존, 'treatment_*' = 실험군
  */
