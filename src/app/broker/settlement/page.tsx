@@ -158,7 +158,7 @@ function SupplyCell({ supply, isManual, readOnly, onSave }: {
 }
 
 // ── 정산비 셀 (0.50 / 0.55 / 0.60 / 0.70 ...) ─────────────
-// 정산비는 보상 정책이므로 대표만 수정 (readOnly)
+// 대표는 전체, 직원은 본인 행만 수정 (금액 셀과 동일한 권한)
 function RateCell({ value, onSave, readOnly }: { value: number; onSave: (v: number) => void; readOnly?: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(String(value))
@@ -817,7 +817,7 @@ export default function SettlementPage() {
                         />
                       </td>
                       <td className="px-1 py-1">
-                        <RateCell value={Number(r.settlement_rate)} readOnly={!isOwner} onSave={v => updateRow(r.id, { settlement_rate: v })} />
+                        <RateCell value={Number(r.settlement_rate)} readOnly={!canEditMoney} onSave={v => updateRow(r.id, { settlement_rate: v })} />
                       </td>
                       <td className="px-1 py-1">
                         {/* 분배 행의 매도칸(사무실 수익)은 현재 합계 실시간 파생 → 편집 차단 */}
