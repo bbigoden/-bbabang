@@ -152,6 +152,46 @@ function SupplyCell({ supply, isManual, readOnly, onSave }: {
   )
 }
 
+// ── 손익 분배 카드용 인라인 숫자 입력 (blur/Enter 저장, 콤마 표시) ──
+function InlineNumber({ value, onSave, min, max, className }: {
+  value: number
+  onSave: (v: number) => void
+  min?: number
+  max?: number
+  className?: string
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(String(value))
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select() } }, [editing])
+
+  const commit = () => {
+    setEditing(false)
+    const n = Number(draft)
+    if (isNaN(n)) return
+    const clamped = Math.min(max ?? Infinity, Math.max(min ?? 0, n))
+    if (clamped !== value) onSave(clamped)
+  }
+
+  if (editing) {
+    return (
+      <input ref={inputRef} type="number" value={draft} onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(String(value)); setEditing(false) } }}
+        className={`rounded border border-blue-400 bg-white dark:bg-gray-900 px-1 py-0.5 text-xs text-right font-mono outline-none focus:ring-2 focus:ring-blue-300 ${className ?? 'w-24'}`}
+      />
+    )
+  }
+  return (
+    <button type="button" onClick={() => { setDraft(String(value)); setEditing(true) }}
+      title="클릭해서 수정"
+      className={`rounded px-1 py-0.5 text-xs text-right font-mono text-gray-800 dark:text-gray-200 underline decoration-dotted decoration-gray-400 underline-offset-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 ${className ?? ''}`}>
+      {value.toLocaleString()}
+    </button>
+  )
+}
+
 // ── 정산비 셀 (0.50 / 0.55 / 0.60 / 0.70 ...) ─────────────
 function RateCell({ value, onSave }: { value: number; onSave: (v: number) => void }) {
   const [editing, setEditing] = useState(false)
@@ -197,6 +237,8 @@ export default function SettlementPage() {
   const [members, setMembers] = useState<Member[]>([])
   // 퇴사자 = settlements에 등장하지만 현재 사무소 멤버가 아닌 assignee (broker_id 또는 이름 기준)
   const [exAssignees, setExAssignees] = useState<Array<{ key: string; name: string }>>([])
+  // 대표 전용: 월 기본경비·동업 분배 비율 (office_settlement_settings, 사무소당 1행)
+  const [expenseSettings, setExpenseSettings] = useState<{ monthly_expense: number; partner_split: number } | null>(null)
   const [month, setMonth] = useState(() => yyyymm(new Date()))
   const [allMode, setAllMode] = useState(false)
   const [highlightSettlementId, setHighlightSettlementId] = useState<string | null>(null)
@@ -262,6 +304,16 @@ export default function SettlementPage() {
     // = settlements에 등장한 assignee 중 현재 사무소 멤버(재직 직원)가 아닌 사람
     // 박세련·송영욱처럼 broker_id NULL(가입 전 퇴사)도 자동 포함
     if (me.is_owner) {
+      const { data: es } = await supabase
+        .from('office_settlement_settings')
+        .select('monthly_expense, partner_split')
+        .eq('office_broker_id', office)
+        .maybeSingle()
+      setExpenseSettings({
+        monthly_expense: Number(es?.monthly_expense ?? 4000000),
+        partner_split: Number(es?.partner_split ?? 0.5),
+      })
+
       const memberIds = new Set<string>((mems ?? []).map((m: any) => m.id))
       const memberNames = new Set<string>(
         (mems ?? []).map((m: any) => m.profiles?.name).filter(Boolean)
@@ -388,6 +440,28 @@ export default function SettlementPage() {
     return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum, officeShare,
       count: visibleRows.length }
   }, [visibleRows, isOwner, meBroker])
+
+  // 대표 전용: 이 달 사무실 수익 (직원 필터와 무관하게 월 전체 행 기준)
+  const officeMonthProfit = useMemo(() => {
+    let supply = 0, assignee = 0
+    for (const r of rows) {
+      const c = calcSettlement(r)
+      supply += c.supply
+      assignee += c.assignee
+    }
+    return supply - assignee
+  }, [rows])
+
+  // 경비·비율 저장 — 낙관적 UI + upsert
+  const saveExpenseSettings = async (patch: Partial<{ monthly_expense: number; partner_split: number }>) => {
+    if (!officeId || !expenseSettings) return
+    const next = { ...expenseSettings, ...patch }
+    setExpenseSettings(next)
+    const { error } = await supabase
+      .from('office_settlement_settings')
+      .upsert({ office_broker_id: officeId, ...next, updated_at: new Date().toISOString() })
+    if (error) toast.error('분배 설정 저장 실패: ' + error.message)
+  }
 
   const moveMonth = (delta: number) => {
     const [y, m] = month.split('-').map(Number)
@@ -646,6 +720,57 @@ export default function SettlementPage() {
               </Card>
             )}
           </div>
+
+        {/* 대표 전용: 사무실 손익 분배 — 월 수익 − 기본경비를 동업 비율로 분배 */}
+        {isOwner && expenseSettings && !allMode && (() => {
+          const net = officeMonthProfit - expenseSettings.monthly_expense
+          const myPct = Math.round(expenseSettings.partner_split * 100)
+          const myShare = Math.round(net * expenseSettings.partner_split)
+          const partnerShare = net - myShare
+          const amountCls = (n: number) => n < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-300'
+          return (
+            <Card className="mb-4">
+              <CardBody className="p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] font-medium text-gray-500">
+                    사무실 손익 분배 <span className="text-gray-400">— 직원 필터와 무관하게 이 달 전체 기준</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
+                    <span className="flex items-center gap-1">
+                      기본경비
+                      <InlineNumber value={expenseSettings.monthly_expense} min={0}
+                        onSave={v => saveExpenseSettings({ monthly_expense: Math.round(v) })} />
+                      원
+                    </span>
+                    <span className="flex items-center gap-1">
+                      내 비율
+                      <InlineNumber value={myPct} min={0} max={100} className="w-10"
+                        onSave={v => saveExpenseSettings({ partner_split: Math.round(v) / 100 })} />
+                      %
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-500">순손익</p>
+                    <p className={`mt-1 text-xl font-black ${amountCls(net)}`}>{fmtComma(net)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                    <p className="mt-0.5 text-[10px] text-gray-500">
+                      = 사무실 수익 {fmtComma(officeMonthProfit)} − 경비 {fmtComma(expenseSettings.monthly_expense)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-500">내 몫 ({myPct}%)</p>
+                    <p className={`mt-1 text-xl font-black ${amountCls(myShare)}`}>{fmtComma(myShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-500">동업자 몫 ({100 - myPct}%)</p>
+                    <p className={`mt-1 text-xl font-black ${amountCls(partnerShare)}`}>{fmtComma(partnerShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+          )
+        })()}
 
         {/* 시트형 표 */}
         <Card>
