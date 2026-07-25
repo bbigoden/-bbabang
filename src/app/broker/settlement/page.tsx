@@ -506,6 +506,51 @@ export default function SettlementPage() {
     notifyOwnerOfBrokerAction(meBroker.id, 'settlement', `/broker/settlement?month=${recordMonth}&focus=${(data as Settlement).id}`)
   }
 
+  // 대표 전용: 이 달 동업자 몫을 정산 행으로 등록
+  // 정산비 1.0 + VAT 0(vat_override)으로 넣어 담당자수수료 = 몫 그대로, 3.3% 공제는 기존 계산이 적용.
+  // 공급가 = 담당자수수료라 사무실 수익(공급가−담당자) 집계를 왜곡하지 않는다.
+  const addDistributionRow = async () => {
+    if (!officeId || !meBroker || !expenseSettings || allMode) return
+    const net = officeMonthProfit - expenseSettings.monthly_expense
+    const partnerShare = net - Math.round(net * expenseSettings.partner_split)
+    if (partnerShare <= 0) {
+      toast.error(`이 달은 분배할 수익이 없습니다 (순손익 ${fmtComma(net)}원)`)
+      return
+    }
+    const label = `${month} 사무실 손익 분배`
+    const dup = rows.find(r => r.record_month === month && r.contract_address === label)
+    if (dup) {
+      toast.error('이미 이 달 분배 행이 있습니다. 금액이 바뀌었으면 기존 행을 삭제하고 다시 등록하세요.')
+      setHighlightSettlementId(dup.id)
+      document.querySelector(`tr[data-row-id="${dup.id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      setTimeout(() => setHighlightSettlementId(null), 2500)
+      return
+    }
+    const myPct = Math.round(expenseSettings.partner_split * 100)
+    const { data, error } = await supabase
+      .from('settlements')
+      .insert({
+        office_broker_id: officeId,
+        assignee_broker_id: null,
+        assignee_name: '동업자',
+        contract_address: label,
+        record_month: month,
+        settlement_rate: 1,
+        withhold_exempt: false,
+        seller_fee: partnerShare,
+        buyer_fee: 0,
+        vat_override: 0,
+        memo: `순손익 ${fmtComma(net)} × ${100 - myPct}%`,
+        created_by: meBroker.id,
+      })
+      .select('*')
+      .single()
+    if (error) { toast.error('분배 등록 실패: ' + error.message); return }
+    setRows(prev => [...prev, data as Settlement])
+    setHighlightSettlementId((data as Settlement).id)
+    setTimeout(() => setHighlightSettlementId(null), 2500)
+  }
+
   const deleteRow = async (r: Settlement) => {
     if (!confirm(`${r.contract_address ?? r.contract_date ?? '이 계약'} 삭제할까요?`)) return
     const { error } = await supabase.from('settlements').delete().eq('id', r.id)
@@ -900,10 +945,19 @@ export default function SettlementPage() {
                 })}
                 <tr>
                   <td colSpan={16} className="border-t border-gray-100 dark:border-gray-800">
-                    <button onClick={addNewRow}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-500 transition-colors">
-                      <Plus className="h-3.5 w-3.5" />정산 등록
-                    </button>
+                    <div className="flex items-stretch">
+                      <button onClick={addNewRow}
+                        className="flex flex-1 items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-500 transition-colors">
+                        <Plus className="h-3.5 w-3.5" />정산 등록
+                      </button>
+                      {isOwner && !allMode && expenseSettings && (
+                        <button onClick={addDistributionRow}
+                          title="이 달 순손익의 동업자 몫을 정산 행으로 등록 (3.3% 공제 적용)"
+                          className="flex shrink-0 items-center gap-2 border-l border-gray-100 px-4 py-2 text-sm text-blue-600/80 hover:bg-blue-50/80 hover:text-blue-700 dark:border-gray-800 dark:text-blue-400 dark:hover:bg-blue-500/10 transition-colors">
+                          <Plus className="h-3.5 w-3.5" />분배 등록
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               </tbody>
