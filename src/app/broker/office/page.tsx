@@ -65,7 +65,7 @@ export default async function OfficeDashboardPage() {
     const [st, pr, cu] = await Promise.all([
       supabase
         .from('settlements')
-        .select('assignee_broker_id, assignee_name, seller_fee, buyer_fee, settlement_rate, vat_override, withhold_exempt, record_month')
+        .select('assignee_broker_id, assignee_name, seller_fee, buyer_fee, settlement_rate, vat_override, withhold_exempt, record_month, contract_address')
         .eq('office_broker_id', office)
         .gte('record_month', sixAgo),
       memberIds.length
@@ -75,7 +75,8 @@ export default async function OfficeDashboardPage() {
         ? fetchAllPaged((from, to) => supabase.from('broker_customers').select('broker_id, status').in('broker_id', memberIds).range(from, to))
         : Promise.resolve([] as any[]),
     ])
-    settlements = st.data ?? []
+    // 손익 분배 행은 수익을 나누는 행이지 매출이 아님 — 경영 지표 집계에서 제외
+    settlements = (st.data ?? []).filter((s: any) => !s.contract_address?.endsWith('사무실 손익 분배'))
     properties = pr
     customers = cu
   } catch {

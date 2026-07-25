@@ -179,7 +179,7 @@ export function BrokerStatsPanel() {
     if (officeId) {
       let sq = supabase
         .from('settlements')
-        .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override, record_month, assignee_broker_id')
+        .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override, record_month, assignee_broker_id, contract_address')
         .in('record_month', months)
       if (isOwner) {
         sq = sq.eq('office_broker_id', officeId)
@@ -190,7 +190,8 @@ export function BrokerStatsPanel() {
       }
 
       const { data: sRows } = await sq
-      const settlements = (sRows ?? []) as any[]
+      // 손익 분배 행은 수익을 나누는 행이지 매출이 아님 — 차트 집계에서 제외
+      const settlements = (sRows ?? []).filter((s: any) => !s.contract_address?.endsWith('사무실 손익 분배')) as any[]
 
       const monthMap = new Map<string, { total: number; supply: number; assignee: number; takeHome: number; count: number }>()
       for (const m of months) monthMap.set(m, { total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0 })
