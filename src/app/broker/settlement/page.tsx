@@ -847,7 +847,7 @@ export default function SettlementPage() {
                   <td colSpan={16} className="border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-stretch">
                       <button onClick={addNewRow}
-                        className="flex flex-1 items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-500 transition-colors">
+                        className="flex shrink-0 items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-500 transition-colors">
                         <Plus className="h-3.5 w-3.5" />정산 등록
                       </button>
                       {isOwner && !allMode && expenseSettings && (
