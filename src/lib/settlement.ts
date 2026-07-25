@@ -50,6 +50,12 @@ export function calcSettlement(input: SettlementInput): SettlementCalc {
   return { total, supply, vat, assignee, withhold, takeHome }
 }
 
+/** 원천공제액 (소득세 3% + 지방세 0.3%, 각각 10원 단위 절사). 음수/0이면 0 */
+export function calcWithhold(amount: number): number {
+  if (amount <= 0) return 0
+  return floorTo10(amount * 0.03) + floorTo10(amount * 0.003)
+}
+
 /** 통화 표시 — 천 단위 콤마 + 원 */
 export function fmtWon(n: number): string {
   if (!Number.isFinite(n)) return '-'

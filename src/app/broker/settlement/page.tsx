@@ -15,7 +15,7 @@ import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { SheetActionHeader } from '@/components/sheet/action-cell'
-import { calcSettlement, fmtComma } from '@/lib/settlement'
+import { calcSettlement, calcWithhold, fmtComma } from '@/lib/settlement'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 
 interface Settlement {
@@ -727,6 +727,9 @@ export default function SettlementPage() {
           const myPct = Math.round(expenseSettings.partner_split * 100)
           const myShare = Math.round(net * expenseSettings.partner_split)
           const partnerShare = net - myShare
+          // 동업자는 직원과 동일하게 3.3% 원천공제 후 지급 (손실이면 공제 없음)
+          const partnerWithhold = calcWithhold(partnerShare)
+          const partnerTakeHome = partnerShare - partnerWithhold
           const amountCls = (n: number) => n < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-300'
           return (
             <Card className="mb-4">
@@ -763,8 +766,11 @@ export default function SettlementPage() {
                     <p className={`mt-1 text-xl font-black ${amountCls(myShare)}`}>{fmtComma(myShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium text-gray-500">동업자 몫 ({100 - myPct}%)</p>
-                    <p className={`mt-1 text-xl font-black ${amountCls(partnerShare)}`}>{fmtComma(partnerShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                    <p className="text-[11px] font-medium text-gray-500">동업자 실수령 ({100 - myPct}%)</p>
+                    <p className={`mt-1 text-xl font-black ${amountCls(partnerTakeHome)}`}>{fmtComma(partnerTakeHome)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
+                    <p className="mt-0.5 text-[10px] text-gray-500">
+                      = 몫 {fmtComma(partnerShare)} − 원천 3.3% {fmtComma(partnerWithhold)}
+                    </p>
                   </div>
                 </div>
               </CardBody>
