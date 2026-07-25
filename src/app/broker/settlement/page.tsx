@@ -382,6 +382,27 @@ export default function SettlementPage() {
     return m
   }, [members])
 
+  // 월별 사무실 수익 (분배 행 제외 — 분배에 분배가 섞이는 순환 방지)
+  // 직원 필터와 무관하게 로드된 전체 행 기준
+  const officeProfitByMonth = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of rows) {
+      if (isDistributionRow(r)) continue
+      const c = calcSettlement(r)
+      const key = r.record_month ?? ''
+      m.set(key, (m.get(key) ?? 0) + (c.supply - c.assignee))
+    }
+    return m
+  }, [rows])
+
+  // 분배 행의 매도수수료(사무실 수익)는 저장값 대신 현재 합계를 실시간 반영
+  // → 이후 정산을 추가·삭제·수정해도 분배 행이 자동으로 따라간다 (재등록 불필요)
+  const withLiveProfit = useCallback((r: Settlement): Settlement =>
+    isDistributionRow(r)
+      ? { ...r, seller_fee: officeProfitByMonth.get(r.record_month ?? '') ?? 0 }
+      : r
+  , [officeProfitByMonth])
+
   // 요약 합계
   const summary = useMemo(() => {
     let totalFee = 0, supplySum = 0, assigneeSum = 0, takeHomeSum = 0
@@ -389,7 +410,7 @@ export default function SettlementPage() {
     // 사무실 카드용 — 분배 행 제외 합 (분배 행은 수익을 나누는 행이지 수익이 아님)
     let officeSupply = 0, officeAssignee = 0
     for (const r of visibleRows) {
-      const c = calcSettlement(r)
+      const c = calcSettlement(withLiveProfit(r))
       totalFee     += c.total
       supplySum    += c.supply
       assigneeSum  += c.assignee
@@ -410,19 +431,7 @@ export default function SettlementPage() {
     return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum,
       officeShare, officeSupply, officeAssignee,
       count: visibleRows.length }
-  }, [visibleRows, isOwner, meBroker])
-
-  // 대표 전용: 이 달 사무실 수익 (직원 필터와 무관하게 월 전체 행 기준)
-  // 분배 행 자체는 제외 — 분배 계산에 분배가 다시 섞이는 순환 방지
-  const officeMonthProfit = useMemo(() => {
-    let sum = 0
-    for (const r of rows) {
-      if (isDistributionRow(r)) continue
-      const c = calcSettlement(r)
-      sum += c.supply - c.assignee
-    }
-    return sum
-  }, [rows])
+  }, [visibleRows, isOwner, meBroker, withLiveProfit])
 
   const moveMonth = (delta: number) => {
     const [y, m] = month.split('-').map(Number)
@@ -494,7 +503,7 @@ export default function SettlementPage() {
         record_month: month,
         settlement_rate: partnerRate,
         withhold_exempt: false,
-        seller_fee: officeMonthProfit,
+        seller_fee: officeProfitByMonth.get(month) ?? 0,
         buyer_fee: -expense,
         vat_override: 0,
         memo: '매도칸=사무실 수익 · 매수칸=−경비 · 정산비=동업자 비율',
@@ -518,7 +527,8 @@ export default function SettlementPage() {
     const head = ['계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','매도입금일','매수입금일']
 
     const lines: string[] = [head.join(',')]
-    for (const r of visibleRows) {
+    for (const raw of visibleRows) {
+      const r = withLiveProfit(raw)
       const c = calcSettlement(r)
       const csv = (s: string | number | null | undefined) => {
         const v = s == null ? '' : String(s)
@@ -746,7 +756,8 @@ export default function SettlementPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map(r => {
+                {visibleRows.map(raw => {
+                  const r = withLiveProfit(raw)
                   const c = calcSettlement(r)
                   const canEditMoney = isOwner || r.assignee_broker_id === meBroker?.id
 
@@ -783,7 +794,8 @@ export default function SettlementPage() {
                         <RateCell value={Number(r.settlement_rate)} onSave={v => updateRow(r.id, { settlement_rate: v })} />
                       </td>
                       <td className="px-1 py-1">
-                        <MoneyCell value={r.seller_fee} readOnly={!canEditMoney} onSave={v => updateRow(r.id, { seller_fee: v })} />
+                        {/* 분배 행의 매도칸(사무실 수익)은 현재 합계 실시간 파생 → 편집 차단 */}
+                        <MoneyCell value={r.seller_fee} readOnly={!canEditMoney || isDistributionRow(r)} onSave={v => updateRow(r.id, { seller_fee: v })} />
                       </td>
                       <td className="px-1 py-1">
                         <MoneyCell value={r.buyer_fee} readOnly={!canEditMoney} onSave={v => updateRow(r.id, { buyer_fee: v })} />
