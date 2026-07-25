@@ -369,7 +369,8 @@ export default function SettlementPage() {
       if (!meBroker) return []
       base = rows.filter(r => r.assignee_broker_id === meBroker.id)
     }
-    return base
+    // 분배 행은 항상 맨 아래 유지 (이후 정산이 추가돼도 순서 고정)
+    return [...base.filter(r => !isDistributionRow(r)), ...base.filter(isDistributionRow)]
   }, [rows, isOwner, meBroker, filterAssigneeId])
 
   // 공동중개(contract_no) 그룹화 폐기 — 1계약 1행 구조로 단순화
