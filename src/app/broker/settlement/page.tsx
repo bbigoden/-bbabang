@@ -792,15 +792,21 @@ export default function SettlementPage() {
                       </td>
                       <td className="px-1 py-1"><MoneyCell value={c.total} readOnly /></td>
                       <td className="px-1 py-1">
-                        <SupplyCell
-                          supply={c.supply}
-                          isManual={r.vat_override != null}
-                          readOnly={!canEditMoney}
-                          onSave={newSupply => {
-                            if (newSupply == null) updateRow(r.id, { vat_override: null })
-                            else updateRow(r.id, { vat_override: Math.max(0, c.total - newSupply) })
-                          }}
-                        />
+                        {isDistributionRow(r) ? (
+                          // 분배 행은 공급가 = 총수수료(순손익)로 항상 같아 중복 표시 생략.
+                          // 잘못 수정하면 자동 VAT 분리(÷1.1)로 계산이 틀어지므로 편집도 차단.
+                          <div className="w-full px-1 py-0.5 text-xs text-right font-mono text-gray-500 dark:text-gray-400 min-h-[22px]">—</div>
+                        ) : (
+                          <SupplyCell
+                            supply={c.supply}
+                            isManual={r.vat_override != null}
+                            readOnly={!canEditMoney}
+                            onSave={newSupply => {
+                              if (newSupply == null) updateRow(r.id, { vat_override: null })
+                              else updateRow(r.id, { vat_override: Math.max(0, c.total - newSupply) })
+                            }}
+                          />
+                        )}
                       </td>
                       <td className="px-1 py-1"><MoneyCell value={c.assignee} readOnly /></td>
                       <td className="px-1 py-1"><MoneyCell value={c.takeHome} readOnly accent="blue" /></td>
