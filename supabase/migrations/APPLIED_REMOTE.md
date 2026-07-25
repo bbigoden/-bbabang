@@ -182,6 +182,19 @@ purge_idle_sessions_14d                              ← supabase/migrations/202
 > `cron.unschedule`로 제거하고 `purge-old-trash`만 남겼다(동작 변화 없음).
 > 현재 등록된 job은 `purge-old-trash`(03:00 KST), `purge-idle-sessions-14d`(03:30 KST) 둘뿐.
 
+### 2026-07-26
+
+```
+20260725230920_office_chat_storage_policies_and_curation_dedup
+20260725231333_office_chat_images_bucket_private
+20260725231842_drop_ab_events                        ← supabase/migrations/drop_ab_events.sql 보존
+```
+
+> `drop_ab_events`: 2026-07-26 점검 고아 API 정리 후속. trackAb()·/api/ab/track 코드 삭제에 맞춰
+> `ab_events` 테이블(미사용 인덱스 2개 포함)을 CASCADE 드롭. 쿠키 배정 A/B 인프라
+> (proxy.ts·useAb·ab-experiments)는 스캐폴드로 유지.
+> 앞의 office_chat 2건은 메신저 첨부 버킷 비공개 전환(c51a2d0) 세션에서 적용된 것을 보충 기록.
+
 ## 향후 정책
 
 - 신규 마이그레이션은 `apply_migration` MCP 도구로 적용 시 SQL 본문이 원격에만 저장됨
