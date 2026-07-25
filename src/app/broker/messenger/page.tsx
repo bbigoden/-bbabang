@@ -48,6 +48,17 @@ const dateLabel = (iso: string) => {
 const msgPreviewText = (m: { image_url?: string | null; file_url?: string | null; file_name?: string | null; body: string }) =>
   m.image_url ? '사진' : m.file_url ? (m.file_name || '파일') : m.body
 
+// 첨부 버킷은 비공개 — DB에는 경로만 저장하고 렌더 시 서명 URL로 연다.
+// 과거 메시지는 public URL 전체가 저장돼 있으므로 경로를 추출해 호환.
+const CHAT_BUCKET = 'office-chat-images'
+const chatStoragePath = (v: string | null | undefined): string | null => {
+  if (!v) return null
+  if (!v.startsWith('http')) return v
+  const marker = `/${CHAT_BUCKET}/`
+  const i = v.indexOf(marker)
+  return i >= 0 ? decodeURIComponent(v.slice(i + marker.length).split('?')[0]) : null
+}
+
 export default function BrokerMessengerPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -239,6 +250,34 @@ export default function BrokerMessengerPage() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ block: 'end' }) }, [messages.length])
 
+  // ── 첨부 서명 URL — 새로 보이는 경로만 배치 서명 (24시간 유효) ──
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const paths = Array.from(new Set(
+      messages.flatMap(m => [chatStoragePath(m.image_url), chatStoragePath(m.file_url)])
+    )).filter((p): p is string => !!p && !signedUrls[p])
+    if (paths.length === 0) return
+    let alive = true
+    supabase.storage.from(CHAT_BUCKET).createSignedUrls(paths, 60 * 60 * 24)
+      .then(({ data }) => {
+        if (!alive || !data) return
+        setSignedUrls(prev => {
+          const next = { ...prev }
+          for (const r of data) if (r.signedUrl && r.path) next[r.path] = r.signedUrl
+          return next
+        })
+      })
+    return () => { alive = false }
+    // signedUrls는 이 effect가 갱신하는 대상이라 의존성에서 제외
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages])
+
+  // 저장값(경로 또는 과거 public URL) → 열 수 있는 URL. 서명 전이면 null.
+  const attachmentUrl = (v: string | null | undefined): string | null => {
+    const p = chatStoragePath(v)
+    return p ? (signedUrls[p] ?? null) : (v ?? null)
+  }
+
   const markRead = async (threadId: string) => {
     if (!myId) return
     const now = new Date().toISOString()
@@ -378,12 +417,11 @@ export default function BrokerMessengerPage() {
       const isImage = file.type.startsWith('image/')
       const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
       const path = `${office}/${active}/${crypto.randomUUID()}.${ext}`
-      const { error: upErr } = await supabase.storage.from('office-chat-images').upload(path, file, { contentType: file.type || undefined })
+      const { error: upErr } = await supabase.storage.from(CHAT_BUCKET).upload(path, file, { contentType: file.type || undefined })
       if (upErr) { toast.error('업로드 실패: ' + upErr.message); return }
-      const { data: pub } = supabase.storage.from('office-chat-images').getPublicUrl(path)
       const payload: Record<string, unknown> = { thread_id: active, sender_broker_id: myId, body: '' }
-      if (isImage) payload.image_url = pub.publicUrl
-      else { payload.file_url = pub.publicUrl; payload.file_name = file.name }
+      if (isImage) payload.image_url = path
+      else { payload.file_url = path; payload.file_name = file.name }
       const { data, error } = await supabase.from('office_chat_messages').insert(payload).select().single()
       if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); return }
       appendOptimistic(data as Msg, isImage ? '사진' : '파일')
@@ -589,12 +627,18 @@ export default function BrokerMessengerPage() {
                           )}
                           <div className={cn('flex items-end gap-1 group', mine && 'flex-row-reverse')}>
                             {m.image_url ? (
-                              <a href={m.image_url} target="_blank" rel="noopener noreferrer" className="block max-w-[60%]">
-                                <img src={m.image_url} alt="사진" loading="lazy"
-                                  className="max-h-60 rounded-2xl border border-gray-200 dark:border-gray-700 object-cover" />
-                              </a>
+                              attachmentUrl(m.image_url) ? (
+                                <a href={attachmentUrl(m.image_url)!} target="_blank" rel="noopener noreferrer" className="block max-w-[60%]">
+                                  <img src={attachmentUrl(m.image_url)!} alt="사진" loading="lazy"
+                                    className="max-h-60 rounded-2xl border border-gray-200 dark:border-gray-700 object-cover" />
+                                </a>
+                              ) : (
+                                <div className="flex h-32 w-44 max-w-[60%] items-center justify-center rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs text-gray-400">
+                                  사진 불러오는 중…
+                                </div>
+                              )
                             ) : m.file_url ? (
-                              <a href={`${m.file_url}?download=${encodeURIComponent(m.file_name || 'file')}`} target="_blank" rel="noopener noreferrer"
+                              <a href={(() => { const u = attachmentUrl(m.file_url); return u ? `${u}${u.includes('?') ? '&' : '?'}download=${encodeURIComponent(m.file_name || 'file')}` : undefined })()} target="_blank" rel="noopener noreferrer"
                                 className={cn('flex max-w-[78%] items-center gap-2 rounded-2xl border px-3 py-2 text-sm',
                                   mine ? 'bg-blue-600 border-blue-500 text-white rounded-br-md' : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 rounded-bl-md')}>
                                 <FileText className="h-4 w-4 flex-shrink-0" />
