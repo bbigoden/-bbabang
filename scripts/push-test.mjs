@@ -1,7 +1,8 @@
 // 점검용 푸시 도달 테스트 — 지정 이메일 사용자의 구독으로 테스트 알림 발송.
-// 사용법: npm run push:test  (기본 대상: 대표 계정)
+// 사용법: npm run push:test  (기본 대상: 김용유 대표 실계정 t2 — 사장님 실기기로 도달 확인)
 //         node scripts/push-test.mjs someone@example.com
 // 수신 확인은 수동: 폰/PC에 "빠방 점검 테스트" 알림이 왔는지 확인.
+// 주의: t2는 테스트 계정이 아니라 대표 실계정 (2026-07-26 확인) — 다른 직원 계정으로 보내지 말 것.
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,7 +15,7 @@ const get = k => process.env[k] ?? (env.match(new RegExp(`^${k}=(.+)$`, 'm')) ||
 
 const URL_ = get('NEXT_PUBLIC_SUPABASE_URL')
 const ANON = get('NEXT_PUBLIC_SUPABASE_ANON_KEY')
-const email = process.argv[2] || 'bigodennn@gmail.com'
+const email = process.argv[2] || 't2@gmail.com'
 
 webpush.setVapidDetails(get('VAPID_SUBJECT') || 'mailto:bigodennn@gmail.com',
   get('NEXT_PUBLIC_VAPID_PUBLIC_KEY'), get('VAPID_PRIVATE_KEY'))
