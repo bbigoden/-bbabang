@@ -21,8 +21,10 @@
     "inspect:visual": "playwright test --config=playwright.config.ts",
     "inspect:visual:full": "cross-env FULL=1 playwright test --config=playwright.config.ts",
     "inspect:visual:report": "playwright show-report test-results/visual-report",
+    "inspect:e2e": "playwright test --config=playwright.e2e.config.ts --reporter=list",
     "backup:db": "node scripts/db-backup.mjs",
     "push:test": "node scripts/push-test.mjs",
+    "perf:web": "node scripts/perf-web-vitals.mjs",
     "test:all": "npm test && npm run test:integration && npm run test:contract && npm run test:a11y && npm run test:load && npm run test:smoke && npm run test:seo",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
