@@ -56,7 +56,7 @@ export default async function BrokerDashboardPage() {
     const [{ data: pr }, { data: rv }, { data: rec }, { data: st }] = await Promise.all([
       supabase
         .from('proposals')
-        .select('*, request_posts(*, profiles(*))')
+        .select('*, request_posts(*, profiles:profiles_visible(*))')
         .eq('broker_id', broker.id)
         .order('created_at', { ascending: false }),
       supabase

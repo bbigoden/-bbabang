@@ -47,16 +47,19 @@ export default async function RequestDetailPage({ params, searchParams }: { para
       userRole = profile?.role ?? null
     }
 
+    // profiles 본체는 컬럼 GRANT로 막혀 있어(email/phone 등) `profiles(*)` 임베딩이
+    // 42501로 전체 쿼리를 실패시킴 → 관계 기반 게이팅 뷰 profiles_visible로 읽어야 한다.
+    // (bbabang_profiles_visible_pattern — chat/[proposalId]와 동일 패턴)
     const { data: req } = await supabase
       .from('request_posts')
-      .select('*, profiles(*)')
+      .select('*, profiles:profiles_visible(*)')
       .eq('id', id)
       .single()
     request = req
 
     const { data: pr } = await supabase
       .from('proposals')
-      .select('*, broker_profiles(*, profiles(*))')
+      .select('*, broker_profiles(*, profiles:profiles_visible(*))')
       .eq('request_id', id)
       .order('created_at', { ascending: false })
     proposals = pr ?? []
