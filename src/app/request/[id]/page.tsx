@@ -54,11 +54,12 @@ export default async function RequestDetailPage({ params, searchParams }: { para
     // can_notify_user()에 의존하는데 anon에는 EXECUTE가 없어 임베딩을 붙이면 쿼리 전체가
     // 42501로 죽고 → request=null → notFound()로 빠진다. 비로그인엔 요청자 정보가
     // 애초에 필요 없으므로 임베딩 없이 본문만 읽는다.
-    const { data: req } = await supabase
+    const { data: req, error: reqErr } = await supabase
       .from('request_posts')
       .select(user ? '*, profiles:profiles_visible(*)' : '*')
       .eq('id', id)
       .single()
+    if (reqErr) console.error('[request-detail] 요청 조회 실패', { id, hasUser: !!user, err: reqErr })
     request = req
 
     // 제안 목록도 broker_profiles가 anon GRANT 대상이 아니라 비로그인에선 조회되지 않는다.
