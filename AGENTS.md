@@ -4,6 +4,11 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# 점검 워크플로우
+
+사용자가 "점검실시"·"점검22단계" 등 점검을 지시하면 [.claude/commands/inspect.md](.claude/commands/inspect.md)의
+22단계 체크리스트 v3를 그대로 따를 것 (`/inspect` 슬래시 명령과 동일). 권한 묻지 말고 자동 순차 진행.
+
 # PWA 아이콘·브랜드 자산 변경 시 필수 체크리스트
 
 빠방은 안드로이드/iOS PWA로 운영 중. 아이콘·로고·브랜드 컬러를 변경할 때
