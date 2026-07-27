@@ -50,19 +50,27 @@ export default async function RequestDetailPage({ params, searchParams }: { para
     // profiles 본체는 컬럼 GRANT로 막혀 있어(email/phone 등) `profiles(*)` 임베딩이
     // 42501로 전체 쿼리를 실패시킴 → 관계 기반 게이팅 뷰 profiles_visible로 읽어야 한다.
     // (bbabang_profiles_visible_pattern — chat/[proposalId]와 동일 패턴)
+    // 단 이 페이지는 SEO용 공개 페이지라 비로그인도 들어온다. profiles_visible은
+    // can_notify_user()에 의존하는데 anon에는 EXECUTE가 없어 임베딩을 붙이면 쿼리 전체가
+    // 42501로 죽고 → request=null → notFound()로 빠진다. 비로그인엔 요청자 정보가
+    // 애초에 필요 없으므로 임베딩 없이 본문만 읽는다.
     const { data: req } = await supabase
       .from('request_posts')
-      .select('*, profiles:profiles_visible(*)')
+      .select(user ? '*, profiles:profiles_visible(*)' : '*')
       .eq('id', id)
       .single()
     request = req
 
-    const { data: pr } = await supabase
-      .from('proposals')
-      .select('*, broker_profiles(*, profiles:profiles_visible(*))')
-      .eq('request_id', id)
-      .order('created_at', { ascending: false })
-    proposals = pr ?? []
+    // 제안 목록도 broker_profiles가 anon GRANT 대상이 아니라 비로그인에선 조회되지 않는다.
+    // 비로그인에게 제안 상세를 노출할 이유도 없으므로 로그인 사용자에게만 읽는다.
+    if (user) {
+      const { data: pr } = await supabase
+        .from('proposals')
+        .select('*, broker_profiles(*, profiles:profiles_visible(*))')
+        .eq('request_id', id)
+        .order('created_at', { ascending: false })
+      proposals = pr ?? []
+    }
   } catch {
     // 데이터 로드 실패 시 notFound()로 처리
   }
