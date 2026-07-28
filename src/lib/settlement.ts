@@ -14,6 +14,13 @@
 /** 10원 단위 절사 */
 const floorTo10 = (n: number) => Math.floor(n / 10) * 10
 
+/**
+ * 사무실 손익 분배 행 여부 — contract_address가 "YYYY-MM 사무실 손익 분배" 형식.
+ * 분배 행은 동업 지분 배당이지 매출·실적이 아니므로 모든 정산 집계에서 제외한다 (2026-07-28 확정).
+ */
+export const isDistributionRow = (r: { contract_address?: string | null }) =>
+  !!r.contract_address?.endsWith('사무실 손익 분배')
+
 /** 한 행의 자동 계산 */
 export interface SettlementInput {
   seller_fee: number                  // 매도/임대 수수료 (기본: VAT 포함)

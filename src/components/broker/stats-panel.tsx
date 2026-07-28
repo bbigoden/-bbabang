@@ -7,7 +7,7 @@ import {
   BarChart3, TrendingUp, MapPin, Calendar,
   Target, Clock, Star, Calculator,
 } from 'lucide-react'
-import { calcSettlement, fmtComma } from '@/lib/settlement'
+import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
 import { EmptyState } from '@/components/empty-state'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -191,7 +191,7 @@ export function BrokerStatsPanel() {
 
       const { data: sRows } = await sq
       // 손익 분배 행은 수익을 나누는 행이지 매출이 아님 — 차트 집계에서 제외
-      const settlements = (sRows ?? []).filter((s: any) => !s.contract_address?.endsWith('사무실 손익 분배')) as any[]
+      const settlements = (sRows ?? []).filter((s: any) => !isDistributionRow(s)) as any[]
 
       const monthMap = new Map<string, { total: number; supply: number; assignee: number; takeHome: number; count: number }>()
       for (const m of months) monthMap.set(m, { total: 0, supply: 0, assignee: 0, takeHome: 0, count: 0 })

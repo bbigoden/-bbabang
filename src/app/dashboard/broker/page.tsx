@@ -10,7 +10,7 @@ import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
 import { PushPrompt } from '@/components/push-prompt'
 import { BrokerStatsPanel } from '@/components/broker/stats-panel'
-import { calcSettlement, fmtComma } from '@/lib/settlement'
+import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
 import { EmptyState } from '@/components/empty-state'
 
 export default async function BrokerDashboardPage() {
@@ -68,7 +68,7 @@ export default async function BrokerDashboardPage() {
       supabase.rpc('recommend_requests_for_broker', { p_broker_id: broker.id, p_limit: 6 }),
       supabase
         .from('settlements')
-        .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override')
+        .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override, contract_address')
         .eq('assignee_broker_id', broker.id)
         .eq('record_month', thisMonth),
     ])
@@ -85,6 +85,7 @@ export default async function BrokerDashboardPage() {
 
   // ── 이번 달 정산 요약 ─────────────────────────────────
   const settlementSummary = settlements.reduce((acc, s) => {
+    if (isDistributionRow(s)) return acc // 분배 행은 실적이 아니므로 모든 정산 집계에서 제외
     const c = calcSettlement(s)
     acc.total += c.total
     acc.assignee += c.assignee

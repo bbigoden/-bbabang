@@ -15,7 +15,7 @@ import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { SheetActionHeader } from '@/components/sheet/action-cell'
-import { calcSettlement, fmtComma } from '@/lib/settlement'
+import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
@@ -51,9 +51,6 @@ interface Member {
 }
 
 const yyyymm = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-
-// 손익 분배 행 여부 — 사무실 수익 집계(분배 계산·사무실 카드)에서 제외해야 함
-const isDistributionRow = (r: Settlement) => !!r.contract_address?.endsWith('사무실 손익 분배')
 
 // ── 인라인 숫자 셀 (정산 전용 — 원 단위, 콤마 표시) ─────────
 function MoneyCell({ value, onSave, readOnly, accent }: {
@@ -296,10 +293,10 @@ export default function SettlementPage() {
         (mems ?? []).map((m: any) => m.profiles?.name).filter(Boolean)
       )
       // 전건 조회 — 1000행 넘으면 조용히 잘리므로 페이지네이션 필수
-      const dist = await fetchAllPaged<{ assignee_broker_id: string | null; assignee_name: string | null }>((from, to) =>
+      const dist = await fetchAllPaged<{ assignee_broker_id: string | null; assignee_name: string | null; contract_address: string | null }>((from, to) =>
         supabase
           .from('settlements')
-          .select('assignee_broker_id, assignee_name')
+          .select('assignee_broker_id, assignee_name, contract_address')
           .eq('office_broker_id', office)
           .order('id', { ascending: true })
           .range(from, to)
@@ -308,6 +305,7 @@ export default function SettlementPage() {
         const seen = new Set<string>()
         const exList: Array<{ key: string; name: string }> = []
         for (const r of dist as any[]) {
+          if (isDistributionRow(r)) continue // 분배 행의 '동업자'가 가짜 퇴사자로 잡히는 것 방지
           const aid: string | null = r.assignee_broker_id
           const aname: string | null = r.assignee_name
           // broker_id 있고 사무소 멤버면 skip
