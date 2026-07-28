@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Menu, X, Settings, Heart, Search, ArrowLeft } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { useAuthOptional } from '@/lib/auth-context'
 
@@ -21,6 +21,12 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const [mobileOpen, setMobileOpen] = useState(false)
+  // 정적 프리렌더 페이지(홈)가 rewrite/Proxy 경유 요청으로 ISR 재생성되면 usePathname()이
+  // 브라우저 실제 경로와 어긋난 값으로 렌더돼 hydration mismatch(#418)가 난다 —
+  // use-pathname.md가 명시한 함정. 경로 의존 UI(뒤로가기)는 서버·첫 클라이언트 렌더에서
+  // 항상 로고로 고정하고 mount 후에만 분기한다 (문서 권고 완화책).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   // 1순위: props (점진적 마이그레이션을 위해 기존 호출 호환)
   // 2순위: AuthContext — 페이지가 props 안 주면 root provider 값 사용
@@ -48,6 +54,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   // 루트 페이지(홈/대시보드 등)는 "뒤로 갈 곳"이 없으므로 제외.
   const ROOT_PATHS = new Set(['/', '/dashboard/user', '/dashboard/broker', '/admin'])
   const isRootPage = ROOT_PATHS.has(pathname ?? '/')
+  const showBack = mounted && !isRootPage
   const homeHref = user
     ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user')
     : '/'
@@ -64,7 +71,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
     <header className={`sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 ${isCustomerSidebarArea ? 'md:hidden' : ''}`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* 좌측: 모바일 서브 페이지엔 ← 뒤로 (PWA에서 브라우저 뒤로가 없음). 그 외엔 로고. */}
-        {!isRootPage ? (
+        {showBack ? (
           <div className="flex items-center gap-1 md:gap-2">
             <button
               type="button"
