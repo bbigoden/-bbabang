@@ -23,7 +23,7 @@
 **7. 클라이언트 상태** — 폼·캐시·낙관 업데이트, auth 캐시(localStorage) 동작
 **8. 외부 연동** — Telegram bot(별도 폴더 `코드\빠방등록`, 웹앱 레포 아님 — 보류 가능), `SELECT jobname, schedule, active FROM cron.job` 중복·비활성 확인
 **9. 파일/이미지** — `storage.buckets` public 여부 + `storage.objects` 정책을 **INSERT with_check까지**(bucket_id만 체크하는 열린 INSERT 함정). 비공개 버킷 3종 검증: 멤버 서명 URL→200, 비멤버→Object not found, 비로그인 public URL→400. office-chat-images는 비공개 유지(DB엔 경로만, public URL 재저장 금지).
-**10. 로깅/모니터링** — error_logs 수집 동작, `/api/cron/error-alert`. 홈 잔존 #418 hydration은 환경성(브라우저 번역·강제다크·확장) 노이즈 — UA 제각각+깨끗한 브라우저 재현 불가+자가복구면 P3 모니터링.
+**10. 로깅/모니터링** — error_logs 수집 동작, `/api/cron/error-alert`. 홈 #418 hydration은 2026-07-28 원인 규명·수정 완료(헤더 뒤로가기 분기가 ISR 재생성 시 usePathname 오염으로 어긋남 — e7a2f16). 재발 시 서버 HTML vs 클라이언트 DOM 문자 diff로 지점 특정할 것(환경성 노이즈로 단정 금지).
 **11. 결제/정산** — 분배 행 구조(매도=수익·매수=−경비·정산비=동업자비율), 사무실수익 집계에서 분배 행 제외, 정산비 0~1 클램프
 **12. 배포 파이프라인** — push 후 Vercel `list_deployments`로 **commit SHA·READY 직접 확인** (매 push마다)
 **13. 모바일/PWA** — sw.js VERSION, 안드로이드+iOS 아이콘 자산(AGENTS.md 체크리스트), 오프라인 fallback. **푸시 도달**: `npm run push:test` (기본 대상 t2=김용유 대표 실계정 — 다른 직원에게 보내지 말 것, PUSH_TEST_PASSWORD env 필요) → 410/404=만료 구독 정리. 퇴사자 구독 잔존 SQL 확인. 수신 확인은 사장님 육안.
