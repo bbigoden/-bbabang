@@ -5,7 +5,7 @@
 import {
   Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
-  User, Bell, Palette, Handshake, Compass, TrendingUp, CalendarDays, MessagesSquare,
+  User, Bell, Palette, Handshake, Compass, CalendarDays, MessagesSquare,
 } from 'lucide-react'
 
 export interface SubItemDef {
@@ -26,7 +26,6 @@ export interface ItemDef {
 
 export const BROKER_ITEMS: ItemDef[] = [
   { id: 'dashboard',  href: '/dashboard/broker', label: '홈', icon: Home },
-  { id: 'office',     href: '/broker/office', label: '경영 현황', icon: TrendingUp, ownerOnly: true },
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2 },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },

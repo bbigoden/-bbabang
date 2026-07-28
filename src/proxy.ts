@@ -11,7 +11,7 @@ const PROTECTED = [
   '/broker/chats', '/broker/trash',
   // 아래 4개는 목록에서 빠져 있어 미들웨어 방어층 없이 각 페이지의 클라이언트
   // 훅에만 의존했다 — 미인증 상태로 화면이 한 번 그려졌다 튕기는 깜빡임이 생긴다
-  '/broker/office', '/broker/messenger', '/broker/schedule', '/broker/settlement',
+  '/broker/messenger', '/broker/schedule', '/broker/settlement',
   '/chat', '/admin', '/profile', '/settings',
 ]
 

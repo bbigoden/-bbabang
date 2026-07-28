@@ -60,7 +60,7 @@ const nextConfig: NextConfig = {
     // /broker/* 는 중개사 업무 화면이라 실제 경로를 제외하고 나머지 한 세그먼트만
     // 옛 공개 프로필로 간주한다. (빠뜨리면 업무 화면이 홈으로 튕기므로 주의)
     const BROKER_ROUTES = [
-      'chats', 'customers', 'diary', 'messenger', 'office', 'properties',
+      'chats', 'customers', 'diary', 'messenger', 'properties',
       'register', 'resources', 'schedule', 'settings', 'settlement', 'team', 'trash',
     ].join('|')
     return [
