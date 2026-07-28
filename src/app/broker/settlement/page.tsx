@@ -358,13 +358,14 @@ export default function SettlementPage() {
     const prev = yyyymm(new Date(y, m - 2, 1))
     supabase
       .from('settlements')
-      .select('seller_fee, buyer_fee, settlement_rate, withhold_exempt, vat_override')
+      .select('seller_fee, buyer_fee, settlement_rate, withhold_exempt, vat_override, contract_address')
       .eq('office_broker_id', officeId)
       .eq('assignee_broker_id', meBroker.id)
       .eq('record_month', prev)
       .then(({ data }) => {
         if (!data) { setPrevMonthTakeHome(0); return }
-        const sum = data.reduce((s, r: any) => s + calcSettlement(r).takeHome, 0)
+        const sum = data.reduce((s, r: any) =>
+          isDistributionRow(r) ? s : s + calcSettlement(r).takeHome, 0)
         setPrevMonthTakeHome(sum)
       })
   }, [isOwner, allMode, officeId, meBroker, month, supabase])
@@ -430,34 +431,25 @@ export default function SettlementPage() {
 
   // 요약 합계
   const summary = useMemo(() => {
-    // 분배 행은 수익을 나누는 행이지 매출이 아님 —
-    // 전체(총수수료·공급가·건수)와 사무실 카드에서는 제외하고,
-    // 담당자 카드(나가는 돈)에는 동업자 몫도 포함한다.
+    // 분배 행은 수익을 나누는 행(동업 지분 배당)이지 매출도 담당자 실적도 아님 —
+    // 담당자가 직원으로 지정돼 있어도 모든 요약 카드에서 제외한다.
     let totalFee = 0, supplySum = 0, assigneeSum = 0, takeHomeSum = 0
-    let myAssigneeSum = 0, myTakeHomeSum = 0
-    let officeAssignee = 0, count = 0
+    let count = 0
     for (const r of visibleRows) {
-      const c = calcSettlement(withLiveProfit(r))
-      assigneeSum  += c.assignee
-      takeHomeSum  += c.takeHome
-      if (!isDistributionRow(r)) {
-        totalFee       += c.total
-        supplySum      += c.supply
-        officeAssignee += c.assignee
-        count++
-      }
-      if (meBroker && r.assignee_broker_id === meBroker.id) {
-        myAssigneeSum += c.assignee
-        myTakeHomeSum += c.takeHome
-      }
+      if (isDistributionRow(r)) continue
+      const c = calcSettlement(r)
+      totalFee    += c.total
+      supplySum   += c.supply
+      assigneeSum += c.assignee
+      takeHomeSum += c.takeHome
+      count++
     }
 
-    // 사무실 수익: 공급가 합 − 담당자 수수료 합 (1계약 1행 구조, 분배 행 제외)
-    const officeShare = isOwner ? (supplySum - officeAssignee) : 0
+    // 사무실 수익: 공급가 합 − 담당자 수수료 합 (1계약 1행 구조)
+    const officeShare = isOwner ? (supplySum - assigneeSum) : 0
 
-    return { totalFee, supplySum, assigneeSum, takeHomeSum, myAssigneeSum, myTakeHomeSum,
-      officeShare, officeAssignee, count }
-  }, [visibleRows, isOwner, meBroker, withLiveProfit])
+    return { totalFee, supplySum, assigneeSum, takeHomeSum, officeShare, count }
+  }, [visibleRows, isOwner])
 
   const moveMonth = (delta: number) => {
     const [y, m] = month.split('-').map(Number)
@@ -717,7 +709,7 @@ export default function SettlementPage() {
             </Card>
             <Card>
               <CardBody className="p-4">
-                <p className="text-[11px] font-medium text-gray-500">담당자</p>
+                <p className="text-[11px] font-medium text-gray-500">담당자 <span className="font-normal">(분배 행 제외)</span></p>
                 <p className="mt-1 text-xl font-black text-blue-700 dark:text-blue-300">{fmtComma(summary.assigneeSum)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
                 <p className="mt-0.5 text-[10px] text-gray-500">
                   = 실수령 {fmtComma(summary.takeHomeSum)} + 원천 {fmtComma(summary.assigneeSum - summary.takeHomeSum)}
@@ -730,7 +722,7 @@ export default function SettlementPage() {
                   <p className="text-[11px] font-medium text-gray-500">사무실</p>
                   <p className="mt-1 text-xl font-black text-emerald-700 dark:text-emerald-300">{fmtComma(summary.officeShare)}<span className="ml-0.5 text-xs font-medium text-gray-500">원</span></p>
                   <p className="mt-0.5 text-[10px] text-gray-500">
-                    = 공급가 {fmtComma(summary.supplySum)} − 담당자 {fmtComma(summary.officeAssignee)} (분배 행 제외)
+                    = 공급가 {fmtComma(summary.supplySum)} − 담당자 {fmtComma(summary.assigneeSum)} (분배 행 제외)
                   </p>
                 </CardBody>
               </Card>
