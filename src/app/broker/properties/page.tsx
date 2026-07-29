@@ -30,6 +30,7 @@ import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 import { PROPERTY_STATUS_META } from '@/lib/property-status'
 import { Spinner } from '@/components/ui/spinner'
+import { SearchClear } from '@/components/ui/search-clear'
 
 interface Property {
   id: string
@@ -1000,10 +1001,11 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
       </button>
       {open && createPortal(
         <div ref={popupRef} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
-          <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+          <div className="relative p-2 border-b border-gray-100 dark:border-gray-800">
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="속성을 검색하세요" autoFocus
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+            {search && <SearchClear onClick={() => setSearch('')} />}
           </div>
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
             <span className="text-xs font-medium text-gray-500">표에 표시하기</span>
@@ -2152,8 +2154,9 @@ function BrokerPropertiesContent() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input type="text" placeholder="전체 검색..." aria-label="매물 전체 검색" value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
+            {searchQuery && <SearchClear onClick={() => setSearchQuery('')} />}
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:text-gray-500">
                 <X className="h-4 w-4" />

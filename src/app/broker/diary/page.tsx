@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, ChevronLeft, ChevronRight, Eye, MoreHorizontal, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
+import { SearchClear } from '@/components/ui/search-clear'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
@@ -171,7 +172,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
       <button ref={btnRef} onClick={handleOpen} aria-label="더보기" className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors"><MoreHorizontal className="h-3.5 w-3.5" /></button>
       {open && (
         <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
-          <div className="p-2 border-b border-gray-100 dark:border-gray-800"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="속성을 검색하세요" autoFocus className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400" /></div>
+          <div className="relative p-2 border-b border-gray-100 dark:border-gray-800"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="속성을 검색하세요" autoFocus className="w-full rounded-lg border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-1.5 text-xs focus:outline-none focus:border-blue-400" />{search && <SearchClear onClick={() => setSearch('')} />}</div>
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800"><span className="text-xs font-medium text-gray-500">표에 표시하기</span></div>
           <div className="max-h-64 overflow-y-auto py-1">
             {rows.map(c => (
@@ -312,8 +313,11 @@ function PropertyPicker({ brokerIds, selectedIds, onConfirm, onClose }: {
           <button onClick={onClose} aria-label="닫기" className="text-gray-500 hover:text-gray-600 dark:text-gray-500"><X className="h-4 w-4" /></button>
         </div>
         <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800">
-          <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="매물번호, 주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+          <div className="relative">
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="매물번호, 주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+            {search && <SearchClear onClick={() => setSearch('')} />}
+          </div>
           {/* 전건을 받지 않으므로 상한에 걸리면 반드시 알린다 */}
           {rows.length >= PROP_PICK_LIMIT && (
             <p className="mt-2 text-xs text-gray-500">최근 {PROP_PICK_LIMIT}건만 표시 중이에요. 주소나 매물번호로 검색해 보세요.</p>
@@ -409,9 +413,12 @@ function CustomerPicker({ brokerIds, linkedIds, ownerName, ownerBrokerId: _owner
 
         {/* 검색 */}
         <div className="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
-          <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="요청사항, 연락처, 고객명으로 검색..."
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+          <div className="relative">
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="요청사항, 연락처, 고객명으로 검색..."
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+            {search && <SearchClear onClick={() => setSearch('')} />}
+          </div>
           {/* 전건을 받지 않으므로 상한에 걸리면 반드시 알린다 — 조용히 잘리면 "고객이 사라졌다"가 된다 */}
           {capped && (
             <p className="mt-2 text-xs text-gray-500">

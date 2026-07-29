@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, X, MapPin, Check } from 'lucide-react'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { Spinner } from '@/components/ui/spinner'
+import { SearchClear } from '@/components/ui/search-clear'
 
 export type RegionValue = {
   sido: string         // 충청남도
@@ -89,13 +90,15 @@ export function RegionPicker({
           onChange={e => { setQ(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
-          className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
         />
-        {loading && (
+        {loading ? (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <Spinner size="xs" />
           </div>
-        )}
+        ) : q ? (
+          <SearchClear onClick={() => { setQ(''); setOpen(false) }} />
+        ) : null}
       </div>
 
       {open && q.trim().length >= 2 && (

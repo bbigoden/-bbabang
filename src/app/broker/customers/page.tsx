@@ -18,6 +18,7 @@ import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
+import { SearchClear } from '@/components/ui/search-clear'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { ArrowUp, ArrowDown } from 'lucide-react'
@@ -273,10 +274,11 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
       </button>
       {open && (
         <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
-          <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+          <div className="relative p-2 border-b border-gray-100 dark:border-gray-800">
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="속성을 검색하세요" autoFocus
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+            {search && <SearchClear onClick={() => setSearch('')} />}
           </div>
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
             <span className="text-xs font-medium text-gray-500">표에 표시하기</span>
@@ -979,12 +981,7 @@ export default function BrokerCustomersPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="전체 검색..."
               className="w-full rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-8 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
-            {search && (
-              <button type="button" onClick={() => setSearch('')} aria-label="검색어 지우기"
-                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+            {search && <SearchClear onClick={() => setSearch('')} />}
           </div>
 
           <select aria-label="월별 필터" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}

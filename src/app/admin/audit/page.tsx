@@ -12,6 +12,7 @@ import {
   ScrollText, ArrowLeft, X, Search, RefreshCw, ShieldCheck, User as UserIcon
 } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
+import { SearchClear } from '@/components/ui/search-clear'
 
 interface AuditRow {
   id: string
@@ -154,7 +155,8 @@ export default function AdminAuditPage() {
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 aria-label="액션·대상 ID 검색"
                 placeholder="액션·대상 ID 검색"
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-8 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              {search && <SearchClear tone="dark" onClick={() => setSearch('')} />}
             </div>
             <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">검색</button>
           </form>

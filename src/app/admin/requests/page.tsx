@@ -163,8 +163,15 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
                 name="q"
                 defaultValue={q}
                 placeholder="지역·설명 검색"
-                className="w-full rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-9 pr-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
+                className="w-full rounded-lg border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-9 pr-8 py-1.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
               />
+              {/* 서버 컴포넌트 GET 폼이라 상태 없이 링크로 검색어만 초기화 (상태 필터는 유지) */}
+              {q && (
+                <Link href={status !== 'all' ? `/admin/requests?status=${status}` : '/admin/requests'} aria-label="검색어 지우기"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300">
+                  <X className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
           </div>
 

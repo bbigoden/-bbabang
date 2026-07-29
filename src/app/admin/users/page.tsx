@@ -16,6 +16,7 @@ import { EmployeeRow } from '@/components/employee-row'
 import { EmptyState } from '@/components/empty-state'
 import { logAdminAction } from '@/lib/audit'
 import { Spinner } from '@/components/ui/spinner'
+import { SearchClear } from '@/components/ui/search-clear'
 
 type AccountStatus = 'active' | 'suspended' | 'banned'
 type Role = 'user' | 'broker' | 'admin'
@@ -345,8 +346,9 @@ export default function AdminUsersPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="이름·이메일·전화번호 검색"
-                className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 pl-9 pr-8 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
+              {search && <SearchClear tone="dark" onClick={() => setSearch('')} />}
             </div>
             <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
               검색
