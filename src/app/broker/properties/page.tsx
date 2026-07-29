@@ -25,6 +25,7 @@ import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { geocodeAddress } from '@/lib/geocode'
+import { findDuplicateProperty } from '@/lib/dup-check'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
@@ -1192,6 +1193,7 @@ function BrokerPropertiesContent() {
   // 필터·검색·정렬·페이지는 search_office_properties RPC가 DB에서 처리.
   const [properties, setProperties] = useState<Property[]>([])
   const [brokerIdsState, setBrokerIdsState] = useState<string[] | null>(null)
+  const brokerIdsRef = useRef<string[]>([])  // saveField(useCallback deps 없음)에서 최신 사무소 범위 참조용
   const [totalCount, setTotalCount] = useState(0)   // 필터·검색 반영 총 건수
   const [allCount, setAllCount] = useState(0)       // 필터 무관 전체 건수 (헤더 표시)
   const [mapRows, setMapRows] = useState<Property[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
@@ -1364,6 +1366,7 @@ function BrokerPropertiesContent() {
       const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
       if (ownBroker) setSettingsBrokerId(ownBroker.id)
       // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다
+      brokerIdsRef.current = [b.id]
       setBrokerIdsState([b.id])
       void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
         .eq('broker_id', b.id).then(({ count }) => setAllCount(count ?? 0))
@@ -1425,6 +1428,7 @@ function BrokerPropertiesContent() {
     }
 
     // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다
+    brokerIdsRef.current = brokerIds
     setBrokerIdsState(brokerIds)
     void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
       .in('broker_id', brokerIds).then(({ count }) => setAllCount(count ?? 0))
@@ -1484,9 +1488,10 @@ function BrokerPropertiesContent() {
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
     let prevValue: any = undefined
+    let rowDealType: string | null = null
     setProperties(prev => {
       const row = prev.find(p => p.id === id) as any
-      if (row) prevValue = row[field]
+      if (row) { prevValue = row[field]; rowDealType = row.deal_type || null }
       return prev.map(p => p.id === id ? { ...p, [field]: value } : p)
     })
     const { error } = await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
@@ -1495,6 +1500,10 @@ function BrokerPropertiesContent() {
       setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: prevValue } : p))
       toast.error(`저장 실패: ${error.message}`)
     } else if (field === 'address' && typeof value === 'string' && value.trim() && value !== prevValue) {
+      // 중복 의심 경고 — 등록봇과 같은 기준(사무소 전체 소재지+거래형태). 저장은 이미 됐으므로 차단하지 않고 알림만.
+      void findDuplicateProperty(supabase, brokerIdsRef.current, value, rowDealType, id).then(dup => {
+        if (dup) toast.info(`⚠️ 같은 소재지 매물이 이미 있어요: ${dup.address} · ${dup.deal_type}${dup.assignee ? ` · 담당 ${dup.assignee}` : ''}`)
+      })
       // 주소가 바뀌면 좌표도 다시 구해 함께 저장 — 지도 뷰가 카카오 JS geocoder 호출 없이 즉시 마커 표시.
       const coords = await geocodeAddress(value)
       if (coords) {

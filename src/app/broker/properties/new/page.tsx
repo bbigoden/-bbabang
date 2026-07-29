@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { validatePrice, validateArea } from '@/lib/validation'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { geocodeAddress } from '@/lib/geocode'
+import { findDuplicateProperty } from '@/lib/dup-check'
 import { useToast } from '@/components/toast'
 import { PROPERTY_CATEGORIES } from '@/lib/property-types'
 
@@ -102,7 +103,7 @@ export default function NewPropertyPage() {
 
     const { data: broker } = await supabase
       .from('broker_profiles')
-      .select('id')
+      .select('id, is_owner, parent_broker_id')
       .eq('user_id', user.id)
       .single()
 
@@ -110,6 +111,23 @@ export default function NewPropertyPage() {
       setError('중개사 등록이 필요합니다.')
       setLoading(false)
       return
+    }
+
+    // ── 중복 매물 체크 (등록봇과 같은 기준: 사무소 전체에서 소재지+거래형태) ──
+    let officeIds: string[] = [broker.id]
+    if (broker.is_owner !== false) {
+      const { data: emps } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', broker.id)
+      if (emps) officeIds = [broker.id, ...emps.map((e: any) => e.id)]
+    } else if (broker.parent_broker_id) {
+      const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', broker.parent_broker_id)
+      if (sibs) officeIds = sibs.map((e: any) => e.id)
+      if (!officeIds.includes(broker.parent_broker_id)) officeIds.push(broker.parent_broker_id)
+    }
+    const dup = await findDuplicateProperty(supabase, officeIds, address, dealType)
+    if (dup) {
+      const who = dup.assignee ? ` · 담당 ${dup.assignee}` : ''
+      const ok = confirm(`이미 등록된 매물로 보여요 (중복)\n${dup.address} · ${dup.deal_type}${who}\n\n그래도 등록할까요?`)
+      if (!ok) { setLoading(false); return }
     }
 
     // 이미지 업로드 (잘못된 형식/크기/0바이트 파일 사용자에게 알림)

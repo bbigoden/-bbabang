@@ -16,6 +16,7 @@ import { useToast } from '@/components/toast'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
+import { findDuplicateCustomers } from '@/lib/dup-check'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SearchClear } from '@/components/ui/search-clear'
@@ -368,6 +369,7 @@ export default function BrokerCustomersPage() {
   const [dragCol, setDragCol] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const wasDragRef = useRef(false)
+  const brokerIdsRef = useRef<string[]>([])  // saveField(useCallback deps 없음)에서 최신 사무소 범위 참조용
 
   // 칼럼 설정 (DB)
   const { settings, update, loaded } = useColSettings('customers', broker?.id ?? null, DEFAULT_COL_SETTINGS)
@@ -421,6 +423,9 @@ export default function BrokerCustomersPage() {
       if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
     }
 
+    // 중복 연락처 경고용 — 직원도 사무소 전체를 대상으로 검사해야 함 (남의 담당 고객과 겹쳐도 알림)
+    brokerIdsRef.current = brokerIds
+
     // 직원 시점: 본인 작성(broker_id) 또는 본인이 담당자에 포함된 행만 노출.
     // 공동담당("오혜진, 권세현")도 콤마 분리 후 매칭해야 각 직원에게 잡힘.
     const visibleRows = (rows: any[]) => owner
@@ -466,6 +471,15 @@ export default function BrokerCustomersPage() {
       console.error('[saveField] failed', error)
       setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: prevValue } : c))
       toast.error(`저장 실패: ${error.message}`)
+    } else if (field === 'contact' && typeof value === 'string' && value.trim() && value !== prevValue) {
+      // 같은 연락처 고객 경고 — 저장은 이미 됐으므로 차단하지 않고 알림만 (숫자만 비교: 010-1234-5678 == 01012345678)
+      void findDuplicateCustomers(supabase, brokerIdsRef.current, value, id).then(dups => {
+        if (dups.length === 0) return
+        const first = dups[0]
+        const who = first.assignee ? ` · 담당 ${first.assignee}` : ''
+        const more = dups.length > 1 ? ` 외 ${dups.length - 1}명` : ''
+        toast.info(`⚠️ 같은 연락처 고객이 이미 있어요: ${first.client_name || '(이름 없음)'}${who}${more}`)
+      })
     }
   }, [])
 
