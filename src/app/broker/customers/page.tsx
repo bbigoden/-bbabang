@@ -978,7 +978,13 @@ export default function BrokerCustomersPage() {
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="전체 검색..."
-              className="w-full rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
+              className="w-full rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-8 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} aria-label="검색어 지우기"
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           <select aria-label="월별 필터" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
