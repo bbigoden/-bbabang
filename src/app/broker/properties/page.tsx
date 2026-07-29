@@ -2157,11 +2157,6 @@ function BrokerPropertiesContent() {
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
             {searchQuery && <SearchClear onClick={() => setSearchQuery('')} />}
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:text-gray-500">
-                <X className="h-4 w-4" />
-              </button>
-            )}
           </div>
           <button
             onClick={() => setShowFilter(v => !v)}
