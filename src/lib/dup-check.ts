@@ -69,7 +69,9 @@ export interface DupCustomer {
 }
 
 /** 사무소 전체(brokerIds)에서 같은 연락처의 고객을 찾는다.
- *  끝 4자리 ilike로 후보를 좁힌 뒤 전체 숫자 일치로 확정 (7자리 미만은 메모성 입력으로 보고 패스). */
+ *  끝 4자리 ilike로 후보를 좁힌 뒤 전체 숫자 일치로 확정 (7자리 미만은 메모성 입력으로 보고 패스).
+ *  담당자가 여러 명(공동담당, 콤마 구분)인 행은 제외 — 퇴사자 이관 행('박세련,김용유')이
+ *  대부분이라 예전 고객의 재문의 등록을 막지 않기 위함. */
 export async function findDuplicateCustomers(
   supabase: SupabaseClient,
   brokerIds: string[],
@@ -86,5 +88,7 @@ export async function findDuplicateCustomers(
     .limit(50)
   if (excludeId) q = q.neq('id', excludeId)
   const { data } = await q
-  return ((data as DupCustomer[] | null) ?? []).filter(r => normContact(r.contact) === digits)
+  return ((data as DupCustomer[] | null) ?? [])
+    .filter(r => !(r.assignee ?? '').includes(','))
+    .filter(r => normContact(r.contact) === digits)
 }
