@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { Spinner } from '@/components/ui/spinner'
+import { SearchClear } from '@/components/ui/search-clear'
 
 type Kind = 'banner' | 'featured_property' | 'featured_broker'
 
@@ -334,7 +335,8 @@ function FeaturedSection({ kind, title, icon: Icon, items, onReload, supabase, o
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input value={q} onChange={e => setQ(e.target.value)}
             placeholder={kind === 'featured_broker' ? '사무소명 검색' : '매물 주소 검색'}
-            className="w-full rounded-lg border border-gray-700 bg-gray-800 pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none" />
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 pl-9 pr-8 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none" />
+          {q && <SearchClear tone="dark" onClick={() => { setQ(''); setResults([]) }} />}
         </div>
         <button type="submit" disabled={searching} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">검색</button>
       </form>

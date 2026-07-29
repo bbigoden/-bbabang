@@ -11,6 +11,7 @@ import {
   Users, Lock, Bell, BellOff, Calendar as CalIcon, Building2, UserRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SearchClear } from '@/components/ui/search-clear'
 
 // ── 색상 팔레트 ─────────────────────────────────────────
 const COLORS = [
@@ -532,9 +533,12 @@ function LinkPicker({ kind, label, icon, memberIds, disabled, selectedId, select
         </button>
       ) : (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-2">
-          <input value={q} onChange={e => search(e.target.value)} autoFocus
-            placeholder={kind === 'customer' ? '고객 요청·연락처 검색' : '매물 주소·번호 검색'}
-            className="w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+          <div className="relative">
+            <input value={q} onChange={e => search(e.target.value)} autoFocus
+              placeholder={kind === 'customer' ? '고객 요청·연락처 검색' : '매물 주소·번호 검색'}
+              className="w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 pl-2.5 pr-8 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-300" />
+            {q && <SearchClear onClick={() => search('')} />}
+          </div>
           <div className="mt-1 max-h-40 overflow-y-auto">
             {results.map(r => (
               <button key={r.id} onClick={() => { onSelect(r.id, r.label); setOpen(false); setQ('') }}
