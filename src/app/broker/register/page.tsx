@@ -152,6 +152,11 @@ export default function BrokerRegisterPage() {
       if (insertError) { setError('등록 중 오류가 발생했습니다.'); setLoading(false); return }
 
       await supabase.from('profiles').update({ role: 'broker' }).eq('id', user.id)
+
+      // 자동 인증: 사업자(국세청)+중개사무소 등록번호(국토부) 서버 재검증 → 통과 시 배지 자동 부여.
+      // 실패해도 가입은 그대로 진행 (관리자 수동 인증 폴백).
+      await fetch('/api/brokers/auto-verify', { method: 'POST' }).catch(() => {})
+
       router.push('/dashboard/broker')
     } catch {
       setError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
