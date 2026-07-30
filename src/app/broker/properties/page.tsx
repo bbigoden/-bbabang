@@ -2454,31 +2454,32 @@ function BrokerPropertiesContent() {
                         ? `${p.price != null ? p.price.toLocaleString() : '?'}/${p.monthly_rent != null ? p.monthly_rent.toLocaleString() : '?'}만`
                         : (p.price == null ? '미정' : (p.price >= 10000 ? Math.floor(p.price / 10000) + '억' + (p.price % 10000 > 0 ? ' ' + (p.price % 10000).toLocaleString() + '만' : '') : p.price.toLocaleString() + '만'))
                       return (
+                        // 버튼 중첩(a11y 위반)을 피해 아이템은 div, 사진 열기는 썸네일 버튼에만
                         <div
                           key={p.id}
-                          role="button"
-                          tabIndex={0}
                           onClick={() => {
                             if (p.images && p.images.length > 0) {
                               setLightbox({ images: p.images, index: 0 })
-                            }
-                          }}
-                          onKeyDown={e => {
-                            if ((e.key === 'Enter' || e.key === ' ') && p.images && p.images.length > 0) {
-                              e.preventDefault(); setLightbox({ images: p.images, index: 0 })
                             }
                           }}
                           className="w-full cursor-pointer text-left border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex gap-3"
                         >
                           {/* 사진 썸네일 */}
                           {p.images?.[0] ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={p.images[0]}
-                              alt=""
-                              className="h-20 w-20 flex-shrink-0 rounded-lg object-cover bg-gray-100 dark:bg-gray-800"
-                              loading="lazy"
-                            />
+                            <button
+                              type="button"
+                              aria-label="사진 보기"
+                              onClick={e => { e.stopPropagation(); setLightbox({ images: p.images, index: 0 }) }}
+                              className="h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={p.images[0]}
+                                alt=""
+                                className="h-full w-full object-cover bg-gray-100 dark:bg-gray-800"
+                                loading="lazy"
+                              />
+                            </button>
                           ) : (
                             <div className="h-20 w-20 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-300">
                               <ImagePlus className="h-6 w-6" />
