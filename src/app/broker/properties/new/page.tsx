@@ -114,16 +114,8 @@ export default function NewPropertyPage() {
     }
 
     // ── 중복 매물 체크 (등록봇과 같은 기준: 사무소 전체에서 소재지+거래형태) ──
-    let officeIds: string[] = [broker.id]
-    if (broker.is_owner !== false) {
-      const { data: emps } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', broker.id)
-      if (emps) officeIds = [broker.id, ...emps.map((e: any) => e.id)]
-    } else if (broker.parent_broker_id) {
-      const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', broker.parent_broker_id)
-      if (sibs) officeIds = sibs.map((e: any) => e.id)
-      if (!officeIds.includes(broker.parent_broker_id)) officeIds.push(broker.parent_broker_id)
-    }
-    const dup = await findDuplicateProperty(supabase, officeIds, address, dealType)
+    const officeId = broker.is_owner !== false ? broker.id : (broker.parent_broker_id ?? broker.id)
+    const dup = await findDuplicateProperty(supabase, officeId, address, dealType)
     if (dup) {
       const who = dup.assignee ? ` · 담당 ${dup.assignee}` : ''
       const ok = confirm(`이미 등록된 매물로 보여요 (중복)\n${dup.address} · ${dup.deal_type}${who}\n\n그래도 등록할까요?`)

@@ -60,7 +60,6 @@ export default function BrokerSchedulePage() {
   const [cursor, setCursor] = useState(() => new Date())   // 표시 중인 달(1일)
   const [events, setEvents] = useState<EventRow[]>([])
   const [memberNames, setMemberNames] = useState<Record<string, string>>({})
-  const [memberIds, setMemberIds] = useState<string[]>([])
   const [filter, setFilter] = useState<Filter>('all')
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ event: EventRow | null; date: Date } | null>(null)
@@ -101,14 +100,11 @@ export default function BrokerSchedulePage() {
         .select('id, is_owner, is_approved, profiles:user_id(name)')
         .or(`id.eq.${office},parent_broker_id.eq.${office}`)
       const map: Record<string, string> = {}
-      const ids: string[] = []
       for (const m of (data ?? []) as any[]) {
         if (!(m.is_owner || m.is_approved)) continue
-        ids.push(m.id)
         map[m.id] = (Array.isArray(m.profiles) ? m.profiles[0]?.name : m.profiles?.name) ?? '—'
       }
       setMemberNames(map)
-      setMemberIds(ids)
     })()
   }, [office, supabase])
 
@@ -250,7 +246,6 @@ export default function BrokerSchedulePage() {
           office={office}
           myId={myId}
           memberNames={memberNames}
-          memberIds={memberIds}
           initial={modal.event}
           initialDate={modal.date}
           onClose={() => setModal(null)}
@@ -262,11 +257,10 @@ export default function BrokerSchedulePage() {
 }
 
 // ── 일정 추가/수정 모달 ──────────────────────────────────
-function EventModal({ office, myId, memberNames, memberIds, initial, initialDate, onClose, onSaved }: {
+function EventModal({ office, myId, memberNames, initial, initialDate, onClose, onSaved }: {
   office: string
   myId: string
   memberNames: Record<string, string>
-  memberIds: string[]
   initial: EventRow | null
   initialDate: Date
   onClose: () => void
@@ -429,7 +423,7 @@ function EventModal({ office, myId, memberNames, memberIds, initial, initialDate
           {/* 고객 연동 */}
           <LinkPicker
             kind="customer" label="고객 연결" icon={<UserRound className="h-4 w-4 text-gray-400" />}
-            memberIds={memberIds} disabled={!canEdit}
+            officeId={office} disabled={!canEdit}
             selectedId={customerId} selectedLabel={customerLabel}
             onSelect={(id, lbl) => { setCustomerId(id); setCustomerLabel(lbl) }}
             onClear={() => { setCustomerId(null); setCustomerLabel('') }}
@@ -438,7 +432,7 @@ function EventModal({ office, myId, memberNames, memberIds, initial, initialDate
           {/* 매물 연동 */}
           <LinkPicker
             kind="property" label="매물 연결" icon={<Building2 className="h-4 w-4 text-gray-400" />}
-            memberIds={memberIds} disabled={!canEdit}
+            officeId={office} disabled={!canEdit}
             selectedId={propertyId} selectedLabel={propertyLabel}
             onSelect={(id, lbl) => { setPropertyId(id); setPropertyLabel(lbl) }}
             onClear={() => { setPropertyId(null); setPropertyLabel('') }}
@@ -477,11 +471,11 @@ function EventModal({ office, myId, memberNames, memberIds, initial, initialDate
 }
 
 // ── 고객/매물 검색·선택 ──────────────────────────────────
-function LinkPicker({ kind, label, icon, memberIds, disabled, selectedId, selectedLabel, onSelect, onClear }: {
+function LinkPicker({ kind, label, icon, officeId, disabled, selectedId, selectedLabel, onSelect, onClear }: {
   kind: 'customer' | 'property'
   label: string
   icon: React.ReactNode
-  memberIds: string[]
+  officeId: string
   disabled?: boolean
   selectedId: string | null
   selectedLabel: string
@@ -495,18 +489,18 @@ function LinkPicker({ kind, label, icon, memberIds, disabled, selectedId, select
 
   const search = async (term: string) => {
     setQ(term)
-    if (!term.trim() || memberIds.length === 0) { setResults([]); return }
+    if (!term.trim() || !officeId) { setResults([]); return }
     if (kind === 'customer') {
       const { data } = await supabase
         .from('broker_customers')
         .select('id, request, contact, client_name')
-        .in('broker_id', memberIds)
+        .eq('office_broker_id', officeId)
         .or(`request.ilike.%${term}%,contact.ilike.%${term}%,client_name.ilike.%${term}%`)
         .limit(8)
       setResults((data ?? []).map((c: any) => ({ id: c.id, label: c.request || c.client_name || c.contact || '고객' })))
     } else {
       const num = term.replace(/[^0-9]/g, '')
-      let query = supabase.from('broker_properties').select('id, seq_no, address').in('broker_id', memberIds)
+      let query = supabase.from('broker_properties').select('id, seq_no, address').eq('office_broker_id', officeId)
       query = num ? query.or(`address.ilike.%${term}%,seq_no.eq.${num}`) : query.ilike('address', `%${term}%`)
       const { data } = await query.limit(8)
       setResults((data ?? []).map((p: any) => ({ id: p.id, label: `${p.seq_no ? '#' + p.seq_no + ' ' : ''}${p.address ?? '매물'}` })))

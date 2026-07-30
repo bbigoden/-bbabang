@@ -1192,8 +1192,10 @@ function BrokerPropertiesContent() {
   // 서버 페이지네이션: properties는 "현재 페이지 행"만 담는다.
   // 필터·검색·정렬·페이지는 search_office_properties RPC가 DB에서 처리.
   const [properties, setProperties] = useState<Property[]>([])
-  const [brokerIdsState, setBrokerIdsState] = useState<string[] | null>(null)
-  const brokerIdsRef = useRef<string[]>([])  // saveField(useCallback deps 없음)에서 최신 사무소 범위 참조용
+  // 조회 스코프 — 일반 경로는 사무소 단일 id(office_broker_id), 어드민 개별 열람만 broker id 배열 유지
+  const [scopeState, setScopeState] = useState<{ office: string } | { brokerIds: string[] } | null>(null)
+  const officeIdRef = useRef<string>('')  // saveField(useCallback deps 없음)에서 최신 사무소 범위 참조용
+  const [officeAddress, setOfficeAddress] = useState<string | null>(null)  // 지도 초기 중심용 사무소 주소
   const [totalCount, setTotalCount] = useState(0)   // 필터·검색 반영 총 건수
   const [allCount, setAllCount] = useState(0)       // 필터 무관 전체 건수 (헤더 표시)
   const [mapRows, setMapRows] = useState<Property[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
@@ -1394,7 +1396,7 @@ function BrokerPropertiesContent() {
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', u.id).single()
       if (profile?.role !== 'admin') { router.push('/broker/properties'); return }
 
-      const { data: b } = await supabase.from('broker_profiles').select('id, custom_columns, office_name, profiles(name)').eq('id', targetBrokerId).single()
+      const { data: b } = await supabase.from('broker_profiles').select('id, parent_broker_id, custom_columns, office_name, address, profiles(name)').eq('id', targetBrokerId).single()
       if (!b) { router.push('/admin'); return }
       setBroker(b)
       setIsAdminView(true)
@@ -1403,9 +1405,11 @@ function BrokerPropertiesContent() {
       setCustomColumns(cols)
       const { data: ownBroker } = await supabase.from('broker_profiles').select('id').eq('user_id', u.id).single()
       if (ownBroker) setSettingsBrokerId(ownBroker.id)
-      // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다
-      brokerIdsRef.current = [b.id]
-      setBrokerIdsState([b.id])
+      // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다.
+      // 어드민 열람은 해당 중개사 개인 행만 보는 기존 동작을 유지 (사무소 전체 아님).
+      officeIdRef.current = b.parent_broker_id ?? b.id
+      setOfficeAddress(b.address ?? null)
+      setScopeState({ brokerIds: [b.id] })
       void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
         .eq('broker_id', b.id).then(({ count }) => setAllCount(count ?? 0))
       return
@@ -1442,8 +1446,9 @@ function BrokerPropertiesContent() {
       // 직원 → 대표(parent_broker_id) 이름 조회. 담당자에 대표 이름이 잡힌 매물의 메모를 열람하기 위함.
       if (b.parent_broker_id) {
         const { data: ownerBroker } = await supabase
-          .from('broker_profiles').select('profiles(name)').eq('id', b.parent_broker_id).single()
+          .from('broker_profiles').select('address, profiles(name)').eq('id', b.parent_broker_id).single()
         setOwnerName((ownerBroker?.profiles as any)?.name ?? '')
+        setOfficeAddress((ownerBroker as any)?.address ?? null)
       }
     }
 
@@ -1455,28 +1460,24 @@ function BrokerPropertiesContent() {
     // ── 데이터 범위 결정 ───────────────────────────────
     // 룰: 대표·직원 모두 사무소 전체 매물을 봄. 다른 직원 매물은 셀 단위로 읽기 전용 렌더링되고
     //     중개사 메모(memo)는 본인 매물에만 노출됨. 편집은 RLS의 can_edit_broker_property가 차단.
-    let brokerIds: string[] = [b.id]
-    if (owner) {
-      const { data: employees } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
-      if (employees) brokerIds = [b.id, ...employees.map((e: any) => e.id)]
-    } else if (b.parent_broker_id) {
-      const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
-      if (sibs) brokerIds = sibs.map((e: any) => e.id)
-      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
-    }
+    // 스코프는 office_broker_id 단일 컬럼 — 직원 목록 조립 왕복이 없다. 직원별 열람 제한
+    // (permissions.can_see_others=false)은 RLS가 행 단위로 걸러준다.
+    const office = owner ? b.id : (b.parent_broker_id ?? b.id)
+    if (owner) setOfficeAddress(b.address ?? null)
 
     // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다
-    brokerIdsRef.current = brokerIds
-    setBrokerIdsState(brokerIds)
+    officeIdRef.current = office
+    setScopeState({ office })
     void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
-      .in('broker_id', brokerIds).then(({ count }) => setAllCount(count ?? 0))
+      .eq('office_broker_id', office).then(({ count }) => setAllCount(count ?? 0))
   }
 
   // ── 서버 페이지네이션 — 현재 페이지 분량만 RPC로 조회 ──────────
   // 필터·검색·정렬·방향이 바뀔 때마다 해당 조건으로 서버에서 다시 받는다.
   // sortKey 없으면 등록순(direction: up=최신부터, down=오래된 것부터).
   const rpcParams = useCallback((limit: number, offset: number) => ({
-    p_broker_ids: brokerIdsState,
+    p_office: scopeState && 'office' in scopeState ? scopeState.office : null,
+    p_broker_ids: scopeState && 'brokerIds' in scopeState ? scopeState.brokerIds : null,
     p_q: debouncedQuery || null,
     p_deal_type: filterDealType || null,
     p_room_types: filterRoomTypes.length > 0 ? filterRoomTypes : null,
@@ -1494,10 +1495,10 @@ function BrokerPropertiesContent() {
     p_sort_dir: sortKey ? sortDir : (direction === 'up' ? 'desc' : 'asc'),
     p_limit: limit,
     p_offset: offset,
-  }), [brokerIdsState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, sortKey, sortDir, direction])
+  }), [scopeState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, sortKey, sortDir, direction])
 
   useEffect(() => {
-    if (!brokerIdsState) return
+    if (!scopeState) return
     let cancelled = false
     ;(async () => {
       const { data, error } = await supabase.rpc('search_office_properties', rpcParams(pageSize, (page - 1) * pageSize))
@@ -1516,11 +1517,11 @@ function BrokerPropertiesContent() {
       if (rows.length === 0 && page > 1) setPage(1)
     })()
     return () => { cancelled = true }
-  }, [brokerIdsState, page, pageSize, rpcParams])
+  }, [scopeState, page, pageSize, rpcParams])
 
   // ── 지도 뷰 데이터 — 지도를 열 때만 현재 필터의 전체 매물 로드 ──
   useEffect(() => {
-    if (!isMapView || !brokerIdsState) return
+    if (!isMapView || !scopeState) return
     let cancelled = false
     ;(async () => {
       const { data, error } = await supabase.rpc('search_office_properties', rpcParams(10000, 0))
@@ -1529,7 +1530,7 @@ function BrokerPropertiesContent() {
       setMapRows((data ?? []).map((r: any) => r.data as Property))
     })()
     return () => { cancelled = true }
-  }, [isMapView, brokerIdsState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, rpcParams])
+  }, [isMapView, scopeState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, rpcParams])
 
   // 단일 필드 저장 (optimistic UI + 실패 시 롤백)
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
@@ -1548,7 +1549,7 @@ function BrokerPropertiesContent() {
       toast.error(`저장 실패: ${error.message}`)
     } else if (field === 'address' && typeof value === 'string' && value.trim() && value !== prevValue) {
       // 중복 의심 경고 — 등록봇과 같은 기준(사무소 전체 소재지+거래형태). 저장은 이미 됐으므로 차단하지 않고 알림만.
-      void findDuplicateProperty(supabase, brokerIdsRef.current, value, rowDealType, id).then(dup => {
+      void findDuplicateProperty(supabase, officeIdRef.current, value, rowDealType, id).then(dup => {
         if (dup) toast.info(`⚠️ 같은 소재지 매물이 이미 있어요: ${dup.address} · ${dup.deal_type}${dup.assignee ? ` · 담당 ${dup.assignee}` : ''}`)
       })
       // 주소가 바뀌면 좌표도 다시 구해 함께 저장 — 지도 뷰가 카카오 JS geocoder 호출 없이 즉시 마커 표시.
@@ -1846,9 +1847,19 @@ function BrokerPropertiesContent() {
       // 지도 인스턴스 최초 생성
       if (!mapInstanceRef.current) {
         mapInstanceRef.current = new kakao.maps.Map(mapContainerRef.current, {
-          center: new kakao.maps.LatLng(36.815, 127.114), // 천안 시청
+          center: new kakao.maps.LatLng(36.815, 127.114), // 폴백 좌표 — 아래에서 사무소 주소로 재중심
           level: 6,
         })
+        // 사무소 주소 기준 초기 중심 — 매물이 있으면 어차피 setBounds가 덮어쓰지만,
+        // 매물 없는 신규 사무소도 자기 동네에서 시작해야 한다 (지오코딩 실패 시 폴백 유지)
+        if (officeAddress) {
+          const centerGeocoder = new kakao.maps.services.Geocoder()
+          centerGeocoder.addressSearch(officeAddress, (result: any[], status: string) => {
+            if (status === kakao.maps.services.Status.OK && result?.[0] && mapInstanceRef.current) {
+              mapInstanceRef.current.setCenter(new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x)))
+            }
+          })
+        }
         kakao.maps.event.addListener(mapInstanceRef.current, 'click', () => {
           setMapPanel(null)
         })
@@ -2087,7 +2098,7 @@ function BrokerPropertiesContent() {
 
     requestAnimationFrame(renderMap)
     return () => { cancelled = true }
-  }, [isMapView, mapReady, mapRows])
+  }, [isMapView, mapReady, mapRows, officeAddress])
 
   // 지도 뷰가 닫히면 인스턴스 무효화 — 다음 진입 시 새 컨테이너에 새 instance 생성 강제
   // (기존: 옛 DOM에 binding된 instance를 relayout만 했더니 타일이 안 그려지는 케이스 있었음)

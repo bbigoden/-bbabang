@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { SUPPORT_EMAIL } from '@/lib/support'
 
 /**
  * 사이트 푸터 — 사업자정보·법적 표기·정책 링크.
@@ -29,7 +30,7 @@ export function Footer() {
   const bizNumber = process.env.NEXT_PUBLIC_BUSINESS_REG_NUMBER
   const officeRegNumber = process.env.NEXT_PUBLIC_OFFICE_REG_NUMBER
   const address = process.env.NEXT_PUBLIC_BUSINESS_ADDRESS
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'bigodennn@gmail.com'
+  const contactEmail = SUPPORT_EMAIL
   const phone = process.env.NEXT_PUBLIC_BUSINESS_PHONE
 
   return (

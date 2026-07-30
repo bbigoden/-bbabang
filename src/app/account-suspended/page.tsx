@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { SUPPORT_EMAIL } from '@/lib/support'
 import { Ban, AlertCircle, Mail, Home } from 'lucide-react'
 
 export default function AccountSuspendedPage() {
@@ -57,7 +58,7 @@ export default function AccountSuspendedPage() {
         )}
 
         <div className="mt-7 space-y-3">
-          <a href="mailto:bigodennn@gmail.com"
+          <a href={`mailto:${SUPPORT_EMAIL}`}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
             <Mail className="h-4 w-4" />
             고객지원에 문의

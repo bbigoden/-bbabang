@@ -246,8 +246,8 @@ function ProposedPropertiesCell({ propIds, propertyMap, onOpen, onRemove, readOn
 }
 
 // ── PropertyPicker ────────────────────────────────────
-function PropertyPicker({ brokerIds, selectedIds, onConfirm, onClose }: {
-  brokerIds: string[]; selectedIds: string[]
+function PropertyPicker({ officeId, selectedIds, onConfirm, onClose }: {
+  officeId: string | null; selectedIds: string[]
   onConfirm: (ids: string[]) => void; onClose: () => void
 }) {
   const supabase = createClient()
@@ -270,12 +270,12 @@ function PropertyPicker({ brokerIds, selectedIds, onConfirm, onClose }: {
 
   // 입력이 멎고 250ms 뒤 서버 검색 (전건 프리로드 대체 — 필요한 30건만 받는다)
   useEffect(() => {
-    if (brokerIds.length === 0) return
+    if (!officeId) return
     let alive = true
     setLoading(true)
     const timer = setTimeout(async () => {
       const term = sanitizeFilterTerm(search)
-      let q = supabase.from('broker_properties').select(PROP_PICK_COLS).in('broker_id', brokerIds)
+      let q = supabase.from('broker_properties').select(PROP_PICK_COLS).eq('office_broker_id', officeId)
       if (term) {
         const digits = term.replace(/[^0-9]/g, '')
         const conds = [`address.ilike.%${term}%`, `deal_type.ilike.%${term}%`, `room_type.ilike.%${term}%`]
@@ -289,7 +289,7 @@ function PropertyPicker({ brokerIds, selectedIds, onConfirm, onClose }: {
       setLoading(false)
     }, search ? 250 : 0)
     return () => { alive = false; clearTimeout(timer) }
-  }, [search, brokerIds])
+  }, [search, officeId])
 
   // 선택된 것 먼저, 그 뒤 검색 결과(중복 제외)
   const pinnedIds = new Set(pinned.map(p => p.id))
@@ -357,8 +357,8 @@ function PropertyPicker({ brokerIds, selectedIds, onConfirm, onClose }: {
 }
 
 // ── CustomerPicker ────────────────────────────────────
-function CustomerPicker({ brokerIds, linkedIds, ownerName, ownerBrokerId: _ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
-  brokerIds: string[]; linkedIds: Set<string>
+function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
+  officeId: string | null; linkedIds: Set<string>
   ownerName: string  // 일지 주인 이름 — 담당자 매칭 + 표시용
   ownerBrokerId: string | null  // 일지 주인 broker_id — 그 사람 소유 고객만 필터
   onAddExisting: (c: Customer) => void
@@ -372,11 +372,11 @@ function CustomerPicker({ brokerIds, linkedIds, ownerName, ownerBrokerId: _owner
   // 입력이 멎고 250ms 뒤 서버 검색 (전건 프리로드 대체)
   // 담당자 필터는 서버에서 ilike로 넓게 잡고, 아래에서 콤마 분리 정확 매칭으로 정제한다.
   useEffect(() => {
-    if (brokerIds.length === 0) return
+    if (!officeId) return
     let alive = true
     setLoading(true)
     const timer = setTimeout(async () => {
-      let q = supabase.from('broker_customers').select(CUST_PICK_COLS).in('broker_id', brokerIds)
+      let q = supabase.from('broker_customers').select(CUST_PICK_COLS).eq('office_broker_id', officeId)
       if (ownerName) q = q.ilike('assignee', `%${ownerName}%`)
       const term = sanitizeFilterTerm(search)
       if (term) q = q.or(`request.ilike.%${term}%,contact.ilike.%${term}%,client_name.ilike.%${term}%`)
@@ -386,7 +386,7 @@ function CustomerPicker({ brokerIds, linkedIds, ownerName, ownerBrokerId: _owner
       setLoading(false)
     }, search ? 250 : 0)
     return () => { alive = false; clearTimeout(timer) }
-  }, [search, brokerIds, ownerName])
+  }, [search, officeId, ownerName])
 
   // 일지 주인 담당자(assignee) 정확 매칭 + 아직 일지에 안 들어간 것만
   // broker_id가 아니라 assignee 이름으로 매칭 — 봇 등 다른 계정이 등록해도 담당자 일지에 보임.
@@ -573,7 +573,7 @@ export default function BrokerDiaryPage() {
   const [diaryCustomers, setDiaryCustomers] = useState<DiaryCustomerRow[]>([])
   const [addingId, setAddingId] = useState<string | null>(null)
   // 피커는 각자 서버 검색으로 필요한 만큼만 가져간다 (사무소 전건 프리로드 없음)
-  const [pickerBrokerIds, setPickerBrokerIds] = useState<string[]>([])
+  const [pickerOfficeId, setPickerOfficeId] = useState<string | null>(null)
   // 이 날짜 일지가 참조하는 매물만 담는 맵 — 제안매물 칩 표시용
   const [propertyMap, setPropertyMap] = useState<Record<string, Property>>({})
   const [showPicker, setShowPicker] = useState(false)
@@ -707,17 +707,8 @@ export default function BrokerDiaryPage() {
       setTeamMembers(prof?.name ? [prof.name] : [])
     }
 
-    // 피커가 검색할 대상 범위(사무소 멤버) — id 목록만 잡아두고 데이터는 검색할 때 받는다
-    let brokerIds: string[] = [b.id]
-    if (owner) {
-      const { data: emps } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.id)
-      if (emps) brokerIds = [b.id, ...emps.map((e: any) => e.id)]
-    } else if (b.parent_broker_id) {
-      const { data: sibs } = await supabase.from('broker_profiles').select('id').eq('parent_broker_id', b.parent_broker_id)
-      if (sibs) brokerIds = sibs.map((e: any) => e.id)
-      if (!brokerIds.includes(b.parent_broker_id)) brokerIds.push(b.parent_broker_id)
-    }
-    setPickerBrokerIds(brokerIds)
+    // 피커가 검색할 대상 범위(사무소) — office_broker_id 하나면 되므로 멤버 목록 조립이 필요 없다
+    setPickerOfficeId(owner ? b.id : (b.parent_broker_id ?? b.id))
   }
 
   // 날짜를 빠르게 넘기면 늦게 도착한 이전 응답이 최신 화면을 덮어쓰므로 요청 순번으로 차단
@@ -1408,7 +1399,7 @@ export default function BrokerDiaryPage() {
 
       {/* 고객 피커 */}
       {showPicker && (
-        <CustomerPicker brokerIds={pickerBrokerIds} linkedIds={linkedIds} ownerName={viewingName} ownerBrokerId={viewingBrokerId ?? broker?.id ?? null}
+        <CustomerPicker officeId={pickerOfficeId} linkedIds={linkedIds} ownerName={viewingName} ownerBrokerId={viewingBrokerId ?? broker?.id ?? null}
           onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
       )}
 
@@ -1417,7 +1408,7 @@ export default function BrokerDiaryPage() {
         const row = diaryCustomers.find(c => c.link_id === propertyPickerLinkId)
         return (
           <PropertyPicker
-            brokerIds={pickerBrokerIds}
+            officeId={pickerOfficeId}
             selectedIds={row?.proposed_property_ids ?? []}
             onConfirm={ids => saveProposedProperties(propertyPickerLinkId, ids)}
             onClose={() => setPropertyPickerLinkId(null)}

@@ -32,21 +32,21 @@ export interface DupProperty {
   assignee: string | null
 }
 
-/** 사무소 전체(brokerIds)에서 소재지+거래형태가 같은 기존 매물을 찾는다 (없으면 null).
+/** 사무소 전체(officeId = 대표 broker_profiles.id)에서 소재지+거래형태가 같은 기존 매물을 찾는다 (없으면 null).
  *  dealType이 비어 있으면(새 행에서 아직 미입력) 거래형태 무관하게 같은 소재지를 찾는다. */
 export async function findDuplicateProperty(
   supabase: SupabaseClient,
-  brokerIds: string[],
+  officeId: string,
   address: string,
   dealType: string | null,
   excludeId?: string,
 ): Promise<DupProperty | null> {
   const target = normAddr(address)
-  if (!target || brokerIds.length === 0) return null
+  if (!target || !officeId) return null
   let q = supabase
     .from('broker_properties')
     .select('id, address, deal_type, assignee')
-    .in('broker_id', brokerIds)
+    .eq('office_broker_id', officeId)
     .limit(500)
   const pat = addrLikePattern(address)
   if (pat) q = q.ilike('address', pat)
@@ -68,20 +68,20 @@ export interface DupCustomer {
   assignee: string | null
 }
 
-/** 사무소 전체(brokerIds)에서 같은 연락처의 고객을 찾는다.
+/** 사무소 전체(officeId = 대표 broker_profiles.id)에서 같은 연락처의 고객을 찾는다.
  *  끝 4자리 ilike로 후보를 좁힌 뒤 전체 숫자 일치로 확정 (7자리 미만은 메모성 입력으로 보고 패스). */
 export async function findDuplicateCustomers(
   supabase: SupabaseClient,
-  brokerIds: string[],
+  officeId: string,
   contact: string,
   excludeId?: string,
 ): Promise<DupCustomer[]> {
   const digits = normContact(contact)
-  if (digits.length < 7 || brokerIds.length === 0) return []
+  if (digits.length < 7 || !officeId) return []
   let q = supabase
     .from('broker_customers')
     .select('id, client_name, contact, assignee')
-    .in('broker_id', brokerIds)
+    .eq('office_broker_id', officeId)
     .ilike('contact', `%${digits.slice(-4)}%`)
     .limit(50)
   if (excludeId) q = q.neq('id', excludeId)
