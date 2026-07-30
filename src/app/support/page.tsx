@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Header } from '@/components/layout/header'
+import { SUPPORT_EMAIL } from '@/lib/support'
 import { Mail, MessageCircle, Home } from 'lucide-react'
 import { SupportForm } from './support-form'
 
@@ -30,9 +31,9 @@ export default function SupportPage() {
         {/* 이메일 안내 */}
         <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
           또는
-          <a href="mailto:bigodennn@gmail.com" className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700">
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700">
             <Mail className="h-3.5 w-3.5" />
-            bigodennn@gmail.com
+            {SUPPORT_EMAIL}
           </a>
           으로 메일
         </div>

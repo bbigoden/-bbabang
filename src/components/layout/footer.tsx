@@ -120,6 +120,11 @@ export function Footer() {
                   고객센터·신고
                 </Link>
               </li>
+              <li>
+                <Link href="/office-intro" className="hover:text-blue-600 hover:underline">
+                  중개사무소용 빠방 소개
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
