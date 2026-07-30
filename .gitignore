@@ -64,3 +64,4 @@ tmp/
 
 # DB 논리 백업 (점검 21단계 산출물 - 로컬 보관 전용)
 backups/
+.playwright-mcp/
