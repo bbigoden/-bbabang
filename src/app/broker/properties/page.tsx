@@ -1219,6 +1219,42 @@ function BrokerPropertiesContent() {
       return Array.from(new Set([...prev, ...types]))
     })
   }
+  const [filterAssignees, setFilterAssignees] = useState<string[]>([])  // 담당자 다중 선택
+  const toggleAssignee = (name: string) => {
+    setFilterAssignees(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name])
+  }
+  // 범위 필터 — 입력은 문자열로 받고, 300ms 디바운스 후 숫자로 파싱해 서버에 전달
+  const [filterPriceMin, setFilterPriceMin] = useState('')   // 보증금/매매가 (만원)
+  const [filterPriceMax, setFilterPriceMax] = useState('')
+  const [filterRentMin, setFilterRentMin] = useState('')     // 월세 (만원)
+  const [filterRentMax, setFilterRentMax] = useState('')
+  const [filterPyeongMin, setFilterPyeongMin] = useState('') // 평수
+  const [filterPyeongMax, setFilterPyeongMax] = useState('')
+  const [filterFloorMin, setFilterFloorMin] = useState('')   // 층수
+  const [filterFloorMax, setFilterFloorMax] = useState('')
+  const [debouncedRanges, setDebouncedRanges] = useState<Record<string, number | null>>({})
+  useEffect(() => {
+    const num = (s: string) => { const n = parseFloat(s.replace(/,/g, '')); return isNaN(n) ? null : n }
+    const t = setTimeout(() => setDebouncedRanges({
+      priceMin: num(filterPriceMin), priceMax: num(filterPriceMax),
+      rentMin: num(filterRentMin), rentMax: num(filterRentMax),
+      pyeongMin: num(filterPyeongMin), pyeongMax: num(filterPyeongMax),
+      floorMin: num(filterFloorMin), floorMax: num(filterFloorMax),
+    }), 300)
+    return () => clearTimeout(t)
+  }, [filterPriceMin, filterPriceMax, filterRentMin, filterRentMax, filterPyeongMin, filterPyeongMax, filterFloorMin, filterFloorMax])
+  // 활성 필터 개수 (버튼 배지·초기화 버튼 노출 판정) — 범위는 종류당 1개로 센다
+  const rangeCount = [
+    [filterPriceMin, filterPriceMax], [filterRentMin, filterRentMax],
+    [filterPyeongMin, filterPyeongMax], [filterFloorMin, filterFloorMax],
+  ].filter(([a, b]) => a || b).length
+  const activeFilterCount = (filterDealType ? 1 : 0) + filterRoomTypes.length + (filterStatus ? 1 : 0)
+    + filterAssignees.length + rangeCount
+  const resetFilters = () => {
+    setFilterDealType(''); setFilterRoomTypes([]); setFilterStatus(''); setFilterAssignees([])
+    setFilterPriceMin(''); setFilterPriceMax(''); setFilterRentMin(''); setFilterRentMax('')
+    setFilterPyeongMin(''); setFilterPyeongMax(''); setFilterFloorMin(''); setFilterFloorMax('')
+  }
   const [showFilter, setShowFilter] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   // 타이핑마다 서버 요청이 나가지 않도록 300ms 디바운스
@@ -1328,7 +1364,7 @@ function BrokerPropertiesContent() {
     if (!auth.broker) { router.push('/broker/register'); return }
     init()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
-  useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, filterStatus, searchQuery, pageSize])
+  useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, searchQuery, pageSize])
 
   // 카카오맵 SDK는 useKakaoMapSdk 훅에서 로드
 
@@ -1443,11 +1479,20 @@ function BrokerPropertiesContent() {
     p_deal_type: filterDealType || null,
     p_room_types: filterRoomTypes.length > 0 ? filterRoomTypes : null,
     p_status: filterStatus || null,
+    p_assignees: filterAssignees.length > 0 ? filterAssignees : null,
+    p_price_min: debouncedRanges.priceMin ?? null,
+    p_price_max: debouncedRanges.priceMax ?? null,
+    p_rent_min: debouncedRanges.rentMin ?? null,
+    p_rent_max: debouncedRanges.rentMax ?? null,
+    p_pyeong_min: debouncedRanges.pyeongMin ?? null,
+    p_pyeong_max: debouncedRanges.pyeongMax ?? null,
+    p_floor_min: debouncedRanges.floorMin ?? null,
+    p_floor_max: debouncedRanges.floorMax ?? null,
     p_sort_key: sortKey ?? 'created_at',
     p_sort_dir: sortKey ? sortDir : (direction === 'up' ? 'desc' : 'asc'),
     p_limit: limit,
     p_offset: offset,
-  }), [brokerIdsState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, sortKey, sortDir, direction])
+  }), [brokerIdsState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, sortKey, sortDir, direction])
 
   useEffect(() => {
     if (!brokerIdsState) return
@@ -2169,10 +2214,10 @@ function BrokerPropertiesContent() {
           </div>
           <button
             onClick={() => setShowFilter(v => !v)}
-            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${(filterDealType || filterRoomTypes.length > 0 || filterStatus) ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+            className={`flex items-center gap-1.5 rounded-xl border px-3.5 py-2.5 text-sm font-medium transition-colors ${activeFilterCount > 0 ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            필터{(filterDealType || filterRoomTypes.length > 0 || filterStatus) ? ` · ${(filterDealType ? 1 : 0) + filterRoomTypes.length + (filterStatus ? 1 : 0)}` : ''}
+            필터{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
           </button>
         </div>
 
@@ -2230,8 +2275,40 @@ function BrokerPropertiesContent() {
                 })}
               </div>
             </div>
-            {(filterDealType || filterRoomTypes.length > 0 || filterStatus) && (
-              <button onClick={() => { setFilterDealType(''); setFilterRoomTypes([]); setFilterStatus('') }}
+            {teamMembers.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold text-gray-500">담당자 (다중 선택)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {teamMembers.map(name => (
+                    <button key={name} onClick={() => toggleAssignee(name)}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterAssignees.includes(name) ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
+                    >{name}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="mb-2 text-xs font-semibold text-gray-500">범위 조건</p>
+              <div className="space-y-2">
+                {([
+                  ['보증금·매매가', '만원', filterPriceMin, setFilterPriceMin, filterPriceMax, setFilterPriceMax],
+                  ['월세', '만원', filterRentMin, setFilterRentMin, filterRentMax, setFilterRentMax],
+                  ['평수', '평', filterPyeongMin, setFilterPyeongMin, filterPyeongMax, setFilterPyeongMax],
+                  ['층수', '층', filterFloorMin, setFilterFloorMin, filterFloorMax, setFilterFloorMax],
+                ] as [string, string, string, (v: string) => void, string, (v: string) => void][]).map(([label, unit, min, setMin, max, setMax]) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <span className="w-24 shrink-0 text-xs text-gray-600 dark:text-gray-400">{label}</span>
+                    <input type="text" inputMode="decimal" value={min} onChange={e => setMin(e.target.value)} placeholder={`최소 (${unit})`}
+                      className="w-28 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                    <span className="text-xs text-gray-400">~</span>
+                    <input type="text" inputMode="decimal" value={max} onChange={e => setMax(e.target.value)} placeholder={`최대 (${unit})`}
+                      className="w-28 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            {activeFilterCount > 0 && (
+              <button onClick={resetFilters}
                 className="text-xs text-red-500 hover:text-red-600 font-medium">
                 필터 초기화
               </button>
@@ -2491,7 +2568,7 @@ function BrokerPropertiesContent() {
               {paginated.length === 0 ? (
                 <EmptyRow
                   colSpan={syncedOrder.length + 2}
-                  message={searchQuery || filterDealType || filterRoomTypes.length > 0 || filterStatus ? '검색 결과가 없어요' : '아직 등록된 매물이 없어요'}
+                  message={searchQuery || activeFilterCount > 0 ? '검색 결과가 없어요' : '아직 등록된 매물이 없어요'}
                 />
               ) : paginated.map((p) => (
                 <PropertyRow
