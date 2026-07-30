@@ -8,6 +8,9 @@
  * 환경변수 (.env.local 또는 쉘):
  *   - SUPABASE_URL                 또는 NEXT_PUBLIC_SUPABASE_URL
  *   - SUPABASE_SERVICE_ROLE_KEY    (RLS 무시하고 모든 매물 업데이트)
+ *     └ 없으면 fallback: NEXT_PUBLIC_SUPABASE_ANON_KEY + PUSH_TEST_PASSWORD로
+ *       대표 계정(t2@gmail.com, BACKFILL_LOGIN_EMAIL로 변경 가능) 로그인 —
+ *       RLS can_edit_broker_property(사무소 단위)로 전 매물 업데이트 가능
  *   - KAKAO_REST_KEY
  *
  * 실행:
@@ -46,9 +49,12 @@ const LIMIT = limitIdx >= 0 ? parseInt(args[limitIdx + 1], 10) : Infinity
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const KAKAO_KEY = process.env.KAKAO_REST_KEY
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const LOGIN_EMAIL = process.env.BACKFILL_LOGIN_EMAIL || 't2@gmail.com'
+const LOGIN_PASSWORD = process.env.PUSH_TEST_PASSWORD
 
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('❌ SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 가 설정되어야 합니다.')
+if (!SUPABASE_URL || (!SERVICE_KEY && !(ANON_KEY && LOGIN_PASSWORD))) {
+  console.error('❌ SUPABASE_URL + (SUPABASE_SERVICE_ROLE_KEY 또는 NEXT_PUBLIC_SUPABASE_ANON_KEY+PUSH_TEST_PASSWORD) 가 필요합니다.')
   process.exit(1)
 }
 if (!KAKAO_KEY) {
@@ -56,13 +62,26 @@ if (!KAKAO_KEY) {
   process.exit(1)
 }
 
-const supa = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
+const supa = createClient(SUPABASE_URL, SERVICE_KEY || ANON_KEY, { auth: { persistSession: false } })
+
+// 서비스 롤 키 없으면 대표 계정 로그인 — RLS can_edit_broker_property(사무소 단위)로 전 매물 업데이트
+if (!SERVICE_KEY) {
+  const { error: authErr } = await supa.auth.signInWithPassword({ email: LOGIN_EMAIL, password: LOGIN_PASSWORD })
+  if (authErr) {
+    console.error(`❌ ${LOGIN_EMAIL} 로그인 실패: ${authErr.message}`)
+    process.exit(1)
+  }
+  console.log(`🔑 서비스 롤 키 없음 → ${LOGIN_EMAIL} 계정 로그인 (RLS 모드)`)
+}
 
 // 매물장 page.tsx 및 /api/geocode와 동일한 정규화
+// 끝 콤마·구두점 먼저 제거 — "두정동 913 202," 같은 입력 데이터 대응
 function normalizeAddr(a) {
   return String(a || '')
+    .trim()
+    .replace(/[,.;]+$/, '')
     .replace(/\s+[0-9A-Za-z\-]+\s*동\s+/, ' ')
-    .replace(/\s+[0-9\-]+\s*호\s*$/, '')
+    .replace(/\s+[0-9,\-]+\s*호\s*$/, '')
     .replace(/\s*[Bb]?\d+층\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -82,6 +101,34 @@ async function kakaoGeocode(query, retries = 3) {
       if (!res.ok) return null
       const json = await res.json()
       const doc = json?.documents?.[0]
+      if (!doc) return null
+      const lat = parseFloat(doc.y)
+      const lng = parseFloat(doc.x)
+      if (!isFinite(lat) || !isFinite(lng)) return null
+      return { lat, lng }
+    } catch (e) {
+      if (attempt === retries) return null
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
+    }
+  }
+  return null
+}
+
+// 건물명·단지명만 있는 주소(지번 없음)용 키워드(장소) 검색 fallback.
+// 오매칭 방지: 사무소 영업권(천안·아산) 결과만 채택 — 전국에 같은 이름 단지 많음.
+async function kakaoKeyword(query, retries = 3) {
+  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=5`
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } })
+      if (res.status === 429 || res.status === 503) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
+        continue
+      }
+      if (!res.ok) return null
+      const json = await res.json()
+      const docs = json?.documents ?? []
+      const doc = docs.find(d => /천안|아산/.test(d.address_name ?? '') || /천안|아산/.test(d.road_address_name ?? ''))
       if (!doc) return null
       const lat = parseFloat(doc.y)
       const lng = parseFloat(doc.x)
@@ -116,17 +163,59 @@ async function main() {
   // 정규화 주소 → 좌표 캐시 (같은 건물 다른 호수는 1회만 호출)
   const cache = new Map()
   let okCount = 0, failCount = 0, cacheHit = 0
+  const failures = []  // { id, address, norm, reason } — 수기 확인용 목록
 
   for (let i = 0; i < targets.length; i++) {
     const row = targets[i]
     const norm = normalizeAddr(row.address)
-    if (!norm) { failCount++; continue }
+    if (!norm) {
+      failCount++
+      failures.push({ id: row.id, address: row.address, norm, reason: '빈 주소(정규화 후)' })
+      continue
+    }
 
     let coords = cache.get(norm)
     if (coords !== undefined) {
       cacheHit++
     } else {
       coords = await kakaoGeocode(norm)
+      // fallback 1: "두정동 913 202"처럼 '호' 없는 끝 호수 숫자 제거 후 재시도
+      // (앞에 지번 토큰이 남아있을 때만 — "불당동 1479" 같은 지번 자체는 건드리지 않음)
+      if (!coords && /\d\s+\d+\s*$/.test(norm)) {
+        const fallback = norm.replace(/\s+\d+\s*$/, '')
+        await new Promise(r => setTimeout(r, 220))
+        coords = await kakaoGeocode(fallback)
+        if (coords) console.log(`  ↩ 숫자제거 재시도 성공: "${norm}" → "${fallback}"`)
+      }
+      // fallback 2: 지번 없는 건물명·단지명 → 키워드(장소) 검색 (천안·아산 결과만 채택)
+      // 후보를 단계적으로 생성: 단지내·번지·토지 등 일반어 제거 → 끝의 동·호 유닛 토큰
+      // ("1513", "B-103", "-102-3303") 제거를 반복. 각 후보는 원문 → "천안 " → "아산 " 순 시도.
+      if (!coords) {
+        const base = norm
+          .replace(/단지내|번지/g, ' ')
+          .replace(/\s*(토지|임야)\s*$/, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        const candidates = []
+        let cur = base.replace(/[\s\-]+[A-Za-z]?-?\d[\d\-,]*\s*$/, '').trim()
+        for (let s = 0; s < 3 && cur; s++) {
+          if (!candidates.includes(cur)) candidates.push(cur)
+          const next = cur.replace(/[\s\-]+[A-Za-z]?-?\d[\d\-,]*\s*$/, '').trim()
+          if (next === cur) break
+          cur = next
+        }
+        outer:
+        for (const c of candidates) {
+          for (const q of [c, `천안 ${c}`, `아산 ${c}`]) {
+            await new Promise(r => setTimeout(r, 220))
+            coords = await kakaoKeyword(q)
+            if (coords) {
+              console.log(`  ↩ 키워드 매칭 성공(천안·아산 한정): "${norm}" → "${q}"`)
+              break outer
+            }
+          }
+        }
+      }
       cache.set(norm, coords)
       // Kakao 권장 호출 간격 (~5건/초 미만) — 200ms 슬립
       await new Promise(r => setTimeout(r, 220))
@@ -144,6 +233,7 @@ async function main() {
           .eq('id', row.id)
         if (upErr) {
           failCount++; okCount--
+          failures.push({ id: row.id, address: row.address, norm, reason: `update 실패: ${upErr.message}` })
           console.error(`${tag} ✗ update 실패: ${row.id} — ${upErr.message}`)
         } else {
           console.log(`${tag} ✓ ${norm} → ${coords.lat.toFixed(6)},${coords.lng.toFixed(6)}`)
@@ -151,6 +241,7 @@ async function main() {
       }
     } else {
       failCount++
+      failures.push({ id: row.id, address: row.address, norm, reason: 'geocode 실패 (카카오 결과 없음)' })
       console.log(`${tag} ✗ ${norm} — geocode 실패`)
     }
   }
@@ -160,6 +251,14 @@ async function main() {
   console.log(`❌ 실패: ${failCount}건`)
   console.log(`📞 카카오 호출: ${cache.size}건 (정규화 주소 기준)`)
   if (DRY_RUN) console.log('※ DRY RUN — DB 변경 없음')
+
+  if (failures.length > 0) {
+    console.log('')
+    console.log('❌ 변환 실패 주소 목록 (수기 확인용) ─────────')
+    for (const f of failures) {
+      console.log(`  - [${f.id}] "${f.address}" → 정규화 "${f.norm}" (${f.reason})`)
+    }
+  }
 }
 
 main().catch(e => { console.error(e); process.exit(1) })

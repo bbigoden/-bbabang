@@ -1891,7 +1891,6 @@ function BrokerPropertiesContent() {
       }
       markersRef.current = []
 
-      const geocoder = new kakao.maps.services.Geocoder()
       const targets = mapRows.filter(p => p.address)
       if (targets.length === 0) { setGeocoding(false); return }
 
@@ -2070,6 +2069,8 @@ function BrokerPropertiesContent() {
         else schedule()
       }
 
+      // 카카오 JS geocoder는 라이브에서 CORS로 전부 실패(콘솔 에러 폭주)했음 —
+      // 서버 라우트 /api/geocode(REST 키, 동일 정규화)로 대체. 실패해도 조용히 null.
       const processOne = (prop: Property) => {
         const key = normalizeAddr(prop.address!)
         if (key in cache) {
@@ -2077,12 +2078,8 @@ function BrokerPropertiesContent() {
           return
         }
         inFlight++
-        geocoder.addressSearch(key, (result: any, status: any) => {
+        geocodeAddress(prop.address!).then(coords => {
           inFlight--
-          let coords: { lat: number; lng: number } | null = null
-          if (status === kakao.maps.services.Status.OK && result[0]) {
-            coords = { lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) }
-          }
           cache[key] = coords
           finalize(prop, coords)
         })
