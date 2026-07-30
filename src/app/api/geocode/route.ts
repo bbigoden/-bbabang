@@ -6,6 +6,8 @@ import { checkRateLimit } from '@/lib/rate-limit'
 // 매물장 page.tsx의 normalizeAddr와 동일 로직 (백필 스크립트와도 공유).
 function normalizeAddr(a: string): string {
   return a
+    .trim()
+    .replace(/[,.;]+$/, '')
     .replace(/\s+[0-9A-Za-z\-]+\s*동\s+/, ' ')
     .replace(/\s+[0-9\-]+\s*호\s*$/, '')
     .replace(/\s*[Bb]?\d+층\s*/g, ' ')
@@ -32,23 +34,35 @@ export async function POST(req: NextRequest) {
   if (!key) return NextResponse.json({ error: 'config_missing_kakao_key' }, { status: 500 })
 
   const query = normalizeAddr(raw)
-  const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&analyze_type=similar`
 
-  let res: Response
-  try {
-    res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` }, next: { revalidate: 86400 } })
-  } catch {
-    return NextResponse.json({ error: 'upstream_failed' }, { status: 502 })
+  const search = async (q: string): Promise<{ lat: number; lng: number } | null | 'upstream_failed'> => {
+    const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(q)}&analyze_type=similar`
+    let res: Response
+    try {
+      res = await fetch(url, { headers: { Authorization: `KakaoAK ${key}` }, next: { revalidate: 86400 } })
+    } catch {
+      return 'upstream_failed'
+    }
+    if (!res.ok) return 'upstream_failed'
+    const json = await res.json().catch(() => null)
+    const doc = json?.documents?.[0]
+    if (!doc) return null
+    const lat = parseFloat(doc.y)
+    const lng = parseFloat(doc.x)
+    if (!isFinite(lat) || !isFinite(lng)) return null
+    return { lat, lng }
   }
-  if (!res.ok) return NextResponse.json({ error: 'upstream_failed', status: res.status }, { status: 502 })
 
-  const json = await res.json().catch(() => null)
-  const doc = json?.documents?.[0]
-  if (!doc) return NextResponse.json({ lat: null, lng: null, normalized: query })
+  let coords = await search(query)
+  if (coords === 'upstream_failed') return NextResponse.json({ error: 'upstream_failed' }, { status: 502 })
 
-  const lat = parseFloat(doc.y)
-  const lng = parseFloat(doc.x)
-  if (!isFinite(lat) || !isFinite(lng)) return NextResponse.json({ lat: null, lng: null, normalized: query })
+  // 실패 시 fallback: "두정동 913 202"처럼 '호' 없는 끝 호수 숫자 제거 후 1회 재시도
+  // (앞에 지번 토큰이 남아있을 때만 — 지번 자체는 건드리지 않음)
+  if (!coords && /\d\s+\d+\s*$/.test(query)) {
+    const retried = await search(query.replace(/\s+\d+\s*$/, ''))
+    if (retried !== 'upstream_failed') coords = retried
+  }
 
-  return NextResponse.json({ lat, lng, normalized: query })
+  if (!coords) return NextResponse.json({ lat: null, lng: null, normalized: query })
+  return NextResponse.json({ lat: coords.lat, lng: coords.lng, normalized: query })
 }
