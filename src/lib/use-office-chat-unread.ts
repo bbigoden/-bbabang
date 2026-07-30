@@ -19,6 +19,10 @@ export function useOfficeChatUnread(): number {
     let alive = true
 
     const refresh = async () => {
+      // auth 캐시(localStorage)에 broker 프로필이 남은 채 세션만 만료된 순간(로그아웃 직후
+      // 로그인 페이지 등)에 RPC가 401로 발화하는 노이즈 방지 — 세션 실존을 먼저 확인
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { if (alive) setCount(0); return }
       const { data } = await supabase.rpc('office_chat_unread_count')
       if (alive) setCount(typeof data === 'number' ? data : 0)
     }
