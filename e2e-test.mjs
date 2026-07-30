@@ -1,7 +1,10 @@
 import { chromium } from 'playwright'
 
 const BASE = 'https://bbabang.vercel.app'
-const PW = 'rladyd14s!'
+// 공개 레포이므로 비밀번호 하드코딩 금지 (.env.local의 PUSH_TEST_PASSWORD)
+try { process.loadEnvFile('.env.local') } catch { /* env 파일 없으면 shell env 사용 */ }
+const PW = process.env.PUSH_TEST_PASSWORD ?? ''
+if (!PW) { console.error('[e2e-test] PUSH_TEST_PASSWORD가 없어요. .env.local에 점검 계정 비밀번호를 넣어주세요.'); process.exit(1) }
 
 const ACCOUNTS = {
   user:   { email: 't1@gmail.com',          role: '고객',   dashboard: '/dashboard/user' },

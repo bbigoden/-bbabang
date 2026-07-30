@@ -18,10 +18,14 @@ import * as path from 'node:path'
 const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app'
 const FULL_MODE = process.env.FULL === '1'
 
+// 점검 계정 공용 비밀번호 — 공개 레포이므로 절대 하드코딩 금지 (.env.local의 PUSH_TEST_PASSWORD)
+const PW = process.env.PUSH_TEST_PASSWORD ?? ''
+if (!PW) throw new Error('[inspect:visual] PUSH_TEST_PASSWORD가 없어요. .env.local에 점검 계정 비밀번호를 넣어주세요.')
+
 const ACCOUNTS: Record<string, { email: string; password: string }> = {
-  admin: { email: 'bigodennn@gmail.com', password: 'rladyd14s!' },
-  broker: { email: 't2@gmail.com', password: 'rladyd14s!' },
-  user: { email: 't1@gmail.com', password: 'rladyd14s!' },
+  admin: { email: 'bigodennn@gmail.com', password: PW },
+  broker: { email: 't2@gmail.com', password: PW },
+  user: { email: 't1@gmail.com', password: PW },
 }
 
 // 권한별 정적 URL 목록 (동적 [id]는 제외 — 시드 데이터 의존)

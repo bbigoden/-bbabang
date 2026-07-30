@@ -25,10 +25,14 @@ import * as path from 'node:path'
 const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app'
 
 // 점검 전용 테스트 계정 (tests/visual/inspection.spec.ts 와 동일한 방식)
+// 공개 레포이므로 비밀번호 하드코딩 금지 (.env.local의 PUSH_TEST_PASSWORD)
+const PW = process.env.PUSH_TEST_PASSWORD ?? ''
+if (!PW) throw new Error('[inspect:e2e] PUSH_TEST_PASSWORD가 없어요. .env.local에 점검 계정 비밀번호를 넣어주세요.')
+
 const ACCOUNTS = {
-  user: { email: 't1@gmail.com', password: 'rladyd14s!' },     // 고객
-  broker: { email: 't2@gmail.com', password: 'rladyd14s!' },   // 중개사
-  admin: { email: 'bigodennn@gmail.com', password: 'rladyd14s!' }, // 정리용 (request_posts DELETE는 admin 전용)
+  user: { email: 't1@gmail.com', password: PW },     // 고객
+  broker: { email: 't2@gmail.com', password: PW },   // 중개사
+  admin: { email: 'bigodennn@gmail.com', password: PW }, // 정리용 (request_posts DELETE는 admin 전용)
 }
 
 // 이번 실행 식별 마커

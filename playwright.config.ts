@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
+// 점검 계정 비밀번호(PUSH_TEST_PASSWORD) 등을 .env.local에서 로드
+try { process.loadEnvFile('.env.local') } catch { /* env 파일 없으면 shell env 사용 */ }
+
 /**
  * Playwright config — 빠방 시각 검증 17단계 전용
  *
