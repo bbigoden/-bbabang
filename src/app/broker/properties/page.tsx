@@ -17,7 +17,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown,
+  Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, LocateFixed,
 } from 'lucide-react'
 import { Pagination } from '@/components/sheet/pagination'
 import { EmptyRow } from '@/components/sheet/empty-row'
@@ -1273,6 +1273,8 @@ function BrokerPropertiesContent() {
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])         // 카카오 Marker 인스턴스들
   const clustererRef = useRef<any>(null)        // MarkerClusterer
+  const myLocOverlayRef = useRef<any>(null)     // 현 위치 파란 점 오버레이
+  const [jumpId, setJumpId] = useState<string | null>(null)  // 지도 패널 → 목록 이동 시 강조할 행
   // 지도 마커 클릭 시 우측 사이드바(네이버 부동산 식)에 표시할 매물 그룹
   const [mapPanel, setMapPanel] = useState<{ address: string; items: Property[] } | null>(null)
   // 카카오 geocoder 결과 캐시 (effect 재실행·검색 변경 시에도 유지) — OVER_QUERY_LIMIT 회피
@@ -1968,7 +1970,8 @@ function BrokerPropertiesContent() {
           if (group.length === 1) {
             const g = group[0]
             const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
-            const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
+            // 계약완료 매물은 회색 핀 — 지도만 보고 안내해도 가능/완료가 구분되게
+            const color = g.prop.status === 'contracted' ? '#9ca3af' : (DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151')
             icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
           } else {
             icon = makeGroupPillIcon(group.length)
@@ -1986,7 +1989,16 @@ function BrokerPropertiesContent() {
           const addr = group.length > 1
             ? normalizeAddr(group[0].prop.address ?? '')
             : (group[0].prop.address ?? '')
-          const items = group.map(g => g.prop)
+          // 같은 건물 다호수는 동(문자)·호수(숫자) 오름차순으로 — 등록순이면 호수가 뒤죽박죽
+          const unitOf = (a: string) => {
+            const ho = a.match(/(\d+)[0-9\-]*호\s*$/)
+            const dong = a.match(/([0-9A-Za-z\-]+)동\s*\S*호\s*$/)
+            return { dong: dong?.[1] ?? '', ho: ho ? parseInt(ho[1], 10) : Number.MAX_SAFE_INTEGER }
+          }
+          const items = group.map(g => g.prop).sort((x, y) => {
+            const ux = unitOf(x.address ?? ''), uy = unitOf(y.address ?? '')
+            return ux.dong.localeCompare(uy.dong) || ux.ho - uy.ho
+          })
           kakao.maps.event.addListener(marker, 'click', () => {
             setMapPanel({ address: addr, items })
           })
@@ -2084,7 +2096,44 @@ function BrokerPropertiesContent() {
     mapInstanceRef.current = null
     clustererRef.current = null
     markersRef.current = []
+    myLocOverlayRef.current = null
   }, [isMapView])
+
+  // 현 위치로 이동 (임장 중 모바일용) — 파란 점 오버레이 표시
+  const goToMyLocation = () => {
+    if (!navigator.geolocation) { toast.error('이 기기는 위치 정보를 지원하지 않아요'); return }
+    navigator.geolocation.getCurrentPosition(pos => {
+      const kakao = (window as any).kakao
+      const map = mapInstanceRef.current
+      if (!map || !kakao) return
+      const ll = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude)
+      map.setLevel(4)
+      map.setCenter(ll)
+      if (myLocOverlayRef.current) myLocOverlayRef.current.setMap(null)
+      const el = document.createElement('div')
+      el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.3)'
+      myLocOverlayRef.current = new kakao.maps.CustomOverlay({ position: ll, content: el, zIndex: 5 })
+      myLocOverlayRef.current.setMap(map)
+    }, () => toast.error('현재 위치를 가져오지 못했어요. 위치 권한을 확인해주세요.'))
+  }
+
+  // 지도 패널 → 목록으로 이동. mapRows는 목록과 같은 정렬·필터의 전체 집합이므로
+  // 행 순번으로 페이지를 계산할 수 있다.
+  const jumpToList = (id: string) => {
+    const idx = mapRows.findIndex(r => r.id === id)
+    if (idx >= 0) setPage(Math.floor(idx / pageSize) + 1)
+    setMapPanel(null)
+    setIsMapView(false)
+    setJumpId(id)
+  }
+  useEffect(() => {
+    if (!jumpId || isMapView || loading) return
+    const row = document.querySelector(`tr[data-row-id="${jumpId}"]`)
+    if (!row) return
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const t = setTimeout(() => setJumpId(null), 2500)
+    return () => clearTimeout(t)
+  }, [jumpId, isMapView, loading, properties])
 
 
   // 정렬·방향·페이지 슬라이스는 전부 서버(RPC)가 처리 — properties가 곧 현재 페이지다.
@@ -2341,12 +2390,24 @@ function BrokerPropertiesContent() {
             {/* 범례 */}
             {mapReady && !geocoding && (
               <div className="absolute bottom-4 left-4 flex gap-2 z-10">
-                {[['매매','#14274e'],['전세','#7c3aed'],['월세','#ea580c']].map(([label, color]) => (
+                {[['매매','#14274e'],['전세','#7c3aed'],['월세','#ea580c'],['계약완료','#9ca3af']].map(([label, color]) => (
                   <span key={label} style={{ background: color }} className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white shadow">
                     {label}
                   </span>
                 ))}
               </div>
+            )}
+            {/* 현 위치 버튼 */}
+            {mapReady && !geocoding && (
+              <button
+                type="button"
+                onClick={goToMyLocation}
+                aria-label="현 위치로 이동"
+                title="현 위치로 이동"
+                className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 shadow-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <LocateFixed className="h-5 w-5" />
+              </button>
             )}
             {/* 검색 결과 없음 */}
             {mapReady && !geocoding && mapRows.filter(p => p.address).length === 0 && (
@@ -2393,15 +2454,21 @@ function BrokerPropertiesContent() {
                         ? `${p.price != null ? p.price.toLocaleString() : '?'}/${p.monthly_rent != null ? p.monthly_rent.toLocaleString() : '?'}만`
                         : (p.price == null ? '미정' : (p.price >= 10000 ? Math.floor(p.price / 10000) + '억' + (p.price % 10000 > 0 ? ' ' + (p.price % 10000).toLocaleString() + '만' : '') : p.price.toLocaleString() + '만'))
                       return (
-                        <button
+                        <div
                           key={p.id}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             if (p.images && p.images.length > 0) {
                               setLightbox({ images: p.images, index: 0 })
                             }
                           }}
-                          className="w-full text-left border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex gap-3"
+                          onKeyDown={e => {
+                            if ((e.key === 'Enter' || e.key === ' ') && p.images && p.images.length > 0) {
+                              e.preventDefault(); setLightbox({ images: p.images, index: 0 })
+                            }
+                          }}
+                          className="w-full cursor-pointer text-left border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex gap-3"
                         >
                           {/* 사진 썸네일 */}
                           {p.images?.[0] ? (
@@ -2423,6 +2490,9 @@ function BrokerPropertiesContent() {
                               <span style={{ background: color }} className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white">
                                 {p.deal_type}
                               </span>
+                              {p.status === 'contracted' && (
+                                <span className="rounded-md bg-gray-400 px-2 py-0.5 text-[10px] font-bold text-white">계약완료</span>
+                              )}
                               <span style={{ color }} className="text-base font-black truncate">
                                 {priceText}
                               </span>
@@ -2449,11 +2519,20 @@ function BrokerPropertiesContent() {
                             {p.brief_memo && (
                               <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{p.brief_memo}</p>
                             )}
-                            {p.images && p.images.length > 0 && (
-                              <p className="mt-1.5 text-[10px] text-blue-500">사진 {p.images.length}장 · 클릭해서 보기</p>
-                            )}
+                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                              {p.images && p.images.length > 0
+                                ? <p className="text-[10px] text-blue-500">사진 {p.images.length}장 · 클릭해서 보기</p>
+                                : <span />}
+                              <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); jumpToList(p.id) }}
+                                className="flex-shrink-0 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                              >
+                                목록에서 열기
+                              </button>
+                            </div>
                           </div>
-                        </button>
+                        </div>
                       )
                     })}
                   </div>
@@ -2581,7 +2660,7 @@ function BrokerPropertiesContent() {
                   canEdit={canEdit}
                   isOwner={isOwner}
                   brokerSelfId={broker?.id ?? null}
-                  isAdding={p.id === addingId}
+                  isAdding={p.id === addingId || p.id === jumpId}
                   isAutoFilling={autoFillingId === p.id}
                   teamMembers={teamMembers}
                   ownerName={ownerName}
