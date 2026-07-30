@@ -85,3 +85,9 @@ WHERE coalesce(assignee, '') <> '';
 UPDATE public.broker_customers
 SET assignee_ids = public.resolve_assignee_ids(office_broker_id, assignee)
 WHERE coalesce(assignee, '') <> '';
+
+-- (점검 2단계 추가) 트리거 전용 함수 클라이언트 호출 차단 — anon 이름 프로브 방지
+REVOKE EXECUTE ON FUNCTION public.resolve_assignee_ids(uuid, text) FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.set_assignee_ids() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.set_office_broker_id() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.guard_broker_is_verified() FROM anon, authenticated, public;
