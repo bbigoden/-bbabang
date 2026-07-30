@@ -9,7 +9,7 @@ function normalizeAddr(a: string): string {
     .trim()
     .replace(/[,.;]+$/, '')
     .replace(/\s+[0-9A-Za-z\-]+\s*동\s+/, ' ')
-    .replace(/\s+[0-9\-]+\s*호\s*$/, '')
+    .replace(/\s+[0-9,\-]+\s*호\s*$/, '')
     .replace(/\s*[Bb]?\d+층\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()

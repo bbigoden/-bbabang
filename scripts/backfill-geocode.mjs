@@ -81,7 +81,7 @@ function normalizeAddr(a) {
     .trim()
     .replace(/[,.;]+$/, '')
     .replace(/\s+[0-9A-Za-z\-]+\s*동\s+/, ' ')
-    .replace(/\s+[0-9\-]+\s*호\s*$/, '')
+    .replace(/\s+[0-9,\-]+\s*호\s*$/, '')
     .replace(/\s*[Bb]?\d+층\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -101,6 +101,34 @@ async function kakaoGeocode(query, retries = 3) {
       if (!res.ok) return null
       const json = await res.json()
       const doc = json?.documents?.[0]
+      if (!doc) return null
+      const lat = parseFloat(doc.y)
+      const lng = parseFloat(doc.x)
+      if (!isFinite(lat) || !isFinite(lng)) return null
+      return { lat, lng }
+    } catch (e) {
+      if (attempt === retries) return null
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
+    }
+  }
+  return null
+}
+
+// 건물명·단지명만 있는 주소(지번 없음)용 키워드(장소) 검색 fallback.
+// 오매칭 방지: 사무소 영업권(천안·아산) 결과만 채택 — 전국에 같은 이름 단지 많음.
+async function kakaoKeyword(query, retries = 3) {
+  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=5`
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, { headers: { Authorization: `KakaoAK ${KAKAO_KEY}` } })
+      if (res.status === 429 || res.status === 503) {
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
+        continue
+      }
+      if (!res.ok) return null
+      const json = await res.json()
+      const docs = json?.documents ?? []
+      const doc = docs.find(d => /천안|아산/.test(d.address_name ?? '') || /천안|아산/.test(d.road_address_name ?? ''))
       if (!doc) return null
       const lat = parseFloat(doc.y)
       const lng = parseFloat(doc.x)
@@ -151,13 +179,42 @@ async function main() {
       cacheHit++
     } else {
       coords = await kakaoGeocode(norm)
-      // 실패 시 fallback: "두정동 913 202"처럼 '호' 없는 끝 호수 숫자 제거 후 재시도
+      // fallback 1: "두정동 913 202"처럼 '호' 없는 끝 호수 숫자 제거 후 재시도
       // (앞에 지번 토큰이 남아있을 때만 — "불당동 1479" 같은 지번 자체는 건드리지 않음)
       if (!coords && /\d\s+\d+\s*$/.test(norm)) {
         const fallback = norm.replace(/\s+\d+\s*$/, '')
         await new Promise(r => setTimeout(r, 220))
         coords = await kakaoGeocode(fallback)
-        if (coords) console.log(`  ↩ fallback 성공: "${norm}" → "${fallback}"`)
+        if (coords) console.log(`  ↩ 숫자제거 재시도 성공: "${norm}" → "${fallback}"`)
+      }
+      // fallback 2: 지번 없는 건물명·단지명 → 키워드(장소) 검색 (천안·아산 결과만 채택)
+      // 후보를 단계적으로 생성: 단지내·번지·토지 등 일반어 제거 → 끝의 동·호 유닛 토큰
+      // ("1513", "B-103", "-102-3303") 제거를 반복. 각 후보는 원문 → "천안 " → "아산 " 순 시도.
+      if (!coords) {
+        const base = norm
+          .replace(/단지내|번지/g, ' ')
+          .replace(/\s*(토지|임야)\s*$/, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        const candidates = []
+        let cur = base.replace(/[\s\-]+[A-Za-z]?-?\d[\d\-,]*\s*$/, '').trim()
+        for (let s = 0; s < 3 && cur; s++) {
+          if (!candidates.includes(cur)) candidates.push(cur)
+          const next = cur.replace(/[\s\-]+[A-Za-z]?-?\d[\d\-,]*\s*$/, '').trim()
+          if (next === cur) break
+          cur = next
+        }
+        outer:
+        for (const c of candidates) {
+          for (const q of [c, `천안 ${c}`, `아산 ${c}`]) {
+            await new Promise(r => setTimeout(r, 220))
+            coords = await kakaoKeyword(q)
+            if (coords) {
+              console.log(`  ↩ 키워드 매칭 성공(천안·아산 한정): "${norm}" → "${q}"`)
+              break outer
+            }
+          }
+        }
       }
       cache.set(norm, coords)
       // Kakao 권장 호출 간격 (~5건/초 미만) — 200ms 슬립
