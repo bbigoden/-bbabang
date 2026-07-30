@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
 import { PushPrompt } from '@/components/push-prompt'
 import { BrokerStatsPanel } from '@/components/broker/stats-panel'
+import { OnboardingChecklist, type OnboardingItems } from '@/components/broker/onboarding-checklist'
 import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
 import { EmptyState } from '@/components/empty-state'
 
@@ -31,7 +32,7 @@ export default async function BrokerDashboardPage() {
 
   const { data: brokerData } = await supabase
     .from('broker_profiles')
-    .select('id, district, is_verified, office_name, rating, review_count, deal_count, is_owner, is_approved, parent_broker_id')
+    .select('id, district, is_verified, office_name, rating, review_count, deal_count, is_owner, is_approved, parent_broker_id, onboarding_dismissed_at')
     .eq('user_id', user.id)
     .single()
   if (!brokerData) redirect('/broker/register')
@@ -78,6 +79,18 @@ export default async function BrokerDashboardPage() {
     settlements = st ?? []
   } catch {
     // 부가 데이터 로드 실패 시 빈 상태로 렌더링
+  }
+
+  // ── 신규 사무소 시작 가이드 (대표 전용, 3항목 완료 또는 숨김 시 미표시) ──
+  let onboarding: OnboardingItems | null = null
+  if (broker.is_owner !== false && !broker.onboarding_dismissed_at) {
+    const [{ count: propCount }, { count: empCount }, { data: settleRow }] = await Promise.all([
+      supabase.from('broker_properties').select('id', { count: 'exact', head: true }).eq('office_broker_id', broker.id),
+      supabase.from('broker_profiles').select('id', { count: 'exact', head: true }).eq('parent_broker_id', broker.id),
+      supabase.from('office_settlement_settings').select('office_broker_id').eq('office_broker_id', broker.id).maybeSingle(),
+    ])
+    const items = { property: (propCount ?? 0) > 0, employee: (empCount ?? 0) > 0, settlement: !!settleRow }
+    if (!(items.property && items.employee && items.settlement)) onboarding = items
   }
 
   const statusLabel = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
@@ -153,6 +166,9 @@ export default async function BrokerDashboardPage() {
             </div>
           </CardBody>
         </Card>
+
+        {/* 신규 사무소 시작 가이드 — 대표 전용, 완료·숨김 시 서버에서 미렌더 */}
+        {onboarding && <OnboardingChecklist brokerId={broker.id} items={onboarding} />}
 
         {/* 승인 대기 중 배너 — 미승인 직원에게만 표시 */}
         {broker.is_owner === false && broker.is_approved === false && (
