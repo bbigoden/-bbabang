@@ -1853,10 +1853,10 @@ function BrokerPropertiesContent() {
         // 사무소 주소 기준 초기 중심 — 매물이 있으면 어차피 setBounds가 덮어쓰지만,
         // 매물 없는 신규 사무소도 자기 동네에서 시작해야 한다 (지오코딩 실패 시 폴백 유지)
         if (officeAddress) {
-          const centerGeocoder = new kakao.maps.services.Geocoder()
-          centerGeocoder.addressSearch(officeAddress, (result: any[], status: string) => {
-            if (status === kakao.maps.services.Status.OK && result?.[0] && mapInstanceRef.current) {
-              mapInstanceRef.current.setCenter(new kakao.maps.LatLng(Number(result[0].y), Number(result[0].x)))
+          // JS SDK addressSearch는 라이브에서 CORS로 실패 — 매물 좌표와 동일하게 /api/geocode 사용
+          geocodeAddress(officeAddress).then(coords => {
+            if (coords && mapInstanceRef.current) {
+              mapInstanceRef.current.setCenter(new kakao.maps.LatLng(coords.lat, coords.lng))
             }
           })
         }
