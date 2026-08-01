@@ -8,7 +8,7 @@ export type RegionHit = {
   label: string         // "충청남도 천안시 서북구 불당동" 또는 "...전체"
 }
 
-// Kakao 응답의 약칭 sido → 빠방에서 쓰는 풀네임. request_posts.city와 일관성 유지.
+// Kakao 응답의 약칭 sido → 부소장에서 쓰는 풀네임. request_posts.city와 일관성 유지.
 const SIDO_FULL: Record<string, string> = {
   '서울': '서울특별시', '부산': '부산광역시', '대구': '대구광역시', '인천': '인천광역시',
   '광주': '광주광역시', '대전': '대전광역시', '울산': '울산광역시', '세종': '세종특별자치시',

@@ -1,4 +1,4 @@
-// Service Worker for 빠방 PWA
+// Service Worker for 부소장 PWA
 // 원칙: SW는 정적 자원·이미지 캐싱만 담당. 페이지·API·DB 호출은 가로채지 않는다.
 // - /_next/static/* : CacheFirst (불변 해시)
 // - 정적 자원(아이콘·manifest) : CacheFirst
@@ -7,7 +7,7 @@
 // - navigate 요청 실패 시에만 offline.html fallback
 // - 푸시 알림 / 클릭 처리
 
-const VERSION = 'ppabang-v4'
+const VERSION = 'busojang-v1'
 const STATIC_CACHE = `${VERSION}-static`
 const IMAGE_CACHE = `${VERSION}-images`
 const OFFLINE_URL = '/offline.html'
@@ -108,7 +108,7 @@ async function staleWhileRevalidate(request, cacheName) {
 
 // ── 푸시 알림 수신 ───────────────────────────────────────
 self.addEventListener('push', (event) => {
-  let data = { title: '빠방', body: '새 알림이 있어요', url: '/' }
+  let data = { title: '부소장', body: '새 알림이 있어요', url: '/' }
   try { if (event.data) data = { ...data, ...event.data.json() } } catch {}
 
   event.waitUntil(

@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const report = await loadReport(id)
   return {
-    title: report ? `${report.title} | ${report.office_name ?? '빠방'}` : '추천 매물',
+    title: report ? `${report.title} | ${report.office_name ?? '부소장'}` : '추천 매물',
     robots: { index: false, follow: false },
     openGraph: report ? {
       title: report.title,

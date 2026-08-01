@@ -188,7 +188,7 @@ async function testPublicPages(browser) {
   const page = await ctx.newPage()
 
   const pages = [
-    { path: '/',                   keywords: ['빠방', '방', '중개'] },
+    { path: '/',                   keywords: ['부소장', '방', '중개'] },
     { path: '/auth/login',         keywords: ['로그인', '이메일'] },
     { path: '/auth/signup',        keywords: ['회원가입', '이메일'] },
     { path: '/auth/reset-password',keywords: ['비밀번호', '이메일'] },
@@ -432,7 +432,7 @@ async function testAdminFlow(browser) {
   await page.screenshot({ path: 'screenshot-admin-dashboard.png' })
 
   const checks = [
-    { keywords: ['관리자', '빠방 관리자'],  label: '페이지 제목' },
+    { keywords: ['관리자', '부소장 관리자'],  label: '페이지 제목' },
     { keywords: ['회원'],                   label: '회원 통계' },
     { keywords: ['중개사'],                 label: '중개사 관리' },
     { keywords: ['요청', '제안'],           label: '요청/제안 통계' },
@@ -565,7 +565,7 @@ async function testMobile(browser) {
   await page.goto(`${BASE}`)
   await page.waitForTimeout(2000)
   await page.screenshot({ path: 'screenshot-mobile-home.png' })
-  const homeOk = await pageHasText(page, '빠방', '방', '중개')
+  const homeOk = await pageHasText(page, '부소장', '방', '중개')
   if (homeOk) pass('모바일', '홈 로딩 정상')
   else         fail('모바일', '홈 로딩 실패')
 
@@ -673,7 +673,7 @@ async function testUX(browser) {
 // ═══════════════════════════════════════════════════════════
 async function main() {
   console.log(`\n${'█'.repeat(60)}`)
-  console.log('  🚀 빠방 전체 E2E 테스트')
+  console.log('  🚀 부소장 전체 E2E 테스트')
   console.log(`  대상: ${BASE}`)
   console.log(`  시각: ${new Date().toLocaleString('ko-KR')}`)
   console.log(`${'█'.repeat(60)}`)

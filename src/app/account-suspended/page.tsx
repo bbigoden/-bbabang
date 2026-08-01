@@ -39,7 +39,7 @@ export default function AccountSuspendedPage() {
 
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
           {isBanned ? (
-            <>이용약관 위반 등으로 빠방 서비스를 더 이상 이용할 수 없습니다.<br />문의 사항이 있다면 고객지원으로 연락 주세요.</>
+            <>이용약관 위반 등으로 부소장 서비스를 더 이상 이용할 수 없습니다.<br />문의 사항이 있다면 고객지원으로 연락 주세요.</>
           ) : (
             <>일시적으로 서비스 이용이 제한됐습니다.<br />문의 사항은 고객지원을 통해 알려주세요.</>
           )}

@@ -33,7 +33,7 @@ const CUST_COLS: ColDef[] = [
   { key: 'received_date',      label: '접수일자', fixed: true, minWidth: 100 },
   { key: 'contact',            label: '연락처',   fixed: true, minWidth: 130 },
   { key: 'interest',           label: '관심물건', fixed: true, minWidth: 110, hasOptions: true, defaultOpts: ['상가','창고','오피스텔','건물','아파트','토지'] },
-  { key: 'source',             label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['빠방','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
+  { key: 'source',             label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['부소장','당근','플레이스','네이버광고','네이버블로그','공동','지인','특톡','기타'] },
   { key: 'status',             label: '진행상황', fixed: true, minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
   { key: 'consult_note',       label: '상담내용', fixed: true, minWidth: 260, isLong: true },
   { key: 'proposed_properties',label: '제안 매물', fixed: true, minWidth: 180 },
@@ -51,7 +51,7 @@ const DEFAULT_COL_SETTINGS: ColSettings = {
 }
 
 const SOURCE_COLORS: Record<string, string> = {
-  '빠방':'bg-blue-100 text-blue-700','당근':'bg-orange-100 text-orange-700',
+  '부소장':'bg-blue-100 text-blue-700','빠방':'bg-blue-100 text-blue-700','당근':'bg-orange-100 text-orange-700',
   '플레이스':'bg-sky-100 text-sky-700','네이버광고':'bg-green-100 text-green-700',
   '네이버블로그':'bg-green-100 text-green-700','공동':'bg-purple-100 text-purple-700',
   '지인':'bg-pink-100 text-pink-700','특톡':'bg-yellow-100 text-yellow-700','기타':'bg-gray-100 text-gray-600',
@@ -749,7 +749,7 @@ export default function BrokerDiaryPage() {
           .maybeSingle(),
       ])
       // archive 테이블은 이름·연락처만 저장한다(요청사항·진행상황 등은 없음).
-      // 빠방 고객은 대부분 이름을 비우고 요청사항에 핵심을 적으므로, archive만
+      // 부소장 고객은 대부분 이름을 비우고 요청사항에 핵심을 적으므로, archive만
       // 읽으면 연락처만 남아 "고객정보가 사라진" 것처럼 보인다. 원본 고객이
       // 아직 살아있으면(퇴사자 고객이 대표에게 이관돼 대개 살아있다) 원본에서
       // 요청사항·진행상황 등을 채워 넣는다. 원본이 없을 때만 archive 스냅샷 사용.

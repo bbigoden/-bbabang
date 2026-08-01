@@ -11,7 +11,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # PWA 아이콘·브랜드 자산 변경 시 필수 체크리스트
 
-빠방은 안드로이드/iOS PWA로 운영 중. 아이콘·로고·브랜드 컬러를 변경할 때
+부소장은 안드로이드/iOS PWA로 운영 중. 아이콘·로고·브랜드 컬러를 변경할 때
 **iOS는 안드로이드와 완전히 다른 채널**을 쓰므로 반드시 둘 다 챙길 것.
 한쪽만 처리하면 사용자가 "안 바뀌었는데?" 보고하게 됨.
 
@@ -44,7 +44,7 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 - **iOS는 `?v=2` 캐시버스터 무시**. 반드시 PWA 삭제 → Safari 데이터 지우기
   → 사이트 재방문 → "홈 화면에 추가" 재설치 안내해야 함
 
-## 빠방 브랜드 색
+## 부소장 브랜드 색
 - 메인 네이비: `#14274e` (페트롤 네이비)
 - hover: `#0f1d3a`
 - Tailwind `blue-600` 등은 globals.css `@theme`에서 페트롤 팔레트로 override됨

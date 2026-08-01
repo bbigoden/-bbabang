@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test'
 try { process.loadEnvFile('.env.local') } catch { /* env 파일 없으면 shell env 사용 */ }
 
 /**
- * Playwright config — 빠방 시각 검증 17단계 전용
+ * Playwright config — 부소장 시각 검증 17단계 전용
  *
  * 실행:
  *   npm run inspect:visual           - 기본 (light 모드, 2 viewport, 핵심 페이지)

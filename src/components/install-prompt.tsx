@@ -91,7 +91,7 @@ export function InstallPrompt() {
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900 dark:text-white">빠방 앱으로 설치하기</p>
+          <p className="text-sm font-bold text-gray-900 dark:text-white">부소장 앱으로 설치하기</p>
           <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
             {isIOS
               ? <>홈 화면에 추가하면 빠르게 접속할 수 있어요</>

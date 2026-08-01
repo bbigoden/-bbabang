@@ -129,10 +129,10 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
       <div className="mb-8 text-center">
         <Link href="/" className="inline-flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="빠방 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
-          <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
+          <img src="/icon.svg" alt="부소장 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
+          <span className="text-2xl font-bold text-gray-900 dark:text-white">부소장</span>
         </Link>
-        <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">빠방에 오신 걸 환영해요 🏠</p>
+        <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">부소장에 오신 걸 환영해요 🏠</p>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">무료로 시작하세요</p>
       </div>
 

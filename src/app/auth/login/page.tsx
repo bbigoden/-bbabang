@@ -18,7 +18,7 @@ export default async function LoginPage({
 
   return (
     <>
-      <h1 className="sr-only">빠방 로그인</h1>
+      <h1 className="sr-only">부소장 로그인</h1>
       <LoginForm redirectTo={redirectTo} expired={expired} />
     </>
   )

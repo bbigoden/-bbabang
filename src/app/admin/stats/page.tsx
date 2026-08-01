@@ -167,7 +167,7 @@ export default function AdminStatsPage() {
   // CSV 다운로드
   const downloadCSV = () => {
     const rows: string[][] = []
-    rows.push([`# 빠방 통계 (${range}일)`, `생성: ${new Date().toISOString()}`])
+    rows.push([`# 부소장 통계 (${range}일)`, `생성: ${new Date().toISOString()}`])
     rows.push([])
     rows.push(['요약'])
     rows.push(['항목', '값'])

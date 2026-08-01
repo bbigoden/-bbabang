@@ -149,7 +149,7 @@ export function FeaturedMain() {
           <div>
             <div className="mb-6 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-pink-500" />
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">빠방 추천 중개사</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">부소장 추천 중개사</h2>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {brokers.map(b => (

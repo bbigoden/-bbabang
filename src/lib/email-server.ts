@@ -1,7 +1,7 @@
 /**
  * 서버 사이드 이메일 발송 (Resend).
  * RESEND_API_KEY 환경변수 필요.
- * 발신자: EMAIL_FROM 환경변수 (예: '빠방 <noreply@bbabang.kr>')
+ * 발신자: EMAIL_FROM 환경변수 (예: '부소장 <noreply@bbabang.kr>')
  * 미설정 시 Resend 기본 onboarding@resend.dev로 발신 (테스트용, 본인에게만 수신).
  */
 import { Resend } from 'resend'
@@ -54,7 +54,7 @@ export function shouldSendEmail(
 }
 
 /**
- * 기본 이메일 템플릿 — 빠방 브랜드.
+ * 기본 이메일 템플릿 — 부소장 브랜드.
  */
 export function emailTemplate(opts: {
   title: string
@@ -88,7 +88,7 @@ ${opts.preview ? `<div style="display:none;font-size:1px;color:#f9fafb;line-heig
         </div>` : ''}
       </td></tr>
       <tr><td style="border-top:1px solid #f3f4f6;padding:20px 32px;font-size:12px;color:#9ca3af;text-align:center;">
-        이 메일은 빠방 알림 설정에 따라 발송됐어요.<br>
+        이 메일은 부소장 알림 설정에 따라 발송됐어요.<br>
         <a href="${base}/settings/notifications" style="color:#6b7280;text-decoration:underline;">알림 설정 변경</a> · <a href="${base}" style="color:#6b7280;text-decoration:underline;">bbabang.vercel.app</a>
       </td></tr>
     </table>

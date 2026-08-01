@@ -8,13 +8,13 @@ export const revalidate = 86400
 
 export const metadata: Metadata = {
   title: '이용약관',
-  description: '빠방 서비스 이용약관',
+  description: '부소장 서비스 이용약관',
 }
 
 const sections = [
   {
     title: '제1조 (목적)',
-    content: `이 약관은 빠방(이하 "회사")이 제공하는 부동산 중개 매칭 플랫폼 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.`,
+    content: `이 약관은 부소장(이하 "회사")이 제공하는 부동산 중개 매칭 플랫폼 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.`,
   },
   {
     title: '제2조 (정의)',

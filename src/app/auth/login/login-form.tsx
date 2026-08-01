@@ -95,11 +95,11 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="빠방 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
-            <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
+            <img src="/icon.svg" alt="부소장 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
+            <span className="text-2xl font-bold text-gray-900 dark:text-white">부소장</span>
           </Link>
           <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">다시 만나서 반가워요 👋</p>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">빠방과 함께 좋은 하루 보내세요</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">부소장과 함께 좋은 하루 보내세요</p>
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -178,7 +178,7 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-500">
-          로그인하면 빠방의{' '}
+          로그인하면 부소장의{' '}
           <Link href="/terms" className="underline">이용약관</Link>과{' '}
           <Link href="/privacy" className="underline">개인정보처리방침</Link>에 동의합니다
         </p>

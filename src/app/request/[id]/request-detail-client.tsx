@@ -170,7 +170,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               </div>
               <ShareButton
                 title={`${request.city} ${request.district} 구합니다`}
-                text={`빠방에서 ${request.city} ${request.district} 매물을 찾고 있어요!`}
+                text={`부소장에서 ${request.city} ${request.district} 매물을 찾고 있어요!`}
                 url={`https://bbabang.vercel.app/request/${request.id}`}
               />
             </div>

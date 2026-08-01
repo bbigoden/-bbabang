@@ -124,15 +124,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 왜 빠방? */}
+      {/* 왜 부소장? */}
       <section className="bg-white dark:bg-gray-900 px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">왜 빠방인가요?</h2>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">왜 부소장인가요?</h2>
             <p className="mt-3 text-gray-500">기존 부동산 플랫폼과 완전히 다릅니다</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            {/* 기존 vs 빠방 비교 */}
+            {/* 기존 vs 부소장 비교 */}
             <Card className="border-red-100">
               <CardBody>
                 <h3 className="mb-4 font-bold text-red-600 dark:text-red-400">😩 기존 플랫폼</h3>
@@ -154,7 +154,7 @@ export default function LandingPage() {
             </Card>
             <Card className="border-blue-100 bg-blue-50/30">
               <CardBody>
-                <h3 className="mb-4 font-bold text-blue-600">✨ 빠방</h3>
+                <h3 className="mb-4 font-bold text-blue-600">✨ 부소장</h3>
                 <ul className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
                   {[
                     '중개사가 먼저 내 조건에 맞는 매물 제안',
@@ -210,7 +210,7 @@ export default function LandingPage() {
               </h2>
               <p className="mb-6 text-gray-700 dark:text-gray-300 leading-relaxed">
                 더 이상 매물 홍보에 광고비를 쏟지 마세요.<br />
-                빠방에서는 원하는 매물이 있는 고객에게만 제안할 수 있습니다.
+                부소장에서는 원하는 매물이 있는 고객에게만 제안할 수 있습니다.
               </p>
               <ul className="mb-8 space-y-3 text-sm">
                 {[

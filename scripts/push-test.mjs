@@ -1,7 +1,7 @@
 // 점검용 푸시 도달 테스트 — 지정 이메일 사용자의 구독으로 테스트 알림 발송.
 // 사용법: npm run push:test  (기본 대상: 김용유 대표 실계정 t2 — 사장님 실기기로 도달 확인)
 //         node scripts/push-test.mjs someone@example.com
-// 수신 확인은 수동: 폰/PC에 "빠방 점검 테스트" 알림이 왔는지 확인.
+// 수신 확인은 수동: 폰/PC에 "부소장 점검 테스트" 알림이 왔는지 확인.
 // 주의: t2는 테스트 계정이 아니라 대표 실계정 (2026-07-26 확인) — 다른 직원 계정으로 보내지 말 것.
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -42,7 +42,7 @@ for (const s of subs) {
   const sub = { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }
   try {
     await webpush.sendNotification(sub, JSON.stringify({
-      title: '빠방 점검 테스트', body: `푸시 도달 확인 (${new Date().toLocaleString('ko-KR')})`, url: '/',
+      title: '부소장 점검 테스트', body: `푸시 도달 확인 (${new Date().toLocaleString('ko-KR')})`, url: '/',
     }))
     ok++
   } catch (e) {
@@ -51,5 +51,5 @@ for (const s of subs) {
   }
 }
 console.log(`[push-test] ${email}: 발송 성공 ${ok} / 실패 ${fail} (총 구독 ${subs.length})`)
-console.log('  → 기기에서 "빠방 점검 테스트" 알림 수신을 직접 확인하세요.')
+console.log('  → 기기에서 "부소장 점검 테스트" 알림 수신을 직접 확인하세요.')
 await sb.auth.signOut()

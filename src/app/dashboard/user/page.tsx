@@ -148,11 +148,11 @@ export default async function UserDashboardPage() {
 
         {/* 이용 흐름 안내 */}
         <div className="mb-8 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
-          <p className="mb-3 text-xs font-bold text-blue-500 uppercase tracking-wide">빠방 이용 흐름</p>
+          <p className="mb-3 text-xs font-bold text-blue-500 uppercase tracking-wide">부소장 이용 흐름</p>
           <div className="relative">
             {/* 모바일에서 가로 스크롤되는 영역인데 안에 포커스 가능한 요소가 없으면
                 키보드 사용자는 잘린 내용을 볼 방법이 없다(axe scrollable-region-focusable) */}
-            <div className="flex items-center gap-1 overflow-x-auto pr-4" tabIndex={0} role="group" aria-label="빠방 이용 흐름 단계">
+            <div className="flex items-center gap-1 overflow-x-auto pr-4" tabIndex={0} role="group" aria-label="부소장 이용 흐름 단계">
               {[
                 { icon: FileText, label: '요청 등록', desc: '조건 입력', active: activeRequests.length === 0 },
                 { icon: Users, label: '제안 받기', desc: '중개사 제안', active: activeRequests.length > 0 && requests?.reduce((a, r) => a + (r.proposal_count ?? 0), 0) === 0 },

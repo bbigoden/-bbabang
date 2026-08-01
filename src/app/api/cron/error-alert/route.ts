@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
     </p>`
 
   const html = emailTemplate({
-    title: `⚠️ 빠방 에러 ${unalerted.length}건 발생`,
+    title: `⚠️ 부소장 에러 ${unalerted.length}건 발생`,
     preview: `${groups.size}종 ${unalerted.length}건의 미확인 에러가 누적됐어요`,
     bodyHtml,
     ctaLabel: '에러 로그 확인',
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
 
   const result = await sendEmail({
     to: alertTo,
-    subject: `[빠방 알림] 에러 ${unalerted.length}건 (${groups.size}종)`,
+    subject: `[부소장 알림] 에러 ${unalerted.length}건 (${groups.size}종)`,
     html,
   })
 

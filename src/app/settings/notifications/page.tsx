@@ -20,7 +20,7 @@ const CATEGORIES: Array<{ key: keyof Prefs; label: string; desc: string; icon: R
   { key: 'messages',      label: '새 메시지',     desc: '채팅 메시지가 도착하면 알려요',         icon: MessageCircle },
   { key: 'proposals',     label: '새 제안',       desc: '중개사 제안이나 매물 카드가 도착할 때', icon: Sparkles },
   { key: 'matches',       label: '매칭 알림',     desc: '내 조건에 맞는 매물이 등록될 때',       icon: Bell },
-  { key: 'announcements', label: '공지·이벤트',   desc: '빠방 공지·업데이트 소식',               icon: Megaphone },
+  { key: 'announcements', label: '공지·이벤트',   desc: '부소장 공지·업데이트 소식',               icon: Megaphone },
 ]
 
 export default function SettingsNotificationsPage() {

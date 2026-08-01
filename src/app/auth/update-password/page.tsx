@@ -73,8 +73,8 @@ export default function UpdatePasswordPage() {
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="빠방 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
-            <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
+            <img src="/icon.svg" alt="부소장 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
+            <span className="text-2xl font-bold text-gray-900 dark:text-white">부소장</span>
           </Link>
           <h1 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">새 비밀번호 설정</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">8자 이상의 새 비밀번호를 입력해주세요</p>

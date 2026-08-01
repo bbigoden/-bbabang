@@ -83,7 +83,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
             </button>
             <Link href={homeHref} className="flex items-center gap-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.svg" alt="빠방 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
+              <img src="/icon.svg" alt="부소장 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
               <span className="text-xl font-bold text-gray-900 dark:text-white">
                 빠<span className="text-blue-600">방</span>
               </span>
@@ -92,7 +92,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
         ) : (
           <Link href={homeHref} className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="빠방 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
+            <img src="/icon.svg" alt="부소장 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
             <span className="text-xl font-bold text-gray-900 dark:text-white">
               빠<span className="text-blue-600">방</span>
             </span>

@@ -18,7 +18,7 @@ export default async function SignupPage({
     <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 py-12">
       <div className="w-full max-w-md">
         {/* SSR h1 — a11y page-has-heading-one */}
-        <h1 className="sr-only">빠방 회원가입</h1>
+        <h1 className="sr-only">부소장 회원가입</h1>
         <SignupForm defaultRole={defaultRole} />
       </div>
     </div>

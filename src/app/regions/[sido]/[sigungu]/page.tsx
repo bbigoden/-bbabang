@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     alternates: { canonical: `/regions/${sido}/${sigungu}` },
     openGraph: {
       title: `${label} 부동산 요청·중개사`,
-      description: `${label}에서 부동산 매물을 찾는다면 빠방`,
+      description: `${label}에서 부동산 매물을 찾는다면 부소장`,
     },
   }
 }
@@ -91,7 +91,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
       {
         '@type': 'FAQPage',
         mainEntity: [
-          { '@type': 'Question', name: `${sigunguN}에서 부동산 매물 어떻게 찾나요?`, acceptedAnswer: { '@type': 'Answer', text: '빠방에서 조건만 등록하면 인증된 공인중개사가 매물을 직접 제안합니다. 가입·요청 등록 모두 무료입니다.' } },
+          { '@type': 'Question', name: `${sigunguN}에서 부동산 매물 어떻게 찾나요?`, acceptedAnswer: { '@type': 'Answer', text: '부소장에서 조건만 등록하면 인증된 공인중개사가 매물을 직접 제안합니다. 가입·요청 등록 모두 무료입니다.' } },
           { '@type': 'Question', name: `${sigunguN}에 등록된 중개사는 몇 명인가요?`, acceptedAnswer: { '@type': 'Answer', text: `현재 ${brokerCount ?? 0}명의 공인중개사가 이 지역을 담당하고 있습니다.` } },
           { '@type': 'Question', name: `${sigunguN} 어떤 매물이 가장 인기 있나요?`, acceptedAnswer: { '@type': 'Answer', text: dealTypes.length > 0 ? `최근 가장 많이 요청된 거래는 ${dealTypes[0][0]}입니다.` : '아직 데이터가 충분하지 않습니다.' } },
         ],
@@ -265,7 +265,7 @@ export default async function RegionSigunguPage({ params }: { params: Promise<Pa
           <dl className="space-y-4 text-sm">
             <div>
               <dt className="font-semibold text-gray-800 dark:text-gray-100">Q. {sigunguN}에서 부동산 매물 어떻게 찾나요?</dt>
-              <dd className="mt-1 text-gray-500">A. 빠방에서 조건만 등록하면 인증된 공인중개사가 직접 매물을 제안해드려요. 가입·요청 등록 모두 무료입니다.</dd>
+              <dd className="mt-1 text-gray-500">A. 부소장에서 조건만 등록하면 인증된 공인중개사가 직접 매물을 제안해드려요. 가입·요청 등록 모두 무료입니다.</dd>
             </div>
             <div>
               <dt className="font-semibold text-gray-800 dark:text-gray-100">Q. {sigunguN}에 등록된 중개사는 몇 명인가요?</dt>

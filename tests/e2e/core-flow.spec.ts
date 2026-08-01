@@ -4,7 +4,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 /**
- * 빠방 핵심 업무 흐름 E2E (라이브 사이트)
+ * 부소장 핵심 업무 흐름 E2E (라이브 사이트)
  *
  * 시나리오:
  *   1. 고객(t1)이 /request/new 에서 매물 요청 등록

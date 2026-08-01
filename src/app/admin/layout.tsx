@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AdminSidebar } from '@/components/admin/sidebar'
 
 export const metadata: Metadata = {
-  title: { default: '관리자', template: '%s | 빠방 관리자' },
+  title: { default: '관리자', template: '%s | 부소장 관리자' },
   robots: { index: false, follow: false },
 }
 

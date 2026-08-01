@@ -23,30 +23,30 @@ export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
     default: '조건만 올리면 중개사가 찾아드립니다',
-    template: '%s | 빠방',
+    template: '%s | 부소장',
   },
   description: '내 조건만 올리면 공인중개사가 먼저 제안합니다. 전세·월세·매매 부동산 역경매 매칭 플랫폼',
-  keywords: '부동산, 중개, 전세, 월세, 매매, 역경매, 빠방, 공인중개사, 부동산 매칭',
-  authors: [{ name: '빠방' }],
+  keywords: '부동산, 중개, 전세, 월세, 매매, 역경매, 부소장, 빠방, 공인중개사, 부동산 매칭',
+  authors: [{ name: '부소장' }],
   openGraph: {
     type: 'website',
     locale: 'ko_KR',
     url: BASE_URL,
-    siteName: '빠방',
-    title: '빠방 - 조건만 올리면 중개사가 찾아드립니다',
+    siteName: '부소장',
+    title: '부소장 - 조건만 올리면 중개사가 찾아드립니다',
     description: '내 조건만 올리면 공인중개사가 먼저 제안합니다. 전세·월세·매매 부동산 역경매 매칭 플랫폼',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: '빠방 - 부동산 중개 매칭 플랫폼',
+        alt: '부소장 - 부동산 중개 매칭 플랫폼',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: '빠방 - 조건만 올리면 중개사가 찾아드립니다',
+    title: '부소장 - 조건만 올리면 중개사가 찾아드립니다',
     description: '내 조건만 올리면 공인중개사가 먼저 제안합니다.',
     images: ['/og-image.png'],
   },
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
   // iOS PWA standalone 모드 + 상단 상태바 네이비 통일
   appleWebApp: {
     capable: true,
-    title: '빠방',
+    title: '부소장',
     statusBarStyle: 'black-translucent',
   },
   manifest: '/manifest.webmanifest',
@@ -110,7 +110,7 @@ export default function RootLayout({
             '@graph': [
               {
                 '@type': 'WebSite',
-                name: '빠방',
+                name: '부소장',
                 alternateName: 'Ppabang',
                 url: BASE_URL,
                 potentialAction: {
@@ -121,7 +121,7 @@ export default function RootLayout({
               },
               {
             '@type': 'Organization',
-            name: '빠방',
+            name: '부소장',
             alternateName: 'Ppabang',
             url: BASE_URL,
             logo: `${BASE_URL}/icon-512.png`,

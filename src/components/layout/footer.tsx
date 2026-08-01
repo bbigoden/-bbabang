@@ -25,7 +25,7 @@ export function Footer() {
   if (HIDDEN_PATHS.some(p => pathname.startsWith(p))) return null
 
   // 환경변수 — 사용자가 운영 환경에서 설정. 누락 시 표시 안 함.
-  const companyName = process.env.NEXT_PUBLIC_BUSINESS_NAME ?? '빠방'
+  const companyName = process.env.NEXT_PUBLIC_BUSINESS_NAME ?? '부소장'
   const ceoName = process.env.NEXT_PUBLIC_BUSINESS_CEO
   const bizNumber = process.env.NEXT_PUBLIC_BUSINESS_REG_NUMBER
   const officeRegNumber = process.env.NEXT_PUBLIC_OFFICE_REG_NUMBER
@@ -41,7 +41,7 @@ export function Footer() {
           <div className="md:col-span-2">
             <div className="mb-3 flex items-center gap-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.svg" alt="빠방 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
+              <img src="/icon.svg" alt="부소장 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
               <span className="text-base font-bold text-gray-900 dark:text-white">
                 빠<span className="text-blue-600">방</span>
               </span>
@@ -96,8 +96,8 @@ export function Footer() {
               </div>
             </dl>
             <p className="mt-4 text-[11px] text-gray-500 leading-relaxed">
-              빠방은 통신판매중개자이며, 거래 당사자가 아닙니다.
-              매물 정보는 등록한 공인중개사가 책임지며, 빠방은 정보의 정확성·신뢰성에 대해 보증하지 않습니다.
+              부소장은 통신판매중개자이며, 거래 당사자가 아닙니다.
+              매물 정보는 등록한 공인중개사가 책임지며, 부소장은 정보의 정확성·신뢰성에 대해 보증하지 않습니다.
             </p>
           </div>
 
@@ -122,7 +122,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/office-intro" className="hover:text-blue-600 hover:underline">
-                  중개사무소용 빠방 소개
+                  중개사무소용 부소장 소개
                 </Link>
               </li>
             </ul>

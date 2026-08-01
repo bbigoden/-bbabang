@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .select('address, deal_type, room_type, price, monthly_rent')
     .eq('id', id)
     .maybeSingle()
-  if (!data) return { title: '매물 | 빠방' }
+  if (!data) return { title: '매물 | 부소장' }
   const region = maskAddressByType(data.address, data.room_type)
   const priceStr = data.deal_type === '월세'
     ? `보증금 ${data.price ? formatPrice(data.price) : '협의'}/월 ${data.monthly_rent ? formatPrice(data.monthly_rent) : '협의'}`
@@ -37,9 +37,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = `${region} ${data.deal_type ?? ''} ${data.room_type ?? ''} ${priceStr}`.replace(/\s+/g, ' ').trim()
   return {
     title,
-    description: `${title} — 빠방 인증 중개사가 등록한 매물`,
+    description: `${title} — 부소장 인증 중개사가 등록한 매물`,
     alternates: { canonical: `/property/${id}` },
-    openGraph: { title, description: `${title} — 빠방`, url: `/property/${id}` },
+    openGraph: { title, description: `${title} — 부소장`, url: `/property/${id}` },
   }
 }
 
@@ -354,7 +354,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         )}
 
         <p className="text-center text-xs text-gray-500">
-          빠방 인증 중개사가 등록한 매물 · {formatDate(prop.created_at)} 등록
+          부소장 인증 중개사가 등록한 매물 · {formatDate(prop.created_at)} 등록
         </p>
       </div>
     </div>

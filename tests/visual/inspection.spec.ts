@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 /**
- * 빠방 시각 검증 17단계
+ * 부소장 시각 검증 17단계
  *
  * 권한(public/user/broker/admin) × 페이지 × 뷰포트(mobile/desktop) × 테마(light[/dark]) 순회.
  * 각 변형마다:

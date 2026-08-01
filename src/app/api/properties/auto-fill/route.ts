@@ -123,7 +123,7 @@ async function callSeum(endpoint: string, params: Record<string, string>): Promi
 
 const pad4 = (s: string) => String(s || '0').padStart(4, '0')
 
-// 세움터 용도 → 빠방 19종 매핑은 공통 모듈에서 import (mapPurposeToRoomType)
+// 세움터 용도 → 부소장 19종 매핑은 공통 모듈에서 import (mapPurposeToRoomType)
 const mapRoomType = mapPurposeToRoomType
 
 function formatDate(s: unknown): string | null {

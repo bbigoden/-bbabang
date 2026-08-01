@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '빠방 - 부동산 중개 매칭',
-    short_name: '빠방',
+    name: '부소장 - 부동산 중개 매칭',
+    short_name: '부소장',
     description: '조건만 올리면 공인중개사가 먼저 제안합니다',
     start_url: '/',
     display: 'standalone',

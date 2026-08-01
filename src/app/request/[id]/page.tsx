@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     .maybeSingle()
   if (!data) return { title: '요청' }
   const region = [data.city, data.district, data.dong].filter(Boolean).join(' ')
-  // 루트 layout의 '%s | 빠방' 템플릿이 접미사를 붙이므로 여기선 안 붙임
+  // 루트 layout의 '%s | 부소장' 템플릿이 접미사를 붙이므로 여기선 안 붙임
   const title = `${region} ${data.deal_type ?? ''} ${data.room_type ?? ''} 요청`.replace(/\s+/g, ' ').trim()
   const priceRange = data.min_price && data.max_price ? ` (${data.min_price}~${data.max_price}만원)` : ''
   const description = `${region} ${data.room_type ?? ''} ${data.deal_type ?? ''}${priceRange} — 공인중개사 제안을 받아보세요.`

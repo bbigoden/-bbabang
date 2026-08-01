@@ -85,8 +85,8 @@ export function MfaForm() {
         <div className="mb-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icon.svg" alt="빠방 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
-            <span className="text-2xl font-bold text-gray-900 dark:text-white">빠방</span>
+            <img src="/icon.svg" alt="부소장 로고" width={40} height={40} className="h-10 w-10 rounded-xl" />
+            <span className="text-2xl font-bold text-gray-900 dark:text-white">부소장</span>
           </Link>
           <div className="mt-6 flex justify-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/30">

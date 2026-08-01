@@ -30,11 +30,11 @@ export function AdminSidebar() {
   // 데스크톱 사이드바만 — 모바일은 BottomNav로 이동 (broker와 패턴 통일)
   return (
     <aside aria-label="관리자 메뉴" className="hidden md:flex md:w-60 md:flex-col md:border-r md:border-gray-800 md:bg-gray-900 sticky top-0 h-screen">
-      {/* CustomerSidebar/BrokerSidebar와 동일 패턴: 로고 PNG + 빠방 텍스트 + 권한 부제 */}
+      {/* CustomerSidebar/BrokerSidebar와 동일 패턴: 로고 PNG + 부소장 텍스트 + 권한 부제 */}
       <div className="flex items-center gap-2 border-b border-gray-800 px-3 py-3">
         <Link href="/admin" className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="빠방 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
+          <img src="/icon.svg" alt="부소장 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
           <div className="min-w-0">
             <p className="text-base font-bold text-white">
               빠<span className="text-blue-400">방</span>

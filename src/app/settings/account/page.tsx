@@ -150,7 +150,7 @@ export default function SettingsAccountPage() {
   // 2FA 등록 시작 → QR 코드 표시
   const startEnroll = async () => {
     setMfaBusy(true); setMfaMsg(null)
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: '빠방', friendlyName: '빠방 TOTP' })
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', issuer: '부소장', friendlyName: '부소장 TOTP' })
     setMfaBusy(false)
     if (error || !data?.totp) {
       setMfaMsg({ type: 'err', text: '등록 시작에 실패했어요. 다시 시도해주세요.' })

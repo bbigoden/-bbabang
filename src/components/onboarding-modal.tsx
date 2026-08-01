@@ -62,7 +62,7 @@ export function OnboardingModal() {
       <div className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden"
         onClick={e => e.stopPropagation()}>
         <div className="relative flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-3.5">
-          <span id={titleId} className="text-xs font-bold text-gray-500">빠방 사용 가이드</span>
+          <span id={titleId} className="text-xs font-bold text-gray-500">부소장 사용 가이드</span>
           <button onClick={() => close()} aria-label="닫기"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800">
             <X className="h-4 w-4" />

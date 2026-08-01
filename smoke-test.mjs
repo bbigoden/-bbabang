@@ -96,12 +96,12 @@ for (const [name, path] of protectedPages) {
 // ── 3. 핵심 UI 요소 존재 확인 ─────────────────────────────────────────────────
 section('3. 핵심 UI 요소')
 
-await test('홈 — 빠방 로고', async () => {
+await test('홈 — 부소장 로고', async () => {
   const page = await context.newPage()
   try {
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 15000 })
-    const logo = await page.locator('text=빠방').first().isVisible().catch(() => false)
-    assert(logo, '빠방 로고 없음')
+    const logo = await page.locator('text=부소장').first().isVisible().catch(() => false)
+    assert(logo, '부소장 로고 없음')
   } finally { await page.close() }
 })
 

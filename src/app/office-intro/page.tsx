@@ -10,7 +10,7 @@ import {
 export const revalidate = 86400
 
 export const metadata = {
-  title: '중개사무소를 위한 빠방 — 매물장부터 정산까지 하나로',
+  title: '중개사무소를 위한 부소장 — 매물장부터 정산까지 하나로',
   description:
     '엑셀·수기·단톡방에 흩어진 사무소 업무를 하나로. 매물장, 고객장, 업무일지, 정산, 일정, 사내 메신저까지 — 실제 중개사무소가 만들고 매일 쓰는 업무 도구.',
 }
@@ -80,7 +80,7 @@ export default function OfficeIntroPage() {
       {/* 히어로 */}
       <section className="bg-blue-600 text-white">
         <div className="mx-auto max-w-5xl px-4 py-16 md:py-20 text-center">
-          <p className="mb-3 text-sm font-semibold text-blue-200">중개사무소를 위한 빠방</p>
+          <p className="mb-3 text-sm font-semibold text-blue-200">중개사무소를 위한 부소장</p>
           <h1 className="text-3xl md:text-4xl font-black leading-tight">
             매물장부터 정산까지,<br className="md:hidden" /> 사무소 업무가 한 곳에
           </h1>
@@ -95,7 +95,7 @@ export default function OfficeIntroPage() {
               무료로 시작하기
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('[빠방] 사무소 도입 문의')}`}
+            <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('[부소장] 사무소 도입 문의')}`}
               className="inline-flex items-center gap-2 rounded-xl border border-blue-300/60 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-500/40 transition-colors">
               <Mail className="h-4 w-4" />
               도입 문의
