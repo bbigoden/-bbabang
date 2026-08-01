@@ -77,7 +77,7 @@ ${opts.preview ? `<div style="display:none;font-size:1px;color:#f9fafb;line-heig
   <tr><td align="center">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);overflow:hidden;">
       <tr><td style="background:linear-gradient(135deg,#14274e 0%,#2c5095 100%);padding:24px 32px;">
-        <a href="${base}" style="color:#fff;text-decoration:none;font-size:22px;font-weight:900;letter-spacing:-0.5px;">빠<span style="color:#b1c2df;">방</span></a>
+        <a href="${base}" style="color:#fff;text-decoration:none;font-size:22px;font-weight:900;letter-spacing:-0.5px;">부소<span style="color:#b1c2df;">장</span></a>
       </td></tr>
       <tr><td style="padding:32px;">
         <h1 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#111827;line-height:1.4;">${opts.title}</h1>

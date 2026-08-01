@@ -85,7 +85,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/icon.svg" alt="부소장 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
               <span className="text-xl font-bold text-gray-900 dark:text-white">
-                빠<span className="text-blue-600">방</span>
+                부소<span className="text-blue-600">장</span>
               </span>
             </Link>
           </div>
@@ -94,7 +94,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon.svg" alt="부소장 로고" width={36} height={36} className="h-9 w-9 rounded-xl" />
             <span className="text-xl font-bold text-gray-900 dark:text-white">
-              빠<span className="text-blue-600">방</span>
+              부소<span className="text-blue-600">장</span>
             </span>
           </Link>
         )}

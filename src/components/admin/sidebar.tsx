@@ -37,7 +37,7 @@ export function AdminSidebar() {
           <img src="/icon.svg" alt="부소장 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
           <div className="min-w-0">
             <p className="text-base font-bold text-white">
-              빠<span className="text-blue-400">방</span>
+              부소<span className="text-blue-400">장</span>
               <span className="ml-1.5 text-[11px] font-medium text-gray-400">관리자</span>
             </p>
           </div>
