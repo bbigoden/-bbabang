@@ -223,7 +223,7 @@ export default function AdminStatsPage() {
     const a = document.createElement('a')
     a.href = url
     const today = new Date().toISOString().slice(0, 10)
-    a.download = `bbabang-stats-${range}d-${today}.csv`
+    a.download = `busojang-stats-${range}d-${today}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

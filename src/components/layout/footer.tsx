@@ -125,6 +125,11 @@ export function Footer() {
                   중개사무소용 부소장 소개
                 </Link>
               </li>
+              <li>
+                <Link href="/jobs" className="hover:text-blue-600 hover:underline">
+                  구인 게시판
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

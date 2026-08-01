@@ -112,7 +112,7 @@ export default function RootLayout({
               {
                 '@type': 'WebSite',
                 name: '부소장',
-                alternateName: 'Ppabang',
+                alternateName: ['Busojang', '빠방'],
                 url: BASE_URL,
                 potentialAction: {
                   '@type': 'SearchAction',
@@ -123,7 +123,7 @@ export default function RootLayout({
               {
             '@type': 'Organization',
             name: '부소장',
-            alternateName: 'Ppabang',
+            alternateName: ['Busojang', '빠방'],
             url: BASE_URL,
             logo: `${BASE_URL}/icon-512.png`,
             description: '내 조건을 올리면 공인중개사가 먼저 제안하는 부동산 역경매 매칭 플랫폼',
