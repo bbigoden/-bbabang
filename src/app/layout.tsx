@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/lib/theme-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Footer } from '@/components/layout/footer'
 import { InstallPrompt } from '@/components/install-prompt'
+import { RebrandNotice } from '@/components/rebrand-notice'
 import { ErrorBoundary, GlobalErrorListener } from '@/components/error-tracker'
 import { BrokerGlobalLayout } from '@/components/broker/global-layout'
 import { ToastProvider } from '@/components/toast'
@@ -152,6 +153,7 @@ export default function RootLayout({
                   <ConsentGate />
                   <BottomNav />
                   <InstallPrompt />
+                  <RebrandNotice />
                 </ToastProvider>
               </NotificationsProvider>
             </AuthProvider>
