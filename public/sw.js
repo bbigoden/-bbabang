@@ -7,7 +7,7 @@
 // - navigate 요청 실패 시에만 offline.html fallback
 // - 푸시 알림 / 클릭 처리
 
-const VERSION = 'busojang-v1'
+const VERSION = 'busojang-v2'
 const STATIC_CACHE = `${VERSION}-static`
 const IMAGE_CACHE = `${VERSION}-images`
 const OFFLINE_URL = '/offline.html'
