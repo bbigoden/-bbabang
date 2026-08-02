@@ -33,9 +33,9 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'co-broker',  href: '/request/new?co_broker=true', label: '공동요청', icon: Handshake },
   { id: 'messenger',  href: '/broker/messenger', label: '대화목록', icon: MessagesSquare },
   { id: 'schedule',   href: '/broker/schedule', label: '일정관리', icon: CalendarDays },
+  { id: 'jobs',       href: '/broker/jobs', label: '구인구직', icon: Briefcase, ownerOnly: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },
-  { id: 'jobs',       href: '/broker/jobs', label: '구인공고', icon: Briefcase, ownerOnly: true },
   {
     id: 'settings', label: '설정', icon: Settings,
     children: [
