@@ -49,3 +49,14 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 - hover: `#0f1d3a`
 - Tailwind `blue-600` 등은 globals.css `@theme`에서 페트롤 팔레트로 override됨
   → `bg-blue-600` 그대로 써도 자동으로 네이비로 렌더됨
+
+# /broker/* 새 페이지 추가 시 필수 체크리스트
+
+`next.config.ts`의 redirects()에 구 공개 프로필(`/broker/[id]`) 제거용 리다이렉트가 있어서,
+**BROKER_ROUTES 예외 목록에 없는 `/broker/한세그먼트` 경로는 전부 홈으로 308 리다이렉트된다.**
+
+새 `/broker/xxx` 페이지를 만들면 반드시:
+1. `next.config.ts` → `BROKER_ROUTES` 배열에 `'xxx'` 추가
+2. `curl -I localhost:3000/broker/xxx`로 200 확인 (308이면 누락)
+
+이미 두 번 걸린 함정: jobs(01dace0), cafe-post(edd9114).
