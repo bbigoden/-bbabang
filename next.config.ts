@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+import { readdirSync } from "fs";
+import { join } from "path";
 
 // 점검16단계 7-CSP: Content Security Policy + 보안 헤더.
 // - 'unsafe-inline' script는 Next.js 인라인 부트스트랩과 layout의 JSON-LD/테마 스크립트 때문에 불가피
@@ -58,11 +60,15 @@ const nextConfig: NextConfig = {
   // 문서 권고대로 렌더 이전 단계(라우팅)에서 처리한다.
   async redirects() {
     // /broker/* 는 중개사 업무 화면이라 실제 경로를 제외하고 나머지 한 세그먼트만
-    // 옛 공개 프로필로 간주한다. (빠뜨리면 업무 화면이 홈으로 튕기므로 주의)
-    const BROKER_ROUTES = [
-      'cafe-post', 'chats', 'customers', 'diary', 'jobs', 'messenger', 'properties',
-      'register', 'resources', 'schedule', 'settings', 'settlement', 'team', 'trash',
-    ].join('|')
+    // 옛 공개 프로필로 간주한다.
+    //
+    // 예외 목록을 손으로 관리하다 두 번(jobs 01dace0, cafe-post edd9114) 새 페이지가
+    // 홈으로 튕기는 사고가 나서, src/app/broker 폴더를 읽어 자동 생성한다.
+    // 새 /broker/xxx 페이지를 만들면 별도 등록 없이 자동으로 예외에 포함됨.
+    const BROKER_ROUTES = readdirSync(join(process.cwd(), 'src', 'app', 'broker'), { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name)
+      .join('|')
     return [
       { source: '/brokers', destination: '/', permanent: true },
       {
