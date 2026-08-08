@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
-import { generateCafePost } from '@/lib/cafe-post'
+import { generateCafePost, type PostFormat } from '@/lib/cafe-post'
 import { Newspaper, Copy, Check, Eraser, Sparkles } from 'lucide-react'
 
 /**
@@ -21,6 +21,7 @@ export default function CafePostPage() {
 
   const [source, setSource] = useState('')
   const [listingNo, setListingNo] = useState('')
+  const [format, setFormat] = useState<PostFormat>('cafe')
   const [result, setResult] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -30,16 +31,22 @@ export default function CafePostPage() {
     if (!auth.broker) { router.push('/broker/register'); return }
   }, [auth.loading, auth.user?.id, auth.broker?.id])
 
-  const convert = () => {
+  const convert = (fmt: PostFormat = format) => {
     const src = source.trim()
     if (!src) { toast.error('매물 원문을 붙여넣어 주세요.'); return }
     try {
-      setResult(generateCafePost(src, listingNo.trim()))
+      setResult(generateCafePost(src, listingNo.trim(), fmt))
       setCopied(false)
     } catch (e) {
       console.error('[cafe-post] convert failed', e)
       toast.error('변환 중 오류가 발생했습니다. 원문 형식을 확인해 주세요.')
     }
+  }
+
+  // 결과가 이미 있는 상태에서 형식을 바꾸면 즉시 재변환
+  const changeFormat = (fmt: PostFormat) => {
+    setFormat(fmt)
+    if (result && source.trim()) convert(fmt)
   }
 
   const copyResult = async () => {
@@ -74,8 +81,8 @@ export default function CafePostPage() {
         <PageHeader
           icon={Newspaper}
           iconColor="text-blue-600"
-          title="카페글 변환"
-          description="부동산뱅크·네이버부동산 매물 원문을 네이버 카페 게시용 글로 변환합니다"
+          title="매물글 변환"
+          description="부동산뱅크·네이버부동산 매물 원문을 네이버 카페·블로그 게시용 글로 변환합니다"
         />
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -99,9 +106,24 @@ export default function CafePostPage() {
               rows={18}
               className="w-full resize-y rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:border-blue-500 focus:outline-none"
             />
+            <div className="mt-3 flex rounded-xl border border-gray-200 dark:border-gray-700 p-1">
+              {([['cafe', '네이버 카페용'], ['blog', '네이버 블로그용']] as Array<[PostFormat, string]>).map(([fmt, label]) => (
+                <button
+                  key={fmt}
+                  onClick={() => changeFormat(fmt)}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
+                    format === fmt
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className="mt-3 flex items-center gap-2">
               <button
-                onClick={convert}
+                onClick={() => convert()}
                 disabled={!source.trim()}
                 className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

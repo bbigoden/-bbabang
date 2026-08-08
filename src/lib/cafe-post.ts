@@ -369,8 +369,9 @@ function buildSummary(p: ParsedListing): string {
   return `${s1} ${s2} ${s3}`
 }
 
-function buildTable(p: ParsedListing, listingNo: string): string {
-  const rows: Array<[string, string]> = [
+/** 13행 법정 순서 기본 정보 (카페=표, 블로그=리스트 공용) */
+function infoRows(p: ParsedListing, listingNo: string): Array<[string, string]> {
+  return [
     ['매물번호', listingNo],
     ['소재지', fmtLocation(p)],
     ['면적', fmtArea(p)],
@@ -385,7 +386,31 @@ function buildTable(p: ParsedListing, listingNo: string): string {
     ['관리비', p.maintenanceFee ? `${p.maintenanceFee} (세부 비목 확인 필요)` : NEEDS_CHECK],
     ['방향', p.direction ? `${p.direction.endsWith('향') ? p.direction : `${p.direction}향`} (주출입구 기준)` : NEEDS_CHECK],
   ]
-  return ['| 항목 | 내용 |', '|------|------|', ...rows.map(([k, v]) => `| ${k} | ${v} |`)].join('\n')
+}
+
+function buildTable(p: ParsedListing, listingNo: string): string {
+  return ['| 항목 | 내용 |', '|------|------|', ...infoRows(p, listingNo).map(([k, v]) => `| ${k} | ${v} |`)].join('\n')
+}
+
+/** 블로그용 — 네이버 블로그 에디터는 마크다운 표가 안 붙으므로 리스트형 */
+function buildInfoList(p: ParsedListing, listingNo: string): string {
+  return infoRows(p, listingNo).map(([k, v]) => `■ ${k} : ${v}`).join('\n')
+}
+
+/** 블로그용 SEO 제목 — 검색 키워드(지역+업종+거래형태)를 앞에 배치 */
+function buildBlogTitles(p: ParsedListing): string[] {
+  const region = p.city === '아산시' ? '아산' : '천안'
+  const dong = p.dong ? `${p.dong} ` : ''
+  const kind = KIND_LABEL[p.category]
+  const deal = p.dealType ?? '임대'
+  const f = features(p)
+  const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
+  const areaTxt = p.exclusiveArea ? `전용 약 ${m2ToPyeong(p.exclusiveArea)}평` : ''
+  return [
+    `${region} ${dong}${kind} ${deal} | ${f[0]}${areaTxt ? ` ${areaTxt}` : ''}`,
+    `${region} ${dong}${kind} ${deal} 매물 정보 - ${uses[0]}, ${uses[1]} 추천`,
+    `${region} ${kind} ${deal} 찾으신다면 | ${dong}${f[0]} 매물`,
+  ]
 }
 
 function buildDetails(p: ParsedListing): string {
@@ -515,16 +540,24 @@ function buildReport(p: ParsedListing, src: string, listingNo: string): string |
 
 // ── 진입점 ────────────────────────────────────────────
 
-export function generateCafePost(source: string, listingNoInput: string): string {
+export type PostFormat = 'cafe' | 'blog'
+
+export function generateCafePost(
+  source: string,
+  listingNoInput: string,
+  format: PostFormat = 'cafe',
+): string {
   const p = parseListing(source)
   const listingNo = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
 
-  const titles = buildTitles(p)
+  const titles = format === 'blog' ? buildBlogTitles(p) : buildTitles(p)
+  const infoSection = format === 'blog' ? buildInfoList(p, listingNo) : buildTable(p, listingNo)
+
   const sections = [
     `🏷️ **추천 제목**\n${titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}`,
     `👋 **소개**\n\n${buildIntro(p, source)}`,
     `📍 **매물 요약**\n\n${buildSummary(p)}`,
-    `🏢 **매물 기본 정보**\n\n${buildTable(p, listingNo)}`,
+    `🏢 **매물 기본 정보**\n\n${infoSection}`,
     `✨ **매물 세부 특징 설명**\n\n${buildDetails(p)}`,
     `💬 **자주 묻는 질문**\n\n${buildQnA(p)}`,
     `📞 **중개사 정보**\n\n${buildBrokerInfo(p)}`,
