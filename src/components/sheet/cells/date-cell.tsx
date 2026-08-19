@@ -9,14 +9,17 @@ import { cn } from '@/lib/utils'
  * - 달력에서 날짜 클릭하면 즉시 저장 + 닫힘
  * - 빈 값: "날짜" placeholder (회색)
  * - readOnly: 편집 불가, 표시만
+ * - onClear 전달 시: 팝업에 '지우기' 버튼 표시 + 입력값을 비우고 엔터 쳐도 지워짐
  */
 export function DateCell({
   value,
   onSave,
+  onClear,
   readOnly,
 }: {
   value: string | null
   onSave: (v: string) => void
+  onClear?: () => void
   readOnly?: boolean
 }) {
   const [open, setOpen] = useState(false)
@@ -43,7 +46,13 @@ export function DateCell({
   }
   const commit = () => {
     const v = normalize(draft)
-    if (v && v !== (value ?? '')) onSave(v)
+    if (!v) {
+      // 입력값을 다 지우고 확정하면 날짜 제거 (onClear 지원 셀 한정)
+      if (value && onClear) onClear()
+      setOpen(false)
+      return
+    }
+    if (v !== (value ?? '')) onSave(v)
     setOpen(false)
   }
 
@@ -111,11 +120,20 @@ export function DateCell({
       </div>
       {open && (
         <div ref={popupRef} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={{ ...popStyle, width: 240 }}>
-          <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+          <div className="p-2 border-b border-gray-100 dark:border-gray-800 flex items-center gap-1">
             <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
               placeholder="2026-05-13"
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+              className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
+            {onClear && value && (
+              <button
+                onClick={() => { onClear(); setOpen(false) }}
+                title="날짜 지우기"
+                className="flex-shrink-0 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-xs font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+              >
+                지우기
+              </button>
+            )}
           </div>
           <div className="flex items-center justify-between px-3 py-2">
             <button onClick={prevMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-500 text-xs font-bold">‹</button>

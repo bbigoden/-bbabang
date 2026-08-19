@@ -841,6 +841,7 @@ export default function SettlementPage() {
                           value={r.seller_payment_date}
                           readOnly={!canEditMoney}
                           onSave={v => updateRow(r.id, { seller_payment_date: v || null })}
+                          onClear={() => updateRow(r.id, { seller_payment_date: null })}
                         />
                       </td>
                       <td className="px-1 py-1">
@@ -848,6 +849,7 @@ export default function SettlementPage() {
                           value={r.buyer_payment_date}
                           readOnly={!canEditMoney}
                           onSave={v => updateRow(r.id, { buyer_payment_date: v || null })}
+                          onClear={() => updateRow(r.id, { buyer_payment_date: null })}
                         />
                       </td>
                       <td className="px-1 py-1">
