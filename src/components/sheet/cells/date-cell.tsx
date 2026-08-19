@@ -121,20 +121,25 @@ export function DateCell({
       </div>
       {open && (
         <div ref={popupRef} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={{ ...popStyle, width: 240 }}>
-          <div className="p-2 border-b border-gray-100 dark:border-gray-800 flex items-center gap-1">
-            <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
-              placeholder="2026-05-13"
-              className="min-w-0 flex-1 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
-            {onClear && value && (
-              <button
-                onClick={() => { onClear(); setOpen(false) }}
-                aria-label="날짜 지우기" title="날짜 지우기"
-                className="flex-shrink-0 text-gray-500 hover:text-gray-600 dark:text-gray-500"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+          <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+            <div className="relative">
+              <input ref={inputRef} value={draft} onChange={e => setDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setOpen(false) }}
+                placeholder="2026-05-13"
+                className={cn(
+                  "w-full rounded-lg border border-gray-200 dark:border-gray-800 py-1.5 pl-2 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20",
+                  onClear && value ? "pr-7" : "pr-2",
+                )} />
+              {onClear && value && (
+                <button
+                  onClick={() => { onClear(); setOpen(false) }}
+                  aria-label="날짜 지우기" title="날짜 지우기"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 dark:text-gray-500"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between px-3 py-2">
             <button onClick={prevMonth} className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 text-gray-500 text-xs font-bold">‹</button>
