@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -128,10 +129,10 @@ export function DateCell({
             {onClear && value && (
               <button
                 onClick={() => { onClear(); setOpen(false) }}
-                title="날짜 지우기"
-                className="flex-shrink-0 rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 text-xs font-medium text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                aria-label="날짜 지우기" title="날짜 지우기"
+                className="flex-shrink-0 text-gray-500 hover:text-gray-600 dark:text-gray-500"
               >
-                지우기
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
