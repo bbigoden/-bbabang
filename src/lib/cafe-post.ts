@@ -96,9 +96,15 @@ function parseAddress(raw: string | undefined) {
 }
 
 /** 업종 카테고리 추정 (템플릿 선택용) */
-function detectCategory(src: string, exclusiveArea?: number): Category {
+function detectCategory(source: string, exclusiveArea?: number): Category {
+  // 중개사무소 소개 문구("플러스불당공인중개사사무소")가 업종 판단에 섞이면
+  // 1층 상가가 '사무실'로 잡힌다. 판단 전에 걷어낸다.
+  const src = source
+    .replace(/[가-힣]*공인중개사\s*사무소/g, '')
+    .replace(/중개\s*사무소/g, '')
+
   if (exclusiveArea && exclusiveArea >= 330) return 'large' // 약 100평 이상
-  if (/사무실|사무소|오피스/.test(src)) return 'office'
+  if (/사무실|오피스/.test(src)) return 'office'
   if (/음식점|식당|카페|주방|요식|덕트|홀\b/.test(src)) return 'food'
   if (/학원|교습|스터디/.test(src)) return 'academy'
   if (/미용|네일|피부|헤어|뷰티/.test(src)) return 'beauty'
@@ -304,12 +310,25 @@ function fmtLocation(p: ParsedListing): string {
   return base === NEEDS_CHECK ? base : `${base}${fl}`
 }
 
+/**
+ * 실제로 주차가 되는 매물인지.
+ *
+ * 부동산뱅크는 주차 없는 매물도 주차대수를 0으로 저장하므로, 값의 존재만 보면
+ * "총 0대"인 매물에 '주차 가능' 특장점·태그·Q&A가 붙어 본문과 모순된다.
+ * 주차 관련 문구는 전부 이 함수를 거친다.
+ */
+function hasParking(p: ParsedListing): boolean {
+  if (!p.parking) return false
+  const n = p.parking.match(/\d+/)
+  return n ? Number(n[0]) > 0 : !/없|불가/.test(p.parking)
+}
+
 /** 특장점 후보 수집 (제목·한줄요약·태그에서 공용) */
 function features(p: ParsedListing): string[] {
   const out: string[] = []
   if (p.premium === '없음') out.push('무권리')
   if (p.moveIn === '즉시입주') out.push('즉시입주 가능')
-  if (p.parking) out.push('주차 가능')
+  if (hasParking(p)) out.push('주차 가능')
   if (p.elevator) out.push('엘리베이터')
   if (p.floor === '1') out.push('1층 매물')
   if (p.exclusiveArea && p.exclusiveArea >= 330) out.push('대형 평수')
@@ -356,7 +375,8 @@ function buildIntro(p: ParsedListing, src: string): string {
     ? `이번 매물은 ${locArea} 매물로, ${extraTxt} 이런 고민을 덜어드릴 수 있습니다.`
     : `이번 매물은 ${extraTxt} 이런 고민을 함께 풀어볼 수 있는 매물입니다.`
 
-  return `안녕하세요. ${regionLabel} ${kindWord[p.category]} 임대·매매를 다뤄온 플러스불당공인중개사사무소입니다.\n\n${concern}\n\n${answer}`
+  // '~를 다뤄온' 은 중개사무소 소개로 어색하다. 목적격 조사를 빼고 '업종 + 전문' 으로 잇는다.
+  return `안녕하세요. ${regionLabel} ${kindWord[p.category]} 전문 플러스불당공인중개사사무소입니다.\n\n${concern}\n\n${answer}`
 }
 
 function buildSummary(p: ParsedListing): string {
@@ -413,6 +433,20 @@ function buildBlogTitles(p: ParsedListing): string[] {
   ]
 }
 
+/**
+ * 세부 특징 4개를 [아이콘, 소제목, 본문] 으로 반환.
+ * 카페 HTML 생성기(make_cafe_html.py)가 이 구조를 그대로 받는다.
+ * 아이콘은 고정 — 매물 종류가 바뀌어도 같은 자리에 같은 아이콘이 오도록 한다.
+ */
+function detailSections(p: ParsedListing): Array<[string, string, string]> {
+  const md = buildDetails(p)
+  const icons = ['🗺️', '🏗️', '💡', '💰']
+  return md.split('\n\n').map((block, i) => {
+    const [head, ...rest] = block.split('\n')
+    return [icons[i] ?? '📌', head.replace(/\*\*/g, ''), rest.join(' ')] as [string, string, string]
+  })
+}
+
 function buildDetails(p: ParsedListing): string {
   const region = [p.city, p.gu, p.dong].filter(Boolean).join(' ') || '해당 지역'
 
@@ -439,12 +473,20 @@ function buildDetails(p: ParsedListing): string {
   return [loc, building, uses, cond].join('\n\n')
 }
 
+/** Q&A 3개를 [질문, 답변] 쌍으로 반환 (HTML 생성기용). */
+function qnaPairs(p: ParsedListing): Array<[string, string]> {
+  return buildQnA(p).split('\n\n').map(block => {
+    const [q, a] = block.split('\n')
+    return [q.replace(/^\*\*Q\.\s*/, '').replace(/\*\*$/, ''), a.replace(/^A\.\s*/, '')] as [string, string]
+  })
+}
+
 function buildQnA(p: ParsedListing): string {
   const pool: Array<[string, string]> = []
   if (!p.maintenanceFee) pool.push(['관리비는 얼마나 나오나요?', '관리비는 건물 관리규약에 따라 부과되어 정확한 금액과 포함 항목을 확인 후 안내드리겠습니다. 문의 주시면 바로 확인해 드립니다.'])
   if (p.premium === '유선 문의') pool.push(['권리금은 어떻게 되나요?', '권리금은 유선으로 문의 주시면 조건을 안내드리겠습니다. 협의 범위도 함께 설명드립니다.'])
   if (p.premium === '없음') pool.push(['정말 권리금이 없나요?', '네, 무권리 매물입니다. 초기 비용은 보증금과 시설 공사 범위 위주로 계획하시면 됩니다.'])
-  if (p.parking) pool.push(['주차는 충분한가요?', `주차는 ${p.parking} 조건입니다. 이용 방식(지정/공용)은 현장에서 함께 확인해 드립니다.`])
+  if (hasParking(p)) pool.push(['주차는 충분한가요?', `주차는 ${p.parking} 조건입니다. 이용 방식(지정/공용)은 현장에서 함께 확인해 드립니다.`])
   if (p.exclusiveArea && p.exclusiveArea >= 330) pool.push(['일부만 임대도 가능한가요?', '분할 임대 가능 여부는 임대인과 협의가 필요한 부분입니다. 원하시는 면적을 말씀해 주시면 협의해 보겠습니다.'])
   if (p.moveIn === '즉시입주') pool.push(['입주는 언제부터 가능한가요?', '즉시입주 가능한 매물입니다. 계약 일정에 맞춰 바로 사용하실 수 있습니다.'])
   pool.push(['현장은 언제 볼 수 있나요?', '연락 주시면 일정을 맞춰 현장 안내드리겠습니다. 방문 전 원하시는 조건을 말씀해 주시면 비교 매물도 함께 준비해 드립니다.'])
@@ -493,7 +535,7 @@ function buildTags(p: ParsedListing): string {
   // 특성
   if (p.premium === '없음') tags.add(`#${region}무권리상가`)
   if (p.moveIn === '즉시입주') tags.add(`#${region}즉시입주상가`)
-  if (p.parking) tags.add(`#${region}주차가능상가`)
+  if (hasParking(p)) tags.add(`#${region}주차가능상가`)
   if (p.floor === '1') tags.add(`#${region}1층상가`)
   if (p.elevator) tags.add(`#${region}엘리베이터상가`)
 
@@ -568,4 +610,113 @@ export function generateCafePost(
 
   const report = buildReport(p, source, listingNo)
   return sections.join('\n\n\n') + (report ? `\n\n\n${report}` : '')
+}
+
+// ── 카페 HTML 생성기 연동 ─────────────────────────────
+
+/**
+ * make_cafe_html.py 가 받는 config 구조.
+ * 스킬(naver-cafe-listing)의 post_config.json 스키마와 1:1 대응한다.
+ */
+export interface CafeHtmlConfig {
+  no: string
+  out_dir: string
+  titles: string[]
+  intro: string[]
+  summary: string
+  rows: Array<[string, string]>
+  features: Array<[string, string, string]>
+  qa: Array<[string, string]>
+  report: string[]
+  office_lead: string
+  highlight: string
+  tags: string
+}
+
+/**
+ * 매물 원문 → 카페 HTML 생성기용 config.
+ *
+ * 마크다운 문자열(generateCafePost)과 같은 문구 규칙을 쓰되, 섹션을 구조화해서 돌려준다.
+ * 카페 에디터가 마크다운 표를 렌더링하지 않아 HTML `<table>` 로 내야 하므로,
+ * 실제 발행에는 이 config → make_cafe_html.py 경로를 쓴다.
+ */
+export function buildCafeHtmlConfig(
+  source: string,
+  listingNoInput: string,
+  outDir = '.',
+): CafeHtmlConfig {
+  const p = parseListing(source)
+  const no = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
+
+  const report = buildReport(p, source, no)
+  const reportItems = report
+    ? report.split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2).replace(/\*\*/g, ''))
+    : []
+
+  return {
+    no,
+    out_dir: outDir,
+    titles: buildTitles(p),
+    intro: buildIntro(p, source).split('\n\n').filter(Boolean),
+    summary: buildSummary(p),
+    rows: infoRows(p, no),
+    features: detailSections(p),
+    qa: qnaPairs(p),
+    report: reportItems,
+    office_lead: `현장을 직접 확인한 실매물만 소개해 드리며, 광고되지 않은 매물도 함께 비교해 보실 수 있도록 준비해 드립니다.${p.coBrokerage ? ' 공동중개도 환영합니다.' : ''}`,
+    highlight: features(p).slice(0, 3).join(' + '),
+    tags: buildTags(p),
+  }
+}
+
+/**
+ * 썸네일 생성기(make_cafe_thumb.py)용 config.
+ * 값은 전부 매물 기본 정보에서 그대로 가져온다 — 표에 없는 내용을 지어내지 않는다.
+ */
+export interface CafeThumbConfig {
+  no: string
+  out_dir: string
+  region_badge: string
+  headline: string[]
+  price_lines: string[]
+  office: string
+  phone: string
+}
+
+export function buildCafeThumbConfig(
+  source: string,
+  listingNoInput: string,
+  outDir = '.',
+): CafeThumbConfig {
+  const p = parseListing(source)
+  const no = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
+
+  // 지역 배지: 충청남도 제거, 천안시→천안, 아산시→아산, 최대 3어절
+  const region = [p.city, p.gu, p.dong].filter(Boolean).join(' ')
+    .replace(/충청남도\s*/, '').replace(/천안시/, '천안').replace(/아산시/, '아산')
+    .split(/\s+/).slice(0, 3).join(' ') || '천안'
+
+  // 헤드라인: 층 + 종류 + 거래형태 / 면적
+  const kind = KIND_LABEL[p.category]
+  const floorPart = p.floor && /^\d+$/.test(p.floor) ? `${p.floor}층 ` : ''
+  const head1 = `${floorPart}${kind} ${p.dealType ?? '임대'}`.trim()
+  const head2 = p.exclusiveArea
+    ? `전용 ${p.exclusiveArea}㎡ · ${m2ToPyeong(p.exclusiveArea)}평`
+    : p.supplyArea ? `공급 ${p.supplyArea}㎡ · ${m2ToPyeong(p.supplyArea)}평` : ''
+
+  // 가격: 괄호 부연·단서(부가세 별도 등)는 썸네일에서 제외
+  const strip = (s: string) => s.replace(/\([^)]*\)/g, '').trim()
+  const priceLines = fmtPrice(p) === NEEDS_CHECK
+    ? ['가격 협의']
+    : fmtPrice(p).split(' / ').map(strip).filter(Boolean).slice(0, 3)
+
+  return {
+    no,
+    out_dir: outDir,
+    region_badge: region,
+    headline: [head1, head2].filter(Boolean),
+    price_lines: priceLines,
+    office: '플러스불당 공인중개사사무소',
+    phone: '010-5585-8943',
+  }
 }
