@@ -47,14 +47,20 @@ export type Category = 'office' | 'food' | 'academy' | 'beauty' | 'large' | 'ret
 
 const NEEDS_CHECK = '확인 필요'
 
-/** 라벨 뒤의 값을 뽑는다. `소재지 : 값`, `소재지: 값`, `소재지 값`, 탭 구분 모두 허용 */
+/**
+ * 라벨 뒤의 값을 뽑는다. `소재지 : 값`, `소재지: 값`, `소재지 값`, 탭 구분 모두 허용.
+ *
+ * 부동산뱅크 원문은 **미입력**을 `-`, `-만원`, `- 만원 (표시안함)`, `표시안함` 으로 적는다.
+ * 이걸 값으로 읽으면 "권리금은 -만원 조건입니다" 같은 문장이 나가고,
+ * 융자·임차권등기는 "없음"으로 단정돼 허위표시가 된다. 전부 미입력으로 처리한다.
+ */
 function field(src: string, labels: string[]): string | undefined {
   for (const label of labels) {
     const re = new RegExp(`${label}\\s*[:：|]?\\s*([^\\n\\r|]+)`)
     const m = src.match(re)
     if (m) {
       const v = m[1].trim()
-      if (v && v !== '-' && !/^-\s/.test(v)) return v
+      if (v && !/^-/.test(v) && !/^표시안함$/.test(v)) return v
     }
   }
   return undefined
