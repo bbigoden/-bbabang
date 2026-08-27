@@ -137,15 +137,17 @@ export function parseListing(source: string): ParsedListing {
 
   // 거래형태·가격
   let dealType: ParsedListing['dealType']
-  const dealField = field(src, ['거래형태', '거래유형', '거래구분'])
+  // '거래종류'는 부동산뱅크 인쇄 화면(매물 원문)이 쓰는 라벨
+  const dealField = field(src, ['거래형태', '거래유형', '거래구분', '거래종류'])
   if (dealField) {
     if (dealField.includes('매매')) dealType = '매매'
     else if (dealField.includes('전세')) dealType = '전세'
     else if (dealField.includes('월세') || dealField.includes('임대')) dealType = '월세'
   }
-  let deposit = field(src, ['보증금'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
-  let monthlyRent = field(src, ['월세', '월\\s*임대료', '차임'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
-  let salePrice = field(src, ['매매가', '매매금액', '전세가', '전세금'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
+  // 뱅크 원문은 한 줄에 몰아서 쓴다: `월세가  월세보증금 2,000 만원 / 월세금액 120 만원`
+  let deposit = field(src, ['월세보증금', '보증금'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
+  let monthlyRent = field(src, ['월세금액', '월세', '월\\s*임대료', '차임'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
+  let salePrice = field(src, ['매매가격', '매매가', '매매금액', '전세보증금', '전세가', '전세금'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
   // "1,000/70" 단축 표기
   if (!deposit && !monthlyRent) {
     const short = src.match(/([\d,]+)\s*\/\s*([\d,]+)\s*(?:만원)?/)
@@ -402,7 +404,8 @@ function infoRows(p: ParsedListing, listingNo: string): Array<[string, string]> 
     ['입주가능일', p.moveIn ?? NEEDS_CHECK],
     ['방수/욕실수', p.bathrooms ? `화장실 ${p.bathrooms}개` : NEEDS_CHECK],
     ['사용승인일', p.approvalDate ?? NEEDS_CHECK],
-    ['주차대수', p.parking ?? NEEDS_CHECK],
+    // 뱅크 원문은 "총 주차대수 0" 형태라 숫자만 잡힌다 — 표기 형식을 맞춘다
+    ['주차대수', p.parking ? (/^\d+$/.test(p.parking) ? `총 ${p.parking}대` : p.parking) : NEEDS_CHECK],
     ['관리비', p.maintenanceFee ? `${p.maintenanceFee} (세부 비목 확인 필요)` : NEEDS_CHECK],
     ['방향', p.direction ? `${p.direction.endsWith('향') ? p.direction : `${p.direction}향`} (주출입구 기준)` : NEEDS_CHECK],
   ]
