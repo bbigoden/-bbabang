@@ -140,8 +140,16 @@ export function parseListing(source: string): ParsedListing {
     floor = floorPair[1]
     totalFloors = floorPair[2]
   } else {
-    floor = field(src, ['해당층'])?.match(/B?\d+/)?.[0]
-    totalFloors = field(src, ['총층수', '총층'])?.match(/\d+/)?.[0]
+    // 단층 건물(창고·공장)은 지하층이 비어 `지하층/지상층  - / 1` 로 온다.
+    // 한쪽이 미입력이라고 층수를 통째로 버리면 표가 "확인 필요"가 된다.
+    const halfPair = src.match(/지하층\s*\/\s*지상층\s*[:：]?\s*(-|B?\d+)\s*\/\s*(-|\d+)/)
+    if (halfPair) {
+      const [, base, upper] = halfPair
+      if (upper !== '-') { floor = upper; totalFloors = upper }
+      else if (base !== '-') floor = base
+    }
+    floor ??= field(src, ['해당층'])?.match(/B?\d+/)?.[0]
+    totalFloors ??= field(src, ['총층수', '총층'])?.match(/\d+/)?.[0]
   }
 
   // 거래형태·가격
@@ -211,7 +219,17 @@ export function parseListing(source: string): ParsedListing {
     propertyKind: field(src, ['중개대상물\\s*종류', '건축물\\s*용도', '용도', '매물종류', '건물용도']),
     moveIn,
     bathrooms: field(src, ['화장실', '욕실'])?.match(/\d+/)?.[0],
-    approvalDate: field(src, ['사용승인일', '준공년월', '준공연도', '준공일', '사용승인'])?.match(/[\d.\-년월\s]+/)?.[0]?.trim(),
+    // 뱅크 원문은 `준공년월  2021.05.27   총 주차대수  5` 처럼 한 줄에 두 항목을 붙여 쓴다.
+    // 느슨하게 잡으면 뒤 항목까지 딸려오고, 너무 좁게 잡으면 연도만 남는다.
+    approvalDate: (() => {
+      const v = field(src, ['사용승인일', '준공년월', '준공연도', '준공일', '사용승인'])
+      if (!v) return undefined
+      const ymd = v.match(/(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})/)
+      if (ymd) return `${ymd[1]}.${ymd[2].padStart(2, '0')}.${ymd[3].padStart(2, '0')}`
+      const ym = v.match(/(\d{4})[.\-/년]\s*(\d{1,2})/)
+      if (ym) return `${ym[1]}.${ym[2].padStart(2, '0')}`
+      return v.match(/\d{4}/)?.[0]
+    })(),
     parking: field(src, ['주차대수', '주차'])?.trim(),
     maintenanceFee,
     maintenanceFeeAmount,
