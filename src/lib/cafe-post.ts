@@ -44,6 +44,7 @@ export interface ParsedListing {
 }
 
 export type Category = 'office' | 'food' | 'academy' | 'beauty' | 'large' | 'retail' | 'industrial'
+  | 'residential' | 'land'
 
 const NEEDS_CHECK = '확인 필요'
 
@@ -109,15 +110,35 @@ function detectCategory(source: string, exclusiveArea?: number): Category {
     .replace(/[가-힣]*공인중개사\s*사무소/g, '')
     .replace(/중개\s*사무소/g, '')
 
-  // 공장·창고는 면적 기준보다 먼저 본다. 그러지 않으면 큰 창고가 '대형 상가'로 분류돼
-  // 학원·헬스장 같은 엉뚱한 업종을 추천하게 된다.
-  if (/공장|창고|물류|제조|지식산업센터|자동차정비|축사/.test(src)) return 'industrial'
+  // 원문의 `건물종류`·`건축물용도`가 가장 믿을 만한 근거다. 이걸 두고 면적이나
+  // 본문 키워드로 추측하면 업무시설(555㎡)이 '대형 상가'가 되고 단독주택이 '상가'가 된다.
+  const declared = [field(src, ['건물종류']), field(src, ['건축물용도'])].filter(Boolean).join(' ')
+  const byDeclared = categoryFromKind(declared)
+  if (byDeclared) return byDeclared
+
+  // 선언된 용도가 없을 때만 본문 전체로 추정한다
+  const byText = categoryFromKind(src)
+  if (byText) return byText
+
   if (exclusiveArea && exclusiveArea >= 330) return 'large' // 약 100평 이상
-  if (/사무실|오피스/.test(src)) return 'office'
-  if (/음식점|식당|카페|주방|요식|덕트|홀\b/.test(src)) return 'food'
-  if (/학원|교습|스터디/.test(src)) return 'academy'
-  if (/미용|네일|피부|헤어|뷰티/.test(src)) return 'beauty'
   return 'retail'
+}
+
+/** 용도 문구 → 카테고리. 더 구체적인 것부터 본다. */
+function categoryFromKind(t: string): Category | null {
+  if (!t) return null
+  if (/토지|임야|대지|전답|과수원/.test(t)) return 'land'
+  if (/아파트|오피스텔|빌라|연립|다세대|단독주택|다가구|주택|원룸|투룸/.test(t)) return 'residential'
+  if (/공장|창고|물류|제조|지식산업센터|자동차|축사|주차장/.test(t)) return 'industrial'
+  if (/사무실|업무시설|오피스/.test(t)) return 'office'
+  if (/음식점|식당|카페|주방|요식|덕트/.test(t)) return 'food'
+  if (/학원|교습|스터디|교육연구/.test(t)) return 'academy'
+  if (/미용|네일|피부|헤어|뷰티/.test(t)) return 'beauty'
+  // 상가 계열은 마지막에 본다. 앞의 업종 키워드가 더 구체적이기 때문.
+  // 이게 없으면 `단지내상가 / 제2종 근린생활시설` 이 판정을 못 받고 본문 추정으로 넘어가,
+  // 상세설명의 "아파트 입구 …" 때문에 주택으로 분류된다.
+  if (/근린생활시설|상가|점포|판매시설/.test(t)) return 'retail'
+  return null
 }
 
 export function parseListing(source: string): ParsedListing {
@@ -272,6 +293,7 @@ function hashPick(src: string, n: number): number {
 const KIND_LABEL: Record<Category, string> = {
   office: '사무실', food: '상가', academy: '상가', beauty: '상가', large: '대형상가', retail: '상가',
   industrial: '공장·창고',
+  residential: '주택', land: '토지',
 }
 
 const CONCERNS: Record<Category, string[]> = {
@@ -295,6 +317,14 @@ const CONCERNS: Record<Category, string[]> = {
     '대형 평수는 한 층을 통으로 쓸 수 있는 물건 자체가 귀합니다. 면적을 나눠 쓰자니 동선이 불편하고, 통임대 매물은 나오는 대로 소진되는 편입니다.',
     '규모 있는 공간을 찾으실 때는 층 분산 없이 한 번에 쓸 수 있는지가 관건입니다. 조건에 맞는 대형 매물은 공급이 많지 않습니다.',
   ],
+  residential: [
+    '주택은 겉으로 보이는 상태보다 배관·누수·단열 같은 부분에서 비용이 갈립니다. 입주 전에 확인해 둘 항목이 적지 않습니다.',
+    '다가구·단독주택은 임대 운용까지 고려하면 방 구성과 주차 여건이 수익률을 좌우합니다. 현재 임대 현황을 함께 살펴보셔야 합니다.',
+  ],
+  land: [
+    '토지는 용도지역과 건폐율·용적률에 따라 지을 수 있는 것이 크게 달라집니다. 계획 중인 용도가 실제로 가능한지 먼저 확인해야 합니다.',
+    '땅은 진입로 확보 여부가 가치를 좌우합니다. 도로에 접해 있는지, 맹지는 아닌지가 먼저 확인할 부분입니다.',
+  ],
   industrial: [
     '공장·창고를 구하실 때는 진입로 폭과 차량 회전 반경이 실제 운영을 좌우합니다. 면적이 맞아도 대형 차량이 못 들어오면 쓸 수 없는 자리가 됩니다.',
     '제조·물류 공간은 층고와 바닥 하중, 전력 용량이 관건입니다. 설비를 옮긴 뒤에야 조건이 안 맞는 걸 알게 되면 비용이 크게 늘어납니다.',
@@ -313,6 +343,8 @@ const RECOMMENDED_USES: Record<Category, string> = {
   beauty: '미용실, 네일샵, 피부관리실, 왁싱샵, 속눈썹샵',
   large: '학원, 헬스장, 필라테스, 전시장, 대형 사무실, 물류·판매 복합공간',
   industrial: '제조업, 물류·보관, 유통, 조립·가공, 소규모 공장, 창고',
+  residential: '실거주, 임대 운용, 사옥 겸용',
+  land: '건축, 창고·공장 부지, 투자 목적 보유',
   retail: '소매점, 사무실, 학원, 서비스업 매장, 쇼룸',
 }
 
@@ -422,6 +454,7 @@ function buildIntro(p: ParsedListing, src: string): string {
     office: '사무실', food: '음식점·카페 상가', academy: '학원·교습 상가',
     beauty: '미용업 상가', large: '대형 상가', retail: '상가·점포',
     industrial: '공장·창고',
+    residential: '주택', land: '토지',
   }
   const concern = CONCERNS[p.category][hashPick(src, CONCERNS[p.category].length)]
 
@@ -599,6 +632,8 @@ function buildTags(p: ParsedListing): string {
     beauty: [`#${region}미용실자리`, `#${region}네일샵자리`, `#${region}상가임대`],
     large: [`#${region}대형상가`, `#${region}통임대`, `#${region}대형사무실`],
     industrial: [`#${region}공장`, `#${region}창고`, `#${region}공장임대`, `#${region}창고임대`, `#${region}물류창고`],
+    residential: [`#${region}주택`, `#${region}단독주택`, `#${region}다가구`, `#${region}주택매매`],
+    land: [`#${region}토지`, `#${region}땅`, `#${region}토지매매`, `#${region}임야`],
     retail: [`#${region}점포임대`, `#${region}소매점자리`, `#${region}사무실임대`],
   }
   jobTags[p.category].forEach(t => tags.add(t))
@@ -796,4 +831,41 @@ export function buildCafeThumbConfig(
     office: '플러스불당 공인중개사사무소',
     phone: '010-5585-8943',
   }
+}
+
+/**
+ * 자기 글에 남길 댓글 후보 3개.
+ *
+ * 카페 매물 글은 댓글이 붙어 있어야 노출·신뢰에 유리하다. 매물 조건을 반영해
+ * 서로 다른 각도로 만들고, 발행 시 그중 하나를 골라 쓴다.
+ *
+ * 본문과 같은 규칙을 지킨다 — 매출·최상급 표현 금지, 없는 조건 단정 금지.
+ * 연락처는 중개사 정보에 이미 있으므로 댓글에서는 반복하지 않는다.
+ */
+export function buildComments(source: string): string[] {
+  const p = parseListing(source)
+  const kind = KIND_LABEL[p.category]
+  const region = p.dong ?? p.city ?? '해당 지역'
+  const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
+
+  const out: string[] = []
+
+  // ① 조건 안내 — 매물의 실제 조건에서 하나를 집는다
+  if (p.moveIn === '즉시입주') {
+    out.push('즉시입주 가능한 매물이라 일정 조율이 수월합니다. 현장 확인 원하시면 편하게 문의 주세요.')
+  } else if (hasParking(p)) {
+    out.push(`주차 ${p.parking} 조건입니다. 현장에서 진입 동선까지 함께 확인해 드리겠습니다.`)
+  } else {
+    out.push('현장 확인 원하시면 일정 맞춰 안내해 드리겠습니다. 편하게 문의 주세요.')
+  }
+
+  // ② 비교 매물 제안
+  out.push(`${region} 일대 비슷한 조건의 ${kind} 매물도 함께 비교해 보실 수 있습니다. 원하시는 조건 말씀해 주시면 정리해 드리겠습니다.`)
+
+  // ③ 업종 인허가 — 상가·공장은 용도 확인이 실제로 자주 걸리는 부분이다
+  out.push(p.category === 'industrial'
+    ? `${uses[0]}·${uses[1]} 용도로 검토 중이시면 인허가 가능 여부부터 함께 확인해 드리겠습니다.`
+    : `${uses[0]}·${uses[1]} 등 생각하고 계신 업종이 있으시면 인허가 가능 여부를 먼저 확인해 드리겠습니다.`)
+
+  return out
 }
