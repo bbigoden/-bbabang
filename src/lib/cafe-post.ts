@@ -43,7 +43,7 @@ export interface ParsedListing {
   category: Category
 }
 
-export type Category = 'office' | 'food' | 'academy' | 'beauty' | 'large' | 'retail'
+export type Category = 'office' | 'food' | 'academy' | 'beauty' | 'large' | 'retail' | 'industrial'
 
 const NEEDS_CHECK = '확인 필요'
 
@@ -109,6 +109,9 @@ function detectCategory(source: string, exclusiveArea?: number): Category {
     .replace(/[가-힣]*공인중개사\s*사무소/g, '')
     .replace(/중개\s*사무소/g, '')
 
+  // 공장·창고는 면적 기준보다 먼저 본다. 그러지 않으면 큰 창고가 '대형 상가'로 분류돼
+  // 학원·헬스장 같은 엉뚱한 업종을 추천하게 된다.
+  if (/공장|창고|물류|제조|지식산업센터|자동차정비|축사/.test(src)) return 'industrial'
   if (exclusiveArea && exclusiveArea >= 330) return 'large' // 약 100평 이상
   if (/사무실|오피스/.test(src)) return 'office'
   if (/음식점|식당|카페|주방|요식|덕트|홀\b/.test(src)) return 'food'
@@ -250,6 +253,7 @@ function hashPick(src: string, n: number): number {
 
 const KIND_LABEL: Record<Category, string> = {
   office: '사무실', food: '상가', academy: '상가', beauty: '상가', large: '대형상가', retail: '상가',
+  industrial: '공장·창고',
 }
 
 const CONCERNS: Record<Category, string[]> = {
@@ -273,6 +277,11 @@ const CONCERNS: Record<Category, string[]> = {
     '대형 평수는 한 층을 통으로 쓸 수 있는 물건 자체가 귀합니다. 면적을 나눠 쓰자니 동선이 불편하고, 통임대 매물은 나오는 대로 소진되는 편입니다.',
     '규모 있는 공간을 찾으실 때는 층 분산 없이 한 번에 쓸 수 있는지가 관건입니다. 조건에 맞는 대형 매물은 공급이 많지 않습니다.',
   ],
+  industrial: [
+    '공장·창고를 구하실 때는 진입로 폭과 차량 회전 반경이 실제 운영을 좌우합니다. 면적이 맞아도 대형 차량이 못 들어오면 쓸 수 없는 자리가 됩니다.',
+    '제조·물류 공간은 층고와 바닥 하중, 전력 용량이 관건입니다. 설비를 옮긴 뒤에야 조건이 안 맞는 걸 알게 되면 비용이 크게 늘어납니다.',
+    '공장 자리는 건축물 용도와 업종의 인허가 가능 여부를 먼저 확인해야 합니다. 계약 후 용도 문제로 영업을 못 하는 경우가 있습니다.',
+  ],
   retail: [
     '상가 자리를 알아보실 때는 임대 조건 못지않게 초기 투자 부담이 큰 고민입니다. 권리금과 시설 상태에 따라 창업 예산이 크게 달라집니다.',
     '점포 자리는 조건이 좋아 보여도 관리비나 부대 비용까지 합치면 계산이 달라지는 경우가 많습니다. 계약 전 확인할 항목이 적지 않습니다.',
@@ -285,6 +294,7 @@ const RECOMMENDED_USES: Record<Category, string> = {
   academy: '학원, 교습소, 스터디카페, 공부방, 상담센터',
   beauty: '미용실, 네일샵, 피부관리실, 왁싱샵, 속눈썹샵',
   large: '학원, 헬스장, 필라테스, 전시장, 대형 사무실, 물류·판매 복합공간',
+  industrial: '제조업, 물류·보관, 유통, 조립·가공, 소규모 공장, 창고',
   retail: '소매점, 사무실, 학원, 서비스업 매장, 쇼룸',
 }
 
@@ -386,6 +396,7 @@ function buildIntro(p: ParsedListing, src: string): string {
   const kindWord: Record<Category, string> = {
     office: '사무실', food: '음식점·카페 상가', academy: '학원·교습 상가',
     beauty: '미용업 상가', large: '대형 상가', retail: '상가·점포',
+    industrial: '공장·창고',
   }
   const concern = CONCERNS[p.category][hashPick(src, CONCERNS[p.category].length)]
 
@@ -545,12 +556,15 @@ function buildTags(p: ParsedListing): string {
   const deal = p.dealType === '매매' ? '매매' : p.dealType === '전세' ? '전세' : '월세'
   const tags = new Set<string>()
 
+  // 검색어의 뼈대가 되는 물건 유형. 공장·창고 매물에 '상가' 태그를 달면 검색이 어긋난다.
+  const noun = p.category === 'industrial' ? '공장' : p.category === 'office' ? '사무실' : '상가'
+
   // 지역
-  tags.add(`#${region}상가임대`)
-  tags.add(`#${region}상가${deal}`)
-  if (p.dong) { tags.add(`#${p.dong}상가${deal}`); tags.add(`#${p.dong}상가임대`) }
-  if (p.gu) tags.add(`#${region}${p.gu}상가`)
-  tags.add(`#${region}상가`)
+  tags.add(`#${region}${noun}임대`)
+  tags.add(`#${region}${noun}${deal}`)
+  if (p.dong) { tags.add(`#${p.dong}${noun}${deal}`); tags.add(`#${p.dong}${noun}임대`) }
+  if (p.gu) tags.add(`#${region}${p.gu}${noun}`)
+  tags.add(`#${region}${noun}`)
 
   // 업종
   const jobTags: Record<Category, string[]> = {
@@ -559,25 +573,29 @@ function buildTags(p: ParsedListing): string {
     academy: [`#${region}학원임대`, `#${region}학원자리`, `#${region}교습소자리`],
     beauty: [`#${region}미용실자리`, `#${region}네일샵자리`, `#${region}상가임대`],
     large: [`#${region}대형상가`, `#${region}통임대`, `#${region}대형사무실`],
+    industrial: [`#${region}공장`, `#${region}창고`, `#${region}공장임대`, `#${region}창고임대`, `#${region}물류창고`],
     retail: [`#${region}점포임대`, `#${region}소매점자리`, `#${region}사무실임대`],
   }
   jobTags[p.category].forEach(t => tags.add(t))
 
   // 특성
-  if (p.premium === '없음') tags.add(`#${region}무권리상가`)
-  if (p.moveIn === '즉시입주') tags.add(`#${region}즉시입주상가`)
-  if (hasParking(p)) tags.add(`#${region}주차가능상가`)
-  if (p.floor === '1') tags.add(`#${region}1층상가`)
-  if (p.elevator) tags.add(`#${region}엘리베이터상가`)
+  if (p.premium === '없음') tags.add(`#${region}무권리${noun}`)
+  if (p.moveIn === '즉시입주') tags.add(`#${region}즉시입주${noun}`)
+  if (hasParking(p)) tags.add(`#${region}주차가능${noun}`)
+  if (p.floor === '1') tags.add(`#${region}1층${noun}`)
+  if (p.elevator) tags.add(`#${region}엘리베이터${noun}`)
 
   // 브랜드 고정
   ;['#플러스불당공인중개사', '#불당동상가전문', '#천안상가전문부동산', '#천안시상가매물', '#천안시상가추천']
     .forEach(t => tags.add(t))
 
   // 채우기용 일반 태그
-  ;[`#${region}부동산`, `#${region}상권`, `#${region}창업`, `#${region}상가추천`, `#${region}임대`,
-    `#${region}상가매물`, `#${region}점포`, `#충남상가`, `#${region}창업자리`, `#${region}상가정보`]
-    .forEach(t => { if (tags.size < 25) tags.add(t) })
+  const filler = p.category === 'industrial'
+    ? [`#${region}부동산`, `#${region}공장매물`, `#${region}창고매물`, `#${region}공장추천`,
+       `#${region}물류`, `#${region}제조업`, `#충남공장`, `#충남창고`, `#${region}산업단지`, `#${region}공장정보`]
+    : [`#${region}부동산`, `#${region}상권`, `#${region}창업`, `#${region}${noun}추천`, `#${region}임대`,
+       `#${region}${noun}매물`, `#${region}점포`, `#충남상가`, `#${region}창업자리`, `#${region}${noun}정보`]
+  filler.forEach(t => { if (tags.size < 25) tags.add(t) })
 
   return Array.from(tags).join(' ')
 }
