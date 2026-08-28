@@ -40,6 +40,11 @@ export interface ParsedListing {
   premium?: string         // 권리금
   coBrokerage?: boolean    // 공동중개 환영 여부
   elevator?: boolean
+  // 공장·창고 검색자가 가장 먼저 보는 항목. 뱅크 폼에는 없고 상세설명에 적히는 경우가 많다
+  ceilingHeight?: string   // 층고
+  power?: string           // 계약전력
+  landArea?: number        // 대지면적 ㎡
+  totalFloorArea?: number  // 연면적 ㎡
   category: Category
 }
 
@@ -256,6 +261,10 @@ export function parseListing(source: string): ParsedListing {
     maintenanceFeeAmount,
     direction: field(src, ['방향', '향'])?.match(/[가-힣]*[동서남북]향?/)?.[0],
     premium,
+    ceilingHeight: field(src, ['층고'])?.match(/[\d.]+\s*[mM미터]?/)?.[0]?.replace(/\s/g, '').replace(/[mM]$/, 'm'),
+    power: field(src, ['전력', '계약전력'])?.match(/[\d.]+\s*[kK]?[wW]/)?.[0]?.replace(/\s/g, ''),
+    landArea: areaNumber(field(src, ['대지면적', '토지면적'])),
+    totalFloorArea: areaNumber(field(src, ['연면적'])),
     coBrokerage: /공동\s*중개\s*환영|공동\s*환영/.test(src),
     elevator: /엘리베이터|승강기|E\/?V/.test(src),
     category: detectCategory(src, exclusiveArea),

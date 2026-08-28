@@ -9,6 +9,9 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // 로컬 자동화 프로그램(부소장광고)이 Node 에서 이 파일들을 직접 import 한다.
+    // Node ESM 은 확장자를 요구하므로 .ts 확장자 import 를 허용한다.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
