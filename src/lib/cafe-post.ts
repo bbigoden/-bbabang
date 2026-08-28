@@ -376,9 +376,10 @@ function features(p: ParsedListing): string[] {
 }
 
 /**
- * 면적을 검색되는 범주형 표현으로. `10.7평` 같은 정확한 평수는 제목·태그에 쓰지 않는다
- * (아무도 그렇게 검색하지 않는다 — 규모는 소형/중형/대형으로 찾는다).
- * 썸네일에는 정확한 면적을 넣어도 된다. 거기서는 정보이지 검색 키워드가 아니다.
+ * 규모를 범주형으로. 태그(`#천안대형상가`)에 쓴다.
+ *
+ * 절대규칙 8이 막는 것은 `32평상가` 같은 **검색 키워드**다 — 아무도 그렇게 검색하지 않는다.
+ * 제목 뒷부분의 `약 92평` 은 읽는 사람에게 규모를 알려주는 설명이므로 해당하지 않는다.
  */
 function sizeLabel(p: ParsedListing): string | null {
   const a = p.exclusiveArea
@@ -390,7 +391,9 @@ function sizeLabel(p: ParsedListing): string | null {
 }
 
 function buildTitles(p: ParsedListing): string[] {
-  const region = p.dong ?? p.city ?? '천안'
+  // 사용자가 실제 쓰는 형식은 `천안 불당동`(시 + 동)이다. 동만 쓰면 어느 시인지 모호하다.
+  const cityShort = p.city === '아산시' ? '아산' : p.city === '천안시' ? '천안' : p.city
+  const region = [cityShort, p.dong].filter(Boolean).join(' ') || cityShort || '천안'
   const kind = KIND_LABEL[p.category]
   const deal = p.dealType ?? '임대'
   const f = features(p)
@@ -401,10 +404,14 @@ function buildTitles(p: ParsedListing): string[] {
   const head = `[${region} ${kind} ${deal}]`
   const cityHead = `[${p.city ?? '천안시'} ${kind} ${deal}]`
 
-  // 세 제목은 서로 다른 각도를 잡는다 — ①조건 ②업종·상권 ③용도
+  // 제목 뒷부분은 사람이 읽는 설명이라 면적을 그대로 적는다.
+  // 규칙 8이 막는 것은 `32평상가` 같은 붙여쓴 검색 키워드(주로 태그)다.
+  const areaTxt = p.exclusiveArea ? `약 ${m2ToPyeong(p.exclusiveArea)}평` : null
+
+  // 세 제목은 서로 다른 각도를 잡는다 — ①조건 ②규모·업종 ③용도
   return [
     `${head} ${f[0]}${f[1] ? ` · ${f[1]}` : ''}`,
-    `${head} ${uses[0]}·${uses[1]} 추천${size ? ` ${size} 매물` : ''}`,
+    `${head} ${size ? `${size} ` : ''}${uses[0]}·${uses[1]} 추천${areaTxt ? `, ${areaTxt}` : ''}`,
     `${cityHead} ${p.propertyKind ?? kind}, 다양한 업종 가능`,
   ]
 }
@@ -688,6 +695,8 @@ export function generateCafePost(
 export interface CafeHtmlConfig {
   no: string
   out_dir: string
+  /** 매물 분류. 카페 게시판의 말머리(상가/사무실/공장 창고…) 선택에 쓴다. */
+  category: Category
   titles: string[]
   intro: string[]
   summary: string
@@ -723,6 +732,7 @@ export function buildCafeHtmlConfig(
   return {
     no,
     out_dir: outDir,
+    category: p.category,
     titles: buildTitles(p),
     intro: buildIntro(p, source).split('\n\n').filter(Boolean),
     summary: buildSummary(p),
