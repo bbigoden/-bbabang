@@ -368,10 +368,16 @@ function buildTitles(p: ParsedListing): string[] {
   const f = features(p)
   const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
   const size = sizeLabel(p)
+
+  // 대괄호는 `[지역 + 매물종류 + 거래유형]` 로 고정한다. 규모·특징은 뒤쪽 설명에 둔다.
+  const head = `[${region} ${kind} ${deal}]`
+  const cityHead = `[${p.city ?? '천안시'} ${kind} ${deal}]`
+
+  // 세 제목은 서로 다른 각도를 잡는다 — ①조건 ②업종·상권 ③용도
   return [
-    `[${region} ${kind} ${deal}] ${f[0]}${f[1] ? ` · ${f[1]}` : ''}`,
-    `[${region} ${size ? `${size} ` : ''}${kind} ${deal}] ${uses[0]}·${uses[1]} 추천`,
-    `[${p.city ?? '천안시'} ${kind} ${deal}] ${uses[1]}·${uses[2]} 추천 자리`,
+    `${head} ${f[0]}${f[1] ? ` · ${f[1]}` : ''}`,
+    `${head} ${uses[0]}·${uses[1]} 추천${size ? ` ${size} 매물` : ''}`,
+    `${cityHead} ${p.propertyKind ?? kind}, 다양한 업종 가능`,
   ]
 }
 
@@ -480,7 +486,9 @@ function buildDetails(p: ParsedListing): string {
   else if (p.floor) buildBits.push(`${p.floor}층에 자리하고 있습니다`)
   if (p.exclusiveArea) buildBits.push(`전용 ${p.exclusiveArea}㎡(약 ${m2ToPyeong(p.exclusiveArea)}평)로 용도에 맞게 구획해 사용하실 수 있습니다`)
   if (p.elevator) buildBits.push('엘리베이터가 있어 층간 이동이 편리합니다')
-  if (p.parking) buildBits.push(`주차는 ${p.parking} 조건입니다`)
+  // 주차 0대를 본문에서 굳이 안내하지 않는다. 표시광고 필수 항목이라 표에는 사실대로 적히고,
+  // 세부 설명은 매물의 장점을 설명하는 자리다. 없는 것을 문장으로 강조할 이유가 없다.
+  if (hasParking(p)) buildBits.push(`주차는 ${p.parking} 조건입니다`)
   const building = `**건물 및 공간 구성**\n${buildBits.length ? buildBits.join('. ') + '.' : '건물 구성과 내부 상태는 현장에서 직접 확인하실 수 있도록 안내드리겠습니다.'}`
 
   const uses = `**추천 업종**\n${RECOMMENDED_USES[p.category]} 등을 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
