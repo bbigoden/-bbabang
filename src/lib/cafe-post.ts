@@ -347,16 +347,30 @@ function features(p: ParsedListing): string[] {
   return out
 }
 
+/**
+ * 면적을 검색되는 범주형 표현으로. `10.7평` 같은 정확한 평수는 제목·태그에 쓰지 않는다
+ * (아무도 그렇게 검색하지 않는다 — 규모는 소형/중형/대형으로 찾는다).
+ * 썸네일에는 정확한 면적을 넣어도 된다. 거기서는 정보이지 검색 키워드가 아니다.
+ */
+function sizeLabel(p: ParsedListing): string | null {
+  const a = p.exclusiveArea
+  if (!a) return null
+  if (a >= 330) return '대형'      // 약 100평 이상
+  if (a >= 132) return '중대형'    // 약 40평 이상
+  if (a <= 66) return '소형'       // 약 20평 이하
+  return null
+}
+
 function buildTitles(p: ParsedListing): string[] {
   const region = p.dong ?? p.city ?? '천안'
   const kind = KIND_LABEL[p.category]
   const deal = p.dealType ?? '임대'
   const f = features(p)
   const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
-  const areaTxt = p.exclusiveArea ? `전용 약 ${m2ToPyeong(p.exclusiveArea)}평` : '면적 확인'
+  const size = sizeLabel(p)
   return [
     `[${region} ${kind} ${deal}] ${f[0]}${f[1] ? ` · ${f[1]}` : ''}`,
-    `[${region} ${kind} ${deal}] ${areaTxt}, ${uses[0]} 등 추천`,
+    `[${region} ${size ? `${size} ` : ''}${kind} ${deal}] ${uses[0]}·${uses[1]} 추천`,
     `[${p.city ?? '천안시'} ${kind} ${deal}] ${uses[1]}·${uses[2]} 추천 자리`,
   ]
 }
