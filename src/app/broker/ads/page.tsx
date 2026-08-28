@@ -10,7 +10,7 @@ import { useToast } from '@/components/toast'
 import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert } from 'lucide-react'
 
 /**
- * 광고관리 — 부동산뱅크에 등록한 매물 중 카페·당근에 광고할 것을 선별하고,
+ * 광고관리 — 부동산뱅크에 등록한 매물 중 카페·블로그·당근에 광고할 것을 선별하고,
  * 어느 채널에 올라가 있는지 추적한다.
  *
  * 매물 원본은 부동산뱅크이며, 목록은 로컬 프로그램(부소장광고/npm run sync)이 채운다.
@@ -20,7 +20,7 @@ import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert } from 'lucide
 
 type Post = {
   id: string
-  channel: 'cafe' | 'daangn' | 'bank'
+  channel: 'cafe' | 'blog' | 'daangn' | 'bank'
   external_id: string | null
   url: string | null
   status: 'pending' | 'posted' | 'removing' | 'removed' | 'failed'
@@ -46,10 +46,15 @@ type Listing = {
   ad_posts: Post[]
 }
 
-const CHANNELS: Array<{ key: 'cafe' | 'daangn'; label: string }> = [
+const CHANNELS: Array<{ key: 'cafe' | 'blog' | 'daangn'; label: string }> = [
   { key: 'cafe', label: '카페' },
+  { key: 'blog', label: '블로그' },
   { key: 'daangn', label: '당근' },
 ]
+
+const CHANNEL_LABEL: Record<string, string> = {
+  cafe: '카페', blog: '블로그', daangn: '당근', bank: '뱅크',
+}
 
 const m2ToPyeong = (m2: number | null) => (m2 ? (m2 * 0.3025).toFixed(1) : null)
 
@@ -116,7 +121,7 @@ export default function AdsPage() {
   async function markContracted(l: Listing) {
     const live = l.ad_posts.filter(p => p.status === 'posted')
     const msg = live.length
-      ? `${l.bank_no} 매물을 거래완료로 표시합니다.\n\n광고 중인 ${live.length}곳(${live.map(p => p.channel === 'cafe' ? '카페' : '당근').join(', ')})에서 내려야 합니다.\n계속할까요?`
+      ? `${l.bank_no} 매물을 거래완료로 표시합니다.\n\n광고 중인 ${live.length}곳(${live.map(p => CHANNEL_LABEL[p.channel] ?? p.channel).join(', ')})에서 내려야 합니다.\n계속할까요?`
       : `${l.bank_no} 매물을 거래완료로 표시할까요?`
     if (!confirm(msg)) return
 
@@ -158,7 +163,7 @@ export default function AdsPage() {
         <PageHeader
           icon={Megaphone}
           title="광고관리"
-          description="부동산뱅크 매물 중 카페·당근에 광고할 것을 선별하고, 게시 상태를 추적합니다."
+          description="부동산뱅크 매물 중 카페·블로그·당근에 광고할 것을 선별하고, 게시 상태를 추적합니다."
         />
 
         {takedownCount > 0 && (
