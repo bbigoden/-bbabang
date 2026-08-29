@@ -107,6 +107,7 @@ export default function AdsPage() {
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [takedownWatch, setTakedownWatch] = useState(false)
 
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
   const lastSynced = useMemo(
@@ -222,9 +223,11 @@ export default function AdsPage() {
 
   /** 거래완료 표시 — 실제 광고 내리기는 로컬 프로그램이 수행한다. */
   async function markContracted(l: Listing) {
-    const live = l.ad_posts.filter(p => p.status === 'posted')
+    const live = l.ad_posts.filter(p => p.status === 'posted' || p.status === 'failed')
+    const where = live.map(p => CHANNEL_LABEL[p.channel] ?? p.channel).join(', ')
     const msg = live.length
-      ? `${l.bank_no} 매물을 거래완료로 표시합니다.\n\n광고 중인 ${live.length}곳(${live.map(p => CHANNEL_LABEL[p.channel] ?? p.channel).join(', ')})에서 내려야 합니다.\n계속할까요?`
+      ? `${l.bank_no} 매물을 거래완료로 표시하고, 광고 중인 ${live.length}곳(${where})에서 내립니다.\n\n` +
+        (agentOnline ? '되돌릴 수 없습니다. 계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 내려갑니다. 계속할까요?')
       : `${l.bank_no} 매물을 거래완료로 표시할까요?`
     if (!confirm(msg)) return
 
@@ -233,9 +236,64 @@ export default function AdsPage() {
       .update({ contracted_at: new Date().toISOString(), is_advertising: false })
       .eq('id', l.id)
     if (error) { toast.error(`처리하지 못했습니다: ${error.message}`); return }
-    toast.success(live.length ? '거래완료로 표시했습니다. 광고 내리기를 실행하세요.' : '거래완료로 표시했습니다.')
+
+    if (!live.length) { toast.success('거래완료로 표시했습니다.'); load(); return }
+
+    // 표시만으로 끝나면 광고가 그대로 남는다. 내리는 일까지 PC에 맡긴다.
+    const { error: jobError } = await supabase.from('ad_jobs').insert({
+      broker_id: auth.broker!.id, kind: 'takedown',
+      params: { listingId: l.id }, requested_by: auth.user?.id,
+    })
+    if (jobError) {
+      toast.error(`거래완료로 표시했지만 내리기를 요청하지 못했습니다: ${jobError.message}`)
+      load(); return
+    }
+    toast.success(agentOnline ? `${where} 광고를 내리는 중입니다.` : '내리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    setTakedownWatch(true)
     load()
   }
+
+  /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
+  async function takedownAll() {
+    if (!auth.broker) return
+    if (!confirm(`광고 중인 거래완료 매물 ${takedownCount}건을 전 채널에서 내립니다.\n\n되돌릴 수 없습니다. 계속할까요?`)) return
+
+    // 이미 대기·실행 중인 내리기가 있으면 그걸 기다린다
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'takedown').in('status', ['queued', 'running']).limit(1).maybeSingle()
+    if (!pending) {
+      const { error } = await supabase.from('ad_jobs').insert({
+        broker_id: auth.broker.id, kind: 'takedown', requested_by: auth.user?.id,
+      })
+      if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    }
+    toast.success(agentOnline ? '광고를 내리는 중입니다.' : '내리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    setTakedownWatch(true)
+  }
+
+  /**
+   * 내리기가 끝나면 화면을 갱신한다.
+   *
+   * "내려야 함"은 표시광고법이 걸린 숫자라, 실제로 내려갔는지가 화면에 바로
+   * 보여야 한다. 작업이 남아 있는 동안만 짧게 확인한다.
+   */
+  useEffect(() => {
+    if (!takedownWatch) return
+    const id = setInterval(async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('status, error').eq('kind', 'takedown')
+        .in('status', ['queued', 'running']).limit(1)
+      if (data && data.length) return          // 아직 진행 중
+      setTakedownWatch(false)
+      const { data: last } = await supabase.from('ad_jobs')
+        .select('status, error').eq('kind', 'takedown')
+        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+      if (last?.status === 'failed') toast.error(`내리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
+      else if (last?.status === 'done') toast.success('광고를 내렸습니다.')
+      load()
+    }, 3000)
+    return () => clearInterval(id)
+  }, [takedownWatch])
 
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase()
@@ -285,8 +343,16 @@ export default function AdsPage() {
                 거래완료된 매물 {takedownCount}건이 아직 광고 중입니다.
               </p>
               <p className="mt-0.5 text-red-700 dark:text-red-400">
-                표시광고법상 즉시 내려야 합니다. 로컬 프로그램에서 <code className="rounded bg-red-100 px-1 dark:bg-red-900">npm run takedown</code> 을 실행하세요.
+                표시광고법상 즉시 내려야 합니다.
+                {!agentOnline && ' PC 프로그램이 꺼져 있습니다 — 켜면 내려갑니다.'}
               </p>
+              <button
+                onClick={takedownAll}
+                disabled={takedownWatch}
+                className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {takedownWatch ? '내리는 중…' : '지금 전부 내리기'}
+              </button>
             </div>
           </div>
         )}
