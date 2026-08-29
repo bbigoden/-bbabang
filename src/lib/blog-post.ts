@@ -16,7 +16,7 @@
  *  - 첫 문단 200자 안에 종류·면적·가격이 다 들어가야 한다 (AI 브리핑 인용 대상)
  *  - CTA는 글 끝에 한 번만
  */
-import { parseListing, m2ToPyeong, type ParsedListing, type Category } from './cafe-post.ts'
+import { parseListing, m2ToPyeong, floorLabel, type ParsedListing, type Category } from './cafe-post.ts'
 
 const CHECK = '[확인 필요]'
 
@@ -62,7 +62,7 @@ function priceLine(p: ParsedListing): string {
 
 function locationLine(p: ParsedListing): string {
   const base = [p.sido ?? '충청남도', p.city, p.gu, p.dong].filter(Boolean).join(' ')
-  const fl = p.floor ? ` (${p.floor}층)` : ''
+  const fl = p.floor ? ` (${floorLabel(p.floor)})` : ''
   return base ? `${base}${fl}` : CHECK
 }
 
@@ -105,7 +105,7 @@ function buildKeywords(p: ParsedListing, no: string): BlogKeywords {
     ]
     : [
       `${city} ${dong} 점포${p.dealType === '매매' ? '매매' : '임대'}`,
-      p.floor === '1' ? `${city} 1층 상가` : `${city} ${p.floor ?? ''}층 상가`.trim(),
+      p.floor === '1' ? `${city} 1층 상가` : `${city} ${floorLabel(p.floor) ?? ''} 상가`.replace(/\s+/g, ' ').trim(),
       p.premium === '없음' ? `${city} 무권리 상가` : `${city} 상가 권리금`,
       `${dong || city} 창업 자리`,
     ]
@@ -183,7 +183,8 @@ function conditionBlock(p: ParsedListing): string {
       : CHECK],
     ['조건', priceLine(p)],
     ['관리비', p.maintenanceFee ?? '확인 필요 (사용량에 따라 실비 부과)'],
-    ['층수', p.floor ? `${p.floor}층${p.totalFloors ? ` / 총 ${p.totalFloors}층` : ''}` : CHECK],
+    ['층수', p.floor ? `${floorLabel(p.floor)}${p.totalFloors ? ` / 총 ${p.totalFloors}층` : ''}`
+      : p.totalFloors ? `총 ${p.totalFloors}층` : CHECK],
     ['권리금', p.premium === '없음' ? '없음 (무권리)' : p.premium ?? CHECK],
     ['방향', p.direction ? `${p.direction.endsWith('향') ? p.direction : `${p.direction}향`} (주된 출입구 기준)` : CHECK],
     ['용도', p.propertyKind ?? CHECK],
@@ -199,7 +200,8 @@ function opening(p: ParsedListing, kw: BlogKeywords): string {
   const who = isIndustrial(p.category)
     ? (p.ceilingHeight ? `층고 ${p.ceilingHeight} 기준으로 적재나 장비 반입이 필요한 분` : '단독으로 쓸 창고 공간이 필요한 분')
     : (p.floor === '1' ? '전면 노출이 필요한 업종을 준비하시는 분' : '임대료 부담을 낮춰 시작하시려는 분')
-  return `${kw.main} 매물입니다. ${[a, price].filter(Boolean).join(', ')} 조건입니다. ${who}께 맞는 자리입니다.`
+  // 면적이 없으면 `${가격} 조건입니다.` 한 문장이 카페 요약과 그대로 겹친다.
+  return `${kw.main} 매물입니다. ${[a, price].filter(Boolean).join(', ')}으로 나와 있습니다. ${who}께 맞는 자리입니다.`
 }
 
 function sectionLocation(p: ParsedListing, no: string): string {
@@ -214,7 +216,8 @@ function sectionLocation(p: ParsedListing, no: string): string {
   }
   return [
     `${region} 생활권에 자리한 물건입니다. 배후 세대와 주 이용층은 시간대별로 달라 현장에서 유동 동선을 함께 보시는 편이 정확합니다.`,
-    p.floor === '1' ? '1층이라 전면이 도로에 노출됩니다.' : `${p.floor ?? ''}층이라 임대료 부담이 1층보다 낮습니다.`.trim(),
+    p.floor === '1' ? '1층이라 전면이 도로에 노출됩니다.'
+      : `${floorLabel(p.floor) ?? ''}이라 임대료 부담이 1층보다 낮습니다.`.trim(),
     hasParkingLot(p) ? `주차는 ${p.parking} 기준입니다. 다만 건축물대장 기준이라 실제 배정 대수는 관리사무소 확인이 필요합니다.` : '건물 주차는 별도 확인이 필요합니다. 인근 공영주차장 위치를 함께 안내드립니다.',
     '주변 상가 구성과 시간대별 이용층은 직접 보셔야 판단이 서는 부분이라, 방문 시 함께 걸어보시길 권해 드립니다.',
   ].filter(Boolean).join(' ')
@@ -247,7 +250,8 @@ function sectionArea(p: ParsedListing): string {
 }
 
 function sectionCost(p: ParsedListing): string {
-  const bits = [`${priceLine(p)} 조건입니다.`]
+  // 카페 글도 `... 조건입니다.` 로 끝나 문장이 통째로 겹친다. 어순을 바꿔 떼어 놓는다.
+  const bits = [`임대 조건은 ${priceLine(p)}입니다.`]
   if (p.maintenanceFee) {
     bits.push(p.maintenanceFeeAmount && p.maintenanceFeeAmount > 100000
       ? `관리비는 ${p.maintenanceFee}이며, 청소·수도·공용전기 등 세부 비목은 확인 후 안내드리겠습니다.`
@@ -257,7 +261,8 @@ function sectionCost(p: ParsedListing): string {
   }
   bits.push(p.premium === '없음'
     ? '권리금은 없는 것으로 기재돼 있어 초기 비용을 보증금과 시설 공사 위주로 잡으시면 됩니다.'
-    : p.premium ? `권리금은 ${p.premium} 조건입니다.` : '권리금은 원문에 기재가 없어 확인 후 안내드리겠습니다.')
+    : p.premium === '유선 문의' ? '권리금 조건은 유선으로 안내드리는 항목으로 나와 있습니다.'
+    : p.premium ? `권리금 항목에는 ${p.premium}으로 적혀 있습니다.` : '권리금은 원문에 기재가 없어 확인 후 안내드리겠습니다.')
   bits.push('부가세 별도 여부는 계약 조건에 따라 달라지므로 계약 전에 명확히 정리해 드립니다.')
   return bits.join(' ')
 }
@@ -334,7 +339,8 @@ function adBlock(p: ParsedListing): string {
     `■ 면적 : ${p.supplyArea ? `계약 ${area(p.supplyArea)} / ` : ''}${p.exclusiveArea ? `전용 ${area(p.exclusiveArea)}` : CHECK}`,
     `■ 가격 : ${priceLine(p).replace(' (VAT 별도 여부 확인 필요)', '')}`,
     `■ 거래형태 : ${p.dealType ?? CHECK}`,
-    `■ 층수 : ${p.floor ? `${p.floor}층${p.totalFloors ? ` / 총 ${p.totalFloors}층` : ''}` : CHECK}`,
+    `■ 층수 : ${p.floor ? `${floorLabel(p.floor)}${p.totalFloors ? ` / 총 ${p.totalFloors}층` : ''}`
+      : p.totalFloors ? `총 ${p.totalFloors}층` : CHECK}`,
     `■ 방향 : ${p.direction ? `${p.direction.endsWith('향') ? p.direction : `${p.direction}향`} (주출입구 기준)` : CHECK}`,
     `■ 입주가능일 : ${p.moveIn ?? CHECK}`,
     `■ 주차대수 : ${p.parking ?? CHECK}`,
@@ -395,6 +401,8 @@ export function buildBlogPost(source: string, listingNoInput: string): BlogPost 
     '',
     `[사진: 건물 전면 외관]`,
     '',
+    `[사진: ${ind ? '마당과 회차 공간' : '건물 전체'}]`,
+    '',
     `${kw.main}, ${ind ? '진입과 주변 여건은 어떤가요' : '어떤 자리인가요'}`,
     sectionLocation(p, no),
     '',
@@ -405,6 +413,10 @@ export function buildBlogPost(source: string, listingNoInput: string): BlogPost 
     '',
     `[사진: 내부 전경]`,
     '',
+    `[사진: ${ind ? '셔터 정면 (크기 비교되게)' : '출입구 정면'}]`,
+    '',
+    `[사진: ${ind ? '바닥 상태 근접' : '내부 다른 각도'}]`,
+    '',
     '들어가는 비용은 어떻게 되나요',
     sectionCost(p),
     '',
@@ -414,7 +426,9 @@ export function buildBlogPost(source: string, listingNoInput: string): BlogPost 
     '이런 경우에는 맞지 않습니다',
     fit.bad.map(b => `· ${b}`).join('\n'),
     '',
-    `[사진: ${ind ? '천장과 전기 인입부' : '내부 다른 각도'}]`,
+    `[사진: ${ind ? '분전반 명판' : '천장과 전기 배선'}]`,
+    '',
+    `[사진: ${ind ? '사무공간과 화장실' : '건물 주차장'}]`,
     '',
     '자주 묻는 질문',
     qna.map(([q, a]) => `${q}\n${a}`).join('\n\n'),
@@ -478,7 +492,7 @@ export function buildBlogThumbConfig(source: string, listingNoInput: string, out
        ['층고', p.ceilingHeight ?? CHECK], ['전력', p.power ?? CHECK],
        ['건축물 용도', p.propertyKind ?? CHECK], ['사용승인일', p.approvalDate ?? CHECK],
        ['주차', p.parking ?? CHECK], ['입주가능일', p.moveIn ?? CHECK]]
-    : [['소재지', locationLine(p)], ['층수', p.floor ? `${p.floor}층` : CHECK],
+    : [['소재지', locationLine(p)], ['층수', p.floor ? floorLabel(p.floor)! : CHECK],
        ['공급면적', area(p.supplyArea) ?? CHECK], ['전용면적', area(p.exclusiveArea) ?? CHECK],
        ['건축물 용도', p.propertyKind ?? CHECK], ['조건', priceLines.join(' / ')],
        ['관리비', p.maintenanceFee ?? CHECK], ['권리금', p.premium ?? CHECK],
@@ -494,7 +508,7 @@ export function buildBlogThumbConfig(source: string, listingNoInput: string, out
       ['용도 확인', `건축물대장상 ${p.propertyKind ?? '용도를 확인해'} 인허가를 함께 봐 드립니다`],
     ]
     : [
-      [p.floor === '1' ? '1층 전면' : `${p.floor ?? ''}층 위치`.trim(), p.floor === '1' ? '도로에서 바로 보이는 자리입니다' : '임대료 부담을 낮춰 시작하실 수 있습니다'],
+      [p.floor === '1' ? '1층 전면' : `${floorLabel(p.floor) ?? ''} 위치`.trim(), p.floor === '1' ? '도로에서 바로 보이는 자리입니다' : '임대료 부담을 낮춰 시작하실 수 있습니다'],
       [p.exclusiveArea ? `전용 ${m2ToPyeong(p.exclusiveArea)}평` : '면적 확인', '실제 사용 면적 기준으로 안내드립니다'],
       [p.premium === '없음' ? '무권리' : '권리금 확인', p.premium === '없음' ? '초기 비용을 시설 공사 위주로 잡으실 수 있습니다' : '조건은 확인 후 안내드립니다'],
       [hasParkingLot(p) ? `주차 ${p.parking}` : '주차 확인', hasParkingLot(p) ? '건축물대장 기준 대수입니다' : '인근 공영주차장을 함께 안내드립니다'],

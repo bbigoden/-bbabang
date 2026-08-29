@@ -81,6 +81,53 @@ function areaNumber(v: string | undefined): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
+/**
+ * 소재지 꼬리에서 해당층을 읽는다. 스킬이 말하는 "호수와 대조해 판단"이 이것이다.
+ *   `지하1층` `B135호` → B1 / `210호` → 2 / `1001호` → 10 / `12동` → 알 수 없음
+ * 동 번호(`501동`)를 호수로 오인하지 않도록 `호`·`층`으로 끝나는 것만 본다.
+ */
+function floorFromAddress(addr?: string): string | undefined {
+  if (!addr) return undefined
+  const base = addr.match(/지하\s*(\d+)\s*층/) ?? addr.match(/B\s*(\d)\d{2}\s*호/)
+  if (base) return `B${base[1]}`
+  const explicit = addr.match(/(\d+)\s*층/)
+  if (explicit) return explicit[1]
+  // 호수 → 층. 3자리는 앞 1자리, 4자리는 앞 2자리. 여러 호가 붙어도 마지막 것을 본다.
+  const rooms = addr.match(/\d{3,4}\s*호/g)
+  if (rooms) {
+    const n = rooms[rooms.length - 1].replace(/\D/g, '')
+    return n.length === 4 ? String(Number(n.slice(0, 2))) : String(Number(n[0]))
+  }
+  return undefined
+}
+
+/**
+ * 뱅크 층수 필드의 원값을 내부 표기로 바꾼다.
+ *
+ * 앞값이 양수면 해당층이 맞다 — 244건에서 소재지(`1층`·`202호`·`1001호`)와 그대로
+ * 맞물린다. 그런데 **음수는 믿을 수 없다.** `-1 / 1` 12건을 소재지와 대조해 보면
+ * 지하가 맞는 건 `지하1층`·`B135호`로 적힌 5건뿐이고, 나머지는 `210호`(2층),
+ * `136호`(1층), `1층 단독 창고`처럼 지상이다. 지상 매물을 지하로 광고하면
+ * 0층을 찍는 것보다 나쁘다. 그래서 음수는 버리고 소재지에서 다시 읽는다.
+ *
+ * `0`은 소재지가 `전체`인 통건물이라 해당층 개념이 없다.
+ */
+function normalizeFloor(raw: string | undefined, src?: string): string | undefined {
+  const v = raw?.trim()
+  if (v && /^\d+$/.test(v) && v !== '0') return v
+  if (v && /^B\d+$/.test(v)) return v
+  if (!src) return undefined
+  return floorFromAddress(field(src, ['소재지']))
+    ?? floorFromAddress((src.match(/-\s*위치\s*[:：].*/) ?? [''])[0])
+}
+
+/** 사람이 읽는 층 표기. 지하는 `B1`로 담고 있으므로 풀어서 쓴다. */
+export function floorLabel(floor?: string): string | null {
+  if (!floor) return null
+  const b = floor.match(/^B(\d+)$/)
+  return b ? `지하 ${b[1]}층` : `${floor}층`
+}
+
 export function m2ToPyeong(m2: number): string {
   return (m2 * 0.3025).toFixed(1)
 }
@@ -156,25 +203,33 @@ export function parseListing(source: string): ParsedListing {
   const exclusiveArea = areaNumber(field(src, ['전용면적', '전용']))
   const supplyArea = areaNumber(field(src, ['공급면적', '계약면적', '분양면적', '공급']))
 
-  // 층수 — "지하층/지상층 1 / 6" 형식은 실제로 해당층/총층
+  // 층수 — "지하층/지상층 1 / 6" 형식은 라벨과 달리 실제로 해당층/총층이다.
+  // 244건을 소재지와 대조해 확인했다: 앞값 1은 소재지 `1층`, 2는 `202호`,
+  // 10은 `1001호`, 12는 `제12층`과 정확히 맞물린다. 해당층이 지하면 `-1`처럼
+  // 음수로, 건물 전체를 쓰는 매물은 `0`으로 들어온다.
   let floor: string | undefined
   let totalFloors: string | undefined
   const floorPair =
-    src.match(/(?:지하층\s*\/\s*지상층|해당층\s*\/\s*총층|층수)\s*[:：]?\s*(B?\d+)\s*(?:층)?\s*\/\s*(?:총\s*)?(\d+)\s*(?:층)?/) ??
+    src.match(/(?:지하층\s*\/\s*지상층|해당층\s*\/\s*총층|층수)\s*[:：]?\s*(-?\d+|B\d+)\s*(?:층)?\s*\/\s*(?:총\s*)?(\d+)\s*(?:층)?/) ??
     src.match(/(B?\d+)\s*층\s*\/\s*(?:총\s*)?(\d+)\s*층/)
   if (floorPair) {
-    floor = floorPair[1]
+    floor = normalizeFloor(floorPair[1], src)
     totalFloors = floorPair[2]
+    // 해당층이 총층보다 높으면 둘 중 하나가 오입력이다. 소재지에서 읽은 해당층이
+    // 근거가 더 확실하므로(`210호`인데 총 1층) 총층을 버린다.
+    if (floor && /^\d+$/.test(floor) && totalFloors && Number(floor) > Number(totalFloors)) {
+      totalFloors = undefined
+    }
   } else {
     // 단층 건물(창고·공장)은 지하층이 비어 `지하층/지상층  - / 1` 로 온다.
     // 한쪽이 미입력이라고 층수를 통째로 버리면 표가 "확인 필요"가 된다.
-    const halfPair = src.match(/지하층\s*\/\s*지상층\s*[:：]?\s*(-|B?\d+)\s*\/\s*(-|\d+)/)
+    const halfPair = src.match(/지하층\s*\/\s*지상층\s*[:：]?\s*(-|-?\d+|B\d+)\s*\/\s*(-|\d+)/)
     if (halfPair) {
       const [, base, upper] = halfPair
       if (upper !== '-') { floor = upper; totalFloors = upper }
-      else if (base !== '-') floor = base
+      else if (base !== '-') floor = normalizeFloor(base, src)
     }
-    floor ??= field(src, ['해당층'])?.match(/B?\d+/)?.[0]
+    floor ??= normalizeFloor(field(src, ['해당층'])?.match(/-?\d+|B\d+/)?.[0], src)
     totalFloors ??= field(src, ['총층수', '총층'])?.match(/\d+/)?.[0]
   }
 
@@ -383,7 +438,7 @@ function fmtPrice(p: ParsedListing): string {
 function fmtLocation(p: ParsedListing): string {
   const parts = [p.sido ?? '충청남도', p.city, p.gu, p.dong].filter(Boolean)
   const base = parts.length >= 2 ? parts.join(' ') : NEEDS_CHECK
-  const fl = p.floor ? ` (${p.floor}층)` : ''
+  const fl = p.floor ? ` (${floorLabel(p.floor)})` : ''
   return base === NEEDS_CHECK ? base : `${base}${fl}`
 }
 
@@ -468,7 +523,7 @@ function buildIntro(p: ParsedListing, src: string): string {
   const concern = CONCERNS[p.category][hashPick(src, CONCERNS[p.category].length)]
 
   const locArea = [
-    p.dong && p.floor ? `${p.dong} ${p.floor}층` : p.dong,
+    p.dong && p.floor ? `${p.dong} ${floorLabel(p.floor)}` : p.dong,
     p.exclusiveArea ? `전용 약 ${m2ToPyeong(p.exclusiveArea)}평` : null,
   ].filter(Boolean).join(', ')
 
@@ -504,7 +559,8 @@ function infoRows(p: ParsedListing, listingNo: string): Array<[string, string]> 
     ['가격', fmtPrice(p)],
     ['중개대상물 종류', p.propertyKind ?? NEEDS_CHECK],
     ['거래형태', p.dealType ?? NEEDS_CHECK],
-    ['층수', p.floor && p.totalFloors ? `${p.floor}층 / 총 ${p.totalFloors}층` : p.floor ? `${p.floor}층` : NEEDS_CHECK],
+    ['층수', p.floor && p.totalFloors ? `${floorLabel(p.floor)} / 총 ${p.totalFloors}층`
+      : p.floor ? floorLabel(p.floor)! : p.totalFloors ? `총 ${p.totalFloors}층` : NEEDS_CHECK],
     ['입주가능일', p.moveIn ?? NEEDS_CHECK],
     ['방수/욕실수', p.bathrooms ? `화장실 ${p.bathrooms}개` : NEEDS_CHECK],
     ['사용승인일', p.approvalDate ?? NEEDS_CHECK],
@@ -560,8 +616,8 @@ function buildDetails(p: ParsedListing): string {
   const loc = `**입지**\n${region} 생활권에 위치한 매물입니다. 주변 상권 구성과 배후수요는 업종에 따라 체감이 다르므로, 현장 안내 시 실제 유동 동선과 함께 상세히 설명드리겠습니다.`
 
   const buildBits: string[] = []
-  if (p.floor && p.totalFloors) buildBits.push(`총 ${p.totalFloors}층 건물의 ${p.floor}층에 자리하고 있습니다`)
-  else if (p.floor) buildBits.push(`${p.floor}층에 자리하고 있습니다`)
+  if (p.floor && p.totalFloors) buildBits.push(`총 ${p.totalFloors}층 건물의 ${floorLabel(p.floor)}에 자리하고 있습니다`)
+  else if (p.floor) buildBits.push(`${floorLabel(p.floor)}에 자리하고 있습니다`)
   if (p.exclusiveArea) buildBits.push(`전용 ${p.exclusiveArea}㎡(약 ${m2ToPyeong(p.exclusiveArea)}평)로 용도에 맞게 구획해 사용하실 수 있습니다`)
   if (p.elevator) buildBits.push('엘리베이터가 있어 층간 이동이 편리합니다')
   // 주차 0대를 본문에서 굳이 안내하지 않는다. 표시광고 필수 항목이라 표에는 사실대로 적히고,
