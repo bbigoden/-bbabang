@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
+import { parseBankPeriod } from '@/lib/bank-period'
 
 /**
  * 광고관리 — 부동산뱅크에 등록한 매물 중 카페·블로그·당근에 광고할 것을 선별하고,
@@ -62,6 +63,9 @@ const m2ToPyeong = (m2: number | null) => (m2 ? (m2 * 0.3025).toFixed(1) : null)
 /** PC 프로그램이 이 시간 안에 신호를 보냈으면 켜져 있는 것으로 본다 (신호 주기는 20초). */
 const AGENT_ALIVE_MS = 60_000
 
+/** 뱅크 '원클릭 재전송'이 한 번에 받는 상한. 넘기면 뱅크가 경고창을 띄운다. */
+const BANK_RENEW_MAX = 30
+
 /** "방금", "12분 전", 하루가 넘으면 날짜. 어제 받은 목록을 오늘 것으로 착각하지 않게. */
 function fmtWhen(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -73,6 +77,26 @@ function fmtWhen(iso: string) {
   return new Date(iso).toLocaleString('ko-KR', {
     month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
+}
+
+/**
+ * 뱅크 광고 만료까지 남은 날.
+ *
+ * 뱅크 등록은 30일이 지나면 자동 종료돼 뱅크·네이버부동산에서 조용히 빠진다.
+ * 화면에 남은 날짜가 없으면 빠진 뒤에야 알게 되므로 한 칸을 내준다.
+ */
+function ExpiryCell({ period }: { period: string | null }) {
+  const p = parseBankPeriod(period)
+  if (!p) return <span className="text-gray-300 dark:text-gray-600">–</span>
+  const tone = {
+    expired: 'text-red-600 dark:text-red-400 font-medium',
+    urgent: 'text-red-600 dark:text-red-400',
+    soon: 'text-amber-600 dark:text-amber-400',
+    ok: 'text-gray-500',
+  }[p.level]
+  return (
+    <span className={tone} title={`${period} (뱅크 등록 기간)`}>{p.label}</span>
+  )
 }
 
 /** 채널 게시 상태를 한 칸으로 표시 */
@@ -100,7 +124,7 @@ export default function AdsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
-  const [tab, setTab] = useState<'all' | 'advertising' | 'takedown'>('all')
+  const [tab, setTab] = useState<'all' | 'advertising' | 'takedown' | 'expiring'>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('ads')
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
@@ -108,6 +132,7 @@ export default function AdsPage() {
   const [syncProgress, setSyncProgress] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
   const [takedownWatch, setTakedownWatch] = useState(false)
+  const [renewWatch, setRenewWatch] = useState(false)
 
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
   const lastSynced = useMemo(
@@ -115,6 +140,24 @@ export default function AdsPage() {
       (a, l) => (l.synced_at && (!a || l.synced_at > a) ? l.synced_at : a), null),
     [listings],
   )
+
+  /**
+   * 마지막 수집 때 뱅크가 돌려주지 않은 매물 — 뱅크에서 빠졌다는 뜻이다.
+   * 30일이 지나 자동 종료됐거나 직접 지운 것이다. 이 매물이 아직 카페·블로그에
+   * 광고 중이면 뱅크에 없는 물건을 광고하는 셈이라 표시광고법 문제가 된다.
+   *
+   * 수집 시각을 비교해 판정한다. 같은 수집에서 들어온 행은 시각이 몇 초 안에 몰린다.
+   */
+  const goneFromBank = useMemo(() => {
+    if (!lastSynced) return new Set<string>()
+    const cutoff = new Date(lastSynced).getTime() - 10 * 60_000
+    return new Set(listings.filter(l =>
+      l.synced_at && new Date(l.synced_at).getTime() < cutoff).map(l => l.id))
+  }, [listings, lastSynced])
+
+  const goneButLive = listings.filter(l =>
+    goneFromBank.has(l.id) && !l.contracted_at &&
+    (l.is_advertising || l.ad_posts.some(p => p.status === 'posted')))
 
   useEffect(() => {
     if (auth.loading) return
@@ -253,6 +296,58 @@ export default function AdsPage() {
     load()
   }
 
+  /**
+   * 만료가 임박한 뱅크 등록을 다시 내보낸다 (뱅크의 '원클릭 재전송').
+   *
+   * 광고를 다시 내보내는 조작이라 거래완료된 매물이 섞이면 표시광고법 위반이다.
+   * 여기서 한 번 거르고, PC 프로그램이 실행 직전에 한 번 더 거른다.
+   * 뱅크가 한 번에 30건까지만 받는다.
+   */
+  async function renewExpiring() {
+    if (!auth.broker) return
+    const targets = expiring.filter(l => !l.contracted_at).slice(0, BANK_RENEW_MAX)
+    if (!targets.length) { toast.error('재등록할 매물이 없습니다.'); return }
+
+    const over = expiring.filter(l => !l.contracted_at).length - targets.length
+    if (!confirm(
+      `뱅크에 ${targets.length}건을 다시 등록합니다. 등록일이 오늘부터 30일로 새로 시작됩니다.\n` +
+      (over > 0 ? `\n뱅크가 한 번에 ${BANK_RENEW_MAX}건까지만 받아 ${over}건은 다음에 다시 눌러 주세요.\n` : '') +
+      '\n계속할까요?'
+    )) return
+
+    const { error } = await supabase.from('ad_jobs').insert({
+      broker_id: auth.broker.id, kind: 'renew',
+      params: { bankNos: targets.map(l => l.bank_no) }, requested_by: auth.user?.id,
+    })
+    if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    toast.success(agentOnline ? `${targets.length}건을 재등록하는 중입니다.` : '재등록을 예약했습니다. PC 프로그램을 켜 주세요.')
+    setRenewWatch(true)
+  }
+
+  /** 재등록이 끝나면 목록을 새로 받아 남은 날짜를 갱신한다. */
+  useEffect(() => {
+    if (!renewWatch) return
+    const id = setInterval(async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('id').eq('kind', 'renew').in('status', ['queued', 'running']).limit(1)
+      if (data && data.length) return
+      setRenewWatch(false)
+      const { data: last } = await supabase.from('ad_jobs')
+        .select('status, error, result').eq('kind', 'renew')
+        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+      if (last?.status === 'failed') toast.error(`재등록하지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
+      else if (last?.status === 'done') {
+        const n = (last.result as { renewed?: number } | null)?.renewed
+        toast.success(n ? `${n}건을 재등록했습니다.` : '재등록을 마쳤습니다.')
+        // 새 기간은 뱅크에서 다시 받아야 화면에 보인다
+        requestSync()
+        return
+      }
+      load()
+    }, 3000)
+    return () => clearInterval(id)
+  }, [renewWatch])
+
   /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
   async function takedownAll() {
     if (!auth.broker) return
@@ -303,6 +398,11 @@ export default function AdsPage() {
         const live = l.ad_posts.some(p => p.status === 'posted' || p.status === 'failed')
         if (!l.contracted_at || !live) return false
       }
+      if (tab === 'expiring') {
+        if (l.contracted_at) return false
+        const lv = parseBankPeriod(l.bank_period)?.level
+        if (lv !== 'expired' && lv !== 'urgent' && lv !== 'soon') return false
+      }
       if (!key) return true
       return [l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
@@ -322,6 +422,14 @@ export default function AdsPage() {
     l.contracted_at && l.ad_posts.some(p => p.status === 'posted' || p.status === 'failed')
   ).length
   const adCount = listings.filter(l => l.is_advertising).length
+
+  // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
+  const expiring = listings.filter(l => {
+    if (l.contracted_at) return false
+    const lv = parseBankPeriod(l.bank_period)?.level
+    return lv === 'expired' || lv === 'urgent' || lv === 'soon'
+  })
+  const expiredCount = expiring.filter(l => parseBankPeriod(l.bank_period)?.level === 'expired').length
 
   if (auth.loading || !auth.broker) return null
 
@@ -357,12 +465,51 @@ export default function AdsPage() {
           </div>
         )}
 
+        {goneButLive.length > 0 && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+            <div>
+              <p className="font-medium text-red-800 dark:text-red-300">
+                뱅크에 없는 매물 {goneButLive.length}건이 아직 광고 중입니다.
+              </p>
+              <p className="mt-0.5 text-red-700 dark:text-red-400">
+                뱅크에서 빠진 매물({goneButLive.map(l => l.bank_no).slice(0, 5).join(', ')}
+                {goneButLive.length > 5 && ' 외'})을 다른 채널에 광고하고 있습니다.
+                계약이 끝난 것이면 거래완료를 눌러 내리고, 아니면 뱅크에 다시 등록하세요.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {expiring.length > 0 && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div>
+              <p className="font-medium text-amber-900 dark:text-amber-300">
+                뱅크 등록이 곧 끝나는 매물 {expiring.length}건
+                {expiredCount > 0 && ` (이미 지난 것 ${expiredCount}건)`}
+              </p>
+              <p className="mt-0.5 text-amber-800 dark:text-amber-400">
+                뱅크 등록은 30일이면 자동 종료돼 뱅크·네이버부동산에서 빠집니다. 재등록하면 오늘부터 30일로 새로 시작됩니다.
+              </p>
+              <button
+                onClick={renewExpiring}
+                disabled={renewWatch}
+                className="mt-2 rounded-lg bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                {renewWatch ? '재등록 중…' : `뱅크에 다시 등록 (${Math.min(expiring.filter(l => !l.contracted_at).length, BANK_RENEW_MAX)}건)`}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-800">
             {([
               ['all', `전체 ${listings.length}`],
               ['advertising', `광고중 ${adCount}`],
               ['takedown', `내려야 함 ${takedownCount}`],
+              ['expiring', `뱅크 만료임박 ${expiring.length}`],
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -450,6 +597,7 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">면적</th>
                   <th className="px-3 py-2 font-medium">가격</th>
                   <th className="px-3 py-2 font-medium">뱅크상태</th>
+                  <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
                   <th className="px-3 py-2 font-medium">거래</th>
                 </tr>
@@ -482,6 +630,11 @@ export default function AdsPage() {
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{l.price_text ?? '–'}</td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{l.bank_status ?? '–'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs">
+                        {goneFromBank.has(l.id)
+                          ? <span className="text-gray-400" title="마지막 수집 때 뱅크 목록에 없었습니다">뱅크에 없음</span>
+                          : <ExpiryCell period={l.bank_period} />}
+                      </td>
                       {CHANNELS.map(c => (
                         <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">
                           <ChannelCell post={l.ad_posts.find(p => p.channel === c.key)} />
