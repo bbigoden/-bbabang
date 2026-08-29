@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
-import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert } from 'lucide-react'
+import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download } from 'lucide-react'
 
 /**
  * 광고관리 — 부동산뱅크에 등록한 매물 중 카페·블로그·당근에 광고할 것을 선별하고,
@@ -58,6 +58,22 @@ const CHANNEL_LABEL: Record<string, string> = {
 
 const m2ToPyeong = (m2: number | null) => (m2 ? (m2 * 0.3025).toFixed(1) : null)
 
+/** PC 프로그램이 이 시간 안에 신호를 보냈으면 켜져 있는 것으로 본다 (신호 주기는 20초). */
+const AGENT_ALIVE_MS = 60_000
+
+/** "방금", "12분 전", 하루가 넘으면 날짜. 어제 받은 목록을 오늘 것으로 착각하지 않게. */
+function fmtWhen(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(diff / 60_000)
+  if (min < 1) return '방금'
+  if (min < 60) return `${min}분 전`
+  const hour = Math.floor(min / 60)
+  if (hour < 24) return `${hour}시간 전`
+  return new Date(iso).toLocaleString('ko-KR', {
+    month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 /** 채널 게시 상태를 한 칸으로 표시 */
 function ChannelCell({ post }: { post: Post | undefined }) {
   if (!post || post.status === 'pending') {
@@ -84,6 +100,17 @@ export default function AdsPage() {
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<'all' | 'advertising' | 'takedown'>('all')
+  const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
+
+  const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
+  const lastSynced = useMemo(
+    () => listings.reduce<string | null>(
+      (a, l) => (l.synced_at && (!a || l.synced_at > a) ? l.synced_at : a), null),
+    [listings],
+  )
 
   useEffect(() => {
     if (auth.loading) return
@@ -102,6 +129,70 @@ export default function AdsPage() {
     if (error) toast.error(`목록을 불러오지 못했습니다: ${error.message}`)
     setListings((data as Listing[]) ?? [])
     setLoading(false)
+  }
+
+  /** PC 프로그램이 살아 있는지 주기적으로 확인한다. */
+  useEffect(() => {
+    if (!auth.broker) return
+    let alive = true
+    const tick = async () => {
+      const { data } = await supabase.from('ad_agents').select('last_seen_at').maybeSingle()
+      if (alive) setAgentSeenAt(data?.last_seen_at ?? null)
+    }
+    tick()
+    const id = setInterval(tick, 15_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [auth.broker?.id])
+
+  /**
+   * 뱅크 수집을 PC에 맡긴다.
+   *
+   * 이 화면은 Vercel 서버에서 도니까 뱅크에 직접 못 간다 — 브라우저를 띄워 사람처럼
+   * 로그인해야 하는 일이고, 뱅크 비밀번호를 클라우드에 둘 수도 없다. 그래서 여기서는
+   * `ad_jobs` 에 "해달라"고 적어 두고, PC에서 도는 프로그램이 집어가 실행한다.
+   */
+  async function requestSync() {
+    if (!auth.broker) return
+    if (!agentOnline && !confirm(
+      'PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.\n\n' +
+      '요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.\n계속할까요?'
+    )) return
+
+    setSyncing(true); setSyncError(null); setSyncProgress('요청 보냄')
+    const { data: job, error } = await supabase
+      .from('ad_jobs')
+      .insert({ broker_id: auth.broker.id, kind: 'sync', requested_by: auth.user?.id })
+      .select('id').single()
+    if (error || !job) {
+      setSyncing(false); setSyncProgress(null)
+      toast.error(`요청하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`)
+      return
+    }
+
+    // 끝날 때까지 지켜본다. 30분이 넘으면 화면만 놓아주고 작업은 그대로 둔다.
+    const deadline = Date.now() + 30 * 60_000
+    const poll = setInterval(async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('status, progress, result, error').eq('id', job.id).maybeSingle()
+      if (!data) return
+      setSyncProgress(data.progress ?? null)
+      if (data.status === 'done') {
+        clearInterval(poll)
+        setSyncing(false); setSyncProgress(null)
+        const n = (data.result as { collected?: number } | null)?.collected
+        toast.success(n ? `뱅크에서 ${n}건을 받아왔습니다.` : '가져오기를 마쳤습니다.')
+        load()
+      } else if (data.status === 'failed' || data.status === 'canceled') {
+        clearInterval(poll)
+        setSyncing(false); setSyncProgress(null)
+        setSyncError(data.error ?? '알 수 없는 오류')
+        toast.error(`가져오지 못했습니다: ${data.error ?? '알 수 없는 오류'}`)
+      } else if (Date.now() > deadline) {
+        clearInterval(poll)
+        setSyncing(false); setSyncProgress(null)
+        toast.error('시간이 너무 오래 걸립니다. PC 창을 확인해 주세요.')
+      }
+    }, 2000)
   }
 
   async function toggleAd(l: Listing) {
@@ -210,11 +301,45 @@ export default function AdsPage() {
           </div>
 
           <button
+            onClick={requestSync}
+            disabled={syncing}
+            title={agentOnline
+              ? '부동산뱅크에 접속해 매물을 새로 받아옵니다'
+              : 'PC에서 부소장광고 프로그램(npm run agent)을 먼저 켜 주세요'}
+            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
+            {syncing ? (syncProgress ?? '가져오는 중…') : '뱅크에서 가져오기'}
+          </button>
+
+          <button
             onClick={load}
+            title="뱅크에 접속하지 않고 이 화면만 다시 그립니다"
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            <RefreshCw className="h-4 w-4" /> 새로고침
+            <RefreshCw className="h-4 w-4" /> 화면 새로고침
           </button>
+        </div>
+
+        {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
+            낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다. */}
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <span>
+            뱅크에서 받아온 시각:{' '}
+            {lastSynced
+              ? <span className="text-gray-700 dark:text-gray-300">{fmtWhen(lastSynced)}</span>
+              : '아직 없음'}
+          </span>
+          <span className="flex items-center gap-1">
+            <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+            {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
+          </span>
+          {!agentOnline && (
+            <span>
+              PowerShell에서 <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">npm run agent</code> 를 실행하면 버튼이 동작합니다.
+            </span>
+          )}
+          {syncError && <span className="text-red-600 dark:text-red-400">마지막 시도 실패: {syncError}</span>}
         </div>
 
         {loading ? (
