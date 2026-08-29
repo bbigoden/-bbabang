@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Users, Eye, MoreHorizontal, X, Lock, Download, Check } from 'lucide-react'
-import { Pagination } from '@/components/sheet/pagination'
+import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { EmptyRow } from '@/components/sheet/empty-row'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -355,7 +355,7 @@ export default function BrokerCustomersPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [addingId, setAddingId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePageSize('customers')
 
   // 불러오기 모달
   const [showImport, setShowImport] = useState(false)

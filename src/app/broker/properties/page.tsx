@@ -19,7 +19,7 @@ import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
   Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, LocateFixed,
 } from 'lucide-react'
-import { Pagination } from '@/components/sheet/pagination'
+import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { EmptyRow } from '@/components/sheet/empty-row'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
@@ -1267,7 +1267,7 @@ function BrokerPropertiesContent() {
     return () => clearTimeout(t)
   }, [searchQuery])
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = usePageSize('properties')
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [isMapView, setIsMapView] = useState(false)
   const { status: mapStatus, errorReason: mapErr, ready: mapReady } = useKakaoMapSdk()

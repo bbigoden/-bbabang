@@ -8,6 +8,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download } from 'lucide-react'
+import { Pagination, usePageSize } from '@/components/sheet/pagination'
 
 /**
  * 광고관리 — 부동산뱅크에 등록한 매물 중 카페·블로그·당근에 광고할 것을 선별하고,
@@ -100,6 +101,8 @@ export default function AdsPage() {
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState<'all' | 'advertising' | 'takedown'>('all')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = usePageSize('ads')
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<string | null>(null)
@@ -159,10 +162,19 @@ export default function AdsPage() {
     )) return
 
     setSyncing(true); setSyncError(null); setSyncProgress('요청 보냄')
-    const { data: job, error } = await supabase
-      .from('ad_jobs')
-      .insert({ broker_id: auth.broker.id, kind: 'sync', requested_by: auth.user?.id })
-      .select('id').single()
+
+    // 이미 대기·실행 중인 수집이 있으면 그걸 지켜본다. PC 프로그램이 꺼져 있을 때
+    // 버튼을 여러 번 누르면 요청이 쌓여, 켜는 순간 같은 수집을 반복하게 된다.
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'sync').in('status', ['queued', 'running'])
+      .order('requested_at', { ascending: true }).limit(1).maybeSingle()
+
+    const { data: job, error } = pending
+      ? { data: pending, error: null }
+      : await supabase
+        .from('ad_jobs')
+        .insert({ broker_id: auth.broker.id, kind: 'sync', requested_by: auth.user?.id })
+        .select('id').single()
     if (error || !job) {
       setSyncing(false); setSyncProgress(null)
       toast.error(`요청하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`)
@@ -238,6 +250,14 @@ export default function AdsPage() {
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
     })
   }, [listings, q, tab])
+
+  // 고객목록과 같은 방식으로 자른다 — 250건 규모라 전부 받아 두고 화면에서만 나눈다.
+  // 매물목록만 서버에서 페이지 단위로 받는데, 그쪽은 1,800건에 2.3MB라 사정이 다르다.
+  // 여기서 서버로 옮기면 아래 탭 숫자(전체·광고중·내려야 함)를 세려고 집계를 따로
+  // 만들어야 하고, "내려야 함"은 틀리면 안 되는 숫자다.
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+  useEffect(() => { setPage(1) }, [q, tab, pageSize])
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l =>
@@ -369,7 +389,7 @@ export default function AdsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {filtered.map(l => {
+                {paginated.map(l => {
                   const done = !!l.contracted_at
                   return (
                     <tr key={l.id} className={done ? 'bg-gray-50/60 text-gray-400 dark:bg-gray-900/40' : ''}>
@@ -422,6 +442,17 @@ export default function AdsPage() {
               <p className="py-10 text-center text-sm text-gray-500">조건에 맞는 매물이 없습니다.</p>
             )}
           </div>
+        )}
+
+        {!loading && listings.length > 0 && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalCount={filtered.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </main>
     </>

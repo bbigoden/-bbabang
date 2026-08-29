@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 /**
@@ -13,6 +14,36 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
  */
 
 const DEFAULT_PAGE_SIZES = [10, 20, 50, 100]
+
+/**
+ * 고른 페이지당 개수를 기억한다. 화면마다 다른 key 를 준다.
+ *
+ * 100개로 보다가 새로고침하면 20개로 돌아가는 게 매일 걸린다. 서버에 둘 만한
+ * 값은 아니고(이 브라우저에서만 의미 있다), 저장이 막힌 환경도 있으므로
+ * 실패하면 조용히 기본값으로 간다.
+ *
+ * 첫 렌더는 서버와 같은 기본값으로 그린 뒤 저장값을 적용한다 —
+ * 서버에서 읽을 수 없는 값이라 처음부터 넣으면 hydration 이 어긋난다.
+ */
+export function usePageSize(key: string, fallback = 20, allowed = DEFAULT_PAGE_SIZES) {
+  const [pageSize, setPageSize] = useState(fallback)
+  const allowedKey = allowed.join(',')
+
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem(`pageSize:${key}`))
+      // 버튼에 없는 값이 남아 있으면(선택지를 바꾼 뒤 등) 무시하고 기본값으로 간다
+      if (allowedKey.split(',').map(Number).includes(saved)) setPageSize(saved)
+    } catch { /* 시크릿 모드 등 저장이 막힌 환경 */ }
+  }, [key, allowedKey])
+
+  const choose = (n: number) => {
+    setPageSize(n)
+    try { localStorage.setItem(`pageSize:${key}`, String(n)) } catch { /* 위와 같음 */ }
+  }
+
+  return [pageSize, choose] as const
+}
 
 const NAV_BUTTON_BASE =
   'flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 ' +
