@@ -48,7 +48,15 @@ type Listing = {
   ad_posts: Post[]
 }
 
-const CHANNELS: Array<{ key: 'cafe' | 'blog' | 'daangn'; label: string }> = [
+/**
+ * 광고가 나가는 곳. 뱅크를 맨 앞에 둔다 — 네이버부동산까지 자동 전송되므로
+ * 노출이 가장 크고, 계약이 끝났을 때 반드시 내려야 하는 곳이다.
+ *
+ * 뱅크는 우리가 올린 게 아니라 발행 기록이 없다. 그래서 기록 대신 뱅크가 준
+ * 상태(bank_status)와 마지막 수집 결과로 판단한다.
+ */
+const CHANNELS: Array<{ key: 'bank' | 'cafe' | 'blog' | 'daangn'; label: string }> = [
+  { key: 'bank', label: '뱅크' },
   { key: 'cafe', label: '카페' },
   { key: 'blog', label: '블로그' },
   { key: 'daangn', label: '당근' },
@@ -97,6 +105,41 @@ function ExpiryCell({ period }: { period: string | null }) {
   return (
     <span className={tone} title={`${period} (뱅크 등록 기간)`}>{p.label}</span>
   )
+}
+
+/**
+ * 뱅크에 광고가 살아 있는지.
+ *
+ * 거래완료를 눌러도 뱅크는 따로 내려야 한다. 그런데 행이 회색이 되고 '완료'만
+ * 뜨면 전부 내려간 것처럼 보인다 — 실제로는 뱅크와 네이버부동산에 그대로 남는다.
+ * 그래서 한 칸을 내주고, 계약이 끝났는데 살아 있으면 붉게 띄운다.
+ */
+function BankCell({ listing, gone }: { listing: Listing; gone: boolean }) {
+  const post = listing.ad_posts.find(p => p.channel === 'bank')
+  if (post?.status === 'removed') return <span className="text-gray-400">내림</span>
+  if (post?.status === 'failed') {
+    return <span className="text-red-600 dark:text-red-400" title={post.error ?? ''}>실패</span>
+  }
+  if (gone) return <span className="text-gray-400">없음</span>
+  if (listing.contracted_at) {
+    return <span className="font-medium text-red-600 dark:text-red-400" title="계약이 끝났는데 뱅크에 광고가 남아 있습니다">게시중</span>
+  }
+  return <span className="text-green-600 dark:text-green-400">게시중</span>
+}
+
+/**
+ * 아직 내려야 할 광고가 남았는가.
+ *
+ * 카페·블로그·당근은 우리가 올린 기록으로 판단하지만, **뱅크는 기록이 없다**
+ * (사장님이 직접 올린다). 기록만 보면 뱅크가 통째로 빠져서, 계약이 끝났는데
+ * 노출이 가장 큰 뱅크·네이버부동산에 광고가 그대로 남는다.
+ * 그래서 뱅크는 "내렸다는 기록이 없고 아직 뱅크에 있으면" 남은 것으로 센다.
+ */
+function needsTakedown(l: Listing, gone: boolean) {
+  if (!l.contracted_at) return false
+  if (l.ad_posts.some(p => p.status === 'posted' || p.status === 'failed')) return true
+  const bank = l.ad_posts.find(p => p.channel === 'bank')
+  return bank?.status !== 'removed' && !gone
 }
 
 /** 채널 게시 상태를 한 칸으로 표시 */
@@ -266,10 +309,18 @@ export default function AdsPage() {
 
   /** 거래완료 표시 — 실제 광고 내리기는 로컬 프로그램이 수행한다. */
   async function markContracted(l: Listing) {
-    const live = l.ad_posts.filter(p => p.status === 'posted' || p.status === 'failed')
-    const where = live.map(p => CHANNEL_LABEL[p.channel] ?? p.channel).join(', ')
-    const msg = live.length
-      ? `${l.bank_no} 매물을 거래완료로 표시하고, 광고 중인 ${live.length}곳(${where})에서 내립니다.\n\n` +
+    // 뱅크는 발행 기록이 없어도 항상 내려야 한다. 네이버부동산까지 자동 전송되므로
+    // 계약이 끝난 매물이 여기 남으면 노출이 가장 큰 곳에서 위반이 된다.
+    const bankLive = l.ad_posts.find(p => p.channel === 'bank')?.status !== 'removed'
+      && !goneFromBank.has(l.id)
+    const where = [
+      ...(bankLive ? ['뱅크'] : []),
+      ...l.ad_posts
+        .filter(p => p.channel !== 'bank' && (p.status === 'posted' || p.status === 'failed'))
+        .map(p => CHANNEL_LABEL[p.channel] ?? p.channel),
+    ]
+    const msg = where.length
+      ? `${l.bank_no} 매물을 거래완료로 표시하고, 광고 중인 ${where.length}곳(${where.join(', ')})에서 내립니다.\n\n` +
         (agentOnline ? '되돌릴 수 없습니다. 계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 내려갑니다. 계속할까요?')
       : `${l.bank_no} 매물을 거래완료로 표시할까요?`
     if (!confirm(msg)) return
@@ -280,7 +331,7 @@ export default function AdsPage() {
       .eq('id', l.id)
     if (error) { toast.error(`처리하지 못했습니다: ${error.message}`); return }
 
-    if (!live.length) { toast.success('거래완료로 표시했습니다.'); load(); return }
+    if (!where.length) { toast.success('거래완료로 표시했습니다.'); load(); return }
 
     // 표시만으로 끝나면 광고가 그대로 남는다. 내리는 일까지 PC에 맡긴다.
     const { error: jobError } = await supabase.from('ad_jobs').insert({
@@ -291,7 +342,7 @@ export default function AdsPage() {
       toast.error(`거래완료로 표시했지만 내리기를 요청하지 못했습니다: ${jobError.message}`)
       load(); return
     }
-    toast.success(agentOnline ? `${where} 광고를 내리는 중입니다.` : '내리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    toast.success(agentOnline ? `${where.join(', ')} 광고를 내리는 중입니다.` : '내리기를 예약했습니다. PC 프로그램을 켜 주세요.')
     setTakedownWatch(true)
     load()
   }
@@ -394,10 +445,7 @@ export default function AdsPage() {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
       if (tab === 'advertising' && !l.is_advertising) return false
-      if (tab === 'takedown') {
-        const live = l.ad_posts.some(p => p.status === 'posted' || p.status === 'failed')
-        if (!l.contracted_at || !live) return false
-      }
+      if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
       if (tab === 'expiring') {
         if (l.contracted_at) return false
         const lv = parseBankPeriod(l.bank_period)?.level
@@ -407,7 +455,7 @@ export default function AdsPage() {
       return [l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
     })
-  }, [listings, q, tab])
+  }, [listings, q, tab, goneFromBank])
 
   // 고객목록과 같은 방식으로 자른다 — 250건 규모라 전부 받아 두고 화면에서만 나눈다.
   // 매물목록만 서버에서 페이지 단위로 받는데, 그쪽은 1,800건에 2.3MB라 사정이 다르다.
@@ -418,9 +466,7 @@ export default function AdsPage() {
   useEffect(() => { setPage(1) }, [q, tab, pageSize])
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
-  const takedownCount = listings.filter(l =>
-    l.contracted_at && l.ad_posts.some(p => p.status === 'posted' || p.status === 'failed')
-  ).length
+  const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
   const adCount = listings.filter(l => l.is_advertising).length
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
@@ -637,7 +683,9 @@ export default function AdsPage() {
                       </td>
                       {CHANNELS.map(c => (
                         <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">
-                          <ChannelCell post={l.ad_posts.find(p => p.channel === c.key)} />
+                          {c.key === 'bank'
+                            ? <BankCell listing={l} gone={goneFromBank.has(l.id)} />
+                            : <ChannelCell post={l.ad_posts.find(p => p.channel === c.key)} />}
                         </td>
                       ))}
                       <td className="px-3 py-2">
