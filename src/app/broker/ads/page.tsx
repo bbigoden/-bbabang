@@ -45,6 +45,7 @@ type Listing = {
   is_advertising: boolean
   contracted_at: string | null
   synced_at: string | null
+  bank_closed_reason: string | null
   ad_posts: Post[]
 }
 
@@ -163,6 +164,28 @@ function isExpiring(l: Listing, gone: boolean) {
  */
 function isPast(l: Listing, gone: boolean) {
   return !!l.contracted_at || gone
+}
+
+/**
+ * 뱅크에서 왜 빠졌는지.
+ *
+ * 뱅크의 광고 내리기는 두 가지이고 뜻이 다르다.
+ *   거래완료 — 계약 확정. 다른 채널 광고도 내려야 한다
+ *   노출종료 — 30일이 지나 자동으로 끝났거나(기간만료), 사장님이 직접 내린 것
+ *
+ * 기간만료는 재등록하면 그만이지만 직접종료는 계약됐을 수 있다. 구분해서
+ * 보여줘야 무엇을 할지 정할 수 있다.
+ */
+function ClosedReason({ listing }: { listing: Listing }) {
+  if (listing.contracted_at) return <span className="text-gray-400">거래완료</span>
+  const r = listing.bank_closed_reason
+  if (r === '기간만료') {
+    return <span className="text-amber-600 dark:text-amber-400" title="30일이 지나 자동 종료됐습니다. 재등록하면 계속 광고할 수 있습니다.">기간만료</span>
+  }
+  if (r === '직접종료') {
+    return <span className="text-red-600 dark:text-red-400" title="뱅크에서 노출종료를 누른 매물입니다. 계약된 것이면 거래완료로 표시해 다른 채널도 내려 주세요.">직접 내림</span>
+  }
+  return <span className="text-gray-400" title="마지막 수집 때 뱅크 목록에 없었습니다">뱅크에 없음</span>
 }
 
 /** 채널 게시 상태를 한 칸으로 표시 */
@@ -602,9 +625,11 @@ export default function AdsPage() {
                 뱅크에 없는 매물 {goneButLive.length}건이 아직 광고 중입니다.
               </p>
               <p className="mt-0.5 text-red-700 dark:text-red-400">
-                뱅크에서 빠진 매물({goneButLive.map(l => l.bank_no).slice(0, 5).join(', ')}
-                {goneButLive.length > 5 && ' 외'})을 다른 채널에 광고하고 있습니다.
-                계약이 끝난 것이면 거래완료를 눌러 내리고, 아니면 뱅크에 다시 등록하세요.
+                {goneButLive.map(l => l.bank_no).slice(0, 5).join(', ')}
+                {goneButLive.length > 5 && ' 외'} — 뱅크에는 없는데 다른 채널에 광고가 남아 있습니다.
+              </p>
+              <p className="mt-1 text-red-700 dark:text-red-400">
+                <b>기간만료</b>면 [뱅크에 다시 등록], <b>직접 내림</b>이거나 계약이 끝난 것이면 [거래완료] 를 눌러 주세요.
               </p>
             </div>
           </div>
@@ -779,7 +804,7 @@ export default function AdsPage() {
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
                         {goneFromBank.has(l.id)
-                          ? <span className="text-gray-400" title="마지막 수집 때 뱅크 목록에 없었습니다">뱅크에 없음</span>
+                          ? <ClosedReason listing={l} />
                           : <ExpiryCell period={l.bank_period} />}
                       </td>
                       {CHANNELS.map(c => (
