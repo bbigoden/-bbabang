@@ -5,7 +5,7 @@
 import {
   Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
-  User, Bell, Palette, Handshake, Compass, CalendarDays, MessagesSquare, Briefcase, Newspaper,
+  User, Bell, Palette, Handshake, Compass, CalendarDays, MessagesSquare, Briefcase,
   Megaphone,
 } from 'lucide-react'
 
@@ -37,7 +37,6 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'jobs',       href: '/broker/jobs', label: '구인구직', icon: Briefcase, ownerOnly: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone },
-  { id: 'cafe-post',  href: '/broker/cafe-post', label: '매물글 변환', icon: Newspaper },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },
   {
     id: 'settings', label: '설정', icon: Settings,
