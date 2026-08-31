@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
-import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download } from 'lucide-react'
+import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download, Send } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
 
@@ -142,6 +142,19 @@ function needsTakedown(l: Listing, gone: boolean) {
   return bank?.status !== 'removed' && !gone
 }
 
+/**
+ * 곧 끝나서 재등록해야 할 매물인가.
+ *
+ * **이미 뱅크에서 빠진 매물은 세지 않는다.** 만료 임박이 아니라 이미 끝난 것이고,
+ * 뱅크의 '종료예정' 목록에도 없어서 재전송 대상이 되지 못한다. 이걸 같이 세면
+ * 숫자가 부풀어(75건) 실제로 손쓸 수 있는 41건이 묻힌다.
+ */
+function isExpiring(l: Listing, gone: boolean) {
+  if (l.contracted_at || gone) return false
+  const lv = parseBankPeriod(l.bank_period)?.level
+  return lv === 'expired' || lv === 'urgent' || lv === 'soon'
+}
+
 /** 채널 게시 상태를 한 칸으로 표시 */
 function ChannelCell({ post }: { post: Post | undefined }) {
   if (!post || post.status === 'pending') {
@@ -176,6 +189,8 @@ export default function AdsPage() {
   const [syncError, setSyncError] = useState<string | null>(null)
   const [takedownWatch, setTakedownWatch] = useState(false)
   const [renewWatch, setRenewWatch] = useState(false)
+  const [publishWatch, setPublishWatch] = useState(false)
+  const [publishProgress, setPublishProgress] = useState<string | null>(null)
 
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
   const lastSynced = useMemo(
@@ -399,6 +414,65 @@ export default function AdsPage() {
     return () => clearInterval(id)
   }, [renewWatch])
 
+  /**
+   * 체크한 매물을 카페에 올린다.
+   *
+   * 체크(광고)는 "이 매물을 광고하겠다"는 표시다. 여기서 그 표시를 실제 발행으로
+   * 잇는다. 이미 카페에 올라가 있는 것은 빼고, 계약이 끝났거나 뱅크에서 빠진
+   * 매물은 PC 프로그램이 실행 직전에 한 번 더 거른다.
+   */
+  async function publishChecked() {
+    if (!auth.broker) return
+    const targets = listings.filter(l =>
+      l.is_advertising && !l.contracted_at && !goneFromBank.has(l.id) &&
+      l.ad_posts.find(p => p.channel === 'cafe')?.status !== 'posted')
+    if (!targets.length) {
+      toast.error(adCount
+        ? '체크된 매물이 이미 다 올라가 있습니다.'
+        : '먼저 올릴 매물의 광고 칸에 체크해 주세요.')
+      return
+    }
+    if (!confirm(
+      `체크한 ${targets.length}건을 네이버 카페에 올립니다.\n\n` +
+      '글은 뱅크 원문에서 자동으로 만들어지고, 스킬 규칙을 어기면 그 건은 건너뜁니다.\n' +
+      (agentOnline ? '계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 올라갑니다. 계속할까요?')
+    )) return
+
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1).maybeSingle()
+    if (!pending) {
+      const { error } = await supabase.from('ad_jobs').insert({
+        broker_id: auth.broker.id, kind: 'publish',
+        params: { bankNos: targets.map(l => l.bank_no) }, requested_by: auth.user?.id,
+      })
+      if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    }
+    toast.success(agentOnline ? `${targets.length}건을 올리는 중입니다.` : '발행을 예약했습니다. PC 프로그램을 켜 주세요.')
+    setPublishWatch(true)
+  }
+
+  /** 발행이 끝나면 목록을 새로 받아 게시 상태를 보여준다. */
+  useEffect(() => {
+    if (!publishWatch) return
+    const id = setInterval(async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('id, progress').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1)
+      if (data && data.length) { setPublishProgress(data[0].progress ?? null); return }
+      setPublishWatch(false); setPublishProgress(null)
+      const { data: last } = await supabase.from('ad_jobs')
+        .select('status, error, result').eq('kind', 'publish')
+        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+      if (last?.status === 'failed') toast.error(`올리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
+      else if (last?.status === 'done') {
+        const r = last.result as { published?: number; skipped?: string[] } | null
+        toast.success(r?.published ? `카페에 ${r.published}건 올렸습니다.` : '발행을 마쳤습니다.')
+        if (r?.skipped?.length) toast.error(`건너뛴 매물 ${r.skipped.length}건 — ${r.skipped[0]}`)
+      }
+      load()
+    }, 3000)
+    return () => clearInterval(id)
+  }, [publishWatch])
+
   /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
   async function takedownAll() {
     if (!auth.broker) return
@@ -446,11 +520,7 @@ export default function AdsPage() {
     return listings.filter(l => {
       if (tab === 'advertising' && !l.is_advertising) return false
       if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
-      if (tab === 'expiring') {
-        if (l.contracted_at) return false
-        const lv = parseBankPeriod(l.bank_period)?.level
-        if (lv !== 'expired' && lv !== 'urgent' && lv !== 'soon') return false
-      }
+      if (tab === 'expiring' && !isExpiring(l, goneFromBank.has(l.id))) return false
       if (!key) return true
       return [l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
@@ -470,11 +540,7 @@ export default function AdsPage() {
   const adCount = listings.filter(l => l.is_advertising).length
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
-  const expiring = listings.filter(l => {
-    if (l.contracted_at) return false
-    const lv = parseBankPeriod(l.bank_period)?.level
-    return lv === 'expired' || lv === 'urgent' || lv === 'soon'
-  })
+  const expiring = listings.filter(l => isExpiring(l, goneFromBank.has(l.id)))
   const expiredCount = expiring.filter(l => parseBankPeriod(l.bank_period)?.level === 'expired').length
 
   if (auth.loading || !auth.broker) return null
@@ -580,6 +646,16 @@ export default function AdsPage() {
           </div>
 
           <button
+            onClick={publishChecked}
+            disabled={publishWatch}
+            title="광고 칸에 체크한 매물을 네이버 카페에 올립니다"
+            className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-60"
+          >
+            <Send className={`h-4 w-4 ${publishWatch ? 'animate-pulse' : ''}`} />
+            {publishWatch ? (publishProgress ?? '올리는 중…') : `카페에 올리기${adCount ? ` (${adCount})` : ''}`}
+          </button>
+
+          <button
             onClick={requestSync}
             disabled={syncing}
             title={agentOnline
@@ -636,7 +712,7 @@ export default function AdsPage() {
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                 <tr>
-                  <th className="px-3 py-2 font-medium">광고</th>
+                  <th className="px-3 py-2 font-medium" title="여기 체크한 매물을 [카페에 올리기] 로 발행합니다">광고</th>
                   <th className="px-3 py-2 font-medium">매물번호</th>
                   <th className="px-3 py-2 font-medium">종류</th>
                   <th className="px-3 py-2 font-medium">소재지</th>
