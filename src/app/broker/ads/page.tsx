@@ -506,6 +506,44 @@ export default function AdsPage() {
     return () => clearInterval(id)
   }, [publishWatch])
 
+  /**
+   * 뱅크에서 내린 매물의 다른 채널 광고도 내린다.
+   *
+   * 실무에서는 계약이 끝나도 뱅크의 [거래완료] 대신 [노출종료] 를 누른다 —
+   * 거래완료는 거래금액·계약일을 채워야 해서 손이 많이 간다. 그래서 뱅크에서
+   * 직접 내린 매물이 곧 "계약 끝난 매물"인 경우가 대부분이다.
+   *
+   * 다만 잠깐 내렸다 다시 올리는 경우도 있어 자동으로 지우지는 않는다.
+   * 여기서 한 번 눌러 확인하게 한다.
+   */
+  async function takedownGone() {
+    if (!auth.broker) return
+    if (!confirm(
+      `뱅크에서 내린 매물 ${goneButLive.length}건의 카페·블로그 광고를 내립니다.\n` +
+      `${goneButLive.map(l => l.bank_no).join(', ')}\n\n` +
+      '글이 삭제되며 되돌릴 수 없습니다. 계속할까요?'
+    )) return
+
+    // 거래완료로 표시해야 내리기 대상이 된다. 뱅크에서 이미 내렸으니 광고를
+    // 계속 둘 이유가 없다.
+    const { error } = await supabase.from('ad_listings')
+      .update({ contracted_at: new Date().toISOString(), is_advertising: false })
+      .in('id', goneButLive.map(l => l.id))
+    if (error) { toast.error(`처리하지 못했습니다: ${error.message}`); return }
+
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'takedown').in('status', ['queued', 'running']).limit(1).maybeSingle()
+    if (!pending) {
+      const { error: e2 } = await supabase.from('ad_jobs').insert({
+        broker_id: auth.broker.id, kind: 'takedown', requested_by: auth.user?.id,
+      })
+      if (e2) { toast.error(`요청하지 못했습니다: ${e2.message}`); load(); return }
+    }
+    toast.success(agentOnline ? '광고를 내리는 중입니다.' : '내리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    setTakedownWatch(true)
+    load()
+  }
+
   /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
   async function takedownAll() {
     if (!auth.broker) return
@@ -629,8 +667,16 @@ export default function AdsPage() {
                 {goneButLive.length > 5 && ' 외'} — 뱅크에는 없는데 다른 채널에 광고가 남아 있습니다.
               </p>
               <p className="mt-1 text-red-700 dark:text-red-400">
-                <b>기간만료</b>면 [뱅크에 다시 등록], <b>직접 내림</b>이거나 계약이 끝난 것이면 [거래완료] 를 눌러 주세요.
+                계약이 끝나 뱅크에서 내린 것이면 아래 버튼으로 한 번에 내리고,
+                <b> 기간만료</b>라 계속 광고할 것이면 [뱅크에 다시 등록] 을 누르세요.
               </p>
+              <button
+                onClick={takedownGone}
+                disabled={takedownWatch}
+                className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {takedownWatch ? '내리는 중…' : `이 ${goneButLive.length}건 광고 내리기`}
+              </button>
             </div>
           </div>
         )}
