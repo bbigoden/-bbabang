@@ -155,6 +155,16 @@ function isExpiring(l: Listing, gone: boolean) {
   return lv === 'expired' || lv === 'urgent' || lv === 'soon'
 }
 
+/**
+ * 더 이상 뱅크에 없는 매물인가 — 계약이 끝났거나 30일 만료로 빠진 것.
+ *
+ * 기본 목록에서 빼야 [전체] 건수가 뱅크의 등록 건수와 맞는다. 안 맞으면 어느
+ * 쪽이 맞는지 알 수 없어 화면 숫자를 못 믿게 된다.
+ */
+function isPast(l: Listing, gone: boolean) {
+  return !!l.contracted_at || gone
+}
+
 /** 채널 게시 상태를 한 칸으로 표시 */
 function ChannelCell({ post }: { post: Post | undefined }) {
   if (!post || post.status === 'pending') {
@@ -180,7 +190,7 @@ export default function AdsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
-  const [tab, setTab] = useState<'all' | 'advertising' | 'takedown' | 'expiring' | 'done'>('all')
+  const [tab, setTab] = useState<'all' | 'advertising' | 'takedown' | 'expiring' | 'past'>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('ads')
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
@@ -518,10 +528,11 @@ export default function AdsPage() {
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
-      // 거래완료된 매물은 끝난 일이라 기본 목록에서 뺀다. 기록은 남겨야 하므로
-      // 지우지 않고 '거래완료' 탭에서 본다 (언제 무엇을 내렸는지가 근거가 된다).
-      if (tab === 'done') { if (!l.contracted_at) return false }
-      else if (tab === 'all' && l.contracted_at) return false
+      // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
+      // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
+      // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
+      if (tab === 'past') { if (!isPast(l, goneFromBank.has(l.id))) return false }
+      else if (isPast(l, goneFromBank.has(l.id))) return false
       if (tab === 'advertising' && !l.is_advertising) return false
       if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
       if (tab === 'expiring' && !isExpiring(l, goneFromBank.has(l.id))) return false
@@ -542,7 +553,8 @@ export default function AdsPage() {
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
   const adCount = listings.filter(l => l.is_advertising).length
-  const doneCount = listings.filter(l => l.contracted_at).length
+  const pastCount = listings.filter(l => isPast(l, goneFromBank.has(l.id))).length
+  const activeCount = listings.length - pastCount
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
   const expiring = listings.filter(l => isExpiring(l, goneFromBank.has(l.id)))
@@ -623,11 +635,11 @@ export default function AdsPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-800">
             {([
-              ['all', `전체 ${listings.length - doneCount}`],
+              ['all', `뱅크 매물 ${activeCount}`],
               ['advertising', `광고중 ${adCount}`],
               ['takedown', `내려야 함 ${takedownCount}`],
               ['expiring', `뱅크 만료임박 ${expiring.length}`],
-              ['done', `거래완료 ${doneCount}`],
+              ['past', `지난 매물 ${pastCount}`],
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -685,11 +697,12 @@ export default function AdsPage() {
         {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
             낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다. */}
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          {/* 뱅크 화면의 '서비스중' 건수와 바로 대조할 수 있어야 한다.
+              숫자가 다르면 가져오기를 다시 눌러야 한다는 뜻이다. */}
           <span>
-            뱅크에서 받아온 시각:{' '}
-            {lastSynced
-              ? <span className="text-gray-700 dark:text-gray-300">{fmtWhen(lastSynced)}</span>
-              : '아직 없음'}
+            뱅크에서 받아온 것:{' '}
+            <span className="text-gray-700 dark:text-gray-300">{activeCount}건</span>
+            {lastSynced && <> · {fmtWhen(lastSynced)}</>}
           </span>
           <span className="flex items-center gap-1">
             <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
