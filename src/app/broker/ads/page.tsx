@@ -180,7 +180,7 @@ export default function AdsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
-  const [tab, setTab] = useState<'all' | 'advertising' | 'takedown' | 'expiring'>('all')
+  const [tab, setTab] = useState<'all' | 'advertising' | 'takedown' | 'expiring' | 'done'>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('ads')
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
@@ -518,6 +518,10 @@ export default function AdsPage() {
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
+      // 거래완료된 매물은 끝난 일이라 기본 목록에서 뺀다. 기록은 남겨야 하므로
+      // 지우지 않고 '거래완료' 탭에서 본다 (언제 무엇을 내렸는지가 근거가 된다).
+      if (tab === 'done') { if (!l.contracted_at) return false }
+      else if (tab === 'all' && l.contracted_at) return false
       if (tab === 'advertising' && !l.is_advertising) return false
       if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
       if (tab === 'expiring' && !isExpiring(l, goneFromBank.has(l.id))) return false
@@ -538,6 +542,7 @@ export default function AdsPage() {
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
   const adCount = listings.filter(l => l.is_advertising).length
+  const doneCount = listings.filter(l => l.contracted_at).length
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
   const expiring = listings.filter(l => isExpiring(l, goneFromBank.has(l.id)))
@@ -618,10 +623,11 @@ export default function AdsPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-800">
             {([
-              ['all', `전체 ${listings.length}`],
+              ['all', `전체 ${listings.length - doneCount}`],
               ['advertising', `광고중 ${adCount}`],
               ['takedown', `내려야 함 ${takedownCount}`],
               ['expiring', `뱅크 만료임박 ${expiring.length}`],
+              ['done', `거래완료 ${doneCount}`],
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -751,7 +757,13 @@ export default function AdsPage() {
                         {l.area_exclusive ? `전용 ${m2ToPyeong(l.area_exclusive)}평` : '–'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{l.price_text ?? '–'}</td>
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{l.bank_status ?? '–'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                        {/* 뱅크에서 빠진 매물의 상태값은 빠지기 전 것이라 낡았다.
+                            내려놓고도 '서비스중'으로 보여 헷갈린다. */}
+                        {goneFromBank.has(l.id)
+                          ? <span className="text-gray-300 dark:text-gray-600" title={`마지막으로 본 상태: ${l.bank_status ?? '알 수 없음'}`}>–</span>
+                          : (l.bank_status ?? '–')}
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
                         {goneFromBank.has(l.id)
                           ? <span className="text-gray-400" title="마지막 수집 때 뱅크 목록에 없었습니다">뱅크에 없음</span>
