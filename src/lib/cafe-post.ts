@@ -121,6 +121,17 @@ function normalizeFloor(raw: string | undefined, src?: string): string | undefin
     ?? floorFromAddress((src.match(/-\s*위치\s*[:：].*/) ?? [''])[0])
 }
 
+/**
+ * 사람이 읽는 주차 표기. 뱅크는 `26` 처럼 숫자만 준다.
+ *
+ * 서식을 표에만 두었더니 본문에는 "주차는 26 조건입니다" 처럼 단위가 빠진 채로
+ * 나갔다. 세 군데에서 같은 값을 쓰므로 한 곳에서 만든다.
+ */
+export function parkingLabel(parking?: string): string | null {
+  if (!parking) return null
+  return /^\d+$/.test(parking) ? `총 ${parking}대` : parking
+}
+
 /** 사람이 읽는 층 표기. 지하는 `B1`로 담고 있으므로 풀어서 쓴다. */
 export function floorLabel(floor?: string): string | null {
   if (!floor) return null
@@ -565,7 +576,7 @@ function infoRows(p: ParsedListing, listingNo: string): Array<[string, string]> 
     ['방수/욕실수', p.bathrooms ? `화장실 ${p.bathrooms}개` : NEEDS_CHECK],
     ['사용승인일', p.approvalDate ?? NEEDS_CHECK],
     // 뱅크 원문은 "총 주차대수 0" 형태라 숫자만 잡힌다 — 표기 형식을 맞춘다
-    ['주차대수', p.parking ? (/^\d+$/.test(p.parking) ? `총 ${p.parking}대` : p.parking) : NEEDS_CHECK],
+    ['주차대수', parkingLabel(p.parking) ?? NEEDS_CHECK],
     ['관리비', p.maintenanceFee ? `${p.maintenanceFee} (세부 비목 확인 필요)` : NEEDS_CHECK],
     ['방향', p.direction ? `${p.direction.endsWith('향') ? p.direction : `${p.direction}향`} (주출입구 기준)` : NEEDS_CHECK],
   ]
@@ -622,7 +633,7 @@ function buildDetails(p: ParsedListing): string {
   if (p.elevator) buildBits.push('엘리베이터가 있어 층간 이동이 편리합니다')
   // 주차 0대를 본문에서 굳이 안내하지 않는다. 표시광고 필수 항목이라 표에는 사실대로 적히고,
   // 세부 설명은 매물의 장점을 설명하는 자리다. 없는 것을 문장으로 강조할 이유가 없다.
-  if (hasParking(p)) buildBits.push(`주차는 ${p.parking} 조건입니다`)
+  if (hasParking(p)) buildBits.push(`주차는 ${parkingLabel(p.parking)} 가능합니다`)
   const building = `**건물 및 공간 구성**\n${buildBits.length ? buildBits.join('. ') + '.' : '건물 구성과 내부 상태는 현장에서 직접 확인하실 수 있도록 안내드리겠습니다.'}`
 
   const uses = `**추천 업종**\n${RECOMMENDED_USES[p.category]} 등을 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
@@ -651,7 +662,7 @@ function buildQnA(p: ParsedListing): string {
   if (!p.maintenanceFee) pool.push(['관리비는 얼마나 나오나요?', '관리비는 건물 관리규약에 따라 부과되어 정확한 금액과 포함 항목을 확인 후 안내드리겠습니다. 문의 주시면 바로 확인해 드립니다.'])
   if (p.premium === '유선 문의') pool.push(['권리금은 어떻게 되나요?', '권리금은 유선으로 문의 주시면 조건을 안내드리겠습니다. 협의 범위도 함께 설명드립니다.'])
   if (p.premium === '없음') pool.push(['정말 권리금이 없나요?', '네, 무권리 매물입니다. 초기 비용은 보증금과 시설 공사 범위 위주로 계획하시면 됩니다.'])
-  if (hasParking(p)) pool.push(['주차는 충분한가요?', `주차는 ${p.parking} 조건입니다. 이용 방식(지정/공용)은 현장에서 함께 확인해 드립니다.`])
+  if (hasParking(p)) pool.push(['주차는 충분한가요?', `${parkingLabel(p.parking)} 주차가 가능합니다. 이용 방식(지정/공용)은 현장에서 함께 확인해 드립니다.`])
   if (p.exclusiveArea && p.exclusiveArea >= 330) pool.push(['일부만 임대도 가능한가요?', '분할 임대 가능 여부는 임대인과 협의가 필요한 부분입니다. 원하시는 면적을 말씀해 주시면 협의해 보겠습니다.'])
   if (p.moveIn === '즉시입주') pool.push(['입주는 언제부터 가능한가요?', '즉시입주 가능한 매물입니다. 계약 일정에 맞춰 바로 사용하실 수 있습니다.'])
   pool.push(['현장은 언제 볼 수 있나요?', '연락 주시면 일정을 맞춰 현장 안내드리겠습니다. 방문 전 원하시는 조건을 말씀해 주시면 비교 매물도 함께 준비해 드립니다.'])
@@ -919,7 +930,7 @@ export function buildComments(source: string): string[] {
   if (p.moveIn === '즉시입주') {
     out.push('즉시입주 가능한 매물이라 일정 조율이 수월합니다. 현장 확인 원하시면 편하게 문의 주세요.')
   } else if (hasParking(p)) {
-    out.push(`주차 ${p.parking} 조건입니다. 현장에서 진입 동선까지 함께 확인해 드리겠습니다.`)
+    out.push(`${parkingLabel(p.parking)} 주차가 가능합니다. 현장에서 진입 동선까지 함께 확인해 드리겠습니다.`)
   } else {
     out.push('현장 확인 원하시면 일정 맞춰 안내해 드리겠습니다. 편하게 문의 주세요.')
   }
