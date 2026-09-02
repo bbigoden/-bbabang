@@ -127,6 +127,11 @@ function normalizeFloor(raw: string | undefined, src?: string): string | undefin
  * 서식을 표에만 두었더니 본문에는 "주차는 26 조건입니다" 처럼 단위가 빠진 채로
  * 나갔다. 세 군데에서 같은 값을 쓰므로 한 곳에서 만든다.
  */
+/** 공장·창고 계열인가. 이쪽은 검색자가 보는 항목 자체가 다르다 (층고·전력·진입). */
+function isIndustrialCat(c: Category): boolean {
+  return c === 'industrial'
+}
+
 export function parkingLabel(parking?: string): string | null {
   if (!parking) return null
   return /^\d+$/.test(parking) ? `총 ${parking}대` : parking
@@ -609,7 +614,19 @@ function buildIntro(p: ParsedListing, src: string): string {
 
   // 이 매물만의 근거를 원문에서 먼저 가져온다. 즉시입주·무권리 두 가지만 쓰면
   // 매물이 달라도 같은 문장이 나온다. 셋을 넘기면 한 문장이 길어져 읽히지 않는다.
-  const facts = extractFeatures(src).slice(0, 3)
+  // **고민에 답하는 값을 먼저 놓는다.** 창고 고민은 층고·전력·야드인데 답이
+  // "조건을 직접 확인해 보실 수 있어" 로 끝나면 짝이 맞지 않는다.
+  // 원문에 층고 8m 이 적혀 있는데도 그렇게 나간 적이 있다.
+  const answers: string[] = []
+  if (isIndustrialCat(p.category)) {
+    if (p.ceilingHeight) answers.push(`층고 ${p.ceilingHeight}`)
+    if (p.power) answers.push(`계약전력 ${p.power}`)
+    if (p.landArea) answers.push(`야드 ${m2ToPyeong(p.landArea)}평`)
+  }
+  // 야드 평수를 이미 말했으면 '마당 공간' 은 같은 이야기다
+  const extra = extractFeatures(src)
+    .filter(f => !(f === '마당 공간' && answers.some(a => a.startsWith('야드'))))
+  const facts = [...answers, ...extra].slice(0, 3)
   // 조건은 명사구로 모아 쉼표로 잇고, 서술어는 맨 끝에 한 번만 붙인다.
   // 조각마다 '~있고 ~있어' 를 달아 두면 어미가 겹쳐 문장이 무너진다.
   const states: string[] = []
