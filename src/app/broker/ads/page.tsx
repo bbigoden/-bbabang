@@ -38,6 +38,7 @@ type Listing = {
   id: string
   bank_no: string
   bank_kind: string | null
+  naver_no: string | null
   deal_type: string | null
   property_kind: string | null
   region: string | null
@@ -932,7 +933,7 @@ export default function AdsPage() {
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                 <tr>
                   <th className="px-3 py-2 font-medium" title="올릴 매물을 고르는 칸입니다. 실제 게시 여부는 카페 칸을 보세요">광고</th>
-                  <th className="px-3 py-2 font-medium">매물번호</th>
+                  <th className="px-3 py-2 font-medium" title="앞은 뱅크 번호(사장님용), 뒤는 네이버부동산 번호(고객용)">매물번호</th>
                   <th className="px-3 py-2 font-medium">종류</th>
                   <th className="px-3 py-2 font-medium">소재지</th>
                   <th className="px-3 py-2 font-medium">면적</th>
@@ -968,6 +969,13 @@ export default function AdsPage() {
                               title="뱅크에서 이 매물 열기"
                             >{l.bank_no}</a>
                           : l.bank_no}
+                        {/* 고객이 부르는 번호. 카페 글과 썸네일에는 이 번호가 나간다. */}
+                        {l.naver_no && (
+                          <span
+                            className="ml-1.5 text-gray-400"
+                            title="네이버부동산 매물번호 — 고객이 아는 번호이고, 카페 글에도 이 번호가 나갑니다"
+                          >{l.naver_no}</span>
+                        )}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {l.property_kind}

@@ -943,15 +943,24 @@ export interface CafeHtmlConfig {
  * 카페 에디터가 마크다운 표를 렌더링하지 않아 HTML `<table>` 로 내야 하므로,
  * 실제 발행에는 이 config → make_cafe_html.py 경로를 쓴다.
  */
+/**
+ * @param listingNoInput 뱅크 매물번호. 파일명·색 배정에 쓴다
+ * @param displayNo      글에 적을 번호. **고객이 아는 것은 네이버부동산 번호다.**
+ *                       뱅크 번호는 사장님이 뱅크에서 쓰는 내부 번호라 고객은 모른다.
+ *                       주지 않으면 뱅크 번호를 그대로 쓴다.
+ */
 export function buildCafeHtmlConfig(
   source: string,
   listingNoInput: string,
   outDir = '.',
+  displayNo?: string,
 ): CafeHtmlConfig {
   const p = parseListing(source)
   const no = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
+  // 글에 적는 번호는 고객이 아는 네이버부동산 번호. 파일명·색은 no(뱅크)로 고정한다.
+  const shownNo = (displayNo ?? '').replace(/[^0-9]/g, '') || no
 
-  const report = buildReport(p, source, no)
+  const report = buildReport(p, source, shownNo)
   const reportItems = report
     ? report.split('\n').filter(l => l.startsWith('- ')).map(l => l.slice(2).replace(/\*\*/g, ''))
     : []
@@ -963,7 +972,7 @@ export function buildCafeHtmlConfig(
     titles: buildTitles(p),
     intro: buildIntro(p, source).split('\n\n').filter(Boolean),
     summary: buildSummary(p),
-    rows: infoRows(p, no),
+    rows: infoRows(p, shownNo),   // 표에 적히는 번호는 고객이 아는 것
     features: detailSections(p),
     qa: qnaPairs(p),
     report: reportItems,
@@ -978,7 +987,8 @@ export function buildCafeHtmlConfig(
  * 값은 전부 매물 기본 정보에서 그대로 가져온다 — 표에 없는 내용을 지어내지 않는다.
  */
 export interface CafeThumbConfig {
-  no: string
+  no: string                // 뱅크 매물번호 — 파일명과 색 배정에 쓴다
+  display_no: string        // 썸네일에 적을 번호 — 고객이 아는 네이버부동산 번호
   out_dir: string
   region_badge: string
   headline: string[]
@@ -991,9 +1001,12 @@ export function buildCafeThumbConfig(
   source: string,
   listingNoInput: string,
   outDir = '.',
+  displayNo?: string,
 ): CafeThumbConfig {
   const p = parseListing(source)
+  // 파일명과 색 배정은 뱅크 번호로 고정한다. 표시만 고객이 아는 번호로 바꾼다.
   const no = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
+  const shownNo = (displayNo ?? '').replace(/[^0-9]/g, '') || no
 
   // 지역 배지: 충청남도 제거, 천안시→천안, 아산시→아산, 최대 3어절
   const region = [p.city, p.gu, p.dong].filter(Boolean).join(' ')
@@ -1016,6 +1029,7 @@ export function buildCafeThumbConfig(
 
   return {
     no,
+    display_no: shownNo,
     out_dir: outDir,
     region_badge: region,
     headline: [head1, head2].filter(Boolean),
