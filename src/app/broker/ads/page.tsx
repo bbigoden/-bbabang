@@ -878,12 +878,14 @@ export default function AdsPage() {
               ['fail', `전송실패 ${countOf('전송실패')}`],
               // 뱅크 네 탭 어디에도 없는 것 — 휴지통으로 보낸 매물. 없으면 안 보인다.
               ...(countOf('뱅크에 없음') ? [['missing', `뱅크에 없음 ${countOf('뱅크에 없음')}`]] as const : []),
-              ['live', `카페 게시중 ${liveCount}`],
-              ['takedown', `내려야 함 ${takedownCount}`],
-            ] as [string, string][]).map(([key, label]) => (
+              ['live', `카페에 올림 ${liveCount}`, '지금 카페에 글이 살아 있는 매물'],
+              ['takedown', `계약 끝·광고 남음 ${takedownCount}`,
+                '계약이 끝났는데 광고가 아직 내려가지 않은 매물. 표시광고법상 즉시 내려야 합니다'],
+            ] as [string, string, string?][]).map(([key, label, hint]) => (
               <button
                 key={key}
                 onClick={() => setTab(key as typeof tab)}
+                title={hint}
                 className={`px-3 py-1.5 text-sm first:rounded-l-lg last:rounded-r-lg ${
                   tab === key
                     ? 'bg-blue-600 text-white'
