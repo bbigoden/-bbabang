@@ -118,7 +118,19 @@ function ExpiryCell({ period }: { period: string | null }) {
 }
 
 /**
- * 뱅크에 광고가 살아 있는지.
+ * 뱅크 매물 상세 주소.
+ *
+ * 목록의 링크는 `goDetail(매물번호, 종류코드, …)` 함수를 부르지만, 그 함수가
+ * 만드는 주소는 이 형태다. 매물번호와 종류코드만 있으면 바로 열 수 있다.
+ */
+function bankDetailUrl(l: Listing): string | null {
+  if (!l.bank_kind) return null
+  return 'https://agency.neonet.co.kr/novo-agency/view/offerings/OfferingsDetail.neo'
+    + `?offerings_cd=${l.bank_no}&offerings_gbn=${l.bank_kind}`
+}
+
+/**
+ * 뱅크에 광고가 살아 있는지. 눌러서 뱅크 원본으로 바로 갈 수 있다.
  *
  * 거래완료를 눌러도 뱅크는 따로 내려야 한다. 그런데 행이 회색이 되고 '완료'만
  * 뜨면 전부 내려간 것처럼 보인다 — 실제로는 뱅크와 네이버부동산에 그대로 남는다.
@@ -126,15 +138,26 @@ function ExpiryCell({ period }: { period: string | null }) {
  */
 function BankCell({ listing, gone }: { listing: Listing; gone: boolean }) {
   const post = listing.ad_posts.find(p => p.channel === 'bank')
-  if (post?.status === 'removed') return <span className="text-gray-400">내림</span>
+  const url = bankDetailUrl(listing)
+
+  // 링크로 감싼다. 점검 보고를 보고 원문을 고치러 갈 때 이 칸이 지름길이 된다.
+  const link = (body: React.ReactNode, hint: string) => url
+    ? <a href={url} target="_blank" rel="noreferrer"
+        className="underline underline-offset-2" title={`${hint} — 눌러서 뱅크에서 열기`}>{body}</a>
+    : <span title={hint}>{body}</span>
+
+  if (post?.status === 'removed') return link(<span className="text-gray-400">내림</span>, '뱅크에서 내렸습니다')
   if (post?.status === 'failed') {
-    return <span className="text-red-600 dark:text-red-400" title={post.error ?? ''}>실패</span>
+    return link(<span className="text-red-600 dark:text-red-400">실패</span>, post.error ?? '내리지 못했습니다')
   }
-  if (gone) return <span className="text-gray-400">없음</span>
+  if (gone) return link(<span className="text-gray-400">없음</span>, '뱅크 목록에 없습니다')
   if (listing.contracted_at) {
-    return <span className="font-medium text-red-600 dark:text-red-400" title="계약이 끝났는데 뱅크에 광고가 남아 있습니다">게시중</span>
+    return link(
+      <span className="font-medium text-red-600 dark:text-red-400">게시중</span>,
+      '계약이 끝났는데 뱅크에 광고가 남아 있습니다',
+    )
   }
-  return <span className="text-green-600 dark:text-green-400">게시중</span>
+  return link(<span className="text-green-600 dark:text-green-400">게시중</span>, '뱅크에 광고 중입니다')
 }
 
 /**
@@ -935,7 +958,17 @@ export default function AdsPage() {
                           className="h-4 w-4 cursor-pointer accent-blue-600 disabled:cursor-not-allowed"
                         />
                       </td>
-                      <td className="px-3 py-2 font-mono text-xs">{l.bank_no}</td>
+                      <td className="px-3 py-2 font-mono text-xs">
+                        {bankDetailUrl(l)
+                          ? <a
+                              href={bankDetailUrl(l)!}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline underline-offset-2 hover:text-blue-600"
+                              title="뱅크에서 이 매물 열기"
+                            >{l.bank_no}</a>
+                          : l.bank_no}
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {l.property_kind}
                         <span className="ml-1 text-xs text-gray-400">{l.deal_type}</span>
