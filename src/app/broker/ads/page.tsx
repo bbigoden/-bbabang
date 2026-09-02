@@ -8,10 +8,11 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import {
-  Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download, Send, ClipboardCheck,
+  Megaphone, Search, CircleCheck, TriangleAlert, Download, Send, ClipboardCheck,
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
+import { SearchClear } from '@/components/ui/search-clear'
 
 /**
  * 광고관리 — 부동산뱅크 매물을 그대로 가져와, 그중 카페에 올릴 것을 고르고 관리한다.
@@ -53,6 +54,7 @@ type Listing = {
   synced_at: string | null
   bank_closed_reason: string | null
   bank_tab: string | null
+  closing_soon: boolean
   check_report: string[] | null
   checked_at: string | null
   ad_posts: Post[]
@@ -180,14 +182,12 @@ function needsTakedown(l: Listing, gone: boolean) {
 /**
  * 곧 끝나서 재등록해야 할 매물인가.
  *
- * **이미 뱅크에서 빠진 매물은 세지 않는다.** 만료 임박이 아니라 이미 끝난 것이고,
- * 뱅크의 '종료예정' 목록에도 없어서 재전송 대상이 되지 못한다. 이걸 같이 세면
- * 숫자가 부풀어(75건) 실제로 손쓸 수 있는 41건이 묻힌다.
+ * **뱅크의 '종료예정' 목록을 그대로 쓴다.** 우리가 남은 날짜로 따로 세면 뱅크
+ * 화면과 숫자가 어긋나 어느 쪽이 맞는지 알 수 없게 된다. 재등록(원클릭 재전송)
+ * 대상도 그 목록에 있는 것뿐이라, 따로 세면 못 고치는 매물까지 세게 된다.
  */
-function isExpiring(l: Listing, gone: boolean) {
-  if (l.contracted_at || gone) return false
-  const lv = parseBankPeriod(l.bank_period)?.level
-  return lv === 'expired' || lv === 'urgent' || lv === 'soon'
+function isExpiring(l: Listing) {
+  return l.closing_soon && !l.contracted_at
 }
 
 /**
@@ -720,7 +720,7 @@ export default function AdsPage() {
       else if (isPast(l, goneFromBank.has(l.id))) return false
       if (tab === 'advertising' && !l.is_advertising) return false
       if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
-      if (tab === 'expiring' && !isExpiring(l, goneFromBank.has(l.id))) return false
+      if (tab === 'expiring' && !isExpiring(l)) return false
       if (!key) return true
       return [l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
@@ -744,8 +744,7 @@ export default function AdsPage() {
   const activeCount = listings.length - pastCount - failCount
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
-  const expiring = listings.filter(l => isExpiring(l, goneFromBank.has(l.id)))
-  const expiredCount = expiring.filter(l => parseBankPeriod(l.bank_period)?.level === 'expired').length
+  const expiring = listings.filter(l => isExpiring(l))
 
   if (auth.loading || !auth.broker) return null
 
@@ -833,8 +832,7 @@ export default function AdsPage() {
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <div>
               <p className="font-medium text-amber-900 dark:text-amber-300">
-                뱅크 등록이 곧 끝나는 매물 {expiring.length}건
-                {expiredCount > 0 && ` (이미 지난 것 ${expiredCount}건)`}
+                뱅크가 곧 종료할 매물 {expiring.length}건
               </p>
               <p className="mt-0.5 text-amber-800 dark:text-amber-400">
                 뱅크 등록은 30일이면 자동 종료돼 뱅크·네이버부동산에서 빠집니다. 재등록하면 오늘부터 30일로 새로 시작됩니다.
@@ -859,7 +857,7 @@ export default function AdsPage() {
               ['fail', `전송실패 ${failCount}`],
               ['advertising', `광고중 ${adCount}`],
               ['takedown', `내려야 함 ${takedownCount}`],
-              ['expiring', `만료임박 ${expiring.length}`],
+              ['expiring', `종료예정 ${expiring.length}`],
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -874,13 +872,16 @@ export default function AdsPage() {
           </div>
 
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
+              type="text"
+              aria-label="광고 매물 검색"
               value={q}
               onChange={e => setQ(e.target.value)}
-              placeholder="매물번호, 지역, 종류로 검색"
-              className="w-full rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-300 dark:border-gray-800 dark:bg-gray-900"
+              placeholder="전체 검색..."
+              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
+            {q && <SearchClear onClick={() => setQ('')} />}
           </div>
 
           <button
@@ -915,13 +916,7 @@ export default function AdsPage() {
             {syncing ? (syncProgress ?? '가져오는 중…') : '뱅크에서 가져오기'}
           </button>
 
-          <button
-            onClick={load}
-            title="뱅크에 접속하지 않고 이 화면만 다시 그립니다"
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <RefreshCw className="h-4 w-4" /> 화면 새로고침
-          </button>
+          
         </div>
 
         {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
