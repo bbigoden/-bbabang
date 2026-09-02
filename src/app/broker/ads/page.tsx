@@ -7,7 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
-import { Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download, Send } from 'lucide-react'
+import {
+  Megaphone, RefreshCw, Search, CircleCheck, TriangleAlert, Download, Send, ClipboardCheck,
+} from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
 
@@ -49,6 +51,8 @@ type Listing = {
   contracted_at: string | null
   synced_at: string | null
   bank_closed_reason: string | null
+  check_report: string[] | null
+  checked_at: string | null
   ad_posts: Post[]
 }
 
@@ -193,6 +197,36 @@ function ClosedReason({ listing }: { listing: Listing }) {
   return <span className="text-gray-400" title="마지막 수집 때 뱅크 목록에 없었습니다">뱅크에 없음</span>
 }
 
+/**
+ * 카페글로 바꿀 때 원문에서 발견한 문제.
+ *
+ * 면적 불일치, 관리비 비목 누락, 부당광고 표현 제거, 항목 못 찾음 같은 것들이다.
+ * **만들어 놓고 발행 직전에 잘라내 아무도 못 보고 있었다.** 원문을 고쳐야 하는
+ * 내용이므로 여기 띄운다. 고칠 곳은 뱅크다.
+ */
+function CheckCell({ listing, open, onToggle }: {
+  listing: Listing; open: boolean; onToggle: () => void
+}) {
+  if (!listing.checked_at) {
+    return <span className="text-gray-300 dark:text-gray-600" title="아직 점검하지 않았습니다">–</span>
+  }
+  const n = listing.check_report?.length ?? 0
+  if (!n) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
+
+  const hasRule = listing.check_report?.some(r => r.startsWith('[규칙]') || r.startsWith('[실패]'))
+  return (
+    <button
+      onClick={onToggle}
+      className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
+        hasRule ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
+      }`}
+      title="눌러서 내용 보기"
+    >
+      {open ? '접기' : `${n}건`}
+    </button>
+  )
+}
+
 /** 채널 게시 상태를 한 칸으로 표시 */
 function ChannelCell({ post }: { post: Post | undefined }) {
   if (!post || post.status === 'pending') {
@@ -229,6 +263,9 @@ export default function AdsPage() {
   const [renewWatch, setRenewWatch] = useState(false)
   const [publishWatch, setPublishWatch] = useState(false)
   const [publishProgress, setPublishProgress] = useState<string | null>(null)
+  const [checkWatch, setCheckWatch] = useState(false)
+  const [checkProgress, setCheckProgress] = useState<string | null>(null)
+  const [openReport, setOpenReport] = useState<string | null>(null)
 
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
   const lastSynced = useMemo(
@@ -549,6 +586,60 @@ export default function AdsPage() {
     load()
   }
 
+  /**
+   * 올리지 않고 글만 만들어 원문의 문제를 확인한다.
+   *
+   * 점검 보고는 원문을 고치라는 내용이라 **올리기 전에** 봐야 쓸모가 있다.
+   * 원문을 받아와야 해서 한 건당 몇 초 걸리므로 체크한 매물만 본다.
+   */
+  async function checkChecked() {
+    if (!auth.broker) return
+    const targets = listings.filter(l => l.is_advertising && !l.contracted_at)
+    if (!targets.length) { toast.error('먼저 점검할 매물의 광고 칸에 체크해 주세요.'); return }
+    if (!confirm(
+      `체크한 ${targets.length}건의 원문을 점검합니다. 올리지는 않습니다.
+` +
+      `한 건당 몇 초 걸립니다 (약 ${Math.ceil(targets.length * 5 / 60)}분).
+
+계속할까요?`
+    )) return
+
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'check').in('status', ['queued', 'running']).limit(1).maybeSingle()
+    if (!pending) {
+      const { error } = await supabase.from('ad_jobs').insert({
+        broker_id: auth.broker.id, kind: 'check',
+        params: { bankNos: targets.map(l => l.bank_no) }, requested_by: auth.user?.id,
+      })
+      if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    }
+    toast.success(agentOnline ? `${targets.length}건을 점검하는 중입니다.` : '점검을 예약했습니다. PC 프로그램을 켜 주세요.')
+    setCheckWatch(true)
+  }
+
+  /** 점검이 끝나면 목록을 새로 받아 보고를 보여준다. */
+  useEffect(() => {
+    if (!checkWatch) return
+    const id = setInterval(async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('id, progress').eq('kind', 'check').in('status', ['queued', 'running']).limit(1)
+      if (data && data.length) { setCheckProgress(data[0].progress ?? null); return }
+      setCheckWatch(false); setCheckProgress(null)
+      const { data: last } = await supabase.from('ad_jobs')
+        .select('status, error, result').eq('kind', 'check')
+        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+      if (last?.status === 'failed') toast.error(`점검하지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
+      else if (last?.status === 'done') {
+        const r = last.result as { checked?: number; withIssues?: number } | null
+        toast.success(r?.withIssues
+          ? `${r.checked}건 점검 — ${r.withIssues}건에서 확인할 것이 나왔습니다.`
+          : `${r?.checked ?? 0}건 점검 — 이상 없습니다.`)
+      }
+      load()
+    }, 3000)
+    return () => clearInterval(id)
+  }, [checkWatch])
+
   /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
   async function takedownAll() {
     if (!auth.broker) return
@@ -740,6 +831,16 @@ export default function AdsPage() {
           </div>
 
           <button
+            onClick={checkChecked}
+            disabled={checkWatch}
+            title="올리지 않고 글만 만들어 원문의 문제를 확인합니다"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <ClipboardCheck className={`h-4 w-4 ${checkWatch ? 'animate-pulse' : ''}`} />
+            {checkWatch ? (checkProgress ?? '점검 중…') : '점검하기'}
+          </button>
+
+          <button
             onClick={publishChecked}
             disabled={publishWatch}
             title="광고 칸에 체크한 매물을 네이버 카페에 올립니다"
@@ -816,13 +917,14 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">뱅크상태</th>
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
+                  <th className="px-3 py-2 font-medium" title="원문에서 발견한 문제. 뱅크에서 고칠 것을 알려줍니다">점검</th>
                   <th className="px-3 py-2 font-medium">거래</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {paginated.map(l => {
                   const done = !!l.contracted_at
-                  return (
+                  const row = (
                     <tr key={l.id} className={done ? 'bg-gray-50/60 text-gray-400 dark:bg-gray-900/40' : ''}>
                       <td className="px-3 py-2">
                         <input
@@ -865,6 +967,13 @@ export default function AdsPage() {
                             : <ChannelCell post={l.ad_posts.find(p => p.channel === c.key)} />}
                         </td>
                       ))}
+                      <td className="px-3 py-2 whitespace-nowrap text-xs">
+                        <CheckCell
+                          listing={l}
+                          open={openReport === l.id}
+                          onToggle={() => setOpenReport(openReport === l.id ? null : l.id)}
+                        />
+                      </td>
                       <td className="px-3 py-2">
                         {done ? (
                           <span className="flex items-center gap-1 whitespace-nowrap text-xs text-gray-400">
@@ -879,6 +988,24 @@ export default function AdsPage() {
                       </td>
                     </tr>
                   )
+                  // 점검 보고는 길어서 칸에 못 담는다. 누르면 그 행 아래에 편다.
+                  const report = openReport === l.id && l.check_report?.length ? (
+                    <tr key={`${l.id}-report`} className="bg-amber-50/60 dark:bg-amber-950/30">
+                      <td colSpan={CHANNELS.length + 8} className="px-4 py-3">
+                        <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+                          {l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다
+                        </p>
+                        <ul className="space-y-1.5">
+                          {l.check_report.map((r, i) => (
+                            <li key={i} className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+                              · {r}
+                            </li>
+                          ))}
+                        </ul>
+                      </td>
+                    </tr>
+                  ) : null
+                  return report ? [row, report] : row
                 })}
               </tbody>
             </table>
