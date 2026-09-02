@@ -52,6 +52,7 @@ type Listing = {
   contracted_at: string | null
   synced_at: string | null
   bank_closed_reason: string | null
+  bank_tab: string | null
   check_report: string[] | null
   checked_at: string | null
   ad_posts: Post[]
@@ -276,7 +277,7 @@ export default function AdsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
-  const [tab, setTab] = useState<'all' | 'advertising' | 'takedown' | 'expiring' | 'past'>('all')
+  const [tab, setTab] = useState<'all' | 'fail' | 'advertising' | 'takedown' | 'expiring' | 'past'>('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('ads')
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
@@ -712,7 +713,10 @@ export default function AdsPage() {
       // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
       // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
       // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
-      if (tab === 'past') { if (!isPast(l, goneFromBank.has(l.id))) return false }
+      // 전송실패는 등록매물 목록에 없으므로 '지난 매물' 판정에 걸린다. 먼저 가른다.
+      if (tab === 'fail') { if (l.bank_tab !== '전송실패') return false }
+      else if (l.bank_tab === '전송실패') return false
+      else if (tab === 'past') { if (!isPast(l, goneFromBank.has(l.id))) return false }
       else if (isPast(l, goneFromBank.has(l.id))) return false
       if (tab === 'advertising' && !l.is_advertising) return false
       if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
@@ -734,8 +738,10 @@ export default function AdsPage() {
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
   const adCount = listings.filter(l => l.is_advertising).length
-  const pastCount = listings.filter(l => isPast(l, goneFromBank.has(l.id))).length
-  const activeCount = listings.length - pastCount
+  const failCount = listings.filter(l => l.bank_tab === '전송실패').length
+  const pastCount = listings.filter(l =>
+    l.bank_tab !== '전송실패' && isPast(l, goneFromBank.has(l.id))).length
+  const activeCount = listings.length - pastCount - failCount
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
   const expiring = listings.filter(l => isExpiring(l, goneFromBank.has(l.id)))
@@ -770,6 +776,27 @@ export default function AdsPage() {
                 className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700 disabled:opacity-60"
               >
                 {takedownWatch ? '내리는 중…' : '지금 전부 내리기'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {failCount > 0 && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+            <div>
+              <p className="font-medium text-red-800 dark:text-red-300">
+                네이버부동산에 못 올라간 매물 {failCount}건
+              </p>
+              <p className="mt-0.5 text-red-700 dark:text-red-400">
+                뱅크에는 등록됐지만 전송이 실패했습니다. 노출이 가장 큰 곳에 나가지 않고 있습니다.
+                뱅크의 <b>전송실패</b> 탭에서 재등록하거나 전자홍보확인서를 보내 주세요.
+              </p>
+              <button
+                onClick={() => setTab('fail')}
+                className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700"
+              >
+                어느 매물인지 보기
               </button>
             </div>
           </div>
@@ -826,11 +853,13 @@ export default function AdsPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-800">
             {([
-              ['all', `뱅크 매물 ${activeCount}`],
+              // 앞의 셋은 뱅크 탭과 같은 구분. 뒤의 셋은 광고를 관리하려고 우리가 더한 것.
+              ['all', `등록매물 ${activeCount}`],
+              ['past', `등록종료 ${pastCount}`],
+              ['fail', `전송실패 ${failCount}`],
               ['advertising', `광고중 ${adCount}`],
               ['takedown', `내려야 함 ${takedownCount}`],
-              ['expiring', `뱅크 만료임박 ${expiring.length}`],
-              ['past', `지난 매물 ${pastCount}`],
+              ['expiring', `만료임박 ${expiring.length}`],
             ] as const).map(([key, label]) => (
               <button
                 key={key}
@@ -933,7 +962,7 @@ export default function AdsPage() {
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                 <tr>
                   <th className="px-3 py-2 font-medium" title="올릴 매물을 고르는 칸입니다. 실제 게시 여부는 카페 칸을 보세요">광고</th>
-                  <th className="px-3 py-2 font-medium" title="앞은 뱅크 번호(사장님용), 뒤는 네이버부동산 번호(고객용)">매물번호</th>
+                  <th className="px-3 py-2 font-medium" title="네이버부동산 매물번호 — 고객이 아는 번호입니다. 눌러서 뱅크 원본으로 갑니다">매물번호</th>
                   <th className="px-3 py-2 font-medium">종류</th>
                   <th className="px-3 py-2 font-medium">소재지</th>
                   <th className="px-3 py-2 font-medium">면적</th>
@@ -959,6 +988,9 @@ export default function AdsPage() {
                           className="h-4 w-4 cursor-pointer accent-blue-600 disabled:cursor-not-allowed"
                         />
                       </td>
+                      {/* 고객이 부르는 번호만 보여준다. 뱅크 번호는 사장님도 쓸 일이
+                          없고 두 개가 나란히 있으면 어느 것을 말하는지 헷갈린다.
+                          링크는 그대로 뱅크 원본으로 간다. */}
                       <td className="px-3 py-2 font-mono text-xs">
                         {bankDetailUrl(l)
                           ? <a
@@ -966,16 +998,9 @@ export default function AdsPage() {
                               target="_blank"
                               rel="noreferrer"
                               className="underline underline-offset-2 hover:text-blue-600"
-                              title="뱅크에서 이 매물 열기"
-                            >{l.bank_no}</a>
-                          : l.bank_no}
-                        {/* 고객이 부르는 번호. 카페 글과 썸네일에는 이 번호가 나간다. */}
-                        {l.naver_no && (
-                          <span
-                            className="ml-1.5 text-gray-400"
-                            title="네이버부동산 매물번호 — 고객이 아는 번호이고, 카페 글에도 이 번호가 나갑니다"
-                          >{l.naver_no}</span>
-                        )}
+                              title={`뱅크에서 이 매물 열기 (뱅크 번호 ${l.bank_no})`}
+                            >{l.naver_no ?? l.bank_no}</a>
+                          : (l.naver_no ?? l.bank_no)}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {l.property_kind}
