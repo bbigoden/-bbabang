@@ -180,6 +180,30 @@ function needsTakedown(l: Listing, gone: boolean) {
 }
 
 /**
+ * 화면 탭 ↔ 뱅크 탭 대응. **뱅크가 나눠 둔 그대로 보여주는 것이 원칙이다.**
+ * 우리가 따로 분류하면 건수가 뱅크 화면과 어긋나 어느 쪽이 맞는지 알 수 없게 된다.
+ * (여기 없는 탭은 광고를 관리하려고 우리가 더한 것.)
+ */
+const BANK_TABS: Record<string, string | undefined> = {
+  all: '등록매물',
+  past: '등록종료',
+  done: '거래완료',
+  fail: '전송실패',
+  missing: '뱅크에 없음',
+}
+
+/**
+ * 지금 카페에 글이 살아 있는가.
+ *
+ * 예전에는 '광고중' 을 체크박스(is_advertising)로 셌는데, 그건 **올리기로 고른
+ * 목록**이지 올라간 것이 아니다. 체크만 해 두고 아직 안 올린 것까지 광고 중으로
+ * 세면, 실제로 몇 건이 나가 있는지를 화면 어디에서도 알 수 없다.
+ */
+function isLive(l: Listing) {
+  return l.ad_posts.some(p => p.status === 'posted')
+}
+
+/**
  * 곧 끝나서 재등록해야 할 매물인가.
  *
  * **뱅크의 '종료예정' 목록을 그대로 쓴다.** 우리가 남은 날짜로 따로 세면 뱅크
@@ -188,16 +212,6 @@ function needsTakedown(l: Listing, gone: boolean) {
  */
 function isExpiring(l: Listing) {
   return l.closing_soon && !l.contracted_at
-}
-
-/**
- * 더 이상 뱅크에 없는 매물인가 — 계약이 끝났거나 30일 만료로 빠진 것.
- *
- * 기본 목록에서 빼야 [전체] 건수가 뱅크의 등록 건수와 맞는다. 안 맞으면 어느
- * 쪽이 맞는지 알 수 없어 화면 숫자를 못 믿게 된다.
- */
-function isPast(l: Listing, gone: boolean) {
-  return !!l.contracted_at || gone
 }
 
 /**
@@ -277,7 +291,9 @@ export default function AdsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
-  const [tab, setTab] = useState<'all' | 'fail' | 'advertising' | 'takedown' | 'expiring' | 'past'>('all')
+  const [tab, setTab] = useState<
+    'all' | 'expiring' | 'past' | 'done' | 'fail' | 'missing' | 'live' | 'takedown'
+  >('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('ads')
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
@@ -300,18 +316,16 @@ export default function AdsPage() {
   )
 
   /**
-   * 마지막 수집 때 뱅크가 돌려주지 않은 매물 — 뱅크에서 빠졌다는 뜻이다.
-   * 30일이 지나 자동 종료됐거나 직접 지운 것이다. 이 매물이 아직 카페·블로그에
-   * 광고 중이면 뱅크에 없는 물건을 광고하는 셈이라 표시광고법 문제가 된다.
+   * 뱅크의 어느 탭에도 없는 매물 — 휴지통으로 보낸 것이다. 이 매물이 아직
+   * 카페·블로그에 광고 중이면 없는 물건을 광고하는 셈이라 표시광고법 문제가 된다.
    *
-   * 수집 시각을 비교해 판정한다. 같은 수집에서 들어온 행은 시각이 몇 초 안에 몰린다.
+   * 예전에는 '마지막 수집에 안 들어온 것' 으로 판정했는데, 수집이 도중에
+   * 끊기면 멀쩡한 매물이 통째로 빠진 것으로 보였다. 지금은 프로그램이 네 탭을
+   * 모두 훑은 뒤에 표시를 남기므로 그 표시만 보면 된다.
    */
-  const goneFromBank = useMemo(() => {
-    if (!lastSynced) return new Set<string>()
-    const cutoff = new Date(lastSynced).getTime() - 10 * 60_000
-    return new Set(listings.filter(l =>
-      l.synced_at && new Date(l.synced_at).getTime() < cutoff).map(l => l.id))
-  }, [listings, lastSynced])
+  const goneFromBank = useMemo(
+    () => new Set(listings.filter(l => l.bank_tab === '뱅크에 없음').map(l => l.id)),
+    [listings])
 
   const goneButLive = listings.filter(l =>
     goneFromBank.has(l.id) && !l.contracted_at &&
@@ -332,6 +346,11 @@ export default function AdsPage() {
       .order('is_advertising', { ascending: false })
       .order('bank_no', { ascending: false })
     if (error) toast.error(`목록을 불러오지 못했습니다: ${error.message}`)
+    // 등록종료가 매달 쌓이므로 언젠가 서버 한도(1,000행)에 닿는다. 잘린 채로 세면
+    // '내려야 함' 이 실제보다 적게 나온다 — 그건 틀리면 안 되는 숫자다.
+    if ((data?.length ?? 0) >= 1000) {
+      toast.error('매물이 너무 많아 목록이 잘렸습니다. 건수가 실제와 다를 수 있습니다.')
+    }
     setListings((data as Listing[]) ?? [])
     setLoading(false)
   }
@@ -527,7 +546,7 @@ export default function AdsPage() {
       l.is_advertising && !l.contracted_at && !goneFromBank.has(l.id) &&
       l.ad_posts.find(p => p.channel === 'cafe')?.status !== 'posted')
     if (!targets.length) {
-      toast.error(adCount
+      toast.error(checkedCount
         ? '체크된 매물이 이미 다 올라가 있습니다.'
         : '먼저 올릴 매물의 광고 칸에 체크해 주세요.')
       return
@@ -714,11 +733,11 @@ export default function AdsPage() {
       // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
       // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
       // 전송실패는 등록매물 목록에 없으므로 '지난 매물' 판정에 걸린다. 먼저 가른다.
-      if (tab === 'fail') { if (l.bank_tab !== '전송실패') return false }
-      else if (l.bank_tab === '전송실패') return false
-      else if (tab === 'past') { if (!isPast(l, goneFromBank.has(l.id))) return false }
-      else if (isPast(l, goneFromBank.has(l.id))) return false
-      if (tab === 'advertising' && !l.is_advertising) return false
+      // 앞의 다섯 탭은 뱅크가 나눠 둔 그대로다. 뱅크가 어디에 넣었는지만 본다.
+      if (BANK_TABS[tab]) { if (l.bank_tab !== BANK_TABS[tab]) return false }
+      // 나머지 탭은 광고를 관리하려고 우리가 더한 것이라, 끝난 매물은 빼고 본다.
+      else if (l.bank_tab !== '등록매물') return false
+      if (tab === 'live' && !isLive(l)) return false
       if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
       if (tab === 'expiring' && !isExpiring(l)) return false
       if (!key) return true
@@ -737,11 +756,10 @@ export default function AdsPage() {
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
-  const adCount = listings.filter(l => l.is_advertising).length
-  const failCount = listings.filter(l => l.bank_tab === '전송실패').length
-  const pastCount = listings.filter(l =>
-    l.bank_tab !== '전송실패' && isPast(l, goneFromBank.has(l.id))).length
-  const activeCount = listings.length - pastCount - failCount
+  // 체크박스로 '올릴 것' 이라고 고른 건수 — [카페에 올리기] 버튼에 쓴다.
+  const checkedCount = listings.filter(l => l.is_advertising).length
+  const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
+  const countOf = (t: string) => listings.filter(l => l.bank_tab === t).length
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
   const expiring = listings.filter(l => isExpiring(l))
@@ -780,12 +798,12 @@ export default function AdsPage() {
           </div>
         )}
 
-        {failCount > 0 && (
+        {countOf('전송실패') > 0 && (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
             <div>
               <p className="font-medium text-red-800 dark:text-red-300">
-                네이버부동산에 못 올라간 매물 {failCount}건
+                네이버부동산에 못 올라간 매물 {countOf('전송실패')}건
               </p>
               <p className="mt-0.5 text-red-700 dark:text-red-400">
                 뱅크에는 등록됐지만 전송이 실패했습니다. 노출이 가장 큰 곳에 나가지 않고 있습니다.
@@ -851,17 +869,21 @@ export default function AdsPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-800">
             {([
-              // 앞의 셋은 뱅크 탭과 같은 구분. 뒤의 셋은 광고를 관리하려고 우리가 더한 것.
-              ['all', `등록매물 ${activeCount}`],
-              ['past', `등록종료 ${pastCount}`],
-              ['fail', `전송실패 ${failCount}`],
-              ['advertising', `광고중 ${adCount}`],
-              ['takedown', `내려야 함 ${takedownCount}`],
+              // 앞쪽은 뱅크 탭을 그대로 옮긴 것 — 건수가 뱅크 화면과 그대로 맞아야
+              // 어느 쪽이 맞는지 따질 일이 없다. 뒤쪽은 광고를 관리하려고 우리가 더한 것.
+              ['all', `등록매물 ${countOf('등록매물')}`],
               ['expiring', `종료예정 ${expiring.length}`],
-            ] as const).map(([key, label]) => (
+              ['past', `등록종료 ${countOf('등록종료')}`],
+              ['done', `거래완료 ${countOf('거래완료')}`],
+              ['fail', `전송실패 ${countOf('전송실패')}`],
+              // 뱅크 네 탭 어디에도 없는 것 — 휴지통으로 보낸 매물. 없으면 안 보인다.
+              ...(countOf('뱅크에 없음') ? [['missing', `뱅크에 없음 ${countOf('뱅크에 없음')}`]] as const : []),
+              ['live', `카페 게시중 ${liveCount}`],
+              ['takedown', `내려야 함 ${takedownCount}`],
+            ] as [string, string][]).map(([key, label]) => (
               <button
                 key={key}
-                onClick={() => setTab(key)}
+                onClick={() => setTab(key as typeof tab)}
                 className={`px-3 py-1.5 text-sm first:rounded-l-lg last:rounded-r-lg ${
                   tab === key
                     ? 'bg-blue-600 text-white'
@@ -901,7 +923,7 @@ export default function AdsPage() {
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-60"
           >
             <Send className={`h-4 w-4 ${publishWatch ? 'animate-pulse' : ''}`} />
-            {publishWatch ? (publishProgress ?? '올리는 중…') : `카페에 올리기${adCount ? ` (${adCount})` : ''}`}
+            {publishWatch ? (publishProgress ?? '올리는 중…') : `카페에 올리기${checkedCount ? ` (${checkedCount})` : ''}`}
           </button>
 
           <button
@@ -926,7 +948,7 @@ export default function AdsPage() {
               숫자가 다르면 가져오기를 다시 눌러야 한다는 뜻이다. */}
           <span>
             뱅크에서 받아온 것:{' '}
-            <span className="text-gray-700 dark:text-gray-300">{activeCount}건</span>
+            <span className="text-gray-700 dark:text-gray-300">{countOf('등록매물')}건</span>
             {lastSynced && <> · {fmtWhen(lastSynced)}</>}
           </span>
           <span className="flex items-center gap-1">
