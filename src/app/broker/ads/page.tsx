@@ -931,7 +931,7 @@ export default function AdsPage() {
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                 <tr>
-                  <th className="px-3 py-2 font-medium" title="여기 체크한 매물을 [카페에 올리기] 로 발행합니다">광고</th>
+                  <th className="px-3 py-2 font-medium" title="올릴 매물을 고르는 칸입니다. 실제 게시 여부는 카페 칸을 보세요">광고</th>
                   <th className="px-3 py-2 font-medium">매물번호</th>
                   <th className="px-3 py-2 font-medium">종류</th>
                   <th className="px-3 py-2 font-medium">소재지</th>
