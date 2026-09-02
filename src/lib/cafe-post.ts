@@ -523,6 +523,69 @@ function buildTitles(p: ParsedListing): string[] {
   ]
 }
 
+/**
+ * 원문 상세설명에서 이 매물만의 사실을 뽑는다.
+ *
+ * 스킬은 소개를 매물마다 새로 쓰라고 한다. 그런데 미리 써둔 문장을 매물번호로
+ * 골라 쓰면 같은 업종끼리 글이 닮는다. 사장님이 상세설명에 적어 둔 내용이
+ * 그 매물만의 근거인데 그걸 안 읽고 있었다.
+ *
+ * **원문 문장을 그대로 가져오지 않는다.** 정해진 표현으로만 바꿔 담는다.
+ * 원문에는 `극대화`, `우수` 같은 부당광고 표현이 섞여 있어 그대로 옮기면
+ * 절대규칙 2를 어기고, 없는 사실을 만들어낼 위험도 사라진다.
+ */
+const FEATURE_MARKS: Array<[RegExp, string]> = [
+  [/시스템\s*냉난방|시스템\s*에어컨|냉난방기?\s*(완비|설치|구비)/, '시스템 냉난방'],
+  [/엘리베이터|승강기/, '엘리베이터'],
+  [/(독립|내부|전용)\s*화장실|화장실\s*(별도|내부)/, '내부 화장실'],
+  [/공간\s*분할|분할\s*(가능|용이)|구획\s*(가능|용이)|칸막이\s*(가능|용이)/, '내부 구획'],
+  [/리모델링|올수리|전체\s*수리/, '수리된 내부'],
+  [/테라스|야외\s*(공간|좌석)/, '테라스 공간'],
+  [/정화조/, '정화조 용량'],
+  [/주방|홀|후드|덕트|급배수/, '주방 설비'],
+  [/호이스트|크레인/, '호이스트'],
+  [/데크|상하차|도크/, '상하차 공간'],
+  [/사무\s*공간|사무실\s*(별도|포함)|내부\s*사무실/, '별도 사무 공간'],
+  [/샤워|탈의/, '샤워 시설'],
+  [/전기\s*증설|증설\s*가능/, '전기 증설 여지'],
+  [/마당|야적|적치/, '마당 공간'],
+]
+
+/**
+ * @returns 소개 답 문장에 넣을 조각들. 원문에 근거가 있는 것만.
+ */
+function extractFeatures(source: string): string[] {
+  // 상세설명·매물특징 구간만 본다. 표 항목까지 훑으면 라벨에 걸려 오탐이 난다.
+  // 사장님이 손으로 적은 `매물특징` 한 줄에 밀도가 가장 높다.
+  const m = source.match(/(?:매물특징|상세설명)[\s\S]*/)
+  if (!m) return []
+  // 사무소 소개·연락처 문구가 섞이면 엉뚱한 말이 걸린다. 걷어내고 본다.
+  const body = m[0]
+    .replace(/[가-힣]*공인중개사.*/g, '')
+    .replace(/010-\d{4}-\d{4}/g, '')
+    .replace(/.*(문의|상담|촬영|허위|낚시|미끼).*/g, '')
+  const out: string[] = []
+  for (const [re, phrase] of FEATURE_MARKS) {
+    if (re.test(body) && !out.includes(phrase)) out.push(phrase)
+  }
+  return out
+}
+
+/**
+ * 이 매물을 보는 사람이 실제로 하는 고민.
+ *
+ * 업종만 보고 고르면 130평 매물에 "권리금 부담" 이야기가 나간다.
+ * 스킬이 고민 예시에 `대형평수 = 한 층 통임대 물건 부족` 을 따로 둔 이유다.
+ * 상업용 매물은 **크기를 먼저 본다.**
+ */
+function pickConcern(p: ParsedListing, src: string): string {
+  const COMMERCIAL: Category[] = ['retail', 'office', 'food', 'academy', 'beauty', 'large']
+  const isBig = (p.exclusiveArea ?? 0) >= 330            // 약 100평
+  const key: Category = isBig && COMMERCIAL.includes(p.category) ? 'large' : p.category
+  const pool = CONCERNS[key]
+  return pool[hashPick(src, pool.length)]
+}
+
 function buildIntro(p: ParsedListing, src: string): string {
   const regionLabel = p.city === '아산시' ? '아산' : '천안'
   const kindWord: Record<Category, string> = {
@@ -531,24 +594,60 @@ function buildIntro(p: ParsedListing, src: string): string {
     industrial: '공장·창고',
     residential: '주택', land: '토지',
   }
-  const concern = CONCERNS[p.category][hashPick(src, CONCERNS[p.category].length)]
+  const concern = pickConcern(p, src)
+
+  // 첫 줄의 업종 표기도 크기를 반영한다 — 130평인데 '상가·점포 전문'은 어색하다
+  const isBig = (p.exclusiveArea ?? 0) >= 330
+  const kindLabel = isBig && ['retail', 'office', 'food', 'academy', 'beauty'].includes(p.category)
+    ? '대형 상가·사무실'
+    : kindWord[p.category]
 
   const locArea = [
     p.dong && p.floor ? `${p.dong} ${floorLabel(p.floor)}` : p.dong,
     p.exclusiveArea ? `전용 약 ${m2ToPyeong(p.exclusiveArea)}평` : null,
   ].filter(Boolean).join(', ')
 
-  const extras: string[] = []
-  if (p.premium === '없음') extras.push('권리금 부담이 없고')
-  if (p.moveIn === '즉시입주') extras.push('즉시입주가 가능해')
-  const extraTxt = extras.length ? extras.join(' ') : '조건을 직접 확인해 보실 수 있어'
+  // 이 매물만의 근거를 원문에서 먼저 가져온다. 즉시입주·무권리 두 가지만 쓰면
+  // 매물이 달라도 같은 문장이 나온다. 셋을 넘기면 한 문장이 길어져 읽히지 않는다.
+  const facts = extractFeatures(src).slice(0, 3)
+  // 조건은 명사구로 모아 쉼표로 잇고, 서술어는 맨 끝에 한 번만 붙인다.
+  // 조각마다 '~있고 ~있어' 를 달아 두면 어미가 겹쳐 문장이 무너진다.
+  const states: string[] = []
+  if (p.premium === '없음') states.push('권리금 부담이 없고')
+  if (p.moveIn === '즉시입주') states.push('즉시입주가 가능해')
+
+  // 조건은 '~고' 로 이어 두고 서술어는 맨 끝에 한 번만 온다.
+  //   시스템 냉난방, 엘리베이터가 갖춰져 있고 즉시입주가 가능해 …
+  // 받침 유무에 따라 '이/가' 가 갈린다. 마지막 조각의 끝 글자로 고른다.
+  // 갖추는 물건이 아니라 상태인 것들은 앞에 따로 세운다
+  // 조각을 다 붙이면 "열려 있고 갖춰져 있고 없고 가능해" 처럼 늘어진다.
+  // 상태형은 하나만 쓰고, 나머지는 아래 명사구 쪽에 맡긴다.
+  const parts: string[] = []
+  // 신축은 앞에 붙어도 자연스럽지만, '전면이 열려 있고' 는 뒤의 '갖춰져 있고' 와
+  // 어미가 겹친다. 명사구가 없을 때만 쓴다.
+  if (/신축|준신축/.test(src)) parts.push('신축 건물이라')
+  else if (!facts.length && /코너\s*(자리|상가)|양면\s*개방|전면\s*(노출|개방)/.test(src)) {
+    parts.push('전면이 도로에 열려 있어')
+  }
+  if (facts.length) {
+    const last = facts[facts.length - 1]
+    const code = last.charCodeAt(last.length - 1) - 0xac00
+    const hasBatchim = code >= 0 && code <= 11171 && code % 28 !== 0
+    parts.push(`${facts.join(', ')}${hasBatchim ? '이' : '가'} 갖춰져 있고`)
+  }
+  parts.push(...states)
+
+  const extraTxt = parts.length
+    // 마지막 조각만 '~어' 로 닫아 뒤 문장과 이어지게 한다
+    ? parts.join(' ').replace(/있고$/, '있어')
+    : '조건을 직접 확인해 보실 수 있어'
 
   const answer = locArea
     ? `이번 매물은 ${locArea} 매물로, ${extraTxt} 이런 고민을 덜어드릴 수 있습니다.`
     : `이번 매물은 ${extraTxt} 이런 고민을 함께 풀어볼 수 있는 매물입니다.`
 
   // '~를 다뤄온' 은 중개사무소 소개로 어색하다. 목적격 조사를 빼고 '업종 + 전문' 으로 잇는다.
-  return `안녕하세요. ${regionLabel} ${kindWord[p.category]} 전문 플러스불당공인중개사사무소입니다.\n\n${concern}\n\n${answer}`
+  return `안녕하세요. ${regionLabel} ${kindLabel} 전문 플러스불당공인중개사사무소입니다.\n\n${concern}\n\n${answer}`
 }
 
 function buildSummary(p: ParsedListing): string {
