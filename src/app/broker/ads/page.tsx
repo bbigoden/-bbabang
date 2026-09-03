@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import {
-  Megaphone, Search, CircleCheck, TriangleAlert, Download, Send, ClipboardCheck,
+  Megaphone, Search, CircleCheck, TriangleAlert, Download, Send,
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
@@ -248,17 +248,18 @@ function CheckCell({ listing, open, onToggle }: {
   listing: Listing; open: boolean; onToggle: () => void
 }) {
   if (!listing.checked_at) {
-    return <span className="text-gray-300 dark:text-gray-600" title="아직 점검하지 않았습니다">–</span>
+    return <span className="text-gray-300 dark:text-gray-600" title="아직 올려 보지 않았습니다. 올리기를 누르면 함께 점검합니다">–</span>
   }
   const n = listing.check_report?.length ?? 0
   if (!n) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
 
-  const hasRule = listing.check_report?.some(r => r.startsWith('[규칙]') || r.startsWith('[실패]'))
+  // 이 표시가 붙은 건은 올리기에서 건너뛴 것 — 원문을 고쳐야 나간다.
+  const blocked = listing.check_report?.some(r => /^\[(위반|형식|필수|실패)\]/.test(r))
   return (
     <button
       onClick={onToggle}
       className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
-        hasRule ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
+        blocked ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
       }`}
       title="눌러서 내용 보기"
     >
@@ -306,8 +307,6 @@ export default function AdsPage() {
   const [renewWatch, setRenewWatch] = useState(false)
   const [publishWatch, setPublishWatch] = useState(false)
   const [publishProgress, setPublishProgress] = useState<string | null>(null)
-  const [checkWatch, setCheckWatch] = useState(false)
-  const [checkProgress, setCheckProgress] = useState<string | null>(null)
   const [openReport, setOpenReport] = useState<string | null>(null)
 
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
@@ -587,7 +586,10 @@ export default function AdsPage() {
       else if (last?.status === 'done') {
         const r = last.result as { published?: number; skipped?: string[] } | null
         toast.success(r?.published ? `카페에 ${r.published}건 올렸습니다.` : '발행을 마쳤습니다.')
-        if (r?.skipped?.length) toast.error(`건너뛴 매물 ${r.skipped.length}건 — ${r.skipped[0]}`)
+        // 원문에 문제가 있어 안 올라간 건. 무엇이 문제였는지는 점검 칸에 남는다.
+        if (r?.skipped?.length) {
+          toast.error(`원문에 문제가 있어 ${r.skipped.length}건은 올리지 않았습니다. 점검 칸을 눌러 확인해 주세요.`)
+        }
       }
       load()
     }, 3000)
@@ -632,61 +634,7 @@ export default function AdsPage() {
     load()
   }
 
-  /**
-   * 올리지 않고 글만 만들어 원문의 문제를 확인한다.
-   *
-   * 점검 보고는 원문을 고치라는 내용이라 **올리기 전에** 봐야 쓸모가 있다.
-   * 원문을 받아와야 해서 한 건당 몇 초 걸리므로 체크한 매물만 본다.
-   */
-  async function checkChecked() {
-    if (!auth.broker) return
-    const targets = listings.filter(l => l.is_advertising && !l.contracted_at)
-    if (!targets.length) { toast.error('먼저 점검할 매물의 광고 칸에 체크해 주세요.'); return }
-    if (!confirm(
-      `체크한 ${targets.length}건의 원문을 점검합니다. 올리지는 않습니다.
-` +
-      `한 건당 몇 초 걸립니다 (약 ${Math.ceil(targets.length * 5 / 60)}분).
-
-계속할까요?`
-    )) return
-
-    const { data: pending } = await supabase.from('ad_jobs')
-      .select('id').eq('kind', 'check').in('status', ['queued', 'running']).limit(1).maybeSingle()
-    if (!pending) {
-      const { error } = await supabase.from('ad_jobs').insert({
-        broker_id: auth.broker.id, kind: 'check',
-        params: { bankNos: targets.map(l => l.bank_no) }, requested_by: auth.user?.id,
-      })
-      if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
-    }
-    toast.success(agentOnline ? `${targets.length}건을 점검하는 중입니다.` : '점검을 예약했습니다. PC 프로그램을 켜 주세요.')
-    setCheckWatch(true)
-  }
-
-  /** 점검이 끝나면 목록을 새로 받아 보고를 보여준다. */
-  useEffect(() => {
-    if (!checkWatch) return
-    const id = setInterval(async () => {
-      const { data } = await supabase.from('ad_jobs')
-        .select('id, progress').eq('kind', 'check').in('status', ['queued', 'running']).limit(1)
-      if (data && data.length) { setCheckProgress(data[0].progress ?? null); return }
-      setCheckWatch(false); setCheckProgress(null)
-      const { data: last } = await supabase.from('ad_jobs')
-        .select('status, error, result').eq('kind', 'check')
-        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-      if (last?.status === 'failed') toast.error(`점검하지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
-      else if (last?.status === 'done') {
-        const r = last.result as { checked?: number; withIssues?: number } | null
-        toast.success(r?.withIssues
-          ? `${r.checked}건 점검 — ${r.withIssues}건에서 확인할 것이 나왔습니다.`
-          : `${r?.checked ?? 0}건 점검 — 이상 없습니다.`)
-      }
-      load()
-    }, 3000)
-    return () => clearInterval(id)
-  }, [checkWatch])
-
-  /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
+    /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
   async function takedownAll() {
     if (!auth.broker) return
     if (!confirm(`광고 중인 거래완료 매물 ${takedownCount}건을 전 채널에서 내립니다.\n\n되돌릴 수 없습니다. 계속할까요?`)) return
@@ -931,19 +879,9 @@ export default function AdsPage() {
           )}
 
           <button
-            onClick={checkChecked}
-            disabled={checkWatch}
-            title="올리지 않고 글만 만들어 원문의 문제를 확인합니다"
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <ClipboardCheck className={`h-4 w-4 ${checkWatch ? 'animate-pulse' : ''}`} />
-            {checkWatch ? (checkProgress ?? '점검 중…') : '점검하기'}
-          </button>
-
-          <button
             onClick={publishChecked}
             disabled={publishWatch}
-            title="광고 칸에 체크한 매물을 네이버 카페에 올립니다"
+            title="체크한 매물의 원문을 점검한 뒤 문제없는 것만 카페에 올립니다"
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-60"
           >
             <Send className={`h-4 w-4 ${publishWatch ? 'animate-pulse' : ''}`} />
@@ -1012,7 +950,7 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">뱅크상태</th>
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
-                  <th className="px-3 py-2 font-medium" title="원문에서 발견한 문제. 뱅크에서 고칠 것을 알려줍니다">점검</th>
+                  <th className="px-3 py-2 font-medium" title="올릴 때 원문에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
                   <th className="px-3 py-2 font-medium">거래</th>
                 </tr>
               </thead>

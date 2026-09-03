@@ -881,6 +881,22 @@ function buildReport(p: ParsedListing, src: string, listingNo: string): string |
   return `---\n\n📋 **점검 보고**\n${issues.map(i => `- ${i}`).join('\n')}`
 }
 
+/**
+ * 광고에 "확인 필요" 로 나가면 안 되는 항목 중 빠진 것.
+ *
+ * 점검 보고에는 사용승인일·주차대수·방향까지 함께 적지만, 그건 비어 있어도
+ * 광고가 성립한다. 여기 넷은 다르다 — 무엇을 얼마에 어디서 파는지가 없는
+ * 광고가 되어 버린다.
+ */
+function missingRequired(p: ParsedListing): string[] {
+  const out: string[] = []
+  if (fmtLocation(p) === NEEDS_CHECK) out.push('소재지')
+  if (!p.exclusiveArea && !p.supplyArea) out.push('면적')
+  if (fmtPrice(p) === NEEDS_CHECK) out.push('가격')
+  if (!p.propertyKind) out.push('중개대상물 종류')
+  return out
+}
+
 // ── 진입점 ────────────────────────────────────────────
 
 export type PostFormat = 'cafe' | 'blog'
@@ -931,6 +947,12 @@ export interface CafeHtmlConfig {
   features: Array<[string, string, string]>
   qa: Array<[string, string]>
   report: string[]
+  /**
+   * 이대로 올리면 광고에 "확인 필요" 로 나가는 **표시광고법 핵심 항목**.
+   * 하나라도 있으면 올리지 않는다 — 소재지·면적·가격·중개대상물 종류는
+   * 인터넷 표시광고 필수 명시사항이라, 비워 둔 채 게시하면 위반이다.
+   */
+  missing_required: string[]
   office_lead: string
   highlight: string
   tags: string
@@ -976,6 +998,7 @@ export function buildCafeHtmlConfig(
     features: detailSections(p),
     qa: qnaPairs(p),
     report: reportItems,
+    missing_required: missingRequired(p),
     office_lead: `현장을 직접 확인한 실매물만 소개해 드리며, 광고되지 않은 매물도 함께 비교해 보실 수 있도록 준비해 드립니다.${p.coBrokerage ? ' 공동중개도 환영합니다.' : ''}`,
     highlight: features(p).slice(0, 3).join(' + '),
     tags: buildTags(p),
