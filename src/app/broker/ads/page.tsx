@@ -28,7 +28,7 @@ import { SearchClear } from '@/components/ui/search-clear'
 
 type Post = {
   id: string
-  channel: 'cafe' | 'blog' | 'daangn' | 'bank'
+  channel: 'cafe' | 'daangn' | 'bank'
   external_id: string | null
   url: string | null
   status: 'pending' | 'posted' | 'removing' | 'removed' | 'failed'
@@ -84,7 +84,7 @@ const CHANNELS: Array<{ key: 'bank' | 'cafe'; label: string }> = [
 const FIXED_COLS = 10
 
 const CHANNEL_LABEL: Record<string, string> = {
-  cafe: '카페', blog: '블로그', daangn: '당근', bank: '뱅크',
+  cafe: '카페', daangn: '당근', bank: '뱅크',
 }
 
 const m2ToPyeong = (m2: number | null) => (m2 ? (m2 * 0.3025).toFixed(1) : null)
