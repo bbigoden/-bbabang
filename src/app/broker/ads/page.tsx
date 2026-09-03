@@ -739,7 +739,9 @@ export default function AdsPage() {
   const countOf = (t: string) => listings.filter(l => l.bank_tab === t).length
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
-  const expiring = listings.filter(l => isExpiring(l))
+  // 종료예정은 등록매물에만 있는 개념이다 — 탭 숫자는 이 배열로, 탭을 눌렀을 때
+  // 나오는 목록은 inTab 으로 가르므로 두 잣대가 같아야 숫자가 어긋나지 않는다.
+  const expiring = listings.filter(l => l.bank_tab === '등록매물' && isExpiring(l))
 
   if (auth.loading || !auth.broker) return null
 
