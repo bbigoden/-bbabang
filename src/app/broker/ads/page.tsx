@@ -191,6 +191,9 @@ function needsTakedown(l: Listing, gone: boolean) {
  * 우리가 따로 분류하면 건수가 뱅크 화면과 어긋나 어느 쪽이 맞는지 알 수 없게 된다.
  * (여기 없는 탭은 광고를 관리하려고 우리가 더한 것.)
  */
+/** 확인창 줄바꿈. 소스에 직접 쓰면 편집 중에 자주 깨진다. */
+const NL = String.fromCharCode(10)
+
 const BANK_TABS: Record<string, string | undefined> = {
   all: '등록매물',
   past: '등록종료',
@@ -563,10 +566,24 @@ export default function AdsPage() {
         : '먼저 올릴 매물의 광고 칸에 체크해 주세요.')
       return
     }
+    // 한 건에 글 만들기 30초 + 쉬는 시간 40초. 몇 시간짜리 작업이 될 수 있어
+    // 미리 알려준다 — 모르고 걸면 중간에 껐다가 절반만 올라간 상태가 된다.
+    const mins = Math.ceil(targets.length * 70 / 60)
+    const 걸리는시간 = mins < 60 ? `${mins}분` : `${Math.round(mins / 6) / 10}시간`
     if (!confirm(
-      `체크한 ${targets.length}건을 네이버 카페에 올립니다.\n\n` +
-      '글은 뱅크 원문에서 자동으로 만들어지고, 스킬 규칙을 어기면 그 건은 건너뜁니다.\n' +
-      (agentOnline ? '계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 올라갑니다. 계속할까요?')
+      [
+        `체크한 ${targets.length}건을 네이버 카페에 올립니다.`,
+        `대략 ${걸리는시간} 걸립니다. 그동안 PC 프로그램을 켜 두세요.`,
+        '',
+        '글은 뱅크 원문에서 자동으로 만들어집니다. 원문에 문제가 있는 건은',
+        '올리지 않고 점검 칸에 이유를 남깁니다.',
+        ...(targets.length > 30
+          ? ['', '한 번에 너무 많이 올리면 네이버가 막을 수 있습니다.',
+             '30건 안팎으로 나눠 올리시는 것을 권합니다.']
+          : []),
+        '',
+        agentOnline ? '계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 올라갑니다. 계속할까요?',
+      ].join(NL)
     )) return
 
     const { data: pending } = await supabase.from('ad_jobs')
