@@ -193,7 +193,7 @@ function BankCell({ listing }: { listing: Listing }) {
 
 /** 이 매물을 지금 카페에 올려도 되는가. PC 프로그램의 판단과 같아야 한다. */
 function canPublish(l: Listing) {
-  return !l.contracted_at && (l.bank_tab === '등록매물' || l.bank_tab === '전송실패')
+  return !l.contracted_at && l.bank_tab === '등록매물'
 }
 
 /**
@@ -222,9 +222,6 @@ const NL = String.fromCharCode(10)
 const BANK_TABS: Record<string, string | undefined> = {
   all: '등록매물',
   past: '등록종료',
-  done: '거래완료',
-  fail: '전송실패',
-  missing: '뱅크에 없음',
 }
 
 /** 지금 카페에 글이 살아 있는가. 올린 기록이 아니라 **살아 있는 글**만 센다. */
@@ -342,7 +339,7 @@ export default function AdsPage() {
   const [q, setQ] = useState('')
   const [manager, setManager] = useState('')   // 담당자 좁혀 보기
   const [tab, setTab] = useState<
-    'all' | 'expiring' | 'past' | 'done' | 'fail' | 'missing' | 'live' | 'takedown'
+    'all' | 'expiring' | 'past' | 'live' | 'takedown'
   >('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('ads')
@@ -810,12 +807,10 @@ export default function AdsPage() {
                 뱅크에는 등록됐지만 전송이 실패했습니다. 노출이 가장 큰 곳에 나가지 않고 있습니다.
                 뱅크의 <b>전송실패</b> 탭에서 재등록하거나 전자홍보확인서를 보내 주세요.
               </p>
-              <button
-                onClick={() => setTab('fail')}
-                className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700"
-              >
-                어느 매물인지 보기
-              </button>
+              <p className="mt-1 font-mono text-xs text-red-700 dark:text-red-400">
+                {listings.filter(l => l.bank_tab === '전송실패')
+                  .map(l => l.naver_no ?? l.bank_no).join(', ')}
+              </p>
             </div>
           </div>
         )}
@@ -875,15 +870,10 @@ export default function AdsPage() {
               ['all', `등록매물 ${countOf('등록매물')}`],
               ['expiring', `종료예정 ${expiring.length}`],
               ['past', `등록종료 ${countOf('등록종료')}`],
-              ['done', `거래완료 ${countOf('거래완료')}`],
-              ['fail', `전송실패 ${countOf('전송실패')}`],
-              // 뱅크 목록 네 탭 어디에도 없는 것 — 뱅크에서 지운 매물이다.
-              // 광고관리에는 지우는 기능이 없으니 여기 있는 건 전부 뱅크에서 지운 것.
-              // 없으면 탭 자체가 안 보인다.
-              ...(countOf('뱅크에 없음')
-                ? [['missing', `휴지통 ${countOf('뱅크에 없음')}`,
-                    '뱅크에서 지워 목록에서 빠진 매물. 대부분 뱅크 휴지통에 들어 있습니다']] as const
-                : []),
+              // 거래완료·전송실패·휴지통은 탭으로 두지 않는다. 부소장에서 할 일이
+              // 없고 전부 뱅크에서 처리할 것들이라, 탭만 늘어나 눈이 흩어진다.
+              // (수집은 계속한다 — 등록매물 건수를 뱅크와 맞추고, 그 매물들이
+              //  카페에 올라가지 못하게 막는 근거가 된다.)
               ['live', `카페에 올림 ${liveCount}`, '지금 카페에 글이 살아 있는 매물'],
               ['takedown', `계약 끝·광고 남음 ${takedownCount}`,
                 '계약이 끝났는데 광고가 아직 내려가지 않은 매물. 표시광고법상 즉시 내려야 합니다'],
@@ -996,7 +986,7 @@ export default function AdsPage() {
                   const done = !!l.contracted_at
                   // 뱅크에 아직 살아 있는가. 끝난 매물에 남은 날짜·[거래완료] 를
                   // 띄우면 지금 손봐야 할 일처럼 보인다.
-                  const bankLive = l.bank_tab === '등록매물' || l.bank_tab === '전송실패'
+                  const bankLive = l.bank_tab === '등록매물'
                   const row = (
                     <tr key={l.id} className={done ? 'bg-gray-50/60 text-gray-400 dark:bg-gray-900/40' : ''}>
                       {/* 고객이 부르는 번호만 보여준다. 뱅크 번호는 사장님도 쓸 일이
