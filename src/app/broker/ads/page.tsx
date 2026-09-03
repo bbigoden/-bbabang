@@ -55,6 +55,7 @@ type Listing = {
   bank_closed_reason: string | null
   bank_tab: string | null
   closing_soon: boolean
+  manager: string | null
   check_report: string[] | null
   checked_at: string | null
   ad_posts: Post[]
@@ -291,6 +292,7 @@ export default function AdsPage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
+  const [manager, setManager] = useState('')   // 담당자 좁혀 보기
   const [tab, setTab] = useState<
     'all' | 'expiring' | 'past' | 'done' | 'fail' | 'missing' | 'live' | 'takedown'
   >('all')
@@ -740,11 +742,12 @@ export default function AdsPage() {
       if (tab === 'live' && !isLive(l)) return false
       if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
       if (tab === 'expiring' && !isExpiring(l)) return false
+      if (manager && (l.manager ?? '') !== manager) return false
       if (!key) return true
-      return [l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type]
+      return [l.bank_no, l.naver_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
     })
-  }, [listings, q, tab, goneFromBank])
+  }, [listings, q, tab, manager, goneFromBank])
 
   // 고객목록과 같은 방식으로 자른다 — 250건 규모라 전부 받아 두고 화면에서만 나눈다.
   // 매물목록만 서버에서 페이지 단위로 받는데, 그쪽은 1,800건에 2.3MB라 사정이 다르다.
@@ -752,13 +755,14 @@ export default function AdsPage() {
   // 만들어야 하고, "내려야 함"은 틀리면 안 되는 숫자다.
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
-  useEffect(() => { setPage(1) }, [q, tab, pageSize])
+  useEffect(() => { setPage(1) }, [q, tab, manager, pageSize])
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
   // 체크박스로 '올릴 것' 이라고 고른 건수 — [카페에 올리기] 버튼에 쓴다.
   const checkedCount = listings.filter(l => l.is_advertising).length
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
+  const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
   const countOf = (t: string) => listings.filter(l => l.bank_tab === t).length
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
@@ -908,6 +912,19 @@ export default function AdsPage() {
             {q && <SearchClear onClick={() => setQ('')} />}
           </div>
 
+          {/* 사무소가 셋이서 나눠 맡고 있어, 내 것만 보고 올리는 일이 잦다. */}
+          {managers.length > 0 && (
+            <select
+              aria-label="담당자"
+              value={manager}
+              onChange={e => setManager(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
+            >
+              <option value="">담당자 전체</option>
+              {managers.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          )}
+
           <button
             onClick={checkChecked}
             disabled={checkWatch}
@@ -982,6 +999,7 @@ export default function AdsPage() {
                 <tr>
                   <th className="px-3 py-2 font-medium" title="올릴 매물을 고르는 칸입니다. 실제 게시 여부는 카페 칸을 보세요">광고</th>
                   <th className="px-3 py-2 font-medium" title="네이버부동산 매물번호 — 고객이 아는 번호입니다. 눌러서 뱅크 원본으로 갑니다">매물번호</th>
+                  <th className="px-3 py-2 font-medium" title="뱅크 중개사메모에 적힌 담당자입니다">담당자</th>
                   <th className="px-3 py-2 font-medium">종류</th>
                   <th className="px-3 py-2 font-medium">소재지</th>
                   <th className="px-3 py-2 font-medium">면적</th>
@@ -1020,6 +1038,9 @@ export default function AdsPage() {
                               title={`뱅크에서 이 매물 열기 (뱅크 번호 ${l.bank_no})`}
                             >{l.naver_no ?? l.bank_no}</a>
                           : (l.naver_no ?? l.bank_no)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-xs">
+                        {l.manager ?? <span className="text-gray-300 dark:text-gray-600">–</span>}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {l.property_kind}
@@ -1076,7 +1097,7 @@ export default function AdsPage() {
                   // 점검 보고는 길어서 칸에 못 담는다. 누르면 그 행 아래에 편다.
                   const report = openReport === l.id && l.check_report?.length ? (
                     <tr key={`${l.id}-report`} className="bg-amber-50/60 dark:bg-amber-950/30">
-                      <td colSpan={CHANNELS.length + 8} className="px-4 py-3">
+                      <td colSpan={CHANNELS.length + 9} className="px-4 py-3">
                         <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
                           {l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다
                         </p>
