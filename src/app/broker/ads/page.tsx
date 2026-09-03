@@ -299,50 +299,34 @@ function CheckCell({ listing, open, onToggle }: {
 }
 
 /** 채널 게시 상태를 한 칸으로 표시 */
+/**
+ * 카페 칸. **두 가지만 보여준다 — 게시중이거나, 올릴 수 있거나.**
+ *
+ * 내림·실패를 따로 적어 봤자 할 일이 달라지지 않는다. 올렸는데도 [올리기] 가
+ * 그대로면 그게 곧 실패다. 무엇이 잘못됐는지는 점검 칸이 말한다.
+ */
 function ChannelCell({ post, onPublish, busy }: {
   post: Post | undefined
   /** 올릴 수 있는 매물이면 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
   onPublish?: () => void
   busy?: boolean
 }) {
-  const 올리기 = (label: string, hint: string) => onPublish
-    ? (
-      <button
-        onClick={onPublish}
-        disabled={busy}
-        title={hint}
-        className="rounded border border-gray-200 px-1.5 py-0.5 text-gray-500 hover:border-green-500 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400"
-      >{label}</button>
-    )
-    : <span className="text-gray-300 dark:text-gray-600">–</span>
-
-  if (post?.status === 'posted') {
+  // 내리는 중이어도 글은 아직 카페에 있다. 지워진 것을 확인한 뒤에야 '내림' 이 된다.
+  if (post?.status === 'posted' || post?.status === 'removing') {
     const body = <span className="text-green-600 dark:text-green-400">게시중</span>
     return post.url
       ? <a href={post.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-green-700">{body}</a>
       : body
   }
-  if (post?.status === 'removing') return <span className="text-amber-600 dark:text-amber-400">내리는 중</span>
-
-  // 내려간 글·실패한 글도 다시 올릴 수 있어야 한다. 예전에는 '내림' 글자만
-  // 남고 버튼이 사라져서, 카페에서 직접 지운 매물은 다시 올릴 방법이 없었다.
-  if (post?.status === 'removed') {
-    return (
-      <span className="flex items-center gap-1">
-        <span className="text-gray-400">내림</span>
-        {올리기('다시', '내려간 글을 다시 올립니다')}
-      </span>
-    )
-  }
-  if (post?.status === 'failed') {
-    return (
-      <span className="flex items-center gap-1">
-        <span className="text-red-600 dark:text-red-400" title={post.error ?? ''}>실패</span>
-        {올리기('다시', '다시 올려 봅니다')}
-      </span>
-    )
-  }
-  return 올리기('올리기', '이 매물만 카페에 올립니다')
+  if (!onPublish) return <span className="text-gray-300 dark:text-gray-600">–</span>
+  return (
+    <button
+      onClick={onPublish}
+      disabled={busy}
+      title={post?.error ? `지난번 실패: ${post.error}` : '이 매물만 카페에 올립니다'}
+      className="rounded border border-gray-200 px-1.5 py-0.5 text-gray-500 hover:border-green-500 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400"
+    >올리기</button>
+  )
 }
 
 export default function AdsPage() {
