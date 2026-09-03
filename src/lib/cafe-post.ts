@@ -78,7 +78,10 @@ function areaNumber(v: string | undefined): number | undefined {
   const m = v.match(/([\d,]+(?:\.\d+)?)\s*(?:㎡|m²|m2|제곱미터)/i) ?? v.match(/([\d,]+(?:\.\d+)?)/)
   if (!m) return undefined
   const n = parseFloat(m[1].replace(/,/g, ''))
-  return Number.isFinite(n) && n > 0 ? n : undefined
+  if (!Number.isFinite(n) || n <= 0) return undefined
+  // 뱅크 원문에 `121.5473 ㎡` 처럼 소수점 네 자리까지 들어 있다. 광고에 그대로
+  // 나가면 지저분하고, 그만큼 정밀한 값도 아니다. 둘째 자리에서 끊는다.
+  return Math.round(n * 100) / 100
 }
 
 /**
@@ -579,8 +582,9 @@ function buildTitles(p: ParsedListing, src = ''): string[] {
   //
   // 공장·창고에는 쓰지 않는다. 상세설명에 '별도 사무 공간' 같은 말이 들어 있어
   // '사무실 자리' 로 잡히는데, 공장을 사무실이라고 광고하는 셈이 된다.
-  const 업종 = p.category === 'industrial' ? null : markFrom(PURPOSE_MARKS, src)
-  const 자리 = markFrom(SPOT_MARKS, src)
+  const mark = markPair(src)
+  const 업종 = p.category === 'industrial' ? null : mark.업종
+  const 자리 = mark.자리
 
   // 공장·창고는 업종보다 층고·야드가 자리를 가른다. 원문에 있을 때만 쓴다.
   const 설비 = p.category === 'industrial'
@@ -675,12 +679,40 @@ function handwrittenBody(src: string): string {
     .replace(/.*(문의|상담|촬영|허위|낚시|미끼).*/g, '')
 }
 
+/**
+ * 사장님이 `매물특징` 에 적은 **한 줄**. 그 매물 하나를 두고 쓴 말이다.
+ *
+ * 상세설명까지 보면 안 된다. 거기에는 사무소 소개(`천안·아산 상가/사무실 임대
+ * 전문`)와 추천 업종 나열이 들어 있어, 208평 1층 상가가 '사무실 자리' 로
+ * 잡히는 일이 실제로 있었다.
+ */
+function featureLine(src: string): string {
+  const m = src.match(new RegExp("\n\\s*매물특징[\t ]+([^\n]*)"))
+  return m?.[1]?.trim() ?? ''
+}
+
 /** 정해진 어휘로만 바꿔 담는다. 없으면 빈 값. */
-function markFrom(marks: Array<[RegExp, string]>, src: string): string | null {
-  const body = handwrittenBody(src)
-  if (!body) return null
-  for (const [re, phrase] of marks) if (re.test(body)) return phrase
+function markIn(marks: Array<[RegExp, string]>, line: string) {
+  for (const [re, phrase] of marks) {
+    const m = line.match(re)
+    if (m) return { phrase, at: m.index ?? 0, len: m[0].length }
+  }
   return null
+}
+
+/**
+ * 매물특징 한 줄에서 **자리 성격**과 **업종**을 뽑는다.
+ *
+ * 자리를 먼저 잡고 그 부분을 지운 뒤 업종을 찾는다. 같은 낱말이 둘 다에
+ * 걸리기 때문이다 — `대형병원 배후 수요` 는 상권 설명인데, 순서를 안 두면
+ * 업종이 '병의원' 으로 잡혀 상가가 병원 자리로 광고된다.
+ */
+function markPair(src: string): { 자리: string | null; 업종: string | null } {
+  const line = featureLine(src)
+  if (!line) return { 자리: null, 업종: null }
+  const spot = markIn(SPOT_MARKS, line)
+  const rest = spot ? line.slice(0, spot.at) + ' ' + line.slice(spot.at + spot.len) : line
+  return { 자리: spot?.phrase ?? null, 업종: markIn(PURPOSE_MARKS, rest)?.phrase ?? null }
 }
 
 const FEATURE_MARKS: Array<[RegExp, string]> = [
