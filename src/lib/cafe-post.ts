@@ -280,7 +280,11 @@ export function parseListing(source: string): ParsedListing {
     else if (salePrice || /매매/.test(src)) dealType = '매매'
   }
 
-  // 관리비 — 금액이 있으면 금액만 뽑아서 유지, 금액 없이 "관리규약에 따라 부과" 등이면 확인 필요
+  // 관리비 — 금액이 있으면 금액만, 금액 없이 부과 방식만 있으면 **그 방식을 그대로**.
+  //
+  // 예전에는 `관리규약에 따라 부과` 를 '확인 필요' 로 바꿔 버렸다. 원문에 적혀
+  // 있는 것을 안 적은 셈이라, 275건 중 151건이 관리비 칸을 비운 채 나갔다.
+  // 금액을 모르는 것과 부과 방식이 정해져 있는 것은 다르다.
   const maintenanceFeeRaw = field(src, ['관리비'])
   const maintenanceFeeAmount = feeToWon(maintenanceFeeRaw)
   let maintenanceFee: string | undefined
@@ -288,19 +292,23 @@ export function parseListing(source: string): ParsedListing {
     if (maintenanceFeeAmount) {
       const m = maintenanceFeeRaw.match(/[\d,.]+\s*만\s*원?|[\d,]{4,}\s*원/)
       maintenanceFee = m ? `월 ${m[0].replace(/\s/g, '').replace(/만$/, '만원')}` : maintenanceFeeRaw
-    } else if (!/관리규약|별도\s*문의|부과/.test(maintenanceFeeRaw)) {
-      maintenanceFee = maintenanceFeeRaw
+    } else {
+      // 사장님이 쓴 문구를 그대로 옮기되, 앞의 장식 기호와 라벨은 걷어낸다.
+      maintenanceFee = maintenanceFeeRaw.replace(/^[^가-힣0-9]+/, '').trim() || undefined
     }
   }
 
+  // 권리금 — 표의 `권리금  -만원` 은 **미입력**이지 없음이 아니다(절대규칙 2).
+  // 다만 사장님이 손으로 `권리금 없음` 이라 적었으면 그건 사실이다. 그걸 안 읽어
+  // 무권리 매물 10건이 그 장점을 빼고 나갔다 — 상가에서 가장 큰 조건인데도.
   const premiumRaw = field(src, ['권리금'])
   let premium: string | undefined
-  if (premiumRaw) {
+  if (/무권리|권리금\s*[:：]?\s*없|권리금\s*없음/.test(handwrittenBody(src))) {
+    premium = '없음'
+  } else if (premiumRaw) {
     if (/무권리|없/.test(premiumRaw)) premium = '없음'
     else if (/문의|협의/.test(premiumRaw)) premium = '유선 문의'
     else premium = premiumRaw
-  } else if (/무권리/.test(src)) {
-    premium = '없음'
   }
 
   const moveInRaw = field(src, ['입주가능일', '입주일', '입주시기'])
@@ -861,7 +869,10 @@ function infoRows(p: ParsedListing, listingNo: string): Array<[string, string]> 
     ['사용승인일', p.approvalDate ?? NEEDS_CHECK],
     // 뱅크 원문은 "총 주차대수 0" 형태라 숫자만 잡힌다 — 표기 형식을 맞춘다
     ['주차대수', parkingLabel(p.parking) ?? NEEDS_CHECK],
-    ['관리비', p.maintenanceFee ? `${p.maintenanceFee} (세부 비목 확인 필요)` : NEEDS_CHECK],
+    // 금액이면 비목을 덧붙이고, 부과 방식이면 그대로 적는다.
+    ['관리비', !p.maintenanceFee ? NEEDS_CHECK
+      : /^월\s/.test(p.maintenanceFee) ? `${p.maintenanceFee} (세부 비목 확인 필요)`
+        : p.maintenanceFee],
     ['방향', p.direction ? `${p.direction.endsWith('향') ? p.direction : `${p.direction}향`} (주출입구 기준)` : NEEDS_CHECK],
   ]
 }
