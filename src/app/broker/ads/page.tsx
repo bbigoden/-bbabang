@@ -353,6 +353,15 @@ export default function AdsPage() {
   const [publishProgress, setPublishProgress] = useState<string | null>(null)
   const [openReport, setOpenReport] = useState<string | null>(null)
 
+  /**
+   * 사무소 기준 id — 직원이면 대표의 id 다.
+   *
+   * 광고 대장·작업은 **사무소 단위**로 움직인다. PC 프로그램은 대표 계정으로
+   * 돌기 때문에, 직원 계정으로 누른 작업을 직원 자신의 id 로 적으면 프로그램이
+   * 영영 못 본다 — 실제로 [올리기] 를 눌러도 아무 일이 없었다.
+   */
+  const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
+
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
   const lastSynced = useMemo(
     () => listings.reduce<string | null>(
@@ -438,7 +447,7 @@ export default function AdsPage() {
       ? { data: pending, error: null }
       : await supabase
         .from('ad_jobs')
-        .insert({ broker_id: auth.broker.id, kind: 'sync', requested_by: auth.user?.id })
+        .insert({ broker_id: officeId!, kind: 'sync', requested_by: auth.user?.id })
         .select('id').single()
     if (error || !job) {
       setSyncing(false); setSyncProgress(null)
@@ -500,7 +509,7 @@ export default function AdsPage() {
 
     // 표시만으로 끝나면 광고가 그대로 남는다. 내리는 일까지 PC에 맡긴다.
     const { error: jobError } = await supabase.from('ad_jobs').insert({
-      broker_id: auth.broker!.id, kind: 'takedown',
+      broker_id: officeId!, kind: 'takedown',
       params: { listingId: l.id }, requested_by: auth.user?.id,
     })
     if (jobError) {
@@ -532,7 +541,7 @@ export default function AdsPage() {
     )) return
 
     const { error } = await supabase.from('ad_jobs').insert({
-      broker_id: auth.broker.id, kind: 'renew',
+      broker_id: officeId!, kind: 'renew',
       params: { bankNos: targets.map(l => l.bank_no) }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
@@ -590,7 +599,7 @@ export default function AdsPage() {
     if (pending) { toast.error('이미 올리는 중입니다. 끝나면 다시 눌러 주세요.'); return }
 
     const { error } = await supabase.from('ad_jobs').insert({
-      broker_id: auth.broker.id, kind: 'publish',
+      broker_id: officeId!, kind: 'publish',
       params: { bankNos: [l.bank_no] }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
@@ -653,7 +662,7 @@ export default function AdsPage() {
       .select('id').eq('kind', 'takedown').in('status', ['queued', 'running']).limit(1).maybeSingle()
     if (!pending) {
       const { error: e2 } = await supabase.from('ad_jobs').insert({
-        broker_id: auth.broker.id, kind: 'takedown', requested_by: auth.user?.id,
+        broker_id: officeId!, kind: 'takedown', requested_by: auth.user?.id,
       })
       if (e2) { toast.error(`요청하지 못했습니다: ${e2.message}`); load(); return }
     }
@@ -672,7 +681,7 @@ export default function AdsPage() {
       .select('id').eq('kind', 'takedown').in('status', ['queued', 'running']).limit(1).maybeSingle()
     if (!pending) {
       const { error } = await supabase.from('ad_jobs').insert({
-        broker_id: auth.broker.id, kind: 'takedown', requested_by: auth.user?.id,
+        broker_id: officeId!, kind: 'takedown', requested_by: auth.user?.id,
       })
       if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
     }
