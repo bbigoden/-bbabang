@@ -157,18 +157,19 @@ function canPublish(l: Listing) {
 }
 
 /**
- * 아직 내려야 할 광고가 남았는가.
+ * 계약이 끝났는데 아직 광고가 살아 있는가.
  *
- * 카페·블로그·당근은 우리가 올린 기록으로 판단하지만, **뱅크는 기록이 없다**
- * (사장님이 직접 올린다). 기록만 보면 뱅크가 통째로 빠져서, 계약이 끝났는데
- * 노출이 가장 큰 뱅크·네이버부동산에 광고가 그대로 남는다.
- * 그래서 뱅크는 "내렸다는 기록이 없고 아직 뱅크에 있으면" 남은 것으로 센다.
+ * 거래완료 표시와 실제로 내리는 일은 한 동작이 아니다. 웹은 표시만 하고
+ * 내리는 것은 PC 프로그램이 한다. 그 사이(프로그램이 꺼져 있거나 노출종료가
+ * 실패한 경우)에 계약 끝난 매물이 뱅크·네이버부동산에 그대로 노출된다.
+ *
+ * 뱅크는 우리가 올린 게 아니라 기록이 없다. **뱅크가 어느 탭에 넣었는지**로
+ * 판단한다 — 등록매물에 남아 있으면 아직 광고 중이다.
  */
-function needsTakedown(l: Listing, gone: boolean) {
+function needsTakedown(l: Listing) {
   if (!l.contracted_at) return false
   if (l.ad_posts.some(p => p.status === 'posted' || p.status === 'failed')) return true
-  const bank = l.ad_posts.find(p => p.channel === 'bank')
-  return bank?.status !== 'removed' && !gone
+  return l.bank_tab === '등록매물'
 }
 
 /**
@@ -680,7 +681,7 @@ export default function AdsPage() {
     // 계약이 끝나면 뱅크가 그 매물을 등록매물에서 빼 거래완료·휴지통으로 옮긴다.
     // 그래서 이 탭만은 뱅크 탭을 가리지 않고 전부에서 골라야 한다. 아래 '끝난
     // 매물은 뺀다' 를 그대로 태우면 목록이 늘 비어 배너 숫자와 어긋난다.
-    if (tab === 'takedown') return needsTakedown(l, goneFromBank.has(l.id))
+    if (tab === 'takedown') return needsTakedown(l)
     // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
     // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
     // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
@@ -714,7 +715,7 @@ export default function AdsPage() {
   useEffect(() => { setPage(1) }, [q, tab, manager, pageSize])
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
-  const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
+  const takedownCount = listings.filter(l => needsTakedown(l)).length
   // 체크박스로 '올릴 것' 이라고 고른 건수 — [카페에 올리기] 버튼에 쓴다.
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
