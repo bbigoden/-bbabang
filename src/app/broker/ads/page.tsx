@@ -114,9 +114,14 @@ function fmtWhen(iso: string) {
  * 뱅크 등록은 30일이 지나면 자동 종료돼 뱅크·네이버부동산에서 조용히 빠진다.
  * 화면에 남은 날짜가 없으면 빠진 뒤에야 알게 되므로 한 칸을 내준다.
  */
-function ExpiryCell({ period }: { period: string | null }) {
+function ExpiryCell({ period, live }: { period: string | null; live: boolean }) {
   const p = parseBankPeriod(period)
   if (!p) return <span className="text-gray-300 dark:text-gray-600">–</span>
+  // 이미 끝난 매물에 '1일 지남' 을 붉게 띄우면 지금 손봐야 할 일처럼 보인다.
+  // 끝난 것은 끝난 것이라, 언제까지였는지만 흐리게 남긴다.
+  if (!live) {
+    return <span className="text-gray-400" title={`${period} (뱅크 등록 기간)`}>{p.label}</span>
+  }
   const tone = {
     expired: 'text-red-600 dark:text-red-400 font-medium',
     urgent: 'text-red-600 dark:text-red-400',
@@ -147,7 +152,7 @@ function bankDetailUrl(l: Listing): string | null {
  * 뜨면 전부 내려간 것처럼 보인다 — 실제로는 뱅크와 네이버부동산에 그대로 남는다.
  * 그래서 한 칸을 내주고, 계약이 끝났는데 살아 있으면 붉게 띄운다.
  */
-function BankCell({ listing, gone }: { listing: Listing; gone: boolean }) {
+function BankCell({ listing }: { listing: Listing }) {
   const post = listing.ad_posts.find(p => p.channel === 'bank')
   const url = bankDetailUrl(listing)
 
@@ -157,11 +162,26 @@ function BankCell({ listing, gone }: { listing: Listing; gone: boolean }) {
         className="underline underline-offset-2" title={`${hint} — 눌러서 뱅크에서 열기`}>{body}</a>
     : <span title={hint}>{body}</span>
 
-  if (post?.status === 'removed') return link(<span className="text-gray-400">내림</span>, '뱅크에서 내렸습니다')
   if (post?.status === 'failed') {
-    return link(<span className="text-red-600 dark:text-red-400">실패</span>, post.error ?? '내리지 못했습니다')
+    return link(<span className="text-red-600 dark:text-red-400">내리기 실패</span>, post.error ?? '내리지 못했습니다')
   }
-  if (gone) return link(<span className="text-gray-400">없음</span>, '뱅크 목록에 없습니다')
+
+  // **뱅크가 넣어 둔 탭을 그대로 말한다.** 예전에는 '뱅크에 없음' 인지만 보고
+  // 나머지를 전부 '게시중' 으로 적어서, 등록종료 탭인데도 게시중으로 떴다.
+  switch (listing.bank_tab) {
+    case '등록종료':
+      return link(<span className="text-gray-500">종료</span>,
+        listing.bank_closed_reason ? `뱅크에서 종료됨 (${listing.bank_closed_reason})` : '뱅크에서 종료됐습니다')
+    case '거래완료':
+      return link(<span className="text-gray-500">거래완료</span>, '뱅크에서 거래완료 처리됐습니다')
+    case '뱅크에 없음':
+      return link(<span className="text-gray-400">없음</span>, '뱅크에서 지워졌습니다 (휴지통)')
+    case '전송실패':
+      return link(<span className="text-red-600 dark:text-red-400">전송실패</span>,
+        '뱅크에는 있지만 네이버부동산에 못 올라갔습니다')
+  }
+
+  // 여기부터는 뱅크에 살아 있는 매물이다.
   if (listing.contracted_at) {
     return link(
       <span className="font-medium text-red-600 dark:text-red-400">게시중</span>,
@@ -169,6 +189,11 @@ function BankCell({ listing, gone }: { listing: Listing; gone: boolean }) {
     )
   }
   return link(<span className="text-green-600 dark:text-green-400">게시중</span>, '뱅크에 광고 중입니다')
+}
+
+/** 이 매물을 지금 카페에 올려도 되는가. PC 프로그램의 판단과 같아야 한다. */
+function canPublish(l: Listing) {
+  return !l.contracted_at && (l.bank_tab === '등록매물' || l.bank_tab === '전송실패')
 }
 
 /**
@@ -969,6 +994,9 @@ export default function AdsPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {paginated.map(l => {
                   const done = !!l.contracted_at
+                  // 뱅크에 아직 살아 있는가. 끝난 매물에 남은 날짜·[거래완료] 를
+                  // 띄우면 지금 손봐야 할 일처럼 보인다.
+                  const bankLive = l.bank_tab === '등록매물' || l.bank_tab === '전송실패'
                   const row = (
                     <tr key={l.id} className={done ? 'bg-gray-50/60 text-gray-400 dark:bg-gray-900/40' : ''}>
                       {/* 고객이 부르는 번호만 보여준다. 뱅크 번호는 사장님도 쓸 일이
@@ -1006,16 +1034,15 @@ export default function AdsPage() {
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
                         {goneFromBank.has(l.id)
                           ? <ClosedReason listing={l} />
-                          : <ExpiryCell period={l.bank_period} />}
+                          : <ExpiryCell period={l.bank_period} live={bankLive} />}
                       </td>
                       {CHANNELS.map(c => (
                         <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">
                           {c.key === 'bank'
-                            ? <BankCell listing={l} gone={goneFromBank.has(l.id)} />
+                            ? <BankCell listing={l} />
                             : <ChannelCell
                                 post={l.ad_posts.find(p => p.channel === c.key)}
-                                onPublish={c.key === 'cafe' && !done && !goneFromBank.has(l.id)
-                                  ? () => publishOne(l) : undefined}
+                                onPublish={c.key === 'cafe' && canPublish(l) ? () => publishOne(l) : undefined}
                                 busy={publishWatch}
                               />}
                         </td>
@@ -1032,11 +1059,15 @@ export default function AdsPage() {
                           <span className="flex items-center gap-1 whitespace-nowrap text-xs text-gray-400">
                             <CircleCheck className="h-3.5 w-3.5" /> 완료
                           </span>
-                        ) : (
+                        ) : bankLive || isLive(l) ? (
+                          // 뱅크에 살아 있거나 카페 글이 남아 있을 때만 의미가 있다.
                           <button
                             onClick={() => markContracted(l)}
                             className="whitespace-nowrap rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-blue-400 hover:text-blue-600 dark:border-gray-700 dark:text-gray-300"
                           >거래완료</button>
+                        ) : (
+                          // 뱅크에서 이미 내려갔고 카페에도 없다. 누를 이유가 없다.
+                          <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
                         )}
                       </td>
                     </tr>
