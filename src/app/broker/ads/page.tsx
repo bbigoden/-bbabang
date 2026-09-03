@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -687,26 +687,33 @@ export default function AdsPage() {
     return () => clearInterval(id)
   }, [takedownWatch])
 
+  // 지금 고른 탭에 들어가는 매물인지 — 담당자별 건수도 같은 잣대로 세야
+  // 드롭다운 숫자와 화면에 뜨는 건수가 어긋나지 않는다.
+  const inTab = useCallback((l: Listing) => {
+    // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
+    // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
+    // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
+    // 전송실패는 등록매물 목록에 없으므로 '지난 매물' 판정에 걸린다. 먼저 가른다.
+    // 앞의 다섯 탭은 뱅크가 나눠 둔 그대로다. 뱅크가 어디에 넣었는지만 본다.
+    if (BANK_TABS[tab]) { if (l.bank_tab !== BANK_TABS[tab]) return false }
+    // 나머지 탭은 광고를 관리하려고 우리가 더한 것이라, 끝난 매물은 빼고 본다.
+    else if (l.bank_tab !== '등록매물') return false
+    if (tab === 'live' && !isLive(l)) return false
+    if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
+    if (tab === 'expiring' && !isExpiring(l)) return false
+    return true
+  }, [tab, goneFromBank])
+
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
-      // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
-      // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
-      // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
-      // 전송실패는 등록매물 목록에 없으므로 '지난 매물' 판정에 걸린다. 먼저 가른다.
-      // 앞의 다섯 탭은 뱅크가 나눠 둔 그대로다. 뱅크가 어디에 넣었는지만 본다.
-      if (BANK_TABS[tab]) { if (l.bank_tab !== BANK_TABS[tab]) return false }
-      // 나머지 탭은 광고를 관리하려고 우리가 더한 것이라, 끝난 매물은 빼고 본다.
-      else if (l.bank_tab !== '등록매물') return false
-      if (tab === 'live' && !isLive(l)) return false
-      if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
-      if (tab === 'expiring' && !isExpiring(l)) return false
+      if (!inTab(l)) return false
       if (manager && (l.manager ?? '') !== manager) return false
       if (!key) return true
       return [l.bank_no, l.naver_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
     })
-  }, [listings, q, tab, manager, goneFromBank])
+  }, [listings, q, manager, inTab])
 
   // 고객목록과 같은 방식으로 자른다 — 250건 규모라 전부 받아 두고 화면에서만 나눈다.
   // 매물목록만 서버에서 페이지 단위로 받는데, 그쪽은 1,800건에 2.3MB라 사정이 다르다.
@@ -722,6 +729,13 @@ export default function AdsPage() {
   const checkedCount = listings.filter(l => l.is_advertising).length
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
+  // 담당자별 건수 — 고객목록과 같이 이름 옆에 붙인다. 지금 보고 있는 탭 기준이라
+  // 탭을 바꾸면 숫자도 같이 바뀐다. 그 탭에 한 건도 없는 담당자는 (0)으로 남긴다 —
+  // 선택지가 사라지면 골라 둔 담당자가 화면에서 통째로 없어져 버린다.
+  const managerCounts = listings.reduce<Record<string, number>>((acc, l) => {
+    if (l.manager && inTab(l)) acc[l.manager] = (acc[l.manager] ?? 0) + 1
+    return acc
+  }, {})
   const countOf = (t: string) => listings.filter(l => l.bank_tab === t).length
 
   // 뱅크 등록은 30일이면 자동 종료된다. 재등록은 사람이 해야 하므로 미리 보여 준다.
@@ -885,7 +899,7 @@ export default function AdsPage() {
               className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
             >
               <option value="">담당자 전체</option>
-              {managers.map(n => <option key={n} value={n}>{n}</option>)}
+              {managers.map(n => <option key={n} value={n}>{`${n} (${managerCounts[n] ?? 0})`}</option>)}
             </select>
           )}
 
