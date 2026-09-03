@@ -71,8 +71,14 @@ type Listing = {
  * 계약이 끝났을 때 반드시 내려야 하는 곳이기 때문이다. 다만 우리가 올린 게
  * 아니라 발행 기록이 없어, 뱅크가 준 상태와 마지막 수집 결과로 판단한다.
  */
-const CHANNELS: Array<{ key: 'bank' | 'cafe'; label: string }> = [
-  { key: 'bank', label: '뱅크' },
+/**
+ * 표에 칸을 내주는 채널.
+ *
+ * 뱅크는 칸을 두지 않는다. 등록매물 탭에 있다는 것 자체가 뱅크 게시중이고,
+ * 뱅크 원본으로 가는 링크는 매물번호가 이미 하고 있다. 계약이 끝났는데 뱅크에
+ * 남아 있는 경우는 화면 위 경고와 '계약 끝·광고 남음' 탭이 잡는다.
+ */
+const CHANNELS: Array<{ key: 'cafe'; label: string }> = [
   { key: 'cafe', label: '카페' },
 ]
 
@@ -143,52 +149,6 @@ function bankDetailUrl(l: Listing): string | null {
   if (!l.bank_kind) return null
   return 'https://agency.neonet.co.kr/novo-agency/view/offerings/OfferingsDetail.neo'
     + `?offerings_cd=${l.bank_no}&offerings_gbn=${l.bank_kind}`
-}
-
-/**
- * 뱅크에 광고가 살아 있는지. 눌러서 뱅크 원본으로 바로 갈 수 있다.
- *
- * 거래완료를 눌러도 뱅크는 따로 내려야 한다. 그런데 행이 회색이 되고 '완료'만
- * 뜨면 전부 내려간 것처럼 보인다 — 실제로는 뱅크와 네이버부동산에 그대로 남는다.
- * 그래서 한 칸을 내주고, 계약이 끝났는데 살아 있으면 붉게 띄운다.
- */
-function BankCell({ listing }: { listing: Listing }) {
-  const post = listing.ad_posts.find(p => p.channel === 'bank')
-  const url = bankDetailUrl(listing)
-
-  // 링크로 감싼다. 점검 보고를 보고 원문을 고치러 갈 때 이 칸이 지름길이 된다.
-  const link = (body: React.ReactNode, hint: string) => url
-    ? <a href={url} target="_blank" rel="noreferrer"
-        className="underline underline-offset-2" title={`${hint} — 눌러서 뱅크에서 열기`}>{body}</a>
-    : <span title={hint}>{body}</span>
-
-  if (post?.status === 'failed') {
-    return link(<span className="text-red-600 dark:text-red-400">내리기 실패</span>, post.error ?? '내리지 못했습니다')
-  }
-
-  // **뱅크가 넣어 둔 탭을 그대로 말한다.** 예전에는 '뱅크에 없음' 인지만 보고
-  // 나머지를 전부 '게시중' 으로 적어서, 등록종료 탭인데도 게시중으로 떴다.
-  switch (listing.bank_tab) {
-    case '등록종료':
-      return link(<span className="text-gray-500">종료</span>,
-        listing.bank_closed_reason ? `뱅크에서 종료됨 (${listing.bank_closed_reason})` : '뱅크에서 종료됐습니다')
-    case '거래완료':
-      return link(<span className="text-gray-500">거래완료</span>, '뱅크에서 거래완료 처리됐습니다')
-    case '뱅크에 없음':
-      return link(<span className="text-gray-400">없음</span>, '뱅크에서 지워졌습니다 (휴지통)')
-    case '전송실패':
-      return link(<span className="text-red-600 dark:text-red-400">전송실패</span>,
-        '뱅크에는 있지만 네이버부동산에 못 올라갔습니다')
-  }
-
-  // 여기부터는 뱅크에 살아 있는 매물이다.
-  if (listing.contracted_at) {
-    return link(
-      <span className="font-medium text-red-600 dark:text-red-400">게시중</span>,
-      '계약이 끝났는데 뱅크에 광고가 남아 있습니다',
-    )
-  }
-  return link(<span className="text-green-600 dark:text-green-400">게시중</span>, '뱅크에 광고 중입니다')
 }
 
 /** 이 매물을 지금 카페에 올려도 되는가. PC 프로그램의 판단과 같아야 한다. */
@@ -1019,14 +979,11 @@ export default function AdsPage() {
                       </td>
                       {CHANNELS.map(c => (
                         <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">
-                          {c.key === 'bank'
-                            ? <BankCell listing={l} />
-                            : <ChannelCell
-                                post={l.ad_posts.find(p => p.channel === c.key)}
-                                onPublish={c.key === 'cafe' && canPublish(l) && !isLive(l)
-                                  ? () => publishOne(l) : undefined}
-                                busy={publishWatch}
-                              />}
+                          <ChannelCell
+                            post={l.ad_posts.find(p => p.channel === c.key)}
+                            onPublish={canPublish(l) && !isLive(l) ? () => publishOne(l) : undefined}
+                            busy={publishWatch}
+                          />
                         </td>
                       ))}
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
