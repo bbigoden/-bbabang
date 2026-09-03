@@ -748,6 +748,10 @@ export default function AdsPage() {
   // 지금 고른 탭에 들어가는 매물인지 — 담당자별 건수도 같은 잣대로 세야
   // 드롭다운 숫자와 화면에 뜨는 건수가 어긋나지 않는다.
   const inTab = useCallback((l: Listing) => {
+    // 계약이 끝나면 뱅크가 그 매물을 등록매물에서 빼 거래완료·휴지통으로 옮긴다.
+    // 그래서 이 탭만은 뱅크 탭을 가리지 않고 전부에서 골라야 한다. 아래 '끝난
+    // 매물은 뺀다' 를 그대로 태우면 목록이 늘 비어 배너 숫자와 어긋난다.
+    if (tab === 'takedown') return needsTakedown(l, goneFromBank.has(l.id))
     // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
     // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
     // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
@@ -757,7 +761,6 @@ export default function AdsPage() {
     // 나머지 탭은 광고를 관리하려고 우리가 더한 것이라, 끝난 매물은 빼고 본다.
     else if (l.bank_tab !== '등록매물') return false
     if (tab === 'live' && !isLive(l)) return false
-    if (tab === 'takedown' && !needsTakedown(l, goneFromBank.has(l.id))) return false
     if (tab === 'expiring' && !isExpiring(l)) return false
     return true
   }, [tab, goneFromBank])
