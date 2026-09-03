@@ -557,58 +557,74 @@ function sizeLabel(p: ParsedListing): string | null {
   return null
 }
 
+/**
+ * 검색되는 평수 표기. `43.8평` 으로 검색하는 사람은 없고 `40평대` 로 찾는다.
+ * 정확한 면적은 표와 본문이 말하므로 제목에서는 범주로 적는다(절대규칙 8).
+ */
+function sizeBand(p: ParsedListing): string | null {
+  const a = mainAreaM2(p)
+  if (!a) return null
+  const py = a * 0.3025
+  if (py < 10) return '10평 미만'
+  if (py < 100) return `${Math.floor(py / 10) * 10}평대`
+  return `${Math.floor(py / 100) * 100}평대`
+}
+
+/** 종류를 부르는 다른 말. 같은 매물을 여러 검색어로 걸기 위해 제목마다 바꾼다. */
+const KIND_ALT: Record<Category, string> = {
+  office: '사무실', food: '점포', academy: '점포', beauty: '점포', large: '점포', retail: '점포',
+  industrial: '창고', residential: '주택', land: '토지',
+}
+
 function buildTitles(p: ParsedListing, src = ''): string[] {
   // 사용자가 실제 쓰는 형식은 `천안 불당동`(시 + 동)이다. 동만 쓰면 어느 시인지 모호하다.
-  // '천안시 서북구' → '천안'. 어느 시든 같은 규칙으로 줄여야 제목이 들쭉날쭉하지 않다.
   const cityShort = p.city?.replace(/시$/, '') ?? p.city
   const region = [cityShort, p.dong].filter(Boolean).join(' ') || cityShort || '천안'
   const kind = KIND_LABEL[p.category]
   const deal = p.dealType ?? '임대'
-  const f = features(p)
   const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
-  const size = sizeLabel(p)
 
-  // 대괄호는 `[지역 + 매물종류 + 거래유형]` 로 고정한다. 규모·특징은 뒤쪽 설명에 둔다.
-  const head = `[${region} ${kind} ${deal}]`
-  const cityHead = `[${p.city ?? '천안시'} ${kind} ${deal}]`
+  // 제목은 **사람들이 검색할 말**로 채운다. 틀을 지키는 것보다 그게 먼저다.
+  // `전용 약 43.8평`, `제2종 근린생활시설`, `업종 협의 가능` 은 아무도 검색하지
+  // 않는다. 지역·종류·거래·층·평수대·업종이 실제로 검색되는 말이다.
+  const 층 = p.floor ? (p.floor.startsWith('-') ? `지하${p.floor.slice(1)}층` : `${p.floor}층`) : ''
+  const 평수대 = sizeBand(p) ?? ''
 
-  // 제목 뒷부분은 사람이 읽는 설명이라 면적을 그대로 적는다.
-  // 규칙 8이 막는 것은 `32평상가` 같은 붙여쓴 검색 키워드(주로 태그)다.
-  const areaTxt = mainArea(p) ? `약 ${m2ToPyeong(mainArea(p)!.m2)}평` : null
-
-  // 스킬이 정한 세 각도 — ①업종/상권 ②조건 ③용도.
-  //
-  // **핵심 특징 자리에는 이 매물만의 것을 넣는다.** 예전에는 `즉시입주 가능 ·
-  // 주차 가능` 처럼 거의 모든 매물에 붙는 것을 넣어서, 여덟 건을 올리면 제목이
-  // 여덟 개 다 똑같았다. 층과 평수는 매물마다 다르므로 그 둘을 먼저 놓는다.
-  const 층 = p.floor ? `${p.floor.startsWith('-') ? `지하${p.floor.slice(1)}` : p.floor}층 ` : ''
-  const 규모 = areaTxt ? `${mainArea(p)!.label} ${areaTxt}` : ''
-  // 규모를 이미 앞에 적었으므로 특징 목록의 면적 항목은 뺀다. 안 그러면
-  // `연면적 약 58.4평 · 즉시입주 가능 · 연면적 약 58.4평` 처럼 두 번 나온다.
-  const 조건 = f.filter(x => !규모 || !x.includes('평')).slice(0, 2).join(' · ')
-
-  // 사장님이 `매물특징` 에 적어 둔 것. 같은 동·같은 종류라도 이건 매물마다 다르다.
-  //
-  // 공장·창고에는 쓰지 않는다. 상세설명에 '별도 사무 공간' 같은 말이 들어 있어
-  // '사무실 자리' 로 잡히는데, 공장을 사무실이라고 광고하는 셈이 된다.
   const mark = markPair(src)
   const 업종 = p.category === 'industrial' ? null : mark.업종
   const 자리 = mark.자리
-
-  // 공장·창고는 업종보다 층고·야드가 자리를 가른다. 원문에 있을 때만 쓴다.
   const 설비 = p.category === 'industrial'
     ? [p.ceilingHeight ? `층고 ${p.ceilingHeight}` : null, p.power ? `계약전력 ${p.power}` : null]
       .filter(Boolean)[0] ?? null
     : null
 
+  // 조건도 검색되는 것만 남긴다. `주차 가능` 으로 검색하는 사람은 없다.
+  const 검색조건 = [
+    p.premium === '없음' ? '무권리' : null,
+    p.moveIn === '즉시입주' ? '즉시입주' : null,
+  ].filter(Boolean)
+
+  // 거래유형과 종류를 제목마다 달리 적어, 같은 매물이 여러 검색어에 걸리게 한다.
+  // (`불당동 상가 월세` 와 `불당동 점포 임대` 는 서로 다른 검색이다.)
+  const join = (...xs: Array<string | null>) => xs.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+
+  // 가격은 검색어는 아니지만 목록에서 조건을 가늠하게 해 준다. 중개 실무에서
+  // 쓰는 `3,000/250` 표기를 그대로 쓴다 — 길게 풀어 쓰면 제목이 넘친다.
+  const 만원뺌 = (v?: string) => v?.replace(/\s*만\s*원?/g, '').trim()
+  const 가격 = fmtPrice(p) === NEEDS_CHECK ? null
+    : p.deposit && p.monthlyRent ? `${만원뺌(p.deposit)}/${만원뺌(p.monthlyRent)}`
+      : p.salePrice ? `매매 ${p.salePrice}` : null
+
   return [
-    // ① 업종/상권 — 어디에 있고 무엇을 하기 좋은 자리인가
-    // 평수를 같이 넣는다. 같은 동·같은 업종이 여럿이면 이것 말고는 가를 것이 없다.
-    `${head} ${설비 ?? 자리 ?? 층.trim()} ${areaTxt ?? ''} ${업종 ?? `${uses[0]}·${uses[1]}`} 자리`,
-    // ② 조건 — 규모와 입주 조건
-    `${head} ${층}${규모 || (size ?? '')}${조건 ? ` · ${조건}` : ''}`,
-    // ③ 용도 — 건축물 용도로 넓게
-    `${cityHead} ${p.propertyKind ?? kind}${규모 ? ` ${areaTxt}` : ''}, 업종 협의 가능`,
+    // ① 업종·상권 — 무엇을 하기 좋은 자리인가
+    join(`[${region} ${kind} ${deal}]`, 설비 ?? 자리, 층, 평수대,
+      `${업종 ?? `${uses[0]}·${uses[1]}`} 자리`),
+    // ② 조건 — 층·평수대에 조건과 가격을 붙인다
+    join(`[${region} ${kind} ${deal === '월세' ? '임대' : deal}]`, 층, 평수대,
+      검색조건.join(' ') || null, 가격),
+    // ③ 다른 이름으로 — 점포/창고 같은 다른 검색어를 잡는다
+    join(`[${region} ${KIND_ALT[p.category]} ${deal}]`, 자리 ?? 설비, 층, 평수대,
+      `${업종 ?? uses[0]} 추천`, 가격),
   ].map(t => t.replace(/\s+/g, ' ').trim())
 }
 
