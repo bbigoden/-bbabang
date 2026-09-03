@@ -793,24 +793,21 @@ export default function AdsPage() {
           </div>
         )}
 
-        {expiring.length > 0 && (
-          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <div>
-              <p className="font-medium text-amber-900 dark:text-amber-300">
-                뱅크가 곧 종료할 매물 {expiring.length}건
-              </p>
-              <p className="mt-0.5 text-amber-800 dark:text-amber-400">
-                뱅크 등록은 30일이면 자동 종료돼 뱅크·네이버부동산에서 빠집니다. 재등록하면 오늘부터 30일로 새로 시작됩니다.
-              </p>
-              <button
-                onClick={renewExpiring}
-                disabled={renewWatch}
-                className="mt-2 rounded-lg bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-700 disabled:opacity-60"
-              >
-                {renewWatch ? '재등록 중…' : `뱅크에 다시 등록 (${Math.min(expiring.filter(l => !l.contracted_at).length, BANK_RENEW_MAX)}건)`}
-              </button>
-            </div>
+        {/* 종료예정은 탭이 이미 건수를 말한다. 화면 위에 늘 띄워 두면 볼 것이
+            하나 더 늘 뿐이라, 그 탭을 볼 때만 무엇을 하면 되는지 알려준다. */}
+        {tab === 'expiring' && expiring.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
+            <p className="text-amber-800 dark:text-amber-400">
+              뱅크 등록은 30일이면 자동 종료돼 뱅크·네이버부동산에서 빠집니다.
+              재등록하면 오늘부터 30일로 새로 시작됩니다.
+            </p>
+            <button
+              onClick={renewExpiring}
+              disabled={renewWatch}
+              className="ml-auto shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {renewWatch ? '재등록 중…' : `뱅크에 다시 등록 (${Math.min(expiring.filter(l => !l.contracted_at).length, BANK_RENEW_MAX)}건)`}
+            </button>
           </div>
         )}
 
