@@ -537,7 +537,7 @@ function sizeLabel(p: ParsedListing): string | null {
   return null
 }
 
-function buildTitles(p: ParsedListing): string[] {
+function buildTitles(p: ParsedListing, src = ''): string[] {
   // 사용자가 실제 쓰는 형식은 `천안 불당동`(시 + 동)이다. 동만 쓰면 어느 시인지 모호하다.
   // '천안시 서북구' → '천안'. 어느 시든 같은 규칙으로 줄여야 제목이 들쭉날쭉하지 않다.
   const cityShort = p.city?.replace(/시$/, '') ?? p.city
@@ -567,13 +567,27 @@ function buildTitles(p: ParsedListing): string[] {
   // `연면적 약 58.4평 · 즉시입주 가능 · 연면적 약 58.4평` 처럼 두 번 나온다.
   const 조건 = f.filter(x => !규모 || !x.includes('평')).slice(0, 2).join(' · ')
 
+  // 사장님이 `매물특징` 에 적어 둔 것. 같은 동·같은 종류라도 이건 매물마다 다르다.
+  //
+  // 공장·창고에는 쓰지 않는다. 상세설명에 '별도 사무 공간' 같은 말이 들어 있어
+  // '사무실 자리' 로 잡히는데, 공장을 사무실이라고 광고하는 셈이 된다.
+  const 업종 = p.category === 'industrial' ? null : markFrom(PURPOSE_MARKS, src)
+  const 자리 = markFrom(SPOT_MARKS, src)
+
+  // 공장·창고는 업종보다 층고·야드가 자리를 가른다. 원문에 있을 때만 쓴다.
+  const 설비 = p.category === 'industrial'
+    ? [p.ceilingHeight ? `층고 ${p.ceilingHeight}` : null, p.power ? `계약전력 ${p.power}` : null]
+      .filter(Boolean)[0] ?? null
+    : null
+
   return [
     // ① 업종/상권 — 어디에 있고 무엇을 하기 좋은 자리인가
-    `${head} ${층}${규모}${층 || 규모 ? ', ' : ''}${uses[0]}·${uses[1]} 자리`,
+    // 평수를 같이 넣는다. 같은 동·같은 업종이 여럿이면 이것 말고는 가를 것이 없다.
+    `${head} ${설비 ?? 자리 ?? 층.trim()} ${areaTxt ?? ''} ${업종 ?? `${uses[0]}·${uses[1]}`} 자리`,
     // ② 조건 — 규모와 입주 조건
-    `${head} ${규모 || `${size ?? ''}`}${조건 ? `${규모 ? ' · ' : ''}${조건}` : ''}`,
+    `${head} ${층}${규모 || (size ?? '')}${조건 ? ` · ${조건}` : ''}`,
     // ③ 용도 — 건축물 용도로 넓게
-    `${cityHead} ${p.propertyKind ?? kind}, 다양한 업종 가능`,
+    `${cityHead} ${p.propertyKind ?? kind}${규모 ? ` ${areaTxt}` : ''}, 업종 협의 가능`,
   ].map(t => t.replace(/\s+/g, ' ').trim())
 }
 
@@ -588,6 +602,79 @@ function buildTitles(p: ParsedListing): string[] {
  * 원문에는 `극대화`, `우수` 같은 부당광고 표현이 섞여 있어 그대로 옮기면
  * 절대규칙 2를 어기고, 없는 사실을 만들어낼 위험도 사라진다.
  */
+/**
+ * 사장님이 `매물특징` 에 적어 둔 업종. 제목의 ①업종/상권 각도에 쓴다.
+ *
+ * **원문을 그대로 옮기지 않는다.** 사장님이 쓴 문장에는 `딱 좋은`, `가성비`
+ * 같은 표현이 섞여 있어 그대로 제목에 올리면 부당광고가 된다. 정해진 말로만
+ * 바꿔 담는다 — 없는 업종을 지어낼 위험도 사라진다.
+ *
+ * 앞쪽일수록 우선한다. 구체적인 업종을 앞에 둔다.
+ */
+const PURPOSE_MARKS: Array<[RegExp, string]> = [
+  [/휴대폰|핸드폰|통신\s*(사|매장)/, '휴대폰·통신 매장'],
+  [/미용실|헤어|펌|살롱/, '미용실'],
+  [/네일|속눈썹|왁싱|피부|뷰티|에스테틱|마사지/, '뷰티샵'],
+  [/베이커리|제과|디저트|빵집/, '베이커리'],
+  [/카페|커피/, '카페'],
+  [/고기|곱창|삼겹|횟집|초밥|국밥|한식|중식|일식|분식|치킨|피자|호프|주점|술집/, '음식점'],
+  [/식당|음식점|요식/, '음식점'],
+  [/학원|교습|스터디|공부방|과외/, '학원'],
+  [/헬스|필라테스|요가|피티|PT/, '헬스·필라테스'],
+  [/병원|의원|약국|치과|한의원|클리닉/, '병의원'],
+  [/편의점|마트|슈퍼/, '판매점'],
+  [/애견|반려|펫/, '애견샵'],
+  [/스크린|골프/, '스크린골프'],
+  [/세탁|빨래방|코인워시/, '세탁소'],
+  [/사무실|오피스|사무\s*공간/, '사무실'],
+  [/공장|제조|가공|조립/, '제조'],
+  [/창고|물류|보관|적재/, '물류·보관'],
+]
+
+/**
+ * 자리의 성격. 업종만으로는 같은 업종끼리 제목이 겹치므로 하나 더 붙인다.
+ * 원문에 적힌 것만 쓴다.
+ */
+const SPOT_MARKS: Array<[RegExp, string]> = [
+  [/대단지|단지\s*앞|아파트\s*앞/, '대단지 앞'],
+  [/대형\s*병원|병원\s*배후|의료\s*(단지|시설)/, '병원 배후'],
+  [/역세권|지하철|전철|터미널/, '역세권'],
+  [/산업\s*단지|산단|공단/, '산업단지 인근'],
+  [/학원가|학군|학교\s*앞/, '학원가'],
+  [/코너|모퉁이/, '코너'],
+  [/전면|도로변|대로변/, '전면 도로변'],
+  [/신축/, '신축'],
+  [/인테리어\s*(완비|되어|그대로|포함)/, '인테리어 완비'],
+  [/무권리|권리금\s*없/, '무권리'],
+  [/독립|단독\s*(건물|동)|단독동/, '단독 건물'],
+]
+
+/**
+ * 사장님이 손으로 적은 구간(`매물특징`·`상세설명`)만 잘라낸다.
+ *
+ * **문서 끝까지 훑으면 표 라벨에 걸린다.** `핸드폰 번호`(중개업소 연락처 항목)
+ * 때문에 공장·창고까지 '휴대폰 매장' 으로 잡힌 적이 있다. 상세설명 뒤에 오는
+ * 표 구간에서 끊는다.
+ */
+function handwrittenBody(src: string): string {
+  const m = src.match(/(?:매물특징|상세설명)[\s\S]*/)
+  if (!m) return ''
+  // 상세설명 다음에 오는 표 항목들. 여기서부터는 사람이 쓴 글이 아니다.
+  const end = m[0].search(/\n\s*(매물사진|중개업소|핸드폰\s*번호|입주일|전송\s*정보|중개사\s*메모)/)
+  return (end > 0 ? m[0].slice(0, end) : m[0])
+    .replace(/[가-힣]*공인중개사.*/g, '')
+    .replace(/010-\d{4}-\d{4}/g, '')
+    .replace(/.*(문의|상담|촬영|허위|낚시|미끼).*/g, '')
+}
+
+/** 정해진 어휘로만 바꿔 담는다. 없으면 빈 값. */
+function markFrom(marks: Array<[RegExp, string]>, src: string): string | null {
+  const body = handwrittenBody(src)
+  if (!body) return null
+  for (const [re, phrase] of marks) if (re.test(body)) return phrase
+  return null
+}
+
 const FEATURE_MARKS: Array<[RegExp, string]> = [
   [/시스템\s*냉난방|시스템\s*에어컨|냉난방기?\s*(완비|설치|구비)/, '시스템 냉난방'],
   [/엘리베이터|승강기/, '엘리베이터'],
@@ -609,15 +696,7 @@ const FEATURE_MARKS: Array<[RegExp, string]> = [
  * @returns 소개 답 문장에 넣을 조각들. 원문에 근거가 있는 것만.
  */
 function extractFeatures(source: string): string[] {
-  // 상세설명·매물특징 구간만 본다. 표 항목까지 훑으면 라벨에 걸려 오탐이 난다.
-  // 사장님이 손으로 적은 `매물특징` 한 줄에 밀도가 가장 높다.
-  const m = source.match(/(?:매물특징|상세설명)[\s\S]*/)
-  if (!m) return []
-  // 사무소 소개·연락처 문구가 섞이면 엉뚱한 말이 걸린다. 걷어내고 본다.
-  const body = m[0]
-    .replace(/[가-힣]*공인중개사.*/g, '')
-    .replace(/010-\d{4}-\d{4}/g, '')
-    .replace(/.*(문의|상담|촬영|허위|낚시|미끼).*/g, '')
+  const body = handwrittenBody(source)
   const out: string[] = []
   for (const [re, phrase] of FEATURE_MARKS) {
     if (re.test(body) && !out.includes(phrase)) out.push(phrase)
@@ -958,7 +1037,7 @@ export function generateCafePost(
   const p = parseListing(source)
   const listingNo = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
 
-  const titles = format === 'blog' ? buildBlogTitles(p) : buildTitles(p)
+  const titles = format === 'blog' ? buildBlogTitles(p) : buildTitles(p, source)
   const infoSection = format === 'blog' ? buildInfoList(p, listingNo) : buildTable(p, listingNo)
 
   const sections = [
@@ -1040,7 +1119,7 @@ export function buildCafeHtmlConfig(
     no,
     out_dir: outDir,
     category: p.category,
-    titles: buildTitles(p),
+    titles: buildTitles(p, source),
     intro: buildIntro(p, source).split('\n\n').filter(Boolean),
     summary: buildSummary(p),
     rows: infoRows(p, shownNo),   // 표에 적히는 번호는 고객이 아는 것
