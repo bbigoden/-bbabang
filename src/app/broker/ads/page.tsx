@@ -283,9 +283,23 @@ function CheckCell({ listing, open, onToggle }: {
 }
 
 /** 채널 게시 상태를 한 칸으로 표시 */
-function ChannelCell({ post }: { post: Post | undefined }) {
+function ChannelCell({ post, onPublish, busy }: {
+  post: Post | undefined
+  /** 아직 안 올린 매물을 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
+  onPublish?: () => void
+  busy?: boolean
+}) {
   if (!post || post.status === 'pending') {
-    return <span className="text-gray-300 dark:text-gray-600">–</span>
+    // 한 건만 올릴 때 체크 → 위쪽 버튼으로 갈 이유가 없다. 그 줄에서 바로 누른다.
+    if (!onPublish) return <span className="text-gray-300 dark:text-gray-600">–</span>
+    return (
+      <button
+        onClick={onPublish}
+        disabled={busy}
+        title="이 매물만 카페에 올립니다"
+        className="rounded border border-gray-200 px-1.5 py-0.5 text-gray-500 hover:border-green-500 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400"
+      >올리기</button>
+    )
   }
   if (post.status === 'posted') {
     const body = <span className="text-green-600 dark:text-green-400">게시중</span>
@@ -555,6 +569,33 @@ export default function AdsPage() {
    * 잇는다. 이미 카페에 올라가 있는 것은 빼고, 계약이 끝났거나 뱅크에서 빠진
    * 매물은 PC 프로그램이 실행 직전에 한 번 더 거른다.
    */
+  /**
+   * 이 매물 하나만 올린다. 표의 카페 칸에서 바로 누른다.
+   *
+   * 여러 건은 체크해서 위쪽 버튼으로 올린다 — 200건을 한 줄씩 누를 수는 없다.
+   * 한 건만 올릴 때 체크하고 위로 올라갔다 오는 것이 번거로워 둘 다 둔다.
+   */
+  async function publishOne(l: Listing) {
+    if (!auth.broker) return
+    if (!confirm(
+      `${l.naver_no ?? l.bank_no} 매물을 카페에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
+      + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
+      + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
+    )) return
+
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1).maybeSingle()
+    if (pending) { toast.error('이미 올리는 중입니다. 끝나면 다시 눌러 주세요.'); return }
+
+    const { error } = await supabase.from('ad_jobs').insert({
+      broker_id: auth.broker.id, kind: 'publish',
+      params: { bankNos: [l.bank_no] }, requested_by: auth.user?.id,
+    })
+    if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    toast.success(agentOnline ? '카페에 올리는 중입니다.' : '올리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    setPublishWatch(true)
+  }
+
   async function publishChecked() {
     if (!auth.broker) return
     const targets = listings.filter(l =>
@@ -925,7 +966,7 @@ export default function AdsPage() {
           <button
             onClick={publishChecked}
             disabled={publishWatch}
-            title="체크한 매물의 원문을 점검한 뒤 문제없는 것만 카페에 올립니다"
+            title="체크한 매물을 한꺼번에 올립니다. 한 건만 올릴 때는 카페 칸의 [올리기]를 누르세요"
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-60"
           >
             <Send className={`h-4 w-4 ${publishWatch ? 'animate-pulse' : ''}`} />
@@ -984,7 +1025,7 @@ export default function AdsPage() {
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                 <tr>
-                  <th className="px-3 py-2 font-medium" title="올릴 매물을 고르는 칸입니다. 실제 게시 여부는 카페 칸을 보세요">광고</th>
+                  <th className="px-3 py-2 font-medium" title="여러 건을 한꺼번에 올릴 때 쓰는 칸입니다. 한 건만 올릴 때는 카페 칸의 [올리기]를 누르세요">광고</th>
                   <th className="px-3 py-2 font-medium" title="네이버부동산 매물번호 — 고객이 아는 번호입니다. 눌러서 뱅크 원본으로 갑니다">매물번호</th>
                   <th className="px-3 py-2 font-medium" title="뱅크 중개사메모에 적힌 담당자입니다">담당자</th>
                   <th className="px-3 py-2 font-medium">종류</th>
@@ -1052,7 +1093,12 @@ export default function AdsPage() {
                         <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">
                           {c.key === 'bank'
                             ? <BankCell listing={l} gone={goneFromBank.has(l.id)} />
-                            : <ChannelCell post={l.ad_posts.find(p => p.channel === c.key)} />}
+                            : <ChannelCell
+                                post={l.ad_posts.find(p => p.channel === c.key)}
+                                onPublish={c.key === 'cafe' && !done && !goneFromBank.has(l.id)
+                                  ? () => publishOne(l) : undefined}
+                                busy={publishWatch}
+                              />}
                         </td>
                       ))}
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
