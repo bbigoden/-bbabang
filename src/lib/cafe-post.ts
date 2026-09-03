@@ -287,28 +287,29 @@ export function parseListing(source: string): ParsedListing {
   // 금액을 모르는 것과 부과 방식이 정해져 있는 것은 다르다.
   const maintenanceFeeRaw = field(src, ['관리비'])
   const maintenanceFeeAmount = feeToWon(maintenanceFeeRaw)
-  let maintenanceFee: string | undefined
-  if (maintenanceFeeRaw) {
-    if (maintenanceFeeAmount) {
-      const m = maintenanceFeeRaw.match(/[\d,.]+\s*만\s*원?|[\d,]{4,}\s*원/)
-      maintenanceFee = m ? `월 ${m[0].replace(/\s/g, '').replace(/만$/, '만원')}` : maintenanceFeeRaw
-    } else {
-      // 사장님이 쓴 문구를 그대로 옮기되, 앞의 장식 기호와 라벨은 걷어낸다.
-      maintenanceFee = maintenanceFeeRaw.replace(/^[^가-힣0-9]+/, '').trim() || undefined
-    }
-  }
+  // 금액이 분명할 때만 금액을 적고, 나머지는 **관리규약에 따라 부과** 로 통일한다.
+  // 상가·공장 임대는 관리규약 부과가 기본이라 그렇게 적는 편이 '확인 필요' 보다
+  // 정확하다. 사장님이 정한 표기다.
+  const maintenanceFee = maintenanceFeeAmount
+    ? `월 ${(maintenanceFeeRaw!.match(/[\d,.]+\s*만\s*원?|[\d,]{4,}\s*원/) ?? [''])[0]
+        .replace(/\s/g, '').replace(/만$/, '만원')}`
+    : '관리규약에 따라 부과'
 
   // 권리금 — 표의 `권리금  -만원` 은 **미입력**이지 없음이 아니다(절대규칙 2).
   // 다만 사장님이 손으로 `권리금 없음` 이라 적었으면 그건 사실이다. 그걸 안 읽어
   // 무권리 매물 10건이 그 장점을 빼고 나갔다 — 상가에서 가장 큰 조건인데도.
   const premiumRaw = field(src, ['권리금'])
-  let premium: string | undefined
+  // 표의 `권리금  -만원` 은 **미입력**이지 없음이 아니다(절대규칙 2). 모를 때는
+  // '유선 문의' 로 통일한다 — 비워 두면 없는 것처럼 읽히고, 없다고 적으면 거짓이다.
+  // 다만 사장님이 손으로 `권리금 없음` 이라 적었으면 그건 사실이고, 상가에서
+  // 가장 큰 조건이므로 장점으로 살린다.
+  let premium: string
   if (/무권리|권리금\s*[:：]?\s*없|권리금\s*없음/.test(handwrittenBody(src))) {
     premium = '없음'
-  } else if (premiumRaw) {
-    if (/무권리|없/.test(premiumRaw)) premium = '없음'
-    else if (/문의|협의/.test(premiumRaw)) premium = '유선 문의'
-    else premium = premiumRaw
+  } else if (premiumRaw && !/문의|협의/.test(premiumRaw) && /[\d]/.test(premiumRaw)) {
+    premium = premiumRaw
+  } else {
+    premium = '유선 문의'
   }
 
   const moveInRaw = field(src, ['입주가능일', '입주일', '입주시기'])
@@ -651,11 +652,8 @@ const PURPOSE_MARKS: Array<[RegExp, string]> = [
   [/창고|물류|보관|적재/, '물류·보관'],
 ]
 
-/**
- * 자리의 성격. 업종만으로는 같은 업종끼리 제목이 겹치므로 하나 더 붙인다.
- * 원문에 적힌 것만 쓴다.
- */
-const SPOT_MARKS: Array<[RegExp, string]> = [
+/** 어디에 있는 자리인가 — 입지 문단에 쓴다. */
+const LOCATION_MARKS: Array<[RegExp, string]> = [
   [/대단지|단지\s*앞|아파트\s*앞/, '대단지 앞'],
   [/대형\s*병원|병원\s*배후|의료\s*(단지|시설)/, '병원 배후'],
   [/역세권|지하철|전철|터미널/, '역세권'],
@@ -663,11 +661,18 @@ const SPOT_MARKS: Array<[RegExp, string]> = [
   [/학원가|학군|학교\s*앞/, '학원가'],
   [/코너|모퉁이/, '코너'],
   [/전면|도로변|대로변/, '전면 도로변'],
+]
+
+/** 매물의 상태·조건 — 입지가 아니므로 입지 문단에는 넣지 않는다. */
+const CONDITION_MARKS: Array<[RegExp, string]> = [
+  [/무권리|권리금\s*없/, '무권리'],
   [/신축/, '신축'],
   [/인테리어\s*(완비|되어|그대로|포함)/, '인테리어 완비'],
-  [/무권리|권리금\s*없/, '무권리'],
   [/독립|단독\s*(건물|동)|단독동/, '단독 건물'],
 ]
+
+/** 제목의 '자리' 자리에는 둘 다 쓴다. 위치가 있으면 그것을 먼저 본다. */
+const SPOT_MARKS: Array<[RegExp, string]> = [...LOCATION_MARKS, ...CONDITION_MARKS]
 
 /**
  * 사장님이 손으로 적은 구간(`매물특징`·`상세설명`)만 잘라낸다.
@@ -694,9 +699,30 @@ function handwrittenBody(src: string): string {
  * 전문`)와 추천 업종 나열이 들어 있어, 208평 1층 상가가 '사무실 자리' 로
  * 잡히는 일이 실제로 있었다.
  */
+function ownWords(src: string): string {
+  // 사무소 홍보·안내 줄을 걷어낸다. 이 줄들은 매물마다 똑같이 붙어 있어,
+  // 그대로 두면 `천안·아산 상가/사무실 임대 전문` 때문에 208평 1층 상가가
+  // '사무실 자리' 로, `대표전화 / 핸드폰 번호` 때문에 공장이 '휴대폰 매장' 으로
+  // 잡힌다. 걷어내고 남는 것이 그 매물을 두고 쓴 말이다.
+  const 홍보 = /공인중개사|플러스불당|중개를\s*더하는|실매물|실사진|허위|낚시|미끼|비공개\s*매물|로컬\s*원주민|임대\s*전문|상가전문|모든\s*조건\s*적극|010-|매물번호\s*알려/
+  return handwrittenBody(src)
+    .split(String.fromCharCode(10))
+    .filter(l => l.trim() && !홍보.test(l))
+    .join(String.fromCharCode(10))
+}
+
 function featureLine(src: string): string {
   const m = src.match(new RegExp("\n\\s*매물특징[\t ]+([^\n]*)"))
   return m?.[1]?.trim() ?? ''
+}
+
+/** 걸리는 것을 전부 뽑는다 (앞선 것부터, 중복 없이). */
+function marksIn(marks: Array<[RegExp, string]>, line: string): string[] {
+  const out: string[] = []
+  for (const [re, phrase] of marks) {
+    if (re.test(line) && !out.includes(phrase)) out.push(phrase)
+  }
+  return out
 }
 
 /** 정해진 어휘로만 바꿔 담는다. 없으면 빈 값. */
@@ -716,7 +742,7 @@ function markIn(marks: Array<[RegExp, string]>, line: string) {
  * 업종이 '병의원' 으로 잡혀 상가가 병원 자리로 광고된다.
  */
 function markPair(src: string): { 자리: string | null; 업종: string | null } {
-  const line = featureLine(src)
+  const line = ownWords(src)
   if (!line) return { 자리: null, 업종: null }
   const spot = markIn(SPOT_MARKS, line)
   const rest = spot ? line.slice(0, spot.at) + ' ' + line.slice(spot.at + spot.len) : line
@@ -907,8 +933,8 @@ function buildBlogTitles(p: ParsedListing): string[] {
  * 카페 HTML 생성기(make_cafe_html.py)가 이 구조를 그대로 받는다.
  * 아이콘은 고정 — 매물 종류가 바뀌어도 같은 자리에 같은 아이콘이 오도록 한다.
  */
-function detailSections(p: ParsedListing): Array<[string, string, string]> {
-  const md = buildDetails(p)
+function detailSections(p: ParsedListing, src = ''): Array<[string, string, string]> {
+  const md = buildDetails(p, src)
   const icons = ['🗺️', '🏗️', '💡', '💰']
   return md.split('\n\n').map((block, i) => {
     const [head, ...rest] = block.split('\n')
@@ -916,10 +942,19 @@ function detailSections(p: ParsedListing): Array<[string, string, string]> {
   })
 }
 
-function buildDetails(p: ParsedListing): string {
+function buildDetails(p: ParsedListing, src = ''): string {
   const region = [p.city, p.gu, p.dong].filter(Boolean).join(' ') || '해당 지역'
 
-  const loc = `**입지**\n${region} 생활권에 위치한 매물입니다. 주변 상권 구성과 배후수요는 업종에 따라 체감이 다르므로, 현장 안내 시 실제 유동 동선과 함께 상세히 설명드리겠습니다.`
+  // 사장님이 `매물특징` 에 적어 둔 상권 근거를 쓴다. 예전에는 "주변 상권 구성과
+  // 배후수요는 업종에 따라 체감이 다르므로…" 라고만 적어 사실상 아무 말도 하지
+  // 않았다. 현장을 보고 쓴 근거가 원문에 있는데 그걸 버리고 있었다.
+  //
+  // 원문 문장을 그대로 옮기지는 않는다. 정해진 말로 바꿔 담는다.
+  const spots = marksIn(LOCATION_MARKS, ownWords(src))
+  const locBits = [`${region} 생활권에 자리한 매물입니다`]
+  if (spots.length) locBits.push(`${spots.join(', ')} 조건을 갖춘 자리입니다`)
+  locBits.push('실제 유동 동선과 주변 구성은 현장 안내 시 함께 확인해 드리겠습니다')
+  const loc = `**입지**\n${locBits.join('. ')}.`
 
   const buildBits: string[] = []
   if (p.floor && p.totalFloors) buildBits.push(`총 ${p.totalFloors}층 건물의 ${floorLabel(p.floor)}에 자리하고 있습니다`)
@@ -931,7 +966,13 @@ function buildDetails(p: ParsedListing): string {
   if (hasParking(p)) buildBits.push(`주차는 ${parkingLabel(p.parking)} 가능합니다`)
   const building = `**건물 및 공간 구성**\n${buildBits.length ? buildBits.join('. ') + '.' : '건물 구성과 내부 상태는 현장에서 직접 확인하실 수 있도록 안내드리겠습니다.'}`
 
-  const uses = `**추천 업종**\n${RECOMMENDED_USES[p.category]} 등을 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
+  // 사장님이 `음식점 추천` 처럼 적어 두었으면 그것을 앞세운다. 종류에서 뽑은
+  // 기본 목록만 쓰면 상가는 전부 '소매점, 사무실, 학원…' 으로 똑같아진다.
+  const 적힌업종 = p.category === 'industrial' ? null : markPair(src).업종
+  const usesHead = 적힌업종
+    ? `${적힌업종} 자리를 보고 계신 분께 특히 맞고, ${RECOMMENDED_USES[p.category]}`
+    : RECOMMENDED_USES[p.category]
+  const uses = `**추천 업종**\n${usesHead} 등을 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
 
   const condBits: string[] = []
   condBits.push(p.premium === '없음'
@@ -1099,7 +1140,7 @@ export function generateCafePost(
     `👋 **소개**\n\n${buildIntro(p, source)}`,
     `📍 **매물 요약**\n\n${buildSummary(p)}`,
     `🏢 **매물 기본 정보**\n\n${infoSection}`,
-    `✨ **매물 세부 특징 설명**\n\n${buildDetails(p)}`,
+    `✨ **매물 세부 특징 설명**\n\n${buildDetails(p, source)}`,
     `💬 **자주 묻는 질문**\n\n${buildQnA(p)}`,
     `📞 **중개사 정보**\n\n${buildBrokerInfo(p)}`,
     `📌 **특장점 한 줄 요약**\n\n→ ${features(p).slice(0, 3).join(' + ')}`,
@@ -1177,7 +1218,7 @@ export function buildCafeHtmlConfig(
     intro: buildIntro(p, source).split('\n\n').filter(Boolean),
     summary: buildSummary(p),
     rows: infoRows(p, shownNo),   // 표에 적히는 번호는 고객이 아는 것
-    features: detailSections(p),
+    features: detailSections(p, source),
     qa: qnaPairs(p),
     report: reportItems,
     missing_required: missingRequired(p),
