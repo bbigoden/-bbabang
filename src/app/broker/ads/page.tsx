@@ -301,31 +301,48 @@ function CheckCell({ listing, open, onToggle }: {
 /** 채널 게시 상태를 한 칸으로 표시 */
 function ChannelCell({ post, onPublish, busy }: {
   post: Post | undefined
-  /** 아직 안 올린 매물을 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
+  /** 올릴 수 있는 매물이면 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
   onPublish?: () => void
   busy?: boolean
 }) {
-  if (!post || post.status === 'pending') {
-    // 한 건만 올릴 때 체크 → 위쪽 버튼으로 갈 이유가 없다. 그 줄에서 바로 누른다.
-    if (!onPublish) return <span className="text-gray-300 dark:text-gray-600">–</span>
-    return (
+  const 올리기 = (label: string, hint: string) => onPublish
+    ? (
       <button
         onClick={onPublish}
         disabled={busy}
-        title="이 매물만 카페에 올립니다"
+        title={hint}
         className="rounded border border-gray-200 px-1.5 py-0.5 text-gray-500 hover:border-green-500 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400"
-      >올리기</button>
+      >{label}</button>
     )
-  }
-  if (post.status === 'posted') {
+    : <span className="text-gray-300 dark:text-gray-600">–</span>
+
+  if (post?.status === 'posted') {
     const body = <span className="text-green-600 dark:text-green-400">게시중</span>
     return post.url
       ? <a href={post.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-green-700">{body}</a>
       : body
   }
-  if (post.status === 'removing') return <span className="text-amber-600 dark:text-amber-400">내리는 중</span>
-  if (post.status === 'removed') return <span className="text-gray-400">내림</span>
-  return <span className="text-red-600 dark:text-red-400" title={post.error ?? ''}>실패</span>
+  if (post?.status === 'removing') return <span className="text-amber-600 dark:text-amber-400">내리는 중</span>
+
+  // 내려간 글·실패한 글도 다시 올릴 수 있어야 한다. 예전에는 '내림' 글자만
+  // 남고 버튼이 사라져서, 카페에서 직접 지운 매물은 다시 올릴 방법이 없었다.
+  if (post?.status === 'removed') {
+    return (
+      <span className="flex items-center gap-1">
+        <span className="text-gray-400">내림</span>
+        {올리기('다시', '내려간 글을 다시 올립니다')}
+      </span>
+    )
+  }
+  if (post?.status === 'failed') {
+    return (
+      <span className="flex items-center gap-1">
+        <span className="text-red-600 dark:text-red-400" title={post.error ?? ''}>실패</span>
+        {올리기('다시', '다시 올려 봅니다')}
+      </span>
+    )
+  }
+  return 올리기('올리기', '이 매물만 카페에 올립니다')
 }
 
 export default function AdsPage() {
@@ -1022,7 +1039,8 @@ export default function AdsPage() {
                             ? <BankCell listing={l} />
                             : <ChannelCell
                                 post={l.ad_posts.find(p => p.channel === c.key)}
-                                onPublish={c.key === 'cafe' && canPublish(l) ? () => publishOne(l) : undefined}
+                                onPublish={c.key === 'cafe' && canPublish(l) && !isLive(l)
+                                  ? () => publishOne(l) : undefined}
                                 busy={publishWatch}
                               />}
                         </td>
