@@ -539,7 +539,8 @@ function sizeLabel(p: ParsedListing): string | null {
 
 function buildTitles(p: ParsedListing): string[] {
   // 사용자가 실제 쓰는 형식은 `천안 불당동`(시 + 동)이다. 동만 쓰면 어느 시인지 모호하다.
-  const cityShort = p.city === '아산시' ? '아산' : p.city === '천안시' ? '천안' : p.city
+  // '천안시 서북구' → '천안'. 어느 시든 같은 규칙으로 줄여야 제목이 들쭉날쭉하지 않다.
+  const cityShort = p.city?.replace(/시$/, '') ?? p.city
   const region = [cityShort, p.dong].filter(Boolean).join(' ') || cityShort || '천안'
   const kind = KIND_LABEL[p.category]
   const deal = p.dealType ?? '임대'
@@ -555,12 +556,25 @@ function buildTitles(p: ParsedListing): string[] {
   // 규칙 8이 막는 것은 `32평상가` 같은 붙여쓴 검색 키워드(주로 태그)다.
   const areaTxt = mainArea(p) ? `약 ${m2ToPyeong(mainArea(p)!.m2)}평` : null
 
-  // 세 제목은 서로 다른 각도를 잡는다 — ①조건 ②규모·업종 ③용도
+  // 스킬이 정한 세 각도 — ①업종/상권 ②조건 ③용도.
+  //
+  // **핵심 특징 자리에는 이 매물만의 것을 넣는다.** 예전에는 `즉시입주 가능 ·
+  // 주차 가능` 처럼 거의 모든 매물에 붙는 것을 넣어서, 여덟 건을 올리면 제목이
+  // 여덟 개 다 똑같았다. 층과 평수는 매물마다 다르므로 그 둘을 먼저 놓는다.
+  const 층 = p.floor ? `${p.floor.startsWith('-') ? `지하${p.floor.slice(1)}` : p.floor}층 ` : ''
+  const 규모 = areaTxt ? `${mainArea(p)!.label} ${areaTxt}` : ''
+  // 규모를 이미 앞에 적었으므로 특징 목록의 면적 항목은 뺀다. 안 그러면
+  // `연면적 약 58.4평 · 즉시입주 가능 · 연면적 약 58.4평` 처럼 두 번 나온다.
+  const 조건 = f.filter(x => !규모 || !x.includes('평')).slice(0, 2).join(' · ')
+
   return [
-    `${head} ${f[0]}${f[1] ? ` · ${f[1]}` : ''}`,
-    `${head} ${size ? `${size} ` : ''}${uses[0]}·${uses[1]} 추천${areaTxt ? `, ${areaTxt}` : ''}`,
+    // ① 업종/상권 — 어디에 있고 무엇을 하기 좋은 자리인가
+    `${head} ${층}${규모}${층 || 규모 ? ', ' : ''}${uses[0]}·${uses[1]} 자리`,
+    // ② 조건 — 규모와 입주 조건
+    `${head} ${규모 || `${size ?? ''}`}${조건 ? `${규모 ? ' · ' : ''}${조건}` : ''}`,
+    // ③ 용도 — 건축물 용도로 넓게
     `${cityHead} ${p.propertyKind ?? kind}, 다양한 업종 가능`,
-  ]
+  ].map(t => t.replace(/\s+/g, ' ').trim())
 }
 
 /**
