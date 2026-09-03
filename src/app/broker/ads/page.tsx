@@ -324,7 +324,7 @@ function ChannelCell({ post, onPublish, busy }: {
       onClick={onPublish}
       disabled={busy}
       title={post?.error ? `지난번 실패: ${post.error}` : '이 매물만 카페에 올립니다'}
-      className="rounded border border-gray-200 px-1.5 py-0.5 text-gray-500 hover:border-green-500 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400"
+      className="underline underline-offset-2 text-gray-500 hover:text-green-600 disabled:opacity-50 dark:text-gray-400"
     >올리기</button>
   )
 }
