@@ -351,13 +351,21 @@ export function parseListing(source: string): ParsedListing {
 
 // ── 부당광고 표현 점검 ─────────────────────────────────
 
+/**
+ * 원문에 있으면 점검 보고에 알리는 표현.
+ *
+ * **결과물에서 빼는 것이 아니다.** 이 생성기는 원문 문장을 옮기지 않고 정해진
+ * 어휘로 새로 쓰므로, 애초에 옮겨질 일이 없다. 사장님이 뱅크 원문을 손볼 때
+ * 참고하시라고 알리는 것뿐이다.
+ *
+ * 최상급 표현과 거리·시간 표현은 사장님 판단으로 알리지 않는다. 나머지는
+ * 남긴다 — 영업 실적을 단정하는 말이라 성격이 다르다.
+ */
 const BANNED_PATTERNS: Array<[RegExp, string]> = [
   [/성업\s*중/, '성업 중'],
   [/잘\s*되는\s*자리/, '잘 되는 자리'],
   [/검증된?\s*매출/, '검증된 매출'],
   [/매출\s*보장/, '매출 보장'],
-  [/최고|최적지|파격|극대화/, '근거 없는 최상급 표현'],
-  [/도보\s*\d+\s*분|역세권\s*\d+\s*분/, '측정 근거 없는 거리·시간 표현'],
 ]
 
 function findBanned(src: string): string[] {
@@ -1003,7 +1011,10 @@ function buildReport(p: ParsedListing, src: string, listingNo: string): string |
   }
 
   const banned = findBanned(src)
-  if (banned.length) issues.push(`원문의 부당광고 위험 표현(${banned.join(', ')})은 변환 결과에서 제외했습니다.`)
+  if (banned.length) {
+    issues.push(`원문에 ${banned.join(', ')} 표현이 있습니다. 영업 실적을 단정하는 말이라 `
+      + '뱅크 원문에서 손보시는 편이 안전합니다. (이 글에는 옮기지 않았습니다)')
+  }
 
   if (!issues.length) return null
   return `---\n\n📋 **점검 보고**\n${issues.map(i => `- ${i}`).join('\n')}`
