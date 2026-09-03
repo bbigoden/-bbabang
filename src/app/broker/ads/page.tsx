@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import {
-  Megaphone, Search, CircleCheck, TriangleAlert, Download, Send,
+  Megaphone, Search, CircleCheck, TriangleAlert, Download,
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
@@ -77,11 +77,11 @@ const CHANNELS: Array<{ key: 'bank' | 'cafe'; label: string }> = [
 ]
 
 /**
- * 채널 칸을 뺀 나머지 열 수 — 광고·매물번호·담당자·종류·소재지·면적·가격·
+ * 채널 칸을 뺀 나머지 열 수 — 매물번호·담당자·종류·소재지·면적·가격·
  * 뱅크만료·점검·거래. 점검 보고를 행 아래에 펼 때 colSpan 에 쓴다.
  * 열을 더하거나 뺄 때 여기도 같이 고쳐야 펼침이 표 폭과 어긋나지 않는다.
  */
-const FIXED_COLS = 10
+const FIXED_COLS = 9
 
 const CHANNEL_LABEL: Record<string, string> = {
   cafe: '카페', daangn: '당근', bank: '뱅크',
@@ -202,13 +202,7 @@ const BANK_TABS: Record<string, string | undefined> = {
   missing: '뱅크에 없음',
 }
 
-/**
- * 지금 카페에 글이 살아 있는가.
- *
- * 예전에는 '광고중' 을 체크박스(is_advertising)로 셌는데, 그건 **올리기로 고른
- * 목록**이지 올라간 것이 아니다. 체크만 해 두고 아직 안 올린 것까지 광고 중으로
- * 세면, 실제로 몇 건이 나가 있는지를 화면 어디에서도 알 수 없다.
- */
+/** 지금 카페에 글이 살아 있는가. 올린 기록이 아니라 **살아 있는 글**만 센다. */
 function isLive(l: Listing) {
   return l.ad_posts.some(p => p.status === 'posted')
 }
@@ -356,9 +350,9 @@ export default function AdsPage() {
     () => new Set(listings.filter(l => l.bank_tab === '뱅크에 없음').map(l => l.id)),
     [listings])
 
+  // 뱅크에서 지웠는데 카페 광고가 살아 있는 것 — 없는 물건을 광고하는 셈이다.
   const goneButLive = listings.filter(l =>
-    goneFromBank.has(l.id) && !l.contracted_at &&
-    (l.is_advertising || l.ad_posts.some(p => p.status === 'posted')))
+    goneFromBank.has(l.id) && !l.contracted_at && isLive(l))
 
   useEffect(() => {
     if (auth.loading) return
@@ -372,7 +366,6 @@ export default function AdsPage() {
     const { data, error } = await supabase
       .from('ad_listings')
       .select('*, ad_posts(id, channel, external_id, url, status, error)')
-      .order('is_advertising', { ascending: false })
       .order('bank_no', { ascending: false })
     if (error) toast.error(`목록을 불러오지 못했습니다: ${error.message}`)
     // 등록종료가 매달 쌓이므로 언젠가 서버 한도(1,000행)에 닿는다. 잘린 채로 세면
@@ -455,19 +448,6 @@ export default function AdsPage() {
         toast.error('시간이 너무 오래 걸립니다. PC 창을 확인해 주세요.')
       }
     }, 2000)
-  }
-
-  async function toggleAd(l: Listing) {
-    const next = !l.is_advertising
-    setListings(prev => prev.map(x => x.id === l.id ? { ...x, is_advertising: next } : x))
-    const { error } = await supabase
-      .from('ad_listings')
-      .update({ is_advertising: next, updated_at: new Date().toISOString() })
-      .eq('id', l.id)
-    if (error) {
-      setListings(prev => prev.map(x => x.id === l.id ? { ...x, is_advertising: !next } : x))
-      toast.error(`변경하지 못했습니다: ${error.message}`)
-    }
   }
 
   /** 거래완료 표시 — 실제 광고 내리기는 로컬 프로그램이 수행한다. */
@@ -596,49 +576,6 @@ export default function AdsPage() {
     setPublishWatch(true)
   }
 
-  async function publishChecked() {
-    if (!auth.broker) return
-    const targets = listings.filter(l =>
-      l.is_advertising && !l.contracted_at && !goneFromBank.has(l.id) &&
-      l.ad_posts.find(p => p.channel === 'cafe')?.status !== 'posted')
-    if (!targets.length) {
-      toast.error(checkedCount
-        ? '체크된 매물이 이미 다 올라가 있습니다.'
-        : '먼저 올릴 매물의 광고 칸에 체크해 주세요.')
-      return
-    }
-    // 한 건에 글 만들기 30초 + 쉬는 시간 40초. 몇 시간짜리 작업이 될 수 있어
-    // 미리 알려준다 — 모르고 걸면 중간에 껐다가 절반만 올라간 상태가 된다.
-    const mins = Math.ceil(targets.length * 70 / 60)
-    const 걸리는시간 = mins < 60 ? `${mins}분` : `${Math.round(mins / 6) / 10}시간`
-    if (!confirm(
-      [
-        `체크한 ${targets.length}건을 네이버 카페에 올립니다.`,
-        `대략 ${걸리는시간} 걸립니다. 그동안 PC 프로그램을 켜 두세요.`,
-        '',
-        '글은 뱅크 원문에서 자동으로 만들어집니다. 원문에 문제가 있는 건은',
-        '올리지 않고 점검 칸에 이유를 남깁니다.',
-        ...(targets.length > 30
-          ? ['', '한 번에 너무 많이 올리면 네이버가 막을 수 있습니다.',
-             '30건 안팎으로 나눠 올리시는 것을 권합니다.']
-          : []),
-        '',
-        agentOnline ? '계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 올라갑니다. 계속할까요?',
-      ].join(NL)
-    )) return
-
-    const { data: pending } = await supabase.from('ad_jobs')
-      .select('id').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1).maybeSingle()
-    if (!pending) {
-      const { error } = await supabase.from('ad_jobs').insert({
-        broker_id: auth.broker.id, kind: 'publish',
-        params: { bankNos: targets.map(l => l.bank_no) }, requested_by: auth.user?.id,
-      })
-      if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
-    }
-    toast.success(agentOnline ? `${targets.length}건을 올리는 중입니다.` : '발행을 예약했습니다. PC 프로그램을 켜 주세요.')
-    setPublishWatch(true)
-  }
 
   /** 발행이 끝나면 목록을 새로 받아 게시 상태를 보여준다. */
   useEffect(() => {
@@ -787,7 +724,6 @@ export default function AdsPage() {
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l, goneFromBank.has(l.id))).length
   // 체크박스로 '올릴 것' 이라고 고른 건수 — [카페에 올리기] 버튼에 쓴다.
-  const checkedCount = listings.filter(l => l.is_advertising).length
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
   // 담당자별 건수 — 고객목록과 같이 이름 옆에 붙인다. 지금 보고 있는 탭 기준이라
@@ -967,16 +903,6 @@ export default function AdsPage() {
           )}
 
           <button
-            onClick={publishChecked}
-            disabled={publishWatch}
-            title="체크한 매물을 한꺼번에 올립니다. 한 건만 올릴 때는 카페 칸의 [올리기]를 누르세요"
-            className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700 disabled:opacity-60"
-          >
-            <Send className={`h-4 w-4 ${publishWatch ? 'animate-pulse' : ''}`} />
-            {publishWatch ? (publishProgress ?? '올리는 중…') : `카페에 올리기${checkedCount ? ` (${checkedCount})` : ''}`}
-          </button>
-
-          <button
             onClick={requestSync}
             disabled={syncing}
             title={agentOnline
@@ -1028,7 +954,6 @@ export default function AdsPage() {
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                 <tr>
-                  <th className="px-3 py-2 font-medium" title="여러 건을 한꺼번에 올릴 때 쓰는 칸입니다. 한 건만 올릴 때는 카페 칸의 [올리기]를 누르세요">광고</th>
                   <th className="px-3 py-2 font-medium" title="네이버부동산 매물번호 — 고객이 아는 번호입니다. 눌러서 뱅크 원본으로 갑니다">매물번호</th>
                   <th className="px-3 py-2 font-medium" title="뱅크 중개사메모에 적힌 담당자입니다">담당자</th>
                   <th className="px-3 py-2 font-medium">종류</th>
@@ -1046,15 +971,6 @@ export default function AdsPage() {
                   const done = !!l.contracted_at
                   const row = (
                     <tr key={l.id} className={done ? 'bg-gray-50/60 text-gray-400 dark:bg-gray-900/40' : ''}>
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={l.is_advertising}
-                          disabled={done}
-                          onChange={() => toggleAd(l)}
-                          className="h-4 w-4 cursor-pointer accent-blue-600 disabled:cursor-not-allowed"
-                        />
-                      </td>
                       {/* 고객이 부르는 번호만 보여준다. 뱅크 번호는 사장님도 쓸 일이
                           없고 두 개가 나란히 있으면 어느 것을 말하는지 헷갈린다.
                           링크는 그대로 뱅크 원본으로 간다. */}
