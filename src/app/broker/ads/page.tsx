@@ -805,25 +805,6 @@ export default function AdsPage() {
           </div>
         )}
 
-        {countOf('전송실패') > 0 && (
-          <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
-            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
-            <div>
-              <p className="font-medium text-red-800 dark:text-red-300">
-                네이버부동산에 못 올라간 매물 {countOf('전송실패')}건
-              </p>
-              <p className="mt-0.5 text-red-700 dark:text-red-400">
-                뱅크에는 등록됐지만 전송이 실패했습니다. 노출이 가장 큰 곳에 나가지 않고 있습니다.
-                뱅크의 <b>전송실패</b> 탭에서 재등록하거나 전자홍보확인서를 보내 주세요.
-              </p>
-              <p className="mt-1 font-mono text-xs text-red-700 dark:text-red-400">
-                {listings.filter(l => l.bank_tab === '전송실패')
-                  .map(l => l.naver_no ?? l.bank_no).join(', ')}
-              </p>
-            </div>
-          </div>
-        )}
-
         {goneButLive.length > 0 && (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
