@@ -911,12 +911,12 @@ export default function AdsPage() {
             onClick={requestSync}
             disabled={syncing}
             title={agentOnline
-              ? '부동산뱅크에 접속해 매물을 새로 받아옵니다'
+              ? '뱅크 매물을 새로 받고, 담당자와 카페 글이 실제로 남아 있는지까지 맞춥니다'
               : 'PC에서 부소장광고 프로그램(npm run agent)을 먼저 켜 주세요'}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
           >
             <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
-            {syncing ? (syncProgress ?? '가져오는 중…') : '뱅크에서 가져오기'}
+            {syncing ? (syncProgress ?? '가져오는 중…') : '가져오기'}
           </button>
 
           
