@@ -48,7 +48,6 @@ type Listing = {
   area_exclusive: number | null
   price_text: string | null
   bank_period: string | null
-  bank_status: string | null
   is_advertising: boolean
   contracted_at: string | null
   synced_at: string | null
@@ -76,6 +75,13 @@ const CHANNELS: Array<{ key: 'bank' | 'cafe'; label: string }> = [
   { key: 'bank', label: '뱅크' },
   { key: 'cafe', label: '카페' },
 ]
+
+/**
+ * 채널 칸을 뺀 나머지 열 수 — 광고·매물번호·담당자·종류·소재지·면적·가격·
+ * 뱅크만료·점검·거래. 점검 보고를 행 아래에 펼 때 colSpan 에 쓴다.
+ * 열을 더하거나 뺄 때 여기도 같이 고쳐야 펼침이 표 폭과 어긋나지 않는다.
+ */
+const FIXED_COLS = 10
 
 const CHANNEL_LABEL: Record<string, string> = {
   cafe: '카페', blog: '블로그', daangn: '당근', bank: '뱅크',
@@ -254,16 +260,21 @@ function CheckCell({ listing, open, onToggle }: {
   if (!n) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
 
   // 이 표시가 붙은 건은 올리기에서 건너뛴 것 — 원문을 고쳐야 나간다.
-  const blocked = listing.check_report?.some(r => /^\[(위반|형식|필수|실패)\]/.test(r))
+  const blocked = listing.check_report?.some(r => /^\[(위반|형식|필수|실패|건너뜀)\]/.test(r))
+  // 이 프로그램이 다루지 않는 종류(아파트·토지…). 잘못된 게 아니라 대상이 아닌 것이라
+  // 빨간색으로 겁줄 일이 아니다.
+  const notTarget = listing.check_report?.some(r => r.startsWith('[대상 아님]'))
   return (
     <button
       onClick={onToggle}
       className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
-        blocked ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'
+        notTarget ? 'text-gray-400 dark:text-gray-500'
+          : blocked ? 'text-red-600 dark:text-red-400'
+          : 'text-amber-600 dark:text-amber-400'
       }`}
       title="눌러서 내용 보기"
     >
-      {open ? '접기' : `${n}건`}
+      {open ? '접기' : notTarget ? '대상 아님' : `${n}건`}
     </button>
   )
 }
@@ -947,7 +958,6 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">소재지</th>
                   <th className="px-3 py-2 font-medium">면적</th>
                   <th className="px-3 py-2 font-medium">가격</th>
-                  <th className="px-3 py-2 font-medium">뱅크상태</th>
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
                   <th className="px-3 py-2 font-medium" title="올릴 때 원문에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
@@ -997,13 +1007,9 @@ export default function AdsPage() {
                         {l.area_exclusive ? `전용 ${m2ToPyeong(l.area_exclusive)}평` : '–'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{l.price_text ?? '–'}</td>
-                      <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
-                        {/* 뱅크에서 빠진 매물의 상태값은 빠지기 전 것이라 낡았다.
-                            내려놓고도 '서비스중'으로 보여 헷갈린다. */}
-                        {goneFromBank.has(l.id)
-                          ? <span className="text-gray-300 dark:text-gray-600" title={`마지막으로 본 상태: ${l.bank_status ?? '알 수 없음'}`}>–</span>
-                          : (l.bank_status ?? '–')}
-                      </td>
+                      {/* 뱅크상태('서비스중' 따위)는 칸으로 두지 않는다. 탭이 이미
+                          같은 것을 가르고, 등록종료 사유는 아래 뱅크만료 칸이 말한다.
+                          '확인전'은 뱅크 목록에 아예 안 나와 대장에 들어오지 않는다. */}
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
                         {goneFromBank.has(l.id)
                           ? <ClosedReason listing={l} />
@@ -1040,7 +1046,7 @@ export default function AdsPage() {
                   // 점검 보고는 길어서 칸에 못 담는다. 누르면 그 행 아래에 편다.
                   const report = openReport === l.id && l.check_report?.length ? (
                     <tr key={`${l.id}-report`} className="bg-amber-50/60 dark:bg-amber-950/30">
-                      <td colSpan={CHANNELS.length + 9} className="px-4 py-3">
+                      <td colSpan={CHANNELS.length + FIXED_COLS} className="px-4 py-3">
                         <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
                           {l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다
                         </p>
