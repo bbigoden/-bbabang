@@ -218,6 +218,9 @@ export function parseListing(source: string): ParsedListing {
   // 면적 — 전용/공급 라벨 우선, 없으면 "계약/전용" 순서쌍 추정
   const exclusiveArea = areaNumber(field(src, ['전용면적', '전용']))
   const supplyArea = areaNumber(field(src, ['공급면적', '계약면적', '분양면적', '공급']))
+  // 공장·창고는 전용·공급이 비고 연면적만 적힌 경우가 많다. 규모 판단(대형 여부)에
+  // 쓸 수 있게 여기서 미리 잡아 둔다.
+  const totalFloorArea = areaNumber(field(src, ['연면적']))
 
   // 층수 — "지하층/지상층 1 / 6" 형식은 라벨과 달리 실제로 해당층/총층이다.
   // 244건을 소재지와 대조해 확인했다: 앞값 1은 소재지 `1층`, 2는 `202호`,
@@ -313,7 +316,10 @@ export function parseListing(source: string): ParsedListing {
     salePrice,
     deposit,
     monthlyRent,
-    propertyKind: field(src, ['중개대상물\\s*종류', '건축물\\s*용도', '용도', '매물종류', '건물용도']),
+    // 앞쪽일수록 우선한다. 뱅크 인쇄 화면의 `건물종류` 는 **맨 뒤**에 둔다 —
+    // 앞에 두면 지금까지 '건축물 용도'(제2종 근린생활시설)로 나가던 표 내용이
+    // 전부 '공장'·'창고' 로 바뀐다. 다른 것을 못 읽을 때만 쓰는 예비다.
+    propertyKind: field(src, ['중개대상물\\s*종류', '건축물\\s*용도', '용도', '매물종류', '건물용도', '건물종류']),
     moveIn,
     bathrooms: field(src, ['화장실', '욕실'])?.match(/\d+/)?.[0],
     // 뱅크 원문은 `준공년월  2021.05.27   총 주차대수  5` 처럼 한 줄에 두 항목을 붙여 쓴다.
@@ -335,10 +341,10 @@ export function parseListing(source: string): ParsedListing {
     ceilingHeight: field(src, ['층고'])?.match(/[\d.]+\s*[mM미터]?/)?.[0]?.replace(/\s/g, '').replace(/[mM]$/, 'm'),
     power: field(src, ['전력', '계약전력'])?.match(/[\d.]+\s*[kK]?[wW]/)?.[0]?.replace(/\s/g, ''),
     landArea: areaNumber(field(src, ['대지면적', '토지면적'])),
-    totalFloorArea: areaNumber(field(src, ['연면적'])),
+    totalFloorArea,
     coBrokerage: /공동\s*중개\s*환영|공동\s*환영/.test(src),
     elevator: /엘리베이터|승강기|E\/?V/.test(src),
-    category: detectCategory(src, exclusiveArea),
+    category: detectCategory(src, exclusiveArea ?? supplyArea ?? totalFloorArea),
   }
 }
 
@@ -428,11 +434,39 @@ const RECOMMENDED_USES: Record<Category, string> = {
   retail: '소매점, 사무실, 학원, 서비스업 매장, 쇼룸',
 }
 
+/**
+ * 글에 쓰는 대표 면적. **전용 > 공급 > 연면적** 순으로 고른다.
+ *
+ * 공장·창고는 뱅크 원문에 전용·공급면적이 비어 있고 `연면적` 만 적힌 경우가
+ * 많다. 단독 건물이라 연면적이 곧 쓸 수 있는 면적이기 때문이다. 전용면적만
+ * 보면 이런 매물이 통째로 "면적 확인 필요" 가 되어 광고를 못 낸다.
+ *
+ * 라벨을 함께 돌려주는 이유는 **연면적을 전용면적이라고 적으면 안 되기**
+ * 때문이다. 전용은 임차인이 독점하는 면적이고 연면적은 건물 전체 바닥면적이라
+ * 뜻이 다르다. 잘못 적으면 계약 분쟁이 된다.
+ */
+function mainArea(p: ParsedListing): { m2: number; label: string } | null {
+  if (p.exclusiveArea) return { m2: p.exclusiveArea, label: '전용' }
+  if (p.supplyArea) return { m2: p.supplyArea, label: '공급' }
+  // '연' 이 아니라 '연면적' 이다 — "연 약 58평" 은 말이 안 된다.
+  if (p.totalFloorArea) return { m2: p.totalFloorArea, label: '연면적' }
+  return null
+}
+
+/** 대표 면적의 ㎡ 값. 크기로 갈리는 판단(대형 여부 등)에 쓴다. */
+function mainAreaM2(p: ParsedListing): number | undefined {
+  return mainArea(p)?.m2
+}
+
 function fmtArea(p: ParsedListing): string {
   const ex = p.exclusiveArea ? `전용 ${p.exclusiveArea}㎡ (약 ${m2ToPyeong(p.exclusiveArea)}평)` : null
   const su = p.supplyArea ? `공급 ${p.supplyArea}㎡ (약 ${m2ToPyeong(p.supplyArea)}평)` : null
   if (ex && su) return `${ex} / ${su}`
-  return ex ?? su ?? NEEDS_CHECK
+  if (ex ?? su) return (ex ?? su) as string
+  // 둘 다 없으면 연면적으로 적되, **연면적이라고 밝힌다.**
+  return p.totalFloorArea
+    ? `연면적 ${p.totalFloorArea}㎡ (약 ${m2ToPyeong(p.totalFloorArea)}평)`
+    : NEEDS_CHECK
 }
 
 function fmtMoney(v: string | undefined): string | undefined {
@@ -479,9 +513,9 @@ function features(p: ParsedListing): string[] {
   if (hasParking(p)) out.push('주차 가능')
   if (p.elevator) out.push('엘리베이터')
   if (p.floor === '1') out.push('1층 매물')
-  if (p.exclusiveArea && p.exclusiveArea >= 330) out.push('대형 평수')
+  if ((mainAreaM2(p) ?? 0) >= 330) out.push('대형 평수')
   if (p.coBrokerage) out.push('공동중개 환영')
-  if (out.length < 3 && p.exclusiveArea) out.push(`전용 약 ${m2ToPyeong(p.exclusiveArea)}평`)
+  if (out.length < 3 && mainArea(p)) out.push(`${mainArea(p)!.label} 약 ${m2ToPyeong(mainArea(p)!.m2)}평`)
   if (out.length < 3 && p.dong) out.push(`${p.dong} 상권`)
   if (out.length < 3) out.push('현장 확인 실매물')
   return out
@@ -494,7 +528,7 @@ function features(p: ParsedListing): string[] {
  * 제목 뒷부분의 `약 92평` 은 읽는 사람에게 규모를 알려주는 설명이므로 해당하지 않는다.
  */
 function sizeLabel(p: ParsedListing): string | null {
-  const a = p.exclusiveArea
+  const a = mainAreaM2(p)
   if (!a) return null
   if (a >= 330) return '대형'      // 약 100평 이상
   if (a >= 132) return '중대형'    // 약 40평 이상
@@ -518,7 +552,7 @@ function buildTitles(p: ParsedListing): string[] {
 
   // 제목 뒷부분은 사람이 읽는 설명이라 면적을 그대로 적는다.
   // 규칙 8이 막는 것은 `32평상가` 같은 붙여쓴 검색 키워드(주로 태그)다.
-  const areaTxt = p.exclusiveArea ? `약 ${m2ToPyeong(p.exclusiveArea)}평` : null
+  const areaTxt = mainArea(p) ? `약 ${m2ToPyeong(mainArea(p)!.m2)}평` : null
 
   // 세 제목은 서로 다른 각도를 잡는다 — ①조건 ②규모·업종 ③용도
   return [
@@ -585,7 +619,7 @@ function extractFeatures(source: string): string[] {
  */
 function pickConcern(p: ParsedListing, src: string): string {
   const COMMERCIAL: Category[] = ['retail', 'office', 'food', 'academy', 'beauty', 'large']
-  const isBig = (p.exclusiveArea ?? 0) >= 330            // 약 100평
+  const isBig = (mainAreaM2(p) ?? 0) >= 330            // 약 100평
   const key: Category = isBig && COMMERCIAL.includes(p.category) ? 'large' : p.category
   const pool = CONCERNS[key]
   return pool[hashPick(src, pool.length)]
@@ -602,14 +636,14 @@ function buildIntro(p: ParsedListing, src: string): string {
   const concern = pickConcern(p, src)
 
   // 첫 줄의 업종 표기도 크기를 반영한다 — 130평인데 '상가·점포 전문'은 어색하다
-  const isBig = (p.exclusiveArea ?? 0) >= 330
+  const isBig = (mainAreaM2(p) ?? 0) >= 330
   const kindLabel = isBig && ['retail', 'office', 'food', 'academy', 'beauty'].includes(p.category)
     ? '대형 상가·사무실'
     : kindWord[p.category]
 
   const locArea = [
     p.dong && p.floor ? `${p.dong} ${floorLabel(p.floor)}` : p.dong,
-    p.exclusiveArea ? `전용 약 ${m2ToPyeong(p.exclusiveArea)}평` : null,
+    mainArea(p) ? `${mainArea(p)!.label} 약 ${m2ToPyeong(mainArea(p)!.m2)}평` : null,
   ].filter(Boolean).join(', ')
 
   // 이 매물만의 근거를 원문에서 먼저 가져온다. 즉시입주·무권리 두 가지만 쓰면
@@ -669,8 +703,8 @@ function buildIntro(p: ParsedListing, src: string): string {
 
 function buildSummary(p: ParsedListing): string {
   const s1 = `${fmtLocation(p)}에 위치한 ${KIND_LABEL[p.category]} 매물입니다.`
-  const areaPart = p.exclusiveArea
-    ? `전용 ${p.exclusiveArea}㎡(약 ${m2ToPyeong(p.exclusiveArea)}평) 규모이며, `
+  const areaPart = mainArea(p)
+    ? `${mainArea(p)!.label} ${mainArea(p)!.m2}㎡(약 ${m2ToPyeong(mainArea(p)!.m2)}평) 규모이며, `
     : ''
   const s2 = `${areaPart}${fmtPrice(p)} 조건입니다.`
   const s3 = `${RECOMMENDED_USES[p.category].split(',').slice(0, 3).join(',')} 등의 업종에 적합합니다.`
@@ -715,7 +749,7 @@ function buildBlogTitles(p: ParsedListing): string[] {
   const deal = p.dealType ?? '임대'
   const f = features(p)
   const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
-  const areaTxt = p.exclusiveArea ? `전용 약 ${m2ToPyeong(p.exclusiveArea)}평` : ''
+  const areaTxt = mainArea(p) ? `${mainArea(p)!.label} 약 ${m2ToPyeong(mainArea(p)!.m2)}평` : ''
   return [
     `${region} ${dong}${kind} ${deal} | ${f[0]}${areaTxt ? ` ${areaTxt}` : ''}`,
     `${region} ${dong}${kind} ${deal} 매물 정보 - ${uses[0]}, ${uses[1]} 추천`,
@@ -745,7 +779,7 @@ function buildDetails(p: ParsedListing): string {
   const buildBits: string[] = []
   if (p.floor && p.totalFloors) buildBits.push(`총 ${p.totalFloors}층 건물의 ${floorLabel(p.floor)}에 자리하고 있습니다`)
   else if (p.floor) buildBits.push(`${floorLabel(p.floor)}에 자리하고 있습니다`)
-  if (p.exclusiveArea) buildBits.push(`전용 ${p.exclusiveArea}㎡(약 ${m2ToPyeong(p.exclusiveArea)}평)로 용도에 맞게 구획해 사용하실 수 있습니다`)
+  if (mainArea(p)) buildBits.push(`${mainArea(p)!.label} ${mainArea(p)!.m2}㎡(약 ${m2ToPyeong(mainArea(p)!.m2)}평)로 용도에 맞게 구획해 사용하실 수 있습니다`)
   if (p.elevator) buildBits.push('엘리베이터가 있어 층간 이동이 편리합니다')
   // 주차 0대를 본문에서 굳이 안내하지 않는다. 표시광고 필수 항목이라 표에는 사실대로 적히고,
   // 세부 설명은 매물의 장점을 설명하는 자리다. 없는 것을 문장으로 강조할 이유가 없다.
@@ -779,7 +813,7 @@ function buildQnA(p: ParsedListing): string {
   if (p.premium === '유선 문의') pool.push(['권리금은 어떻게 되나요?', '권리금은 유선으로 문의 주시면 조건을 안내드리겠습니다. 협의 범위도 함께 설명드립니다.'])
   if (p.premium === '없음') pool.push(['정말 권리금이 없나요?', '네, 무권리 매물입니다. 초기 비용은 보증금과 시설 공사 범위 위주로 계획하시면 됩니다.'])
   if (hasParking(p)) pool.push(['주차는 충분한가요?', `${parkingLabel(p.parking)} 주차가 가능합니다. 이용 방식(지정/공용)은 현장에서 함께 확인해 드립니다.`])
-  if (p.exclusiveArea && p.exclusiveArea >= 330) pool.push(['일부만 임대도 가능한가요?', '분할 임대 가능 여부는 임대인과 협의가 필요한 부분입니다. 원하시는 면적을 말씀해 주시면 협의해 보겠습니다.'])
+  if ((mainAreaM2(p) ?? 0) >= 330) pool.push(['일부만 임대도 가능한가요?', '분할 임대 가능 여부는 임대인과 협의가 필요한 부분입니다. 원하시는 면적을 말씀해 주시면 협의해 보겠습니다.'])
   if (p.moveIn === '즉시입주') pool.push(['입주는 언제부터 가능한가요?', '즉시입주 가능한 매물입니다. 계약 일정에 맞춰 바로 사용하실 수 있습니다.'])
   pool.push(['현장은 언제 볼 수 있나요?', '연락 주시면 일정을 맞춰 현장 안내드리겠습니다. 방문 전 원하시는 조건을 말씀해 주시면 비교 매물도 함께 준비해 드립니다.'])
   pool.push(['계약 시 확인해야 할 사항이 있나요?', '등기사항과 건축물대장 등 공부 서류는 계약 전에 함께 확인해 드립니다. 궁금하신 부분은 편하게 문의해 주세요.'])
@@ -857,7 +891,7 @@ function buildReport(p: ParsedListing, src: string, listingNo: string): string |
 
   const missing: string[] = []
   if (fmtLocation(p) === NEEDS_CHECK) missing.push('소재지')
-  if (!p.exclusiveArea && !p.supplyArea) missing.push('면적')
+  if (!mainArea(p)) missing.push('면적')
   if (fmtPrice(p) === NEEDS_CHECK) missing.push('가격')
   if (!p.propertyKind) missing.push('중개대상물 종류')
   if (!p.approvalDate) missing.push('사용승인일')
@@ -891,7 +925,7 @@ function buildReport(p: ParsedListing, src: string, listingNo: string): string |
 function missingRequired(p: ParsedListing): string[] {
   const out: string[] = []
   if (fmtLocation(p) === NEEDS_CHECK) out.push('소재지')
-  if (!p.exclusiveArea && !p.supplyArea) out.push('면적')
+  if (!mainArea(p)) out.push('면적')
   if (fmtPrice(p) === NEEDS_CHECK) out.push('가격')
   if (!p.propertyKind) out.push('중개대상물 종류')
   return out
@@ -1040,8 +1074,8 @@ export function buildCafeThumbConfig(
   const kind = KIND_LABEL[p.category]
   const floorPart = p.floor && /^\d+$/.test(p.floor) ? `${p.floor}층 ` : ''
   const head1 = `${floorPart}${kind} ${p.dealType ?? '임대'}`.trim()
-  const head2 = p.exclusiveArea
-    ? `전용 ${p.exclusiveArea}㎡ · ${m2ToPyeong(p.exclusiveArea)}평`
+  const head2 = mainArea(p)
+    ? `${mainArea(p)!.label} ${mainArea(p)!.m2}㎡ · ${m2ToPyeong(mainArea(p)!.m2)}평`
     : p.supplyArea ? `공급 ${p.supplyArea}㎡ · ${m2ToPyeong(p.supplyArea)}평` : ''
 
   // 가격: 괄호 부연·단서(부가세 별도 등)는 썸네일에서 제외
