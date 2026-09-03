@@ -264,7 +264,7 @@ export function parseListing(source: string): ParsedListing {
   // 뱅크 원문은 한 줄에 몰아서 쓴다: `월세가  월세보증금 2,000 만원 / 월세금액 120 만원`
   let deposit = field(src, ['월세보증금', '보증금'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
   let monthlyRent = field(src, ['월세금액', '월세', '월\\s*임대료', '차임'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
-  let salePrice = field(src, ['매매가격', '매매가', '매매금액', '전세보증금', '전세가', '전세금'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
+  const salePrice = field(src, ['매매가격', '매매가', '매매금액', '전세보증금', '전세가', '전세금'])?.match(/[\d,.억만원\s]+/)?.[0]?.trim()
   // "1,000/70" 단축 표기
   if (!deposit && !monthlyRent) {
     const short = src.match(/([\d,]+)\s*\/\s*([\d,]+)\s*(?:만원)?/)

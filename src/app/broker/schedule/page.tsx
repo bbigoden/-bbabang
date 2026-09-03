@@ -7,8 +7,8 @@ import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/toast'
 import {
-  ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, MapPin,
-  Users, Lock, Bell, BellOff, Calendar as CalIcon, Building2, UserRound,
+  ChevronLeft, ChevronRight, Plus, X, Trash2, MapPin,
+  Users, Lock, Bell, BellOff, Building2, UserRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SearchClear } from '@/components/ui/search-clear'
@@ -55,7 +55,6 @@ export default function BrokerSchedulePage() {
   const supabase = createClient()
   const router = useRouter()
   const auth = useAuth()
-  const toast = useToast()
 
   const [cursor, setCursor] = useState(() => new Date())   // 표시 중인 달(1일)
   const [events, setEvents] = useState<EventRow[]>([])

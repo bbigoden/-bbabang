@@ -7,7 +7,7 @@
  * - 사용자가 클릭하면 브라우저 권한 요청 → 구독 → DB 저장
  */
 import { useEffect, useState } from 'react'
-import { Bell, BellOff, X } from 'lucide-react'
+import { Bell, X } from 'lucide-react'
 import { urlBase64ToUint8Array } from '@/lib/push'
 
 interface Props {
@@ -119,15 +119,4 @@ export function PushPrompt({
       </div>
     </div>
   )
-}
-
-/** 현재 알림 권한 상태 (UI 헬퍼) */
-export function NotificationStatusIcon() {
-  const [granted, setGranted] = useState(false)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setGranted(Notification.permission === 'granted')
-    }
-  }, [])
-  return granted ? <Bell className="h-3.5 w-3.5 text-blue-500" /> : <BellOff className="h-3.5 w-3.5 text-gray-300" />
 }

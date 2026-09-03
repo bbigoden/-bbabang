@@ -1200,7 +1200,7 @@ function BrokerPropertiesContent() {
   const [totalCount, setTotalCount] = useState(0)   // 필터·검색 반영 총 건수
   const [allCount, setAllCount] = useState(0)       // 필터 무관 전체 건수 (헤더 표시)
   const [mapRows, setMapRows] = useState<Property[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
-  const [canEdit, setCanEdit] = useState(true)
+  const [canEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [isAdminView, setIsAdminView] = useState(false)
   const [isOwner, setIsOwner] = useState(true)

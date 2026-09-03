@@ -90,7 +90,7 @@ const KIND_WORD: Record<Category, string> = {
   residential: '주택매매', land: '토지매매',
 }
 
-function buildKeywords(p: ParsedListing, no: string): BlogKeywords {
+function buildKeywords(p: ParsedListing): BlogKeywords {
   const city = p.city === '아산시' ? '아산' : '천안'
   const dong = p.dong ?? ''
   const base = KIND_WORD[p.category].replace('임대', p.dealType === '매매' ? '매매' : '임대')
@@ -204,7 +204,7 @@ function opening(p: ParsedListing, kw: BlogKeywords): string {
   return `${kw.main} 매물입니다. ${[a, price].filter(Boolean).join(', ')}으로 나와 있습니다. ${who}께 맞는 자리입니다.`
 }
 
-function sectionLocation(p: ParsedListing, no: string): string {
+function sectionLocation(p: ParsedListing): string {
   const region = [p.city, p.gu, p.dong].filter(Boolean).join(' ') || '해당 지역'
   if (isIndustrial(p.category)) {
     return [
@@ -267,7 +267,7 @@ function sectionCost(p: ParsedListing): string {
   return bits.join(' ')
 }
 
-function sectionFit(p: ParsedListing, no: string): { good: string[]; bad: string[] } {
+function sectionFit(p: ParsedListing): { good: string[]; bad: string[] } {
   const good: string[] = []
   const bad: string[] = []
 
@@ -389,9 +389,9 @@ export interface BlogPost {
 export function buildBlogPost(source: string, listingNoInput: string): BlogPost {
   const p = parseListing(source)
   const no = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
-  const kw = buildKeywords(p, no)
+  const kw = buildKeywords(p)
   const ind = isIndustrial(p.category)
-  const fit = sectionFit(p, no)
+  const fit = sectionFit(p)
   const qna = sectionQnA(p, no)
 
   const body = [
@@ -404,7 +404,7 @@ export function buildBlogPost(source: string, listingNoInput: string): BlogPost 
     `[사진: ${ind ? '마당과 회차 공간' : '건물 전체'}]`,
     '',
     `${kw.main}, ${ind ? '진입과 주변 여건은 어떤가요' : '어떤 자리인가요'}`,
-    sectionLocation(p, no),
+    sectionLocation(p),
     '',
     `[사진: ${ind ? '진입로와 마당' : '앞 도로와 인도'}]`,
     '',

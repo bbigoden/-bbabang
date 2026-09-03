@@ -345,7 +345,7 @@ export default function BrokerCustomersPage() {
   const [broker, setBroker] = useState<any>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [teamMembers, setTeamMembers] = useState<string[]>([])
-  const [canEdit, setCanEdit] = useState(true)
+  const [canEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)

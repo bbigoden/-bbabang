@@ -736,7 +736,7 @@ export default function BrokerMessengerPage() {
                 const checked = newSel.has(m.id)
                 return (
                   <button key={m.id}
-                    onClick={() => setNewSel(prev => { const n = new Set(prev); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n })}
+                    onClick={() => setNewSel(prev => { const n = new Set(prev); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n })}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800">
                     <span className={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border',
                       checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300 dark:border-gray-600')}>
@@ -783,7 +783,7 @@ export default function BrokerMessengerPage() {
                 const checked = inviteSel.has(m.id)
                 return (
                   <button key={m.id}
-                    onClick={() => setInviteSel(prev => { const n = new Set(prev); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n })}
+                    onClick={() => setInviteSel(prev => { const n = new Set(prev); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n })}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800">
                     <span className={cn('flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border',
                       checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300 dark:border-gray-600')}>

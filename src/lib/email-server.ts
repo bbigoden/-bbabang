@@ -38,22 +38,6 @@ export async function sendEmail(params: SendEmailParams): Promise<{ ok: boolean;
 }
 
 /**
- * notification_preferences에서 email_* 카테고리가 활성화된 사용자에게만 발송.
- * - preferences.email: 전체 이메일 알림 ON/OFF (마스터)
- * - preferences[`email_${type}`]: 카테고리별 (없으면 기본 ON)
- */
-export function shouldSendEmail(
-  preferences: Record<string, unknown> | null,
-  category: string,
-): boolean {
-  if (!preferences) return true
-  if (preferences.email === false) return false
-  const cat = preferences[`email_${category}`]
-  if (cat === false) return false
-  return true
-}
-
-/**
  * 기본 이메일 템플릿 — 부소장 브랜드.
  */
 export function emailTemplate(opts: {

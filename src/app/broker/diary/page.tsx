@@ -565,7 +565,7 @@ export default function BrokerDiaryPage() {
   const [_teamMembers, setTeamMembers] = useState<string[]>([])
   const [viewingBrokerId, setViewingBrokerId] = useState<string | null>(null) // null = 자기 자신
   const [viewingExEmployee, setViewingExEmployee] = useState(false) // true면 archive에서 읽음
-  const [canEdit, setCanEdit] = useState(true)
+  const [canEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [loading, setLoading] = useState(true)
 

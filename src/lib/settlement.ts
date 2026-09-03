@@ -62,13 +62,6 @@ export function calcWithhold(amount: number): number {
   return floorTo10(amount * 0.03) + floorTo10(amount * 0.003)
 }
 
-/** 통화 표시 — 천 단위 콤마 + 원 */
-export function fmtWon(n: number): string {
-  if (!Number.isFinite(n)) return '-'
-  const sign = n < 0 ? '-' : ''
-  return sign + Math.abs(Math.round(n)).toLocaleString('ko-KR') + '원'
-}
-
 /** 표·엑셀에서 쓰는 짧은 콤마 표기 (원 없음) */
 export function fmtComma(n: number): string {
   if (!Number.isFinite(n)) return ''
