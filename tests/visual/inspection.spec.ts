@@ -68,6 +68,8 @@ const PAGES: Record<'public' | 'user' | 'broker' | 'admin', string[]> = {
     '/broker/diary',
     '/broker/team',
     '/broker/settlement',
+    '/broker/estimates',
+    '/broker/estimates/settings',
     '/broker/trash',
     '/broker/resources',
     '/broker/settings',

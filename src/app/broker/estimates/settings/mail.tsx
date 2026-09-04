@@ -144,7 +144,7 @@ export function MailTab({ brokerId }: { brokerId: string }) {
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
               <Send className="h-4 w-4" />{testing ? '보내는 중…' : '나에게 테스트 발송'}
             </button>
-            <span className="text-xs text-gray-400">설정이 맞는지 본인 주소로 한 통 보내봅니다.</span>
+            <span className="text-xs text-gray-500">설정이 맞는지 본인 주소로 한 통 보내봅니다.</span>
           </div>
         )}
       </section>
@@ -166,7 +166,7 @@ export function MailTab({ brokerId }: { brokerId: string }) {
               className={`${FIELD} resize-y leading-relaxed`} />
           </div>
           <button onClick={() => { setSubject(DEFAULT_SUBJECT); setBody(DEFAULT_BODY) }}
-            className="text-xs font-semibold text-gray-400 hover:text-blue-600">
+            className="text-xs font-semibold text-gray-500 hover:text-blue-600">
             기본 문구로 되돌리기
           </button>
         </div>

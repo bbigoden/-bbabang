@@ -69,7 +69,7 @@ export default function EstimateSettingsPage() {
                 className={`-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-bold transition-colors ${
                   active
                     ? 'border-blue-600 text-blue-700 dark:text-blue-300'
-                    : 'border-transparent text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
                 }`}
               >
                 <Icon className="h-4 w-4" />{t.label}

@@ -97,7 +97,7 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
         <div className="mb-4 flex items-center gap-2">
           <Mail className="h-5 w-5 text-blue-600" />
           <h2 className="text-base font-black text-gray-900 dark:text-white">견적서 메일 발송</h2>
-          <button onClick={onClose} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={onClose} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -139,9 +139,9 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
             </div>
 
             <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:bg-gray-950/50 dark:text-gray-400">
-              <Paperclip className="h-4 w-4 shrink-0 text-gray-400" />
+              <Paperclip className="h-4 w-4 shrink-0 text-gray-500" />
               <span className="font-mono text-xs">견적서_{estimate.estimate_no}_{estimate.client_name || '거래처'}.pdf</span>
-              <span className="ml-auto text-xs text-gray-400">자동 첨부</span>
+              <span className="ml-auto text-xs text-gray-500">자동 첨부</span>
             </div>
 
             <div className="flex justify-end gap-2 pt-1">

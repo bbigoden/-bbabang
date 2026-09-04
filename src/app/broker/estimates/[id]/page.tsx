@@ -326,7 +326,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             <section className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white">발행 정보</h2>
-                <Link href="/broker/estimates/settings" className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600">
+                <Link href="/broker/estimates/settings" className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600">
                   <Settings className="h-3.5 w-3.5" />회사 관리
                 </Link>
               </div>
@@ -480,7 +480,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 <textarea id="f-notes" rows={5} value={est.notes ?? ''} onChange={e => set('notes', e.target.value)}
                   placeholder={'예)\n- 상기 금액은 부가세 별도입니다.\n- 자재 변경 시 단가가 조정될 수 있습니다.\n- 폐기물 처리비는 견적에 포함되어 있습니다.'}
                   className={`${FIELD} resize-y font-mono text-xs leading-relaxed`} />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-gray-500">
                   유효기간: {est.issue_date} ~ {validUntil(est.issue_date, est.valid_days)}
                 </p>
               </div>
@@ -504,7 +504,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
               title="견적서 미리보기"
               className="h-[40rem] w-full rounded-xl border border-gray-200 bg-white dark:border-gray-800"
             />
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-xs text-gray-500">
               실제로 발송될 PDF 그대로입니다. 저장하면 자동으로 갱신됩니다.
             </p>
 
@@ -520,7 +520,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2">
                           <span className="font-semibold text-gray-700 dark:text-gray-300">{s.to_email}</span>
-                          <span className="text-gray-400">
+                          <span className="text-gray-500">
                             {new Date(s.sent_at).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })}
                           </span>
                         </div>

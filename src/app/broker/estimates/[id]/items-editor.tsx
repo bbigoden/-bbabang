@@ -70,7 +70,7 @@ export function ItemsEditor({ items, onChange }: Props) {
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-400">
+                <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">
                   내역이 없습니다. 아래 버튼으로 줄을 추가하거나 프리셋을 불러오세요.
                 </td>
               </tr>
@@ -94,7 +94,7 @@ export function ItemsEditor({ items, onChange }: Props) {
               </tr>
             ) : (
               <tr key={idx} className="border-t border-gray-100 dark:border-gray-800">
-                <td className="px-1 text-center text-xs text-gray-400">{idx + 1}</td>
+                <td className="px-1 text-center text-xs text-gray-500">{idx + 1}</td>
                 <td className="px-1">
                   <input value={it.category ?? ''} onChange={e => patch(idx, { category: e.target.value })}
                     aria-label="공종" className={CELL} />
@@ -161,15 +161,15 @@ function RowActions({ idx, last, onMove, onRemove }: {
   return (
     <div className="flex items-center justify-end gap-0.5">
       <button onClick={() => onMove(idx, -1)} disabled={idx === 0} title="위로" aria-label="위로 이동"
-        className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-800">
+        className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-800">
         <ChevronUp className="h-3.5 w-3.5" />
       </button>
       <button onClick={() => onMove(idx, 1)} disabled={idx === last} title="아래로" aria-label="아래로 이동"
-        className="rounded p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-800">
+        className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-800">
         <ChevronDown className="h-3.5 w-3.5" />
       </button>
       <button onClick={() => onRemove(idx)} title="줄 삭제" aria-label="줄 삭제"
-        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+        className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
         <Trash2 className="h-3.5 w-3.5" />
       </button>
     </div>

@@ -120,14 +120,14 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
           {rows.map(c => (
             <div key={c.id} className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
               <div className="mb-2 flex items-center gap-2">
-                <h3 className="font-bold text-gray-900 dark:text-white">{c.name}</h3>
+                <h2 className="font-bold text-gray-900 dark:text-white">{c.name}</h2>
                 {c.is_default && (
                   <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">기본</span>
                 )}
                 <div className="ml-auto flex items-center gap-1">
                   {!c.is_default && (
                     <button onClick={() => makeDefault(c)} title="기본 회사로" aria-label="기본 회사로 지정"
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-500 dark:hover:bg-gray-800">
+                      className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-amber-500 dark:hover:bg-gray-800">
                       <Star className="h-4 w-4" />
                     </button>
                   )}
@@ -136,7 +136,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                     수정
                   </button>
                   <button onClick={() => remove(c)} title="삭제" aria-label="회사 삭제"
-                    className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+                    className="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -149,7 +149,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                 <Line k="담당자" v={[c.manager_name, c.manager_phone].filter(Boolean).join(' ') || null} />
               </dl>
               {c.stamp_path && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
                   {stampUrls[c.id] && (
                     <Image src={stampUrls[c.id]} alt="직인" width={32} height={32} className="rounded border border-gray-100 object-contain dark:border-gray-800" unoptimized />
                   )}
@@ -170,7 +170,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
               <h2 className="text-base font-black text-gray-900 dark:text-white">
                 {editing.id ? '회사 수정' : '회사 추가'}
               </h2>
-              <button onClick={() => setEditing(null)} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+              <button onClick={() => setEditing(null)} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -202,7 +202,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                     <Image src={editingStamp} alt="직인 미리보기" width={56} height={56}
                       className="rounded-lg border border-gray-200 object-contain dark:border-gray-800" unoptimized />
                   ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-400 dark:border-gray-800">없음</div>
+                    <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-500 dark:border-gray-800">없음</div>
                   )}
                   <input ref={fileRef} type="file" accept="image/*" className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) uploadStamp(f); e.target.value = '' }} />
@@ -212,12 +212,12 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                   </button>
                   {editing.stamp_path && (
                     <button onClick={() => { setEditing(p => ({ ...p, stamp_path: null })); setEditingStamp(null) }}
-                      className="text-xs text-gray-400 hover:text-red-600">
+                      className="text-xs text-gray-500 hover:text-red-600">
                       제거
                     </button>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-gray-400">배경이 투명한 PNG를 쓰면 견적서에 깔끔하게 찍힙니다. (2MB 이하)</p>
+                <p className="mt-1 text-xs text-gray-500">배경이 투명한 PNG를 쓰면 견적서에 깔끔하게 찍힙니다. (2MB 이하)</p>
               </div>
 
               <div className="sm:col-span-2">
@@ -226,7 +226,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                   onChange={e => setEditing(p => ({ ...p, default_notes: e.target.value }))}
                   placeholder={'- 상기 금액은 부가세 별도입니다.\n- 자재 변경 시 단가가 조정될 수 있습니다.'}
                   className={`${FIELD} resize-y font-mono text-xs leading-relaxed`} />
-                <p className="mt-1 text-xs text-gray-400">이 회사로 새 견적을 만들면 특기사항에 자동으로 들어갑니다.</p>
+                <p className="mt-1 text-xs text-gray-500">이 회사로 새 견적을 만들면 특기사항에 자동으로 들어갑니다.</p>
               </div>
             </div>
 

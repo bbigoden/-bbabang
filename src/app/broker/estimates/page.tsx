@@ -219,7 +219,7 @@ export default function EstimatesPage() {
             <Plus className="h-4 w-4" />새 견적
           </button>
         </div>
-        <p className="mb-4 ml-11 text-xs text-gray-500 dark:text-gray-500">
+        <p className="mb-4 ml-11 text-xs text-gray-500 dark:text-gray-400">
           공사·인테리어 견적서를 만들고 PDF로 메일 발송합니다. 임대 고객목록과는 별개로 관리됩니다.
         </p>
 
@@ -233,7 +233,7 @@ export default function EstimatesPage() {
                 className={`rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
                   period === p
                     ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
                 }`}
               >
                 {PERIOD_LABEL[p]}
@@ -257,7 +257,7 @@ export default function EstimatesPage() {
         {/* 검색 + 상태 필터 */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
               value={q}
               onChange={e => setQ(e.target.value)}
@@ -352,7 +352,7 @@ export default function EstimatesPage() {
                           onClick={e => { e.stopPropagation(); duplicate(r) }}
                           title="복사해서 새 견적"
                           aria-label="복사해서 새 견적"
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-800"
+                          className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-800"
                         >
                           <Copy className="h-4 w-4" />
                         </button>
@@ -360,7 +360,7 @@ export default function EstimatesPage() {
                           onClick={e => { e.stopPropagation(); remove(r) }}
                           title="삭제"
                           aria-label="삭제"
-                          className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                          className="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -392,7 +392,7 @@ function StatCard({ icon: Icon, label, main, sub, tone }: {
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-3.5 dark:border-gray-800 dark:bg-gray-900">
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-400">
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-500">
         <Icon className="h-3.5 w-3.5" />{label}
       </div>
       <p className={`text-xl font-black ${mainCls}`}>{main}</p>

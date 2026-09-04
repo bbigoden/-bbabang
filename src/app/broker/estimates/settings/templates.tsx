@@ -91,7 +91,7 @@ export function TemplatesTab({ brokerId }: { brokerId: string }) {
         <div className="rounded-2xl border border-dashed border-gray-200 py-12 text-center dark:border-gray-800">
           <Layers className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-700" />
           <p className="mb-1 text-sm text-gray-500">프리셋이 없습니다.</p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             &quot;기본 프리셋 설치&quot;를 누르면 원룸 올수리·상가 인테리어·사무실 부분수리가 들어옵니다.
           </p>
         </div>
@@ -103,14 +103,14 @@ export function TemplatesTab({ brokerId }: { brokerId: string }) {
             return (
               <div key={t.id} className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                 <div className="mb-2 flex items-center gap-2">
-                  <h3 className="font-bold text-gray-900 dark:text-white">{t.name}</h3>
+                  <h2 className="font-bold text-gray-900 dark:text-white">{t.name}</h2>
                   <div className="ml-auto flex items-center gap-1">
                     <button onClick={() => rename(t)} title="이름 변경" aria-label="이름 변경"
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-800">
+                      className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-800">
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button onClick={() => remove(t)} title="삭제" aria-label="프리셋 삭제"
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+                      className="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
@@ -118,7 +118,7 @@ export function TemplatesTab({ brokerId }: { brokerId: string }) {
                 <p className="text-xs text-gray-500">
                   품목 {lines.length}개 · 소계 {fmtComma(total.subtotal)}원
                 </p>
-                <p className="mt-2 line-clamp-2 text-xs text-gray-400">
+                <p className="mt-2 line-clamp-2 text-xs text-gray-500">
                   {lines.slice(0, 6).map(i => i.name).filter(Boolean).join(' · ')}
                   {lines.length > 6 ? ' …' : ''}
                 </p>

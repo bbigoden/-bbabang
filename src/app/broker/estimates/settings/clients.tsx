@@ -88,7 +88,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="상호·담당자·연락처"
             aria-label="거래처 검색"
             className="w-60 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white" />
@@ -106,7 +106,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
             {rows.length === 0 ? '등록된 거래처가 없습니다.' : '조건에 맞는 거래처가 없습니다.'}
           </p>
           {rows.length === 0 && (
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-gray-500">
               견적서를 쓰면서 &quot;거래처 목록에 저장&quot;을 눌러도 여기에 쌓입니다.
             </p>
           )}
@@ -137,7 +137,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
                   <td className="px-3 py-3 text-right"><HistoryCell rows={history[c.id]} /></td>
                   <td className="px-3 py-3 text-center">
                     <button onClick={e => { e.stopPropagation(); remove(c) }} title="삭제" aria-label="거래처 삭제"
-                      className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
+                      className="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </td>
@@ -156,7 +156,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
               <h2 className="text-base font-black text-gray-900 dark:text-white">
                 {editing.id ? '거래처 수정' : '거래처 추가'}
               </h2>
-              <button onClick={() => setEditing(null)} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+              <button onClick={() => setEditing(null)} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -243,7 +243,7 @@ function HistoryDetail({ rows }: { rows: ClientHistory[] }) {
 function Stat({ k, v }: { k: string; v: string }) {
   return (
     <div>
-      <dt className="text-gray-400">{k}</dt>
+      <dt className="text-gray-500">{k}</dt>
       <dd className="font-semibold text-gray-800 dark:text-gray-200">{v}</dd>
     </div>
   )
