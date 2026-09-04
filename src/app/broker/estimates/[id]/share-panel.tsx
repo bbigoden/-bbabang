@@ -58,8 +58,13 @@ export function SharePanel({ estimateId, brokerId }: { estimateId: string; broke
 
   useEffect(() => { load() }, [load])
 
+  // origin 은 렌더 중에 읽으면 안 된다 — 'use client' 라도 서버에서 한 번 그려지므로
+  // window 가 없어 페이지가 통째로 죽는다
+  const [origin, setOrigin] = useState('')
+  useEffect(() => { setOrigin(window.location.origin) }, [])
+
   const live = shares.find(s => !s.revoked)
-  const shareUrl = live ? `${window.location.origin}/e/${live.token}` : ''
+  const shareUrl = live && origin ? `${origin}/e/${live.token}` : ''
 
   const createLink = async () => {
     setBusy(true)
