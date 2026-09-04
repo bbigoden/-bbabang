@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@supabase/supabase-js'
 import { createClient as createSessionClient } from '@/lib/supabase/server'
-import { REGIONS, REGION_GAP_MS, fetchRecentArticles } from '@/lib/naver-land'
+import { REGIONS, fetchRecentArticles } from '@/lib/naver-land'
 
 /**
- * 네이버부동산 신규매물 수집.
+ * 네이버부동산 신규매물 수집 — **한 번에 한 구역씩**.
  *
  * 네이버 화면에 최신순이 없어 새 매물을 손으로 찾아다녀야 했다. 여기서 최신순으로
  * 받아 `naver_articles` 에 쌓아 두면 `/broker/naver` 화면이 그것을 보여준다.
@@ -12,9 +12,14 @@ import { REGIONS, REGION_GAP_MS, fetchRecentArticles } from '@/lib/naver-land'
  * **최근 것만 받는다.** 전수 수집은 하지 않는다 — 네이버 레이트리밋에 걸리고,
  * 새 매물을 보는 데는 필요도 없다.
  *
+ * 처음에는 세 구역을 한 번에 돌렸다가 Vercel 함수 제한(60초)에 걸려 통째로
+ * 잘렸다. 데이터센터 IP 라 네이버가 429 를 더 자주 던지고, 그때마다 쉬느라
+ * 시간이 불어난다. **구역마다 따로 부른다** — 한 번이 15초쯤이면 잘릴 일이 없고,
+ * 한 구역이 막혀도 나머지는 들어온다.
+ *
  * 두 가지 방법으로 부른다.
- *   1. Vercel cron — Authorization: Bearer <CRON_SECRET> (vercel.json 에 정의)
- *   2. 화면의 [지금 수집] — 로그인한 승인 중개사
+ *   1. Vercel cron — Authorization: Bearer <CRON_SECRET> (vercel.json 에 구역별로 정의)
+ *   2. 화면의 [지금 수집] — 로그인한 승인 중개사가 구역을 차례로 부른다
  *
  * 화면에서도 부를 수 있게 한 이유는 크론이 하루 한 번이라서다. 오후에 새로 올라온
  * 매물을 내일까지 기다릴 이유가 없다.
@@ -22,15 +27,6 @@ import { REGIONS, REGION_GAP_MS, fetchRecentArticles } from '@/lib/naver-land'
 
 /** 몇 번을 놓쳐도 메우도록 넉넉히 되돌아본다. */
 const LOOKBACK_DAYS = 7
-
-/**
- * 네이버를 그만 부르는 시각.
- *
- * Vercel 함수는 maxDuration 에서 잘린다. 잘리면 그때까지 받은 것도 저장되지 않아
- * 한 회차를 통째로 버리게 된다. 시간이 모자라면 남은 구역을 다음 회차로 넘기고
- * 받아 둔 것부터 저장한다.
- */
-const FETCH_BUDGET_MS = 40_000
 
 export const maxDuration = 60
 
@@ -64,31 +60,29 @@ export async function GET(req: NextRequest) {
   }
   const supa = createServerClient(url, serviceKey)
 
-  const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10)
-  const startedAt = Date.now()
-  const perRegion: Record<string, number | string> = {}
-  const collected = new Map<string, Awaited<ReturnType<typeof fetchRecentArticles>>[number]>()
-
-  for (const region of REGIONS) {
-    if (Date.now() - startedAt > FETCH_BUDGET_MS) {
-      perRegion[region.name] = '시간 부족 — 다음 회차'
-      continue
-    }
-    try {
-      const rows = await fetchRecentArticles(region, since)
-      // 구역 사각형이 겹쳐 같은 매물이 두 번 올 수 있다. 매물번호로 하나만 남긴다.
-      for (const r of rows) collected.set(r.article_no, r)
-      perRegion[region.name] = rows.length
-    } catch (e) {
-      // 한 구역이 막혀도 나머지는 받는다.
-      perRegion[region.name] = e instanceof Error ? e.message : '수집 실패'
-    }
-    await new Promise(r => setTimeout(r, REGION_GAP_MS))
+  // 구역을 안 적으면 첫 구역. 크론은 vercel.json 에서 구역마다 따로 부른다.
+  const wanted = req.nextUrl.searchParams.get('region')
+  const region = wanted ? REGIONS.find(r => r.id === wanted) : REGIONS[0]
+  if (!region) {
+    return NextResponse.json({ error: 'unknown_region' }, { status: 400 })
   }
 
-  const rows = [...collected.values()]
+  const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10)
+  const startedAt = Date.now()
+
+  let rows: Awaited<ReturnType<typeof fetchRecentArticles>>
+  try {
+    rows = await fetchRecentArticles(region, since)
+  } catch (e) {
+    // 네이버가 막으면 이번 회차만 거른다. 다음 회차에 다시 받으면 된다.
+    return NextResponse.json({
+      ok: false, region: region.name, since,
+      error: e instanceof Error ? e.message : '수집 실패',
+    })
+  }
+
   if (rows.length === 0) {
-    return NextResponse.json({ ok: true, since, regions: perRegion, fetched: 0, added: 0 })
+    return NextResponse.json({ ok: true, region: region.name, since, fetched: 0, added: 0 })
   }
 
   // 이번에 처음 보는 매물이 몇 건인지 — 화면의 '신규' 표시와 같은 기준이다.
@@ -112,8 +106,8 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    region: region.name,
     since,
-    regions: perRegion,
     fetched: rows.length,
     added,
     tookMs: Date.now() - startedAt,

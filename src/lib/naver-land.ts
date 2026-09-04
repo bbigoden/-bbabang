@@ -150,7 +150,7 @@ async function fetchPage(
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetch(API, { method: 'POST', headers: HEADERS, body: JSON.stringify(body) })
     if (res.status === 429) {
-      await sleep(5_000)
+      await sleep(3_000)
       continue
     }
     if (!res.ok) throw new Error(`네이버 응답 ${res.status}`)
@@ -211,6 +211,3 @@ export async function fetchRecentArticles(
 
   return rows
 }
-
-/** 구역 사이 간격 — 다음 구역으로 넘어갈 때도 쉬어야 429 를 피한다. */
-export const REGION_GAP_MS = REQUEST_GAP_MS

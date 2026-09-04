@@ -82,6 +82,7 @@ export default function NaverWatchPage() {
   const [rows, setRows] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
   const [sweeping, setSweeping] = useState(false)
+  const [sweepingAt, setSweepingAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [period, setPeriod] = useState<string>('7')
@@ -113,19 +114,33 @@ export default function NaverWatchPage() {
    * 지금 네이버에서 새로 받아 온다.
    *
    * 크론은 아침에 한 번만 돈다. 오후에 올라온 매물을 내일까지 기다릴 이유가 없어
-   * 손으로도 돌릴 수 있게 열어 뒀다. 네이버 레이트리밋 때문에 20~30초쯤 걸린다.
+   * 손으로도 돌릴 수 있게 열어 뒀다.
+   *
+   * **구역을 하나씩 따로 부른다.** 세 구역을 한 번에 부르면 Vercel 함수 제한
+   * (60초)에 걸려 통째로 잘린다. 한 구역이 막혀도 나머지는 들어온다.
+   * 다 도는 데 1분쯤 걸리므로 어디까지 왔는지 버튼에 적어 준다.
    */
   const sweep = async () => {
     setSweeping(true)
+    let added = 0
+    const failed: string[] = []
     try {
-      const res = await fetch('/api/cron/naver-watch')
-      const json = await res.json()
-      if (!res.ok || !json.ok) throw new Error(json.error ?? '수집에 실패했습니다')
+      for (const region of REGIONS) {
+        setSweepingAt(region.name)
+        try {
+          const res = await fetch(`/api/cron/naver-watch?region=${region.id}`)
+          const json = await res.json()
+          if (!res.ok || !json.ok) throw new Error(json.error ?? '수집 실패')
+          added += json.added ?? 0
+        } catch {
+          failed.push(region.name)
+        }
+      }
       await load()
-      toast.success(json.added > 0 ? `새 매물 ${json.added}건을 받았습니다.` : '새로 올라온 매물이 없습니다.')
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '수집하지 못했습니다.')
+      if (failed.length) toast.error(`${failed.join('·')} 은(는) 네이버가 막았습니다. 잠시 뒤 다시 눌러 주세요.`)
+      else toast.success(added > 0 ? `새 매물 ${added}건을 받았습니다.` : '새로 올라온 매물이 없습니다.')
     } finally {
+      setSweepingAt(null)
       setSweeping(false)
     }
   }
@@ -180,13 +195,13 @@ export default function NaverWatchPage() {
             <button
               onClick={sweep}
               disabled={sweeping}
-              title="네이버에서 지금 새로 받아옵니다 (20~30초)"
+              title="네이버에서 지금 새로 받아옵니다 (1분쯤)"
               className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm
                          font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50
                          dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               <RefreshCw className={`h-4 w-4 ${sweeping ? 'animate-spin' : ''}`} aria-hidden />
-              {sweeping ? '받는 중…' : '지금 수집'}
+              {sweeping ? `${sweepingAt ?? ''} 받는 중…` : '지금 수집'}
             </button>
           }
         />
