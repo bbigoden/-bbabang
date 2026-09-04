@@ -11,7 +11,7 @@ import { useToast } from '@/components/toast'
 import { Card, CardBody } from '@/components/ui/card'
 import {
   ArrowLeft, Plus, Settings, Search, Copy, Trash2, FileText, Send,
-  TrendingUp, Trophy, Clock, CalendarClock,
+  TrendingUp, Trophy, Percent, Clock, CalendarClock,
 } from 'lucide-react'
 import {
   calcStats, fmtComma, isExpired, STATUS_LABEL,
@@ -248,7 +248,7 @@ export default function EstimatesPage() {
               sub={`${fmtComma(stats.amount)}원`} />
             <StatCard icon={Trophy} label="수주" main={`${stats.wonCount}건`}
               sub={`${fmtComma(stats.wonAmount)}원`} tone="emerald" />
-            <StatCard icon={Trophy} label="수주율"
+            <StatCard icon={Percent} label="수주율"
               main={stats.winRate == null ? '—' : `${Math.round(stats.winRate * 100)}%`}
               sub={stats.winRate == null ? '결론난 건 없음' : `수주 ${stats.wonCount} / 실주 ${stats.lostCount}`} />
             <StatCard icon={Clock} label="진행중" main={`${stats.openCount}건`}
