@@ -764,7 +764,6 @@ export default function AdsPage() {
         <PageHeader
           icon={Megaphone}
           title="광고관리"
-          description="부동산뱅크 매물을 가져와, 카페에 올릴 것을 고르고 관리합니다."
         />
 
         {takedownCount > 0 && (
