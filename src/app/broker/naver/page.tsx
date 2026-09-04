@@ -226,12 +226,14 @@ export default function NaverWatchPage() {
     setSavingSettings(true)
     const { error } = await supabase.from('naver_settings')
       .upsert({ broker_id: officeId, ...next, updated_at: new Date().toISOString() })
-    if (error) { setSettings(before); setError(error.message) }
+    // 여기서 setError 를 쓰면 목록 자리에 '목록을 불러오지 못했습니다' 로 나간다.
+    // 저장이 안 된 것과 목록을 못 받은 것은 다른 일이다.
+    if (error) { setSettings(before); toast.error(`설정을 저장하지 못했습니다: ${error.message}`) }
     setSavingSettings(false)
   }
 
   /**
-   * 지금 네이버에서 새로 받아 온다.
+   * 네이버에서 새 매물을 받아 온다 — 광고관리의 [가져오기] 와 같다.
    *
    * **이 화면은 Vercel 서버에서 도는데 네이버는 데이터센터 IP를 막는다.** 그래서
    * 여기서 직접 못 부른다. 광고관리의 [가져오기] 와 같은 방식으로, `ad_jobs` 에
@@ -263,7 +265,7 @@ export default function NaverWatchPage() {
         .select('id').single()
     if (error || !job) {
       setSyncing(false); setSyncProgress(null)
-      toast.error(`요청하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`)
+      toast.error(`가져오기를 요청하지 못했습니다 — ${error?.message ?? '알 수 없는 오류'}`)
       return
     }
 
@@ -277,17 +279,24 @@ export default function NaverWatchPage() {
       if (data.status === 'done') {
         clearInterval(poll)
         setSyncing(false); setSyncProgress(null)
-        const n = (data.result as { added?: number } | null)?.added
-        toast.success(n ? `새 매물 ${n}건을 받았습니다.` : '새로 올라온 매물이 없습니다.')
+        const r = data.result as { added?: number; fetched?: number; missed?: number } | null
+        // 못 본 자리가 있으면 그것부터 말한다 — '새 매물 0건' 과 '못 받았다' 는 다르다.
+        if (r?.missed) {
+          toast.error(`${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
+        } else if (r?.added) {
+          toast.success(`새 매물 ${r.added}건을 받았습니다. (전체 ${r.fetched ?? 0}건 확인)`)
+        } else {
+          toast.success(`새로 올라온 매물이 없습니다. (전체 ${r?.fetched ?? 0}건 확인)`)
+        }
         void load()
       } else if (data.status === 'failed' || data.status === 'canceled') {
         clearInterval(poll)
         setSyncing(false); setSyncProgress(null)
-        toast.error(`받지 못했습니다: ${data.error ?? '알 수 없는 오류'}`)
+        toast.error(`가져오지 못했습니다 — ${data.error ?? '알 수 없는 오류'}`)
       } else if (Date.now() > deadline) {
         clearInterval(poll)
         setSyncing(false); setSyncProgress(null)
-        toast.error('시간이 너무 오래 걸립니다. PC 창을 확인해 주세요.')
+        toast.error('시간이 너무 오래 걸립니다. PC 프로그램 창을 확인해 주세요.')
       }
     }, 2000)
   }
@@ -354,30 +363,21 @@ export default function NaverWatchPage() {
         <PageHeader
           title="신규매물"
           icon={Radar}
-          description={
-            <>
-              네이버부동산에 없는 최신순 목록
-              {lastSweep && ` · 마지막 수집 ${new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
-              {!agentOnline && (
-                <span className="text-amber-600 dark:text-amber-400">
-                  {' · 광고 프로그램이 꺼져 있어 새로 받지 않습니다'}
-                </span>
-              )}
-            </>
-          }
+          description="네이버에 새로 올라온 매물을 최신순으로 모읍니다"
+
           actions={
             <div className="flex items-center gap-2">
             <button
               onClick={requestCollect}
               disabled={syncing}
               title={agentOnline
-                ? '네이버에서 지금 새로 받아옵니다 (5~6분)'
-                : 'PC에서 부소장광고 프로그램을 먼저 켜 주세요'}
+                ? '네이버에서 새 매물을 받아옵니다 (5~6분)'
+                : 'PC에서 부소장광고 프로그램(npm run agent)을 먼저 켜 주세요'}
               className="flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-sm font-medium
                          text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
             >
               <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} aria-hidden />
-              {syncing ? (syncProgress ?? '받는 중…') : '지금 수집'}
+              {syncing ? (syncProgress ?? '가져오는 중…') : '가져오기'}
             </button>
             <button
               onClick={() => setShowSettings(v => !v)}
@@ -410,6 +410,24 @@ export default function NaverWatchPage() {
             />
           </div>
         )}
+
+        {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
+            낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다.
+            광고관리 화면과 같은 모양으로 둔다 — 같은 프로그램이 하는 일이다. */}
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <span>
+            네이버에서 받아온 것:{' '}
+            <span className="text-gray-700 dark:text-gray-300">{rows.length}건</span>
+            {lastSweep && <> · {new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</>}
+          </span>
+          <span className="flex items-center gap-1">
+            <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+            {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
+          </span>
+          {agentOnline
+            ? <span>한 시간마다 알아서 받아 옵니다.</span>
+            : <span>PowerShell에서 <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">npm run agent</code> 를 실행하면 다시 받아 옵니다.</span>}
+        </div>
 
         <div className="mb-5 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-wrap items-center gap-2">
@@ -465,7 +483,10 @@ export default function NaverWatchPage() {
         {loading ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">불러오는 중…</p>
         ) : error ? (
-          <p className="py-20 text-center text-red-600 dark:text-red-400">목록을 불러오지 못했습니다 — {error}</p>
+          <p className="py-20 text-center text-red-600 dark:text-red-400">
+            목록을 불러오지 못했습니다. 새로고침해 보시고, 계속 그러면 알려 주세요.
+            <span className="mt-1 block text-xs text-gray-500 dark:text-gray-500">{error}</span>
+          </p>
         ) : filtered.length === 0 ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
             {rows.length === 0
