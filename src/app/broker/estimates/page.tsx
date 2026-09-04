@@ -148,7 +148,24 @@ export default function EstimatesPage() {
   }
 
   const remove = async (row: Estimate) => {
+    // 청구서는 견적서를 지워도 남는다(회계 기록이라 딸려 지우면 안 된다).
+    // 그런데 청구서를 보는 곳이 견적서 화면뿐이라, 그냥 두면 영영 못 보는 자료가 된다.
+    const { count } = await supabase
+      .from('estimate_invoices').select('id', { count: 'exact', head: true }).eq('estimate_id', row.id)
+    if (count && count > 0) {
+      toast.error(`청구서 ${count}건이 딸려 있어 지울 수 없습니다. 청구서를 먼저 정리하세요.`)
+      return
+    }
+
     if (!confirm(`${row.estimate_no} 견적서를 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return
+
+    // 첨부파일은 DB 행만 지워지고 저장소에는 남으므로 같이 치운다
+    const { data: atts } = await supabase
+      .from('estimate_attachments').select('path').eq('estimate_id', row.id)
+    if (atts?.length) {
+      await supabase.storage.from('estimate-files').remove(atts.map(a => a.path))
+    }
+
     const { error } = await supabase.from('estimates').delete().eq('id', row.id)
     if (error) { toast.error('삭제하지 못했습니다'); return }
     setRows(prev => prev.filter(r => r.id !== row.id))
@@ -327,7 +344,16 @@ export default function EstimatesPage() {
                       isExpired(r) ? 'opacity-60' : ''
                     }`}
                   >
-                    <td className="px-3 py-3 font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">{r.estimate_no}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">{r.estimate_no}</span>
+                        {(r.revision ?? 1) > 1 && (
+                          <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-bold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
+                            수정 {r.revision}차
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-3 text-gray-500">
                       <div className="flex items-center gap-1.5">
                         {r.issue_date}

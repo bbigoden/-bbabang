@@ -108,16 +108,17 @@ test('견적서 새 기능 전체 훑기', async ({ page, context, request }) =>
     const row = page.locator('tr', { hasText: /C\d{4}-\d{4}-\d{2}/ }).first()
     await expect(row).toBeVisible({ timeout: 10_000 })
 
-    const [popup] = await Promise.all([
-      page.waitForEvent('popup', { timeout: 20_000 }),
-      row.getByRole('button', { name: '청구서 PDF' }).click(),
-    ])
-    const pdfUrl = popup.url()
-    await popup.close()
+    // 팝업의 url() 은 로딩 전이라 비어 있을 때가 있다. window.open 을 가로채 주소만 본다
+    await page.evaluate(() => {
+      const w = window as unknown as { __opened?: string }
+      window.open = (u?: string | URL) => { w.__opened = String(u ?? ''); return null }
+    })
+    await row.getByRole('button', { name: '청구서 PDF' }).click()
+    const pdfUrl = await page.evaluate(() => (window as unknown as { __opened?: string }).__opened ?? '')
     expect(pdfUrl).toMatch(/\/api\/estimates\/invoices\/[0-9a-f-]{36}\/pdf/)
 
     const cookies = await context.cookies()
-    const res = await request.get(pdfUrl, {
+    const res = await request.get(new URL(pdfUrl, BASE_URL).toString(), {
       headers: { cookie: cookies.map(c => `${c.name}=${c.value}`).join('; ') },
     })
     expect(res.status()).toBe(200)
