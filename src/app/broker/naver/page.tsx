@@ -8,7 +8,8 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
-import { Radar, Settings2 } from 'lucide-react'
+import { useToast } from '@/components/toast'
+import { Radar, Settings2, Download } from 'lucide-react'
 import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from '@/lib/naver-land'
 
 /**
@@ -122,6 +123,7 @@ function Toggle({ on, onChange, label, hint, busy }: {
 export default function NaverWatchPage() {
   const supabase = useMemo(() => createClient(), [])
   const auth = useAuth()
+  const toast = useToast()
 
   const [rows, setRows] = useState<Article[]>([])
   const [seen, setSeen] = useState<Set<string>>(new Set())
@@ -131,6 +133,8 @@ export default function NaverWatchPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncProgress, setSyncProgress] = useState<string | null>(null)
 
   const [period, setPeriod] = useState<string>('3')
   const [unseenOnly, setUnseenOnly] = useState(false)
@@ -226,6 +230,68 @@ export default function NaverWatchPage() {
     setSavingSettings(false)
   }
 
+  /**
+   * 지금 네이버에서 새로 받아 온다.
+   *
+   * **이 화면은 Vercel 서버에서 도는데 네이버는 데이터센터 IP를 막는다.** 그래서
+   * 여기서 직접 못 부른다. 광고관리의 [가져오기] 와 같은 방식으로, `ad_jobs` 에
+   * "해달라" 고 적어 두면 PC 프로그램이 집어가 실행한다.
+   *
+   * 평소에는 한 시간마다 알아서 받는다. 이 버튼은 오후에 올라온 것을 다음 회차까지
+   * 기다리기 싫을 때 쓴다. 5~6분 걸린다.
+   */
+  async function requestCollect() {
+    if (!officeId) return
+    if (!agentOnline && !confirm(
+      'PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.' + String.fromCharCode(10, 10)
+      + '요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.' + String.fromCharCode(10)
+      + '계속할까요?'
+    )) return
+
+    setSyncing(true); setSyncProgress('요청 보냄')
+
+    // 이미 대기·실행 중인 것이 있으면 그걸 지켜본다. 프로그램이 꺼져 있을 때 여러 번
+    // 누르면 요청이 쌓여, 켜는 순간 같은 수집을 반복하게 된다.
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'naver').in('status', ['queued', 'running'])
+      .order('requested_at', { ascending: true }).limit(1).maybeSingle()
+
+    const { data: job, error } = pending
+      ? { data: pending, error: null }
+      : await supabase.from('ad_jobs')
+        .insert({ broker_id: officeId, kind: 'naver', requested_by: auth.user?.id })
+        .select('id').single()
+    if (error || !job) {
+      setSyncing(false); setSyncProgress(null)
+      toast.error(`요청하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`)
+      return
+    }
+
+    // 끝날 때까지 지켜본다. 20분이 넘으면 화면만 놓아주고 작업은 그대로 둔다.
+    const deadline = Date.now() + 20 * 60_000
+    const poll = setInterval(async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('status, progress, result, error').eq('id', job.id).maybeSingle()
+      if (!data) return
+      setSyncProgress(data.progress ?? null)
+      if (data.status === 'done') {
+        clearInterval(poll)
+        setSyncing(false); setSyncProgress(null)
+        const n = (data.result as { added?: number } | null)?.added
+        toast.success(n ? `새 매물 ${n}건을 받았습니다.` : '새로 올라온 매물이 없습니다.')
+        void load()
+      } else if (data.status === 'failed' || data.status === 'canceled') {
+        clearInterval(poll)
+        setSyncing(false); setSyncProgress(null)
+        toast.error(`받지 못했습니다: ${data.error ?? '알 수 없는 오류'}`)
+      } else if (Date.now() > deadline) {
+        clearInterval(poll)
+        setSyncing(false); setSyncProgress(null)
+        toast.error('시간이 너무 오래 걸립니다. PC 창을 확인해 주세요.')
+      }
+    }, 2000)
+  }
+
   /** 눌러 본 매물을 적어 둔다. 실패해도 화면은 흐려진 채로 둔다 — 다시 누르면 그만이다. */
   const markSeen = (articleNo: string) => {
     const uid = auth.user?.id
@@ -300,6 +366,19 @@ export default function NaverWatchPage() {
             </>
           }
           actions={
+            <div className="flex items-center gap-2">
+            <button
+              onClick={requestCollect}
+              disabled={syncing}
+              title={agentOnline
+                ? '네이버에서 지금 새로 받아옵니다 (5~6분)'
+                : 'PC에서 부소장광고 프로그램을 먼저 켜 주세요'}
+              className="flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-sm font-medium
+                         text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+            >
+              <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} aria-hidden />
+              {syncing ? (syncProgress ?? '받는 중…') : '지금 수집'}
+            </button>
             <button
               onClick={() => setShowSettings(v => !v)}
               className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm
@@ -309,6 +388,7 @@ export default function NaverWatchPage() {
               <Settings2 className="h-4 w-4" aria-hidden />
               설정
             </button>
+            </div>
           }
         />
 
