@@ -916,7 +916,8 @@ function buildIntro(p: ParsedListing, src: string): string {
  */
 function fitSentence(p: ParsedListing, src: string): string {
   const 업종 = p.category === 'industrial' ? null : markPair(src).업종
-  if (업종) return `원문 기준 ${업종} 자리로 보고 계신 분께 잘 맞습니다.`
+  // '원문 기준' 은 우리끼리 쓰는 말이다. 광고 글에 그대로 나가면 어색하다.
+  if (업종) return `${업종} 자리를 찾고 계신 분께 특히 잘 맞는 매물입니다.`
 
   if (isIndustrialCat(p.category)) {
     return (mainAreaM2(p) ?? 0) >= 500
