@@ -9,6 +9,7 @@ import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import {
   ArrowLeft, Save, Download, Mail, RefreshCw, Settings, Building2,
+  CheckCircle2, XCircle,
 } from 'lucide-react'
 import {
   calcTotals, fmtComma, koreanAmount, validUntil, STATUS_LABEL,
@@ -19,6 +20,7 @@ import { ItemsEditor } from './items-editor'
 import { SendMailDialog } from './send-dialog'
 
 interface TemplateRow { id: string; name: string; items: EstimateItem[] }
+interface SendRow { id: string; to_email: string; ok: boolean; error: string | null; sent_at: string }
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'
@@ -36,6 +38,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   const [companies, setCompanies] = useState<EstimateCompany[]>([])
   const [clients, setClients] = useState<EstimateClient[]>([])
   const [templates, setTemplates] = useState<TemplateRow[]>([])
+  const [sends, setSends] = useState<SendRow[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
@@ -50,18 +53,20 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   const load = useCallback(async () => {
     if (!brokerId) return
     setLoading(true)
-    const [e, it, co, cl, tp] = await Promise.all([
+    const [e, it, co, cl, tp, sd] = await Promise.all([
       supabase.from('estimates').select('*').eq('id', id).maybeSingle(),
       supabase.from('estimate_items').select('*').eq('estimate_id', id).order('sort_order'),
       supabase.from('estimate_companies').select('*').eq('owner_broker_id', brokerId).order('is_default', { ascending: false }).order('sort_order'),
       supabase.from('estimate_clients').select('*').eq('owner_broker_id', brokerId).order('name'),
       supabase.from('estimate_templates').select('id,name,items').eq('owner_broker_id', brokerId).order('sort_order'),
+      supabase.from('estimate_sends').select('id,to_email,ok,error,sent_at').eq('estimate_id', id).order('sent_at', { ascending: false }),
     ])
     setEst((e.data as Estimate) ?? null)
     setItems((it.data as EstimateItem[]) ?? [])
     setCompanies((co.data as EstimateCompany[]) ?? [])
     setClients((cl.data as EstimateClient[]) ?? [])
     setTemplates((tp.data as TemplateRow[]) ?? [])
+    setSends((sd.data as SendRow[]) ?? [])
     setLoading(false)
     setDirty(false)
   }, [brokerId, id, supabase])
@@ -502,6 +507,32 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             <p className="mt-2 text-xs text-gray-400">
               실제로 발송될 PDF 그대로입니다. 저장하면 자동으로 갱신됩니다.
             </p>
+
+            {sends.length > 0 && (
+              <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <h2 className="mb-2 text-sm font-bold text-gray-900 dark:text-white">발송 이력</h2>
+                <ul className="space-y-2">
+                  {sends.map(s => (
+                    <li key={s.id} className="flex items-start gap-2 text-xs">
+                      {s.ok
+                        ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                        : <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">{s.to_email}</span>
+                          <span className="text-gray-400">
+                            {new Date(s.sent_at).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                        {!s.ok && s.error && (
+                          <p className="mt-0.5 break-words text-red-500">{s.error}</p>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>

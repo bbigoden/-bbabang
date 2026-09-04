@@ -255,3 +255,10 @@ CREATE POLICY "estimate_sends_all" ON estimate_sends FOR ALL
     SELECT 1 FROM estimates e
     WHERE e.id = estimate_sends.estimate_id AND is_my_broker(e.owner_broker_id)
   ));
+
+-- ── search_path 고정 (2026-09-04 추가) ─────────────────────────
+-- is_my_broker는 RLS 정책에서 호출되므로, search_path가 열려 있으면
+-- 동명 테이블을 심어 정책을 우회할 여지가 생긴다.
+ALTER FUNCTION is_my_broker(UUID) SET search_path = public, pg_temp;
+ALTER FUNCTION next_estimate_no(UUID) SET search_path = public, pg_temp;
+ALTER FUNCTION estimates_touch_updated_at() SET search_path = public, pg_temp;

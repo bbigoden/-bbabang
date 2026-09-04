@@ -5,7 +5,7 @@
  * 공종 구분줄(is_header)은 제목만 보여주고 금액 칸을 비운다.
  */
 
-import { GripVertical, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import { fmtComma, lineAmount, type EstimateItem } from '@/lib/estimate'
 
 const CELL = 'w-full bg-transparent px-2 py-1.5 text-sm outline-none focus:bg-blue-50 dark:text-white dark:focus:bg-blue-500/10 rounded'
@@ -78,7 +78,7 @@ export function ItemsEditor({ items, onChange }: Props) {
 
             {items.map((it, idx) => it.is_header ? (
               <tr key={idx} className="border-t border-gray-100 bg-gray-50/70 dark:border-gray-800 dark:bg-gray-800/40">
-                <td className="px-1 text-center text-gray-300"><GripVertical className="mx-auto h-3.5 w-3.5" /></td>
+                <td className="px-1"></td>
                 <td colSpan={8} className="px-2 py-1">
                   <input
                     value={it.name ?? ''}
