@@ -59,7 +59,7 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 과거 손으로 목록을 관리하다 두 번 사고 남(jobs 01dace0, cafe-post edd9114) → 자동화(현재 방식)로 전환.
 새 페이지 배포 전 `curl -I localhost:3000/broker/xxx`가 308이 아닌지 한 번 확인하면 더 안전.
 
-# cafe-post.ts 는 삭제 금지 — 옆 레포가 파일 경로로 직접 읽는다
+# cafe-post.ts · naver-land.ts 는 삭제 금지 — 옆 레포가 파일 경로로 직접 읽는다
 
 `src/lib/cafe-post.ts`는 이 웹앱 안에서는 아무도 import 하지 않는다.
 대신 광고 자동화 PC 프로그램(`코드/부소장광고`)이 **상대 경로로 직접 import** 한다:
@@ -72,6 +72,16 @@ pathToFileURL(path.join(ROOT, '..', '빠방', 'src', 'lib', 'cafe-post.ts'))
 
 그래서 knip·미사용 파일 스캔은 이 파일을 항상 "고아 파일"로 잡는다. **지우면 카페
 자동 발행이 통째로 죽는다.** 파일 위치·이름을 바꿀 때도 옆 레포의 경로를 같이 고칠 것.
+
+`src/lib/naver-land.ts` 도 같다. 이쪽은 `/broker/naver` 화면이 매물종류·구역 표를
+import 하지만, **실제로 네이버를 부르는 쪽은 옆 레포**다 (`부소장광고/src/naver.js`):
+
+```js
+pathToFileURL(path.join(ROOT, '..', '빠방', 'src', 'lib', 'naver-land.ts'))
+```
+
+네이버가 데이터센터 IP를 막아 Vercel 에서는 부를 수 없다(다섯 번 다 60초 타임아웃).
+그래서 수집 코드를 서버 라우트로 되돌리지 말 것 — 한 번 만들었다가 걷어냈다.
 
 블로그(`blog-post.ts`)는 2026-09-03 걷어냈다 — 만들어는 뒀지만 한 건도 발행하지
 않았고 쓸 계획도 없었다. 되살릴 일이 생기면 그날 커밋에서 꺼내면 된다.
