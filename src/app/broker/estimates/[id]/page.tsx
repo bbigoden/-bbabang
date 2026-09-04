@@ -248,6 +248,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     return (
       <div className="bg-gray-50 dark:bg-gray-950">
         <Header />
+        <h1 className="sr-only">견적서</h1>
         <div className="px-4 py-8 text-center text-sm text-gray-500">불러오는 중…</div>
       </div>
     )
@@ -257,6 +258,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     return (
       <div className="bg-gray-50 dark:bg-gray-950">
         <Header />
+        <h1 className="sr-only">견적서</h1>
         <div className="px-4 py-8 text-center text-sm text-gray-500">
           견적서를 찾을 수 없습니다. <Link href="/broker/estimates" className="text-blue-600 underline">목록으로</Link>
         </div>

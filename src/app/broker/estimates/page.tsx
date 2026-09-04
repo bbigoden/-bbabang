@@ -179,6 +179,7 @@ export default function EstimatesPage() {
     return (
       <div className="bg-gray-50 dark:bg-gray-950">
         <Header />
+        <h1 className="sr-only">견적서</h1>
         <div className="px-4 py-8 text-center text-sm text-gray-500">불러오는 중…</div>
       </div>
     )
@@ -188,6 +189,7 @@ export default function EstimatesPage() {
     return (
       <div className="bg-gray-50 dark:bg-gray-950">
         <Header />
+        <h1 className="sr-only">견적서</h1>
         <div className="px-4 py-8 text-center text-sm text-gray-500">
           사무소 정보를 찾을 수 없습니다. <Link href="/broker/register" className="text-blue-600 underline">사무소 등록</Link>이 필요합니다.
         </div>
