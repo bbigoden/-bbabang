@@ -905,13 +905,9 @@ export default function AdsPage() {
         {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
             낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다. */}
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          {/* 뱅크 화면의 '서비스중' 건수와 바로 대조할 수 있어야 한다.
-              숫자가 다르면 가져오기를 다시 눌러야 한다는 뜻이다. */}
-          <span>
-            뱅크에서 받아온 것:{' '}
-            <span className="text-gray-700 dark:text-gray-300">{countOf('등록매물')}건</span>
-            {lastSynced && <> · {fmtWhen(lastSynced)}</>}
-          </span>
+          {/* 건수는 위 탭(등록매물 245)에 이미 있다. 여기는 언제 받아온
+              목록인지만 둔다 — 신규매물 화면과 같은 모양이다. */}
+          {lastSynced && <span>{fmtWhen(lastSynced)} 받아옴</span>}
           <span className={오늘올림 >= DAILY_CAP ? 'font-medium text-amber-600 dark:text-amber-400' : ''}>
             오늘 카페에 올린 것:{' '}
             <span className={오늘올림 >= DAILY_CAP ? '' : 'text-gray-700 dark:text-gray-300'}>
