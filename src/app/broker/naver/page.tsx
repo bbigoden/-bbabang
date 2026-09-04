@@ -26,9 +26,12 @@ import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from
  * 매번 다시 하게 된다. 본 것은 사람마다 따로 세므로 직원이 훑어도 사장님 화면은
  * 그대로다.
  *
- * 수집은 사장님 PC의 광고 프로그램(`부소장광고`)이 한 시간마다 한다. 서버에서 받게
+ * 받아오는 일은 사장님 PC의 광고 프로그램(`부소장광고`)이 한다. 서버에서 받게
  * 만들었다가 걷어냈다 — 네이버가 데이터센터 IP를 막아 Vercel 에서는 다섯 번 다
  * 응답 없이 멎었다. 뱅크·카페와 같은 이유로 PC가 맡는다.
+ *
+ * **누를 때만 받는다.** 한 시간마다 알아서 받게 해 뒀다가 걷어냈다 — 사장님이
+ * 볼 때 누르면 되는 일이라, 하루 스물네 번 네이버를 부를 이유가 없다.
  */
 
 type Article = {
@@ -239,8 +242,7 @@ export default function NaverWatchPage() {
    * 여기서 직접 못 부른다. 광고관리의 [가져오기] 와 같은 방식으로, `ad_jobs` 에
    * "해달라" 고 적어 두면 PC 프로그램이 집어가 실행한다.
    *
-   * 평소에는 한 시간마다 알아서 받는다. 이 버튼은 오후에 올라온 것을 다음 회차까지
-   * 기다리기 싫을 때 쓴다. 5~6분 걸린다.
+   * **받아오는 것은 이 버튼뿐이다.** 5~6분 걸린다.
    */
   async function requestCollect() {
     if (!officeId) return
@@ -363,7 +365,6 @@ export default function NaverWatchPage() {
         <PageHeader
           title="신규매물"
           icon={Radar}
-          description="네이버에 새로 올라온 매물을 최신순으로 모읍니다"
 
           actions={
             <div className="flex items-center gap-2">
@@ -415,18 +416,18 @@ export default function NaverWatchPage() {
             낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다.
             광고관리 화면과 같은 모양으로 둔다 — 같은 프로그램이 하는 일이다. */}
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          <span>
-            네이버에서 받아온 것:{' '}
-            <span className="text-gray-700 dark:text-gray-300">{rows.length}건</span>
-            {lastSweep && <> · {new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</>}
-          </span>
+          {lastSweep && (
+            <span>
+              {new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 받아옴
+            </span>
+          )}
           <span className="flex items-center gap-1">
             <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
             {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
           </span>
-          {agentOnline
-            ? <span>한 시간마다 알아서 받아 옵니다.</span>
-            : <span>PowerShell에서 <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">npm run agent</code> 를 실행하면 다시 받아 옵니다.</span>}
+          {!agentOnline && (
+            <span>PowerShell에서 <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">npm run agent</code> 를 실행하면 [가져오기]가 동작합니다.</span>
+          )}
         </div>
 
         <div className="mb-5 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
@@ -490,7 +491,7 @@ export default function NaverWatchPage() {
         ) : filtered.length === 0 ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
             {rows.length === 0
-              ? '아직 수집된 매물이 없습니다. 광고 프로그램을 켜 두면 한 시간마다 받아 옵니다.'
+              ? '아직 받아온 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.'
               : unseenOnly ? '안 본 매물이 없습니다. 다 훑으셨습니다.'
               : '고른 조건에 맞는 매물이 없습니다.'}
           </p>
