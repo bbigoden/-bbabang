@@ -440,6 +440,10 @@ const CONCERNS: Record<Category, string[]> = {
   retail: [
     '상가 자리를 알아보실 때는 임대 조건 못지않게 초기 투자 부담이 큰 고민입니다. 권리금과 시설 상태에 따라 창업 예산이 크게 달라집니다.',
     '점포 자리는 조건이 좋아 보여도 관리비나 부대 비용까지 합치면 계산이 달라지는 경우가 많습니다. 계약 전 확인할 항목이 적지 않습니다.',
+    '같은 평수라도 앞이 트인 자리와 안쪽 자리는 매출이 다르게 나옵니다. 도면만 보고 정하기 어려운 부분입니다.',
+    '층이 올라갈수록 임대료는 내려가지만 그만큼 손님을 부르는 방법이 달라집니다. 업종과 층이 맞아야 유지가 됩니다.',
+    '간판을 어디에 어떻게 다느냐로 첫 달 매출이 갈리기도 합니다. 건물 규정과 전면 폭을 함께 봐야 합니다.',
+    '입주 시점이 한 달만 밀려도 임대료는 그대로 나갑니다. 공사 기간과 입주 가능일을 맞춰 보는 일이 생각보다 중요합니다.',
   ],
 }
 
@@ -806,7 +810,10 @@ function pickConcern(p: ParsedListing, src: string): string {
   const isBig = (mainAreaM2(p) ?? 0) >= 330            // 약 100평
   const key: Category = isBig && COMMERCIAL.includes(p.category) ? 'large' : p.category
   const pool = CONCERNS[key]
-  return pool[hashPick(src, pool.length)]
+  // 원문 해시만으로 고르면 원문 틀이 비슷한 매물끼리 같은 문장이 몰린다.
+  // 층·평수처럼 매물마다 다른 값을 섞어 고르게 퍼뜨린다.
+  const seed = `${src}|${p.floor ?? ''}|${Math.round(mainAreaM2(p) ?? 0)}|${p.dong ?? ''}`
+  return pool[hashPick(seed, pool.length)]
 }
 
 function buildIntro(p: ParsedListing, src: string): string {
@@ -882,17 +889,52 @@ function buildIntro(p: ParsedListing, src: string): string {
     : `이번 매물은 ${extraTxt} 이런 고민을 함께 풀어볼 수 있는 매물입니다.`
 
   // '~를 다뤄온' 은 중개사무소 소개로 어색하다. 목적격 조사를 빼고 '업종 + 전문' 으로 잇는다.
-  return `안녕하세요. ${regionLabel} ${kindLabel} 전문 플러스불당공인중개사사무소입니다.\n\n${concern}\n\n${answer}`
+  // 동까지 넣는다. `천안 상가·점포 전문` 만 쓰면 이 한 줄이 187건에 똑같이
+  // 들어가 유사문서 위험을 키운다. 동네 이름이 들어가면 검색에도 낫다.
+  const 소개지역 = [regionLabel, p.dong].filter(Boolean).join(' ')
+  // 인사말도 몇 가지로 돌려 쓴다. 같은 동·같은 종류가 89건이라 한 문장이
+  // 그대로 89번 반복됐다. 사무소 이름은 그대로 두고 앞뒤만 바꾼다.
+  const 인사 = [
+    `안녕하세요. ${소개지역} ${kindLabel} 전문 플러스불당공인중개사사무소입니다.`,
+    `${소개지역} ${kindLabel} 자리를 찾고 계신 분들께 인사드리는 플러스불당공인중개사사무소입니다.`,
+    `${소개지역} ${kindLabel} 매물을 소개해 드리는 플러스불당공인중개사사무소입니다.`,
+    `${소개지역}에서 ${kindLabel} 중개하는 플러스불당공인중개사사무소입니다.`,
+  ]
+  const seed = `${src}|${p.floor ?? ''}|${Math.round(mainAreaM2(p) ?? 0)}`
+  return `${인사[hashPick(seed, 인사.length)]}\n\n${concern}\n\n${answer}`
 }
 
-function buildSummary(p: ParsedListing): string {
+/**
+ * 요약 마지막 문장 — **매물마다 달라야 한다.**
+ *
+ * 예전에는 종류에서 뽑은 목록을 그대로 붙여 `소매점, 사무실, 학원 등의 업종에
+ * 적합합니다.` 한 문장이 275건 중 224건에 똑같이 들어갔다. 200건을 같은 문장으로
+ * 올리면 뒤에 올린 글이 유사문서로 걸러져 색인 자체가 막힌다.
+ *
+ * 원문에 적힌 업종을 먼저 쓰고, 없으면 층과 규모로 갈라 쓴다.
+ */
+function fitSentence(p: ParsedListing, src: string): string {
+  const 업종 = p.category === 'industrial' ? null : markPair(src).업종
+  if (업종) return `원문 기준 ${업종} 자리로 보고 계신 분께 잘 맞습니다.`
+
+  if (isIndustrialCat(p.category)) {
+    return (mainAreaM2(p) ?? 0) >= 500
+      ? '제조 라인이나 대량 보관처럼 넓은 바닥이 필요한 쪽에 맞습니다.'
+      : '소규모 제조나 보관·소분 작업을 두기에 알맞은 규모입니다.'
+  }
+  if (p.floor?.startsWith('-')) return '간판 노출보다 면적과 임대료가 중요한 업종에 어울리는 자리입니다.'
+  if ((mainAreaM2(p) ?? 0) >= 330) return '한 층을 통으로 쓰는 업종이나 매장·사무를 함께 두는 쪽에 맞습니다.'
+  if (p.floor === '1') return '오가는 사람을 바로 받는 소매·식음 업종에 어울리는 1층 자리입니다.'
+  return '목적을 두고 찾아오는 학원·사무실·서비스업 쪽에 어울리는 자리입니다.'
+}
+
+function buildSummary(p: ParsedListing, src = ''): string {
   const s1 = `${fmtLocation(p)}에 위치한 ${KIND_LABEL[p.category]} 매물입니다.`
   const areaPart = mainArea(p)
     ? `${mainArea(p)!.label} ${mainArea(p)!.m2}㎡(약 ${m2ToPyeong(mainArea(p)!.m2)}평) 규모이며, `
     : ''
   const s2 = `${areaPart}${fmtPrice(p)} 조건입니다.`
-  const s3 = `${RECOMMENDED_USES[p.category].split(',').slice(0, 3).join(',')} 등의 업종에 적합합니다.`
-  return `${s1} ${s2} ${s3}`
+  return `${s1} ${s2} ${fitSentence(p, src)}`
 }
 
 /** 13행 법정 순서 기본 정보 (카페=표, 블로그=리스트 공용) */
@@ -1154,7 +1196,7 @@ export function generateCafePost(
   const sections = [
     `🏷️ **추천 제목**\n${titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}`,
     `👋 **소개**\n\n${buildIntro(p, source)}`,
-    `📍 **매물 요약**\n\n${buildSummary(p)}`,
+    `📍 **매물 요약**\n\n${buildSummary(p, source)}`,
     `🏢 **매물 기본 정보**\n\n${infoSection}`,
     `✨ **매물 세부 특징 설명**\n\n${buildDetails(p, source)}`,
     `💬 **자주 묻는 질문**\n\n${buildQnA(p)}`,
@@ -1232,7 +1274,7 @@ export function buildCafeHtmlConfig(
     category: p.category,
     titles: buildTitles(p, source),
     intro: buildIntro(p, source).split('\n\n').filter(Boolean),
-    summary: buildSummary(p),
+    summary: buildSummary(p, source),
     rows: infoRows(p, shownNo),   // 표에 적히는 번호는 고객이 아는 것
     features: detailSections(p, source),
     qa: qnaPairs(p),
