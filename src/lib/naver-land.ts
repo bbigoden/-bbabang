@@ -113,6 +113,24 @@ export const REGIONS = [
 export type RegionId = (typeof REGIONS)[number]['id']
 
 /**
+ * 한국 날짜 'YYYY-MM-DD'.
+ *
+ * 네이버가 주는 `exposureStartDate` 는 한국 날짜다. 그런데 `toISOString()` 은 UTC라
+ * **아침 9시 이전에는 어제 날짜가 나온다.** 그걸로 기간을 자르면 새벽에 화면을 연
+ * 사장님에게 하루가 밀린 목록이 나가고, '재등록' 표시도 엉뚱하게 붙는다.
+ *
+ * @param backDays 며칠 전인지 (0 = 오늘)
+ */
+export function kstDate(backDays = 0): string {
+  return new Date(Date.now() + 9 * 3_600_000 - backDays * 86_400_000).toISOString().slice(0, 10)
+}
+
+/** 어떤 시각의 한국 날짜. 위와 같은 이유로 필요하다. */
+export function toKstDate(iso: string): string {
+  return new Date(new Date(iso).getTime() + 9 * 3_600_000).toISOString().slice(0, 10)
+}
+
+/**
  * 매물 한 건. 표의 열과 이름을 맞춰 둔다.
  *
  * **무엇을 눌러 볼지 고르는 데 필요한 것만 담는다.** 응답에는 가격·면적·사진·
@@ -220,12 +238,12 @@ function articleFilter() {
  * 그 좌표들을 사각형 칸에 담으면 매물이 없는 산·논은 통째로 건너뛴다.
  * 천안·아산 전체가 110개 남짓으로 줄어든다.
  */
-async function discoverTiles(region: (typeof REGIONS)[number]): Promise<BoundingBox[]> {
+async function discoverCells(searchBox: BoundingBox): Promise<Set<string>> {
   const res = await fetch(API_CLUSTERS, {
     method: 'POST', headers: HEADERS,
     body: JSON.stringify({
       filter: articleFilter(),
-      boundingBox: region.searchBox,
+      boundingBox: searchBox,
       precision: CLUSTER_PRECISION,
       userChannelType: 'PC',
     }),
@@ -240,49 +258,79 @@ async function discoverTiles(region: (typeof REGIONS)[number]): Promise<Bounding
     const y = Math.floor(c.coordinates.yCoordinate / TILE_LAT)
     cells.add(`${x}/${y}`)
   }
-  return [...cells].map(k => {
-    const [x, y] = k.split('/').map(Number)
-    return {
-      left: x * TILE_LON, right: (x + 1) * TILE_LON,
-      bottom: y * TILE_LAT, top: (y + 1) * TILE_LAT,
-    }
-  })
+  return cells
+}
+
+function cellToBox(key: string): BoundingBox {
+  const [x, y] = key.split('/').map(Number)
+  return {
+    left: x * TILE_LON, right: (x + 1) * TILE_LON,
+    bottom: y * TILE_LAT, top: (y + 1) * TILE_LAT,
+  }
 }
 
 /**
- * 한 구역의 최근 매물을 받는다.
+ * 감시 구역들의 최근 매물을 받는다.
  *
  * 매물이 있는 자리만 작은 사각형으로 나눠 훑는다. 사각형마다 최신순으로 받다가
  * `since` 보다 오래된 광고가 나오면 그 사각형은 끝낸다.
  *
- * @param region  REGIONS 의 한 항목
- * @param since   'YYYY-MM-DD'. 이 날짜보다 앞선 광고는 받지 않는다
- * @param opts.onProgress  몇 번째 사각형인지 알려준다 (2~3분 걸려서 표시가 필요하다)
+ * **구역을 한꺼번에 받는다.** 구역별 검색 범위가 겹쳐서(천안 서북구와 아산은
+ * 탕정·음봉 쪽이 겹친다) 따로 돌리면 같은 자리를 두 번 훑는다. 사각형을 합쳐
+ * 한 번씩만 훑고, 받은 매물은 주소로 어느 구역인지 가른다.
+ *
+ * 한 회차가 5~6분이라 그동안 부르는 쪽이 아무것도 못 하면 곤란하다. 사각형마다
+ * `onTile` 을 불러 주고, 거기서 참을 돌려주면 그 자리에서 멈춘다 — 받아 둔 것은
+ * 그대로 돌려주므로 버리는 것이 없다.
+ *
+ * @param regions  REGIONS (또는 그 일부)
+ * @param since    'YYYY-MM-DD'. 이 날짜보다 앞선 광고는 받지 않는다
+ * @param opts.onTile  사각형 하나를 마칠 때마다 부른다. 참을 돌려주면 거기서 멈춘다
+ * @returns rows 는 받은 매물, failed 는 어디를 못 봤는지 (사라짐 판정에 필요하다)
  */
 export async function fetchRecentArticles(
-  region: (typeof REGIONS)[number],
+  regions: readonly (typeof REGIONS)[number][],
   since: string,
-  { onProgress }: { onProgress?: (done: number, total: number) => void } = {},
-): Promise<NaverArticle[]> {
-  const tiles = await discoverTiles(region)
-  const found = new Map<string, NaverArticle>()
-
-  for (let t = 0; t < tiles.length; t++) {
-    let lastInfo: unknown[] = []
-    for (let page = 0; page < MAX_PAGES; page++) {
-      await sleep(REQUEST_GAP_MS)
-      const res = await fetchPage(tiles[t], lastInfo)
-      const batch = res.list.map(normalize).filter((r): r is NaverArticle => r !== null)
-      // 사각형이 시 경계를 넘어 옆 동네가 섞여 온다. 여기서 잘라낸다.
-      for (const r of batch) {
-        if (r.division?.startsWith(region.divisionPrefix)) found.set(r.article_no, r)
-      }
-      const oldest = batch.at(-1)?.exposure_start_date
-      if (!res.hasNextPage || (oldest && oldest < since)) break
-      lastInfo = res.lastInfo
+  { onTile }: { onTile?: (done: number, total: number) => boolean | Promise<boolean> } = {},
+): Promise<{ rows: NaverArticle[]; failed: string[]; tiles: number; stopped: boolean }> {
+  const cells = new Set<string>()
+  const failed: string[] = []
+  for (const region of regions) {
+    try {
+      for (const c of await discoverCells(region.searchBox)) cells.add(c)
+    } catch {
+      // 이 구역이 어디에 매물이 있는지를 못 받았다. 나머지는 그대로 훑는다.
+      failed.push(region.name)
     }
-    onProgress?.(t + 1, tiles.length)
+    await sleep(REQUEST_GAP_MS)
   }
 
-  return [...found.values()]
+  const tiles = [...cells].map(cellToBox)
+  const found = new Map<string, NaverArticle>()
+  let stopped = false
+
+  for (let t = 0; t < tiles.length; t++) {
+    try {
+      let lastInfo: unknown[] = []
+      for (let page = 0; page < MAX_PAGES; page++) {
+        await sleep(REQUEST_GAP_MS)
+        const res = await fetchPage(tiles[t], lastInfo)
+        const batch = res.list.map(normalize).filter((r): r is NaverArticle => r !== null)
+        // 사각형은 시 경계와 안 맞아 옆 동네가 섞여 온다. 감시 구역 것만 남긴다.
+        for (const r of batch) {
+          if (regions.some(g => r.division?.startsWith(g.divisionPrefix))) found.set(r.article_no, r)
+        }
+        const oldest = batch.at(-1)?.exposure_start_date
+        if (!res.hasNextPage || (oldest && oldest < since)) break
+        lastInfo = res.lastInfo
+      }
+    } catch {
+      // 사각형 하나가 막혀도 나머지는 훑는다. 다만 못 본 자리가 생겼으므로
+      // 이번 회차로는 '사라졌다' 를 판정하지 않는다.
+      failed.push(`사각형 ${t + 1}`)
+    }
+    if (await onTile?.(t + 1, tiles.length)) { stopped = true; break }
+  }
+
+  return { rows: [...found.values()], failed, tiles: tiles.length, stopped }
 }

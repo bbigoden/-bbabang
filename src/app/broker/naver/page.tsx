@@ -9,7 +9,7 @@ import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { Radar, Settings2 } from 'lucide-react'
-import { REAL_ESTATE_TYPES, TRADE_TYPES, REGIONS } from '@/lib/naver-land'
+import { REAL_ESTATE_TYPES, TRADE_TYPES, REGIONS, kstDate, toKstDate } from '@/lib/naver-land'
 
 /**
  * 신규매물 — 네이버부동산에 없는 '최신순' 목록.
@@ -75,7 +75,7 @@ function isFresh(a: Article): boolean {
  */
 function isRelisted(a: Article): boolean {
   if (!a.exposure_start_date) return false
-  return a.exposure_start_date > a.first_seen_at.slice(0, 10)
+  return a.exposure_start_date > toKstDate(a.first_seen_at)
 }
 
 const CHIP_ON = 'border-blue-600 bg-blue-600 text-white'
@@ -156,7 +156,8 @@ export default function NaverWatchPage() {
   const load = useCallback(async () => {
     setLoading(true)
     const days = PERIODS.find(p => p.id === period)?.days ?? 3
-    const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+    // '오늘' 은 오늘 하루다. days-1 을 빼야 3일이 오늘 포함 사흘이 된다.
+    const since = kstDate(days - 1)
     try {
       const [arts, views] = await Promise.all([
         fetchAllPaged<Article>((from, to) => supabase.from('naver_articles')
@@ -164,9 +165,17 @@ export default function NaverWatchPage() {
           .gte('exposure_start_date', since)
           .order('exposure_start_date', { ascending: false })
           .order('first_seen_at', { ascending: false })
+          // 매물번호로 순서를 못박는다. 앞의 둘만으로는 822건이 같은 값이라
+          // 나눠 받는 사이에 순서가 흔들려 중복·누락이 난다 — 매시간 도는 수집이
+          // 그 3천 행의 last_seen_at 을 갱신하는 동안이면 특히.
+          .order('article_no', { ascending: false })
           .range(from, to)),
+        // 본 기록은 계속 쌓인다. 화면이 최대 7일치만 보여주므로 그만큼만 받는다.
         fetchAllPaged<{ article_no: string }>((from, to) =>
-          supabase.from('naver_article_views').select('article_no').range(from, to)),
+          supabase.from('naver_article_views').select('article_no')
+            .gte('seen_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
+            .order('seen_at', { ascending: false })
+            .range(from, to)),
       ])
       setError(null)
       setRows(arts)
@@ -244,7 +253,11 @@ export default function NaverWatchPage() {
 
     return rows.filter(a => {
       // 사라진 매물은 따로 볼 때만 나온다 — 목록에 섞이면 죽은 링크를 누르게 된다.
-      if (goneOnly ? !a.gone_at : !!a.gone_at) return false
+      //
+      // **표시 기능을 꺼 두면 사라짐 표시는 없는 셈 친다.** 안 그러면 켰다 껐을 때
+      // 그동안 찍힌 매물이 목록에서도 빠지고 [사라진 것] 칩도 없어져, 볼 방법이
+      // 영영 없어진다.
+      if (settings.track_gone && (goneOnly ? !a.gone_at : !!a.gone_at)) return false
       if (unseenOnly && seen.has(a.article_no)) return false
       if (settings.hide_own && officeName && a.brokerage_name === officeName) return false
       if (regions.length) {
@@ -256,7 +269,8 @@ export default function NaverWatchPage() {
       if (needle && ![a.division, a.sector].filter(Boolean).join(' ').toLowerCase().includes(needle)) return false
       return true
     })
-  }, [rows, regions, types, trades, q, unseenOnly, goneOnly, seen, settings.hide_own, officeName])
+  }, [rows, regions, types, trades, q, unseenOnly, goneOnly, seen,
+      settings.hide_own, settings.track_gone, officeName])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize)

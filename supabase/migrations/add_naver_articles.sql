@@ -60,6 +60,14 @@ create policy naver_articles_update on public.naver_articles
   using (exists (select 1 from public.broker_profiles bp
                  where bp.user_id = auth.uid() and bp.is_approved));
 
+-- 오래된 매물 정리도 그 프로그램이 한다. 지우기 정책이 없으면 RLS 가 조용히 막아
+-- 0건이 지워진다(오류도 안 난다).
+drop policy if exists naver_articles_delete on public.naver_articles;
+create policy naver_articles_delete on public.naver_articles
+  for delete to authenticated
+  using (exists (select 1 from public.broker_profiles bp
+                 where bp.user_id = auth.uid() and bp.is_approved));
+
 -- 누가 무엇을 눌러 봤는가.
 --
 -- **사람마다 따로 센다.** 사무소 단위로 세면 한 사람이 훑고 나면 다른 사람 화면에서
