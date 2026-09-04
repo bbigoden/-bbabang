@@ -7,8 +7,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
-import { useToast } from '@/components/toast'
-import { Radar, ExternalLink, RefreshCw } from 'lucide-react'
+import { Radar } from 'lucide-react'
 import { REAL_ESTATE_TYPES, TRADE_TYPES, REGIONS } from '@/lib/naver-land'
 
 /**
@@ -21,7 +20,9 @@ import { REAL_ESTATE_TYPES, TRADE_TYPES, REGIONS } from '@/lib/naver-land'
  * 들어가서 주변과 시세를 직접 봐야 하고, 여기서 미리 보여 줘 봐야 한 화면에
  * 들어가는 건수만 줄어든다. 여기서 할 일은 **무엇을 눌러 볼지 고르는 것**뿐이다.
  *
- * 수집은 `/api/cron/naver-watch` 가 한다(아침에 한 번, 그리고 [지금 수집]).
+ * 수집은 사장님 PC의 광고 프로그램(`부소장광고`)이 30분마다 한다. 서버에서 받게
+ * 만들었다가 걷어냈다 — 네이버가 데이터센터 IP를 막아 Vercel 에서는 다섯 번 다
+ * 응답 없이 멎었다. 뱅크·카페와 같은 이유로 PC가 맡는다.
  */
 
 type Article = {
@@ -77,13 +78,11 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 export default function NaverWatchPage() {
   const supabase = useMemo(() => createClient(), [])
   const auth = useAuth()
-  const toast = useToast()
 
   const [rows, setRows] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
-  const [sweeping, setSweeping] = useState(false)
-  const [sweepingAt, setSweepingAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
 
   const [period, setPeriod] = useState<string>('7')
   // 빈 배열 = 전부 본다. 하나라도 고르면 고른 것만.
@@ -111,39 +110,21 @@ export default function NaverWatchPage() {
   useEffect(() => { void load() }, [load])
 
   /**
-   * 지금 네이버에서 새로 받아 온다.
+   * 수집을 맡은 PC 프로그램이 켜져 있는가. 광고관리 화면과 같은 방식이다.
    *
-   * 크론은 아침에 한 번만 돈다. 오후에 올라온 매물을 내일까지 기다릴 이유가 없어
-   * 손으로도 돌릴 수 있게 열어 뒀다.
-   *
-   * **구역을 하나씩 따로 부른다.** 세 구역을 한 번에 부르면 Vercel 함수 제한
-   * (60초)에 걸려 통째로 잘린다. 한 구역이 막혀도 나머지는 들어온다.
-   * 다 도는 데 1분쯤 걸리므로 어디까지 왔는지 버튼에 적어 준다.
+   * 목록이 안 늘 때 "네이버에 새 매물이 없는 것"과 "프로그램이 꺼져 있는 것"은
+   * 전혀 다른 일인데, 화면만 봐서는 구분이 안 된다. 그래서 적어 준다.
    */
-  const sweep = async () => {
-    setSweeping(true)
-    let added = 0
-    const failed: string[] = []
-    try {
-      for (const region of REGIONS) {
-        setSweepingAt(region.name)
-        try {
-          const res = await fetch(`/api/cron/naver-watch?region=${region.id}`)
-          const json = await res.json()
-          if (!res.ok || !json.ok) throw new Error(json.error ?? '수집 실패')
-          added += json.added ?? 0
-        } catch {
-          failed.push(region.name)
-        }
-      }
-      await load()
-      if (failed.length) toast.error(`${failed.join('·')} 은(는) 네이버가 막았습니다. 잠시 뒤 다시 눌러 주세요.`)
-      else toast.success(added > 0 ? `새 매물 ${added}건을 받았습니다.` : '새로 올라온 매물이 없습니다.')
-    } finally {
-      setSweepingAt(null)
-      setSweeping(false)
+  useEffect(() => {
+    let alive = true
+    const tick = async () => {
+      const { data } = await supabase.from('ad_agents').select('last_seen_at').maybeSingle()
+      if (alive) setAgentSeenAt(data?.last_seen_at ?? null)
     }
-  }
+    void tick()
+    const id = setInterval(tick, 15_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [supabase])
 
   /** 마지막으로 수집이 돌아간 시각. 0건일 때 "수집이 멈춘 건지"를 여기서 안다. */
   const lastSweep = useMemo(
@@ -174,6 +155,9 @@ export default function NaverWatchPage() {
     })
   }, [rows, period, regions, types, trades, q])
 
+  /** 하트비트가 이보다 오래되면 꺼진 것으로 본다. 광고관리 화면과 같은 잣대다. */
+  const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < 60_000
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize)
 
@@ -187,22 +171,15 @@ export default function NaverWatchPage() {
           title="신규매물"
           icon={Radar}
           description={
-            lastSweep
-              ? `네이버부동산에 없는 최신순 목록 · 마지막 수집 ${new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-              : '네이버부동산에 없는 최신순 목록'
-          }
-          actions={
-            <button
-              onClick={sweep}
-              disabled={sweeping}
-              title="네이버에서 지금 새로 받아옵니다 (1분쯤)"
-              className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm
-                         font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50
-                         dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              <RefreshCw className={`h-4 w-4 ${sweeping ? 'animate-spin' : ''}`} aria-hidden />
-              {sweeping ? `${sweepingAt ?? ''} 받는 중…` : '지금 수집'}
-            </button>
+            <>
+              네이버부동산에 없는 최신순 목록
+              {lastSweep && ` · 마지막 수집 ${new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`}
+              {!agentOnline && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  {' · 광고 프로그램이 꺼져 있어 새로 받지 않습니다'}
+                </span>
+              )}
+            </>
           }
         />
 
@@ -259,7 +236,7 @@ export default function NaverWatchPage() {
         ) : filtered.length === 0 ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
             {rows.length === 0
-              ? '아직 수집된 매물이 없습니다. [지금 수집]을 누르거나 내일 아침을 기다려 주세요.'
+              ? '아직 수집된 매물이 없습니다. 광고 프로그램을 켜 두면 30분마다 받아 옵니다.'
               : '고른 조건에 맞는 매물이 없습니다.'}
           </p>
         ) : (
@@ -297,10 +274,6 @@ export default function NaverWatchPage() {
                     ) : isFresh(a) ? (
                       <span className="shrink-0 rounded bg-blue-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">신규</span>
                     ) : null}
-                    <ExternalLink
-                      className="h-3.5 w-3.5 shrink-0 text-gray-300 transition-colors group-hover:text-blue-600 dark:text-gray-700"
-                      aria-hidden
-                    />
                   </a>
                 </li>
               ))}
