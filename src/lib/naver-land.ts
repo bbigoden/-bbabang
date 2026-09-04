@@ -30,6 +30,15 @@ const API_CLUSTERS = 'https://fin.land.naver.com/front-api/v1/article/map/articl
 const REQUEST_GAP_MS = 1_200
 
 /**
+ * 이만큼 연달아 실패하면 그 회차를 통째로 접는다.
+ *
+ * **네이버가 막았을 때 계속 두드리면 차단이 길어진다.** 사각형이 110개라 그냥
+ * 두면 한 회차에 220번을 헛되이 두드린다. 몇 번 연달아 안 되면 오늘은 아닌
+ * 것이니 접고, 부르는 쪽이 다음 회차를 뒤로 미룬다.
+ */
+const GIVE_UP_AFTER = 4
+
+/**
  * 사각형 하나당 최대 페이지.
  *
  * **넉넉해야 한다.** 여기서 잘리면 회차마다 잘리는 자리가 달라져(같은 날짜 안의
@@ -259,15 +268,17 @@ function articleFilter() {
  * 천안·아산 전체가 110개 남짓으로 줄어든다.
  */
 async function discoverCells(searchBox: BoundingBox): Promise<Set<string>> {
-  const res = await fetch(API_CLUSTERS, {
-    method: 'POST', headers: HEADERS,
-    body: JSON.stringify({
-      filter: articleFilter(),
-      boundingBox: searchBox,
-      precision: CLUSTER_PRECISION,
-      userChannelType: 'PC',
-    }),
+  const body = JSON.stringify({
+    filter: articleFilter(),
+    boundingBox: searchBox,
+    precision: CLUSTER_PRECISION,
+    userChannelType: 'PC',
   })
+  let res = await fetch(API_CLUSTERS, { method: 'POST', headers: HEADERS, body })
+  if (res.status === 429) {
+    await sleep(3_000)
+    res = await fetch(API_CLUSTERS, { method: 'POST', headers: HEADERS, body })
+  }
   if (!res.ok) throw new Error(`네이버 응답 ${res.status}`)
   const json = await res.json()
   if (!json?.isSuccess) throw new Error(`네이버 거절: ${json?.detailCode ?? '알 수 없음'}`)
@@ -312,7 +323,7 @@ export async function fetchRecentArticles(
   regions: readonly (typeof REGIONS)[number][],
   since: string,
   { onTile }: { onTile?: (done: number, total: number) => boolean | Promise<boolean> } = {},
-): Promise<{ rows: NaverArticle[]; failed: string[]; tiles: number; truncated: number; stopped: boolean }> {
+): Promise<{ rows: NaverArticle[]; failed: string[]; tiles: number; truncated: number; stopped: boolean; blocked: boolean }> {
   const cells = new Set<string>()
   const failed: string[] = []
   for (const region of regions) {
@@ -325,9 +336,14 @@ export async function fetchRecentArticles(
     await sleep(REQUEST_GAP_MS)
   }
 
+  // 어디에 매물이 있는지조차 못 받았으면 네이버가 막은 것이다. 훑지 않는다.
+  if (!cells.size) return { rows: [], failed, tiles: 0, truncated: 0, stopped: false, blocked: true }
+
   const tiles = [...cells].map(cellToBox)
   const found = new Map<string, NaverArticle>()
   let stopped = false
+  let blocked = false
+  let 연속실패 = 0
   // 페이지 상한에 걸린 사각형 — 여기서 잘리면 회차마다 잘리는 자리가 달라져
   // 어제 매물이 오늘 처음 보이는 것처럼 나온다. 0 이어야 정상이다.
   let truncated = 0
@@ -349,13 +365,16 @@ export async function fetchRecentArticles(
         lastInfo = res.lastInfo
       }
       if (!done) truncated++
+      연속실패 = 0
     } catch {
       // 사각형 하나가 막혀도 나머지는 훑는다. 다만 못 본 자리가 생겼으므로
       // 이번 회차로는 '사라졌다' 를 판정하지 않는다.
       failed.push(`사각형 ${t + 1}`)
+      // 연달아 막히면 네이버가 이 IP를 쉬게 하는 중이다. 더 두드리면 길어진다.
+      if (++연속실패 >= GIVE_UP_AFTER) { blocked = true; break }
     }
     if (await onTile?.(t + 1, tiles.length)) { stopped = true; break }
   }
 
-  return { rows: [...found.values()], failed, tiles: tiles.length, truncated, stopped }
+  return { rows: [...found.values()], failed, tiles: tiles.length, truncated, stopped, blocked }
 }
