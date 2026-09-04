@@ -149,7 +149,9 @@ export function floorLabel(floor?: string): string | null {
 }
 
 export function m2ToPyeong(m2: number): string {
-  return (m2 * 0.3025).toFixed(1)
+  // `29.0평` 은 어색하다. 소수점 아래가 0이면 떼고 `29평` 으로 적는다.
+  const v = (m2 * 0.3025).toFixed(1)
+  return v.endsWith('.0') ? v.slice(0, -2) : v
 }
 
 /** 관리비 문자열에서 원 단위 금액 추정 (10만원 초과 점검용) */
@@ -291,9 +293,11 @@ export function parseListing(source: string): ParsedListing {
   // 금액이 분명할 때만 금액을 적고, 나머지는 **관리규약에 따라 부과** 로 통일한다.
   // 상가·공장 임대는 관리규약 부과가 기본이라 그렇게 적는 편이 '확인 필요' 보다
   // 정확하다. 사장님이 정한 표기다.
+  // 금액은 만원 단위로 읽기 좋게 적는다. `월 50000원` 은 쉼표도 없고 읽기 나쁘다.
   const maintenanceFee = maintenanceFeeAmount
-    ? `월 ${(maintenanceFeeRaw!.match(/[\d,.]+\s*만\s*원?|[\d,]{4,}\s*원/) ?? [''])[0]
-        .replace(/\s/g, '').replace(/만$/, '만원')}`
+    ? (maintenanceFeeAmount % 10000 === 0
+      ? `월 ${maintenanceFeeAmount / 10000}만원`
+      : `월 ${maintenanceFeeAmount.toLocaleString('ko-KR')}원`)
     : '관리규약에 따라 부과'
 
   // 권리금 — 표의 `권리금  -만원` 은 **미입력**이지 없음이 아니다(절대규칙 2).
@@ -487,6 +491,12 @@ function mainAreaM2(p: ParsedListing): number | undefined {
 function fmtArea(p: ParsedListing): string {
   const ex = p.exclusiveArea ? `전용 ${p.exclusiveArea}㎡ (약 ${m2ToPyeong(p.exclusiveArea)}평)` : null
   const su = p.supplyArea ? `공급 ${p.supplyArea}㎡ (약 ${m2ToPyeong(p.supplyArea)}평)` : null
+  // 전용과 공급이 같으면 한 번만 적는다. 같은 숫자를 두 번 보여 주면 읽는 사람이
+  // 무엇이 다른지 되짚게 된다. (다층 건물에서 같은 것은 이례적이라 점검 보고가 짚는다.)
+  if (ex && su && p.exclusiveArea != null && p.exclusiveArea === p.supplyArea) {
+    const a = p.exclusiveArea
+    return `전용·공급 ${a}㎡ (약 ${m2ToPyeong(a)}평)`
+  }
   if (ex && su) return `${ex} / ${su}`
   if (ex ?? su) return (ex ?? su) as string
   // 둘 다 없으면 연면적으로 적되, **연면적이라고 밝힌다.**
@@ -536,7 +546,12 @@ function features(p: ParsedListing): string[] {
   const out: string[] = []
   if (p.premium === '없음') out.push('무권리')
   if (p.moveIn === '즉시입주') out.push('즉시입주 가능')
-  if (hasParking(p)) out.push('주차 가능')
+  // 대수를 그대로 적는다. 2대짜리를 '주차 가능' 이라고만 하면 넉넉한 줄 안다.
+  // 특장점 줄에 들어가므로 '총 2대' 가 아니라 '주차 2대' 로 쓴다.
+  if (hasParking(p)) {
+    const n = p.parking?.match(/\d+/)?.[0]
+    out.push(n ? `주차 ${n}대` : '주차 가능')
+  }
   if (p.elevator) out.push('엘리베이터')
   if (p.floor === '1') out.push('1층 매물')
   if ((mainAreaM2(p) ?? 0) >= 330) out.push('대형 평수')
