@@ -10,7 +10,11 @@ export interface LoadedEstimate {
   estimate: Estimate
   items: EstimateItem[]
   company: Partial<EstimateCompany> | null
+  /** 직인 서명 URL (버킷이 비공개라 렌더 직전에 만든다). 없으면 null */
+  stampUrl: string | null
 }
+
+const STAMP_BUCKET = 'estimate-stamps'
 
 /**
  * 견적서 + 내역 + 발행 회사 정보를 읽는다.
@@ -34,10 +38,21 @@ export async function loadEstimate(
     company = data ?? null
   }
 
+  // 직인은 비공개 버킷에 있다. PDF 렌더가 실제로 가져갈 수 있도록 짧은 서명 URL을 만든다.
+  // 실패해도 견적서는 나와야 하므로(직인만 빠짐) 조용히 null 처리한다.
+  let stampUrl: string | null = null
+  if (company?.stamp_path) {
+    const { data } = await supabase.storage
+      .from(STAMP_BUCKET)
+      .createSignedUrl(company.stamp_path, 120)
+    stampUrl = data?.signedUrl ?? null
+  }
+
   return {
     estimate: estimate as Estimate,
     items: (items as EstimateItem[]) ?? [],
     company,
+    stampUrl,
   }
 }
 

@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import nodemailer from 'nodemailer'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { EstimateDocument } from '@/lib/estimate-pdf'
 import { loadEstimate, pdfFileName } from '../shared'
 
@@ -33,6 +34,14 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ ok: false, error: '로그인이 필요합니다' }, { status: 401 })
 
+  // 네이버 SMTP를 부르는 라우트다. 폭주하면 계정이 잠길 수 있어 strict(fail-closed)로 막는다.
+  if (!await checkRateLimit(`user:${user.id}:estimate-send`, 20, 3600, true)) {
+    return NextResponse.json(
+      { ok: false, error: '메일 발송이 너무 잦습니다. 잠시 후 다시 시도하세요.' },
+      { status: 429 }
+    )
+  }
+
   const { to, cc, subject, body }: Body = await req.json().catch(() => ({}))
   if (!to?.trim()) {
     return NextResponse.json({ ok: false, error: '받는 사람 주소가 없습니다' }, { status: 400 })
@@ -40,7 +49,7 @@ export async function POST(
 
   const loaded = await loadEstimate(supabase, id)
   if (!loaded) return NextResponse.json({ ok: false, error: '견적서를 찾을 수 없습니다' }, { status: 404 })
-  const { estimate, items, company } = loaded
+  const { estimate, items, company, stampUrl } = loaded
 
   // 메일 설정 (본인 것만 RLS로 걸러져 옴)
   const { data: settings } = await supabase
@@ -57,7 +66,7 @@ export async function POST(
   }
 
   const pdf = await renderToBuffer(
-    <EstimateDocument estimate={estimate} items={items} company={company} />
+    <EstimateDocument estimate={estimate} items={items} company={company} stampUrl={stampUrl} />
   )
 
   const transporter = nodemailer.createTransport({

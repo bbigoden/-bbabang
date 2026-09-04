@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
@@ -54,14 +55,21 @@ export default function EstimatesPage() {
   const load = useCallback(async () => {
     if (!brokerId) return
     setLoading(true)
-    const { data, error } = await supabase
-      .from('estimates')
-      .select('*')
-      .eq('owner_broker_id', brokerId)
-      .order('issue_date', { ascending: false })
-      .order('created_at', { ascending: false })
-    if (error) toast.error('견적서를 불러오지 못했습니다')
-    setRows((data as Estimate[]) ?? [])
+    // PostgREST는 1000행에서 조용히 잘린다 — 하루 1~2건이라도 2년이면 닿는다
+    try {
+      const data = await fetchAllPaged<Estimate>((from, to) =>
+        supabase
+          .from('estimates')
+          .select('*')
+          .eq('owner_broker_id', brokerId)
+          .order('issue_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      )
+      setRows(data)
+    } catch {
+      toast.error('견적서를 불러오지 못했습니다')
+    }
     setLoading(false)
     // toast는 매 렌더 새 객체라 의존성에서 제외 (다른 페이지들과 동일 패턴)
     // eslint-disable-next-line react-hooks/exhaustive-deps

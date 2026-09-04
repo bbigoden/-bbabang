@@ -268,3 +268,24 @@ ALTER FUNCTION estimates_touch_updated_at() SET search_path = public, pg_temp;
 ALTER TABLE estimate_companies
   ADD COLUMN IF NOT EXISTS manager_name TEXT,
   ADD COLUMN IF NOT EXISTS manager_phone TEXT;
+
+-- ── 직인 버킷 비공개 전환 (2026-09-04) ─────────────────────────
+-- 처음엔 PDF 렌더러가 URL로 읽어야 해서 public으로 뒀는데, 그러면 SELECT 정책이
+-- bucket_id만 보게 되어 비로그인 사용자까지 직인 파일을 열거·다운로드할 수 있다.
+-- 직인은 계약서 위조에 쓰일 수 있는 자산이라 잠그고, 서버가 필요할 때만
+-- 짧은 수명의 서명 URL을 만들어 쓴다.
+ALTER TABLE estimate_companies ADD COLUMN IF NOT EXISTS stamp_path TEXT;
+ALTER TABLE estimate_companies DROP COLUMN IF EXISTS stamp_url;
+
+UPDATE storage.buckets SET public = false WHERE id = 'estimate-stamps';
+
+DROP POLICY IF EXISTS "estimate_stamps_read" ON storage.objects;
+CREATE POLICY "estimate_stamps_read" ON storage.objects FOR SELECT
+  USING (
+    bucket_id = 'estimate-stamps'
+    AND EXISTS (
+      SELECT 1 FROM broker_profiles bp
+      WHERE bp.user_id = (SELECT auth.uid())
+        AND bp.id::text = (storage.foldername(name))[1]
+    )
+  );

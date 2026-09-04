@@ -118,9 +118,11 @@ interface Props {
   estimate: Estimate
   items: EstimateItem[]
   company: Partial<EstimateCompany> | null
+  /** 직인 서명 URL. 버킷이 비공개라 서버가 렌더 직전에 만들어 넘긴다 */
+  stampUrl?: string | null
 }
 
-export function EstimateDocument({ estimate: e, items, company }: Props) {
+export function EstimateDocument({ estimate: e, items, company, stampUrl }: Props) {
   const rows = items.filter(it => it.is_header || it.name || it.amount)
 
   return (
@@ -176,10 +178,10 @@ export function EstimateDocument({ estimate: e, items, company }: Props) {
                   </Text>
                 </View>
               ) : null}
-              {company?.stamp_url ? (
+              {stampUrl ? (
                 <View style={s.stampWrap}>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                  <Image src={company.stamp_url} style={s.stamp} />
+                  <Image src={stampUrl} style={s.stamp} />
                 </View>
               ) : null}
             </View>

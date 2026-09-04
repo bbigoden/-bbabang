@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useToast } from '@/components/toast'
 import { Plus, Trash2, X, Users, Search } from 'lucide-react'
 import { calcStats, fmtComma, type EstimateClient, type Estimate } from '@/lib/estimate'
@@ -31,12 +32,16 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
   const load = useCallback(async () => {
     const [cl, es] = await Promise.all([
       supabase.from('estimate_clients').select('*').eq('owner_broker_id', brokerId).order('name'),
-      supabase.from('estimates').select('client_id,status,total').eq('owner_broker_id', brokerId),
+      // 이력 집계는 전건이 필요하다 (1000행 무음 절단 회피)
+      fetchAllPaged<ClientHistory & { client_id: string | null }>((from, to) =>
+        supabase.from('estimates').select('client_id,status,total')
+          .eq('owner_broker_id', brokerId).order('id', { ascending: true }).range(from, to)
+      ),
     ])
     setRows((cl.data as EstimateClient[]) ?? [])
 
     const map: Record<string, ClientHistory[]> = {}
-    for (const e of (es.data ?? []) as (ClientHistory & { client_id: string | null })[]) {
+    for (const e of es) {
       if (!e.client_id) continue
       ;(map[e.client_id] ??= []).push({ status: e.status, total: e.total })
     }

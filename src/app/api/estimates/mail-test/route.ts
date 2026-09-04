@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,6 +16,10 @@ export async function POST() {
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ ok: false, error: '로그인이 필요합니다' }, { status: 401 })
+
+  if (!await checkRateLimit(`user:${user.id}:estimate-mail-test`, 5, 600, true)) {
+    return NextResponse.json({ ok: false, error: '테스트 발송이 너무 잦습니다. 잠시 후 다시 시도하세요.' }, { status: 429 })
+  }
 
   // RLS가 본인 행만 돌려준다
   const { data: settings } = await supabase

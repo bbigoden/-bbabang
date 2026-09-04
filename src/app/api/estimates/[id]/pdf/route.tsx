@@ -28,9 +28,9 @@ export async function GET(
   const loaded = await loadEstimate(supabase, id)
   if (!loaded) return NextResponse.json({ error: '견적서를 찾을 수 없습니다' }, { status: 404 })
 
-  const { estimate, items, company } = loaded
+  const { estimate, items, company, stampUrl } = loaded
   const buffer = await renderToBuffer(
-    <EstimateDocument estimate={estimate} items={items} company={company} />
+    <EstimateDocument estimate={estimate} items={items} company={company} stampUrl={stampUrl} />
   )
 
   const inline = new URL(req.url).searchParams.get('inline') === '1'

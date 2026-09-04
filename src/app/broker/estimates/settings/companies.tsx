@@ -12,6 +12,9 @@ import type { EstimateCompany } from '@/lib/estimate'
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'
 
+const STAMP_BUCKET = 'estimate-stamps'
+const STAMP_TTL = 60 * 60   // 미리보기용 서명 URL 수명(초)
+
 export function CompaniesTab({ brokerId }: { brokerId: string }) {
   const toast = useToast()
   const supabase = useMemo(() => createClient(), [])
@@ -19,13 +22,35 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Partial<EstimateCompany> | null>(null)
   const [saving, setSaving] = useState(false)
+  // 직인 버킷은 비공개라 미리보기도 서명 URL이 필요하다 (stamp_path → URL)
+  const [stampUrls, setStampUrls] = useState<Record<string, string>>({})
+  const [editingStamp, setEditingStamp] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const signStamp = useCallback(async (path: string) => {
+    const { data } = await supabase.storage.from(STAMP_BUCKET).createSignedUrl(path, STAMP_TTL)
+    return data?.signedUrl ?? null
+  }, [supabase])
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('estimate_companies')
       .select('*').eq('owner_broker_id', brokerId)
       .order('is_default', { ascending: false }).order('sort_order')
-    setRows((data as EstimateCompany[]) ?? [])
+    const list = (data as EstimateCompany[]) ?? []
+    setRows(list)
+
+    const paths = list.filter(c => c.stamp_path).map(c => c.stamp_path as string)
+    if (paths.length) {
+      const { data: signed } = await supabase.storage.from(STAMP_BUCKET).createSignedUrls(paths, STAMP_TTL)
+      const map: Record<string, string> = {}
+      for (const c of list) {
+        const hit = signed?.find(x => x.path === c.stamp_path)
+        if (hit?.signedUrl) map[c.id] = hit.signedUrl
+      }
+      setStampUrls(map)
+    } else {
+      setStampUrls({})
+    }
     setLoading(false)
   }, [brokerId, supabase])
 
@@ -64,10 +89,10 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
     if (file.size > 2 * 1024 * 1024) { toast.error('2MB 이하 이미지를 사용하세요'); return }
     const ext = file.name.split('.').pop() || 'png'
     const path = `${brokerId}/stamp-${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('estimate-stamps').upload(path, file, { contentType: file.type })
+    const { error } = await supabase.storage.from(STAMP_BUCKET).upload(path, file, { contentType: file.type })
     if (error) { toast.error('직인을 올리지 못했습니다'); return }
-    const { data: { publicUrl } } = supabase.storage.from('estimate-stamps').getPublicUrl(path)
-    setEditing(prev => ({ ...prev, stamp_url: publicUrl }))
+    setEditing(prev => ({ ...prev, stamp_path: path }))
+    setEditingStamp(await signStamp(path))
     toast.success('직인을 등록했습니다')
   }
 
@@ -79,7 +104,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
         <p className="text-sm text-gray-500">
           견적서에 찍힐 발행 명의입니다. 회사가 여러 곳이면 모두 등록해두고 견적마다 골라 쓰세요.
         </p>
-        <button onClick={() => setEditing({ is_default: rows.length === 0, sort_order: rows.length })}
+        <button onClick={() => { setEditing({ is_default: rows.length === 0, sort_order: rows.length }); setEditingStamp(null) }}
           className="flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700">
           <Plus className="h-4 w-4" />회사 추가
         </button>
@@ -106,7 +131,8 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                       <Star className="h-4 w-4" />
                     </button>
                   )}
-                  <button onClick={() => setEditing(c)} className="rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10">
+                  <button onClick={() => { setEditing(c); setEditingStamp(stampUrls[c.id] ?? null) }}
+                    className="rounded-lg px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10">
                     수정
                   </button>
                   <button onClick={() => remove(c)} title="삭제" aria-label="회사 삭제"
@@ -122,9 +148,11 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                 <Line k="연락처" v={c.phone} />
                 <Line k="담당자" v={[c.manager_name, c.manager_phone].filter(Boolean).join(' ') || null} />
               </dl>
-              {c.stamp_url && (
+              {c.stamp_path && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
-                  <Image src={c.stamp_url} alt="직인" width={32} height={32} className="rounded border border-gray-100 object-contain dark:border-gray-800" unoptimized />
+                  {stampUrls[c.id] && (
+                    <Image src={stampUrls[c.id]} alt="직인" width={32} height={32} className="rounded border border-gray-100 object-contain dark:border-gray-800" unoptimized />
+                  )}
                   직인 등록됨
                 </div>
               )}
@@ -170,8 +198,8 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
               <div className="sm:col-span-2">
                 <span className={LABEL}>직인 이미지</span>
                 <div className="flex items-center gap-3">
-                  {editing.stamp_url ? (
-                    <Image src={editing.stamp_url} alt="직인 미리보기" width={56} height={56}
+                  {editing.stamp_path && editingStamp ? (
+                    <Image src={editingStamp} alt="직인 미리보기" width={56} height={56}
                       className="rounded-lg border border-gray-200 object-contain dark:border-gray-800" unoptimized />
                   ) : (
                     <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-gray-200 text-xs text-gray-400 dark:border-gray-800">없음</div>
@@ -182,8 +210,9 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                     className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                     <Upload className="h-4 w-4" />이미지 올리기
                   </button>
-                  {editing.stamp_url && (
-                    <button onClick={() => setEditing(p => ({ ...p, stamp_url: null }))} className="text-xs text-gray-400 hover:text-red-600">
+                  {editing.stamp_path && (
+                    <button onClick={() => { setEditing(p => ({ ...p, stamp_path: null })); setEditingStamp(null) }}
+                      className="text-xs text-gray-400 hover:text-red-600">
                       제거
                     </button>
                   )}

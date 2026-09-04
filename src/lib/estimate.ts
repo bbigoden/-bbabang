@@ -36,7 +36,8 @@ export interface EstimateCompany {
   manager_name: string | null
   manager_phone: string | null
   bank_account: string | null
-  stamp_url: string | null
+  /** 직인 이미지의 버킷 내 경로. 버킷이 비공개라 URL이 아니라 경로를 보관한다 */
+  stamp_path: string | null
   default_notes: string | null
   is_default: boolean
   sort_order: number
