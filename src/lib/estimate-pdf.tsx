@@ -168,6 +168,14 @@ export function EstimateDocument({ estimate: e, items, company }: Props) {
               {company?.email ? (
                 <View style={s.kv}><Text style={s.k}>이메일</Text><Text style={s.v}>{company.email}</Text></View>
               ) : null}
+              {company?.manager_name || company?.manager_phone ? (
+                <View style={s.kv}>
+                  <Text style={s.k}>담당자</Text>
+                  <Text style={[s.v, { fontWeight: 'bold' }]}>
+                    {[company.manager_name, company.manager_phone].filter(Boolean).join('  ')}
+                  </Text>
+                </View>
+              ) : null}
               {company?.stamp_url ? (
                 <View style={s.stampWrap}>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}

@@ -8,7 +8,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcTotals, koreanAmount, numberToKorean, lineAmount, validUntil,
-  fillTemplate, DEFAULT_PRESETS, type EstimateItem,
+  fillTemplate, isExpired, calcStats, DEFAULT_PRESETS,
+  type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 
 const item = (amount: number, is_header = false): EstimateItem => ({
@@ -69,6 +70,47 @@ describe('유효기간·템플릿', () => {
 
   it('본문 변수를 치환하고, 값이 없는 변수는 그대로 둔다', () => {
     expect(fillTemplate('{거래처명} {없는값}', { 거래처명: '○○상사' })).toBe('○○상사 {없는값}')
+  })
+})
+
+describe('유효기간 만료 판정', () => {
+  const today = new Date('2026-10-10T09:00:00+09:00')
+  const base = { issue_date: '2026-09-04', valid_days: 30 }  // 만료일 2026-10-04
+
+  it('만료일이 지나면 만료다', () => {
+    expect(isExpired({ ...base, status: 'sent' }, today)).toBe(true)
+  })
+
+  it('만료일 당일은 아직 유효하다', () => {
+    expect(isExpired({ ...base, status: 'sent' }, new Date('2026-10-04T23:00:00+09:00'))).toBe(false)
+  })
+
+  it('수주·실주로 결론난 건은 만료를 따지지 않는다', () => {
+    expect(isExpired({ ...base, status: 'won' }, today)).toBe(false)
+    expect(isExpired({ ...base, status: 'lost' }, today)).toBe(false)
+  })
+})
+
+describe('실적 집계', () => {
+  const row = (status: EstimateStatus, total: number) => ({ status, total })
+
+  it('수주율은 결론난 건(수주+실주)만으로 낸다', () => {
+    const s = calcStats([
+      row('won', 1_000), row('won', 2_000),
+      row('lost', 5_000),
+      row('draft', 9_000), row('sent', 9_000),   // 진행중은 수주율에서 빠짐
+    ])
+    expect(s.count).toBe(5)
+    expect(s.amount).toBe(26_000)
+    expect(s.wonCount).toBe(2)
+    expect(s.wonAmount).toBe(3_000)
+    expect(s.openCount).toBe(2)
+    expect(s.winRate).toBeCloseTo(2 / 3)
+  })
+
+  it('결론난 건이 없으면 수주율은 null이다 (0%로 표시하면 오해)', () => {
+    expect(calcStats([row('draft', 1_000)]).winRate).toBeNull()
+    expect(calcStats([]).winRate).toBeNull()
   })
 })
 

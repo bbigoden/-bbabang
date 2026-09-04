@@ -33,6 +33,8 @@ export interface EstimateCompany {
   phone: string | null
   fax: string | null
   email: string | null
+  manager_name: string | null
+  manager_phone: string | null
   bank_account: string | null
   stamp_url: string | null
   default_notes: string | null
@@ -125,6 +127,47 @@ export function validUntil(issueDate: string, days: number): string {
   if (isNaN(d.getTime())) return ''
   d.setDate(d.getDate() + (Number(days) || 0))
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * 유효기간이 지났는지. 오늘이 만료일을 넘긴 경우만 true.
+ * 이미 수주·실주로 결론난 건은 만료를 따지지 않는다.
+ */
+export function isExpired(e: Pick<Estimate, 'issue_date' | 'valid_days' | 'status'>, today = new Date()): boolean {
+  if (e.status === 'won' || e.status === 'lost') return false
+  const until = validUntil(e.issue_date, e.valid_days)
+  if (!until) return false
+  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  return ymd > until
+}
+
+// ── 실적 집계 ───────────────────────────────────────────────────
+
+export interface EstimateStats {
+  count: number          // 견적 건수
+  amount: number         // 견적 총액
+  wonCount: number       // 수주 건수
+  wonAmount: number      // 수주 금액
+  lostCount: number
+  openCount: number      // 아직 결론 안 난 건 (작성중 + 발송함)
+  /** 수주율 = 수주 / (수주 + 실주). 결론난 건이 없으면 null */
+  winRate: number | null
+}
+
+export function calcStats(rows: Pick<Estimate, 'status' | 'total'>[]): EstimateStats {
+  const s: EstimateStats = {
+    count: rows.length, amount: 0, wonCount: 0, wonAmount: 0,
+    lostCount: 0, openCount: 0, winRate: null,
+  }
+  for (const r of rows) {
+    s.amount += r.total || 0
+    if (r.status === 'won') { s.wonCount++; s.wonAmount += r.total || 0 }
+    else if (r.status === 'lost') s.lostCount++
+    else s.openCount++
+  }
+  const decided = s.wonCount + s.lostCount
+  s.winRate = decided > 0 ? s.wonCount / decided : null
+  return s
 }
 
 // ── 금액 한글 표기 ("일금 오천오백만원정") ──────────────────────

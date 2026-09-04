@@ -262,3 +262,9 @@ CREATE POLICY "estimate_sends_all" ON estimate_sends FOR ALL
 ALTER FUNCTION is_my_broker(UUID) SET search_path = public, pg_temp;
 ALTER FUNCTION next_estimate_no(UUID) SET search_path = public, pg_temp;
 ALTER FUNCTION estimates_touch_updated_at() SET search_path = public, pg_temp;
+
+-- ── 공급자 담당자 (2026-09-04 추가) ────────────────────────────
+-- 대표자와 별개로, 실제 현장을 맡는 사람을 견적서에 찍는다.
+ALTER TABLE estimate_companies
+  ADD COLUMN IF NOT EXISTS manager_name TEXT,
+  ADD COLUMN IF NOT EXISTS manager_phone TEXT;

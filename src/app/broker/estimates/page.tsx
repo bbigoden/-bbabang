@@ -10,8 +10,24 @@ import { useToast } from '@/components/toast'
 import { Card, CardBody } from '@/components/ui/card'
 import {
   ArrowLeft, Plus, Settings, Search, Copy, Trash2, FileText, Send,
+  TrendingUp, Trophy, Clock, CalendarClock,
 } from 'lucide-react'
-import { fmtComma, STATUS_LABEL, type Estimate, type EstimateStatus } from '@/lib/estimate'
+import {
+  calcStats, fmtComma, isExpired, STATUS_LABEL,
+  type Estimate, type EstimateStatus,
+} from '@/lib/estimate'
+
+type Period = 'month' | 'year' | 'all'
+
+const PERIOD_LABEL: Record<Period, string> = { month: '이번 달', year: '올해', all: '전체' }
+
+/** 기간 시작일(YYYY-MM-DD). all이면 null */
+function periodStart(p: Period, today = new Date()): string | null {
+  if (p === 'all') return null
+  const y = today.getFullYear()
+  if (p === 'year') return `${y}-01-01`
+  return `${y}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+}
 
 const STATUS_STYLE: Record<EstimateStatus, string> = {
   draft: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
@@ -31,6 +47,7 @@ export default function EstimatesPage() {
   const [creating, setCreating] = useState(false)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<'all' | EstimateStatus>('all')
+  const [period, setPeriod] = useState<Period>('month')
 
   const brokerId = broker?.id ?? null
 
@@ -130,15 +147,23 @@ export default function EstimatesPage() {
     toast.success('삭제했습니다')
   }
 
+  // 요약은 기간만 반영한다 (검색어·상태 필터와 무관하게 그 기간의 전체 실적)
+  const inPeriod = useMemo(() => {
+    const from = periodStart(period)
+    return from ? rows.filter(r => r.issue_date >= from) : rows
+  }, [rows, period])
+
+  const stats = useMemo(() => calcStats(inPeriod), [inPeriod])
+
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase()
-    return rows.filter(r => {
+    return inPeriod.filter(r => {
       if (status !== 'all' && r.status !== status) return false
       if (!kw) return true
       return [r.estimate_no, r.client_name, r.project_name, r.site_address]
         .some(v => (v ?? '').toLowerCase().includes(kw))
     })
-  }, [rows, q, status])
+  }, [inPeriod, q, status])
 
   const sumTotal = useMemo(() => filtered.reduce((s, r) => s + (r.total || 0), 0), [filtered])
 
@@ -189,6 +214,37 @@ export default function EstimatesPage() {
         <p className="mb-4 ml-11 text-xs text-gray-500 dark:text-gray-500">
           공사·인테리어 견적서를 만들고 PDF로 메일 발송합니다. 임대 고객목록과는 별개로 관리됩니다.
         </p>
+
+        {/* 기간별 실적 요약 */}
+        <div className="mb-4">
+          <div className="mb-2 flex items-center gap-1">
+            {(Object.keys(PERIOD_LABEL) as Period[]).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-bold transition-colors ${
+                  period === p
+                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                }`}
+              >
+                {PERIOD_LABEL[p]}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <StatCard icon={TrendingUp} label="견적" main={`${stats.count}건`}
+              sub={`${fmtComma(stats.amount)}원`} />
+            <StatCard icon={Trophy} label="수주" main={`${stats.wonCount}건`}
+              sub={`${fmtComma(stats.wonAmount)}원`} tone="emerald" />
+            <StatCard icon={Trophy} label="수주율"
+              main={stats.winRate == null ? '—' : `${Math.round(stats.winRate * 100)}%`}
+              sub={stats.winRate == null ? '결론난 건 없음' : `수주 ${stats.wonCount} / 실주 ${stats.lostCount}`} />
+            <StatCard icon={Clock} label="진행중" main={`${stats.openCount}건`}
+              sub="작성중 + 발송함" tone="blue" />
+          </div>
+        </div>
 
         {/* 검색 + 상태 필터 */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -257,10 +313,22 @@ export default function EstimatesPage() {
                   <tr
                     key={r.id}
                     onClick={() => router.push(`/broker/estimates/${r.id}`)}
-                    className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/40"
+                    className={`cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/40 ${
+                      isExpired(r) ? 'opacity-60' : ''
+                    }`}
                   >
                     <td className="px-3 py-3 font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">{r.estimate_no}</td>
-                    <td className="px-3 py-3 text-gray-500">{r.issue_date}</td>
+                    <td className="px-3 py-3 text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        {r.issue_date}
+                        {isExpired(r) && (
+                          <span title="유효기간이 지났습니다"
+                            className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                            <CalendarClock className="h-3 w-3" />만료
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">{r.client_name || '—'}</td>
                     <td className="max-w-[16rem] truncate px-3 py-3 text-gray-600 dark:text-gray-400">{r.project_name || '—'}</td>
                     <td className="px-3 py-3 text-right font-bold text-gray-900 dark:text-white">{fmtComma(r.total)}</td>
@@ -297,6 +365,30 @@ export default function EstimatesPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function StatCard({ icon: Icon, label, main, sub, tone }: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  main: string
+  sub: string
+  tone?: 'emerald' | 'blue'
+}) {
+  const mainCls = tone === 'emerald'
+    ? 'text-emerald-700 dark:text-emerald-300'
+    : tone === 'blue'
+    ? 'text-blue-700 dark:text-blue-300'
+    : 'text-gray-900 dark:text-white'
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-3.5 dark:border-gray-800 dark:bg-gray-900">
+      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gray-400">
+        <Icon className="h-3.5 w-3.5" />{label}
+      </div>
+      <p className={`text-xl font-black ${mainCls}`}>{main}</p>
+      <p className="mt-0.5 truncate text-xs text-gray-500">{sub}</p>
     </div>
   )
 }

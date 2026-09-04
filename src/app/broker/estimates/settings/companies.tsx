@@ -120,6 +120,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                 <Line k="대표자" v={c.ceo} />
                 <Line k="소재지" v={c.address} />
                 <Line k="연락처" v={c.phone} />
+                <Line k="담당자" v={[c.manager_name, c.manager_phone].filter(Boolean).join(' ') || null} />
               </dl>
               {c.stamp_url && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
@@ -158,6 +159,9 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
               <Field label="종목" value={editing.biz_item} onChange={v => setEditing(p => ({ ...p, biz_item: v }))} placeholder="실내건축공사" />
               <Field label="팩스" value={editing.fax} onChange={v => setEditing(p => ({ ...p, fax: v }))} />
               <Field label="이메일" value={editing.email} onChange={v => setEditing(p => ({ ...p, email: v }))} />
+              <Field label="담당자" value={editing.manager_name} onChange={v => setEditing(p => ({ ...p, manager_name: v }))}
+                placeholder="현장 담당자 (대표자와 다를 때)" />
+              <Field label="담당자 연락처" value={editing.manager_phone} onChange={v => setEditing(p => ({ ...p, manager_phone: v }))} />
               <div className="sm:col-span-2">
                 <Field label="입금계좌" value={editing.bank_account} onChange={v => setEditing(p => ({ ...p, bank_account: v }))}
                   placeholder="국민 000000-00-000000 (예금주)" />

@@ -10,7 +10,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/toast'
 import { Plus, Trash2, X, Users, Search } from 'lucide-react'
-import type { EstimateClient } from '@/lib/estimate'
+import { calcStats, fmtComma, type EstimateClient, type Estimate } from '@/lib/estimate'
+
+type ClientHistory = Pick<Estimate, 'status' | 'total'>
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'
@@ -23,11 +25,22 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
   const [q, setQ] = useState('')
   const [editing, setEditing] = useState<Partial<EstimateClient> | null>(null)
   const [saving, setSaving] = useState(false)
+  // 거래처별 견적 이력 (client_id → 그 거래처로 나간 견적들)
+  const [history, setHistory] = useState<Record<string, ClientHistory[]>>({})
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('estimate_clients')
-      .select('*').eq('owner_broker_id', brokerId).order('name')
-    setRows((data as EstimateClient[]) ?? [])
+    const [cl, es] = await Promise.all([
+      supabase.from('estimate_clients').select('*').eq('owner_broker_id', brokerId).order('name'),
+      supabase.from('estimates').select('client_id,status,total').eq('owner_broker_id', brokerId),
+    ])
+    setRows((cl.data as EstimateClient[]) ?? [])
+
+    const map: Record<string, ClientHistory[]> = {}
+    for (const e of (es.data ?? []) as (ClientHistory & { client_id: string | null })[]) {
+      if (!e.client_id) continue
+      ;(map[e.client_id] ??= []).push({ status: e.status, total: e.total })
+    }
+    setHistory(map)
     setLoading(false)
   }, [brokerId, supabase])
 
@@ -103,6 +116,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
                 <th className="px-3 py-2.5 text-left font-semibold">연락처</th>
                 <th className="px-3 py-2.5 text-left font-semibold">이메일</th>
                 <th className="px-3 py-2.5 text-left font-semibold">현장 주소</th>
+                <th className="px-3 py-2.5 text-right font-semibold">견적 이력</th>
                 <th className="px-3 py-2.5 text-center font-semibold">관리</th>
               </tr>
             </thead>
@@ -114,7 +128,8 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
                   <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{c.contact_name || '—'}</td>
                   <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{c.phone || '—'}</td>
                   <td className="px-3 py-3 text-gray-600 dark:text-gray-400">{c.email || '—'}</td>
-                  <td className="max-w-[14rem] truncate px-3 py-3 text-gray-500">{c.address || '—'}</td>
+                  <td className="max-w-[12rem] truncate px-3 py-3 text-gray-500">{c.address || '—'}</td>
+                  <td className="px-3 py-3 text-right"><HistoryCell rows={history[c.id]} /></td>
                   <td className="px-3 py-3 text-center">
                     <button onClick={e => { e.stopPropagation(); remove(c) }} title="삭제" aria-label="거래처 삭제"
                       className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10">
@@ -169,6 +184,13 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
               </div>
             </div>
 
+            {editing.id && history[editing.id]?.length ? (
+              <div className="mt-4 rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-950/50">
+                <p className="mb-1 text-xs font-semibold text-gray-500">이 거래처 견적 이력</p>
+                <HistoryDetail rows={history[editing.id]} />
+              </div>
+            ) : null}
+
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setEditing(null)}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
@@ -182,6 +204,42 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** 목록용 한 줄 요약: "3건 · 수주 1" */
+function HistoryCell({ rows }: { rows?: ClientHistory[] }) {
+  if (!rows?.length) return <span className="text-gray-300 dark:text-gray-700">—</span>
+  const s = calcStats(rows)
+  return (
+    <span className="whitespace-nowrap text-xs">
+      <span className="font-semibold text-gray-700 dark:text-gray-300">{s.count}건</span>
+      {s.wonCount > 0 && (
+        <span className="ml-1.5 text-emerald-600 dark:text-emerald-400">수주 {s.wonCount}</span>
+      )}
+    </span>
+  )
+}
+
+/** 모달용 상세: 건수·총액·수주액·수주율 */
+function HistoryDetail({ rows }: { rows: ClientHistory[] }) {
+  const s = calcStats(rows)
+  return (
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+      <Stat k="견적" v={`${s.count}건`} />
+      <Stat k="견적 총액" v={`${fmtComma(s.amount)}원`} />
+      <Stat k="수주" v={`${s.wonCount}건 · ${fmtComma(s.wonAmount)}원`} />
+      <Stat k="수주율" v={s.winRate == null ? '—' : `${Math.round(s.winRate * 100)}%`} />
+    </dl>
+  )
+}
+
+function Stat({ k, v }: { k: string; v: string }) {
+  return (
+    <div>
+      <dt className="text-gray-400">{k}</dt>
+      <dd className="font-semibold text-gray-800 dark:text-gray-200">{v}</dd>
     </div>
   )
 }
