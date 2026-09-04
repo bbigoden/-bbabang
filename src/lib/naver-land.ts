@@ -32,11 +32,15 @@ const REQUEST_GAP_MS = 1_200
 /**
  * 사각형 하나당 최대 페이지.
  *
- * 넉넉해야 한다. 여기서 잘리면 회차마다 잘리는 지점이 달라져(같은 날짜 안의
- * 순서는 seed 로 섞인다) 같은 매물이 며칠 뒤 다시 "처음 보는 것" 으로 뜬다.
- * 대부분의 사각형은 한두 장이면 날짜 기준에 걸려 알아서 멈춘다.
+ * **넉넉해야 한다.** 여기서 잘리면 회차마다 잘리는 자리가 달라져(같은 날짜 안의
+ * 순서를 네이버가 섞는다) 어제 매물이 오늘 처음 보이는 것처럼 나온다. 10으로
+ * 뒀더니 밀집한 사각형 6개가 상한에 걸려 매 회차 수백 건이 '처음 보는 매물' 로
+ * 셌다. 40으로 올리니 0개가 됐다 — 받는 매물은 3,831 → 4,478건, 시간은 45초 더.
+ *
+ * 대부분의 사각형은 한두 장이면 날짜 기준에 걸려 알아서 멈춘다. 상한에 걸린
+ * 사각형 수는 수집 결과의 `truncated` 로 나오니, 0이 아니면 여기를 올린다.
  */
-const MAX_PAGES = 10
+const MAX_PAGES = 40
 
 /**
  * 훑을 사각형의 크기(도).
@@ -292,7 +296,7 @@ export async function fetchRecentArticles(
   regions: readonly (typeof REGIONS)[number][],
   since: string,
   { onTile }: { onTile?: (done: number, total: number) => boolean | Promise<boolean> } = {},
-): Promise<{ rows: NaverArticle[]; failed: string[]; tiles: number; stopped: boolean }> {
+): Promise<{ rows: NaverArticle[]; failed: string[]; tiles: number; truncated: number; stopped: boolean }> {
   const cells = new Set<string>()
   const failed: string[] = []
   for (const region of regions) {
@@ -308,10 +312,14 @@ export async function fetchRecentArticles(
   const tiles = [...cells].map(cellToBox)
   const found = new Map<string, NaverArticle>()
   let stopped = false
+  // 페이지 상한에 걸린 사각형 — 여기서 잘리면 회차마다 잘리는 자리가 달라져
+  // 어제 매물이 오늘 처음 보이는 것처럼 나온다. 0 이어야 정상이다.
+  let truncated = 0
 
   for (let t = 0; t < tiles.length; t++) {
     try {
       let lastInfo: unknown[] = []
+      let done = false
       for (let page = 0; page < MAX_PAGES; page++) {
         await sleep(REQUEST_GAP_MS)
         const res = await fetchPage(tiles[t], lastInfo)
@@ -321,9 +329,10 @@ export async function fetchRecentArticles(
           if (regions.some(g => r.division?.startsWith(g.divisionPrefix))) found.set(r.article_no, r)
         }
         const oldest = batch.at(-1)?.exposure_start_date
-        if (!res.hasNextPage || (oldest && oldest < since)) break
+        if (!res.hasNextPage || (oldest && oldest < since)) { done = true; break }
         lastInfo = res.lastInfo
       }
+      if (!done) truncated++
     } catch {
       // 사각형 하나가 막혀도 나머지는 훑는다. 다만 못 본 자리가 생겼으므로
       // 이번 회차로는 '사라졌다' 를 판정하지 않는다.
@@ -332,5 +341,5 @@ export async function fetchRecentArticles(
     if (await onTile?.(t + 1, tiles.length)) { stopped = true; break }
   }
 
-  return { rows: [...found.values()], failed, tiles: tiles.length, stopped }
+  return { rows: [...found.values()], failed, tiles: tiles.length, truncated, stopped }
 }
