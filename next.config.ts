@@ -79,11 +79,27 @@ const nextConfig: NextConfig = {
     ]
   },
   // 16단계 보안 헤더 (CSP·HSTS·XFO 등)
+  // 견적서 PDF는 서버(@react-pdf/renderer)에서 한글 폰트를 파일로 읽어 렌더한다.
+  // public/fonts 는 서버 함수 번들에 자동 포함되지 않으므로 명시적으로 챙긴다.
+  outputFileTracingIncludes: {
+    '/api/estimates/**': ['./public/fonts/**'],
+  },
   async headers() {
     return [
       {
         source: '/:path*',
         headers: SECURITY_HEADERS,
+      },
+      {
+        // 견적서 PDF는 작성 화면에서 same-origin iframe으로 미리보기한다.
+        // 전역 X-Frame-Options: DENY / frame-ancestors 'none' 은 자기 사이트도 막으므로
+        // 이 경로에 한해 SAMEORIGIN 으로 완화한다 (뒤에 오는 규칙이 앞을 덮어씀).
+        source: '/api/estimates/:path*',
+        headers: [
+          ...SECURITY_HEADERS.filter(h => h.key !== 'X-Frame-Options' && h.key !== 'Content-Security-Policy'),
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy', value: CSP.replace(`frame-ancestors 'none'`, `frame-ancestors 'self'`) },
+        ],
       },
     ]
   },

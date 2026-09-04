@@ -1,0 +1,279 @@
+/**
+ * 견적서 (건설·인테리어) 공용 타입·계산·프리셋.
+ *
+ * 화면(작성/미리보기)과 서버(PDF·메일)가 같은 계산을 써야 하므로
+ * 합계 로직은 전부 여기 모아둔다.
+ */
+
+export type VatMode = 'add' | 'none'
+export type EstimateStatus = 'draft' | 'sent' | 'won' | 'lost'
+
+export interface EstimateItem {
+  id?: string
+  sort_order: number
+  is_header: boolean
+  category: string | null
+  name: string | null
+  spec: string | null
+  unit: string | null
+  qty: number
+  unit_price: number
+  amount: number
+  remark: string | null
+}
+
+export interface EstimateCompany {
+  id: string
+  name: string
+  biz_no: string | null
+  ceo: string | null
+  address: string | null
+  biz_type: string | null
+  biz_item: string | null
+  phone: string | null
+  fax: string | null
+  email: string | null
+  bank_account: string | null
+  stamp_url: string | null
+  default_notes: string | null
+  is_default: boolean
+  sort_order: number
+}
+
+export interface EstimateClient {
+  id: string
+  name: string
+  contact_name: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  memo: string | null
+}
+
+export interface Estimate {
+  id: string
+  owner_broker_id?: string
+  company_id: string | null
+  client_id: string | null
+  estimate_no: string
+  issue_date: string
+  company_snapshot: Partial<EstimateCompany> | null
+  client_name: string | null
+  client_contact: string | null
+  client_phone: string | null
+  client_email: string | null
+  site_address: string | null
+  project_name: string | null
+  period: string | null
+  valid_days: number
+  payment_terms: string | null
+  notes: string | null
+  overhead_rate: number
+  discount: number
+  vat_mode: VatMode
+  subtotal: number
+  overhead_amount: number
+  supply_amount: number
+  vat: number
+  total: number
+  status: EstimateStatus
+  sent_at: string | null
+  created_at?: string
+}
+
+export const STATUS_LABEL: Record<EstimateStatus, string> = {
+  draft: '작성중',
+  sent: '발송함',
+  won: '수주',
+  lost: '실주',
+}
+
+// ── 계산 ────────────────────────────────────────────────────────
+// 소계 → 경비 → 할인 → 공급가액 → 부가세 → 합계
+// 금액은 전부 원 단위 정수. 줄 금액은 수량×단가를 반올림.
+
+export function lineAmount(qty: number, unitPrice: number): number {
+  return Math.round((Number(qty) || 0) * (Number(unitPrice) || 0))
+}
+
+export interface EstimateTotals {
+  subtotal: number
+  overhead_amount: number
+  supply_amount: number
+  vat: number
+  total: number
+}
+
+export function calcTotals(
+  items: Pick<EstimateItem, 'is_header' | 'amount'>[],
+  opts: { overhead_rate?: number; discount?: number; vat_mode?: VatMode }
+): EstimateTotals {
+  const subtotal = items.reduce((s, it) => (it.is_header ? s : s + (Number(it.amount) || 0)), 0)
+  const overhead_amount = Math.round(subtotal * (Number(opts.overhead_rate) || 0))
+  const discount = Number(opts.discount) || 0
+  const supply_amount = subtotal + overhead_amount - discount
+  const vat = opts.vat_mode === 'none' ? 0 : Math.round(supply_amount * 0.1)
+  return { subtotal, overhead_amount, supply_amount, vat, total: supply_amount + vat }
+}
+
+export const fmtComma = (n: number | null | undefined): string =>
+  (Number(n) || 0).toLocaleString('ko-KR')
+
+/** 유효기간 만료일 = 발행일 + valid_days */
+export function validUntil(issueDate: string, days: number): string {
+  const d = new Date(issueDate)
+  if (isNaN(d.getTime())) return ''
+  d.setDate(d.getDate() + (Number(days) || 0))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// ── 금액 한글 표기 ("일금 오천오백만원정") ──────────────────────
+const DIGITS = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구']
+const SMALL_UNITS = ['', '십', '백', '천']
+const BIG_UNITS = ['', '만', '억', '조', '경']
+
+/** 55000000 → "오천오백만" */
+export function numberToKorean(value: number): string {
+  const n = Math.floor(Math.abs(Number(value) || 0))
+  if (n === 0) return '영'
+
+  const groups: string[] = []
+  let rest = n
+  let gi = 0
+
+  while (rest > 0 && gi < BIG_UNITS.length) {
+    const chunk = rest % 10000
+    rest = Math.floor(rest / 10000)
+
+    if (chunk > 0) {
+      let s = ''
+      for (let i = 3; i >= 0; i--) {
+        const d = Math.floor(chunk / Math.pow(10, i)) % 10
+        if (d === 0) continue
+        // 계약서·수표 관례대로 '일'을 생략하지 않는다 (십만원정 X → 일십만원정 O)
+        s += DIGITS[d] + SMALL_UNITS[i]
+      }
+      groups.unshift(s + BIG_UNITS[gi])
+    }
+    gi++
+  }
+
+  return groups.join('')
+}
+
+/** 55000000 → "일금 오천오백만원정" */
+export const koreanAmount = (value: number): string =>
+  `일금 ${numberToKorean(value)}원정`
+
+// ── 공사 프리셋 ────────────────────────────────────────────────
+// 처음 들어올 때 자동으로 깔리는 기본값. 실제 단가는 사용자가 고쳐 쓴다.
+
+type PresetRow = [category: string, name: string, spec: string, unit: string, qty: number, price: number]
+
+const toItems = (rows: PresetRow[]): EstimateItem[] => {
+  const out: EstimateItem[] = []
+  let lastCat = ''
+  let order = 0
+  for (const [category, name, spec, unit, qty, price] of rows) {
+    if (category !== lastCat) {
+      out.push({
+        sort_order: order++, is_header: true, category, name: category,
+        spec: null, unit: null, qty: 0, unit_price: 0, amount: 0, remark: null,
+      })
+      lastCat = category
+    }
+    out.push({
+      sort_order: order++, is_header: false, category, name, spec: spec || null,
+      unit, qty, unit_price: price, amount: lineAmount(qty, price), remark: null,
+    })
+  }
+  return out
+}
+
+export interface PresetDef { name: string; items: EstimateItem[] }
+
+export const DEFAULT_PRESETS: PresetDef[] = [
+  {
+    name: '원룸 올수리',
+    items: toItems([
+      ['가설·철거공사', '기존 마감재 철거', '벽·바닥 전체', '식', 1, 800000],
+      ['가설·철거공사', '폐기물 처리·운반', '1톤 기준', '대', 2, 250000],
+      ['가설·철거공사', '양생·보양', '현관·복도', '식', 1, 150000],
+      ['설비공사', '급수·배수 배관 교체', 'PB관', '식', 1, 900000],
+      ['설비공사', '양변기 교체', '도기 일체형', 'EA', 1, 350000],
+      ['설비공사', '세면대·수전 교체', '', 'EA', 1, 280000],
+      ['전기공사', '전선 교체·배선 정리', '', '식', 1, 700000],
+      ['전기공사', '분전반 교체', '', 'EA', 1, 250000],
+      ['전기공사', '스위치·콘센트 교체', '', 'EA', 12, 18000],
+      ['조명공사', 'LED 조명 설치', '거실·주방·욕실', 'EA', 6, 55000],
+      ['목공사', '천장 몰딩·걸레받이', '', 'M', 40, 12000],
+      ['목공사', '문틀 보수·문짝 교체', 'ABS 도어', 'EA', 3, 320000],
+      ['타일공사', '욕실 벽·바닥 타일', '300×600', '㎡', 18, 65000],
+      ['타일공사', '주방 벽 타일', '', '㎡', 6, 60000],
+      ['도배공사', '실크벽지 시공', '', '㎡', 60, 14000],
+      ['바닥공사', '강마루 시공', '', '㎡', 26, 55000],
+      ['가구공사', '싱크대 교체', '2.4M', '식', 1, 1600000],
+      ['가구공사', '신발장·붙박이장', '', '식', 1, 700000],
+      ['도장공사', '현관·발코니 도장', '', '㎡', 20, 15000],
+      ['마감·정리', '준공 청소', '', '식', 1, 250000],
+      ['마감·정리', '실리콘 마감', '', '식', 1, 150000],
+    ]),
+  },
+  {
+    name: '상가 인테리어',
+    items: toItems([
+      ['가설·철거공사', '가설 울타리·보양', '', '식', 1, 600000],
+      ['가설·철거공사', '기존 내부 철거', '', '㎡', 66, 25000],
+      ['가설·철거공사', '폐기물 처리·운반', '5톤 기준', '대', 2, 700000],
+      ['설비공사', '급배수 배관', '', '식', 1, 1500000],
+      ['설비공사', '냉난방기 설치', '스탠드 30평형', 'EA', 2, 2800000],
+      ['설비공사', '환기·덕트 공사', '', '식', 1, 1800000],
+      ['전기공사', '증설·간선 공사', '', '식', 1, 2200000],
+      ['전기공사', '배선·배관', '', '㎡', 66, 35000],
+      ['조명공사', '레일·매입 조명', '', 'EA', 30, 65000],
+      ['목공사', '천장 목공 (석고 2P)', '', '㎡', 66, 55000],
+      ['목공사', '벽체 조성·파티션', '', '㎡', 30, 68000],
+      ['금속·유리공사', '전면 강화유리 도어', '', '식', 1, 2500000],
+      ['금속·유리공사', '어닝·간판 하지', '', '식', 1, 1200000],
+      ['바닥공사', '데코타일 시공', '3.0T', '㎡', 66, 32000],
+      ['도장공사', '내부 벽·천장 도장', '수성', '㎡', 130, 16000],
+      ['도장공사', '외부 파사드 도장', '', '㎡', 30, 25000],
+      ['가구공사', '카운터·집기 제작', '', '식', 1, 2500000],
+      ['사인공사', '간판 제작·설치', 'LED 채널', '식', 1, 3000000],
+      ['마감·정리', '준공 청소', '', '식', 1, 500000],
+    ]),
+  },
+  {
+    name: '사무실 부분수리',
+    items: toItems([
+      ['가설·철거공사', '부분 철거·정리', '', '식', 1, 400000],
+      ['가설·철거공사', '폐기물 처리', '1톤 기준', '대', 1, 250000],
+      ['전기공사', '콘센트·통신 배선 증설', '', 'EA', 10, 45000],
+      ['조명공사', 'LED 평판 교체', '640×640', 'EA', 12, 75000],
+      ['목공사', '파티션 설치', '', '㎡', 12, 65000],
+      ['도배공사', '벽지 시공', '', '㎡', 90, 13000],
+      ['바닥공사', '데코타일 시공', '', '㎡', 50, 32000],
+      ['도장공사', '천장·몰딩 도장', '', '㎡', 50, 15000],
+      ['마감·정리', '준공 청소', '', '식', 1, 200000],
+    ]),
+  },
+]
+
+// ── 기본 메일 문구 ─────────────────────────────────────────────
+// {거래처명} {담당자} {공사명} {회사명} {발신자} {견적번호} {합계} 치환
+
+export const DEFAULT_SUBJECT = '[{회사명}] {공사명} 견적서 송부 ({견적번호})'
+
+export const DEFAULT_BODY = `{거래처명} {담당자}님 안녕하세요.
+{회사명} {발신자}입니다.
+
+문의주신 {공사명} 건 견적서를 첨부하여 보내드립니다.
+견적 합계는 {합계}원이며, 유효기간은 발행일로부터 30일입니다.
+
+검토 후 문의사항 있으시면 편하게 연락 주십시오.
+감사합니다.`
+
+export function fillTemplate(tpl: string, vars: Record<string, string>): string {
+  // 변수명이 한글이라 \w 로는 못 잡는다 (\w = [A-Za-z0-9_])
+  return tpl.replace(/\{([^{}\s]+)\}/g, (m, k) => vars[k] ?? m)
+}
