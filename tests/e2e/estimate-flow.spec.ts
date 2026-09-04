@@ -21,7 +21,8 @@ async function loginAsBroker(page: Page) {
   await page.locator('button[type="submit"]').first().click()
   // 로그인 후 도착지가 대시보드가 아닐 수 있다(온보딩 등). 도착지를 단정하지 않고
   // 로그인 화면을 벗어났는지만 본다 — 실제 확인은 다음 단계의 견적서 화면에서 한다.
-  await page.waitForURL(url => !url.pathname.startsWith('/auth/login'), { timeout: 30_000 })
+  // 대시보드는 무거워서 'load' 를 기다리면 시간이 넘는다. 주소가 바뀌는 순간만 본다
+  await page.waitForURL(url => !url.pathname.startsWith('/auth/login'), { timeout: 30_000, waitUntil: 'commit' })
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
 }
 

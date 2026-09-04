@@ -97,8 +97,11 @@ export function SharePanel({ estimateId, brokerId }: { estimateId: string; broke
   const upload = async (file: File) => {
     if (file.size > MAX_FILE) { toast.error('10MB 이하 파일만 첨부할 수 있습니다'); return }
     setBusy(true)
-    const safe = file.name.replace(/[^\w.\-가-힣 ]/g, '_')
-    const path = `${brokerId}/${estimateId}/${Date.now()}-${safe}`
+    // 저장 경로는 ASCII 로만 만든다 — Supabase Storage 는 키에 한글을 받지 않는다
+    // ("Invalid key"). 도면·사진은 대부분 한글 이름이라 그대로 쓰면 전부 실패한다.
+    // 보여주고 내려받을 때 쓰는 원래 이름은 filename 컬럼에 따로 남긴다.
+    const ext = (file.name.match(/\.[A-Za-z0-9]{1,8}$/)?.[0] ?? '').toLowerCase()
+    const path = `${brokerId}/${estimateId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}${ext}`
     const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type || undefined })
     if (upErr) { setBusy(false); toast.error('파일을 올리지 못했습니다'); return }
 
@@ -117,7 +120,8 @@ export function SharePanel({ estimateId, brokerId }: { estimateId: string; broke
   }
 
   const openFile = async (row: FileRow) => {
-    const { data } = await supabase.storage.from(BUCKET).createSignedUrl(row.path, 120)
+    // 경로는 ASCII 라 그냥 열면 뜻 모를 이름으로 받아진다. 원래 이름으로 내려받게 한다
+    const { data } = await supabase.storage.from(BUCKET).createSignedUrl(row.path, 120, { download: row.filename })
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
     else toast.error('파일을 열지 못했습니다')
   }

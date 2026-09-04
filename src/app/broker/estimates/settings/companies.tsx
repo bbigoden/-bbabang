@@ -87,8 +87,9 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
   const uploadStamp = async (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 올릴 수 있습니다'); return }
     if (file.size > 2 * 1024 * 1024) { toast.error('2MB 이하 이미지를 사용하세요'); return }
-    const ext = file.name.split('.').pop() || 'png'
-    const path = `${brokerId}/stamp-${Date.now()}.${ext}`
+    // Storage 키에 한글이 들어가면 거부당한다 — 확장자도 ASCII 만 받는다
+    const ext = (file.name.match(/\.[A-Za-z0-9]{1,8}$/)?.[0] ?? '.png').toLowerCase()
+    const path = `${brokerId}/stamp-${Date.now()}${ext}`
     const { error } = await supabase.storage.from(STAMP_BUCKET).upload(path, file, { contentType: file.type })
     if (error) { toast.error('직인을 올리지 못했습니다'); return }
     setEditing(prev => ({ ...prev, stamp_path: path }))
