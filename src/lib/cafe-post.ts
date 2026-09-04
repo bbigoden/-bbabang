@@ -742,6 +742,19 @@ function featureLine(src: string): string {
   return m?.[1]?.trim() ?? ''
 }
 
+/**
+ * 받침에 맞는 조사를 붙인다. `제조으로` 는 틀리고 `제조로` 가 맞다.
+ * 한글 마지막 글자의 받침을 보고 고른다 (ㄹ 받침도 '로' 를 쓴다).
+ */
+function 조사(word: string, 받침있을때: string, 받침없을때: string): string {
+  const last = word.trim().slice(-1)
+  const code = last.charCodeAt(0) - 0xac00
+  if (code < 0 || code > 11171) return `${word}${받침없을때}`
+  const 종성 = code % 28
+  // ㄹ(종성 8)은 '로·라' 쪽을 쓴다 — 서울로, 아들로
+  return `${word}${종성 === 0 || 종성 === 8 ? 받침없을때 : 받침있을때}`
+}
+
 /** 걸리는 것을 전부 뽑는다 (앞선 것부터, 중복 없이). */
 function marksIn(marks: Array<[RegExp, string]>, line: string): string[] {
   const out: string[] = []
@@ -1053,7 +1066,7 @@ function buildDetails(p: ParsedListing, src = ''): string {
   const 나머지 = RECOMMENDED_USES[p.category]
     .split(',').map(x => x.trim()).filter(x => x !== 적힌업종).slice(0, 4).join(', ')
   const uses = 적힌업종
-    ? `**추천 업종**\n${적힌업종}으로 쓰기 좋은 자리이며, ${나머지} 등으로도 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
+    ? `**추천 업종**\n${조사(적힌업종, '으로', '로')} 쓰기 좋은 자리이며, ${나머지} 등으로도 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
     : `**추천 업종**\n${RECOMMENDED_USES[p.category]} 등을 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
 
   const condBits: string[] = []
