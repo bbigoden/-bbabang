@@ -9,11 +9,11 @@ import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useToast } from '@/components/toast'
-import { Radar, Settings2, Download } from 'lucide-react'
+import { Radar, Download } from 'lucide-react'
 import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from '@/lib/naver-land'
 
 /**
- * 신규매물 — 네이버부동산에 없는 '최신순' 목록.
+ * 매물수집 — 네이버 매물을 최신순으로 모아 둔 링크 목록.
  *
  * 네이버부동산에는 최신순 정렬이 없다. 그래서 새로 올라온 매물을 찾으려면 지도를
  * 옮겨 가며 매일 눈으로 훑어야 했고, 그 일에 하루 시간이 통째로 들어갔다.
@@ -98,31 +98,6 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   )
 }
 
-/** 켜고 끄는 스위치. 무엇을 하는 것인지 한 줄로 같이 적는다. */
-function Toggle({ on, onChange, label, hint, busy }: {
-  on: boolean; onChange: (v: boolean) => void; label: string; hint: string; busy?: boolean
-}) {
-  return (
-    <button
-      onClick={() => onChange(!on)}
-      disabled={busy}
-      className="flex w-full items-start gap-3 rounded-xl px-2 py-2 text-left transition-colors
-                 hover:bg-gray-50 disabled:opacity-50 dark:hover:bg-gray-800"
-    >
-      <span
-        className={`mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors
-                    ${on ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`}
-      >
-        <span className={`h-4 w-4 rounded-full bg-white transition-transform ${on ? 'translate-x-4' : ''}`} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-medium text-gray-900 dark:text-white">{label}</span>
-        <span className="block text-xs text-gray-500 dark:text-gray-500">{hint}</span>
-      </span>
-    </button>
-  )
-}
-
 export default function NaverWatchPage() {
   const supabase = useMemo(() => createClient(), [])
   const auth = useAuth()
@@ -132,7 +107,6 @@ export default function NaverWatchPage() {
   const [seen, setSeen] = useState<Set<string>>(new Set())
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [savingSettings, setSavingSettings] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
@@ -363,7 +337,7 @@ export default function NaverWatchPage() {
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
         <PageHeader
-          title="신규매물"
+          title="매물수집"
           icon={Radar}
 
           actions={
@@ -380,37 +354,9 @@ export default function NaverWatchPage() {
               <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} aria-hidden />
               {syncing ? (syncProgress ?? '가져오는 중…') : '가져오기'}
             </button>
-            <button
-              onClick={() => setShowSettings(v => !v)}
-              className="flex h-9 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm
-                         font-medium text-gray-700 transition-colors hover:bg-gray-50
-                         dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              <Settings2 className="h-4 w-4" aria-hidden />
-              설정
-            </button>
             </div>
           }
         />
-
-        {showSettings && (
-          <div className="mb-5 space-y-1 rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
-            <Toggle
-              on={settings.hide_own} busy={savingSettings}
-              onChange={v => saveSetting({ hide_own: v })}
-              label="우리 사무소 매물 빼기"
-              hint={officeName
-                ? `'${officeName}' 이(가) 올린 매물은 목록에서 뺍니다`
-                : '사무소 이름이 등록돼 있지 않아 지금은 동작하지 않습니다 (설정 → 사무소)'}
-            />
-            <Toggle
-              on={settings.track_gone} busy={savingSettings}
-              onChange={v => saveSetting({ track_gone: v })}
-              label="사라진 매물 표시"
-              hint="받아 둔 매물이 네이버에서 내려가면 표시합니다. 거래됐거나 광고를 접은 것입니다"
-            />
-          </div>
-        )}
 
         {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
             낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다.
@@ -478,6 +424,26 @@ export default function NaverWatchPage() {
               />
               {q && <SearchClear onClick={() => setQ('')} />}
             </div>
+          </div>
+          {/* 켜고 끄면 사무소 사람 모두에게 걸린다. 자주 바꾸는 것은 아니지만,
+              눌러야 나오면 있는 줄도 모른다. 다른 줄과 같은 모양으로 늘 둔다. */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">설정</span>
+            <Chip
+              on={settings.hide_own}
+              onClick={() => { void saveSetting({ hide_own: !settings.hide_own }); setPage(1) }}
+            >
+              우리 사무소 매물 빼기
+            </Chip>
+            <Chip
+              on={settings.track_gone}
+              onClick={() => { void saveSetting({ track_gone: !settings.track_gone }); setPage(1) }}
+            >
+              사라진 매물 표시
+            </Chip>
+            <span className="text-xs text-gray-400 dark:text-gray-600">
+              {settings.hide_own && officeName ? `'${officeName}' 매물은 목록에서 빠집니다` : ''}
+            </span>
           </div>
         </div>
 

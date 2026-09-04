@@ -30,7 +30,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2 },
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone },
-  { id: 'naver',      href: '/broker/naver', label: '신규매물', icon: Radar },
+  { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },
