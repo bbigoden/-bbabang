@@ -58,22 +58,38 @@ const CLUSTER_PRECISION = 13
 const PAGE_SIZE = 30
 
 /**
- * 매물종류 코드 → 이름. 네이버 번들에서 그대로 옮겼다.
+ * 매물유형 — **네이버 화면과 똑같이 나눈다.**
  *
- * 상가·업무·토지만 담았다 — 아파트·빌라 같은 주거는 이 사무소가 다루지 않는다.
+ * 네이버 필터의 '상가·업무·토지' 묶음 그대로다. 버튼 이름도 코드 묶음도 네이버가
+ * 쓰는 것을 그대로 옮겼다(지도 URL 의 `realEstateTypes` 로 확인). 우리가 따로
+ * 나누면 네이버에서 보던 것과 건수가 달라져, 어느 쪽이 맞는지 알 수 없게 된다.
+ *
+ * 네이버 '건물' 버튼 하나가 코드 넷을 켠다 — 빌딩(D03)·상가건물(D04)·
+ * 숙박콘도(E01)·기타(Z00). 상가주택(D05)은 네이버가 주거 쪽에 둬서 여기 없다.
  */
-export const REAL_ESTATE_TYPES = {
-  D01: '사무실',
-  D02: '상가',
-  D03: '건물',
-  D04: '상가건물',
-  D05: '상가주택',
-  E02: '공장/창고',
-  E03: '토지',
-  E04: '지식산업센터',
+export const PROPERTY_KINDS = {
+  상가: ['D02'],
+  토지: ['E03'],
+  사무실: ['D01'],
+  건물: ['D03', 'D04', 'E01', 'Z00'],
+  '공장/창고': ['E02'],
+  지식산업센터: ['E04'],
 } as const
 
-export type RealEstateType = keyof typeof REAL_ESTATE_TYPES
+export type PropertyKind = keyof typeof PROPERTY_KINDS
+
+/** 받을 매물종류 코드 전부. */
+const ALL_TYPE_CODES = Object.values(PROPERTY_KINDS).flat()
+
+/** 코드 → 네이버가 부르는 이름. 목록에 적을 때 쓴다. */
+const KIND_BY_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(PROPERTY_KINDS).flatMap(([kind, codes]) => codes.map(c => [c, kind])),
+)
+
+/** 이 매물을 네이버는 뭐라고 부르는가. 모르는 코드는 코드 그대로 보여준다. */
+export function kindOf(code: string): string {
+  return KIND_BY_CODE[code] ?? code
+}
 
 /** 거래유형 코드 → 이름. B3(단기임대)는 이 업종에서 안 쓴다. */
 export const TRADE_TYPES = {
@@ -227,7 +243,7 @@ function normalize(raw: Record<string, any>): NaverArticle | null {
 function articleFilter() {
   return {
     tradeTypes: Object.keys(TRADE_TYPES),
-    realEstateTypes: Object.keys(REAL_ESTATE_TYPES),
+    realEstateTypes: ALL_TYPE_CODES,
     roomCount: [], bathRoomCount: [], optionTypes: [], oneRoomShapeTypes: [], moveInTypes: [],
     filtersExclusiveSpace: false, floorTypes: [], directionTypes: [],
     hasArticlePhoto: false, isAuthorizedByOwner: false, parkingTypes: [], entranceTypes: [],

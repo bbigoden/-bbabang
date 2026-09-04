@@ -9,7 +9,7 @@ import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { Radar, Settings2 } from 'lucide-react'
-import { REAL_ESTATE_TYPES, TRADE_TYPES, REGIONS, kstDate, toKstDate } from '@/lib/naver-land'
+import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from '@/lib/naver-land'
 
 /**
  * 신규매물 — 네이버부동산에 없는 '최신순' 목록.
@@ -137,7 +137,7 @@ export default function NaverWatchPage() {
   const [goneOnly, setGoneOnly] = useState(false)
   // 빈 배열 = 전부 본다. 하나라도 고르면 고른 것만.
   const [regions, setRegions] = useState<string[]>([])
-  const [types, setTypes] = useState<string[]>([])
+  const [kinds, setKinds] = useState<string[]>([])
   const [trades, setTrades] = useState<string[]>([])
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
@@ -264,12 +264,12 @@ export default function NaverWatchPage() {
         const region = REGIONS.find(r => a.division?.startsWith(r.divisionPrefix))
         if (!region || !regions.includes(region.id)) return false
       }
-      if (types.length && !types.includes(a.real_estate_type)) return false
+      if (kinds.length && !kinds.includes(kindOf(a.real_estate_type))) return false
       if (trades.length && !trades.includes(a.trade_type)) return false
       if (needle && ![a.division, a.sector].filter(Boolean).join(' ').toLowerCase().includes(needle)) return false
       return true
     })
-  }, [rows, regions, types, trades, q, unseenOnly, goneOnly, seen,
+  }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, seen,
       settings.hide_own, settings.track_gone, officeName])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -355,9 +355,9 @@ export default function NaverWatchPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">종류</span>
-            {Object.entries(REAL_ESTATE_TYPES).map(([code, name]) => (
-              <Chip key={code} on={types.includes(code)} onClick={() => toggle(types, setTypes, code)}>
-                {name}
+            {Object.keys(PROPERTY_KINDS).map(kind => (
+              <Chip key={kind} on={kinds.includes(kind)} onClick={() => toggle(kinds, setKinds, kind)}>
+                {kind}
               </Chip>
             ))}
           </div>
@@ -417,7 +417,7 @@ export default function NaverWatchPage() {
                         {a.exposure_start_date?.slice(5).replace('-', '/')}
                       </span>
                       <span className="w-16 shrink-0 text-sm text-gray-500 dark:text-gray-500">
-                        {REAL_ESTATE_TYPES[a.real_estate_type as keyof typeof REAL_ESTATE_TYPES] ?? a.real_estate_type}
+                        {kindOf(a.real_estate_type)}
                       </span>
                       <span className="w-10 shrink-0 text-sm text-gray-500 dark:text-gray-500">
                         {TRADE_TYPES[a.trade_type as keyof typeof TRADE_TYPES] ?? a.trade_type}
