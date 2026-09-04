@@ -32,6 +32,7 @@ type Post = {
   external_id: string | null
   url: string | null
   status: 'pending' | 'posted' | 'removing' | 'removed' | 'failed'
+  posted_at: string | null
   error: string | null
 }
 
@@ -99,6 +100,12 @@ const m2ToPyeong = (m2: number | null) => (m2 ? (m2 * 0.3025).toFixed(1) : null)
 const AGENT_ALIVE_MS = 60_000
 
 /** 뱅크 '원클릭 재전송'이 한 번에 받는 상한. 넘기면 뱅크가 경고창을 띄운다. */
+/**
+ * 하루에 카페에 올리는 최대 건수. PC 프로그램의 DAILY_CAP 과 같아야 한다.
+ * 여기만 고치면 화면 숫자는 바뀌어도 프로그램은 그대로 올린다.
+ */
+const DAILY_CAP = 10
+
 const BANK_RENEW_MAX = 30
 
 /** "방금", "12분 전", 하루가 넘으면 날짜. 어제 받은 목록을 오늘 것으로 착각하지 않게. */
@@ -358,7 +365,7 @@ export default function AdsPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('ad_listings')
-      .select('*, ad_posts(id, channel, external_id, url, status, error)')
+      .select('*, ad_posts(id, channel, external_id, url, status, error, posted_at)')
       .order('bank_no', { ascending: false })
     if (error) toast.error(`목록을 불러오지 못했습니다: ${error.message}`)
     // 등록종료가 매달 쌓이므로 언젠가 서버 한도(1,000행)에 닿는다. 잘린 채로 세면
@@ -550,6 +557,10 @@ export default function AdsPage() {
    */
   async function publishOne(l: Listing) {
     if (!auth.broker) return
+    if (오늘올림 >= DAILY_CAP) {
+      toast.error(`오늘 이미 ${오늘올림}건을 올렸습니다. 하루 ${DAILY_CAP}건까지만 올립니다.`)
+      return
+    }
     if (!confirm(
       `${l.naver_no ?? l.bank_no} 매물을 카페에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
       + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
@@ -719,6 +730,17 @@ export default function AdsPage() {
   // 체크박스로 '올릴 것' 이라고 고른 건수 — [카페에 올리기] 버튼에 쓴다.
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
+
+  // 오늘 카페에 올린 건수. 하루 10건까지만 올린다 — 한 카페에 그 이상 올리면
+  // 광고로 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
+  const 오늘올림 = listings.filter(l => {
+    const at = l.ad_posts.find(p => p.channel === 'cafe' && p.status === 'posted')?.posted_at
+    if (!at) return false
+    const d = new Date(at)
+    const 오늘 = new Date()
+    return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+      === 오늘.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+  }).length
   // 담당자별 건수 — 고객목록과 같이 이름 옆에 붙인다. 지금 보고 있는 탭 기준이라
   // 탭을 바꾸면 숫자도 같이 바뀐다. 그 탭에 한 건도 없는 담당자는 (0)으로 남긴다 —
   // 선택지가 사라지면 골라 둔 담당자가 화면에서 통째로 없어져 버린다.
@@ -891,6 +913,13 @@ export default function AdsPage() {
             <span className="text-gray-700 dark:text-gray-300">{countOf('등록매물')}건</span>
             {lastSynced && <> · {fmtWhen(lastSynced)}</>}
           </span>
+          <span className={오늘올림 >= DAILY_CAP ? 'font-medium text-amber-600 dark:text-amber-400' : ''}>
+            오늘 카페에 올린 것:{' '}
+            <span className={오늘올림 >= DAILY_CAP ? '' : 'text-gray-700 dark:text-gray-300'}>
+              {오늘올림} / {DAILY_CAP}건
+            </span>
+            {오늘올림 >= DAILY_CAP && ' — 오늘은 여기까지'}
+          </span>
           <span className="flex items-center gap-1">
             <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
             {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
@@ -979,7 +1008,8 @@ export default function AdsPage() {
                         <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">
                           <ChannelCell
                             post={l.ad_posts.find(p => p.channel === c.key)}
-                            onPublish={canPublish(l) && !isLive(l) ? () => publishOne(l) : undefined}
+                            onPublish={canPublish(l) && !isLive(l) && 오늘올림 < DAILY_CAP
+                              ? () => publishOne(l) : undefined}
                             busy={publishWatch}
                           />
                         </td>
