@@ -131,10 +131,6 @@ function normalizeFloor(raw: string | undefined, src?: string): string | undefin
  * 나갔다. 세 군데에서 같은 값을 쓰므로 한 곳에서 만든다.
  */
 /** 공장·창고 계열인가. 이쪽은 검색자가 보는 항목 자체가 다르다 (층고·전력·진입). */
-/** 주거용인가. 방·욕실 수는 주거용에만 뜻이 있다. */
-function isResidential(c: Category) {
-  return c === 'residential'
-}
 
 function isIndustrialCat(c: Category): boolean {
   return c === 'industrial'
@@ -960,11 +956,10 @@ function infoRows(p: ParsedListing, listingNo: string): Array<[string, string]> 
     ['층수', p.floor && p.totalFloors ? `${floorLabel(p.floor)} / 총 ${p.totalFloors}층`
       : p.floor ? floorLabel(p.floor)! : p.totalFloors ? `총 ${p.totalFloors}층` : NEEDS_CHECK],
     ['입주가능일', p.moveIn ?? NEEDS_CHECK],
-    // 상가·사무실·공장·창고에는 방이 없다. 그런데 '확인 필요' 로 나가고 있어
-    // 239건이 뱅크에서 채워야 할 것처럼 보였다. 채울 수 없는 항목이다.
-    // 표시광고 필수 항목이라 칸은 두되, 사실대로 적는다.
-    ['방수/욕실수', p.bathrooms ? `화장실 ${p.bathrooms}개`
-      : isResidential(p.category) ? NEEDS_CHECK : '해당 없음 (비주거)'],
+    // 손님은 이 칸을 **화장실 수**로 읽는다. 그래서 값이 없을 때 '해당 없음' 이라
+    // 적으면 화장실이 없는 매물로 읽힌다 — 상가에서 그건 큰 오해다.
+    // 모르면 모른다고 둔다.
+    ['방수/욕실수', p.bathrooms ? `화장실 ${p.bathrooms}개` : NEEDS_CHECK],
     ['사용승인일', p.approvalDate ?? NEEDS_CHECK],
     // 뱅크 원문은 "총 주차대수 0" 형태라 숫자만 잡힌다 — 표기 형식을 맞춘다
     ['주차대수', parkingLabel(p.parking) ?? NEEDS_CHECK],
@@ -1008,10 +1003,16 @@ function buildBlogTitles(p: ParsedListing): string[] {
  */
 function detailSections(p: ParsedListing, src = ''): Array<[string, string, string]> {
   const md = buildDetails(p, src)
-  const icons = ['🗺️', '🏗️', '💡', '💰']
-  return md.split('\n\n').map((block, i) => {
+  // 입지 문단이 빠지면 아이콘도 한 칸 당겨야 한다. 순서로 짝지으면 건물 설명에
+  // 지도 아이콘이 붙는다. 소제목으로 짝을 맞춘다.
+  const ICON: Record<string, string> = {
+    '입지': '🗺️', '건물 및 공간 구성': '🏗️',
+    '추천 업종': '💡', '임대 조건': '💰', '인수 조건': '💰',
+  }
+  return md.split('\n\n').map(block => {
     const [head, ...rest] = block.split('\n')
-    return [icons[i] ?? '📌', head.replace(/\*\*/g, ''), rest.join(' ')] as [string, string, string]
+    const 소제목 = head.replace(/\*\*/g, '')
+    return [ICON[소제목] ?? '📌', 소제목, rest.join(' ')] as [string, string, string]
   })
 }
 
@@ -1023,11 +1024,15 @@ function buildDetails(p: ParsedListing, src = ''): string {
   // 않았다. 현장을 보고 쓴 근거가 원문에 있는데 그걸 버리고 있었다.
   //
   // 원문 문장을 그대로 옮기지는 않는다. 정해진 말로 바꿔 담는다.
+  // **할 말이 없으면 문단을 아예 뺀다.** 원문에 상권 근거가 없으면 "생활권에
+  // 자리한 매물입니다. 현장 안내 시 확인해 드리겠습니다" 밖에 못 쓰는데, 그건
+  // 아무 말도 안 하는 것이라 읽는 사람 시간만 뺏는다. 빈 칸을 채우려고 넣은
+  // 문장은 글을 좋게 만들지 않는다.
   const spots = marksIn(LOCATION_MARKS, ownWords(src))
-  const locBits = [`${region} 생활권에 자리한 매물입니다`]
-  if (spots.length) locBits.push(`${spots.join(', ')} 조건을 갖춘 자리입니다`)
-  locBits.push('실제 유동 동선과 주변 구성은 현장 안내 시 함께 확인해 드리겠습니다')
-  const loc = `**입지**\n${locBits.join('. ')}.`
+  const loc = spots.length
+    ? `**입지**\n${region} 생활권에 자리한 매물입니다. ${spots.join(', ')} 조건을 갖춘 자리입니다. `
+      + '실제 유동 동선과 주변 구성은 현장 안내 시 함께 확인해 드리겠습니다.'
+    : null
 
   const buildBits: string[] = []
   if (p.floor && p.totalFloors) buildBits.push(`총 ${p.totalFloors}층 건물의 ${floorLabel(p.floor)}에 자리하고 있습니다`)
@@ -1059,7 +1064,7 @@ function buildDetails(p: ParsedListing, src = ''): string {
   condBits.push('세부 임대 조건은 협의 범위가 있으니 편하게 문의해 주세요')
   const cond = `**${p.dealType === '매매' ? '인수 조건' : '임대 조건'}**\n${condBits.join('. ')}.`
 
-  return [loc, building, uses, cond].join('\n\n')
+  return [loc, building, uses, cond].filter(Boolean).join('\n\n')
 }
 
 /** Q&A 3개를 [질문, 답변] 쌍으로 반환 (HTML 생성기용). */
