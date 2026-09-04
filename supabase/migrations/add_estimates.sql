@@ -289,3 +289,16 @@ CREATE POLICY "estimate_stamps_read" ON storage.objects FOR SELECT
         AND bp.id::text = (storage.foldername(name))[1]
     )
   );
+
+-- ── anon 권한 회수 (2026-09-04) ────────────────────────────────
+-- 견적서는 로그인한 대표 본인만 쓰는 기능이라 anon이 접근할 일이 없다.
+-- RLS가 이미 막지만, 정책 하나만 느슨해지면 estimate_mail_settings의
+-- 네이버 앱 비밀번호까지 새어 나간다. 권한 자체를 회수해 층을 하나 더 둔다.
+REVOKE ALL ON estimates              FROM anon;
+REVOKE ALL ON estimate_items         FROM anon;
+REVOKE ALL ON estimate_companies     FROM anon;
+REVOKE ALL ON estimate_clients       FROM anon;
+REVOKE ALL ON estimate_templates     FROM anon;
+REVOKE ALL ON estimate_sends         FROM anon;
+REVOKE ALL ON estimate_mail_settings FROM anon;
+REVOKE EXECUTE ON FUNCTION next_estimate_no(UUID) FROM anon;
