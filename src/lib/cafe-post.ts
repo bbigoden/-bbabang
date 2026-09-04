@@ -562,16 +562,17 @@ function sizeLabel(p: ParsedListing): string | null {
 }
 
 /**
- * 검색되는 평수 표기. `43.8평` 으로 검색하는 사람은 없고 `40평대` 로 찾는다.
- * 정확한 면적은 표와 본문이 말하므로 제목에서는 범주로 적는다(절대규칙 8).
+ * 제목에 쓰는 평수 표기.
+ *
+ * 네이버 자동완성을 보면 `천안 공장 임대 60평` 처럼 **평수를 붙여 검색한다.**
+ * 그래서 `40평대` 같은 범주보다 숫자를 그대로 적는 편이 검색에 걸린다.
+ * 다만 `43.8평` 은 아무도 치지 않으므로 정수로 줄인다. 정확한 면적은 표와
+ * 본문이 ㎡ 까지 적으므로, 제목의 `약 44평` 이 정보를 흐리지 않는다.
  */
 function sizeBand(p: ParsedListing): string | null {
   const a = mainAreaM2(p)
   if (!a) return null
-  const py = a * 0.3025
-  if (py < 10) return '10평 미만'
-  if (py < 100) return `${Math.floor(py / 10) * 10}평대`
-  return `${Math.floor(py / 100) * 100}평대`
+  return `약 ${Math.round(a * 0.3025)}평`
 }
 
 /** 종류를 부르는 다른 말. 같은 매물을 여러 검색어로 걸기 위해 제목마다 바꾼다. */
@@ -1079,13 +1080,52 @@ function buildBrokerInfo(p: ParsedListing): string {
   ].join('\n')
 }
 
-function buildTags(p: ParsedListing): string {
+/**
+ * 네이버 자동완성에서 모아 둔 **실제 검색어**를 태그로 쓴다.
+ *
+ * 우리가 짐작해 만든 태그와 실제 검색어는 다르다. `두정동상가월세` 처럼 붙여 쓴
+ * 말이 실제로 검색되는데 우리는 띄어쓰기로만 쓰고 있었다.
+ *
+ * 다만 자동완성에는 우리 매물과 상관없는 것이 섞여 온다 — `상가청소`, `경매`,
+ * `월세 원룸`, `상가주택`. 그런 말을 태그로 달면 엉뚱한 사람이 들어왔다 나가고,
+ * 그건 글에 도움이 되지 않는다. 걸러 낸다.
+ *
+ * @param keywords data/keywords.json 의 `검색어` (지역 → 검색어 목록)
+ */
+function realSearchTags(p: ParsedListing, keywords?: Record<string, string[]>): string[] {
+  if (!keywords) return []
+  // 우리 매물과 상관없는 검색어. 태그로 달면 엉뚱한 사람이 들어왔다 나간다.
+  const 버릴말 = new RegExp([
+    '청소', '경매', '공매', '급매', '채용', '견학', '이사', '인테리어', '가구',
+    '아파트', '원룸', '투룸', '빌라', '오피스텔', '월세집', '주택',   // 주거용
+    '상가주택', '건물매매', '통건물',                                  // 다른 물건
+    '현대', '삼성', '엘지', 'LG', 'SK',                               // 남의 회사 이름
+    '\d+만원', '\d+억',                                              // 가격이 박힌 검색어
+    '약국', '마트', '할인점', '세차장', '창고형',   // '창고형 매장' 은 창고 임대가 아니다
+  ].join('|'))
+  const 필요한말 = p.category === 'industrial' ? /공장|창고|물류/ : /상가|점포|사무실/
+  // 거래유형이 어긋난 검색어는 뺀다. 월세 매물을 `매매` 로 찾은 사람에게
+  // 보여줘 봐야 바로 나간다.
+  const 어긋난거래 = p.dealType === '매매' ? /월세|임대/ : /매매|분양/
+
+  const 후보 = [p.dong, p.city?.replace(/시$/, '')].filter(Boolean)
+    .flatMap(k => keywords[k as string] ?? [])
+  return [...new Set(후보)]
+    .filter(q => 필요한말.test(q) && !버릴말.test(q) && !어긋난거래.test(q))
+    // 태그는 붙여 쓴다. `#불당동 상가월세` 는 태그 두 개로 갈린다.
+    .map(q => `#${q.replace(/\s+/g, '')}`)
+}
+
+function buildTags(p: ParsedListing, keywords?: Record<string, string[]>): string {
   const region = p.city === '아산시' ? '아산' : '천안'
   const deal = p.dealType === '매매' ? '매매' : p.dealType === '전세' ? '전세' : '월세'
   const tags = new Set<string>()
 
   // 검색어의 뼈대가 되는 물건 유형. 공장·창고 매물에 '상가' 태그를 달면 검색이 어긋난다.
   const noun = p.category === 'industrial' ? '공장' : p.category === 'office' ? '사무실' : '상가'
+
+  // **실제로 검색되는 말을 먼저 넣는다.** 우리가 만든 태그보다 이쪽이 확실하다.
+  realSearchTags(p, keywords).forEach(t => { if (tags.size < 12) tags.add(t) })
 
   // 지역
   tags.add(`#${region}${noun}임대`)
@@ -1115,9 +1155,14 @@ function buildTags(p: ParsedListing): string {
   if (p.floor === '1') tags.add(`#${region}1층${noun}`)
   if (p.elevator) tags.add(`#${region}엘리베이터${noun}`)
 
-  // 브랜드 고정
-  ;['#플러스불당공인중개사', '#불당동상가전문', '#천안상가전문부동산', '#천안시상가매물', '#천안시상가추천']
-    .forEach(t => tags.add(t))
+  // 브랜드 고정 — 사무소 이름 하나만 못으로 박고 나머지는 매물에 맞춘다.
+  // 예전에는 아산 공장 매물에도 `#천안상가전문부동산`, `#천안시상가매물` 이
+  // 붙었다. 지역도 종류도 어긋난 태그다.
+  tags.add('#플러스불당공인중개사')
+  tags.add(`#${region}${noun}전문`)
+  if (p.dong) tags.add(`#${p.dong}${noun}전문`)
+  tags.add(`#${region}${noun}매물`)
+  tags.add(`#${region}${noun}추천`)
 
   // 채우기용 일반 태그
   const filler = p.category === 'industrial'
@@ -1257,6 +1302,8 @@ export function buildCafeHtmlConfig(
   listingNoInput: string,
   outDir = '.',
   displayNo?: string,
+  /** 네이버 자동완성에서 모아 둔 실제 검색어 (data/keywords.json). 없으면 안 쓴다. */
+  keywords?: Record<string, string[]>,
 ): CafeHtmlConfig {
   const p = parseListing(source)
   const no = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
@@ -1282,7 +1329,7 @@ export function buildCafeHtmlConfig(
     missing_required: missingRequired(p),
     office_lead: `현장을 직접 확인한 실매물만 소개해 드리며, 광고되지 않은 매물도 함께 비교해 보실 수 있도록 준비해 드립니다.${p.coBrokerage ? ' 공동중개도 환영합니다.' : ''}`,
     highlight: features(p).slice(0, 3).join(' + '),
-    tags: buildTags(p),
+    tags: buildTags(p, keywords),
   }
 }
 
