@@ -69,6 +69,20 @@ export async function POST(
     <EstimateDocument estimate={estimate} items={items} company={company} stampUrl={stampUrl} />
   )
 
+  // 붙여둔 도면·현장사진을 같이 보낸다 (비공개 버킷이라 서버에서 직접 내려받는다)
+  const extras: { filename: string; content: Buffer; contentType?: string }[] = []
+  const { data: atts } = await supabase
+    .from('estimate_attachments').select('path,filename,content_type').eq('estimate_id', id)
+  for (const a of atts ?? []) {
+    const { data: blob } = await supabase.storage.from('estimate-files').download(a.path)
+    if (!blob) continue
+    extras.push({
+      filename: a.filename,
+      content: Buffer.from(await blob.arrayBuffer()),
+      contentType: a.content_type ?? undefined,
+    })
+  }
+
   const transporter = nodemailer.createTransport({
     host: 'smtp.naver.com',
     port: 465,
@@ -91,11 +105,10 @@ export async function POST(
       replyTo: settings.smtp_user,
       subject: subject || `견적서 송부 (${estimate.estimate_no})`,
       text: body || '',
-      attachments: [{
-        filename: pdfFileName(estimate),
-        content: Buffer.from(pdf),
-        contentType: 'application/pdf',
-      }],
+      attachments: [
+        { filename: pdfFileName(estimate), content: Buffer.from(pdf), contentType: 'application/pdf' },
+        ...extras,
+      ],
     })
     ok = true
   } catch (e) {

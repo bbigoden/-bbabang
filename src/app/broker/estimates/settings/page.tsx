@@ -5,18 +5,20 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
-import { ArrowLeft, Building2, Users, Layers, Mail } from 'lucide-react'
+import { ArrowLeft, Building2, Users, Layers, Package, Mail } from 'lucide-react'
 import { CompaniesTab } from './companies'
 import { ClientsTab } from './clients'
 import { TemplatesTab } from './templates'
+import { CatalogTab } from './catalog'
 import { MailTab } from './mail'
 
-type Tab = 'companies' | 'clients' | 'templates' | 'mail'
+type Tab = 'companies' | 'clients' | 'templates' | 'catalog' | 'mail'
 
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'companies', label: '발행 회사', icon: Building2 },
   { id: 'clients',   label: '거래처', icon: Users },
   { id: 'templates', label: '공사 프리셋', icon: Layers },
+  { id: 'catalog',   label: '품목 사전', icon: Package },
   { id: 'mail',      label: '메일 설정', icon: Mail },
 ]
 
@@ -83,6 +85,7 @@ export default function EstimateSettingsPage() {
         {tab === 'companies' && <CompaniesTab brokerId={broker.id} />}
         {tab === 'clients' && <ClientsTab brokerId={broker.id} />}
         {tab === 'templates' && <TemplatesTab brokerId={broker.id} />}
+        {tab === 'catalog' && <CatalogTab brokerId={broker.id} />}
         {tab === 'mail' && <MailTab brokerId={broker.id} />}
       </div>
     </div>

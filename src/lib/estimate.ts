@@ -18,8 +18,22 @@ export interface EstimateItem {
   unit: string | null
   qty: number
   unit_price: number
+  /** 원가 (내부용). 견적서 PDF 에는 절대 내보내지 않는다 */
+  cost_price: number
   amount: number
   remark: string | null
+}
+
+/** 품목 사전 — 내역에서 품명을 치면 과거에 쓴 항목이 단가·원가와 함께 뜬다 */
+export interface CatalogItem {
+  id: string
+  category: string | null
+  name: string
+  spec: string | null
+  unit: string | null
+  unit_price: number
+  cost_price: number
+  use_count: number
 }
 
 export interface EstimateCompany {
@@ -56,6 +70,9 @@ export interface EstimateClient {
 export interface Estimate {
   id: string
   owner_broker_id?: string
+  /** 수정 견적의 뿌리. 원본은 자기 자신을 가리키지 않고 null 이다 */
+  root_estimate_id?: string | null
+  revision?: number
   company_id: string | null
   client_id: string | null
   estimate_no: string
@@ -79,9 +96,69 @@ export interface Estimate {
   supply_amount: number
   vat: number
   total: number
+  /** 원가 합계 (내부용) */
+  total_cost: number
   status: EstimateStatus
   sent_at: string | null
   created_at?: string
+}
+
+export type InvoiceKind = 'deposit' | 'interim' | 'balance' | 'full'
+
+export const INVOICE_KIND_LABEL: Record<InvoiceKind, string> = {
+  deposit: '계약금',
+  interim: '중도금',
+  balance: '잔금',
+  full: '전액',
+}
+
+/** 회차별 기본 비율 — 실무에서 가장 흔한 3:4:3 */
+export const INVOICE_KIND_RATIO: Record<InvoiceKind, number> = {
+  deposit: 0.3,
+  interim: 0.4,
+  balance: 0.3,
+  full: 1,
+}
+
+export interface EstimateInvoice {
+  id: string
+  owner_broker_id?: string
+  estimate_id: string | null
+  invoice_no: string
+  issue_date: string
+  kind: InvoiceKind
+  ratio: number | null
+  company_snapshot: Partial<EstimateCompany> | null
+  client_name: string | null
+  client_contact: string | null
+  client_phone: string | null
+  client_email: string | null
+  site_address: string | null
+  project_name: string | null
+  supply_amount: number
+  vat: number
+  total: number
+  vat_mode: VatMode
+  due_date: string | null
+  paid_at: string | null
+  notes: string | null
+  created_at?: string
+}
+
+/** 견적 합계에서 회차 비율만큼 떼어 청구 금액을 낸다 */
+export function invoiceAmounts(
+  supplyAmount: number,
+  ratio: number,
+  vatMode: VatMode
+): { supply_amount: number; vat: number; total: number } {
+  const supply = Math.round(supplyAmount * ratio)
+  const vat = vatMode === 'none' ? 0 : Math.round(supply * 0.1)
+  return { supply_amount: supply, vat, total: supply + vat }
+}
+
+/** 원본 견적번호에 리비전을 붙인다: 2026-0904-01 → 2026-0904-01-r2 */
+export function revisionNo(baseNo: string, revision: number): string {
+  return `${baseNo.replace(/-r\d+$/, '')}-r${revision}`
 }
 
 export const STATUS_LABEL: Record<EstimateStatus, string> = {
@@ -117,6 +194,29 @@ export function calcTotals(
   const supply_amount = subtotal + overhead_amount - discount
   const vat = opts.vat_mode === 'none' ? 0 : Math.round(supply_amount * 0.1)
   return { subtotal, overhead_amount, supply_amount, vat, total: supply_amount + vat }
+}
+
+export interface EstimateMargin {
+  /** 원가 합계 */
+  cost: number
+  /** 이익 = 공급가액 - 원가 (부가세는 남는 돈이 아니라 빼고 본다) */
+  profit: number
+  /** 이익률. 공급가액이 0이면 null */
+  rate: number | null
+}
+
+/** 원가를 한 줄이라도 넣었을 때만 의미가 있다 — 전부 0이면 null 을 돌려준다 */
+export function calcMargin(
+  items: Pick<EstimateItem, 'is_header' | 'qty' | 'cost_price'>[],
+  supplyAmount: number
+): EstimateMargin | null {
+  const cost = items.reduce(
+    (s, it) => it.is_header ? s : s + Math.round((Number(it.qty) || 0) * (Number(it.cost_price) || 0)),
+    0
+  )
+  if (cost === 0) return null
+  const profit = supplyAmount - cost
+  return { cost, profit, rate: supplyAmount > 0 ? profit / supplyAmount : null }
 }
 
 export const fmtComma = (n: number | null | undefined): string =>
@@ -222,13 +322,13 @@ const toItems = (rows: PresetRow[]): EstimateItem[] => {
     if (category !== lastCat) {
       out.push({
         sort_order: order++, is_header: true, category, name: category,
-        spec: null, unit: null, qty: 0, unit_price: 0, amount: 0, remark: null,
+        spec: null, unit: null, qty: 0, unit_price: 0, cost_price: 0, amount: 0, remark: null,
       })
       lastCat = category
     }
     out.push({
       sort_order: order++, is_header: false, category, name, spec: spec || null,
-      unit, qty, unit_price: price, amount: lineAmount(qty, price), remark: null,
+      unit, qty, unit_price: price, cost_price: 0, amount: lineAmount(qty, price), remark: null,
     })
   }
   return out

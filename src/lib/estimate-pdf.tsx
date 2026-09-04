@@ -8,8 +8,8 @@ import {
   Document, Page, Text, View, Image, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import {
-  fmtComma, koreanAmount, validUntil,
-  type Estimate, type EstimateCompany, type EstimateItem,
+  fmtComma, koreanAmount, validUntil, INVOICE_KIND_LABEL,
+  type Estimate, type EstimateCompany, type EstimateInvoice, type EstimateItem,
 } from './estimate'
 
 const FONT_DIR = path.join(process.cwd(), 'public', 'fonts')
@@ -295,4 +295,123 @@ function SumRow({ label, value }: { label: string; value: number }) {
 function trimNum(n: number): string {
   const v = Number(n) || 0
   return Number.isInteger(v) ? fmtComma(v) : String(v).replace(/0+$/, '').replace(/\.$/, '')
+}
+
+/**
+ * 청구서 PDF.
+ * 견적서와 같은 머리·공급자 틀을 쓰되, 내역 대신 청구 회차와 금액·입금계좌를 싣는다.
+ * 받는 사람이 확인할 것은 "얼마를 언제 어디로" 뿐이라 한 장으로 끝낸다.
+ */
+export function InvoiceDocument({ invoice: v, company, stampUrl }: {
+  invoice: EstimateInvoice
+  company: Partial<EstimateCompany> | null
+  stampUrl?: string | null
+}) {
+  return (
+    <Document
+      title={`청구서_${v.invoice_no}`}
+      author={company?.name ?? ''}
+      subject={v.project_name ?? '청구서'}
+    >
+      <Page size="A4" style={s.page}>
+        <Text style={s.title}>청 구 서</Text>
+        <View style={s.titleRule} />
+
+        <View style={s.metaRow}>
+          <Text style={s.metaText}>청구번호 {v.invoice_no}    발행일 {v.issue_date}</Text>
+        </View>
+
+        <View style={s.cols}>
+          <View style={s.col}>
+            <Text style={s.boxTitle}>수 신</Text>
+            <View style={[s.box, { minHeight: 96 }]}>
+              <Text style={s.toName}>{v.client_name || ''} 귀중</Text>
+              {v.client_contact ? (
+                <View style={s.kv}><Text style={s.k}>담당자</Text><Text style={s.v}>{v.client_contact}</Text></View>
+              ) : null}
+              {v.client_phone ? (
+                <View style={s.kv}><Text style={s.k}>연락처</Text><Text style={s.v}>{v.client_phone}</Text></View>
+              ) : null}
+              {v.site_address ? (
+                <View style={s.kv}><Text style={s.k}>현 장</Text><Text style={s.v}>{v.site_address}</Text></View>
+              ) : null}
+              <Text style={{ marginTop: 8, color: C.sub }}>아래와 같이 청구합니다.</Text>
+            </View>
+          </View>
+
+          <View style={s.col}>
+            <Text style={s.boxTitle}>공 급 자</Text>
+            <View style={[s.box, { minHeight: 96, position: 'relative' }]}>
+              <View style={s.kv}><Text style={s.k}>등록번호</Text><Text style={s.v}>{company?.biz_no ?? ''}</Text></View>
+              <View style={s.kv}><Text style={s.k}>상  호</Text><Text style={[s.v, { fontWeight: 'bold' }]}>{company?.name ?? ''}</Text></View>
+              <View style={s.kv}><Text style={s.k}>대표자</Text><Text style={s.v}>{company?.ceo ?? ''}</Text></View>
+              <View style={s.kv}><Text style={s.k}>소재지</Text><Text style={s.v}>{company?.address ?? ''}</Text></View>
+              <View style={s.kv}><Text style={s.k}>연락처</Text><Text style={s.v}>{company?.phone ?? ''}</Text></View>
+              {company?.manager_name || company?.manager_phone ? (
+                <View style={s.kv}>
+                  <Text style={s.k}>담당자</Text>
+                  <Text style={[s.v, { fontWeight: 'bold' }]}>
+                    {[company.manager_name, company.manager_phone].filter(Boolean).join('  ')}
+                  </Text>
+                </View>
+              ) : null}
+              {stampUrl ? (
+                <View style={s.stampWrap}>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image src={stampUrl} style={s.stamp} />
+                </View>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        <View style={s.totalBox}>
+          <Text style={s.totalLabel}>청구금액</Text>
+          <Text style={s.totalKor}>{koreanAmount(v.total)}</Text>
+          <Text style={s.totalNum}>₩{fmtComma(v.total)}</Text>
+        </View>
+
+        <View style={s.overview}>
+          <View style={s.ovCell}><Text style={s.ovK}>공사명</Text><Text style={s.ovV}>{v.project_name ?? ''}</Text></View>
+          <View style={s.ovCell}><Text style={s.ovK}>청구 구분</Text>
+            <Text style={s.ovV}>
+              {INVOICE_KIND_LABEL[v.kind]}
+              {v.ratio != null ? `  (계약금액의 ${Math.round(v.ratio * 100)}%)` : ''}
+            </Text>
+          </View>
+          <View style={[s.ovCell, { borderBottomWidth: 0 }]}><Text style={s.ovK}>입금기한</Text><Text style={s.ovV}>{v.due_date ?? ''}</Text></View>
+          <View style={[s.ovCell, { borderBottomWidth: 0 }]}><Text style={s.ovK}>입금계좌</Text><Text style={s.ovV}>{company?.bank_account ?? ''}</Text></View>
+        </View>
+
+        <View style={s.sumWrap} wrap={false}>
+          <View style={s.sumTable}>
+            <View style={s.sumRow}>
+              <Text style={{ color: C.sub }}>공급가액</Text>
+              <Text style={{ fontWeight: 'bold' }}>{fmtComma(v.supply_amount)}</Text>
+            </View>
+            <View style={s.sumRow}>
+              <Text style={{ color: C.sub }}>{v.vat_mode === 'none' ? '부가세 (없음)' : '부가세 (10%)'}</Text>
+              <Text style={{ fontWeight: 'bold' }}>{fmtComma(v.vat)}</Text>
+            </View>
+            <View style={s.sumRowLast}>
+              <Text style={{ fontWeight: 'bold', fontSize: 10 }}>합　계</Text>
+              <Text style={{ fontWeight: 'bold', fontSize: 10, color: C.accent }}>{fmtComma(v.total)} 원</Text>
+            </View>
+          </View>
+        </View>
+
+        {v.notes ? (
+          <View style={s.notes} wrap={false}>
+            <Text style={s.notesTitle}>비고</Text>
+            <Text style={s.notesBody}>{v.notes}</Text>
+          </View>
+        ) : null}
+
+        <View style={s.footer} fixed>
+          <Text>{company?.name ?? ''}{company?.phone ? `  ${company.phone}` : ''}</Text>
+          <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+        </View>
+      </Page>
+    </Document>
+  )
 }
