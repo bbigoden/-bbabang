@@ -131,6 +131,11 @@ function normalizeFloor(raw: string | undefined, src?: string): string | undefin
  * 나갔다. 세 군데에서 같은 값을 쓰므로 한 곳에서 만든다.
  */
 /** 공장·창고 계열인가. 이쪽은 검색자가 보는 항목 자체가 다르다 (층고·전력·진입). */
+/** 주거용인가. 방·욕실 수는 주거용에만 뜻이 있다. */
+function isResidential(c: Category) {
+  return c === 'residential'
+}
+
 function isIndustrialCat(c: Category): boolean {
   return c === 'industrial'
 }
@@ -955,7 +960,11 @@ function infoRows(p: ParsedListing, listingNo: string): Array<[string, string]> 
     ['층수', p.floor && p.totalFloors ? `${floorLabel(p.floor)} / 총 ${p.totalFloors}층`
       : p.floor ? floorLabel(p.floor)! : p.totalFloors ? `총 ${p.totalFloors}층` : NEEDS_CHECK],
     ['입주가능일', p.moveIn ?? NEEDS_CHECK],
-    ['방수/욕실수', p.bathrooms ? `화장실 ${p.bathrooms}개` : NEEDS_CHECK],
+    // 상가·사무실·공장·창고에는 방이 없다. 그런데 '확인 필요' 로 나가고 있어
+    // 239건이 뱅크에서 채워야 할 것처럼 보였다. 채울 수 없는 항목이다.
+    // 표시광고 필수 항목이라 칸은 두되, 사실대로 적는다.
+    ['방수/욕실수', p.bathrooms ? `화장실 ${p.bathrooms}개`
+      : isResidential(p.category) ? NEEDS_CHECK : '해당 없음 (비주거)'],
     ['사용승인일', p.approvalDate ?? NEEDS_CHECK],
     // 뱅크 원문은 "총 주차대수 0" 형태라 숫자만 잡힌다 — 표기 형식을 맞춘다
     ['주차대수', parkingLabel(p.parking) ?? NEEDS_CHECK],
@@ -1032,11 +1041,15 @@ function buildDetails(p: ParsedListing, src = ''): string {
 
   // 사장님이 `음식점 추천` 처럼 적어 두었으면 그것을 앞세운다. 종류에서 뽑은
   // 기본 목록만 쓰면 상가는 전부 '소매점, 사무실, 학원…' 으로 똑같아진다.
+  // 요약이 이미 "○○ 자리를 찾고 계신 분께 잘 맞습니다" 라고 말했다. 여기서
+  // 같은 말을 또 하면 한 글에서 두 번 읽게 된다 — 실제로 그렇게 나갔다.
+  // 여기서는 **그 밖에 무엇이 되는지** 를 말한다.
   const 적힌업종 = p.category === 'industrial' ? null : markPair(src).업종
-  const usesHead = 적힌업종
-    ? `${적힌업종} 자리를 보고 계신 분께 특히 맞고, ${RECOMMENDED_USES[p.category]}`
-    : RECOMMENDED_USES[p.category]
-  const uses = `**추천 업종**\n${usesHead} 등을 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
+  const 나머지 = RECOMMENDED_USES[p.category]
+    .split(',').map(x => x.trim()).filter(x => x !== 적힌업종).slice(0, 4).join(', ')
+  const uses = 적힌업종
+    ? `**추천 업종**\n${적힌업종}으로 쓰기 좋은 자리이며, ${나머지} 등으로도 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
+    : `**추천 업종**\n${RECOMMENDED_USES[p.category]} 등을 검토해 보실 수 있습니다. 건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.`
 
   const condBits: string[] = []
   condBits.push(p.premium === '없음'
