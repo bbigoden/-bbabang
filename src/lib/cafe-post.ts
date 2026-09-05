@@ -599,13 +599,30 @@ const KIND_ALT: Record<Category, string> = {
   industrial: '창고', residential: '주택', land: '토지',
 }
 
+/**
+ * 층에 맞는 업종을 앞에 둔다.
+ *
+ * 종류만 보고 고르면 3층 118평이 `소매점 자리` 가 된다. 오가는 사람을
+ * 받는 업종은 1층 이야기고, 위층은 목적을 갖고 찾아오는 업종이다.
+ * 사장님이 적어 둔 업종이 있으면 그걸 쓰고, 없을 때만 이 순서를 따른다.
+ */
+function 충을보고(p: ParsedListing, uses: string[]): string[] {
+  const n = Number(p.floor)
+  if (!Number.isFinite(n)) return uses
+  const 앞에 = n <= 1 ? ['소매점', '음식점', '카페', '판매점']
+    : n <= 3 ? ['학원', '사무실', '병의원', '헬스장']
+      : ['사무실', '학원']
+  const 골라 = 앞에.filter(u => uses.includes(u))
+  return [...골라, ...uses.filter(u => !골라.includes(u))]
+}
+
 function buildTitles(p: ParsedListing, src = ''): string[] {
   // 사용자가 실제 쓰는 형식은 `천안 불당동`(시 + 동)이다. 동만 쓰면 어느 시인지 모호하다.
   const cityShort = p.city?.replace(/시$/, '') ?? p.city
   const region = [cityShort, p.dong].filter(Boolean).join(' ') || cityShort || '천안'
   const kind = KIND_LABEL[p.category]
   const deal = p.dealType ?? '임대'
-  const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
+  const uses = 충을보고(p, RECOMMENDED_USES[p.category].split(',').map(s => s.trim()))
 
   // 제목은 **사람들이 검색할 말**로 채운다. 틀을 지키는 것보다 그게 먼저다.
   // `전용 약 43.8평`, `제2종 근린생활시설`, `업종 협의 가능` 은 아무도 검색하지
@@ -842,9 +859,27 @@ function markPair(src: string): { 자리: string | null; 업종: string | null }
   const line = ownWords(src)
   if (!line) return { 자리: null, 업종: null }
   const spot = markIn(SPOT_MARKS, line)
-  const rest = spot ? line.slice(0, spot.at) + ' ' + line.slice(spot.at + spot.len) : line
-  return { 자리: spot?.phrase ?? null, 업종: markIn(PURPOSE_MARKS, rest)?.phrase ?? null }
+  let rest = spot ? line.slice(0, spot.at) + ' ' + line.slice(spot.at + spot.len) : line
+
+  // **주변에 무엇이 있다** 와 **여기서 무엇을 해라** 는 다른 말이다.
+  //
+  // `병원 학원 인접`, `학교랑 병원이 가까운` 은 입지를 적은 것인데 그대로 읽으면
+  // 업종이 '학원'·'병의원' 으로 잡혀 제목이 `학원 자리`, `병의원 자리` 가 된다.
+  // 1층 44평 상가가 학원 자리로, 3층 118평이 병원 자리로 나갈 뻔했다.
+  // 곁에 주변을 말하는 낱말이 있으면 그 낱말은 건너뛰고 다음 것을 본다.
+  for (let i = 0; i < 5; i++) {
+    const hit = markIn(PURPOSE_MARKS, rest)
+    if (!hit) break
+    const 앞 = rest.slice(Math.max(0, hit.at - 14), hit.at)
+    const 뒤 = rest.slice(hit.at + hit.len, hit.at + hit.len + 14)
+    if (!주변말.test(앞) && !주변말.test(뒤)) return { 자리: spot?.phrase ?? null, 업종: hit.phrase }
+    rest = rest.slice(0, hit.at) + ' ' + rest.slice(hit.at + hit.len)
+  }
+  return { 자리: spot?.phrase ?? null, 업종: null }
 }
+
+/** 주변 시설을 말하는 낱말. 이게 곁에 있으면 업종이 아니라 입지 설명이다. */
+const 주변말 = /인접|인근|근처|가까|밀집|배후|주변|상권|몰려|둘러|끼고|맞은편|사이/
 
 const FEATURE_MARKS: Array<[RegExp, string]> = [
   [/시스템\s*냉난방|시스템\s*에어컨|냉난방기?\s*(완비|설치|구비)/, '시스템 냉난방'],
@@ -1058,7 +1093,7 @@ function buildBlogTitles(p: ParsedListing): string[] {
   const kind = KIND_LABEL[p.category]
   const deal = p.dealType ?? '임대'
   const f = features(p)
-  const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
+  const uses = 충을보고(p, RECOMMENDED_USES[p.category].split(',').map(s => s.trim()))
   const areaTxt = mainArea(p) ? `${mainArea(p)!.label} 약 ${m2ToPyeong(mainArea(p)!.m2)}평` : ''
   return [
     `${region} ${dong}${kind} ${deal} | ${f[0]}${areaTxt ? ` ${areaTxt}` : ''}`,
@@ -1608,7 +1643,7 @@ export function buildComments(source: string): string[] {
   const p = parseListing(source)
   const kind = KIND_LABEL[p.category]
   const region = p.dong ?? p.city ?? '해당 지역'
-  const uses = RECOMMENDED_USES[p.category].split(',').map(s => s.trim())
+  const uses = 충을보고(p, RECOMMENDED_USES[p.category].split(',').map(s => s.trim()))
 
   const out: string[] = []
 
