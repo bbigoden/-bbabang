@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
@@ -36,6 +36,10 @@ import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
  *
  * **[가져오기] 를 누를 때만 받는다.** 한 시간마다 알아서 받게 해 뒀다가 걷어냈다 —
  * 볼 때 누르면 되는 일이라 하루 스물네 번 부를 이유가 없다.
+ *
+ * **가져오기는 곳마다 따로 있다.** 한 곳 받는 데 5~8분이 걸리는데 버튼이 하나뿐일
+ * 때는 네이버가 끝나기를 앉아 기다렸다가 당근을 또 눌러야 했다. 이제 둘을 함께
+ * 걸어 두고 자리를 떠도 된다.
  */
 
 /** 화면이 다루는 한 줄. 곳이 달라도 이 모양으로 맞춰 담는다. */
@@ -175,8 +179,19 @@ export default function CollectPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [syncProgress, setSyncProgress] = useState<string | null>(null)
+
+  /**
+   * 곳마다 따로 돈다 — 값이 있으면 그 곳을 받아오는 중이고, 그 값이 진행 표시다.
+   *
+   * 예전에는 받는 중 하나로 뭉쳐 있어서, 네이버를 걸어 두면 당근 버튼까지 잠겼다.
+   * 네이버가 5~8분이라 그게 끝날 때까지 앉아 기다렸다가 당근을 또 눌러야 했다.
+   * 이제 둘을 함께 걸어 두고 자리를 떠도 된다 — PC 프로그램이 차례로 처리한다.
+   */
+  const [jobs, setJobs] = useState<Record<SourceId, string | null>>({ naver: null, daangn: null })
+
+  /** 지켜보는 중인 타이머. 화면을 떠날 때 정리하지 않으면 없는 화면을 계속 고치려 든다. */
+  const timers = useRef<Partial<Record<SourceId, ReturnType<typeof setInterval>>>>({})
+  useEffect(() => () => { for (const t of Object.values(timers.current)) clearInterval(t) }, [])
 
   const [period, setPeriod] = useState<string>('3')
   const [unseenOnly, setUnseenOnly] = useState(false)
@@ -232,6 +247,12 @@ export default function CollectPage() {
 
   useEffect(() => { void load() }, [load])
 
+  // 받아오기가 끝났을 때 **그때 보고 있는 탭**을 다시 읽어야 한다. 지켜보는 함수가
+  // 잡아 둔 옛 load 를 그대로 부르면, 당근을 보는 중에 네이버 목록이 들어온다.
+  const loadRef = useRef(load)
+  const sourceRef = useRef(source)
+  useEffect(() => { loadRef.current = load; sourceRef.current = source }, [load, source])
+
   useEffect(() => {
     if (!officeId) return
     void (async () => {
@@ -284,59 +305,66 @@ export default function CollectPage() {
    *
    * **이 화면은 Vercel 서버에서 도는데 네이버·당근 모두 데이터센터 IP를 막는다.**
    * 그래서 `ad_jobs` 에 "해달라" 고 적어 두면 PC 프로그램이 집어가 실행한다.
+   *
+   * **곳마다 따로 부른다.** 보고 있는 탭과 상관없이 누를 수 있고, 하나가 도는
+   * 중에도 다른 하나를 걸 수 있다. PC 프로그램은 한 번에 하나씩 처리하므로
+   * 뒤엣것은 앞엣것이 끝날 때까지 '차례 기다리는 중' 으로 서 있는다.
    */
-  async function requestCollect() {
-    if (!officeId) return
+  async function requestCollect(id: SourceId) {
+    if (!officeId || jobs[id]) return
+    const s = SOURCES[id]
     if (!agentOnline && !confirm(
       'PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.' + String.fromCharCode(10, 10)
       + '요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.' + String.fromCharCode(10)
       + '계속할까요?'
     )) return
 
-    setSyncing(true); setSyncProgress('요청 보냄')
-    const kind = src.jobKind
+    const 진행 = (text: string | null) => setJobs(prev => ({ ...prev, [id]: text }))
+    const 끝 = () => { clearInterval(timers.current[id]); delete timers.current[id]; 진행(null) }
+    진행('요청 보냄')
 
     // 이미 대기·실행 중인 것이 있으면 그걸 지켜본다. 프로그램이 꺼져 있을 때 여러 번
     // 누르면 요청이 쌓여, 켜는 순간 같은 수집을 반복하게 된다.
     const { data: pending } = await supabase.from('ad_jobs')
-      .select('id').eq('kind', kind).in('status', ['queued', 'running'])
+      .select('id').eq('kind', s.jobKind).in('status', ['queued', 'running'])
       .order('requested_at', { ascending: true }).limit(1).maybeSingle()
 
     const { data: job, error } = pending
       ? { data: pending, error: null }
       : await supabase.from('ad_jobs')
-        .insert({ broker_id: officeId, kind, requested_by: auth.user?.id })
+        .insert({ broker_id: officeId, kind: s.jobKind, requested_by: auth.user?.id })
         .select('id').single()
     if (error || !job) {
-      setSyncing(false); setSyncProgress(null)
-      toast.error(`가져오기를 요청하지 못했습니다 — ${error?.message ?? '알 수 없는 오류'}`)
+      진행(null)
+      toast.error(`${s.label} 가져오기를 요청하지 못했습니다 — ${error?.message ?? '알 수 없는 오류'}`)
       return
     }
 
     // 끝날 때까지 지켜본다. 20분이 넘으면 화면만 놓아주고 작업은 그대로 둔다.
-    const deadline = Date.now() + 20 * 60_000
-    const poll = setInterval(async () => {
+    // 앞선 수집 뒤에 서 있을 수 있으므로 넉넉히 잡는다.
+    const deadline = Date.now() + 30 * 60_000
+    timers.current[id] = setInterval(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('status, progress, result, error').eq('id', job.id).maybeSingle()
       if (!data) return
-      setSyncProgress(data.progress ?? null)
       if (data.status === 'done') {
-        clearInterval(poll)
-        setSyncing(false); setSyncProgress(null)
+        끝()
         const r = data.result as { added?: number; fetched?: number; missed?: number } | null
         // 못 본 곳이 있으면 그것부터 말한다 — '새 매물 0건' 과 '못 받았다' 는 다르다.
-        if (r?.missed) toast.error(`${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
-        else if (r?.added) toast.success(`새 매물 ${r.added}건을 받았습니다. (전체 ${r.fetched ?? 0}건 확인)`)
-        else toast.success(`새로 올라온 매물이 없습니다. (전체 ${r?.fetched ?? 0}건 확인)`)
-        void load()
+        if (r?.missed) toast.error(`${s.label} — ${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
+        else if (r?.added) toast.success(`${s.label} — 새 매물 ${r.added}건을 받았습니다. (전체 ${r.fetched ?? 0}건 확인)`)
+        else toast.success(`${s.label} — 새로 올라온 매물이 없습니다. (전체 ${r?.fetched ?? 0}건 확인)`)
+        // 지금 보고 있는 탭일 때만 다시 읽는다. 아니면 그 탭으로 옮길 때 읽힌다.
+        if (sourceRef.current === id) void loadRef.current()
       } else if (data.status === 'failed' || data.status === 'canceled') {
-        clearInterval(poll)
-        setSyncing(false); setSyncProgress(null)
-        toast.error(`가져오지 못했습니다 — ${data.error ?? '알 수 없는 오류'}`)
+        끝()
+        toast.error(`${s.label} 을(를) 가져오지 못했습니다 — ${data.error ?? '알 수 없는 오류'}`)
       } else if (Date.now() > deadline) {
-        clearInterval(poll)
-        setSyncing(false); setSyncProgress(null)
-        toast.error('시간이 너무 오래 걸립니다. PC 프로그램 창을 확인해 주세요.')
+        끝()
+        toast.error(`${s.label} 가져오기가 너무 오래 걸립니다. PC 프로그램 창을 확인해 주세요.`)
+      } else {
+        // 아직 차례가 안 온 작업은 진행 표시가 없다. 멈춘 것처럼 보이지 않게 적어 준다.
+        진행(data.status === 'queued' ? '차례 기다리는 중' : (data.progress ?? '가져오는 중…'))
       }
     }, 2000)
   }
@@ -396,19 +424,27 @@ export default function CollectPage() {
         <PageHeader
           title="매물수집"
           icon={Radar}
+          /* 곳마다 버튼을 따로 둔다. 보고 있는 탭과 상관없이 누를 수 있어야
+             네이버를 걸어 두고 곧바로 당근까지 걸고 자리를 뜰 수 있다. */
           actions={
-            <button
-              onClick={requestCollect}
-              disabled={syncing}
-              title={agentOnline
-                ? `${src.label}에서 새 매물을 받아옵니다 (5~8분)`
-                : 'PC에서 부소장광고 프로그램(npm run agent)을 먼저 켜 주세요'}
-              className="flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-sm font-medium
-                         text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
-            >
-              <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} aria-hidden />
-              {syncing ? (syncProgress ?? '가져오는 중…') : '가져오기'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {(Object.keys(SOURCES) as SourceId[]).map(id => (
+                <button
+                  key={id}
+                  onClick={() => void requestCollect(id)}
+                  disabled={!!jobs[id]}
+                  title={agentOnline
+                    ? `${SOURCES[id].label}에서 새 매물을 받아옵니다 (5~8분)`
+                    : 'PC에서 부소장광고 프로그램을 먼저 켜 주세요'}
+                  className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3
+                             text-sm font-medium text-white transition-colors hover:bg-blue-700
+                             disabled:opacity-60"
+                >
+                  <Download className={`h-4 w-4 ${jobs[id] ? 'animate-pulse' : ''}`} aria-hidden />
+                  {jobs[id] ?? `${SOURCES[id].label} 가져오기`}
+                </button>
+              ))}
+            </div>
           }
         />
 
@@ -440,7 +476,7 @@ export default function CollectPage() {
             {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
           </span>
           {!agentOnline && (
-            <span>PowerShell에서 <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">npm run agent</code> 를 실행하면 [가져오기]가 동작합니다.</span>
+            <span>PC 바탕화면의 <b className="font-medium">부소장 광고 프로그램</b> 을 켜면 [가져오기]가 동작합니다.</span>
           )}
         </div>
 
@@ -525,7 +561,7 @@ export default function CollectPage() {
         ) : filtered.length === 0 ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
             {rows.length === 0
-              ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.`
+              ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [${src.label} 가져오기]를 눌러 주세요.`
               : unseenOnly ? '안 본 매물이 없습니다. 다 훑으셨습니다.'
               : '고른 조건에 맞는 매물이 없습니다.'}
           </p>
