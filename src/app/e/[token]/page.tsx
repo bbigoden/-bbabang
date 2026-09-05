@@ -162,7 +162,17 @@ export default async function SharedEstimatePage(
                 ) : (
                   <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
                     <td className="px-2 py-1.5 text-gray-600 dark:text-gray-400">{it.category ?? ''}</td>
-                    <td className="px-2 py-1.5 text-gray-900 dark:text-white">{it.name ?? ''}</td>
+                    <td className="px-2 py-1.5 text-gray-900 dark:text-white">
+                      {it.name ?? ''}
+                      {/* 비고는 PDF 에는 열로 나가는데 여기엔 아예 없었다. '폐기물 별도'
+                          같은 단서가 링크로 본 사람에게만 빠지면 나중에 말이 달라진다.
+                          열을 하나 더 두면 폰에서 표가 더 넓어지므로 품명 밑에 붙인다. */}
+                      {it.remark ? (
+                        <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                          {it.remark}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="px-2 py-1.5 text-gray-600 dark:text-gray-400">{it.spec ?? ''}</td>
                     <td className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400">{it.unit ?? ''}</td>
                     <td className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">{it.qty}</td>

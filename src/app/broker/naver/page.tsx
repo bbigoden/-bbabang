@@ -10,10 +10,11 @@ import { SearchClear } from '@/components/ui/search-clear'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useToast } from '@/components/toast'
 import { Radar, Download } from 'lucide-react'
-import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from '@/lib/naver-land'
+import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, toKstDate } from '@/lib/naver-land'
 import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
 import { sendAndForget } from '@/lib/send-and-forget'
-import { DateCell } from '@/components/sheet/cells/date-cell'
+import { DateRangeCell } from '@/components/sheet/cells/date-cell'
+import { todayKST, addDays } from '@/lib/date-kst'
 
 /**
  * 매물수집 — 네이버·당근에 올라온 매물을 최신순으로 모아 둔 링크 목록.
@@ -172,18 +173,11 @@ const MAX_DAYS = 7
 const KEEP_DAYS = 90
 
 /** 그 날의 다음 날. */
-function 다음날(day: string): string {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
-}
+const 다음날 = (day: string) => addDays(day, 1)
 
 /** 두 날 사이 날수 — 양 끝을 다 센다. 9/1~9/3 이면 3. */
 function 날수(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1
-}
-
-/** day 를 뒤로/앞으로 민 날. */
-function 민날(day: string, days: number): string {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10)
 }
 
 /**
@@ -196,28 +190,10 @@ function 경계(day: string, 시각칸: boolean): string {
   return 시각칸 ? new Date(`${day}T00:00:00+09:00`).toISOString() : day
 }
 
-/**
- * 고를 수 있는 자리로 다듬는다 — 오늘 뒤도, 지운 지 오래된 날도 안 된다.
- *
- * 달력은 직접 타이핑도 받으므로 아무 글자나 들어올 수 있다. 날짜가 아니면 빈
- * 값을 돌려주고, 부르는 쪽은 그대로 둔다.
- */
-function 자르기(day: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`))) return ''
-  const 오늘 = kstDate(0)
-  const 맨앞 = kstDate(KEEP_DAYS - 1)
-  return day > 오늘 ? 오늘 : day < 맨앞 ? 맨앞 : day
-}
-
 /** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
 function isFresh(r: Row): boolean {
   return Date.now() - new Date(r.first_seen_at).getTime() < 24 * 60 * 60 * 1000
 }
-
-/** 달력을 감싸는 테두리. 칩과 키를 맞춘다 — 필터 줄에서 혼자 튀면 안 된다. */
-const DATE_BOX =
-  'flex h-8 w-[104px] items-center rounded-lg border border-gray-200 bg-white px-1.5 ' +
-  'dark:border-gray-800 dark:bg-gray-950'
 
 const CHIP_ON = 'border-blue-600 bg-blue-600 text-white'
 const CHIP_OFF =
@@ -244,7 +220,8 @@ export default function CollectPage() {
   const src = SOURCES[source]
 
   const [rows, setRows] = useState<Row[]>([])
-  const [seen, setSeen] = useState<Set<string>>(new Set())
+  /** 매물번호 → 몇 번 눌러 봤나. 없으면 아직 안 본 것. */
+  const [seen, setSeen] = useState<Map<string, number>>(new Map())
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [savingSettings, setSavingSettings] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -270,8 +247,8 @@ export default function CollectPage() {
    * `from`/`to` 라고 안 쓴 것은 아래 `fetchAllPaged` 의 쪽 번호(from, to)와 이름이
    * 겹쳐서다. 한 화면 안에서 같은 이름이 다른 뜻으로 두 번 나오면 반드시 헷갈린다.
    */
-  const [첫날, set첫날] = useState<string>(() => kstDate(2))
-  const [끝날, set끝날] = useState<string>(() => kstDate(0))
+  const [첫날, set첫날] = useState<string>(() => addDays(todayKST(), -2))
+  const [끝날, set끝날] = useState<string>(() => todayKST())
 
   const [unseenOnly, setUnseenOnly] = useState(false)
   const [goneOnly, setGoneOnly] = useState(false)
@@ -303,7 +280,7 @@ export default function CollectPage() {
             .gte(s.dateColumn, 경계(첫날, s.dateIsTimestamp))
           // 끝날이 오늘이면 위를 막지 않는다. 막으면 날짜가 앞선 매물이 조용히
           // 빠지는데, 지금까지 보이던 것이 안 보이게 되는 셈이다.
-          if (끝날 < kstDate(0)) q = q.lt(s.dateColumn, 경계(다음날(끝날), s.dateIsTimestamp))
+          if (끝날 < todayKST()) q = q.lt(s.dateColumn, 경계(다음날(끝날), s.dateIsTimestamp))
           return q
             .order(s.dateColumn, { ascending: false })
             // 매물번호로 순서를 못박는다. 날짜만으로는 같은 값이 수백 건이라
@@ -312,15 +289,15 @@ export default function CollectPage() {
             .range(from, to)
         }),
         // 본 기록은 계속 쌓인다. 화면이 최대 7일치만 보여주므로 그만큼만 받는다.
-        fetchAllPaged<{ article_no: string }>((from, to) =>
-          supabase.from(s.views).select('article_no')
+        fetchAllPaged<{ article_no: string; view_count: number }>((from, to) =>
+          supabase.from(s.views).select('article_no, view_count')
             .gte('seen_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
             .order('seen_at', { ascending: false })
             .range(from, to)),
       ])
       setError(null)
       setRows(arts.map(s.toRow))
-      setSeen(new Set(views.map(v => v.article_no)))
+      setSeen(new Map(views.map(v => [v.article_no, v.view_count ?? 1])))
     } catch (e) {
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     }
@@ -382,10 +359,13 @@ export default function CollectPage() {
    */
   const markSeen = (articleNo: string) => {
     const uid = auth.user?.id
-    if (!uid || seen.has(articleNo)) return
-    setSeen(prev => new Set(prev).add(articleNo))
-    sendAndForget(supabase.from(src.views)
-      .upsert({ user_id: uid, article_no: articleNo }, { onConflict: 'user_id,article_no' }))
+    if (!uid) return
+    const 횟수 = (seen.get(articleNo) ?? 0) + 1
+    setSeen(prev => new Map(prev).set(articleNo, 횟수))
+    sendAndForget(supabase.from(src.views).upsert(
+      { user_id: uid, article_no: articleNo, view_count: 횟수, seen_at: new Date().toISOString() },
+      { onConflict: 'user_id,article_no' },
+    ))
   }
 
   /**
@@ -502,26 +482,7 @@ export default function CollectPage() {
   const 기간잡기 = (a: string, b: string) => { set첫날(a); set끝날(b); setPage(1) }
 
   /** 칩이 지금 고른 기간과 같은가 — 끝이 오늘이고 날수가 맞으면. */
-  const 칩켜짐 = (days: number) => 끝날 === kstDate(0) && 날수(첫날, 끝날) === days
-
-  /**
-   * 한쪽 날을 바꾸면 다른 쪽을 따라 옮긴다.
-   *
-   * **막지 않고 옮긴다.** 7일이 넘게 고르면 "안 됩니다" 하고 되돌리는 것보다,
-   * 방금 고른 날을 살리고 반대쪽을 7일 자리로 당기는 편이 하려던 일에 가깝다.
-   */
-  const 첫날바꾸기 = (raw: string) => {
-    const v = 자르기(raw)
-    if (!v) return
-    const 끝 = 끝날 < v ? v : 날수(v, 끝날) > MAX_DAYS ? 민날(v, MAX_DAYS - 1) : 끝날
-    기간잡기(v, 자르기(끝) || v)
-  }
-  const 끝날바꾸기 = (raw: string) => {
-    const v = 자르기(raw)
-    if (!v) return
-    const 첫 = 첫날 > v ? v : 날수(첫날, v) > MAX_DAYS ? 민날(v, -(MAX_DAYS - 1)) : 첫날
-    기간잡기(자르기(첫) || v, v)
-  }
+  const 칩켜짐 = (days: number) => 끝날 === todayKST() && 날수(첫날, 끝날) === days
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {
     set(list.includes(id) ? list.filter(x => x !== id) : [...list, id])
@@ -619,20 +580,20 @@ export default function CollectPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">기간</span>
             {PERIODS.map(p => (
-              <Chip key={p.id} on={칩켜짐(p.days)} onClick={() => 기간잡기(kstDate(p.days - 1), kstDate(0))}>
+              <Chip key={p.id} on={칩켜짐(p.days)} onClick={() => 기간잡기(addDays(todayKST(), -(p.days - 1)), todayKST())}>
                 {p.label}
               </Chip>
             ))}
-            {/* 달력에서 직접 고른다. 지난주 월~금처럼 지나간 자리를 다시 훑을 때 쓴다.
-                매물목록·고객목록이 쓰는 그 달력(DateCell) 그대로다 — 화면마다 다른
-                달력이 뜨면 같은 프로그램으로 안 보인다. */}
-            <div className={DATE_BOX} title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}>
-              <DateCell value={첫날} onSave={첫날바꾸기} />
-            </div>
-            <span className="text-sm text-gray-400">~</span>
-            <div className={DATE_BOX} title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}>
-              <DateCell value={끝날} onSave={끝날바꾸기} />
-            </div>
+            {/* 매물목록·고객목록이 쓰는 그 달력 그대로다 — 화면마다 다른 달력이 뜨면
+                같은 프로그램으로 안 보인다. 다른 곳은 한 날만 고르므로, 기간이 필요한
+                여기서만 두 날을 눌러 정한다. */}
+            <DateRangeCell
+              from={첫날} to={끝날}
+              onSave={기간잡기}
+              maxDays={MAX_DAYS}
+              min={addDays(todayKST(), -(KEEP_DAYS - 1))}
+              max={todayKST()}
+            />
             <span className="text-xs text-gray-400 dark:text-gray-600">{날수(첫날, 끝날)}일</span>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
@@ -736,7 +697,7 @@ export default function CollectPage() {
             <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
               {shown.map(r => {
-                const 봤음 = seen.has(r.article_no)
+                const 본횟수 = seen.get(r.article_no) ?? 0
                 return (
                   <li key={r.article_no}>
                     <a
@@ -744,8 +705,8 @@ export default function CollectPage() {
                       target="_blank"
                       rel="noreferrer"
                       onClick={() => markSeen(r.article_no)}
-                      className={`group flex items-center gap-3 px-4 py-2.5 transition-colors
-                                  hover:bg-blue-50/60 dark:hover:bg-gray-800 ${봤음 ? 'opacity-45' : ''}`}
+                      className="group flex items-center gap-3 px-4 py-2.5 transition-colors
+                                 hover:bg-blue-50/60 dark:hover:bg-gray-800"
                     >
                       <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 dark:text-gray-600">
                         {r.shown_date?.slice(5).replace('-', '/')}
@@ -769,9 +730,14 @@ export default function CollectPage() {
                                      dark:bg-amber-900/40 dark:text-amber-400"
                           title="예전부터 있던 매물인데 광고만 새로 올라왔습니다"
                         >재등록</span>
-                      ) : isFresh(r) && !봤음 ? (
+                      ) : isFresh(r) && !본횟수 ? (
                         <span className="shrink-0 rounded bg-blue-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">신규</span>
                       ) : null}
+                      {/* 흐리게 만드는 대신 몇 번 봤는지 적는다. 흐려 놓으면 본 것이
+                          읽기 어려워지는데, 정작 다시 들여다볼 만한 것은 그중에 있다. */}
+                      <span className="w-8 shrink-0 text-right text-xs tabular-nums text-gray-400 dark:text-gray-600">
+                        {본횟수 ? `${본횟수}회` : ''}
+                      </span>
                     </a>
                   </li>
                 )
