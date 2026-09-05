@@ -75,6 +75,8 @@ const SOURCES = {
     table: 'naver_articles',
     views: 'naver_article_views',
     jobKind: 'naver',
+    /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
+    takes: '5~8분',
     columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at',
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
@@ -108,6 +110,8 @@ const SOURCES = {
     table: 'daangn_articles',
     views: 'daangn_article_views',
     jobKind: 'daangn',
+    /** 실측 346초. 우리 지역 아닌 동을 첫 쪽에서 접기 전에는 460초였다. */
+    takes: '6~9분',
     columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at',
     kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
     kindOf: daangnKindOf,
@@ -302,52 +306,28 @@ export default function CollectPage() {
   }
 
   /**
-   * 그 곳에서 새 매물을 받아 온다 — 광고관리의 [가져오기] 와 같은 방식.
+   * 걸어 둔 수집이 끝날 때까지 지켜본다.
    *
-   * **이 화면은 Vercel 서버에서 도는데 네이버·당근 모두 데이터센터 IP를 막는다.**
-   * 그래서 `ad_jobs` 에 "해달라" 고 적어 두면 PC 프로그램이 집어가 실행한다.
-   *
-   * **곳마다 따로 부른다.** 보고 있는 탭과 상관없이 누를 수 있고, 하나가 도는
-   * 중에도 다른 하나를 걸 수 있다. PC 프로그램은 한 번에 하나씩 처리하므로
-   * 뒤엣것은 앞엣것이 끝날 때까지 '차례 기다리는 중' 으로 서 있는다.
+   * 누를 때만이 아니라 화면을 새로 열 때도 쓴다 — 돌고 있는 것을 이어서 보여줘야
+   * 한다. 30분이 넘으면 화면만 놓아주고 작업은 그대로 둔다. 앞선 수집 뒤에 서
+   * 있을 수 있어 넉넉히 잡는다.
    */
-  async function requestCollect(id: SourceId) {
-    if (!officeId || jobs[id]) return
+  const watchJob = useCallback((id: SourceId, jobId: string) => {
     const s = SOURCES[id]
-    if (!agentOnline && !confirm(
-      'PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.' + String.fromCharCode(10, 10)
-      + '요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.' + String.fromCharCode(10)
-      + '계속할까요?'
-    )) return
-
     const 진행 = (text: string | null) => setJobs(prev => ({ ...prev, [id]: text }))
     const 끝 = () => { clearInterval(timers.current[id]); delete timers.current[id]; 진행(null) }
-    진행('요청 보냄')
+    진행('가져오는 중…')
 
-    // 이미 대기·실행 중인 것이 있으면 그걸 지켜본다. 프로그램이 꺼져 있을 때 여러 번
-    // 누르면 요청이 쌓여, 켜는 순간 같은 수집을 반복하게 된다.
-    const { data: pending } = await supabase.from('ad_jobs')
-      .select('id').eq('kind', s.jobKind).in('status', ['queued', 'running'])
-      .order('requested_at', { ascending: true }).limit(1).maybeSingle()
-
-    const { data: job, error } = pending
-      ? { data: pending, error: null }
-      : await supabase.from('ad_jobs')
-        .insert({ broker_id: officeId, kind: s.jobKind, requested_by: auth.user?.id })
-        .select('id').single()
-    if (error || !job) {
-      진행(null)
-      toast.error(`${s.label} 가져오기를 요청하지 못했습니다 — ${error?.message ?? '알 수 없는 오류'}`)
-      return
-    }
-
-    // 끝날 때까지 지켜본다. 20분이 넘으면 화면만 놓아주고 작업은 그대로 둔다.
-    // 앞선 수집 뒤에 서 있을 수 있으므로 넉넉히 잡는다.
     const deadline = Date.now() + 30 * 60_000
     timers.current[id] = setInterval(async () => {
       const { data } = await supabase.from('ad_jobs')
-        .select('status, progress, result, error').eq('id', job.id).maybeSingle()
-      if (!data) return
+        .select('status, progress, result, error').eq('id', jobId).maybeSingle()
+      // 작업이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이 지켜보기가
+      // 영영 안 끝나고, 버튼도 계속 잠긴 채로 남는다.
+      if (!data) {
+        if (Date.now() > deadline) { 끝(); toast.error(`${s.label} 가져오기 상태를 알 수 없습니다. 다시 눌러 주세요.`) }
+        return
+      }
       if (data.status === 'done') {
         끝()
         const r = data.result as { added?: number; fetched?: number; missed?: number } | null
@@ -368,7 +348,67 @@ export default function CollectPage() {
         진행(data.status === 'queued' ? '차례 기다리는 중' : (data.progress ?? '가져오는 중…'))
       }
     }, 2000)
+  }, [supabase, toast])
+
+  /**
+   * 그 곳에서 새 매물을 받아 온다 — 광고관리의 [가져오기] 와 같은 방식.
+   *
+   * **이 화면은 Vercel 서버에서 도는데 네이버·당근 모두 데이터센터 IP를 막는다.**
+   * 그래서 `ad_jobs` 에 "해달라" 고 적어 두면 PC 프로그램이 집어가 실행한다.
+   *
+   * **곳마다 따로 부른다.** 보고 있는 탭과 상관없이 누를 수 있고, 하나가 도는
+   * 중에도 다른 하나를 걸 수 있다. PC 프로그램은 한 번에 하나씩 처리하므로
+   * 뒤엣것은 앞엣것이 끝날 때까지 '차례 기다리는 중' 으로 서 있는다.
+   */
+  async function requestCollect(id: SourceId) {
+    if (!officeId || jobs[id]) return
+    const s = SOURCES[id]
+    if (!agentOnline && !confirm(
+      'PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.' + String.fromCharCode(10, 10)
+      + '요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.' + String.fromCharCode(10)
+      + '계속할까요?'
+    )) return
+
+    setJobs(prev => ({ ...prev, [id]: '요청 보냄' }))
+
+    // 이미 대기·실행 중인 것이 있으면 그걸 지켜본다. 프로그램이 꺼져 있을 때 여러 번
+    // 누르면 요청이 쌓여, 켜는 순간 같은 수집을 반복하게 된다.
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', s.jobKind).in('status', ['queued', 'running'])
+      .order('requested_at', { ascending: true }).limit(1).maybeSingle()
+
+    const { data: job, error } = pending
+      ? { data: pending, error: null }
+      : await supabase.from('ad_jobs')
+        .insert({ broker_id: officeId, kind: s.jobKind, requested_by: auth.user?.id })
+        .select('id').single()
+    if (error || !job) {
+      setJobs(prev => ({ ...prev, [id]: null }))
+      toast.error(`${s.label} 가져오기를 요청하지 못했습니다 — ${error?.message ?? '알 수 없는 오류'}`)
+      return
+    }
+    watchJob(id, job.id)
   }
+
+  /**
+   * 화면을 새로 열어도 돌고 있는 수집을 이어서 보여 준다.
+   *
+   * 걸어 두고 새로고침하거나 다른 화면에 다녀오면 아무 일도 없는 것처럼 보였다.
+   * 그러면 또 누르게 되는데, 눌러도 같은 작업에 붙을 뿐이라 헛걸음이다.
+   */
+  useEffect(() => {
+    if (!officeId) return
+    void (async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('id, kind')
+        .in('kind', Object.values(SOURCES).map(s => s.jobKind))
+        .in('status', ['queued', 'running'])
+      for (const j of data ?? []) {
+        const id = (Object.keys(SOURCES) as SourceId[]).find(k => SOURCES[k].jobKind === j.kind)
+        if (id && !timers.current[id]) watchJob(id, j.id)
+      }
+    })()
+  }, [supabase, officeId, watchJob])
 
   /** 마지막으로 받아온 시각. 0건일 때 "받아오기가 멈춘 건지"를 여기서 안다. */
   const lastSweep = useMemo(
@@ -485,7 +525,7 @@ export default function CollectPage() {
               onClick={() => void requestCollect(source)}
               disabled={!!jobs[source]}
               title={agentOnline
-                ? `${src.label}에서 새 매물을 받아옵니다 (5~8분)`
+                ? `${src.label}에서 새 매물을 받아옵니다 (${src.takes})`
                 : 'PC에서 부소장광고 프로그램을 먼저 켜 주세요'}
               className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
                          px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700

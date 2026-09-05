@@ -233,14 +233,21 @@ export async function fetchDaangnArticles(
   for (let i = 0; i < uniq.length; i++) {
     try {
       let after: string | null = null
+      let 우리것 = 0
       for (let page = 0; page < MAX_PAGES; page++) {
         await sleep(REQUEST_GAP_MS)
         const res: { rows: any[]; cursor: string | null; hasNext: boolean } = await fetchPage(uniq[i].id, after)
         for (const raw of res.rows) {
           const r = normalize(raw)
           // 사각형이 시 경계를 넘어 옆 동네가 섞여 온다. 감시 구역 것만 남긴다.
-          if (r && regions.some(g => r.division?.startsWith(g.divisionPrefix))) found.set(r.article_no, r)
+          if (r && regions.some(g => r.division?.startsWith(g.divisionPrefix))) { found.set(r.article_no, r); 우리것++ }
         }
+        // **첫 쪽에 우리 지역 매물이 하나도 없으면 거기서 그만둔다.** 한 동에서 오는
+        // 매물은 모두 그 동 것이므로, 첫 쪽이 전부 남의 동네면 그 동은 우리 동네가
+        // 아니다. 사각형이 시 경계보다 넓어 옆 동네가 딸려 오는데, 그런 곳까지 네
+        // 쪽씩 받으면 시간도 당근에 보내는 요청도 두 배가 된다 —
+        // 실제로 150곳을 훑어 71곳만 남았다.
+        if (page === 0 && 우리것 === 0) break
         if (!res.hasNext || !res.cursor) break
         after = res.cursor
       }
