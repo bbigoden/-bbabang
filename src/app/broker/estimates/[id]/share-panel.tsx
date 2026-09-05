@@ -39,7 +39,12 @@ const fmtSize = (n: number) => n >= 1024 * 1024
   ? `${(n / 1024 / 1024).toFixed(1)}MB`
   : `${Math.max(1, Math.round(n / 1024))}KB`
 
-export function SharePanel({ estimateId, brokerId }: { estimateId: string; brokerId: string }) {
+export function SharePanel({ estimateId, brokerId, refreshKey = 0 }: {
+  estimateId: string
+  brokerId: string
+  /** 상단 '공유' 버튼이 링크를 만들면 올라간다 — 그때 여기도 다시 읽는다 */
+  refreshKey?: number
+}) {
   const toast = useToast()
   const supabase = useMemo(() => createClient(), [])
   const [shares, setShares] = useState<ShareRow[]>([])
@@ -56,7 +61,7 @@ export function SharePanel({ estimateId, brokerId }: { estimateId: string; broke
     setFiles((fl.data as FileRow[]) ?? [])
   }, [estimateId, supabase])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, refreshKey])
 
   // origin 은 렌더 중에 읽으면 안 된다 — 'use client' 라도 서버에서 한 번 그려지므로
   // window 가 없어 페이지가 통째로 죽는다

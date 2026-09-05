@@ -9,7 +9,7 @@ import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import {
   ArrowLeft, Save, Download, Mail, RefreshCw, Settings, Building2,
-  CheckCircle2, XCircle, Lock, CopyPlus,
+  CheckCircle2, XCircle, Lock, CopyPlus, Link2,
 } from 'lucide-react'
 import {
   calcTotals, calcMargin, fmtComma, koreanAmount, revisionNo, validUntil, STATUS_LABEL,
@@ -50,6 +50,9 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   // 미리보기는 저장과 분리한다 — 입력을 멈추면 화면 값 그대로 다시 그린다
   const [previewSrc, setPreviewSrc] = useState('')
   const [previewing, setPreviewing] = useState(false)
+  // 상단 '공유' 버튼용. shareTick 이 오르면 아래 [공유 · 첨부] 칸이 다시 읽는다
+  const [sharing, setSharing] = useState(false)
+  const [shareTick, setShareTick] = useState(0)
 
   const set = <K extends keyof Estimate>(k: K, v: Estimate[K]) => {
     setEst(prev => prev ? { ...prev, [k]: v } : prev)
@@ -435,6 +438,48 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     setMailOpen(true)
   }
 
+  /**
+   * 상단 '공유' — 한 번 눌러 끝나게 한다.
+   *
+   * 링크는 아래 '공유 · 첨부' 칸에도 있지만 화면 맨 끝까지 내려가야 나온다.
+   * 정작 카톡으로 던지는 일이 제일 잦아서 위로 올렸다.
+   * 없으면 만들고, 있으면 그대로 복사한다. 상태를 들고 있지 않고 누를 때마다
+   * 물어보므로, 아래 칸에서 만들거나 회수한 것과 어긋나지 않는다.
+   */
+  const shareLink = async () => {
+    if (!est || sharing) return
+    // 저장하지 않은 채로 링크를 보내면 거래처는 옛 내용을 본다
+    if (dirty && !(await save(true))) return
+
+    setSharing(true)
+    try {
+      const { data: rows } = await supabase.from('estimate_shares')
+        .select('token').eq('estimate_id', est.id).eq('revoked', false)
+        .order('created_at', { ascending: false }).limit(1)
+
+      let token = rows?.[0]?.token as string | undefined
+      if (!token) {
+        // 추측할 수 없을 만큼 긴 토큰 (공유 칸과 같은 방식)
+        token = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+        const { error } = await supabase.from('estimate_shares')
+          .insert({ estimate_id: est.id, token })
+        if (error) { toast.error('링크를 만들지 못했습니다'); return }
+        setShareTick(t => t + 1)   // 아래 공유 칸도 다시 읽게
+      }
+
+      const url = `${window.location.origin}/e/${token}`
+      try {
+        await navigator.clipboard.writeText(url)
+        toast.success('링크를 복사했습니다. 카톡에 붙여넣으세요.')
+      } catch {
+        // 브라우저가 복사를 막는 경우가 있다 — 주소는 아래 칸에 그대로 떠 있다
+        toast.error('복사하지 못했습니다. 아래 [공유 · 첨부] 칸에서 주소를 길게 눌러 복사해주세요.')
+      }
+    } finally {
+      setSharing(false)
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="bg-gray-50 dark:bg-gray-950">
@@ -507,6 +552,10 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             <button onClick={downloadPdf} disabled={saving}
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
               <Download className="h-4 w-4" />PDF
+            </button>
+            <button onClick={shareLink} disabled={saving || sharing} title="열람용 링크를 만들어 복사합니다"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+              <Link2 className="h-4 w-4" />{sharing ? '준비 중…' : '공유'}
             </button>
             <button onClick={openMail} disabled={saving}
               className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
@@ -725,7 +774,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 </p>
               </div>
             </section>
-            <SharePanel estimateId={est.id} brokerId={brokerId!} />
+            <SharePanel estimateId={est.id} brokerId={brokerId!} refreshKey={shareTick} />
 
             <InvoicesPanel estimate={{ ...est, ...totals }} brokerId={brokerId!} />
           </div>
