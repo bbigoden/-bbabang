@@ -21,6 +21,7 @@ import { ItemsEditor } from './items-editor'
 import { SendMailDialog } from './send-dialog'
 import { InvoicesPanel } from './invoices-panel'
 import { SharePanel } from './share-panel'
+import { ImportDialog } from './import-dialog'
 
 interface TemplateRow { id: string; name: string; items: EstimateItem[] }
 interface SendRow { id: string; to_email: string; ok: boolean; error: string | null; sent_at: string }
@@ -53,6 +54,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   // 상단 '공유' 버튼용. shareTick 이 오르면 아래 [공유 · 첨부] 칸이 다시 읽는다
   const [sharing, setSharing] = useState(false)
   const [shareTick, setShareTick] = useState(0)
+  const [importOpen, setImportOpen] = useState(false)
 
   const set = <K extends keyof Estimate>(k: K, v: Estimate[K]) => {
     setEst(prev => prev ? { ...prev, [k]: v } : prev)
@@ -678,7 +680,10 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             <section className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white">공사 내역</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => setImportOpen(true)} className="text-xs font-semibold text-blue-600 hover:underline">
+                    엑셀에서 가져오기
+                  </button>
                   <button onClick={saveAsTemplate} className="text-xs font-semibold text-blue-600 hover:underline">
                     프리셋으로 저장
                   </button>
@@ -845,6 +850,20 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       </div>
+
+      {importOpen && (
+        <ImportDialog
+          hasItems={items.length > 0}
+          onClose={() => setImportOpen(false)}
+          onApply={(rows, mode) => {
+            const next = mode === 'replace' ? rows : [...items, ...rows]
+            setItems(next.map((it, i) => ({ ...it, sort_order: i })))
+            setDirty(true)
+            setImportOpen(false)
+            toast.success(`${rows.filter(r => !r.is_header).length}줄을 가져왔습니다. 확인 후 저장하세요.`)
+          }}
+        />
+      )}
 
       {mailOpen && (
         <SendMailDialog
