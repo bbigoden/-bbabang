@@ -156,6 +156,22 @@ export function invoiceAmounts(
   return { supply_amount: supply, vat, total: supply + vat }
 }
 
+/**
+ * 오늘 날짜(한국 기준) YYYY-MM-DD.
+ *
+ * new Date().toISOString().slice(0,10) 은 UTC 날짜라 한국시간 아침 9시 전에는
+ * 어제가 나온다. 견적번호는 한국 기준으로 매기는데(next_estimate_no) 발행일만
+ * 어제가 되어, 번호는 2026-0905-01 인데 날짜는 2026-09-04 로 찍히는 일이 생겼다.
+ * 입금일도 마찬가지로 하루 당겨졌다.
+ */
+export function todayKST(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
 /** 원본 견적번호에 리비전을 붙인다: 2026-0904-01 → 2026-0904-01-r2 */
 export function revisionNo(baseNo: string, revision: number): string {
   return `${baseNo.replace(/-r\d+$/, '')}-r${revision}`
@@ -224,10 +240,13 @@ export const fmtComma = (n: number | null | undefined): string =>
 
 /** 유효기간 만료일 = 발행일 + valid_days */
 export function validUntil(issueDate: string, days: number): string {
-  const d = new Date(issueDate)
+  // 날짜에 며칠을 더하는 계산은 보는 사람의 시간대와 상관없이 같아야 한다.
+  // new Date('2026-09-05') 는 UTC 자정으로 읽히는데 getDate() 는 로컬 시간으로
+  // 되읽어서, UTC 보다 서쪽에서 열면 하루가 밀린다. 처음부터 끝까지 UTC 로 센다.
+  const d = new Date(`${issueDate}T00:00:00Z`)
   if (isNaN(d.getTime())) return ''
-  d.setDate(d.getDate() + (Number(days) || 0))
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  d.setUTCDate(d.getUTCDate() + (Number(days) || 0))
+  return d.toISOString().slice(0, 10)
 }
 
 /**
@@ -238,8 +257,8 @@ export function isExpired(e: Pick<Estimate, 'issue_date' | 'valid_days' | 'statu
   if (e.status === 'won' || e.status === 'lost') return false
   const until = validUntil(e.issue_date, e.valid_days)
   if (!until) return false
-  const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  return ymd > until
+  // '오늘'은 사장님이 계신 한국 기준으로 본다
+  return todayKST(today) > until
 }
 
 // ── 실적 집계 ───────────────────────────────────────────────────
@@ -305,9 +324,19 @@ export function numberToKorean(value: number): string {
   return groups.join('')
 }
 
-/** 55000000 → "일금 오천오백만원정" */
-export const koreanAmount = (value: number): string =>
-  `일금 ${numberToKorean(value)}원정`
+/**
+ * 55000000 → "일금 오천오백만원정"
+ *
+ * 음수는 반드시 표시한다. numberToKorean 이 절댓값을 다루기 때문에, 할인을
+ * 잘못 넣어 합계가 -110,000 이 된 견적서가 숫자로는 -110,000, 한글로는
+ * '일금 일십일만원정' 으로 나갔다. 계약 문서에서 금액이 둘로 갈리면 안 된다.
+ */
+export const koreanAmount = (value: number): string => {
+  const n = Math.round(Number(value) || 0)
+  return n < 0
+    ? `일금 마이너스 ${numberToKorean(n)}원정`
+    : `일금 ${numberToKorean(n)}원정`
+}
 
 // ── 공사 프리셋 ────────────────────────────────────────────────
 // 처음 들어올 때 자동으로 깔리는 기본값. 실제 단가는 사용자가 고쳐 쓴다.

@@ -15,6 +15,7 @@ import {
   calcTotals, calcMargin, fmtComma, koreanAmount, revisionNo, validUntil, STATUS_LABEL,
   type CatalogItem, type Estimate, type EstimateCompany, type EstimateClient,
   type EstimateItem, type EstimateStatus, type VatMode,
+  todayKST,
 } from '@/lib/estimate'
 import { ItemsEditor } from './items-editor'
 import { SendMailDialog } from './send-dialog'
@@ -404,7 +405,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       root_estimate_id: root,
       revision: nextRev,
       estimate_no: revisionNo(baseNo, nextRev),
-      issue_date: new Date().toISOString().slice(0, 10),
+      issue_date: todayKST(),
       status: 'draft',
       sent_at: null,
     }).select('id').single()
@@ -680,6 +681,14 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                     <p className="mt-1 text-right text-xs text-gray-500">{koreanAmount(totals.total)}</p>
                   </div>
+
+                  {/* 할인에 0을 하나 더 치면 합계가 음수가 된다. 그대로 내보내면
+                      거래처가 마이너스 견적서를 받으므로 눈에 띄게 알린다. */}
+                  {totals.supply_amount < 0 && (
+                    <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-300">
+                      할인이 소계보다 커서 합계가 마이너스입니다. 할인 금액을 확인하세요.
+                    </p>
+                  )}
 
                   {margin && (
                     <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 dark:border-amber-500/30 dark:bg-amber-500/10">

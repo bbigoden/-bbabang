@@ -16,6 +16,7 @@ import {
 import {
   calcStats, fmtComma, isExpired, STATUS_LABEL,
   type Estimate, type EstimateCompany, type EstimateStatus,
+  todayKST,
 } from '@/lib/estimate'
 
 type Period = 'month' | 'year' | 'all'
@@ -134,7 +135,7 @@ export default function EstimatesPage() {
           ...rest,
           owner_broker_id: brokerId,
           estimate_no: noData as string,
-          issue_date: new Date().toISOString().slice(0, 10),
+          issue_date: todayKST(),
           status: 'draft',
           sent_at: null,
         })

@@ -12,6 +12,7 @@ import { Plus, Download, Trash2, X, ReceiptText, CheckCircle2 } from 'lucide-rea
 import {
   fmtComma, invoiceAmounts, INVOICE_KIND_LABEL, INVOICE_KIND_RATIO,
   type Estimate, type EstimateInvoice, type InvoiceKind,
+  todayKST,
 } from '@/lib/estimate'
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
@@ -106,7 +107,7 @@ export function InvoicesPanel({ estimate, brokerId }: { estimate: Estimate; brok
   }
 
   const togglePaid = async (row: EstimateInvoice) => {
-    const paid_at = row.paid_at ? null : new Date().toISOString().slice(0, 10)
+    const paid_at = row.paid_at ? null : todayKST()
     const { error } = await supabase.from('estimate_invoices').update({ paid_at }).eq('id', row.id)
     if (error) { toast.error('바꾸지 못했습니다'); return }
     setRows(prev => prev.map(r => r.id === row.id ? { ...r, paid_at } : r))

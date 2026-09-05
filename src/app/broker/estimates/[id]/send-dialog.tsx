@@ -6,7 +6,7 @@
  * 실제 발송(SMTP)과 PDF 첨부는 서버 라우트가 처리한다.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -38,8 +38,15 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
 
+  // 제목·본문은 창이 열릴 때 한 번만 채운다.
+  //
+  // 부모가 estimate={{ ...est, ...totals }} 로 매번 새 객체를 넘기는데, 이걸
+  // 의존성으로 두면 부모가 다시 그려질 때마다(미리보기가 끝나기만 해도) 여기가
+  // 다시 돌아 손으로 고쳐 둔 메일 본문이 템플릿으로 되돌아갔다.
+  const filled = useRef(false)
+
   useEffect(() => {
-    if (!broker?.id) return
+    if (!broker?.id || filled.current) return
     let alive = true
     ;(async () => {
       const { data } = await supabase
@@ -64,6 +71,7 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
       setSubject(fillTemplate(data?.subject_template || DEFAULT_SUBJECT, vars))
       setBody(fillTemplate(data?.body_template || DEFAULT_BODY, vars))
       setReady(true)
+      filled.current = true
     })()
     return () => { alive = false }
   }, [broker?.id, estimate, supabase])

@@ -586,3 +586,12 @@ AS $fn$
 $fn$;
 
 REVOKE EXECUTE ON FUNCTION public.next_invoice_no(uuid) FROM anon;
+
+-- ── 발행일 기본값을 한국 날짜로 (2026-09-05) ───────────────────
+-- DB 시간대가 UTC 라 CURRENT_DATE 는 한국시간 아침 9시 전이면 어제를 준다.
+-- 견적번호는 Asia/Seoul 기준으로 매기고 있어서, 아침에 만든 견적서는
+-- 번호가 2026-0905-01 인데 발행일은 2026-09-04 로 찍혔다. 청구서도 같다.
+ALTER TABLE estimates
+  ALTER COLUMN issue_date SET DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')::date;
+ALTER TABLE estimate_invoices
+  ALTER COLUMN issue_date SET DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')::date;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@supabase/supabase-js'
 import { sendPushToUser } from '@/lib/push-server'
-import { fmtComma, validUntil } from '@/lib/estimate'
+import { fmtComma, todayKST, validUntil } from '@/lib/estimate'
 
 /**
  * 매일 1회 (Vercel cron). 보낸 견적서의 유효기간이 다가오면 알린다.
@@ -41,11 +41,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'query_failed' }, { status: 500 })
   }
 
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  const limit = new Date(today)
-  limit.setDate(limit.getDate() + NOTICE_DAYS)
-  const limitStr = `${limit.getFullYear()}-${String(limit.getMonth() + 1).padStart(2, '0')}-${String(limit.getDate()).padStart(2, '0')}`
+  // Vercel 서버는 UTC 로 돈다. 로컬 시간으로 오늘을 세면 한국 아침에는 어제가
+  // 나와 알림이 하루 어긋난다. 사장님이 보는 날짜(한국)로 센다.
+  const todayStr = todayKST()
+  const limitStr = validUntil(todayStr, NOTICE_DAYS)
 
   // 만료일이 오늘~3일 뒤 사이인 건
   const due = (rows ?? []).filter(r => {
