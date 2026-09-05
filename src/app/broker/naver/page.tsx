@@ -65,8 +65,6 @@ type Row = {
   first_seen_at: string
   last_seen_at: string
   gone_at: string | null
-  /** 예전부터 알던 매물인데 광고만 새로 올라온 것 (네이버만 알 수 있다) */
-  relisted: boolean
 }
 
 type Settings = { hide_own: boolean; track_gone: boolean }
@@ -112,7 +110,6 @@ const SOURCES = {
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
-      relisted: !!a.exposure_start_date && a.exposure_start_date > toKstDate(a.first_seen_at),
     }),
   },
   daangn: {
@@ -148,7 +145,6 @@ const SOURCES = {
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
-      relisted: false,
     }),
   },
 } as const
@@ -490,6 +486,18 @@ export default function CollectPage() {
 
   const ownName = auth.broker?.office_name?.trim()
 
+  /**
+   * 우리 사무소 매물 빼기가 실제로 몇 건을 뺐나.
+   *
+   * **0건이면 0건이라고 말해야 한다.** 곳마다 우리 이름이 다르게 적힌다 — 네이버는
+   * 사무소 정식명칭(플러스불당공인중개사사무소)이지만 당근은 닉네임이나 비즈프로필
+   * 이름이라 아예 안 걸린다. 조용히 아무것도 안 빼면 켜 둔 채로 되는 줄 안다.
+   */
+  const 뺀건수 = useMemo(
+    () => (settings.hide_own && ownName ? rows.filter(r => r.owner === ownName).length : 0),
+    [rows, settings.hide_own, ownName],
+  )
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     return rows.filter(r => {
@@ -669,7 +677,11 @@ export default function CollectPage() {
             </Chip>
             {savingSettings && <span className="text-xs text-gray-400">저장 중…</span>}
             <span className="text-xs text-gray-400 dark:text-gray-600">
-              {settings.hide_own && ownName ? `'${ownName}' 매물은 목록에서 빠집니다` : ''}
+              {settings.hide_own && ownName
+                ? 뺀건수
+                  ? `'${ownName}' 매물 ${뺀건수}건을 뺐습니다`
+                  : `'${ownName}' 이름으로 올린 ${src.label} 매물이 이 기간에 없습니다`
+                : ''}
             </span>
           </div>
         </div>
@@ -732,11 +744,6 @@ export default function CollectPage() {
                         </span>
                         {settings.track_gone && r.gone_at ? (
                           <span className={`${BADGE} bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}>사라짐</span>
-                        ) : r.relisted ? (
-                          <span
-                            className={`${BADGE} bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400`}
-                            title="예전부터 있던 매물인데 광고만 새로 올라왔습니다"
-                          >재등록</span>
                         ) : isFresh(r) && !본횟수 ? (
                           <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
                         ) : null}
