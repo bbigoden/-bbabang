@@ -569,14 +569,10 @@ export default function CollectPage() {
         <div className="mb-5 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">기간</span>
-            {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
-                되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
-            <Chip on={첫날 === todayKST() && 끝날 === todayKST()} onClick={() => 기간잡기(todayKST(), todayKST())}>
-              오늘
-            </Chip>
-            {/* 매물목록·고객목록이 쓰는 그 달력 그대로다 — 화면마다 다른 달력이 뜨면
-                같은 프로그램으로 안 보인다. 다른 곳은 한 날만 고르므로, 기간이 필요한
-                여기서만 두 날을 눌러 정한다. */}
+            {/* 달력이 먼저다 — 기간을 정하는 것이 이 줄에서 하는 주된 일이고,
+                [오늘] 은 거기서 자주 쓰는 자리를 한 번에 잡는 지름길일 뿐이다.
+                매물목록·고객목록이 쓰는 그 달력 그대로다. 다른 곳은 한 날만 고르므로,
+                기간이 필요한 여기서만 두 날을 눌러 정한다. */}
             <DateRangeCell
               from={첫날} to={끝날}
               onSave={기간잡기}
@@ -585,6 +581,11 @@ export default function CollectPage() {
               max={todayKST()}
             />
             <span className="text-xs text-gray-400 dark:text-gray-600">{날수(첫날, 끝날)}일</span>
+            {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
+                되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
+            <Chip on={첫날 === todayKST() && 끝날 === todayKST()} onClick={() => 기간잡기(todayKST(), todayKST())}>
+              오늘
+            </Chip>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
             {settings.track_gone && (
