@@ -782,7 +782,12 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
         <SendMailDialog
           estimate={{ ...est, ...totals }}
           onClose={() => setMailOpen(false)}
-          onSent={() => { setMailOpen(false); set('status', 'sent'); load() }}
+          onSent={() => {
+            setMailOpen(false)
+            // 수주·실주로 결론난 건은 다시 보내도 그대로 둔다 (서버도 같은 규칙)
+            if (est.status !== 'won' && est.status !== 'lost') set('status', 'sent')
+            load()
+          }}
         />
       )}
     </div>

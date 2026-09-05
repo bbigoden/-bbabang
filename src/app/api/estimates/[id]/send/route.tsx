@@ -70,17 +70,38 @@ export async function POST(
   )
 
   // 붙여둔 도면·현장사진을 같이 보낸다 (비공개 버킷이라 서버에서 직접 내려받는다)
+  //
+  // 하나라도 못 받으면 보내지 않는다. 전에는 조용히 빼고 나머지만 보냈는데,
+  // 그러면 도면이 빠진 견적서가 나간 줄 아무도 모른다 — 거래처도, 보낸 쪽도.
   const extras: { filename: string; content: Buffer; contentType?: string }[] = []
   const { data: atts } = await supabase
     .from('estimate_attachments').select('path,filename,content_type').eq('estimate_id', id)
   for (const a of atts ?? []) {
     const { data: blob } = await supabase.storage.from('estimate-files').download(a.path)
-    if (!blob) continue
+    if (!blob) {
+      return NextResponse.json(
+        { ok: false, error: `첨부 "${a.filename}" 을 읽지 못해 보내지 않았습니다. 파일을 다시 올려 주세요.` },
+        { status: 502 }
+      )
+    }
     extras.push({
       filename: a.filename,
       content: Buffer.from(await blob.arrayBuffer()),
       contentType: a.content_type ?? undefined,
     })
+  }
+
+  // 파일 하나하나는 10MB 로 막지만 합계는 막는 곳이 없었다. 네이버가 통째로
+  // 거부하면 원인을 알기 어려운 오류만 남으므로 보내기 전에 걸러 준다.
+  // (메일로 실어 나를 때 3분의 1쯤 불어나므로 한도보다 낮게 잡는다)
+  const MAX_TOTAL = 15 * 1024 * 1024
+  const totalSize = pdf.length + extras.reduce((s, x) => s + x.content.length, 0)
+  if (totalSize > MAX_TOTAL) {
+    return NextResponse.json({
+      ok: false,
+      error: `첨부가 너무 큽니다 (${(totalSize / 1024 / 1024).toFixed(1)}MB). `
+        + '15MB 이하로 줄이거나, 큰 파일은 공유 링크로 보내세요.',
+    }, { status: 400 })
   }
 
   const transporter = nodemailer.createTransport({
@@ -125,11 +146,18 @@ export async function POST(
     return NextResponse.json({ ok: false, error: friendlyError(error) }, { status: 502 })
   }
 
+  // 보낸 때는 늘 남기되, 상태는 아직 결론이 안 난 건에서만 '발송'으로 올린다.
+  // 수주한 견적서를 거래처가 다시 달라고 해서 보내면 '발송'으로 되돌아가
+  // 수주 실적에서 조용히 빠져 버렸다(회사별 수주율까지 틀어진다).
+  const settled = estimate.status === 'won' || estimate.status === 'lost'
   await supabase.from('estimates')
-    .update({ status: 'sent', sent_at: new Date().toISOString() })
+    .update({
+      sent_at: new Date().toISOString(),
+      ...(settled ? {} : { status: 'sent' }),
+    })
     .eq('id', id)
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, status: settled ? estimate.status : 'sent' })
 }
 
 /** SMTP 원문 오류를 실무에서 알아볼 수 있는 문장으로 */
