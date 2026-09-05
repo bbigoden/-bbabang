@@ -604,16 +604,31 @@ const KIND_ALT: Record<Category, string> = {
  *
  * 종류만 보고 고르면 3층 118평이 `소매점 자리` 가 된다. 오가는 사람을
  * 받는 업종은 1층 이야기고, 위층은 목적을 갖고 찾아오는 업종이다.
+ *
+ * **병의원은 위층이 오히려 제자리다.** 기본 목록에는 없지만 2~5층에
+ * 근린생활시설이고 쓸 만한 평수면 후보에 넣는다. 순서만 바꾸던 때는
+ * 3층 117평 제2종 근린생활시설이 병의원 후보에서 통째로 빠졌다.
+ * 인허가는 글 안에서 항상 "업종별로 함께 확인해 드립니다" 라고 말한다.
+ *
  * 사장님이 적어 둔 업종이 있으면 그걸 쓰고, 없을 때만 이 순서를 따른다.
  */
 function 충을보고(p: ParsedListing, uses: string[]): string[] {
   const n = Number(p.floor)
   if (!Number.isFinite(n)) return uses
+
+  const 평 = (mainAreaM2(p) ?? 0) * 0.3025
+  const 근린 = /근린생활시설/.test(p.propertyKind ?? '')
+  const 더할것 = n >= 2 && n <= 5 && 근린 && 평 >= 30 ? ['병의원'] : []
+
+  // 학원은 피난 규정 때문에 저층을 찾고, 사무실은 층을 가리지 않는다.
   const 앞에 = n <= 1 ? ['소매점', '음식점', '카페', '판매점']
-    : n <= 3 ? ['학원', '사무실', '병의원', '헬스장']
-      : ['사무실', '학원']
-  const 골라 = 앞에.filter(u => uses.includes(u))
-  return [...골라, ...uses.filter(u => !골라.includes(u))]
+    : n <= 3 ? ['학원', '병의원', '사무실', '헬스장']
+      : n <= 5 ? ['사무실', '학원', '병의원']
+        : ['사무실', '학원']
+
+  const 쓸수있는 = [...uses, ...더할것.filter(u => !uses.includes(u))]
+  const 골라 = 앞에.filter(u => 쓸수있는.includes(u))
+  return [...골라, ...쓸수있는.filter(u => !골라.includes(u))]
 }
 
 function buildTitles(p: ParsedListing, src = ''): string[] {
@@ -1162,8 +1177,10 @@ function buildDetails(p: ParsedListing, src = ''): string {
   // 같은 말을 또 하면 한 글에서 두 번 읽게 된다 — 실제로 그렇게 나갔다.
   // 여기서는 **그 밖에 무엇이 되는지** 를 말한다.
   const 적힌업종 = p.category === 'industrial' ? null : markPair(src).업종
-  const 나머지 = RECOMMENDED_USES[p.category]
-    .split(',').map(x => x.trim()).filter(x => x !== 적힌업종).slice(0, 4).join(', ')
+  // 제목과 같은 순서를 쓴다. 제목은 `학원·병의원 자리` 인데 본문이
+  // `소매점, 사무실…` 로 시작하면 한 글이 둘 따로 녹다.
+  const 쓸수있는 = 충을보고(p, RECOMMENDED_USES[p.category].split(',').map(x => x.trim()))
+  const 나머지 = 쓸수있는.filter(x => x !== 적힌업종).slice(0, 4).join(', ')
   // 인허가 안내는 어느 매물에나 붙는 말이라, 한 벌로 두면 전 건이 같은 줄로 끝난다.
   const 인허가 = 골라쓰기([
     '건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.',
@@ -1177,7 +1194,7 @@ function buildDetails(p: ParsedListing, src = ''): string {
   const 목록서두 = 골라쓰기(['', '이 자리에서는 ', '주로 ', '흔히 '], seed, 4)
   const uses = 적힌업종
     ? `**추천 업종**\n${조사(적힌업종, '으로', '로')} 쓰기 좋은 자리이며, ${나머지} 등으로도 검토해 보실 수 있습니다. ${인허가}`
-    : `**추천 업종**\n${목록서두}${RECOMMENDED_USES[p.category]} 등을 ${골라쓰기(['검토해 보실 수 있습니다', '생각해 보실 만합니다', '많이 찾으십니다'], seed, 5)}. ${인허가}`
+    : `**추천 업종**\n${목록서두}${쓸수있는.join(', ')} 등을 ${골라쓰기(['검토해 보실 수 있습니다', '생각해 보실 만합니다', '많이 찾으십니다'], seed, 5)}. ${인허가}`
 
   // 조건은 **설명하는 자리**다. `권리금은 유선 문의 조건입니다. 입주는 즉시입주
   // 조건입니다.` 처럼 항목을 나열하면 표를 한 번 더 읽는 것과 같고, 말투도
