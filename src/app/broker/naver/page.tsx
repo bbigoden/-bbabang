@@ -29,9 +29,10 @@ import { todayKST, addDays } from '@/lib/date-kst'
  * 들어가서 주변과 시세를 직접 봐야 하고, 여기서 미리 보여 줘 봐야 한 화면에
  * 들어가는 건수만 줄어든다. 여기서 할 일은 **무엇을 눌러 볼지 고르는 것**뿐이다.
  *
- * **누른 것은 흐려진다.** 매일 열면 어제 본 것이 섞여 있어 '어디까지 봤더라' 를
- * 매번 다시 하게 된다. 본 것은 사람마다 따로 세므로 직원이 훑어도 사장님 화면은
- * 그대로다.
+ * **누른 것은 줄 끝에 '2회' 로 적힌다.** 매일 열면 어제 본 것이 섞여 있어 '어디까지
+ * 봤더라' 를 매번 다시 하게 된다. 흐리게도 해 봤는데, 정작 다시 들여다볼 만한 것이
+ * 그중에 있어 읽기만 어려워졌다. 본 것은 사람마다 따로 세므로 직원이 훑어도
+ * 사장님 화면은 그대로다.
  *
  * 받아오는 일은 사장님 PC의 광고 프로그램(`부소장광고`)이 한다. 서버에서 받게
  * 만들었다가 걷어냈다 — 네이버가 데이터센터 IP를 막아 Vercel 에서는 다섯 번 다
@@ -187,6 +188,14 @@ function 경계(day: string, 시각칸: boolean): string {
 function isFresh(r: Row): boolean {
   return Date.now() - new Date(r.first_seen_at).getTime() < 24 * 60 * 60 * 1000
 }
+
+/**
+ * 목록 오른쪽 배지.
+ *
+ * `leading-4` 를 박아 키를 20px 로 못박는다. 안 그러면 배지가 붙은 줄만 1px 높아
+ * 목록이 미세하게 울퉁불퉁해진다.
+ */
+const BADGE = 'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium leading-4'
 
 const CHIP_ON = 'border-blue-600 bg-blue-600 text-white'
 const CHIP_OFF =
@@ -696,41 +705,47 @@ export default function CollectPage() {
                       target="_blank"
                       rel="noreferrer"
                       onClick={() => markSeen(r.article_no)}
-                      className="group flex items-center gap-3 px-4 py-2.5 transition-colors
-                                 hover:bg-blue-50/60 dark:hover:bg-gray-800"
+                      className="group flex flex-col gap-0.5 px-4 py-2.5 transition-colors
+                                 hover:bg-blue-50/60 sm:flex-row sm:items-center sm:gap-3
+                                 dark:hover:bg-gray-800"
                     >
-                      <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 dark:text-gray-600">
-                        {r.shown_date?.slice(5).replace('-', '/')}
-                      </span>
-                      {/* '지식산업센터' 가 두 줄로 접히면 그 줄만 키가 커져 목록이
-                          울퉁불퉁해진다. 가장 긴 이름이 한 줄에 들어가게 잡는다. */}
-                      <span className="w-[92px] shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-gray-500">
-                        {src.kindOf(r.kind_code)}
-                      </span>
-                      <span className="w-10 shrink-0 text-sm text-gray-500 dark:text-gray-500">
-                        {r.trade_code ? (src.trades[r.trade_code] ?? r.trade_code) : ''}
-                      </span>
-                      <span className={`min-w-0 flex-1 truncate text-sm text-gray-900 group-hover:underline
-                                        dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
-                        {[r.division, r.sector].filter(Boolean).join(' ')}
-                      </span>
-                      {settings.track_gone && r.gone_at ? (
-                        <span className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-600
-                                         dark:bg-gray-700 dark:text-gray-300">사라짐</span>
-                      ) : r.relisted ? (
-                        <span
-                          className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700
-                                     dark:bg-amber-900/40 dark:text-amber-400"
-                          title="예전부터 있던 매물인데 광고만 새로 올라왔습니다"
-                        >재등록</span>
-                      ) : isFresh(r) && !본횟수 ? (
-                        <span className="shrink-0 rounded bg-blue-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">신규</span>
-                      ) : null}
-                      {/* 흐리게 만드는 대신 몇 번 봤는지 적는다. 흐려 놓으면 본 것이
-                          읽기 어려워지는데, 정작 다시 들여다볼 만한 것은 그중에 있다. */}
-                      <span className="w-8 shrink-0 text-right text-xs tabular-nums text-gray-400 dark:text-gray-600">
-                        {본횟수 ? `${본횟수}회` : ''}
-                      </span>
+                      {/* 폰에서는 두 줄로 나눈다 — 한 줄에 다 넣으면 정작 제일 중요한
+                          소재지가 '아산시 배…' 로 잘린다. `sm:contents` 라 넓은 화면에서는
+                          이 감싸개가 사라져 예전처럼 한 줄로 늘어선다. */}
+                      <div className="flex items-center gap-3 sm:contents">
+                        <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 dark:text-gray-600">
+                          {r.shown_date?.slice(5).replace('-', '/')}
+                        </span>
+                        {/* '지식산업센터' 가 두 줄로 접히면 그 줄만 키가 커져 목록이
+                            울퉁불퉁해진다. 가장 긴 이름이 한 줄에 들어가게 잡는다. */}
+                        <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 sm:w-[92px] dark:text-gray-500">
+                          {src.kindOf(r.kind_code)}
+                        </span>
+                        <span className="w-10 shrink-0 text-sm text-gray-500 dark:text-gray-500">
+                          {r.trade_code ? (src.trades[r.trade_code] ?? r.trade_code) : ''}
+                        </span>
+                      </div>
+                      <div className="flex min-w-0 items-center gap-2 sm:contents">
+                        <span className={`min-w-0 flex-1 truncate text-sm text-gray-900 group-hover:underline
+                                          dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
+                          {[r.division, r.sector].filter(Boolean).join(' ')}
+                        </span>
+                        {settings.track_gone && r.gone_at ? (
+                          <span className={`${BADGE} bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}>사라짐</span>
+                        ) : r.relisted ? (
+                          <span
+                            className={`${BADGE} bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400`}
+                            title="예전부터 있던 매물인데 광고만 새로 올라왔습니다"
+                          >재등록</span>
+                        ) : isFresh(r) && !본횟수 ? (
+                          <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
+                        ) : null}
+                        {/* 흐리게 만드는 대신 몇 번 봤는지 적는다. 흐려 놓으면 본 것이
+                            읽기 어려워지는데, 정작 다시 들여다볼 만한 것은 그중에 있다. */}
+                        <span className="w-8 shrink-0 text-right text-xs leading-5 tabular-nums text-gray-400 dark:text-gray-600">
+                          {본횟수 ? `${본횟수}회` : ''}
+                        </span>
+                      </div>
                     </a>
                   </li>
                 )
