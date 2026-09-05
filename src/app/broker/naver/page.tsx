@@ -34,8 +34,13 @@ import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
  * 만들었다가 걷어냈다 — 네이버가 데이터센터 IP를 막아 Vercel 에서는 다섯 번 다
  * 응답 없이 멎었다. 뱅크·카페와 같은 이유로 PC가 맡는다.
  *
- * **[가져오기] 를 누를 때만 받는다.** 한 시간마다 알아서 받게 해 뒀다가 걷어냈다 —
- * 볼 때 누르면 되는 일이라 하루 스물네 번 부를 이유가 없다.
+ * **평일 아침 9시 30분에 한 번, 그리고 [가져오기] 를 누를 때 받는다.** 한 시간마다
+ * 받게 해 뒀다가 걷어냈다 — 하루 스물네 번 부를 이유가 없다. 아침 한 번만은 두는데,
+ * 화면을 열자마자 훑을 수 있어야지 눌러 놓고 6분을 기다릴 일이 아니기 때문이다.
+ * 거는 쪽은 PC 프로그램이다(`부소장광고/src/cli/agent-worker.js`).
+ *
+ * **기간은 달력에서 고른다.** 한 번에 최대 7일 — 여기서 할 일은 훑는 것이지 뒤지는
+ * 것이 아니고, 길게 잡으면 하루 천 건씩이라 화면이 만 건을 넘는다.
  *
  * **[가져오기] 는 보고 있는 탭의 것만 받는다.** 버튼에 곳 이름을 붙이지 않는 이유는
  * 탭이 이미 말하고 있어서다. 다만 안에서는 곳마다 따로 돌아, 네이버를 걸어 두고
@@ -89,7 +94,8 @@ const SOURCES = {
      * 갱신되지만, 그래도 '언제부터 걸려 있는 광고인가' 는 그 값이 맞다.
      */
     dateColumn: 'exposure_start_date',
-    since: (days: number) => kstDate(days - 1),
+    /** 날짜만 담는 칸이라 '2026-09-05' 를 그대로 견줘도 된다. */
+    dateIsTimestamp: false,
     link: (no: string) => `https://fin.land.naver.com/articles/${no}`,
     toRow: (a: any): Row => ({
       article_no: a.article_no,
@@ -121,7 +127,11 @@ const SOURCES = {
      * 처음 받은 날로 자르고, 목록에도 그 날짜를 적는다.
      */
     dateColumn: 'first_seen_at',
-    since: (days: number) => new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10),
+    /**
+     * 시각까지 담는 칸이다. 날짜 글자를 그대로 견주면 세계표준시 0시로 읽혀
+     * 한국 날짜와 아홉 시간 어긋난다 — 아침에 받은 매물이 어제로 밀린다.
+     */
+    dateIsTimestamp: true,
     link: (no: string) => `https://realty.daangn.com/articles/${no}`,
     toRow: (a: any): Row => ({
       article_no: a.article_no,
@@ -141,17 +151,58 @@ const SOURCES = {
 
 type SourceId = keyof typeof SOURCES
 
-/** 골라 보는 기간. */
+/** 자주 쓰는 기간. 누르면 달력의 두 날짜가 그에 맞게 잡힌다. */
 const PERIODS = [
   { id: '1', label: '오늘', days: 1 },
   { id: '3', label: '3일', days: 3 },
   { id: '7', label: '7일', days: 7 },
 ] as const
 
+/**
+ * 한 번에 볼 수 있는 최대 날수.
+ *
+ * 하루에 천 건 넘게 올라오는 동네라 길게 잡으면 화면이 만 건이 넘는다. 그리고
+ * 여기서 할 일은 훑는 것이지 뒤지는 것이 아니다 — 7일이면 밀린 것을 메우고도 남는다.
+ */
+const MAX_DAYS = 7
+
+/** 얼마나 지난 날까지 고를 수 있나. 프로그램이 90일 지난 매물을 지운다. */
+const KEEP_DAYS = 90
+
+/** 그 날의 다음 날. */
+function 다음날(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
+}
+
+/** 두 날 사이 날수 — 양 끝을 다 센다. 9/1~9/3 이면 3. */
+function 날수(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1
+}
+
+/** day 를 뒤로/앞으로 민 날. */
+function 민날(day: string, days: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
+ * 대장에서 견줄 값으로 바꾼다.
+ *
+ * 날짜만 담는 칸은 글자 그대로, 시각까지 담는 칸은 **그 날 한국 0시** 를 가리키는
+ * 순간으로. 후자를 빼먹으면 아홉 시간이 어긋나 아침에 받은 매물이 어제로 밀린다.
+ */
+function 경계(day: string, 시각칸: boolean): string {
+  return 시각칸 ? new Date(`${day}T00:00:00+09:00`).toISOString() : day
+}
+
 /** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
 function isFresh(r: Row): boolean {
   return Date.now() - new Date(r.first_seen_at).getTime() < 24 * 60 * 60 * 1000
 }
+
+const DATE_INPUT =
+  'h-8 rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-700 ' +
+  'focus:border-blue-500 focus:outline-none ' +
+  'dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 [color-scheme:light] dark:[color-scheme:dark]'
 
 const CHIP_ON = 'border-blue-600 bg-blue-600 text-white'
 const CHIP_OFF =
@@ -198,7 +249,15 @@ export default function CollectPage() {
   const timers = useRef<Partial<Record<SourceId, ReturnType<typeof setInterval>>>>({})
   useEffect(() => () => { for (const t of Object.values(timers.current)) clearInterval(t) }, [])
 
-  const [period, setPeriod] = useState<string>('3')
+  /**
+   * 볼 기간 — 달력에서 직접 고른다. 자주 쓰는 것은 위 칩으로 한 번에 잡는다.
+   *
+   * `from`/`to` 라고 안 쓴 것은 아래 `fetchAllPaged` 의 쪽 번호(from, to)와 이름이
+   * 겹쳐서다. 한 화면 안에서 같은 이름이 다른 뜻으로 두 번 나오면 반드시 헷갈린다.
+   */
+  const [첫날, set첫날] = useState<string>(() => kstDate(2))
+  const [끝날, set끝날] = useState<string>(() => kstDate(0))
+
   const [unseenOnly, setUnseenOnly] = useState(false)
   const [goneOnly, setGoneOnly] = useState(false)
   // 빈 배열 = 전부 본다. 하나라도 고르면 고른 것만.
@@ -222,18 +281,21 @@ export default function CollectPage() {
   const load = useCallback(async () => {
     setLoading(true)
     const s = SOURCES[source]
-    const days = PERIODS.find(p => p.id === period)?.days ?? 3
-    const since = s.since(days)
     try {
       const [arts, views] = await Promise.all([
-        fetchAllPaged<any>((from, to) => supabase.from(s.table)
-          .select(s.columns)
-          .gte(s.dateColumn, since)
-          .order(s.dateColumn, { ascending: false })
-          // 매물번호로 순서를 못박는다. 날짜만으로는 같은 값이 수백 건이라
-          // 나눠 받는 사이에 순서가 흔들려 중복·누락이 난다.
-          .order('article_no', { ascending: false })
-          .range(from, to)),
+        fetchAllPaged<any>((from, to) => {
+          let q = supabase.from(s.table).select(s.columns)
+            .gte(s.dateColumn, 경계(첫날, s.dateIsTimestamp))
+          // 끝날이 오늘이면 위를 막지 않는다. 막으면 날짜가 앞선 매물이 조용히
+          // 빠지는데, 지금까지 보이던 것이 안 보이게 되는 셈이다.
+          if (끝날 < kstDate(0)) q = q.lt(s.dateColumn, 경계(다음날(끝날), s.dateIsTimestamp))
+          return q
+            .order(s.dateColumn, { ascending: false })
+            // 매물번호로 순서를 못박는다. 날짜만으로는 같은 값이 수백 건이라
+            // 나눠 받는 사이에 순서가 흔들려 중복·누락이 난다.
+            .order('article_no', { ascending: false })
+            .range(from, to)
+        }),
         // 본 기록은 계속 쌓인다. 화면이 최대 7일치만 보여주므로 그만큼만 받는다.
         fetchAllPaged<{ article_no: string }>((from, to) =>
           supabase.from(s.views).select('article_no')
@@ -248,7 +310,7 @@ export default function CollectPage() {
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     }
     setLoading(false)
-  }, [supabase, source, period])
+  }, [supabase, source, 첫날, 끝날])
 
   useEffect(() => { void load() }, [load])
 
@@ -416,6 +478,28 @@ export default function CollectPage() {
     [rows],
   )
 
+  const 기간잡기 = (a: string, b: string) => { set첫날(a); set끝날(b); setPage(1) }
+
+  /** 칩이 지금 고른 기간과 같은가 — 끝이 오늘이고 날수가 맞으면. */
+  const 칩켜짐 = (days: number) => 끝날 === kstDate(0) && 날수(첫날, 끝날) === days
+
+  /**
+   * 한쪽 날을 바꾸면 다른 쪽을 따라 옮긴다.
+   *
+   * **막지 않고 옮긴다.** 7일이 넘게 고르면 "안 됩니다" 하고 되돌리는 것보다,
+   * 방금 고른 날을 살리고 반대쪽을 7일 자리로 당기는 편이 하려던 일에 가깝다.
+   */
+  const 첫날바꾸기 = (v: string) => {
+    if (!v) return
+    const 끝 = 끝날 < v ? v : 날수(v, 끝날) > MAX_DAYS ? 민날(v, MAX_DAYS - 1) : 끝날
+    기간잡기(v, 끝 > kstDate(0) ? kstDate(0) : 끝)
+  }
+  const 끝날바꾸기 = (v: string) => {
+    if (!v) return
+    const 첫 = 첫날 > v ? v : 날수(첫날, v) > MAX_DAYS ? 민날(v, -(MAX_DAYS - 1)) : 첫날
+    기간잡기(첫, v)
+  }
+
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {
     set(list.includes(id) ? list.filter(x => x !== id) : [...list, id])
     setPage(1)
@@ -491,6 +575,9 @@ export default function CollectPage() {
             <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
             {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
           </span>
+          {/* 자동으로 받는다는 걸 화면 어딘가에서 말해 주지 않으면, 아침에 이미 받아져
+              있는 것을 보고 "어제 것이 남아 있나" 하게 된다. */}
+          <span>평일 오전 9시 30분 자동</span>
           {/* 다른 탭 것이 도는 중이면 여기에 적는다. 버튼은 보고 있는 탭 것만
               보여 주므로, 이게 없으면 아까 걸어 둔 것이 어떻게 됐는지 알 길이 없다. */}
           {(Object.keys(SOURCES) as SourceId[])
@@ -509,10 +596,25 @@ export default function CollectPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">기간</span>
             {PERIODS.map(p => (
-              <Chip key={p.id} on={period === p.id} onClick={() => { setPeriod(p.id); setPage(1) }}>
+              <Chip key={p.id} on={칩켜짐(p.days)} onClick={() => 기간잡기(kstDate(p.days - 1), kstDate(0))}>
                 {p.label}
               </Chip>
             ))}
+            {/* 달력에서 직접 고른다. 지난주 월~금처럼 지나간 자리를 다시 훑을 때 쓴다. */}
+            <input
+              type="date" value={첫날} min={kstDate(KEEP_DAYS - 1)} max={kstDate(0)}
+              onChange={e => 첫날바꾸기(e.target.value)}
+              title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}
+              className={DATE_INPUT}
+            />
+            <span className="text-sm text-gray-400">~</span>
+            <input
+              type="date" value={끝날} min={kstDate(KEEP_DAYS - 1)} max={kstDate(0)}
+              onChange={e => 끝날바꾸기(e.target.value)}
+              title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}
+              className={DATE_INPUT}
+            />
+            <span className="text-xs text-gray-400 dark:text-gray-600">{날수(첫날, 끝날)}일</span>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
             {settings.track_gone && (
