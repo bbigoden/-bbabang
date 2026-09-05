@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import {
   calcStats, fmtComma, isExpired, STATUS_LABEL,
-  type Estimate, type EstimateStatus,
+  type Estimate, type EstimateCompany, type EstimateStatus,
 } from '@/lib/estimate'
 
 type Period = 'month' | 'year' | 'all'
@@ -49,6 +49,9 @@ export default function EstimatesPage() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<'all' | EstimateStatus>('all')
   const [period, setPeriod] = useState<Period>('month')
+  // 회사를 여러 곳 운영하면 실적이 섞이면 안 된다. 기본은 전체, 고르면 그 회사만 본다
+  const [companies, setCompanies] = useState<EstimateCompany[]>([])
+  const [companyId, setCompanyId] = useState<'all' | string>('all')
 
   const brokerId = broker?.id ?? null
 
@@ -67,6 +70,12 @@ export default function EstimatesPage() {
           .range(from, to)
       )
       setRows(data)
+
+      const { data: co } = await supabase
+        .from('estimate_companies').select('*')
+        .eq('owner_broker_id', brokerId)
+        .order('is_default', { ascending: false }).order('sort_order')
+      setCompanies((co as EstimateCompany[]) ?? [])
     } catch {
       toast.error('견적서를 불러오지 못했습니다')
     }
@@ -172,11 +181,15 @@ export default function EstimatesPage() {
     toast.success('삭제했습니다')
   }
 
-  // 요약은 기간만 반영한다 (검색어·상태 필터와 무관하게 그 기간의 전체 실적)
+  // 요약은 기간·회사만 반영한다 (검색어·상태 필터와 무관하게 그 범위의 전체 실적)
   const inPeriod = useMemo(() => {
     const from = periodStart(period)
-    return from ? rows.filter(r => r.issue_date >= from) : rows
-  }, [rows, period])
+    return rows.filter(r => {
+      if (from && r.issue_date < from) return false
+      if (companyId !== 'all' && r.company_id !== companyId) return false
+      return true
+    })
+  }, [rows, period, companyId])
 
   const stats = useMemo(() => calcStats(inPeriod), [inPeriod])
 
@@ -191,6 +204,12 @@ export default function EstimatesPage() {
   }, [inPeriod, q, status])
 
   const sumTotal = useMemo(() => filtered.reduce((s, r) => s + (r.total || 0), 0), [filtered])
+
+  // 발행 당시 스냅샷을 먼저 쓴다 — 회사를 나중에 지워도 목록에서 이름이 사라지지 않는다
+  const companyName = (r: Estimate): string =>
+    r.company_snapshot?.name
+    ?? companies.find(c => c.id === r.company_id)?.name
+    ?? '—'
 
   if (authLoading) {
     return (
@@ -244,7 +263,7 @@ export default function EstimatesPage() {
 
         {/* 기간별 실적 요약 */}
         <div className="mb-4">
-          <div className="mb-2 flex items-center gap-1">
+          <div className="mb-2 flex flex-wrap items-center gap-1">
             {(Object.keys(PERIOD_LABEL) as Period[]).map(p => (
               <button
                 key={p}
@@ -258,6 +277,21 @@ export default function EstimatesPage() {
                 {PERIOD_LABEL[p]}
               </button>
             ))}
+
+            {companies.length > 1 && (
+              <>
+                <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
+                <select
+                  value={companyId}
+                  onChange={e => setCompanyId(e.target.value)}
+                  aria-label="발행 회사로 좁히기"
+                  className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm font-bold text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                >
+                  <option value="all">회사 전체</option>
+                  {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -328,6 +362,7 @@ export default function EstimatesPage() {
                 <tr>
                   <th className="px-3 py-2.5 text-left font-semibold">견적번호</th>
                   <th className="px-3 py-2.5 text-left font-semibold">발행일</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">발행 회사</th>
                   <th className="px-3 py-2.5 text-left font-semibold">거래처</th>
                   <th className="px-3 py-2.5 text-left font-semibold">공사명</th>
                   <th className="px-3 py-2.5 text-right font-semibold">합계</th>
@@ -365,6 +400,7 @@ export default function EstimatesPage() {
                         )}
                       </div>
                     </td>
+                    <td className="max-w-[10rem] truncate px-3 py-3 text-gray-600 dark:text-gray-400">{companyName(r)}</td>
                     <td className="px-3 py-3 font-semibold text-gray-900 dark:text-white">{r.client_name || '—'}</td>
                     <td className="max-w-[16rem] truncate px-3 py-3 text-gray-600 dark:text-gray-400">{r.project_name || '—'}</td>
                     <td className="px-3 py-3 text-right font-bold text-gray-900 dark:text-white">{fmtComma(r.total)}</td>
