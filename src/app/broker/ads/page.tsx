@@ -58,6 +58,9 @@ type Listing = {
   manager: string | null
   check_report: string[] | null
   checked_at: string | null
+  /** 매물끼리 비교해야 보이는 것 — 뱅크 중복 등록, 글 겹침. 수집할 때 다시 센다. */
+  anomalies: string[] | null
+  anomalies_at: string | null
   ad_posts: Post[]
 }
 
@@ -231,37 +234,46 @@ function ClosedReason({ listing }: { listing: Listing }) {
 }
 
 /**
- * 카페글로 바꿀 때 원문에서 발견한 문제.
+ * 이 매물에서 발견한 것 두 가지를 한 칸에 모은다.
  *
- * 면적 불일치, 관리비 비목 누락, 부당광고 표현 제거, 항목 못 찾음 같은 것들이다.
- * **만들어 놓고 발행 직전에 잘라내 아무도 못 보고 있었다.** 원문을 고쳐야 하는
- * 내용이므로 여기 띄운다. 고칠 곳은 뱅크다.
+ * 하나는 **원문의 문제** — 면적 불일치, 관리비 비목 누락, 부당광고 표현,
+ * 항목 못 찾음. 올릴 때 만들어지고, 고칠 곳은 뱅크다.
+ *
+ * 다른 하나는 **나란히 놓고 봐야 보이는 것** — 뱅크에 같은 매물이 두 번
+ * 올라가 있다거나, 다른 글과 문장이 겹친다거나. 한 건만 봐서는 알 수 없어
+ * 수집할 때마다 따로 센다. 올려 본 적이 없어도 알아야 하는 내용이라,
+ * 점검을 한 적 없는 매물에도 이건 뜬다.
+ *
+ * 칸을 따로 내지 않고 합친다 — 볼 곳이 둘이면 한쪽은 안 보게 된다.
  */
 function CheckCell({ listing, open, onToggle }: {
   listing: Listing; open: boolean; onToggle: () => void
 }) {
-  if (!listing.checked_at) {
+  const n = listing.check_report?.length ?? 0
+  const 특이 = listing.anomalies?.length ?? 0
+  if (!listing.checked_at && !특이) {
     return <span className="text-gray-300 dark:text-gray-600" title="아직 올려 보지 않았습니다. 올리기를 누르면 함께 점검합니다">–</span>
   }
-  const n = listing.check_report?.length ?? 0
-  if (!n) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
+  if (!n && !특이) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
 
   // 이 표시가 붙은 건은 올리기에서 건너뛴 것 — 원문을 고쳐야 나간다.
   const blocked = listing.check_report?.some(r => /^\[(위반|형식|필수|실패|건너뜀)\]/.test(r))
   // 이 프로그램이 다루지 않는 종류(아파트·토지…). 잘못된 게 아니라 대상이 아닌 것이라
   // 빨간색으로 겁줄 일이 아니다.
   const notTarget = listing.check_report?.some(r => r.startsWith('[대상 아님]'))
+  // 같은 자리를 두 번 광고하는 것은 그냥 넘길 일이 아니다. 눈에 띄어야 한다.
+  const 중복 = listing.anomalies?.some(a => a.startsWith('[중복]'))
   return (
     <button
       onClick={onToggle}
       className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
-        notTarget ? 'text-gray-400 dark:text-gray-500'
-          : blocked ? 'text-red-600 dark:text-red-400'
+        notTarget && !특이 ? 'text-gray-400 dark:text-gray-500'
+          : blocked || 중복 ? 'text-red-600 dark:text-red-400'
           : 'text-amber-600 dark:text-amber-400'
       }`}
       title="눌러서 내용 보기"
     >
-      {open ? '접기' : notTarget ? '대상 아님' : `${n}건`}
+      {open ? '접기' : notTarget && !특이 ? '대상 아님' : `${n + 특이}건`}
     </button>
   )
 }
@@ -307,6 +319,9 @@ export default function AdsPage() {
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [manager, setManager] = useState('')   // 담당자 좁혀 보기
+  // 특이사항만 모아 보기. 탭을 더 만들지 않고 집게로 둔다 — 등록매물을
+  // 보다가 그중 문제 있는 것만 보는 식이지, 따로 떨어져 있는 목록이 아니다.
+  const [특이만, set특이만] = useState(false)
   const [tab, setTab] = useState<
     'all' | 'expiring' | 'past' | 'live' | 'takedown'
   >('all')
@@ -710,12 +725,13 @@ export default function AdsPage() {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
       if (!inTab(l)) return false
+      if (특이만 && !l.anomalies?.length) return false
       if (manager && (l.manager ?? '') !== manager) return false
       if (!key) return true
       return [l.bank_no, l.naver_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
     })
-  }, [listings, q, manager, inTab])
+  }, [listings, q, manager, 특이만, inTab])
 
   // 고객목록과 같은 방식으로 자른다 — 250건 규모라 전부 받아 두고 화면에서만 나눈다.
   // 매물목록만 서버에서 페이지 단위로 받는데, 그쪽은 1,800건에 2.3MB라 사정이 다르다.
@@ -723,13 +739,15 @@ export default function AdsPage() {
   // 만들어야 하고, "내려야 함"은 틀리면 안 되는 숫자다.
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
-  useEffect(() => { setPage(1) }, [q, tab, manager, pageSize])
+  useEffect(() => { setPage(1) }, [q, tab, manager, 특이만, pageSize])
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l)).length
   // 체크박스로 '올릴 것' 이라고 고른 건수 — [카페에 올리기] 버튼에 쓴다.
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
+  // 특이사항은 등록매물에서만 센다 — 끝난 매물은 정리할 거리가 아니다.
+  const 특이건수 = listings.filter(l => l.bank_tab === '등록매물' && l.anomalies?.length).length
 
   // 오늘 카페에 올린 건수. 하루 10건까지만 올린다 — 한 카페에 그 이상 올리면
   // 광고로 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
@@ -908,6 +926,19 @@ export default function AdsPage() {
           {/* 건수는 위 탭(등록매물 245)에 이미 있다. 여기는 언제 받아온
               목록인지만 둔다 — 신규매물 화면과 같은 모양이다. */}
           {lastSynced && <span>{fmtWhen(lastSynced)} 받아옴</span>}
+          {/* 매물을 나란히 놓고 봐야 보이는 것 — 뱅크에 같은 매물이 두 번
+              올라가 있거나, 글끼리 문장이 겹치는 것. 누르면 그것만 본다. */}
+          {특이건수 > 0 && (
+            <button
+              onClick={() => set특이만(v => !v)}
+              className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
+                특이만 ? 'bg-red-600 text-white no-underline' : 'text-red-600 dark:text-red-400'
+              }`}
+              title="뱅크에 같은 매물이 두 번 있거나, 다른 글과 문장이 겹치는 매물"
+            >
+              특이사항 {특이건수}건{특이만 && ' — 이것만 보는 중'}
+            </button>
+          )}
           <span className={오늘올림 >= DAILY_CAP ? 'font-medium text-amber-600 dark:text-amber-400' : ''}>
             오늘 카페에 올린 것:{' '}
             <span className={오늘올림 >= DAILY_CAP ? '' : 'text-gray-700 dark:text-gray-300'}>
@@ -1035,19 +1066,40 @@ export default function AdsPage() {
                     </tr>
                   )
                   // 점검 보고는 길어서 칸에 못 담는다. 누르면 그 행 아래에 편다.
-                  const report = openReport === l.id && l.check_report?.length ? (
+                  // 원문의 문제와 '나란히 놓고 봐야 보이는 것' 은 고칠 곳이 달라
+                  // (뱅크의 이 매물 / 뱅크의 다른 매물) 문단을 나눠 적는다.
+                  const 펼침 = openReport === l.id && (l.check_report?.length || l.anomalies?.length)
+                  const report = 펼침 ? (
                     <tr key={`${l.id}-report`} className="bg-amber-50/60 dark:bg-amber-950/30">
-                      <td colSpan={CHANNELS.length + FIXED_COLS} className="px-4 py-3">
-                        <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-                          {l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다
-                        </p>
-                        <ul className="space-y-1.5">
-                          {l.check_report.map((r, i) => (
-                            <li key={i} className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
-                              · {r}
-                            </li>
-                          ))}
-                        </ul>
+                      <td colSpan={CHANNELS.length + FIXED_COLS} className="space-y-3 px-4 py-3">
+                        {!!l.anomalies?.length && (
+                          <div>
+                            <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
+                              {l.bank_no} 다른 매물과 견줘 본 것 — 뱅크에서 정리하실 거리입니다
+                            </p>
+                            <ul className="space-y-1.5">
+                              {l.anomalies.map((a, i) => (
+                                <li key={i} className="text-xs leading-relaxed text-red-900 dark:text-red-200">
+                                  · {a}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {!!l.check_report?.length && (
+                          <div>
+                            <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+                              {l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다
+                            </p>
+                            <ul className="space-y-1.5">
+                              {l.check_report.map((r, i) => (
+                                <li key={i} className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+                                  · {r}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ) : null
