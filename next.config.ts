@@ -18,7 +18,8 @@ const CSP = [
   `connect-src 'self' blob: ${SUPABASE_HOST} wss://wovxcdfxxnsljdhrgonh.supabase.co https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com https://api.pexels.com https://api.creatomate.com https://cdn.creatomate.com`,
   // Creatomate CDN: 완성된 mp4 video element src
   `media-src 'self' blob: ${SUPABASE_HOST} https://cdn.creatomate.com`,
-  `frame-src 'self' https://*.daum.net https://*.kakao.com`,
+  // blob: 은 견적서 미리보기 — 저장하지 않고 받은 PDF 를 iframe 에 바로 건다
+  `frame-src 'self' blob: https://*.daum.net https://*.kakao.com`,
   `worker-src 'self' blob:`,
   `object-src 'none'`,
   `base-uri 'self'`,

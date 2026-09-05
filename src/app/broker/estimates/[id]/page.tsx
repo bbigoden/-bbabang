@@ -46,7 +46,9 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [mailOpen, setMailOpen] = useState(false)
-  const [previewKey, setPreviewKey] = useState(0)
+  // 미리보기는 저장과 분리한다 — 입력을 멈추면 화면 값 그대로 다시 그린다
+  const [previewSrc, setPreviewSrc] = useState('')
+  const [previewing, setPreviewing] = useState(false)
 
   const set = <K extends keyof Estimate>(k: K, v: Estimate[K]) => {
     setEst(prev => prev ? { ...prev, [k]: v } : prev)
@@ -100,6 +102,44 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   const margin = useMemo(() => calcMargin(items, totals.supply_amount), [items, totals.supply_amount])
 
   /**
+   * 견적서를 저장할 때 거래처도 같이 쌓는다.
+   * 품목은 자동으로 쌓이는데 거래처만 손으로 눌러야 해서 매번 잊게 된다.
+   * 이미 같은 이름이 있으면 그 거래처에 이어 붙인다(중복으로 늘어나지 않게).
+   * 확정된 client_id 를 돌려주어 견적서 저장에 함께 반영한다.
+   */
+  const syncClient = useCallback(async (): Promise<string | null> => {
+    const name = est?.client_name?.trim()
+    if (!brokerId || !name) return est?.client_id ?? null
+
+    const payload = {
+      owner_broker_id: brokerId,
+      name,
+      contact_name: est?.client_contact ?? null,
+      phone: est?.client_phone ?? null,
+      email: est?.client_email ?? null,
+      address: est?.site_address ?? null,
+    }
+
+    let id = est?.client_id ?? null
+    if (!id) {
+      const { data: exist } = await supabase.from('estimate_clients')
+        .select('id').eq('owner_broker_id', brokerId).eq('name', name).maybeSingle()
+      id = exist?.id ?? null
+    }
+
+    const res = id
+      ? await supabase.from('estimate_clients').update(payload).eq('id', id).select('*').single()
+      : await supabase.from('estimate_clients').insert(payload).select('*').single()
+    if (res.error) return est?.client_id ?? null
+
+    const saved = res.data as EstimateClient
+    setClients(prev => [...prev.filter(c => c.id !== saved.id), saved]
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko')))
+    return saved.id
+  }, [brokerId, est?.client_id, est?.client_name, est?.client_contact, est?.client_phone,
+      est?.client_email, est?.site_address, supabase])
+
+  /**
    * 저장할 때 이번 내역을 품목 사전에 반영한다.
    * 이미 있는 품목이면 단가·원가를 최신으로 갱신하고 사용 횟수를 올린다.
    * (사전은 편의 기능이라 실패해도 저장 자체는 성공으로 둔다)
@@ -124,10 +164,11 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     setSaving(true)
     try {
       const company = companies.find(c => c.id === est.company_id) ?? null
+      const clientId = await syncClient()
 
       const { error: e1 } = await supabase.from('estimates').update({
         company_id: est.company_id,
-        client_id: est.client_id,
+        client_id: clientId,
         estimate_no: est.estimate_no,
         issue_date: est.issue_date,
         company_snapshot: company,
@@ -168,9 +209,9 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       }
 
       await syncCatalog()
+      if (clientId && clientId !== est.client_id) setEst(prev => prev ? { ...prev, client_id: clientId } : prev)
 
       setDirty(false)
-      setPreviewKey(k => k + 1)
       if (!silent) toast.success('저장했습니다')
       return true
     } catch {
@@ -179,7 +220,43 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     } finally {
       setSaving(false)
     }
-  }, [est, brokerId, saving, companies, items, totals, margin, syncCatalog, supabase, toast])
+  }, [est, brokerId, saving, companies, items, totals, margin, syncCatalog, syncClient, supabase, toast])
+
+  /** 화면 값 그대로 PDF 를 받아 미리보기에 건다 (DB 는 건드리지 않는다) */
+  const renderPreview = useCallback(async () => {
+    if (!est) return
+    setPreviewing(true)
+    try {
+      const company = companies.find(c => c.id === est.company_id) ?? est.company_snapshot ?? null
+      const res = await fetch('/api/estimates/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estimate: { ...est, ...totals }, items, company }),
+      })
+      if (!res.ok) return
+      const blob = await res.blob()
+      setPreviewSrc(prev => {
+        if (prev.startsWith('blob:')) URL.revokeObjectURL(prev)
+        return URL.createObjectURL(blob)
+      })
+    } catch {
+      // 미리보기는 보조 기능이라 실패해도 조용히 둔다 (저장·발송에는 영향 없음)
+    } finally {
+      setPreviewing(false)
+    }
+  }, [est, items, totals, companies])
+
+  // 입력을 멈추고 1.5초 뒤 한 번만 다시 그린다
+  useEffect(() => {
+    if (!est) return
+    const t = setTimeout(renderPreview, 1500)
+    return () => clearTimeout(t)
+  }, [est, items, renderPreview])
+
+  // 페이지를 떠날 때 blob 정리
+  useEffect(() => () => {
+    setPreviewSrc(prev => { if (prev.startsWith('blob:')) URL.revokeObjectURL(prev); return '' })
+  }, [])
 
   // Ctrl+S 저장
   useEffect(() => {
@@ -198,7 +275,11 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   const addToSchedule = useCallback(async (e: Estimate) => {
     if (!brokerId) return
     const dates = (e.period ?? '').match(/\d{4}-\d{2}-\d{2}/g)
-    if (!dates?.length) return
+    if (!dates?.length) {
+      // 조용히 지나가면 왜 일정이 안 생겼는지 알 수 없다
+      toast.info('공사기간을 날짜로 적으면 일정관리에도 자동으로 들어갑니다')
+      return
+    }
 
     const title = `[공사] ${e.project_name || e.client_name || e.estimate_no}`
     // 이미 넣어 둔 같은 일정이 있으면 다시 만들지 않는다
@@ -522,7 +603,10 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 <div>
                   <label className={LABEL} htmlFor="f-period">공사기간</label>
                   <input id="f-period" value={est.period ?? ''} onChange={e => set('period', e.target.value)}
-                    placeholder="예: 착공일로부터 30일" className={FIELD} />
+                    placeholder="예: 2026-10-01 ~ 2026-10-31" className={FIELD} />
+                  <p className="mt-1 text-xs text-gray-500">
+                    날짜로 적으면 수주로 바꿀 때 착공·준공이 일정관리에 자동 등록됩니다.
+                  </p>
                 </div>
                 <div>
                   <label className={LABEL} htmlFor="f-valid">견적 유효기간 (일)</label>
@@ -640,20 +724,27 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-bold text-gray-900 dark:text-white">미리보기</h2>
               <button
-                onClick={async () => { if (dirty) await save(true); setPreviewKey(k => k + 1) }}
-                className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-blue-600"
+                onClick={renderPreview}
+                disabled={previewing}
+                className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-blue-600 disabled:opacity-50"
               >
-                <RefreshCw className="h-3.5 w-3.5" />새로고침
+                <RefreshCw className={`h-3.5 w-3.5 ${previewing ? 'animate-spin' : ''}`} />
+                {previewing ? '그리는 중…' : '새로고침'}
               </button>
             </div>
-            <iframe
-              key={previewKey}
-              src={`/api/estimates/${id}/pdf?inline=1&v=${previewKey}`}
-              title="견적서 미리보기"
-              className="h-[40rem] w-full rounded-xl border border-gray-200 bg-white dark:border-gray-800"
-            />
+            {previewSrc ? (
+              <iframe
+                src={previewSrc}
+                title="견적서 미리보기"
+                className="h-[40rem] w-full rounded-xl border border-gray-200 bg-white dark:border-gray-800"
+              />
+            ) : (
+              <div className="flex h-[40rem] w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900">
+                미리보기를 그리는 중…
+              </div>
+            )}
             <p className="mt-2 text-xs text-gray-500">
-              실제로 발송될 PDF 그대로입니다. 저장하면 자동으로 갱신됩니다.
+              실제로 발송될 PDF 그대로입니다. 입력을 멈추면 알아서 다시 그립니다.
             </p>
 
             {sends.length > 0 && (
