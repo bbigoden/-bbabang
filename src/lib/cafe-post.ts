@@ -510,7 +510,21 @@ function fmtMoney(v: string | undefined): string | undefined {
   // 뱅크 원문은 `8,000 만원` 처럼 단위 앞을 띄운다. 그대로 내보내면
   // `보증금 8,000 만원 / 월세 350 만원` 이 되어 사람이 쓰는 표기가 아니다.
   const t = v.trim().replace(/\s+(?=[억만천원])/g, '')
-  return /억|만|원/.test(t) ? t : `${t}만원`
+  if (!/억|만|원/.test(t)) return `${t}만원`
+
+  // **억을 만원으로 적지 않는다.** 뱅크는 모두 만원으로 넣어 두어
+  // `매매가 130,000만원`, `보증금 10,000만원` 이 그대로 나갔다.
+  // 13억을 13만원으로 읽을 사람은 없지만, 한 번에 안 읽힌다.
+  const m = t.match(/^([\d,]+)만원?$/)
+  if (m) {
+    const n = Number(m[1].replace(/,/g, ''))
+    if (Number.isFinite(n) && n >= 10000) {
+      const 억 = Math.floor(n / 10000)
+      const 나머지 = n % 10000
+      return 나머지 ? `${억}억 ${나머지.toLocaleString('ko-KR')}만원` : `${억}억원`
+    }
+  }
+  return t
 }
 
 function fmtPrice(p: ParsedListing): string {
