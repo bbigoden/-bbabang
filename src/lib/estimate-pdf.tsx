@@ -65,7 +65,10 @@ const s = StyleSheet.create({
 
   toName: { fontSize: 12, fontWeight: 'bold', marginBottom: 5 },
 
-  stampWrap: { position: 'absolute', right: 6, bottom: 6, width: 46, height: 46 },
+  // 직인은 공급자 칸 오른쪽에 '한 칸'으로 둔다.
+  // 전에는 position:absolute 로 글자 위에 얹었는데, 소재지가 두 줄이 되는 순간
+  // (한국 주소는 대개 길다) 주소와 이메일이 도장에 덮여 안 보였다.
+  stampWrap: { width: 46, height: 46, marginLeft: 6, alignSelf: 'flex-end' },
   stamp: { width: 46, height: 46, objectFit: 'contain' },
 
   totalBox: {
@@ -110,7 +113,12 @@ const s = StyleSheet.create({
 })
 
 // 내역 테이블 컬럼 폭 (합 531pt = A4 폭 - 좌우 여백)
-const W = { no: 24, cat: 70, name: 130, spec: 70, unit: 30, qty: 36, price: 60, amount: 70, remark: 41 }
+// 표 열 폭(합계 531 = A4 폭에서 좌우 여백을 뺀 값). 하나를 넓히면 하나를 줄여야 한다.
+//
+// 비고가 41 이던 때, 한글 넉 자만 넘어가면 글자가 한 줄에 하나씩 세로로 떨어지고
+// 그 줄만 높이가 다섯 배로 늘어났다("현장 여건에 따라…" 같은 흔한 문구에서 바로 났다).
+// 공종은 '내장'·'철거'처럼 짧아 줄여도 되므로 거기서 덜어 비고에 붙였다.
+export const W = { no: 24, cat: 50, name: 130, spec: 64, unit: 30, qty: 36, price: 60, amount: 70, remark: 67 }
 
 const A = { right: 'right' as const, center: 'center' as const }
 
@@ -160,24 +168,26 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
 
           <View style={s.col}>
             <Text style={s.boxTitle}>공 급 자</Text>
-            <View style={[s.box, { minHeight: 96, position: 'relative' }]}>
-              <View style={s.kv}><Text style={s.k}>등록번호</Text><Text style={s.v}>{company?.biz_no ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>상  호</Text><Text style={[s.v, { fontWeight: 'bold' }]}>{company?.name ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>대표자</Text><Text style={s.v}>{company?.ceo ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>소재지</Text><Text style={s.v}>{company?.address ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>업태/종목</Text><Text style={s.v}>{[company?.biz_type, company?.biz_item].filter(Boolean).join(' / ')}</Text></View>
-              <View style={s.kv}><Text style={s.k}>연락처</Text><Text style={s.v}>{[company?.phone, company?.fax ? `FAX ${company.fax}` : ''].filter(Boolean).join('  ')}</Text></View>
-              {company?.email ? (
-                <View style={s.kv}><Text style={s.k}>이메일</Text><Text style={s.v}>{company.email}</Text></View>
-              ) : null}
-              {company?.manager_name || company?.manager_phone ? (
-                <View style={s.kv}>
-                  <Text style={s.k}>담당자</Text>
-                  <Text style={[s.v, { fontWeight: 'bold' }]}>
-                    {[company.manager_name, company.manager_phone].filter(Boolean).join('  ')}
-                  </Text>
-                </View>
-              ) : null}
+            <View style={[s.box, { minHeight: 96, flexDirection: 'row' }]}>
+              <View style={{ flex: 1 }}>
+                <View style={s.kv}><Text style={s.k}>등록번호</Text><Text style={s.v}>{company?.biz_no ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>상  호</Text><Text style={[s.v, { fontWeight: 'bold' }]}>{company?.name ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>대표자</Text><Text style={s.v}>{company?.ceo ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>소재지</Text><Text style={s.v}>{company?.address ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>업태/종목</Text><Text style={s.v}>{[company?.biz_type, company?.biz_item].filter(Boolean).join(' / ')}</Text></View>
+                <View style={s.kv}><Text style={s.k}>연락처</Text><Text style={s.v}>{[company?.phone, company?.fax ? `FAX ${company.fax}` : ''].filter(Boolean).join('  ')}</Text></View>
+                {company?.email ? (
+                  <View style={s.kv}><Text style={s.k}>이메일</Text><Text style={s.v}>{company.email}</Text></View>
+                ) : null}
+                {company?.manager_name || company?.manager_phone ? (
+                  <View style={s.kv}>
+                    <Text style={s.k}>담당자</Text>
+                    <Text style={[s.v, { fontWeight: 'bold' }]}>
+                      {[company.manager_name, company.manager_phone].filter(Boolean).join('  ')}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               {stampUrl ? (
                 <View style={s.stampWrap}>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
@@ -236,7 +246,7 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
               <Text style={[s.cell, { width: W.qty, textAlign: A.right }]}>{trimNum(it.qty)}</Text>
               <Text style={[s.cell, { width: W.price, textAlign: A.right }]}>{fmtComma(it.unit_price)}</Text>
               <Text style={[s.cell, { width: W.amount, textAlign: A.right, fontWeight: 'bold' }]}>{fmtComma(it.amount)}</Text>
-              <Text style={[s.cell, { width: W.remark }]}>{it.remark ?? ''}</Text>
+              <Text style={[s.cell, { width: W.remark, fontSize: 7 }]}>{it.remark ?? ''}</Text>
             </View>
           )
         })}
@@ -341,20 +351,22 @@ export function InvoiceDocument({ invoice: v, company, stampUrl }: {
 
           <View style={s.col}>
             <Text style={s.boxTitle}>공 급 자</Text>
-            <View style={[s.box, { minHeight: 96, position: 'relative' }]}>
-              <View style={s.kv}><Text style={s.k}>등록번호</Text><Text style={s.v}>{company?.biz_no ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>상  호</Text><Text style={[s.v, { fontWeight: 'bold' }]}>{company?.name ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>대표자</Text><Text style={s.v}>{company?.ceo ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>소재지</Text><Text style={s.v}>{company?.address ?? ''}</Text></View>
-              <View style={s.kv}><Text style={s.k}>연락처</Text><Text style={s.v}>{company?.phone ?? ''}</Text></View>
-              {company?.manager_name || company?.manager_phone ? (
-                <View style={s.kv}>
-                  <Text style={s.k}>담당자</Text>
-                  <Text style={[s.v, { fontWeight: 'bold' }]}>
-                    {[company.manager_name, company.manager_phone].filter(Boolean).join('  ')}
-                  </Text>
-                </View>
-              ) : null}
+            <View style={[s.box, { minHeight: 96, flexDirection: 'row' }]}>
+              <View style={{ flex: 1 }}>
+                <View style={s.kv}><Text style={s.k}>등록번호</Text><Text style={s.v}>{company?.biz_no ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>상  호</Text><Text style={[s.v, { fontWeight: 'bold' }]}>{company?.name ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>대표자</Text><Text style={s.v}>{company?.ceo ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>소재지</Text><Text style={s.v}>{company?.address ?? ''}</Text></View>
+                <View style={s.kv}><Text style={s.k}>연락처</Text><Text style={s.v}>{company?.phone ?? ''}</Text></View>
+                {company?.manager_name || company?.manager_phone ? (
+                  <View style={s.kv}>
+                    <Text style={s.k}>담당자</Text>
+                    <Text style={[s.v, { fontWeight: 'bold' }]}>
+                      {[company.manager_name, company.manager_phone].filter(Boolean).join('  ')}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
               {stampUrl ? (
                 <View style={s.stampWrap}>
                   {/* eslint-disable-next-line jsx-a11y/alt-text */}
