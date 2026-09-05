@@ -138,6 +138,13 @@ export default function EstimatesPage() {
           issue_date: todayKST(),
           status: 'draft',
           sent_at: null,
+          // 복사본은 새 견적서다. 원본을 통째로 물려받으면
+          //  - 수정 견적(-r2)을 복사했을 때 새것에도 '수정 2차' 가 붙고,
+          //    다음 수정 번호를 셀 때 이 복사본까지 형제로 끼어들어 번호가 어긋난다
+          //  - 원본이 이미 만료 알림을 받았으면 복사본은 알림을 영영 못 받는다
+          root_estimate_id: null,
+          revision: 1,
+          expiry_notified_at: null,
         })
         .select('id')
         .single()

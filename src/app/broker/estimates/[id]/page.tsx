@@ -411,6 +411,8 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       issue_date: todayKST(),
       status: 'draft',
       sent_at: null,
+      // 원본이 이미 만료 알림을 받았으면 이 수정본은 알림을 영영 못 받는다
+      expiry_notified_at: null,
     }).select('id').single()
     if (error) { toast.error('수정 견적을 만들지 못했습니다'); return }
 

@@ -91,11 +91,20 @@ export function SharePanel({ estimateId, brokerId, refreshKey = 0 }: {
     }
   }
 
-  const revoke = async (row: ShareRow) => {
+  /**
+   * 살아 있는 링크를 전부 회수한다.
+   *
+   * 눌린 줄 하나만 죽이면 위험하다 — 화면은 살아 있는 링크 중 하나만 보여주므로,
+   * 어쩌다 두 개가 생겼을 때 하나를 회수하고는 다 막았다고 믿게 된다.
+   * 그 사이 거래처는 나머지 주소로 계속 열어 본다. 회수는 "더 못 보게" 하는
+   * 뜻이니 전부 막는 게 맞다.
+   */
+  const revoke = async () => {
     if (!confirm('링크를 회수할까요?\n이미 보낸 링크로는 더 이상 열 수 없게 됩니다.')) return
-    const { error } = await supabase.from('estimate_shares').update({ revoked: true }).eq('id', row.id)
+    const { error } = await supabase.from('estimate_shares')
+      .update({ revoked: true }).eq('estimate_id', estimateId).eq('revoked', false)
     if (error) { toast.error('회수하지 못했습니다'); return }
-    setShares(prev => prev.map(s => s.id === row.id ? { ...s, revoked: true } : s))
+    setShares(prev => prev.map(s => ({ ...s, revoked: true })))
     toast.success('링크를 회수했습니다')
   }
 
@@ -156,7 +165,7 @@ export function SharePanel({ estimateId, brokerId, refreshKey = 0 }: {
               className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700">
               <Copy className="h-4 w-4" />복사
             </button>
-            <button onClick={() => revoke(live)} title="링크 회수" aria-label="링크 회수"
+            <button onClick={revoke} title="링크 회수" aria-label="링크 회수"
               className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-800 dark:bg-gray-900">
               <Ban className="h-4 w-4" />
             </button>
