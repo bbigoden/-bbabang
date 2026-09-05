@@ -154,13 +154,6 @@ const SOURCES = {
 
 type SourceId = keyof typeof SOURCES
 
-/** 자주 쓰는 기간. 누르면 달력의 두 날짜가 그에 맞게 잡힌다. */
-const PERIODS = [
-  { id: '1', label: '오늘', days: 1 },
-  { id: '3', label: '3일', days: 3 },
-  { id: '7', label: '7일', days: 7 },
-] as const
-
 /**
  * 한 번에 볼 수 있는 최대 날수.
  *
@@ -481,9 +474,6 @@ export default function CollectPage() {
 
   const 기간잡기 = (a: string, b: string) => { set첫날(a); set끝날(b); setPage(1) }
 
-  /** 칩이 지금 고른 기간과 같은가 — 끝이 오늘이고 날수가 맞으면. */
-  const 칩켜짐 = (days: number) => 끝날 === todayKST() && 날수(첫날, 끝날) === days
-
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {
     set(list.includes(id) ? list.filter(x => x !== id) : [...list, id])
     setPage(1)
@@ -579,11 +569,11 @@ export default function CollectPage() {
         <div className="mb-5 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">기간</span>
-            {PERIODS.map(p => (
-              <Chip key={p.id} on={칩켜짐(p.days)} onClick={() => 기간잡기(addDays(todayKST(), -(p.days - 1)), todayKST())}>
-                {p.label}
-              </Chip>
-            ))}
+            {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
+                되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
+            <Chip on={첫날 === todayKST() && 끝날 === todayKST()} onClick={() => 기간잡기(todayKST(), todayKST())}>
+              오늘
+            </Chip>
             {/* 매물목록·고객목록이 쓰는 그 달력 그대로다 — 화면마다 다른 달력이 뜨면
                 같은 프로그램으로 안 보인다. 다른 곳은 한 날만 고르므로, 기간이 필요한
                 여기서만 두 날을 눌러 정한다. */}
@@ -711,7 +701,9 @@ export default function CollectPage() {
                       <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 dark:text-gray-600">
                         {r.shown_date?.slice(5).replace('-', '/')}
                       </span>
-                      <span className="w-16 shrink-0 text-sm text-gray-500 dark:text-gray-500">
+                      {/* '지식산업센터' 가 두 줄로 접히면 그 줄만 키가 커져 목록이
+                          울퉁불퉁해진다. 가장 긴 이름이 한 줄에 들어가게 잡는다. */}
+                      <span className="w-[92px] shrink-0 whitespace-nowrap text-sm text-gray-500 dark:text-gray-500">
                         {src.kindOf(r.kind_code)}
                       </span>
                       <span className="w-10 shrink-0 text-sm text-gray-500 dark:text-gray-500">
