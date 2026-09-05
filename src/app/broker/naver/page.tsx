@@ -11,12 +11,16 @@ import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useToast } from '@/components/toast'
 import { Radar, Download } from 'lucide-react'
 import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from '@/lib/naver-land'
+import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
 
 /**
- * 매물수집 — 네이버 매물을 최신순으로 모아 둔 링크 목록.
+ * 매물수집 — 네이버·당근에 올라온 매물을 최신순으로 모아 둔 링크 목록.
  *
- * 네이버부동산에는 최신순 정렬이 없다. 그래서 새로 올라온 매물을 찾으려면 지도를
+ * 두 곳 다 화면에 최신순 정렬이 없다. 그래서 새로 올라온 매물을 찾으려면 지도를
  * 옮겨 가며 매일 눈으로 훑어야 했고, 그 일에 하루 시간이 통째로 들어갔다.
+ *
+ * **곳을 탭으로 가른다.** 올라오는 매물의 성격이 다르다 — 네이버는 중개사 광고,
+ * 당근은 직거래가 섞인다. 한 목록에 섞으면 둘 다 제대로 못 훑는다.
  *
  * **이 화면은 링크 목록이다.** 가격·면적·사진은 일부러 싣지 않는다 — 어차피 눌러
  * 들어가서 주변과 시세를 직접 봐야 하고, 여기서 미리 보여 줘 봐야 한 화면에
@@ -30,56 +34,114 @@ import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from
  * 만들었다가 걷어냈다 — 네이버가 데이터센터 IP를 막아 Vercel 에서는 다섯 번 다
  * 응답 없이 멎었다. 뱅크·카페와 같은 이유로 PC가 맡는다.
  *
- * **누를 때만 받는다.** 한 시간마다 알아서 받게 해 뒀다가 걷어냈다 — 사장님이
- * 볼 때 누르면 되는 일이라, 하루 스물네 번 네이버를 부를 이유가 없다.
+ * **[가져오기] 를 누를 때만 받는다.** 한 시간마다 알아서 받게 해 뒀다가 걷어냈다 —
+ * 볼 때 누르면 되는 일이라 하루 스물네 번 부를 이유가 없다.
  */
 
-type Article = {
+/** 화면이 다루는 한 줄. 곳이 달라도 이 모양으로 맞춰 담는다. */
+type Row = {
   article_no: string
-  real_estate_type: string
-  trade_type: string
+  kind_code: string
+  trade_code: string | null
   division: string | null
   sector: string | null
-  brokerage_name: string | null
-  exposure_start_date: string | null
+  owner: string | null
+  /** 목록 왼쪽에 적는 날짜 */
+  shown_date: string | null
   first_seen_at: string
   last_seen_at: string
   gone_at: string | null
+  /** 예전부터 알던 매물인데 광고만 새로 올라온 것 (네이버만 알 수 있다) */
+  relisted: boolean
 }
 
-type Settings = {
-  hide_own: boolean
-  track_gone: boolean
-}
-
+type Settings = { hide_own: boolean; track_gone: boolean }
 const DEFAULT_SETTINGS: Settings = { hide_own: false, track_gone: false }
 
 /**
- * 골라 보는 기간.
+ * 곳마다 다른 것들을 여기 한 곳에 모아 둔다.
  *
- * 기본은 3일. 수집은 매 회차 이틀치를 받지만 표에는 계속 쌓이므로, 며칠 돌고 나면
- * 7일도 채워진다.
+ * 표 이름·매물종류 코드·거래유형·링크 주소가 곳마다 다르다. 화면을 둘로 만들면
+ * 고칠 때마다 두 번 고쳐야 하므로, 다른 점만 여기 적고 그리는 코드는 하나로 둔다.
  */
+const SOURCES = {
+  naver: {
+    label: '네이버',
+    table: 'naver_articles',
+    views: 'naver_article_views',
+    jobKind: 'naver',
+    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at',
+    /** 매물종류 이름 → 코드들 */
+    kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
+    kindOf,
+    trades: TRADE_TYPES as Record<string, string>,
+    /**
+     * 기간을 자르는 칸.
+     *
+     * 네이버는 광고 노출 시작일을 주므로 그것으로 자른다. 그 날짜는 재등록하면
+     * 갱신되지만, 그래도 '언제부터 걸려 있는 광고인가' 는 그 값이 맞다.
+     */
+    dateColumn: 'exposure_start_date',
+    since: (days: number) => kstDate(days - 1),
+    link: (no: string) => `https://fin.land.naver.com/articles/${no}`,
+    toRow: (a: any): Row => ({
+      article_no: a.article_no,
+      kind_code: a.real_estate_type,
+      trade_code: a.trade_type,
+      division: a.division,
+      sector: a.sector,
+      owner: a.brokerage_name,
+      shown_date: a.exposure_start_date,
+      first_seen_at: a.first_seen_at,
+      last_seen_at: a.last_seen_at,
+      gone_at: a.gone_at,
+      relisted: !!a.exposure_start_date && a.exposure_start_date > toKstDate(a.first_seen_at),
+    }),
+  },
+  daangn: {
+    label: '당근',
+    table: 'daangn_articles',
+    views: 'daangn_article_views',
+    jobKind: 'daangn',
+    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at',
+    kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
+    kindOf: daangnKindOf,
+    trades: DAANGN_TRADES as Record<string, string>,
+    /**
+     * **당근은 날짜를 안 준다.** 응답에 등록일·수정일이 아예 없다. 그래서 우리가
+     * 처음 받은 날로 자르고, 목록에도 그 날짜를 적는다.
+     */
+    dateColumn: 'first_seen_at',
+    since: (days: number) => new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10),
+    link: (no: string) => `https://realty.daangn.com/articles/${no}`,
+    toRow: (a: any): Row => ({
+      article_no: a.article_no,
+      kind_code: a.sales_type,
+      trade_code: a.trade_type,
+      division: a.division,
+      sector: a.sector,
+      owner: a.writer_name,
+      shown_date: toKstDate(a.first_seen_at),
+      first_seen_at: a.first_seen_at,
+      last_seen_at: a.last_seen_at,
+      gone_at: a.gone_at,
+      relisted: false,
+    }),
+  },
+} as const
+
+type SourceId = keyof typeof SOURCES
+
+/** 골라 보는 기간. */
 const PERIODS = [
   { id: '1', label: '오늘', days: 1 },
   { id: '3', label: '3일', days: 3 },
   { id: '7', label: '7일', days: 7 },
 ] as const
 
-/** 하루 안에 처음 받은 매물인가. 네이버 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
-function isFresh(a: Article): boolean {
-  return Date.now() - new Date(a.first_seen_at).getTime() < 24 * 60 * 60 * 1000
-}
-
-/**
- * 네이버 광고는 최근에 시작했는데 우리는 예전부터 알던 매물 — 재등록된 것이다.
- *
- * 재등록은 새 매물이 아니다. 구분하지 않으면 같은 물건을 광고 기간마다 새 매물로
- * 다시 열어 보게 된다.
- */
-function isRelisted(a: Article): boolean {
-  if (!a.exposure_start_date) return false
-  return a.exposure_start_date > toKstDate(a.first_seen_at)
+/** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
+function isFresh(r: Row): boolean {
+  return Date.now() - new Date(r.first_seen_at).getTime() < 24 * 60 * 60 * 1000
 }
 
 const CHIP_ON = 'border-blue-600 bg-blue-600 text-white'
@@ -98,12 +160,15 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   )
 }
 
-export default function NaverWatchPage() {
+export default function CollectPage() {
   const supabase = useMemo(() => createClient(), [])
   const auth = useAuth()
   const toast = useToast()
 
-  const [rows, setRows] = useState<Article[]>([])
+  const [source, setSource] = useState<SourceId>('naver')
+  const src = SOURCES[source]
+
+  const [rows, setRows] = useState<Row[]>([])
   const [seen, setSeen] = useState<Set<string>>(new Set())
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [savingSettings, setSavingSettings] = useState(false)
@@ -122,7 +187,7 @@ export default function NaverWatchPage() {
   const [trades, setTrades] = useState<string[]>([])
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = usePageSize('naver-watch', 50)
+  const [pageSize, setPageSize] = usePageSize('collect-watch', 50)
 
   /** 사무소 기준 id — 직원이면 대표의 id 다. 설정은 사무소 단위로 하나뿐이다. */
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
@@ -136,53 +201,51 @@ export default function NaverWatchPage() {
    */
   const load = useCallback(async () => {
     setLoading(true)
+    const s = SOURCES[source]
     const days = PERIODS.find(p => p.id === period)?.days ?? 3
-    // '오늘' 은 오늘 하루다. days-1 을 빼야 3일이 오늘 포함 사흘이 된다.
-    const since = kstDate(days - 1)
+    const since = s.since(days)
     try {
       const [arts, views] = await Promise.all([
-        fetchAllPaged<Article>((from, to) => supabase.from('naver_articles')
-          .select('article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at')
-          .gte('exposure_start_date', since)
-          .order('exposure_start_date', { ascending: false })
-          .order('first_seen_at', { ascending: false })
-          // 매물번호로 순서를 못박는다. 앞의 둘만으로는 822건이 같은 값이라
-          // 나눠 받는 사이에 순서가 흔들려 중복·누락이 난다 — 매시간 도는 수집이
-          // 그 3천 행의 last_seen_at 을 갱신하는 동안이면 특히.
+        fetchAllPaged<any>((from, to) => supabase.from(s.table)
+          .select(s.columns)
+          .gte(s.dateColumn, since)
+          .order(s.dateColumn, { ascending: false })
+          // 매물번호로 순서를 못박는다. 날짜만으로는 같은 값이 수백 건이라
+          // 나눠 받는 사이에 순서가 흔들려 중복·누락이 난다.
           .order('article_no', { ascending: false })
           .range(from, to)),
         // 본 기록은 계속 쌓인다. 화면이 최대 7일치만 보여주므로 그만큼만 받는다.
         fetchAllPaged<{ article_no: string }>((from, to) =>
-          supabase.from('naver_article_views').select('article_no')
+          supabase.from(s.views).select('article_no')
             .gte('seen_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
             .order('seen_at', { ascending: false })
             .range(from, to)),
       ])
       setError(null)
-      setRows(arts)
+      setRows(arts.map(s.toRow))
       setSeen(new Set(views.map(v => v.article_no)))
     } catch (e) {
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     }
     setLoading(false)
-  }, [supabase, period])
+  }, [supabase, source, period])
 
   useEffect(() => { void load() }, [load])
 
   useEffect(() => {
     if (!officeId) return
     void (async () => {
-      const { data } = await supabase.from('naver_settings')
-        .select('hide_own, track_gone').eq('broker_id', officeId).maybeSingle()
-      if (data) setSettings(data as Settings)
+      const { data } = await supabase.from('collect_settings')
+        .select('hide_own, track_gone').eq('broker_id', officeId).eq('source', source).maybeSingle()
+      setSettings((data as Settings) ?? DEFAULT_SETTINGS)
     })()
-  }, [supabase, officeId])
+  }, [supabase, officeId, source])
 
   /**
-   * 수집을 맡은 PC 프로그램이 켜져 있는가. 광고관리 화면과 같은 방식이다.
+   * 받아오는 PC 프로그램이 켜져 있는가. 광고관리 화면과 같은 방식이다.
    *
-   * 목록이 안 늘 때 "네이버에 새 매물이 없는 것"과 "프로그램이 꺼져 있는 것"은
-   * 전혀 다른 일인데, 화면만 봐서는 구분이 안 된다. 그래서 적어 준다.
+   * 목록이 안 늘 때 "새 매물이 없는 것"과 "프로그램이 꺼져 있는 것"은 전혀 다른
+   * 일인데, 화면만 봐서는 구분이 안 된다. 그래서 적어 준다.
    */
   useEffect(() => {
     let alive = true
@@ -199,24 +262,28 @@ export default function NaverWatchPage() {
     if (!officeId) return
     const before = settings
     const next = { ...settings, ...patch }
-    setSettings(next)          // 먼저 화면에 반영한다 — 스위치가 늦게 움직이면 두 번 누르게 된다
+    setSettings(next)          // 먼저 화면에 반영한다 — 늦게 움직이면 두 번 누르게 된다
     setSavingSettings(true)
-    const { error } = await supabase.from('naver_settings')
-      .upsert({ broker_id: officeId, ...next, updated_at: new Date().toISOString() })
-    // 여기서 setError 를 쓰면 목록 자리에 '목록을 불러오지 못했습니다' 로 나간다.
-    // 저장이 안 된 것과 목록을 못 받은 것은 다른 일이다.
+    const { error } = await supabase.from('collect_settings')
+      .upsert({ broker_id: officeId, source, ...next, updated_at: new Date().toISOString() })
     if (error) { setSettings(before); toast.error(`설정을 저장하지 못했습니다: ${error.message}`) }
     setSavingSettings(false)
   }
 
+  /** 눌러 본 매물을 적어 둔다. 실패해도 화면은 흐려진 채로 둔다 — 다시 누르면 그만이다. */
+  const markSeen = (articleNo: string) => {
+    const uid = auth.user?.id
+    if (!uid || seen.has(articleNo)) return
+    setSeen(prev => new Set(prev).add(articleNo))
+    void supabase.from(src.views)
+      .upsert({ user_id: uid, article_no: articleNo }, { onConflict: 'user_id,article_no' })
+  }
+
   /**
-   * 네이버에서 새 매물을 받아 온다 — 광고관리의 [가져오기] 와 같다.
+   * 그 곳에서 새 매물을 받아 온다 — 광고관리의 [가져오기] 와 같은 방식.
    *
-   * **이 화면은 Vercel 서버에서 도는데 네이버는 데이터센터 IP를 막는다.** 그래서
-   * 여기서 직접 못 부른다. 광고관리의 [가져오기] 와 같은 방식으로, `ad_jobs` 에
-   * "해달라" 고 적어 두면 PC 프로그램이 집어가 실행한다.
-   *
-   * **받아오는 것은 이 버튼뿐이다.** 5~6분 걸린다.
+   * **이 화면은 Vercel 서버에서 도는데 네이버·당근 모두 데이터센터 IP를 막는다.**
+   * 그래서 `ad_jobs` 에 "해달라" 고 적어 두면 PC 프로그램이 집어가 실행한다.
    */
   async function requestCollect() {
     if (!officeId) return
@@ -227,17 +294,18 @@ export default function NaverWatchPage() {
     )) return
 
     setSyncing(true); setSyncProgress('요청 보냄')
+    const kind = src.jobKind
 
     // 이미 대기·실행 중인 것이 있으면 그걸 지켜본다. 프로그램이 꺼져 있을 때 여러 번
     // 누르면 요청이 쌓여, 켜는 순간 같은 수집을 반복하게 된다.
     const { data: pending } = await supabase.from('ad_jobs')
-      .select('id').eq('kind', 'naver').in('status', ['queued', 'running'])
+      .select('id').eq('kind', kind).in('status', ['queued', 'running'])
       .order('requested_at', { ascending: true }).limit(1).maybeSingle()
 
     const { data: job, error } = pending
       ? { data: pending, error: null }
       : await supabase.from('ad_jobs')
-        .insert({ broker_id: officeId, kind: 'naver', requested_by: auth.user?.id })
+        .insert({ broker_id: officeId, kind, requested_by: auth.user?.id })
         .select('id').single()
     if (error || !job) {
       setSyncing(false); setSyncProgress(null)
@@ -256,14 +324,10 @@ export default function NaverWatchPage() {
         clearInterval(poll)
         setSyncing(false); setSyncProgress(null)
         const r = data.result as { added?: number; fetched?: number; missed?: number } | null
-        // 못 본 자리가 있으면 그것부터 말한다 — '새 매물 0건' 과 '못 받았다' 는 다르다.
-        if (r?.missed) {
-          toast.error(`${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
-        } else if (r?.added) {
-          toast.success(`새 매물 ${r.added}건을 받았습니다. (전체 ${r.fetched ?? 0}건 확인)`)
-        } else {
-          toast.success(`새로 올라온 매물이 없습니다. (전체 ${r?.fetched ?? 0}건 확인)`)
-        }
+        // 못 본 곳이 있으면 그것부터 말한다 — '새 매물 0건' 과 '못 받았다' 는 다르다.
+        if (r?.missed) toast.error(`${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
+        else if (r?.added) toast.success(`새 매물 ${r.added}건을 받았습니다. (전체 ${r.fetched ?? 0}건 확인)`)
+        else toast.success(`새로 올라온 매물이 없습니다. (전체 ${r?.fetched ?? 0}건 확인)`)
         void load()
       } else if (data.status === 'failed' || data.status === 'canceled') {
         clearInterval(poll)
@@ -277,16 +341,7 @@ export default function NaverWatchPage() {
     }, 2000)
   }
 
-  /** 눌러 본 매물을 적어 둔다. 실패해도 화면은 흐려진 채로 둔다 — 다시 누르면 그만이다. */
-  const markSeen = (articleNo: string) => {
-    const uid = auth.user?.id
-    if (!uid || seen.has(articleNo)) return
-    setSeen(prev => new Set(prev).add(articleNo))
-    void supabase.from('naver_article_views')
-      .upsert({ user_id: uid, article_no: articleNo }, { onConflict: 'user_id,article_no' })
-  }
-
-  /** 마지막으로 수집이 돌아간 시각. 0건일 때 "수집이 멈춘 건지"를 여기서 안다. */
+  /** 마지막으로 받아온 시각. 0건일 때 "받아오기가 멈춘 건지"를 여기서 안다. */
   const lastSweep = useMemo(
     () => rows.reduce<string | null>((a, r) => (!a || r.last_seen_at > a ? r.last_seen_at : a), null),
     [rows],
@@ -297,38 +352,40 @@ export default function NaverWatchPage() {
     setPage(1)
   }
 
-  const officeName = auth.broker?.office_name?.trim()
+  const ownName = auth.broker?.office_name?.trim()
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
-
-    return rows.filter(a => {
+    return rows.filter(r => {
       // 사라진 매물은 따로 볼 때만 나온다 — 목록에 섞이면 죽은 링크를 누르게 된다.
-      //
-      // **표시 기능을 꺼 두면 사라짐 표시는 없는 셈 친다.** 안 그러면 켰다 껐을 때
-      // 그동안 찍힌 매물이 목록에서도 빠지고 [사라진 것] 칩도 없어져, 볼 방법이
-      // 영영 없어진다.
-      if (settings.track_gone && (goneOnly ? !a.gone_at : !!a.gone_at)) return false
-      if (unseenOnly && seen.has(a.article_no)) return false
-      if (settings.hide_own && officeName && a.brokerage_name === officeName) return false
+      // 표시 기능을 꺼 두면 사라짐 표시는 없는 셈 친다.
+      if (settings.track_gone && (goneOnly ? !r.gone_at : !!r.gone_at)) return false
+      if (unseenOnly && seen.has(r.article_no)) return false
+      if (settings.hide_own && ownName && r.owner === ownName) return false
       if (regions.length) {
-        const region = REGIONS.find(r => a.division?.startsWith(r.divisionPrefix))
+        const region = REGIONS.find(g => r.division?.startsWith(g.divisionPrefix))
         if (!region || !regions.includes(region.id)) return false
       }
-      if (kinds.length && !kinds.includes(kindOf(a.real_estate_type))) return false
-      if (trades.length && !trades.includes(a.trade_type)) return false
-      if (needle && ![a.division, a.sector].filter(Boolean).join(' ').toLowerCase().includes(needle)) return false
+      if (kinds.length && !kinds.includes(src.kindOf(r.kind_code))) return false
+      if (trades.length && !trades.includes(r.trade_code ?? '')) return false
+      if (needle && ![r.division, r.sector].filter(Boolean).join(' ').toLowerCase().includes(needle)) return false
       return true
     })
   }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, seen,
-      settings.hide_own, settings.track_gone, officeName])
+      settings.hide_own, settings.track_gone, ownName, src])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize)
-  const unseenCount = useMemo(() => filtered.filter(a => !seen.has(a.article_no)).length, [filtered, seen])
+  const unseenCount = useMemo(() => filtered.filter(r => !seen.has(r.article_no)).length, [filtered, seen])
 
   /** 하트비트가 이보다 오래되면 꺼진 것으로 본다. 광고관리 화면과 같은 잣대다. */
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < 60_000
+
+  /** 곳을 바꾸면 그 곳에 없는 필터가 남아 있으면 안 된다. */
+  const switchSource = (next: SourceId) => {
+    if (next === source) return
+    setSource(next); setKinds([]); setTrades([]); setGoneOnly(false); setPage(1)
+  }
 
   if (auth.loading || !auth.broker) return null
 
@@ -339,14 +396,12 @@ export default function NaverWatchPage() {
         <PageHeader
           title="매물수집"
           icon={Radar}
-
           actions={
-            <div className="flex items-center gap-2">
             <button
               onClick={requestCollect}
               disabled={syncing}
               title={agentOnline
-                ? '네이버에서 새 매물을 받아옵니다 (5~6분)'
+                ? `${src.label}에서 새 매물을 받아옵니다 (5~8분)`
                 : 'PC에서 부소장광고 프로그램(npm run agent)을 먼저 켜 주세요'}
               className="flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-sm font-medium
                          text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
@@ -354,13 +409,26 @@ export default function NaverWatchPage() {
               <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} aria-hidden />
               {syncing ? (syncProgress ?? '가져오는 중…') : '가져오기'}
             </button>
-            </div>
           }
         />
 
-        {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
-            낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다.
-            광고관리 화면과 같은 모양으로 둔다 — 같은 프로그램이 하는 일이다. */}
+        {/* 곳을 가른다. 올라오는 매물의 성격이 달라 한 목록에 섞으면 둘 다 못 훑는다. */}
+        <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
+          {(Object.keys(SOURCES) as SourceId[]).map(id => (
+            <button
+              key={id}
+              onClick={() => switchSource(id)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+                id === source
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
+              }`}
+            >
+              {SOURCES[id].label}
+            </button>
+          ))}
+        </div>
+
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
           {lastSweep && (
             <span>
@@ -400,7 +468,7 @@ export default function NaverWatchPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">종류</span>
-            {Object.keys(PROPERTY_KINDS).map(kind => (
+            {Object.keys(src.kinds).map(kind => (
               <Chip key={kind} on={kinds.includes(kind)} onClick={() => toggle(kinds, setKinds, kind)}>
                 {kind}
               </Chip>
@@ -408,7 +476,7 @@ export default function NaverWatchPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">거래</span>
-            {Object.entries(TRADE_TYPES).map(([code, name]) => (
+            {Object.entries(src.trades).map(([code, name]) => (
               <Chip key={code} on={trades.includes(code)} onClick={() => toggle(trades, setTrades, code)}>
                 {name}
               </Chip>
@@ -425,8 +493,7 @@ export default function NaverWatchPage() {
               {q && <SearchClear onClick={() => setQ('')} />}
             </div>
           </div>
-          {/* 켜고 끄면 사무소 사람 모두에게 걸린다. 자주 바꾸는 것은 아니지만,
-              눌러야 나오면 있는 줄도 모른다. 다른 줄과 같은 모양으로 늘 둔다. */}
+          {/* 켜고 끄면 사무소 사람 모두에게 걸린다. 눌러야 나오면 있는 줄도 모른다. */}
           <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">설정</span>
             <Chip
@@ -441,8 +508,9 @@ export default function NaverWatchPage() {
             >
               사라진 매물 표시
             </Chip>
+            {savingSettings && <span className="text-xs text-gray-400">저장 중…</span>}
             <span className="text-xs text-gray-400 dark:text-gray-600">
-              {settings.hide_own && officeName ? `'${officeName}' 매물은 목록에서 빠집니다` : ''}
+              {settings.hide_own && ownName ? `'${ownName}' 매물은 목록에서 빠집니다` : ''}
             </span>
           </div>
         </div>
@@ -457,7 +525,7 @@ export default function NaverWatchPage() {
         ) : filtered.length === 0 ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
             {rows.length === 0
-              ? '아직 받아온 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.'
+              ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.`
               : unseenOnly ? '안 본 매물이 없습니다. 다 훑으셨습니다.'
               : '고른 조건에 맞는 매물이 없습니다.'}
           </p>
@@ -469,41 +537,41 @@ export default function NaverWatchPage() {
             </p>
             <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
-              {shown.map(a => {
-                const 봤음 = seen.has(a.article_no)
+              {shown.map(r => {
+                const 봤음 = seen.has(r.article_no)
                 return (
-                  <li key={a.article_no}>
+                  <li key={r.article_no}>
                     <a
-                      href={`https://fin.land.naver.com/articles/${a.article_no}`}
+                      href={src.link(r.article_no)}
                       target="_blank"
                       rel="noreferrer"
-                      onClick={() => markSeen(a.article_no)}
+                      onClick={() => markSeen(r.article_no)}
                       className={`group flex items-center gap-3 px-4 py-2.5 transition-colors
                                   hover:bg-blue-50/60 dark:hover:bg-gray-800 ${봤음 ? 'opacity-45' : ''}`}
                     >
                       <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 dark:text-gray-600">
-                        {a.exposure_start_date?.slice(5).replace('-', '/')}
+                        {r.shown_date?.slice(5).replace('-', '/')}
                       </span>
                       <span className="w-16 shrink-0 text-sm text-gray-500 dark:text-gray-500">
-                        {kindOf(a.real_estate_type)}
+                        {src.kindOf(r.kind_code)}
                       </span>
                       <span className="w-10 shrink-0 text-sm text-gray-500 dark:text-gray-500">
-                        {TRADE_TYPES[a.trade_type as keyof typeof TRADE_TYPES] ?? a.trade_type}
+                        {r.trade_code ? (src.trades[r.trade_code] ?? r.trade_code) : ''}
                       </span>
                       <span className={`min-w-0 flex-1 truncate text-sm text-gray-900 group-hover:underline
-                                        dark:text-white ${a.gone_at ? 'line-through' : ''}`}>
-                        {[a.division, a.sector].filter(Boolean).join(' ')}
+                                        dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
+                        {[r.division, r.sector].filter(Boolean).join(' ')}
                       </span>
-                      {a.gone_at ? (
+                      {settings.track_gone && r.gone_at ? (
                         <span className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-600
                                          dark:bg-gray-700 dark:text-gray-300">사라짐</span>
-                      ) : isRelisted(a) ? (
+                      ) : r.relisted ? (
                         <span
                           className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700
                                      dark:bg-amber-900/40 dark:text-amber-400"
-                          title="예전부터 있던 매물인데 네이버 광고만 새로 올라왔습니다"
+                          title="예전부터 있던 매물인데 광고만 새로 올라왔습니다"
                         >재등록</span>
-                      ) : isFresh(a) && !봤음 ? (
+                      ) : isFresh(r) && !봤음 ? (
                         <span className="shrink-0 rounded bg-blue-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">신규</span>
                       ) : null}
                     </a>
