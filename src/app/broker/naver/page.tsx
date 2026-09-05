@@ -37,9 +37,10 @@ import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
  * **[가져오기] 를 누를 때만 받는다.** 한 시간마다 알아서 받게 해 뒀다가 걷어냈다 —
  * 볼 때 누르면 되는 일이라 하루 스물네 번 부를 이유가 없다.
  *
- * **가져오기는 곳마다 따로 있다.** 한 곳 받는 데 5~8분이 걸리는데 버튼이 하나뿐일
- * 때는 네이버가 끝나기를 앉아 기다렸다가 당근을 또 눌러야 했다. 이제 둘을 함께
- * 걸어 두고 자리를 떠도 된다.
+ * **[가져오기] 는 보고 있는 탭의 것만 받는다.** 버튼에 곳 이름을 붙이지 않는 이유는
+ * 탭이 이미 말하고 있어서다. 다만 안에서는 곳마다 따로 돌아, 네이버를 걸어 두고
+ * 당근 탭으로 옮겨 거기서 또 걸 수 있다 — 한 곳에 5~8분이라 하나가 끝나기를 앉아
+ * 기다렸다 다시 누르게 하면 안 된다. 도는 중인 다른 곳은 위 상태 줄에 적어 준다.
  */
 
 /** 화면이 다루는 한 줄. 곳이 달라도 이 모양으로 맞춰 담는다. */
@@ -421,32 +422,7 @@ export default function CollectPage() {
     <>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <PageHeader
-          title="매물수집"
-          icon={Radar}
-          /* 곳마다 버튼을 따로 둔다. 보고 있는 탭과 상관없이 누를 수 있어야
-             네이버를 걸어 두고 곧바로 당근까지 걸고 자리를 뜰 수 있다. */
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              {(Object.keys(SOURCES) as SourceId[]).map(id => (
-                <button
-                  key={id}
-                  onClick={() => void requestCollect(id)}
-                  disabled={!!jobs[id]}
-                  title={agentOnline
-                    ? `${SOURCES[id].label}에서 새 매물을 받아옵니다 (5~8분)`
-                    : 'PC에서 부소장광고 프로그램을 먼저 켜 주세요'}
-                  className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3
-                             text-sm font-medium text-white transition-colors hover:bg-blue-700
-                             disabled:opacity-60"
-                >
-                  <Download className={`h-4 w-4 ${jobs[id] ? 'animate-pulse' : ''}`} aria-hidden />
-                  {jobs[id] ?? `${SOURCES[id].label} 가져오기`}
-                </button>
-              ))}
-            </div>
-          }
-        />
+        <PageHeader title="매물수집" icon={Radar} />
 
         {/* 곳을 가른다. 올라오는 매물의 성격이 달라 한 목록에 섞으면 둘 다 못 훑는다. */}
         <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
@@ -475,6 +451,15 @@ export default function CollectPage() {
             <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
             {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
           </span>
+          {/* 다른 탭 것이 도는 중이면 여기에 적는다. 버튼은 보고 있는 탭 것만
+              보여 주므로, 이게 없으면 아까 걸어 둔 것이 어떻게 됐는지 알 길이 없다. */}
+          {(Object.keys(SOURCES) as SourceId[])
+            .filter(id => id !== source && jobs[id])
+            .map(id => (
+              <span key={id} className="text-blue-600 dark:text-blue-400">
+                {SOURCES[id].label} 받는 중 — {jobs[id]}
+              </span>
+            ))}
           {!agentOnline && (
             <span>PC 바탕화면의 <b className="font-medium">부소장 광고 프로그램</b> 을 켜면 [가져오기]가 동작합니다.</span>
           )}
@@ -493,6 +478,22 @@ export default function CollectPage() {
             {settings.track_gone && (
               <Chip on={goneOnly} onClick={() => { setGoneOnly(v => !v); setPage(1) }}>사라진 것</Chip>
             )}
+            {/* 보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
+                탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
+                네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
+            <button
+              onClick={() => void requestCollect(source)}
+              disabled={!!jobs[source]}
+              title={agentOnline
+                ? `${src.label}에서 새 매물을 받아옵니다 (5~8분)`
+                : 'PC에서 부소장광고 프로그램을 먼저 켜 주세요'}
+              className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
+                         px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
+                         disabled:opacity-60"
+            >
+              <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
+              {jobs[source] ?? '가져오기'}
+            </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">지역</span>
@@ -561,7 +562,7 @@ export default function CollectPage() {
         ) : filtered.length === 0 ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
             {rows.length === 0
-              ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [${src.label} 가져오기]를 눌러 주세요.`
+              ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.`
               : unseenOnly ? '안 본 매물이 없습니다. 다 훑으셨습니다.'
               : '고른 조건에 맞는 매물이 없습니다.'}
           </p>
