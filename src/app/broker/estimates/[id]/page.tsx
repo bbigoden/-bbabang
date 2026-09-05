@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -111,33 +111,50 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     const name = est?.client_name?.trim()
     if (!brokerId || !name) return est?.client_id ?? null
 
+    // 새로 만들 때만 견적서 내용을 그대로 옮긴다.
+    // 주소는 이때만 넣는다 — 새 거래처는 이것 말고 단서가 없다.
     const payload = {
       owner_broker_id: brokerId,
       name,
-      contact_name: est?.client_contact ?? null,
-      phone: est?.client_phone ?? null,
-      email: est?.client_email ?? null,
-      address: est?.site_address ?? null,
+      contact_name: est?.client_contact?.trim() || null,
+      phone: est?.client_phone?.trim() || null,
+      email: est?.client_email?.trim() || null,
+      address: est?.site_address?.trim() || null,
     }
+
+    // 이미 있는 거래처는 덮어쓰지 않고 채워 넣은 칸만 갱신한다.
+    // 저장할 때마다 자동으로 도는 자리라, 견적서에서 담당자·연락처를 비워 뒀다는
+    // 이유로 거래처에 적어 둔 정보가 소리 없이 지워지면 안 된다.
+    // 주소는 아예 손대지 않는다 — 견적서의 주소는 현장 주소이지 거래처 주소가 아니라
+    // 두 번째 현장 견적을 쓰면 첫 현장 주소로 덮여 버린다.
+    const patch: Record<string, string> = {}
+    if (est?.client_contact?.trim()) patch.contact_name = est.client_contact.trim()
+    if (est?.client_phone?.trim()) patch.phone = est.client_phone.trim()
+    if (est?.client_email?.trim()) patch.email = est.client_email.trim()
 
     let id = est?.client_id ?? null
     if (!id) {
+      // 같은 이름이 여러 건일 수 있어(손으로 만들어 둔 것이 섞이면) 가장 먼저 만든 것에 붙인다.
+      // maybeSingle 은 2건 이상이면 오류를 내서, 그때마다 거래처가 새로 생겨 버린다.
       const { data: exist } = await supabase.from('estimate_clients')
-        .select('id').eq('owner_broker_id', brokerId).eq('name', name).maybeSingle()
-      id = exist?.id ?? null
+        .select('id').eq('owner_broker_id', brokerId).eq('name', name)
+        .order('created_at').limit(1)
+      id = exist?.[0]?.id ?? null
     }
 
+    // 갱신할 내용이 없으면 그냥 둔다 (빈 update 는 오류가 난다)
+    if (id && Object.keys(patch).length === 0) return id
+
     const res = id
-      ? await supabase.from('estimate_clients').update(payload).eq('id', id).select('*').single()
+      ? await supabase.from('estimate_clients').update(patch).eq('id', id).select('*').single()
       : await supabase.from('estimate_clients').insert(payload).select('*').single()
-    if (res.error) return est?.client_id ?? null
+    if (res.error) return id ?? est?.client_id ?? null
 
     const saved = res.data as EstimateClient
     setClients(prev => [...prev.filter(c => c.id !== saved.id), saved]
       .sort((a, b) => a.name.localeCompare(b.name, 'ko')))
     return saved.id
-  }, [brokerId, est?.client_id, est?.client_name, est?.client_contact, est?.client_phone,
-      est?.client_email, est?.site_address, supabase])
+  }, [brokerId, est, supabase])
 
   /**
    * 저장할 때 이번 내역을 품목 사전에 반영한다.
@@ -191,22 +208,21 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       }).eq('id', est.id)
       if (e1) throw e1
 
-      // 내역은 통째로 갈아끼운다 (줄 순서·추가·삭제가 잦아 diff보다 단순하고 안전)
-      const { error: e2 } = await supabase.from('estimate_items').delete().eq('estimate_id', est.id)
+      // 내역은 통째로 갈아끼운다 (줄 순서·추가·삭제가 잦아 diff보다 단순하고 안전).
+      // 지우기와 넣기를 따로 보내면, 지우고 나서 넣기가 실패했을 때(연결이 끊기는 등)
+      // 내역이 통째로 사라진다. 한 트랜잭션으로 묶은 RPC 로 보내 둘 다 되거나
+      // 둘 다 안 되게 한다.
+      const { error: e2 } = await supabase.rpc('replace_estimate_items', {
+        p_estimate_id: est.id,
+        p_items: items.map((it, i) => ({
+          sort_order: i,
+          is_header: it.is_header,
+          category: it.category, name: it.name, spec: it.spec, unit: it.unit,
+          qty: it.qty, unit_price: it.unit_price, cost_price: it.cost_price,
+          amount: it.amount, remark: it.remark,
+        })),
+      })
       if (e2) throw e2
-      if (items.length) {
-        const { error: e3 } = await supabase.from('estimate_items').insert(
-          items.map((it, i) => ({
-            estimate_id: est.id,
-            sort_order: i,
-            is_header: it.is_header,
-            category: it.category, name: it.name, spec: it.spec, unit: it.unit,
-            qty: it.qty, unit_price: it.unit_price, cost_price: it.cost_price,
-            amount: it.amount, remark: it.remark,
-          }))
-        )
-        if (e3) throw e3
-      }
 
       await syncCatalog()
       if (clientId && clientId !== est.client_id) setEst(prev => prev ? { ...prev, client_id: clientId } : prev)
@@ -223,8 +239,12 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   }, [est, brokerId, saving, companies, items, totals, margin, syncCatalog, syncClient, supabase, toast])
 
   /** 화면 값 그대로 PDF 를 받아 미리보기에 건다 (DB 는 건드리지 않는다) */
+  const previewSeq = useRef(0)
   const renderPreview = useCallback(async () => {
     if (!est) return
+    // 렌더가 느릴 때 다음 요청이 먼저 끝나면, 늦게 온 예전 PDF 가 최신 미리보기를
+    // 덮어써 화면과 다른 내용이 남는다. 마지막에 보낸 것만 반영한다.
+    const seq = ++previewSeq.current
     setPreviewing(true)
     try {
       const company = companies.find(c => c.id === est.company_id) ?? est.company_snapshot ?? null
@@ -235,6 +255,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       })
       if (!res.ok) return
       const blob = await res.blob()
+      if (seq !== previewSeq.current) return
       setPreviewSrc(prev => {
         if (prev.startsWith('blob:')) URL.revokeObjectURL(prev)
         return URL.createObjectURL(blob)
@@ -242,7 +263,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     } catch {
       // 미리보기는 보조 기능이라 실패해도 조용히 둔다 (저장·발송에는 영향 없음)
     } finally {
-      setPreviewing(false)
+      if (seq === previewSeq.current) setPreviewing(false)
     }
   }, [est, items, totals, companies])
 
@@ -253,9 +274,13 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     return () => clearTimeout(t)
   }, [est, items, renderPreview])
 
-  // 페이지를 떠날 때 blob 정리
+  // 페이지를 떠날 때 마지막 blob 을 놓아준다.
+  // setPreviewSrc 로는 안 된다 — 화면이 사라진 뒤의 setState 는 무시되어
+  // 넘긴 함수가 아예 실행되지 않는다(그래서 마지막 하나가 계속 남아 있었다).
+  const previewRef = useRef('')
+  useEffect(() => { previewRef.current = previewSrc }, [previewSrc])
   useEffect(() => () => {
-    setPreviewSrc(prev => { if (prev.startsWith('blob:')) URL.revokeObjectURL(prev); return '' })
+    if (previewRef.current.startsWith('blob:')) URL.revokeObjectURL(previewRef.current)
   }, [])
 
   // Ctrl+S 저장
@@ -285,7 +310,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     // 이미 넣어 둔 같은 일정이 있으면 다시 만들지 않는다
     const { data: dup } = await supabase.from('office_events')
       .select('id').eq('office_broker_id', brokerId).eq('title', title).limit(1)
-    if (dup?.length) return
+    if (dup?.length) { toast.info('이미 일정에 들어가 있습니다'); return }
 
     const { error } = await supabase.from('office_events').insert({
       office_broker_id: brokerId,
@@ -298,7 +323,8 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       visibility: 'office',
       location: e.site_address ?? null,
     })
-    if (!error) toast.success('착공·준공을 일정에 넣었습니다')
+    if (error) { toast.error('일정에 넣지 못했습니다'); return }
+    toast.success('착공·준공을 일정에 넣었습니다')
   }, [brokerId, supabase, toast])
 
   const pickCompany = (companyId: string) => {
@@ -323,30 +349,6 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       site_address: c?.address ?? prev.site_address,
     } : prev)
     setDirty(true)
-  }
-
-  /** 지금 입력된 거래처 정보를 거래처 목록에 저장 (다음부터 골라 쓰기) */
-  const saveClient = async () => {
-    if (!est?.client_name?.trim() || !brokerId) { toast.error('거래처명을 먼저 입력하세요'); return }
-    const payload = {
-      owner_broker_id: brokerId,
-      name: est.client_name.trim(),
-      contact_name: est.client_contact,
-      phone: est.client_phone,
-      email: est.client_email,
-      address: est.site_address,
-    }
-    const res = est.client_id
-      ? await supabase.from('estimate_clients').update(payload).eq('id', est.client_id).select('*').single()
-      : await supabase.from('estimate_clients').insert(payload).select('*').single()
-    if (res.error) { toast.error('거래처를 저장하지 못했습니다'); return }
-    const saved = res.data as EstimateClient
-    setClients(prev => {
-      const rest = prev.filter(c => c.id !== saved.id)
-      return [...rest, saved].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
-    })
-    set('client_id', saved.id)
-    toast.success('거래처를 저장했습니다')
   }
 
   const applyTemplate = (tplId: string) => {
@@ -556,9 +558,9 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             <section className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white">거래처</h2>
-                <button onClick={saveClient} className="text-xs font-semibold text-blue-600 hover:underline">
-                  거래처 목록에 저장
-                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  저장하면 거래처 목록에도 쌓입니다
+                </span>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="sm:col-span-3">

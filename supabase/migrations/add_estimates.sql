@@ -302,3 +302,267 @@ REVOKE ALL ON estimate_templates     FROM anon;
 REVOKE ALL ON estimate_sends         FROM anon;
 REVOKE ALL ON estimate_mail_settings FROM anon;
 REVOKE EXECUTE ON FUNCTION next_estimate_no(UUID) FROM anon;
+
+-- ══════════════════════════════════════════════════════════════
+-- 뒤늦게 채워 넣는 기록 (2026-09-05)
+--
+-- 아래 네 표와 함수 두 개는 DB 에는 있는데 이 파일에 남아 있지 않았다.
+-- 새 환경에서 이 파일만 돌리면 공유 링크·첨부·청구서·품목 사전이 통째로
+-- 빠진 채로 서므로 여기에 옮겨 적는다. 이미 있는 곳에서는 아무 일도 하지 않는다.
+-- ══════════════════════════════════════════════════════════════
+
+-- ── 품목 사전 ──────────────────────────────────────────────────
+-- 견적서를 저장할 때마다 이번에 쓴 품목을 쌓아 다음부터 자동완성으로 꺼내 쓴다.
+CREATE TABLE IF NOT EXISTS estimate_item_catalog (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_broker_id UUID NOT NULL REFERENCES broker_profiles(id) ON DELETE CASCADE,
+  category        TEXT,
+  name            TEXT NOT NULL,
+  spec            TEXT,
+  unit            TEXT,
+  unit_price      BIGINT NOT NULL DEFAULT 0,
+  cost_price      BIGINT NOT NULL DEFAULT 0,
+  use_count       INTEGER NOT NULL DEFAULT 0,
+  last_used_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 규격·단위가 비어 있는 품목이 저장할 때마다 새로 쌓이지 않도록 NULLS NOT DISTINCT.
+-- (기본값이면 NULL 끼리는 서로 다른 값으로 쳐서 ON CONFLICT 가 걸리지 않는다)
+CREATE UNIQUE INDEX IF NOT EXISTS estimate_item_catalog_uniq
+  ON estimate_item_catalog (owner_broker_id, name, spec, unit) NULLS NOT DISTINCT;
+CREATE INDEX IF NOT EXISTS estimate_item_catalog_search
+  ON estimate_item_catalog (owner_broker_id, use_count DESC, name);
+
+ALTER TABLE estimate_item_catalog ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "estimate_item_catalog_all" ON estimate_item_catalog;
+CREATE POLICY "estimate_item_catalog_all" ON estimate_item_catalog FOR ALL
+  USING (is_my_broker(owner_broker_id)) WITH CHECK (is_my_broker(owner_broker_id));
+
+-- ── 공유 링크 ──────────────────────────────────────────────────
+-- 카톡으로 던지는 열람용 주소. 열어 봤는지도 여기에 쌓인다.
+CREATE TABLE IF NOT EXISTS estimate_shares (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  estimate_id     UUID NOT NULL REFERENCES estimates(id) ON DELETE CASCADE,
+  token           TEXT NOT NULL UNIQUE,
+  expires_at      TIMESTAMPTZ,
+  revoked         BOOLEAN NOT NULL DEFAULT FALSE,
+  view_count      INTEGER NOT NULL DEFAULT 0,
+  first_viewed_at TIMESTAMPTZ,
+  last_viewed_at  TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS estimate_shares_estimate_idx
+  ON estimate_shares (estimate_id, created_at DESC);
+
+ALTER TABLE estimate_shares ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "estimate_shares_all" ON estimate_shares;
+CREATE POLICY "estimate_shares_all" ON estimate_shares FOR ALL
+  USING (EXISTS (SELECT 1 FROM estimates e WHERE e.id = estimate_shares.estimate_id AND is_my_broker(e.owner_broker_id)))
+  WITH CHECK (EXISTS (SELECT 1 FROM estimates e WHERE e.id = estimate_shares.estimate_id AND is_my_broker(e.owner_broker_id)));
+
+-- ── 첨부 ───────────────────────────────────────────────────────
+-- 도면·사진 등. 저장 경로(path)는 ASCII 로만 만들고 원래 이름은 filename 에 따로
+-- 둔다 — Supabase Storage 는 키에 한글이 한 글자만 섞여도 Invalid key 로 막는다.
+CREATE TABLE IF NOT EXISTS estimate_attachments (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  estimate_id  UUID NOT NULL REFERENCES estimates(id) ON DELETE CASCADE,
+  path         TEXT NOT NULL,
+  filename     TEXT NOT NULL,
+  size         BIGINT NOT NULL DEFAULT 0,
+  content_type TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS estimate_attachments_estimate_idx
+  ON estimate_attachments (estimate_id, created_at);
+
+ALTER TABLE estimate_attachments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "estimate_attachments_all" ON estimate_attachments;
+CREATE POLICY "estimate_attachments_all" ON estimate_attachments FOR ALL
+  USING (EXISTS (SELECT 1 FROM estimates e WHERE e.id = estimate_attachments.estimate_id AND is_my_broker(e.owner_broker_id)))
+  WITH CHECK (EXISTS (SELECT 1 FROM estimates e WHERE e.id = estimate_attachments.estimate_id AND is_my_broker(e.owner_broker_id)));
+
+-- ── 청구서 ─────────────────────────────────────────────────────
+-- 수주한 견적서에서 계약금·중도금·잔금을 끊는다.
+-- 견적서를 지워도 청구서는 남아야 해서(받을 돈의 기록) ON DELETE SET NULL.
+CREATE TABLE IF NOT EXISTS estimate_invoices (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_broker_id  UUID NOT NULL REFERENCES broker_profiles(id) ON DELETE CASCADE,
+  estimate_id      UUID REFERENCES estimates(id) ON DELETE SET NULL,
+  invoice_no       TEXT NOT NULL,
+  issue_date       DATE NOT NULL DEFAULT CURRENT_DATE,
+  kind             TEXT NOT NULL DEFAULT 'full',
+  ratio            NUMERIC,
+  company_snapshot JSONB,
+  client_name      TEXT,
+  client_contact   TEXT,
+  client_phone     TEXT,
+  client_email     TEXT,
+  site_address     TEXT,
+  project_name     TEXT,
+  supply_amount    BIGINT NOT NULL DEFAULT 0,
+  vat              BIGINT NOT NULL DEFAULT 0,
+  total            BIGINT NOT NULL DEFAULT 0,
+  vat_mode         TEXT NOT NULL DEFAULT 'add',
+  due_date         DATE,
+  paid_at          DATE,
+  notes            TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS estimate_invoices_no_uniq
+  ON estimate_invoices (owner_broker_id, invoice_no);
+CREATE INDEX IF NOT EXISTS estimate_invoices_owner_idx
+  ON estimate_invoices (owner_broker_id, issue_date DESC);
+CREATE INDEX IF NOT EXISTS estimate_invoices_estimate_idx
+  ON estimate_invoices (estimate_id, issue_date);
+
+ALTER TABLE estimate_invoices ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "estimate_invoices_all" ON estimate_invoices;
+CREATE POLICY "estimate_invoices_all" ON estimate_invoices FOR ALL
+  USING (is_my_broker(owner_broker_id)) WITH CHECK (is_my_broker(owner_broker_id));
+
+REVOKE ALL ON estimate_item_catalog FROM anon;
+REVOKE ALL ON estimate_shares       FROM anon;
+REVOKE ALL ON estimate_attachments  FROM anon;
+REVOKE ALL ON estimate_invoices     FROM anon;
+
+-- ── 품목 사전 반영 함수 ────────────────────────────────────────
+-- SECURITY INVOKER(기본) 라 RLS 가 그대로 걸린다. 호출자 본인의 사전에만 쌓인다.
+CREATE OR REPLACE FUNCTION public.sync_estimate_catalog(p_items jsonb)
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $fn$
+DECLARE
+  v_owner uuid;
+  v_count integer := 0;
+BEGIN
+  SELECT id INTO v_owner FROM broker_profiles WHERE user_id = auth.uid() LIMIT 1;
+  IF v_owner IS NULL THEN RETURN 0; END IF;
+
+  INSERT INTO estimate_item_catalog
+    (owner_broker_id, category, name, spec, unit, unit_price, cost_price, use_count, last_used_at)
+  SELECT v_owner,
+         NULLIF(TRIM(x->>'category'), ''),
+         TRIM(x->>'name'),
+         NULLIF(TRIM(x->>'spec'), ''),
+         NULLIF(TRIM(x->>'unit'), ''),
+         COALESCE((x->>'unit_price')::bigint, 0),
+         COALESCE((x->>'cost_price')::bigint, 0),
+         1,
+         NOW()
+    FROM jsonb_array_elements(p_items) AS x
+   WHERE COALESCE(TRIM(x->>'name'), '') <> ''
+  ON CONFLICT (owner_broker_id, name, spec, unit) DO UPDATE
+    SET unit_price   = EXCLUDED.unit_price,
+        cost_price   = EXCLUDED.cost_price,
+        category     = COALESCE(EXCLUDED.category, estimate_item_catalog.category),
+        use_count    = estimate_item_catalog.use_count + 1,
+        last_used_at = NOW();
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$fn$;
+
+-- ── 공개 열람 함수 ─────────────────────────────────────────────
+-- 토큰만으로 부르므로 SECURITY DEFINER. 대신 내보낼 칸을 여기서 하나하나 고른다.
+-- 원가(cost_price)·마진·직인 경로는 절대 나가지 않는다.
+CREATE OR REPLACE FUNCTION public.get_shared_estimate(p_token text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $fn$
+DECLARE
+  v_share estimate_shares%ROWTYPE;
+  v_est   estimates%ROWTYPE;
+  v_items jsonb;
+BEGIN
+  SELECT * INTO v_share FROM estimate_shares WHERE token = p_token;
+  IF NOT FOUND OR v_share.revoked THEN RETURN NULL; END IF;
+  IF v_share.expires_at IS NOT NULL AND v_share.expires_at < NOW() THEN RETURN NULL; END IF;
+
+  SELECT * INTO v_est FROM estimates WHERE id = v_share.estimate_id;
+  IF NOT FOUND THEN RETURN NULL; END IF;
+
+  UPDATE estimate_shares
+     SET view_count = view_count + 1,
+         first_viewed_at = COALESCE(first_viewed_at, NOW()),
+         last_viewed_at = NOW()
+   WHERE id = v_share.id;
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'sort_order', i.sort_order, 'is_header', i.is_header,
+           'category', i.category, 'name', i.name, 'spec', i.spec,
+           'unit', i.unit, 'qty', i.qty, 'unit_price', i.unit_price,
+           'amount', i.amount, 'remark', i.remark
+         ) ORDER BY i.sort_order), '[]'::jsonb)
+    INTO v_items
+    FROM estimate_items i WHERE i.estimate_id = v_est.id;
+
+  RETURN jsonb_build_object(
+    'estimate_no', v_est.estimate_no,
+    'issue_date', v_est.issue_date,
+    'valid_days', v_est.valid_days,
+    'client_name', v_est.client_name,
+    'client_contact', v_est.client_contact,
+    'site_address', v_est.site_address,
+    'project_name', v_est.project_name,
+    'period', v_est.period,
+    'payment_terms', v_est.payment_terms,
+    'notes', v_est.notes,
+    'overhead_rate', v_est.overhead_rate,
+    'discount', v_est.discount,
+    'vat_mode', v_est.vat_mode,
+    'subtotal', v_est.subtotal,
+    'overhead_amount', v_est.overhead_amount,
+    'supply_amount', v_est.supply_amount,
+    'vat', v_est.vat,
+    'total', v_est.total,
+    'company', v_est.company_snapshot - 'stamp_path' - 'default_notes',
+    'items', v_items
+  );
+END;
+$fn$;
+
+-- ── 내역 통째 교체 (2026-09-05) ────────────────────────────────
+-- 지우기와 넣기를 따로 보내면 넣기가 실패했을 때 내역이 통째로 사라진다.
+-- 한 트랜잭션으로 묶어 둘 다 되거나 둘 다 안 되게 한다.
+CREATE OR REPLACE FUNCTION public.replace_estimate_items(p_estimate_id uuid, p_items jsonb)
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $fn$
+DECLARE
+  v_count integer := 0;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM estimates WHERE id = p_estimate_id) THEN
+    RAISE EXCEPTION '견적서를 찾을 수 없습니다';
+  END IF;
+
+  DELETE FROM estimate_items WHERE estimate_id = p_estimate_id;
+
+  INSERT INTO estimate_items
+    (estimate_id, sort_order, is_header, category, name, spec, unit,
+     qty, unit_price, cost_price, amount, remark)
+  SELECT p_estimate_id,
+         COALESCE((x->>'sort_order')::int, 0),
+         COALESCE((x->>'is_header')::boolean, false),
+         x->>'category', x->>'name', x->>'spec', x->>'unit',
+         COALESCE((x->>'qty')::numeric, 0),
+         COALESCE((x->>'unit_price')::bigint, 0),
+         COALESCE((x->>'cost_price')::bigint, 0),
+         COALESCE((x->>'amount')::bigint, 0),
+         x->>'remark'
+    FROM jsonb_array_elements(COALESCE(p_items, '[]'::jsonb)) AS x;
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.replace_estimate_items(uuid, jsonb) FROM anon;
+REVOKE EXECUTE ON FUNCTION public.sync_estimate_catalog(jsonb)        FROM anon;
