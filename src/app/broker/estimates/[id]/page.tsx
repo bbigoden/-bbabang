@@ -743,19 +743,27 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 {previewing ? '그리는 중…' : '새로고침'}
               </button>
             </div>
+            {/* 폰에서는 화면 높이의 절반만 쓴다. 640px 로 고정하면 폰 화면을 거의
+                다 덮어, 페이지를 내리려는 손가락이 PDF 안에서만 미끄러진다. */}
             {previewSrc ? (
               <iframe
                 src={previewSrc}
                 title="견적서 미리보기"
-                className="h-[40rem] w-full rounded-xl border border-gray-200 bg-white dark:border-gray-800"
+                className="h-[50vh] w-full rounded-xl border border-gray-200 bg-white xl:h-[40rem] dark:border-gray-800"
               />
             ) : (
-              <div className="flex h-[40rem] w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex h-[50vh] w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm text-gray-500 xl:h-[40rem] dark:border-gray-800 dark:bg-gray-900">
                 미리보기를 그리는 중…
               </div>
             )}
             <p className="mt-2 text-xs text-gray-500">
               실제로 발송될 PDF 그대로입니다. 입력을 멈추면 알아서 다시 그립니다.
+            </p>
+            {/* 폰 브라우저는 PDF 를 이런 틀 안에 못 띄우는 경우가 많다(특히 아이폰).
+                빈칸만 보이면 막막하므로 빠져나갈 길을 적어 둔다. */}
+            <p className="mt-1 text-xs text-gray-500 xl:hidden">
+              위가 비어 보이면 폰이 PDF 를 여기 못 띄우는 것입니다.
+              위쪽 <span className="font-semibold">PDF</span> 단추로 내려받아 보세요.
             </p>
 
             {sends.length > 0 && (

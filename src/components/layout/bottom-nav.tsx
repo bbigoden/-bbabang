@@ -18,6 +18,8 @@ import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
 // 풀스크린이거나 자체 하단 UI가 있는 페이지는 BottomNav 숨김
 const HIDDEN_PATHS = [
+  // 견적서 공개 열람 — 거래처(외부인)가 보는 화면이라 부소장 껍데기를 붙이지 않는다
+  '/e/',
   '/chat/',
   '/auth',
   '/account-suspended',

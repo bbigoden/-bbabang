@@ -13,6 +13,8 @@ import { SUPPORT_EMAIL } from '@/lib/support'
  * BottomNav가 모바일에서 고정되므로 모바일에서는 padding으로 가려짐 방지.
  */
 const HIDDEN_PATHS = [
+  // 견적서 공개 열람 — 거래처(외부인)가 보는 화면이라 부소장 껍데기를 붙이지 않는다
+  '/e/',
   '/chat/',
   '/admin',
   '/auth',

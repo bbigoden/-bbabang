@@ -4,14 +4,21 @@
     {
       "name": "ppabang",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": true
     },
     {
       "name": "ppabang-prod",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
-      "port": 3000
+      "runtimeArgs": [
+        "start"
+      ],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
