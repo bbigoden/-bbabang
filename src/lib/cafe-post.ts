@@ -590,7 +590,15 @@ function sizeLabel(p: ParsedListing): string | null {
 function sizeBand(p: ParsedListing): string | null {
   const a = mainAreaM2(p)
   if (!a) return null
-  return `약 ${Math.round(a * 0.3025)}평`
+  const 평 = Math.round(a * 0.3025)
+  // **정확한 평수로 검색하는 사람은 없다.** `20평대`, `30평대` 로 찾는다.
+  // 모아 둔 실제 검색어 283개 중 '평' 이 든 것이 하나도 없었다 — `약 44평`
+  // 은 검색으로는 값이 없고 제목 자리만 먹는다. 사장님이 짚은 것.
+  //
+  // 정확한 면적은 표에 ㎡·평으로 그대로 적힌다. 제목은 훑어보는 자리다.
+  if (평 < 10) return '10평 미만'
+  if (평 < 100) return `${Math.floor(평 / 10) * 10}평대`
+  return `${Math.floor(평 / 100) * 100}평대`
 }
 
 /** 종류를 부르는 다른 말. 같은 매물을 여러 검색어로 걸기 위해 제목마다 바꾼다. */
