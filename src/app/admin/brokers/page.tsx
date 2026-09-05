@@ -19,6 +19,7 @@ import { useToast } from '@/components/toast'
 import { logAdminAction } from '@/lib/audit'
 import { Spinner } from '@/components/ui/spinner'
 import { SearchClear } from '@/components/ui/search-clear'
+import { sendAndForget } from '@/lib/send-and-forget'
 
 type StatusFilter = 'all' | 'unverified' | 'verified'
 
@@ -181,7 +182,7 @@ export default function AdminBrokersPage() {
     }
     // 중개사에게 알림
     if (broker.user_id) {
-      void supabase.from('notifications').insert({
+      sendAndForget(supabase.from('notifications').insert({
         user_id: broker.user_id,
         type: next ? 'broker_verify_approved' : 'broker_verify_revoked',
         title: next ? '사무소 인증이 승인되었어요' : '사무소 인증이 취소되었어요',
@@ -189,7 +190,7 @@ export default function AdminBrokersPage() {
           ? '이제 매물 등록·제안 등 모든 기능을 사용할 수 있어요.'
           : `${broker.office_name ?? '사무소'} 인증이 취소되었습니다. 자세한 사유는 고객센터로 문의해주세요.`,
         link: '/dashboard/broker',
-      })
+      }))
     }
     loadCounts()
   }
@@ -220,13 +221,13 @@ export default function AdminBrokersPage() {
       })
     }
     if (broker.user_id) {
-      void supabase.from('notifications').insert({
+      sendAndForget(supabase.from('notifications').insert({
         user_id: broker.user_id,
         type: 'broker_verify_rejected',
         title: '사무소 인증이 반려되었어요',
         body: `사유: ${reason}\n수정 후 다시 신청해주세요.`,
         link: '/dashboard/broker',
-      })
+      }))
     }
     loadCounts()
     return true

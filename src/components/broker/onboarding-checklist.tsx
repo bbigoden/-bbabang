@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { CheckCircle2, Circle, Rocket, X, ChevronRight } from 'lucide-react'
+import { sendAndForget } from '@/lib/send-and-forget'
 
 export interface OnboardingItems {
   property: boolean
@@ -42,9 +43,9 @@ export function OnboardingChecklist({ brokerId, items }: { brokerId: string; ite
 
   const dismiss = () => {
     setHidden(true)
-    void supabase.from('broker_profiles')
+    sendAndForget(supabase.from('broker_profiles')
       .update({ onboarding_dismissed_at: new Date().toISOString() })
-      .eq('id', brokerId)
+      .eq('id', brokerId))
   }
 
   if (hidden) return null

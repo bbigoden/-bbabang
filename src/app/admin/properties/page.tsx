@@ -18,6 +18,7 @@ import type { LucideIcon } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { Spinner } from '@/components/ui/spinner'
 import { SearchClear } from '@/components/ui/search-clear'
+import { sendAndForget } from '@/lib/send-and-forget'
 
 interface Property {
   id: string
@@ -183,13 +184,13 @@ export default function AdminPropertiesPage() {
     if (brokerUserId) {
       const nextLabel = STATUS_META[newStatus].label
       const addr = target?.address ?? '매물'
-      void supabase.from('notifications').insert({
+      sendAndForget(supabase.from('notifications').insert({
         user_id: brokerUserId,
         type: 'admin_property_status_changed',
         title: `관리자가 매물 상태를 변경했어요`,
         body: `${addr} → ${nextLabel}${newStatus === 'hidden' ? ' (공개 페이지에서 숨겨짐)' : ''}`,
         link: '/broker/properties',
-      })
+      }))
     }
   }
 
@@ -222,7 +223,7 @@ export default function AdminPropertiesPage() {
         link: '/broker/properties',
       } : null)
       .filter((x): x is NonNullable<typeof x> => !!x)
-    if (notifs.length > 0) void supabase.from('notifications').insert(notifs)
+    if (notifs.length > 0) sendAndForget(supabase.from('notifications').insert(notifs))
     setSelectedIds(new Set())
     setBulkConfirm(null)
   }

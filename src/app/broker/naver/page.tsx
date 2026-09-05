@@ -12,6 +12,8 @@ import { useToast } from '@/components/toast'
 import { Radar, Download } from 'lucide-react'
 import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, kstDate, toKstDate } from '@/lib/naver-land'
 import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
+import { sendAndForget } from '@/lib/send-and-forget'
+import { DateCell } from '@/components/sheet/cells/date-cell'
 
 /**
  * 매물수집 — 네이버·당근에 올라온 매물을 최신순으로 모아 둔 링크 목록.
@@ -34,7 +36,7 @@ import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
  * 만들었다가 걷어냈다 — 네이버가 데이터센터 IP를 막아 Vercel 에서는 다섯 번 다
  * 응답 없이 멎었다. 뱅크·카페와 같은 이유로 PC가 맡는다.
  *
- * **평일 아침 9시 30분에 한 번, 그리고 [가져오기] 를 누를 때 받는다.** 한 시간마다
+ * **아침 9시 30분에 한 번, 그리고 [가져오기] 를 누를 때 받는다.** 한 시간마다
  * 받게 해 뒀다가 걷어냈다 — 하루 스물네 번 부를 이유가 없다. 아침 한 번만은 두는데,
  * 화면을 열자마자 훑을 수 있어야지 눌러 놓고 6분을 기다릴 일이 아니기 때문이다.
  * 거는 쪽은 PC 프로그램이다(`부소장광고/src/cli/agent-worker.js`).
@@ -194,15 +196,28 @@ function 경계(day: string, 시각칸: boolean): string {
   return 시각칸 ? new Date(`${day}T00:00:00+09:00`).toISOString() : day
 }
 
+/**
+ * 고를 수 있는 자리로 다듬는다 — 오늘 뒤도, 지운 지 오래된 날도 안 된다.
+ *
+ * 달력은 직접 타이핑도 받으므로 아무 글자나 들어올 수 있다. 날짜가 아니면 빈
+ * 값을 돌려주고, 부르는 쪽은 그대로 둔다.
+ */
+function 자르기(day: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`))) return ''
+  const 오늘 = kstDate(0)
+  const 맨앞 = kstDate(KEEP_DAYS - 1)
+  return day > 오늘 ? 오늘 : day < 맨앞 ? 맨앞 : day
+}
+
 /** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
 function isFresh(r: Row): boolean {
   return Date.now() - new Date(r.first_seen_at).getTime() < 24 * 60 * 60 * 1000
 }
 
-const DATE_INPUT =
-  'h-8 rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-700 ' +
-  'focus:border-blue-500 focus:outline-none ' +
-  'dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300 [color-scheme:light] dark:[color-scheme:dark]'
+/** 달력을 감싸는 테두리. 칩과 키를 맞춘다 — 필터 줄에서 혼자 튀면 안 된다. */
+const DATE_BOX =
+  'flex h-8 w-[104px] items-center rounded-lg border border-gray-200 bg-white px-1.5 ' +
+  'dark:border-gray-800 dark:bg-gray-950'
 
 const CHIP_ON = 'border-blue-600 bg-blue-600 text-white'
 const CHIP_OFF =
@@ -358,13 +373,19 @@ export default function CollectPage() {
     setSavingSettings(false)
   }
 
-  /** 눌러 본 매물을 적어 둔다. 실패해도 화면은 흐려진 채로 둔다 — 다시 누르면 그만이다. */
+  /**
+   * 눌러 본 매물을 적어 둔다. 실패해도 화면은 흐려진 채로 둔다 — 다시 누르면 그만이다.
+   *
+   * **`sendAndForget` 을 거치는 이유** — `void supabase...` 로 두면 요청이 아예
+   * 나가지 않는다. 그래서 이 기록이 한 건도 안 남았고, 흐려짐이 그 화면에서만
+   * 보이다 새로고침하면 사라졌다.
+   */
   const markSeen = (articleNo: string) => {
     const uid = auth.user?.id
     if (!uid || seen.has(articleNo)) return
     setSeen(prev => new Set(prev).add(articleNo))
-    void supabase.from(src.views)
-      .upsert({ user_id: uid, article_no: articleNo }, { onConflict: 'user_id,article_no' })
+    sendAndForget(supabase.from(src.views)
+      .upsert({ user_id: uid, article_no: articleNo }, { onConflict: 'user_id,article_no' }))
   }
 
   /**
@@ -489,15 +510,17 @@ export default function CollectPage() {
    * **막지 않고 옮긴다.** 7일이 넘게 고르면 "안 됩니다" 하고 되돌리는 것보다,
    * 방금 고른 날을 살리고 반대쪽을 7일 자리로 당기는 편이 하려던 일에 가깝다.
    */
-  const 첫날바꾸기 = (v: string) => {
+  const 첫날바꾸기 = (raw: string) => {
+    const v = 자르기(raw)
     if (!v) return
     const 끝 = 끝날 < v ? v : 날수(v, 끝날) > MAX_DAYS ? 민날(v, MAX_DAYS - 1) : 끝날
-    기간잡기(v, 끝 > kstDate(0) ? kstDate(0) : 끝)
+    기간잡기(v, 자르기(끝) || v)
   }
-  const 끝날바꾸기 = (v: string) => {
+  const 끝날바꾸기 = (raw: string) => {
+    const v = 자르기(raw)
     if (!v) return
     const 첫 = 첫날 > v ? v : 날수(첫날, v) > MAX_DAYS ? 민날(v, -(MAX_DAYS - 1)) : 첫날
-    기간잡기(첫, v)
+    기간잡기(자르기(첫) || v, v)
   }
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {
@@ -577,7 +600,7 @@ export default function CollectPage() {
           </span>
           {/* 자동으로 받는다는 걸 화면 어딘가에서 말해 주지 않으면, 아침에 이미 받아져
               있는 것을 보고 "어제 것이 남아 있나" 하게 된다. */}
-          <span>평일 오전 9시 30분 자동</span>
+          <span>매일 오전 9시 30분 자동</span>
           {/* 다른 탭 것이 도는 중이면 여기에 적는다. 버튼은 보고 있는 탭 것만
               보여 주므로, 이게 없으면 아까 걸어 둔 것이 어떻게 됐는지 알 길이 없다. */}
           {(Object.keys(SOURCES) as SourceId[])
@@ -600,20 +623,16 @@ export default function CollectPage() {
                 {p.label}
               </Chip>
             ))}
-            {/* 달력에서 직접 고른다. 지난주 월~금처럼 지나간 자리를 다시 훑을 때 쓴다. */}
-            <input
-              type="date" value={첫날} min={kstDate(KEEP_DAYS - 1)} max={kstDate(0)}
-              onChange={e => 첫날바꾸기(e.target.value)}
-              title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}
-              className={DATE_INPUT}
-            />
+            {/* 달력에서 직접 고른다. 지난주 월~금처럼 지나간 자리를 다시 훑을 때 쓴다.
+                매물목록·고객목록이 쓰는 그 달력(DateCell) 그대로다 — 화면마다 다른
+                달력이 뜨면 같은 프로그램으로 안 보인다. */}
+            <div className={DATE_BOX} title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}>
+              <DateCell value={첫날} onSave={첫날바꾸기} />
+            </div>
             <span className="text-sm text-gray-400">~</span>
-            <input
-              type="date" value={끝날} min={kstDate(KEEP_DAYS - 1)} max={kstDate(0)}
-              onChange={e => 끝날바꾸기(e.target.value)}
-              title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}
-              className={DATE_INPUT}
-            />
+            <div className={DATE_BOX} title={`한 번에 최대 ${MAX_DAYS}일까지 봅니다`}>
+              <DateCell value={끝날} onSave={끝날바꾸기} />
+            </div>
             <span className="text-xs text-gray-400 dark:text-gray-600">{날수(첫날, 끝날)}일</span>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
