@@ -32,11 +32,20 @@ export function MailTab({ brokerId }: { brokerId: string }) {
   const [body, setBody] = useState(DEFAULT_BODY)
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('estimate_mail_settings')
-      .select('*').eq('owner_broker_id', brokerId).maybeSingle()
+    // 앱 비밀번호는 내려받지 않는다. 화면은 "등록돼 있는지"만 쓰는데
+    // select('*') 로 받으면 평문이 브라우저까지 따라온다(RLS 가 남은 막지만
+    // 굳이 흘릴 이유가 없다). 있는지 여부만 따로 세어 온다.
+    const [{ data }, { count }] = await Promise.all([
+      supabase.from('estimate_mail_settings')
+        .select('smtp_user,from_name,cc,bcc,subject_template,body_template')
+        .eq('owner_broker_id', brokerId).maybeSingle(),
+      supabase.from('estimate_mail_settings')
+        .select('owner_broker_id', { count: 'exact', head: true })
+        .eq('owner_broker_id', brokerId).not('smtp_pass', 'is', null),
+    ])
+    setHasPass((count ?? 0) > 0)
     if (data) {
       setUser(data.smtp_user ?? '')
-      setHasPass(!!data.smtp_pass)
       setFromName(data.from_name ?? '')
       setCc(data.cc ?? '')
       setBcc(data.bcc ?? '')

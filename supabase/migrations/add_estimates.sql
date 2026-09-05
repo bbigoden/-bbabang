@@ -566,3 +566,23 @@ $fn$;
 
 REVOKE EXECUTE ON FUNCTION public.replace_estimate_items(uuid, jsonb) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.sync_estimate_catalog(jsonb)        FROM anon;
+
+-- ── 청구서 번호 (뒤늦게 채워 넣음, 2026-09-05) ─────────────────
+-- C2026-0905-01 꼴. 같은 날 두 장을 동시에 뗄 때 같은 번호가 나올 수 있지만
+-- estimate_invoices_no_uniq 가 뒤엣것을 막는다(하루 한두 건이라 이 정도로 둔다).
+CREATE OR REPLACE FUNCTION public.next_invoice_no(p_owner uuid)
+RETURNS text
+LANGUAGE sql
+STABLE
+SET search_path TO 'public', 'pg_temp'
+AS $fn$
+  SELECT 'C' || TO_CHAR(NOW() AT TIME ZONE 'Asia/Seoul', 'YYYY-MMDD') || '-' ||
+         LPAD((
+           COALESCE(MAX(SUBSTRING(invoice_no FROM '\d+$')::INTEGER), 0) + 1
+         )::TEXT, 2, '0')
+    FROM estimate_invoices
+   WHERE owner_broker_id = p_owner
+     AND invoice_no LIKE 'C' || TO_CHAR(NOW() AT TIME ZONE 'Asia/Seoul', 'YYYY-MMDD') || '-%';
+$fn$;
+
+REVOKE EXECUTE ON FUNCTION public.next_invoice_no(uuid) FROM anon;

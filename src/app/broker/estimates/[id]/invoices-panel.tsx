@@ -55,6 +55,21 @@ export function InvoicesPanel({ estimate, brokerId }: { estimate: Estimate; brok
 
   const issue = async () => {
     if (preview.supply_amount <= 0) { toast.error('청구 금액이 0원입니다'); return }
+
+    // 계약금·중도금·잔금을 떼다 보면 이미 다 청구한 걸 잊고 한 장을 더 뗀다.
+    // 막지는 않는다 — 추가 공사로 견적보다 더 받는 일이 실제로 있다. 다만
+    // 넘어간다는 사실을 짚어 주고 한 번 확인받는다.
+    const willBe = billed + preview.supply_amount
+    if (willBe > estimate.supply_amount) {
+      const over = willBe - estimate.supply_amount
+      const ok = confirm(
+        `견적 금액보다 ${fmtComma(over)}원 더 청구하게 됩니다.\n`
+        + `(견적 ${fmtComma(estimate.supply_amount)}원 · 이미 청구 ${fmtComma(billed)}원 `
+        + `· 이번 ${fmtComma(preview.supply_amount)}원)\n\n그대로 발행할까요?`
+      )
+      if (!ok) return
+    }
+
     setSaving(true)
     try {
       const { data: noData, error: noErr } = await supabase.rpc('next_invoice_no', { p_owner: brokerId })

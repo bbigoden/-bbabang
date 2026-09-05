@@ -61,11 +61,17 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
     setSaving(true)
     const { id, ...rest } = editing
     const payload = { ...rest, owner_broker_id: brokerId, name: editing.name.trim() }
+    // 직인을 바꾸거나 떼면 예전 파일이 창고에 남는다. 저장이 끝난 뒤 치운다
+    // (저장 전에 치우면, 고치다 그만뒀을 때 멀쩡한 직인을 잃는다).
+    const prevStamp = id ? rows.find(r => r.id === id)?.stamp_path ?? null : null
     const res = id
       ? await supabase.from('estimate_companies').update(payload).eq('id', id)
       : await supabase.from('estimate_companies').insert(payload)
     setSaving(false)
     if (res.error) { toast.error('저장하지 못했습니다'); return }
+    if (prevStamp && prevStamp !== editing.stamp_path) {
+      await supabase.storage.from(STAMP_BUCKET).remove([prevStamp])
+    }
     toast.success('저장했습니다')
     setEditing(null)
     load()
@@ -75,12 +81,20 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
     if (!confirm(`"${row.name}" 회사를 삭제할까요?\n이미 발행한 견적서의 내용은 그대로 남습니다.`)) return
     const { error } = await supabase.from('estimate_companies').delete().eq('id', row.id)
     if (error) { toast.error('삭제하지 못했습니다'); return }
+    // 직인 파일까지 지운다. 회사만 지우고 두면 도장 그림이 창고에 그대로 남는다.
+    if (row.stamp_path) await supabase.storage.from(STAMP_BUCKET).remove([row.stamp_path])
     setRows(prev => prev.filter(r => r.id !== row.id))
   }
 
   const makeDefault = async (row: EstimateCompany) => {
-    await supabase.from('estimate_companies').update({ is_default: false }).eq('owner_broker_id', brokerId)
-    await supabase.from('estimate_companies').update({ is_default: true }).eq('id', row.id)
+    // 앞의 것만 성공하고 뒤가 실패하면 기본 회사가 하나도 없는 상태로 남는다.
+    // 그러면 새 견적서에 회사가 자동으로 안 잡히는데 이유를 알 수 없다.
+    const off = await supabase.from('estimate_companies')
+      .update({ is_default: false }).eq('owner_broker_id', brokerId)
+    if (off.error) { toast.error('기본 회사를 바꾸지 못했습니다'); return }
+    const on = await supabase.from('estimate_companies')
+      .update({ is_default: true }).eq('id', row.id)
+    if (on.error) { toast.error('기본 회사를 바꾸지 못했습니다'); load(); return }
     load()
   }
 
