@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@supabase/supabase-js'
 import { sendPushToUser } from '@/lib/push-server'
-import { fmtComma, todayKST, validUntil } from '@/lib/estimate'
+import { fmtComma, validUntil } from '@/lib/estimate'
+import { todayKST } from '@/lib/date-kst'
 
 /**
  * 매일 1회 (Vercel cron). 보낸 견적서의 유효기간이 다가오면 알린다.

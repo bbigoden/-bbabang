@@ -15,8 +15,8 @@ import {
   calcTotals, calcMargin, fmtComma, koreanAmount, revisionNo, validUntil, STATUS_LABEL,
   type CatalogItem, type Estimate, type EstimateCompany, type EstimateClient,
   type EstimateItem, type EstimateStatus, type VatMode,
-  todayKST,
 } from '@/lib/estimate'
+import { todayKST } from '@/lib/date-kst'
 import { ItemsEditor } from './items-editor'
 import { SendMailDialog } from './send-dialog'
 import { InvoicesPanel } from './invoices-panel'

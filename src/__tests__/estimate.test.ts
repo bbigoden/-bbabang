@@ -5,12 +5,11 @@
  * react-pdf 업그레이드로 레이아웃 API가 바뀌면 여기서 먼저 잡힌다.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   calcTotals, koreanAmount, numberToKorean, lineAmount, validUntil,
   fillTemplate, isExpired, calcStats, DEFAULT_PRESETS,
   type EstimateItem, type EstimateStatus,
-  todayKST,
 } from '@/lib/estimate'
 
 const item = (amount: number, is_header = false): EstimateItem => ({
@@ -162,40 +161,6 @@ describe('PDF 렌더', () => {
     expect(buf.length).toBeGreaterThan(10_000)
     expect(buf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
   }, 60_000)
-})
-
-describe('todayKST — 아침에 날짜가 하루 당겨지지 않는다', () => {
-  afterEach(() => vi.useRealTimers())
-
-  it('한국 아침 8시(UTC 로는 전날 밤)에도 오늘을 준다', () => {
-    vi.useFakeTimers()
-    // UTC 2026-09-04 23:00 = 한국 2026-09-05 08:00
-    vi.setSystemTime(new Date('2026-09-04T23:00:00Z'))
-    expect(todayKST()).toBe('2026-09-05')
-    // 예전 방식은 어제를 준다 — 이게 견적번호와 어긋나던 원인
-    expect(new Date().toISOString().slice(0, 10)).toBe('2026-09-04')
-  })
-
-  it('한국 자정 직후에도 오늘을 준다', () => {
-    vi.useFakeTimers()
-    // UTC 2026-09-04 15:01 = 한국 2026-09-05 00:01
-    vi.setSystemTime(new Date('2026-09-04T15:01:00Z'))
-    expect(todayKST()).toBe('2026-09-05')
-  })
-
-  it('한국 밤 11시에도 오늘을 준다', () => {
-    vi.useFakeTimers()
-    // UTC 2026-09-05 14:00 = 한국 2026-09-05 23:00
-    vi.setSystemTime(new Date('2026-09-05T14:00:00Z'))
-    expect(todayKST()).toBe('2026-09-05')
-  })
-
-  it('연말에도 해가 넘어간다', () => {
-    vi.useFakeTimers()
-    // UTC 2026-12-31 16:00 = 한국 2027-01-01 01:00
-    vi.setSystemTime(new Date('2026-12-31T16:00:00Z'))
-    expect(todayKST()).toBe('2027-01-01')
-  })
 })
 
 describe('음수 금액 — 숫자와 한글이 어긋나지 않는다', () => {

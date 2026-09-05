@@ -13,6 +13,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useToast } from '@/components/toast'
 import { Spinner } from '@/components/ui/spinner'
+import { ymdKST, hmKST } from '@/lib/date-kst'
 
 // ── Types ─────────────────────────────────────────
 export interface Message {
@@ -1054,8 +1055,9 @@ function EventComposeModal({ onClose, onSend }: {
   const now = new Date()
   now.setMinutes(0, 0, 0)
   now.setHours(now.getHours() + 1)
-  const defaultDate = now.toISOString().slice(0, 10)
-  const defaultTime = now.toISOString().slice(11, 16)
+  // toISOString() 은 UTC 라 오후 4시가 07:00 으로 떴다 — 아홉 시간이 어긋났다
+  const defaultDate = ymdKST(now)
+  const defaultTime = hmKST(now)
 
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(defaultDate)

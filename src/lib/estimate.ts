@@ -5,6 +5,8 @@
  * 합계 로직은 전부 여기 모아둔다.
  */
 
+import { addDays, todayKST } from './date-kst'
+
 export type VatMode = 'add' | 'none'
 export type EstimateStatus = 'draft' | 'sent' | 'won' | 'lost'
 
@@ -156,22 +158,6 @@ export function invoiceAmounts(
   return { supply_amount: supply, vat, total: supply + vat }
 }
 
-/**
- * 오늘 날짜(한국 기준) YYYY-MM-DD.
- *
- * new Date().toISOString().slice(0,10) 은 UTC 날짜라 한국시간 아침 9시 전에는
- * 어제가 나온다. 견적번호는 한국 기준으로 매기는데(next_estimate_no) 발행일만
- * 어제가 되어, 번호는 2026-0905-01 인데 날짜는 2026-09-04 로 찍히는 일이 생겼다.
- * 입금일도 마찬가지로 하루 당겨졌다.
- */
-export function todayKST(now = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(now)
-  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
-  return `${get('year')}-${get('month')}-${get('day')}`
-}
-
 /** 원본 견적번호에 리비전을 붙인다: 2026-0904-01 → 2026-0904-01-r2 */
 export function revisionNo(baseNo: string, revision: number): string {
   return `${baseNo.replace(/-r\d+$/, '')}-r${revision}`
@@ -240,13 +226,7 @@ export const fmtComma = (n: number | null | undefined): string =>
 
 /** 유효기간 만료일 = 발행일 + valid_days */
 export function validUntil(issueDate: string, days: number): string {
-  // 날짜에 며칠을 더하는 계산은 보는 사람의 시간대와 상관없이 같아야 한다.
-  // new Date('2026-09-05') 는 UTC 자정으로 읽히는데 getDate() 는 로컬 시간으로
-  // 되읽어서, UTC 보다 서쪽에서 열면 하루가 밀린다. 처음부터 끝까지 UTC 로 센다.
-  const d = new Date(`${issueDate}T00:00:00Z`)
-  if (isNaN(d.getTime())) return ''
-  d.setUTCDate(d.getUTCDate() + (Number(days) || 0))
-  return d.toISOString().slice(0, 10)
+  return addDays(issueDate, days)
 }
 
 /**

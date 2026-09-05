@@ -21,6 +21,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { EmptyState } from '@/components/empty-state'
 import { useToast } from '@/components/toast'
+import { todayKST, addDays } from '@/lib/date-kst'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -589,7 +590,7 @@ export default function BrokerDiaryPage() {
   const [sectionContent, setSectionContent] = useState<Record<string, string>>({})
 
   // 날짜
-  const [diaryDate, setDiaryDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [diaryDate, setDiaryDate] = useState(() => todayKST())
   const [diaryLoading, setDiaryLoading] = useState(false)
 
   // 알림에서 ?date=YYYY-MM-DD&broker=BROKER_ID 로 진입 시 처리 (한 번만)
@@ -1182,7 +1183,7 @@ export default function BrokerDiaryPage() {
   }
 
   // 날짜 포맷
-  const changeDate = (delta: number) => { const d = new Date(diaryDate); d.setDate(d.getDate() + delta); setDiaryDate(d.toISOString().split('T')[0]) }
+  const changeDate = (delta: number) => setDiaryDate(addDays(diaryDate, delta))
   const formatDateHeader = (d: string) => {
     const date = new Date(d); const days = ['일','월','화','수','목','금','토']
     return `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')} (${days[date.getDay()]})`

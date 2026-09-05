@@ -23,6 +23,7 @@ import { SearchClear } from '@/components/ui/search-clear'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { ArrowUp, ArrowDown } from 'lucide-react'
+import { todayKST, ymdKST } from '@/lib/date-kst'
 
 // ── 컬럼 정의 ──────────────────────────────────────────
 interface ColDef {
@@ -496,7 +497,7 @@ export default function BrokerCustomersPage() {
 
   const addRow = async () => {
     if (!broker) return
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayKST()
     const { data, error } = await supabase.from('broker_customers').insert({
       broker_id: broker.id, client_name: '', received_date: today,
       assignee: profile?.name ?? null,
@@ -551,7 +552,7 @@ export default function BrokerCustomersPage() {
       const parts = [rp?.deal_type, rp?.room_type, rp?.district, rp?.description].filter(Boolean)
       return {
         broker_id: broker.id,
-        received_date: new Date(item.created_at).toISOString().split('T')[0],
+        received_date: ymdKST(item.created_at),
         request: parts.join(' · ') || null,
         assignee: profile?.name ?? null,
         category: mapCategory(rp?.room_type ?? '', categoryOpts),

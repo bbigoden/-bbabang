@@ -1,3 +1,39 @@
+# 날짜·시간은 언제나 한국(Asia/Seoul) 기준
+
+서버(Vercel)도 Supabase 도 **UTC 로 돈다**. 그래서 아래를 그대로 쓰면
+**한국시간 0~9시 사이에 하루가 밀린다.** 사장님은 아침 일찍 일하므로 이건
+이론이 아니라 매일 아침 나는 일이다.
+
+```
+new Date().toISOString().slice(0, 10)   // UTC 날짜 — 아침에 어제가 나온다
+new Date().toISOString().split('T')[0]  // 같은 문제
+CURRENT_DATE                            // DB 시간대가 UTC 라 같은 문제
+d.getDate() / d.setDate()               // 로컬 시간 — 보는 곳에 따라 달라진다
+```
+
+**대신 `src/lib/date-kst.ts` 를 쓴다.**
+
+| 필요한 것 | 쓸 것 |
+|---|---|
+| 오늘 날짜 | `todayKST()` |
+| 저장된 시각 → 한국 날짜 | `ymdKST(value)` |
+| 저장된 시각 → 한국 시:분 | `hmKST(value)` |
+| 날짜에 일수 더하기 | `addDays(ymd, n)` |
+
+SQL 에서는 `CURRENT_DATE` 대신 `(NOW() AT TIME ZONE 'Asia/Seoul')::date`,
+날짜를 만들 때도 `NOW() AT TIME ZONE 'Asia/Seoul'`.
+
+**예외 — `timestamptz` 에 넣는 시각은 `toISOString()` 이 맞다.** 순간을 그대로
+담는 컬럼이라 시간대가 따라붙는다. 문제가 되는 건 거기서 **날짜만 뽑을 때**다.
+
+실제로 났던 것들:
+- 견적번호는 Asia/Seoul 로 매기는데 발행일만 UTC 라, 아침 8시에 만든 견적서가
+  번호는 `2026-0905-01` 인데 발행일은 `2026-09-04` 로 찍혔다. 유효기간도 하루 짧아졌다.
+- 업무일지를 아침에 쓰면 어제 칸에 적혔다.
+- 채팅에서 일정을 만들면 기본 시각이 아홉 시간 어긋났다(오후 4시 → `07:00`).
+
+`src/__tests__/date-kst.test.ts` 가 지킨다.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

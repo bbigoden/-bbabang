@@ -12,8 +12,8 @@ import { Plus, Download, Trash2, X, ReceiptText, CheckCircle2 } from 'lucide-rea
 import {
   fmtComma, invoiceAmounts, INVOICE_KIND_LABEL, INVOICE_KIND_RATIO,
   type Estimate, type EstimateInvoice, type InvoiceKind,
-  todayKST,
 } from '@/lib/estimate'
+import { todayKST } from '@/lib/date-kst'
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'

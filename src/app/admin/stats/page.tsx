@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { Spinner } from '@/components/ui/spinner'
+import { todayKST, addDays } from '@/lib/date-kst'
 
 type Range = 7 | 30 | 90
 
@@ -222,7 +223,7 @@ export default function AdminStatsPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayKST()
     a.download = `busojang-stats-${range}d-${today}.csv`
     document.body.appendChild(a)
     a.click()
@@ -362,7 +363,7 @@ export default function AdminStatsPage() {
 function fillSeries(map: Map<string, number>, days: number): TimeBucket[] {
   const out: TimeBucket[] = []
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const d = addDays(todayKST(), -i)
     out.push({ date: d, count: map.get(d) ?? 0 })
   }
   return out
