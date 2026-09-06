@@ -5,17 +5,19 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
+import { BulkImportDialog } from './bulk-import-dialog'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import { Card, CardBody } from '@/components/ui/card'
 import {
   ArrowLeft, Plus, Settings, Search, Copy, Trash2, FileText, Send,
-  TrendingUp, Trophy, Percent, Clock, CalendarClock,
+  TrendingUp, Trophy, Percent, Clock, CalendarClock, FileSpreadsheet,
 } from 'lucide-react'
 import {
   calcStats, fmtComma, isExpired, STATUS_LABEL,
-  type Estimate, type EstimateCompany, type EstimateStatus,
+  calcTotals,
+  type Estimate, type EstimateCompany, type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 import { todayKST } from '@/lib/date-kst'
 
@@ -47,6 +49,7 @@ export default function EstimatesPage() {
   const [rows, setRows] = useState<Estimate[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<'all' | EstimateStatus>('all')
   const [period, setPeriod] = useState<Period>('month')
@@ -164,6 +167,70 @@ export default function EstimatesPage() {
     }
   }
 
+  /** 여러 파일에서 읽은 품목을 사전에 쌓는다 (견적서는 만들지 않는다) */
+  const bulkCatalog = async (items: EstimateItem[]) => {
+    const rows = items
+      .filter(it => !it.is_header && it.name?.trim())
+      .map(it => ({
+        category: it.category, name: it.name, spec: it.spec, unit: it.unit,
+        unit_price: it.unit_price, material_price: it.material_price,
+        labor_price: it.labor_price, cost_price: it.cost_price,
+      }))
+    if (rows.length === 0) return 0
+    const { error } = await supabase.rpc('sync_estimate_catalog', { p_items: rows })
+    if (error) throw error
+    return rows.length
+  }
+
+  /**
+   * 파일 하나당 견적서 하나를 만든다.
+   *
+   * 거래처명·공사명은 엑셀에 없으므로 비워 두고, 공사명 자리에 파일 이름을 넣어
+   * 나중에 어느 파일에서 온 것인지 알아볼 수 있게 한다.
+   * 품목 사전에도 함께 쌓는다 — 어차피 단가를 모으는 것이 목적이다.
+   */
+  const bulkEstimates = async (list: { name: string; items: EstimateItem[] }[]) => {
+    if (!brokerId) return 0
+    const comp = companies.find(c => c.is_default) ?? companies[0] ?? null
+    let made = 0
+
+    for (const one of list) {
+      const { data: noData, error: noErr } = await supabase.rpc('next_estimate_no', { p_owner: brokerId })
+      if (noErr) throw noErr
+
+      const totals = calcTotals(one.items, { vat_mode: 'add' })
+      const { data, error } = await supabase.from('estimates').insert({
+        owner_broker_id: brokerId,
+        estimate_no: noData as string,
+        company_id: comp?.id ?? null,
+        company_snapshot: comp ?? null,
+        project_name: one.name,
+        issue_date: todayKST(),
+        vat_mode: 'add',
+        status: 'draft',
+        ...totals,
+      }).select('id').single()
+      if (error) throw error
+
+      const { error: e2 } = await supabase.rpc('replace_estimate_items', {
+        p_estimate_id: data.id,
+        p_items: one.items.map((it, i) => ({
+          sort_order: i, is_header: it.is_header,
+          category: it.category, name: it.name, spec: it.spec, unit: it.unit,
+          qty: it.qty, unit_price: it.unit_price,
+          material_price: it.material_price, labor_price: it.labor_price,
+          cost_price: it.cost_price, amount: it.amount, remark: it.remark,
+        })),
+      })
+      if (e2) throw e2
+      made++
+    }
+
+    await bulkCatalog(list.flatMap(l => l.items))
+    await load()
+    return made
+  }
+
   const remove = async (row: Estimate) => {
     // 청구서는 견적서를 지워도 남는다(회계 기록이라 딸려 지우면 안 된다).
     // 그런데 청구서를 보는 곳이 견적서 화면뿐이라, 그냥 두면 영영 못 보는 자료가 된다.
@@ -251,9 +318,16 @@ export default function EstimatesPage() {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="text-xl font-black text-gray-900 dark:text-white">견적서</h1>
+          <button
+            onClick={() => setBulkOpen(true)}
+            title="예전 엑셀 견적서를 여러 개 한꺼번에 읽어 단가를 쌓습니다"
+            className="ml-auto flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+          >
+            <FileSpreadsheet className="h-4 w-4" />예전 견적서 가져오기
+          </button>
           <Link
             href="/broker/estimates/settings"
-            className="ml-auto flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300"
           >
             <Settings className="h-4 w-4" />설정
           </Link>
@@ -445,6 +519,15 @@ export default function EstimatesPage() {
           </div>
         )}
       </div>
+
+      {bulkOpen && (
+        <BulkImportDialog
+          onClose={() => setBulkOpen(false)}
+          onDone={msg => { setBulkOpen(false); toast.success(msg) }}
+          onCatalog={bulkCatalog}
+          onEstimates={bulkEstimates}
+        />
+      )}
     </div>
   )
 }

@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  toNum, isTotalRow, findHeaderRow, detectHeaderSpan, guessMapping, parseRows, type Mapping,
+  toNum, isTotalRow, findHeaderRow, detectHeaderSpan, guessMapping, parseRows, decodeCsv, type Mapping,
 } from '@/lib/estimate-import'
 
 describe('toNum — 엑셀에 적히는 온갖 꼴', () => {
@@ -331,5 +331,76 @@ describe('진짜 쓰이는 양식', () => {
     expect(r.items.some(i => i.name?.includes('유효기간'))).toBe(false)
     // 원본 합계와 딱 맞는다
     expect(r.items.reduce((s, i) => s + i.amount, 0)).toBe(9250000)
+  })
+})
+
+
+/**
+ * 여러 파일을 한꺼번에 읽을 때 — 양식이 서로 달라도 각각 알아서 맞혀야 한다.
+ * 화면(bulk-import-dialog)이 파일 하나를 읽는 흐름과 같은 순서로 확인한다.
+ */
+describe('한꺼번에 가져오기', () => {
+
+/** 화면이 파일 하나를 읽는 것과 같은 흐름 */
+function readOne(XLSX: typeof import('xlsx'), name: string, buf: ArrayBuffer | string) {
+  const wb = typeof buf === 'string' ? XLSX.read(buf, { type: 'string' }) : XLSX.read(buf, { type: 'array' })
+  let best: { sheet: string; real: number; total: number; heads: number } | null = null
+  for (const sheet of wb.SheetNames) {
+    const all = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[sheet], { header:1, raw:false, defval:'', blankrows:false }) as string[][]
+    const hr = findHeaderRow(all)
+    const span = detectHeaderSpan(all, hr)
+    const cols = guessMapping(all, hr, span)
+    const r = parseRows(all, { headerRow: hr, headerSpan: span, cols })
+    const real = r.items.filter(i => !i.is_header).length
+    if (best && real <= best.real) continue
+    best = { sheet, real, heads: r.items.filter(i => i.is_header).length,
+             total: r.items.reduce((s, i) => s + i.amount, 0) }
+  }
+  console.log(`  ${name}: [${best!.sheet}] 내역 ${best!.real}줄 · 공종 ${best!.heads}개 · ${best!.total.toLocaleString()}원`)
+  return best!
+}
+
+  it('양식이 서로 다른 파일 세 개를 한꺼번에', async () => {
+    const XLSX = await import('xlsx')
+  // 1) 재료비·노무비가 갈린 두 줄 머리글
+  const a = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(a, XLSX.utils.aoa_to_sheet([
+    ['품명','규격','물량산출근거','단위','수량','재료비','','노무비','','합계','','비고'],
+    ['','','','','','단가','금액','단가','금액','단가','금액',''],
+    ['8.방수공사','검산ok','','','','','-','','-','','-',''],
+    ['전체방수','맴브레인','','개소',6,500000,3000000,'','-',500000,3000000,''],
+    ['레미탈','20kg','','포',70,5000,350000,5000,350000,10000,700000,''],
+    ['방수소계','','','','','',3350000,'',350000,'',3700000,''],
+  ]), '견적내역')
+
+  // 2) 구분·항목 세로 병합 + 특기사항
+  const b = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(b, XLSX.utils.aoa_to_sheet([
+    ['내      역','','단 가','수 량','금 액'],
+    ['구 분','항 목','','',''],
+    ['인테리어','■ 25평 보수','','','-'],
+    ['리모델링','그라인딩,크랙퍼티',128000,25,3200000],
+    ['','소계','','',3200000],
+    ['경비','일반경비',100000,5,500000],
+    ['합계(VAT별도)','','','',3700000],
+    ['[특기사항]','','','',''],
+  ]), 'Sheet1')
+
+  // 3) 한국 엑셀이 저장한 CP949 CSV (품명/단가만 있는 단출한 양식)
+  const cp949 = new Uint8Array([
+    0xC7,0xB0,0xB8,0xED, 0x2C, 0xB4,0xDC,0xB0,0xA1, 0x2C, 0xBC,0xF6,0xB7,0xAE, 0x0A,  // 품명,단가,수량
+    0xB5,0xB5,0xBA,0xAF, 0x2C, 0x31,0x33,0x30,0x30,0x30, 0x2C, 0x33,0x33, 0x0A,       // 도배,13000,33
+  ]).buffer
+
+  const r1 = readOne(XLSX, '재료비·노무비 양식', XLSX.write(a, { type:'array', bookType:'xlsx' }))
+  const r2 = readOne(XLSX, '구분·항목 양식', XLSX.write(b, { type:'array', bookType:'xlsx' }))
+  const r3 = readOne(XLSX, 'CP949 CSV', decodeCsv(cp949))
+
+  expect(r1.real).toBe(2)          // 소계는 빠진다
+  expect(r1.total).toBe(3700000)
+  expect(r2.real).toBe(2)          // 그라인딩 + 일반경비
+  expect(r2.total).toBe(3700000)   // 합계·소계 빼고
+  expect(r3.real).toBe(1)          // 한글이 안 깨졌다는 뜻
+  expect(r3.total).toBe(429000)    // 13000 x 33
   })
 })
