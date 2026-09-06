@@ -4,11 +4,12 @@
  */
 
 import path from 'path'
+import { Fragment } from 'react'
 import {
   Document, Page, Text, View, Image, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import {
-  fmtComma, koreanAmount, validUntil, INVOICE_KIND_LABEL,
+  fmtComma, koreanAmount, sectionSums, validUntil, INVOICE_KIND_LABEL,
   type Estimate, type EstimateCompany, type EstimateInvoice, type EstimateItem,
 } from './estimate'
 
@@ -88,6 +89,11 @@ const s = StyleSheet.create({
   th: { flexDirection: 'row', backgroundColor: C.head, borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.lineStrong },
   tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: C.line },
   trHead: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: C.line, backgroundColor: '#fafafa' },
+  // 공정 소계 — 거래처가 "방수만 얼마요?" 를 바로 짚을 수 있게
+  trSub: {
+    flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: C.line,
+    borderTopWidth: 0.5, borderTopColor: C.line, backgroundColor: '#f4f6f8',
+  },
   cell: { paddingVertical: 4, paddingHorizontal: 4 },
   cellHead: { paddingVertical: 4, paddingHorizontal: 4, fontWeight: 'bold', textAlign: 'center' },
 
@@ -132,6 +138,8 @@ interface Props {
 
 export function EstimateDocument({ estimate: e, items, company, stampUrl }: Props) {
   const rows = items.filter(it => it.is_header || it.name || it.amount)
+  // 공정 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
+  const subs = new Map(sectionSums(rows).map(x => [x.afterIndex, x]))
 
   return (
     <Document
@@ -231,23 +239,42 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
         {rows.map((it, i, arr) => {
           // 표시용 번호는 공종 구분줄을 빼고 센다
           const no = arr.slice(0, i + 1).filter(r => !r.is_header).length
-          return it.is_header ? (
-            <View key={i} style={s.trHead} wrap={false}>
-              <Text style={[s.cell, { width: W.no }]}> </Text>
-              <Text style={[s.cell, { flex: 1, fontWeight: 'bold' }]}>{it.name ?? it.category ?? ''}</Text>
-            </View>
-          ) : (
-            <View key={i} style={s.tr} wrap={false}>
-              <Text style={[s.cell, { width: W.no, textAlign: A.center, color: C.sub }]}>{no}</Text>
-              <Text style={[s.cell, { width: W.cat }]}>{it.category ?? ''}</Text>
-              <Text style={[s.cell, { width: W.name }]}>{it.name ?? ''}</Text>
-              <Text style={[s.cell, { width: W.spec }]}>{it.spec ?? ''}</Text>
-              <Text style={[s.cell, { width: W.unit, textAlign: A.center }]}>{it.unit ?? ''}</Text>
-              <Text style={[s.cell, { width: W.qty, textAlign: A.right }]}>{trimNum(it.qty)}</Text>
-              <Text style={[s.cell, { width: W.price, textAlign: A.right }]}>{fmtComma(it.unit_price)}</Text>
-              <Text style={[s.cell, { width: W.amount, textAlign: A.right, fontWeight: 'bold' }]}>{fmtComma(it.amount)}</Text>
-              <Text style={[s.cell, { width: W.remark, fontSize: 7 }]}>{it.remark ?? ''}</Text>
-            </View>
+          const sub = subs.get(i)
+          return (
+            <Fragment key={i}>
+              {it.is_header ? (
+                <View style={s.trHead} wrap={false}>
+                  <Text style={[s.cell, { width: W.no }]}> </Text>
+                  <Text style={[s.cell, { flex: 1, fontWeight: 'bold' }]}>{it.name ?? it.category ?? ''}</Text>
+                </View>
+              ) : (
+                <View style={s.tr} wrap={false}>
+                  <Text style={[s.cell, { width: W.no, textAlign: A.center, color: C.sub }]}>{no}</Text>
+                  <Text style={[s.cell, { width: W.cat }]}>{it.category ?? ''}</Text>
+                  <Text style={[s.cell, { width: W.name }]}>{it.name ?? ''}</Text>
+                  <Text style={[s.cell, { width: W.spec }]}>{it.spec ?? ''}</Text>
+                  <Text style={[s.cell, { width: W.unit, textAlign: A.center }]}>{it.unit ?? ''}</Text>
+                  <Text style={[s.cell, { width: W.qty, textAlign: A.right }]}>{trimNum(it.qty)}</Text>
+                  <Text style={[s.cell, { width: W.price, textAlign: A.right }]}>{fmtComma(it.unit_price)}</Text>
+                  <Text style={[s.cell, { width: W.amount, textAlign: A.right, fontWeight: 'bold' }]}>{fmtComma(it.amount)}</Text>
+                  <Text style={[s.cell, { width: W.remark, fontSize: 7 }]}>{it.remark ?? ''}</Text>
+                </View>
+              )}
+
+              {/* 공정이 끝나는 자리에 그 공정만의 합계를 찍는다 */}
+              {sub ? (
+                <View style={s.trSub} wrap={false}>
+                  <Text style={[s.cell, { width: W.no }]}> </Text>
+                  <Text style={[s.cell, { flex: 1, textAlign: A.right, fontWeight: 'bold', color: C.sub }]}>
+                    {sub.name} 소계
+                  </Text>
+                  <Text style={[s.cell, { width: W.amount, textAlign: A.right, fontWeight: 'bold' }]}>
+                    {fmtComma(sub.amount)}
+                  </Text>
+                  <Text style={[s.cell, { width: W.remark }]}> </Text>
+                </View>
+              ) : null}
+            </Fragment>
           )
         })}
 

@@ -221,6 +221,52 @@ export function calcMargin(
   return { cost, profit, rate: supplyAmount > 0 ? profit / supplyAmount : null }
 }
 
+export interface SectionSum {
+  /** 이 줄 바로 뒤에 소계를 넣는다 */
+  afterIndex: number
+  /** 어느 공정인지 (머리줄 이름) */
+  name: string
+  amount: number
+}
+
+/**
+ * 공정별 소계.
+ *
+ * 거래처는 총액보다 "방수만 얼마요?" 를 먼저 묻는다. 공정 구분(머리줄)으로
+ * 나뉜 구간마다 금액을 더해 그 끝에 찍어 준다.
+ *
+ * 구분이 하나뿐이면 전체 합계와 똑같아 군더더기이므로 내지 않는다.
+ * 머리줄 뒤에 내역이 없는 구간도 건너뛴다.
+ */
+export function sectionSums(
+  items: Pick<EstimateItem, 'is_header' | 'name' | 'amount'>[]
+): SectionSum[] {
+  if (items.filter(i => i.is_header).length < 2) return []
+
+  const out: SectionSum[] = []
+  let name: string | null = null
+  let sum = 0
+  let last = -1
+
+  const flush = () => {
+    if (name !== null && last >= 0) out.push({ afterIndex: last, name, amount: sum })
+  }
+
+  items.forEach((it, i) => {
+    if (it.is_header) {
+      flush()
+      name = it.name ?? ''
+      sum = 0
+      last = -1
+      return
+    }
+    sum += Number(it.amount) || 0
+    last = i
+  })
+  flush()
+  return out
+}
+
 export const fmtComma = (n: number | null | undefined): string =>
   (Number(n) || 0).toLocaleString('ko-KR')
 

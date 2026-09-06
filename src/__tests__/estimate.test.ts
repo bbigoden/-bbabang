@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcTotals, koreanAmount, numberToKorean, lineAmount, validUntil,
-  fillTemplate, isExpired, calcStats, DEFAULT_PRESETS,
+  fillTemplate, isExpired, calcStats, sectionSums, DEFAULT_PRESETS,
   type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 
@@ -176,5 +176,61 @@ describe('음수 금액 — 숫자와 한글이 어긋나지 않는다', () => {
   it('0원과 양수는 그대로', () => {
     expect(koreanAmount(0)).toBe('일금 영원정')
     expect(koreanAmount(110000)).toBe('일금 일십일만원정')
+  })
+})
+
+describe('공정별 소계', () => {
+  const I = (is_header: boolean, name: string, amount = 0) =>
+    ({ is_header, name, amount }) as EstimateItem
+
+  it('공정마다 그 끝에 소계를 낸다', () => {
+    const sums = sectionSums([
+      I(true, '1. 철거공사'),
+      I(false, '기존 마감 철거', 402000),
+      I(false, '폐기물 처리', 298000),
+      I(true, '2. 내장공사'),
+      I(false, '실크벽지', 435500),
+      I(false, '강마루', 1842500),
+    ])
+    expect(sums).toEqual([
+      { afterIndex: 2, name: '1. 철거공사', amount: 700000 },
+      { afterIndex: 5, name: '2. 내장공사', amount: 2278000 },
+    ])
+  })
+
+  it('구분이 하나뿐이면 내지 않는다 — 전체 합계와 같다', () => {
+    expect(sectionSums([
+      I(true, '철거공사'),
+      I(false, '철거', 100000),
+    ])).toEqual([])
+  })
+
+  it('구분이 아예 없으면 내지 않는다', () => {
+    expect(sectionSums([I(false, '철거', 100000), I(false, '방수', 200000)])).toEqual([])
+  })
+
+  it('내역이 없는 구분은 건너뛴다', () => {
+    const sums = sectionSums([
+      I(true, '비어 있는 공정'),
+      I(true, '철거공사'),
+      I(false, '철거', 100000),
+      I(true, '내장공사'),
+      I(false, '벽지', 200000),
+    ])
+    expect(sums.map(s => s.name)).toEqual(['철거공사', '내장공사'])
+  })
+
+  it('첫 구분보다 앞에 있는 줄은 어느 소계에도 넣지 않는다', () => {
+    const sums = sectionSums([
+      I(false, '구분 없이 적은 줄', 50000),
+      I(true, '철거공사'),
+      I(false, '철거', 100000),
+      I(true, '내장공사'),
+      I(false, '벽지', 200000),
+    ])
+    expect(sums).toEqual([
+      { afterIndex: 2, name: '철거공사', amount: 100000 },
+      { afterIndex: 4, name: '내장공사', amount: 200000 },
+    ])
   })
 })

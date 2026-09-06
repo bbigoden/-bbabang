@@ -8,9 +8,10 @@
  * 내보낼 필드를 좁게 고정하므로, 원가·발송이력 같은 내부 정보는 나가지 않는다.
  */
 
+import { Fragment } from 'react'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { fmtComma, koreanAmount, validUntil, type VatMode } from '@/lib/estimate'
+import { fmtComma, koreanAmount, sectionSums, validUntil, type VatMode } from '@/lib/estimate'
 import { FileText } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -95,6 +96,8 @@ export default async function SharedEstimatePage(
 
   const co = e.company ?? {}
   const until = validUntil(e.issue_date, e.valid_days)
+  // 공정 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
+  const subs = new Map(sectionSums(e.items).map(x => [x.afterIndex, x]))
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8 dark:bg-gray-950">
@@ -153,32 +156,49 @@ export default async function SharedEstimatePage(
                 </tr>
               </thead>
               <tbody>
-                {e.items.map((it, i) => it.is_header ? (
-                  <tr key={i} className="bg-gray-50 dark:bg-gray-800/40">
-                    <td colSpan={7} className="px-2 py-1.5 font-bold text-gray-800 dark:text-gray-200">
-                      {it.name ?? it.category}
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="px-2 py-1.5 text-gray-600 dark:text-gray-400">{it.category ?? ''}</td>
-                    <td className="px-2 py-1.5 text-gray-900 dark:text-white">
-                      {it.name ?? ''}
-                      {/* 비고는 PDF 에는 열로 나가는데 여기엔 아예 없었다. '폐기물 별도'
-                          같은 단서가 링크로 본 사람에게만 빠지면 나중에 말이 달라진다.
-                          열을 하나 더 두면 폰에서 표가 더 넓어지므로 품명 밑에 붙인다. */}
-                      {it.remark ? (
-                        <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
-                          {it.remark}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-2 py-1.5 text-gray-600 dark:text-gray-400">{it.spec ?? ''}</td>
-                    <td className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400">{it.unit ?? ''}</td>
-                    <td className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">{it.qty}</td>
-                    <td className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">{fmtComma(it.unit_price)}</td>
-                    <td className="px-2 py-1.5 text-right font-semibold text-gray-900 dark:text-white">{fmtComma(it.amount)}</td>
-                  </tr>
+                {e.items.map((it, i) => (
+                  <Fragment key={i}>
+                    {it.is_header ? (
+                      <tr className="bg-gray-50 dark:bg-gray-800/40">
+                        <td colSpan={7} className="px-2 py-1.5 font-bold text-gray-800 dark:text-gray-200">
+                          {it.name ?? it.category}
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr className="border-b border-gray-100 dark:border-gray-800">
+                        <td className="px-2 py-1.5 text-gray-600 dark:text-gray-400">{it.category ?? ''}</td>
+                        <td className="px-2 py-1.5 text-gray-900 dark:text-white">
+                          {it.name ?? ''}
+                          {/* 비고는 PDF 에는 열로 나가는데 여기엔 아예 없었다. '폐기물 별도'
+                              같은 단서가 링크로 본 사람에게만 빠지면 나중에 말이 달라진다.
+                              열을 하나 더 두면 폰에서 표가 더 넓어지므로 품명 밑에 붙인다. */}
+                          {it.remark ? (
+                            <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">
+                              {it.remark}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-2 py-1.5 text-gray-600 dark:text-gray-400">{it.spec ?? ''}</td>
+                        <td className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400">{it.unit ?? ''}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">{it.qty}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">{fmtComma(it.unit_price)}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold text-gray-900 dark:text-white">{fmtComma(it.amount)}</td>
+                      </tr>
+                    )}
+
+                    {/* 공정이 끝나는 자리에 그 공정만의 합계.
+                        거래처는 총액보다 "방수만 얼마요?" 를 먼저 묻는다. */}
+                    {subs.has(i) ? (
+                      <tr className="border-y border-gray-200 bg-gray-100/70 dark:border-gray-700 dark:bg-gray-800/60">
+                        <td colSpan={6} className="px-2 py-1.5 text-right font-bold text-gray-600 dark:text-gray-400">
+                          {subs.get(i)!.name} 소계
+                        </td>
+                        <td className="px-2 py-1.5 text-right font-bold text-gray-900 dark:text-white">
+                          {fmtComma(subs.get(i)!.amount)}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
