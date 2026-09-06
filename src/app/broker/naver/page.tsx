@@ -369,9 +369,12 @@ export default function CollectPage() {
   /**
    * 걸어 둔 수집이 끝날 때까지 지켜본다.
    *
-   * 누를 때만이 아니라 화면을 새로 열 때도 쓴다 — 돌고 있는 것을 이어서 보여줘야
-   * 한다. 30분이 넘으면 화면만 놓아주고 작업은 그대로 둔다. 앞선 수집 뒤에 서
-   * 있을 수 있어 넉넉히 잡는다.
+   * 누를 때만이 아니라 화면을 새로 열 때도 쓴다 — 돌고 있는 것을 이어서 보여줘야 한다.
+   *
+   * **시한은 실행이 시작된 뒤부터 센다.** 앞에 카페 발행 같은 긴 작업이 서 있으면
+   * 한 시간 넘게 차례를 기다린다. 누른 때부터 세면 멀쩡히 줄 서 있는 것을 두고
+   * '너무 오래 걸립니다' 라고 겁을 준다. 다만 프로그램이 꺼져 있으면 영영 차례가
+   * 안 오므로, 지켜보는 것 자체는 두 시간에서 놓아준다.
    */
   const watchJob = useCallback((id: SourceId, jobId: string) => {
     const s = SOURCES[id]
@@ -379,14 +382,15 @@ export default function CollectPage() {
     const 끝 = () => { clearInterval(timers.current[id]); delete timers.current[id]; 진행(null) }
     진행('가져오는 중…')
 
-    const deadline = Date.now() + 30 * 60_000
+    const 놓아줄때 = Date.now() + 2 * 60 * 60_000   // 이보다 오래 지켜보지는 않는다
+    let 시한 = Date.now() + 30 * 60_000              // 실행이 시작되면 여기서부터 다시 센다
     timers.current[id] = setInterval(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('status, progress, result, error').eq('id', jobId).maybeSingle()
       // 작업이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이 지켜보기가
       // 영영 안 끝나고, 버튼도 계속 잠긴 채로 남는다.
       if (!data) {
-        if (Date.now() > deadline) { 끝(); toast.error(`${s.label} 가져오기 상태를 알 수 없습니다. 다시 눌러 주세요.`) }
+        if (Date.now() > 시한) { 끝(); toast.error(`${s.label} 가져오기 상태를 알 수 없습니다. 다시 눌러 주세요.`) }
         return
       }
       if (data.status === 'done') {
@@ -405,12 +409,21 @@ export default function CollectPage() {
       } else if (data.status === 'failed' || data.status === 'canceled') {
         끝()
         toast.error(`${s.label} 을(를) 가져오지 못했습니다 — ${data.error ?? '알 수 없는 오류'}`)
-      } else if (Date.now() > deadline) {
+      } else if (data.status === 'queued') {
+        // 아직 차례가 안 왔다. 시한은 실행부터 세므로 뒤로 민다.
+        시한 = Date.now() + 30 * 60_000
+        if (Date.now() > 놓아줄때) {
+          끝()
+          toast.error(`${s.label} 가져오기가 아직 차례를 못 받았습니다. PC 프로그램이 켜져 있는지 봐 주세요.`)
+        } else {
+          // 진행 표시가 없으니 멈춘 것처럼 보이지 않게 적어 준다.
+          진행('차례 기다리는 중')
+        }
+      } else if (Date.now() > 시한) {
         끝()
         toast.error(`${s.label} 가져오기가 너무 오래 걸립니다. PC 프로그램 창을 확인해 주세요.`)
       } else {
-        // 아직 차례가 안 온 작업은 진행 표시가 없다. 멈춘 것처럼 보이지 않게 적어 준다.
-        진행(data.status === 'queued' ? '차례 기다리는 중' : (data.progress ?? '가져오는 중…'))
+        진행(data.progress ?? '가져오는 중…')
       }
     }, 2000)
   }, [supabase, toast])
