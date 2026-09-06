@@ -678,7 +678,9 @@ function buildTitles(p: ParsedListing, src = ''): string[] {
   // 제목은 **사람들이 검색할 말**로 채운다. 틀을 지키는 것보다 그게 먼저다.
   // `전용 약 43.8평`, `제2종 근린생활시설`, `업종 협의 가능` 은 아무도 검색하지
   // 않는다. 지역·종류·거래·층·평수대·업종이 실제로 검색되는 말이다.
-  const 층 = p.floor ? (p.floor.startsWith('-') ? `지하${p.floor.slice(1)}층` : `${p.floor}층`) : ''
+  // 뱅크는 지하를 `B1` 로 준다. 그대로 쓰면 제목이 `B1층` 이 된다 —
+  // 그렇게 검색하는 사람은 없고 읽힐 때도 어색하다. `지하1층` 로 적는다.
+  const 층 = floorLabel(p.floor)?.replace(/\s+/g, '') ?? ''
   const 평수대 = sizeBand(p) ?? ''
 
   const mark = markPair(src)
@@ -968,11 +970,32 @@ function extractFeatures(source: string): string[] {
  * 스킬이 고민 예시에 `대형평수 = 한 층 통임대 물건 부족` 을 따로 둔 이유다.
  * 상업용 매물은 **크기를 먼저 본다.**
  */
+/**
+ * 이 매물과 어긋나는 고민은 미리 뺀다.
+ *
+ * 고민 문장 바로 뒤에 "이번 매물은 … 이런 고민을 덜어드릴 수 있습니다" 가 붙는다.
+ * 그래서 고민과 매물이 안 맞으면 말이 안 된다 — 1층 96평 상가에 "층이
+ * 올라갈수록 임대료는 내려가지만…" 을 쓴 뒤 "즉시입주가 가능해 이런 고민을
+ * 덜어드릴 수 있습니다" 로 이어졌다. 즉시입주는 층 고민을 덜어주지 않는다.
+ */
+function 어울리는고민(pool: string[], p: ParsedListing): string[] {
+  const n = Number(p.floor)
+  const 일층 = Number.isFinite(n) && n === 1
+  const 위층 = Number.isFinite(n) && n >= 2
+  const 남김 = pool.filter(t => {
+    if (/층이 올라갈수록/.test(t)) return 위층
+    if (/앞이 트인|간판을 어디에/.test(t)) return 일층
+    if (/입주 시점이 한 달만/.test(t)) return p.moveIn === '즉시입주'
+    return true
+  })
+  return 남김.length ? 남김 : pool
+}
+
 function pickConcern(p: ParsedListing, src: string): string {
   const COMMERCIAL: Category[] = ['retail', 'office', 'food', 'academy', 'beauty', 'large']
   const isBig = (mainAreaM2(p) ?? 0) >= 330            // 약 100평
   const key: Category = isBig && COMMERCIAL.includes(p.category) ? 'large' : p.category
-  const pool = CONCERNS[key]
+  const pool = 어울리는고민(CONCERNS[key], p)
   // 원문 해시만으로 고르면 원문 틀이 비슷한 매물끼리 같은 문장이 몰린다.
   // 층·평수처럼 매물마다 다른 값을 섞어 고르게 퍼뜨린다.
   const seed = `${src}|${p.floor ?? ''}|${Math.round(mainAreaM2(p) ?? 0)}|${p.dong ?? ''}`
@@ -1188,7 +1211,9 @@ function buildDetails(p: ParsedListing, src = ''): string {
   const seed = seedOf(p)
   const spots = marksIn(LOCATION_MARKS, ownWords(src))
   const loc = spots.length
-    ? `**입지**\n${region} 생활권에 자리한 매물입니다. ${spots.join(', ')} 조건을 갖춘 자리입니다. `
+    // `○○동 생활권에 자리한 매물입니다` 는 아무 말도 안 하는 문장이고, 소재지는
+    // 표와 요약에 이미 두 번 나온다. 근거 있는 부분부터 쓴다.
+    ? `**입지**\n${spots.join(', ')} 조건을 갖춘 자리입니다. `
       + 골라쓰기([
         '실제 유동 동선과 주변 구성은 현장 안내 시 함께 확인해 드리겠습니다.',
         '사람이 어느 쪽으로 다니는지는 직접 서서 보셔야 감이 옵니다. 안내해 드리겠습니다.',
@@ -1198,7 +1223,12 @@ function buildDetails(p: ParsedListing, src = ''): string {
     : null
 
   const buildBits: string[] = []
-  if (p.floor && p.totalFloors) buildBits.push(`총 ${p.totalFloors}층 건물의 ${floorLabel(p.floor)}에 자리하고 있습니다`)
+  // 단층이면 `총 1층 건물의 1층에` 가 되어 어색하고, 지하층은 `총 5층 건물의
+  // 지하 1층에` 처럼 총층에 안 들어가는 층을 총층으로 세는 말이 된다.
+  const 지하 = /^B/i.test(String(p.floor ?? ''))
+  if (p.totalFloors === '1' && p.floor === '1') buildBits.push('단층 건물입니다')
+  else if (p.floor && p.totalFloors && !지하) buildBits.push(`총 ${p.totalFloors}층 건물의 ${floorLabel(p.floor)}에 자리하고 있습니다`)
+  else if (p.floor && p.totalFloors) buildBits.push(`지상 ${p.totalFloors}층 건물의 ${floorLabel(p.floor)}에 자리하고 있습니다`)
   else if (p.floor) buildBits.push(`${floorLabel(p.floor)}에 자리하고 있습니다`)
   if (mainArea(p)) buildBits.push(`${mainArea(p)!.label} ${mainArea(p)!.m2}㎡(약 ${m2ToPyeong(mainArea(p)!.m2)}평)로 용도에 맞게 구획해 사용하실 수 있습니다`)
   if (p.elevator) buildBits.push('엘리베이터가 있어 층간 이동이 편리합니다')
