@@ -14,7 +14,7 @@ import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, toKstDate } from '@/lib/n
 import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
 import { sendAndForget } from '@/lib/send-and-forget'
 import { DateRangeCell } from '@/components/sheet/cells/date-cell'
-import { todayKST, addDays } from '@/lib/date-kst'
+import { todayKST, addDays, ymdKST } from '@/lib/date-kst'
 
 /**
  * 매물수집 — 네이버·당근에 올라온 매물을 최신순으로 모아 둔 링크 목록.
@@ -522,6 +522,19 @@ export default function CollectPage() {
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize)
   const unseenCount = useMemo(() => filtered.filter(r => !seen.has(r.article_no)).length, [filtered, seen])
 
+  /**
+   * 오늘 처음 받아 온 매물이 몇 건인가.
+   *
+   * **기간 필터가 잡는 것과 다르다.** 기간은 '광고가 걸린 날' 로 자르는데, 어제
+   * 저녁에 올라온 광고는 오늘 아침에 처음 받아도 광고일이 어제다. 실제로 오늘
+   * 아침 새로 잡힌 42건 중 광고일이 오늘인 것은 3건뿐이었다. 그래서 [오늘] 만
+   * 보면 "오늘 별거 없네" 하고 넘어가게 된다. 오늘 수확을 따로 적어 준다.
+   */
+  const 오늘새로 = useMemo(
+    () => filtered.filter(r => ymdKST(r.first_seen_at) === todayKST()).length,
+    [filtered],
+  )
+
   /** 하트비트가 이보다 오래되면 꺼진 것으로 본다. 광고관리 화면과 같은 잣대다. */
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < 60_000
 
@@ -705,6 +718,7 @@ export default function CollectPage() {
             <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
               {filtered.length}건
               {!unseenOnly && unseenCount < filtered.length && ` · 안 본 것 ${unseenCount}건`}
+              {오늘새로 > 0 && ` · 오늘 새로 ${오늘새로}건`}
             </p>
             <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
