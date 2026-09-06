@@ -391,9 +391,13 @@ export default function CollectPage() {
       }
       if (data.status === 'done') {
         끝()
-        const r = data.result as { added?: number; fetched?: number; missed?: number } | null
+        const r = data.result as
+          { added?: number; fetched?: number; missed?: number; truncated?: number } | null
         // 못 본 곳이 있으면 그것부터 말한다 — '새 매물 0건' 과 '못 받았다' 는 다르다.
         if (r?.missed) toast.error(`${s.label} — ${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
+        // 한 자리에 매물이 너무 많아 다 못 받은 경우. 조용히 넘어가면 멀쩡히 다
+        // 받은 줄 안다 — 프로그램이 창 없이 도니 로그의 경고도 아무도 못 본다.
+        else if (r?.truncated) toast.error(`${s.label} — ${r.truncated}자리가 한 번에 다 안 들어와 일부를 놓쳤습니다. 잠시 뒤 다시 눌러 주세요.`)
         else if (r?.added) toast.success(`${s.label} — 새 매물 ${r.added}건을 받았습니다. (전체 ${r.fetched ?? 0}건 확인)`)
         else toast.success(`${s.label} — 새로 올라온 매물이 없습니다. (전체 ${r?.fetched ?? 0}건 확인)`)
         // 지금 보고 있는 탭일 때만 다시 읽는다. 아니면 그 탭으로 옮길 때 읽힌다.
