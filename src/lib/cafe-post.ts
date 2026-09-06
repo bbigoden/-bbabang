@@ -186,7 +186,21 @@ function detectCategory(source: string, exclusiveArea?: number): Category {
 
   // 원문의 `건물종류`·`건축물용도`가 가장 믿을 만한 근거다. 이걸 두고 면적이나
   // 본문 키워드로 추측하면 업무시설(555㎡)이 '대형 상가'가 되고 단독주택이 '상가'가 된다.
-  const declared = [field(src, ['건물종류']), field(src, ['건축물용도'])].filter(Boolean).join(' ')
+  const 건물종류 = field(src, ['건물종류'])
+  const 건축물용도 = field(src, ['건축물용도'])
+
+  // **건물종류를 먼저 본다.**
+  //
+  // 건축물용도가 `단독주택` 인데 건물종류는 `일반상가` 인 1층 점포가
+  // 실제로 있다 — 용도변경을 안 한 자리다. 둘을 붙여 보면 주택이 먼저
+  // 걸려, 매물특징이 `중식당` 인 자리가 `주택 월세 … 실거주 추천` 으로
+  // 나간다. 글의 성격은 중개하는 모습을 따른다.
+  //
+  // 표의 **중개대상물 종류**는 그대로 건축물용도를 적는다 — 대장 근거다.
+  const by건물종류 = categoryFromKind(건물종류 ?? '')
+  if (by건물종류 && by건물종류 !== 'residential') return by건물종류
+
+  const declared = [건물종류, 건축물용도].filter(Boolean).join(' ')
   const byDeclared = categoryFromKind(declared)
   if (byDeclared) return byDeclared
 
@@ -1204,7 +1218,18 @@ function buildDetails(p: ParsedListing, src = ''): string {
   const 쓸수있는 = 충을보고(p, RECOMMENDED_USES[p.category].split(',').map(x => x.trim()))
   const 나머지 = 쓸수있는.filter(x => x !== 적힌업종).slice(0, 4).join(', ')
   // 인허가 안내는 어느 매물에나 붙는 말이라, 한 벌로 두면 전 건이 같은 줄로 끝난다.
-  const 인허가 = 골라쓰기([
+  // **용도가 주택인 상가는 그것을 말해야 한다.**
+  //
+  // 건축물대장상 용도가 `단독주택` 인데 1층 점포로 내는 자리가 있다.
+  // 표에 `중개대상물 종류 : 단독주택` 이라고만 적어 두면 그게 무슨 뜻인지
+  // 손님은 모른다 — 업종에 따라 영업신고가 안 되거나 용도변경이 필요하다.
+  // 계약하고 나서 알면 늦는 종류라 먼저 알린다.
+  const 주택용도 = /주택|다가구|연립|다세대/.test(p.propertyKind ?? '')
+    && p.category !== 'residential' && p.category !== 'land'
+  const 인허가 = 주택용도 ? 골라쓰기([
+    `건축물대장상 용도가 ${조사(p.propertyKind ?? '', '이라', '라')}, 업종에 따라 용도변경이나 별도 신고가 필요할 수 있습니다. 생각하고 계신 업종을 알려주시면 되는 자리인지 먼저 확인해 드립니다.`,
+    `이 건물은 대장상 ${조사(p.propertyKind ?? '', '으로', '로')} 돼 있습니다. 영업신고가 되는 업종인지, 용도변경이 필요한지를 계약 전에 같이 확인해 드립니다.`,
+  ], seed, 1) : 골라쓰기([
     '건축물 용도에 따른 인허가 가능 여부는 업종별로 함께 확인해 드립니다.',
     '생각하고 계신 업종이 있으시면 인허가가 되는 용도인지 먼저 확인해 드리겠습니다.',
     '업종에 따라 필요한 용도와 시설 기준이 다르므로, 계약 전에 함께 짚어 드립니다.',
