@@ -96,7 +96,7 @@ export default async function SharedEstimatePage(
 
   const co = e.company ?? {}
   const until = validUntil(e.issue_date, e.valid_days)
-  // 공정 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
+  // 공종 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
   const subs = new Map(sectionSums(e.items).map(x => [x.afterIndex, x]))
 
   return (
@@ -186,7 +186,7 @@ export default async function SharedEstimatePage(
                       </tr>
                     )}
 
-                    {/* 공정이 끝나는 자리에 그 공정만의 합계.
+                    {/* 공종이 끝나는 자리에 그 공종만의 합계.
                         거래처는 총액보다 "방수만 얼마요?" 를 먼저 묻는다. */}
                     {subs.has(i) ? (
                       <tr className="border-y border-gray-200 bg-gray-100/70 dark:border-gray-700 dark:bg-gray-800/60">

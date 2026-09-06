@@ -224,15 +224,15 @@ export function calcMargin(
 export interface SectionSum {
   /** 이 줄 바로 뒤에 소계를 넣는다 */
   afterIndex: number
-  /** 어느 공정인지 (머리줄 이름) */
+  /** 어느 공종인지 (머리줄 이름) */
   name: string
   amount: number
 }
 
 /**
- * 공정별 소계.
+ * 공종별 소계.
  *
- * 거래처는 총액보다 "방수만 얼마요?" 를 먼저 묻는다. 공정 구분(머리줄)으로
+ * 거래처는 총액보다 "방수만 얼마요?" 를 먼저 묻는다. 공종 구분(머리줄)으로
  * 나뉜 구간마다 금액을 더해 그 끝에 찍어 준다.
  *
  * 구분이 하나뿐이면 전체 합계와 똑같아 군더더기이므로 내지 않는다.
@@ -264,6 +264,16 @@ export function sectionSums(
     last = i
   })
   flush()
+
+  // 소계를 다 더해도 전체와 맞지 않으면 아예 내지 않는다.
+  //
+  // 첫 구분보다 앞에 적힌 줄은 어느 구간에도 들어가지 않는다. 그대로 두면
+  // 거래처가 소계를 더해 보고 "왜 총액과 다르냐"고 묻게 된다.
+  // 맞지 않는 소계를 보여 주느니 안 보여 주는 편이 낫다.
+  const covered = out.reduce((s, x) => s + x.amount, 0)
+  const all = items.reduce((s, it) => it.is_header ? s : s + (Number(it.amount) || 0), 0)
+  if (covered !== all) return []
+
   return out
 }
 

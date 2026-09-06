@@ -89,7 +89,7 @@ const s = StyleSheet.create({
   th: { flexDirection: 'row', backgroundColor: C.head, borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.lineStrong },
   tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: C.line },
   trHead: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: C.line, backgroundColor: '#fafafa' },
-  // 공정 소계 — 거래처가 "방수만 얼마요?" 를 바로 짚을 수 있게
+  // 공종 소계 — 거래처가 "방수만 얼마요?" 를 바로 짚을 수 있게
   trSub: {
     flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: C.line,
     borderTopWidth: 0.5, borderTopColor: C.line, backgroundColor: '#f4f6f8',
@@ -138,7 +138,7 @@ interface Props {
 
 export function EstimateDocument({ estimate: e, items, company, stampUrl }: Props) {
   const rows = items.filter(it => it.is_header || it.name || it.amount)
-  // 공정 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
+  // 공종 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
   const subs = new Map(sectionSums(rows).map(x => [x.afterIndex, x]))
 
   return (
@@ -261,7 +261,7 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
                 </View>
               )}
 
-              {/* 공정이 끝나는 자리에 그 공정만의 합계를 찍는다 */}
+              {/* 공종이 끝나는 자리에 그 공종만의 합계를 찍는다 */}
               {sub ? (
                 <View style={s.trSub} wrap={false}>
                   <Text style={[s.cell, { width: W.no }]}> </Text>

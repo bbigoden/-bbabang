@@ -179,11 +179,11 @@ describe('음수 금액 — 숫자와 한글이 어긋나지 않는다', () => {
   })
 })
 
-describe('공정별 소계', () => {
+describe('공종별 소계', () => {
   const I = (is_header: boolean, name: string, amount = 0) =>
     ({ is_header, name, amount }) as EstimateItem
 
-  it('공정마다 그 끝에 소계를 낸다', () => {
+  it('공종마다 그 끝에 소계를 낸다', () => {
     const sums = sectionSums([
       I(true, '1. 철거공사'),
       I(false, '기존 마감 철거', 402000),
@@ -211,7 +211,7 @@ describe('공정별 소계', () => {
 
   it('내역이 없는 구분은 건너뛴다', () => {
     const sums = sectionSums([
-      I(true, '비어 있는 공정'),
+      I(true, '비어 있는 공종'),
       I(true, '철거공사'),
       I(false, '철거', 100000),
       I(true, '내장공사'),
@@ -220,17 +220,41 @@ describe('공정별 소계', () => {
     expect(sums.map(s => s.name)).toEqual(['철거공사', '내장공사'])
   })
 
-  it('첫 구분보다 앞에 있는 줄은 어느 소계에도 넣지 않는다', () => {
-    const sums = sectionSums([
+  it('구분 밖에 놓인 줄이 있으면 아예 내지 않는다', () => {
+    // 첫 구분보다 앞에 적힌 50,000 은 어느 구간에도 안 들어간다.
+    // 그대로 두면 소계를 더해도 총액과 맞지 않아 "왜 다르냐"는 물음만 생긴다.
+    const items = [
       I(false, '구분 없이 적은 줄', 50000),
       I(true, '철거공사'),
       I(false, '철거', 100000),
       I(true, '내장공사'),
       I(false, '벽지', 200000),
-    ])
-    expect(sums).toEqual([
-      { afterIndex: 2, name: '철거공사', amount: 100000 },
+    ]
+    expect(sectionSums(items)).toEqual([])
+
+    // 그 줄을 구분 안으로 옮기면 다시 나온다
+    const fixed = [
+      I(true, '철거공사'),
+      I(false, '구분 없이 적은 줄', 50000),
+      I(false, '철거', 100000),
+      I(true, '내장공사'),
+      I(false, '벽지', 200000),
+    ]
+    expect(sectionSums(fixed)).toEqual([
+      { afterIndex: 2, name: '철거공사', amount: 150000 },
       { afterIndex: 4, name: '내장공사', amount: 200000 },
     ])
+  })
+
+  it('소계를 다 더하면 언제나 전체 내역 합과 같다', () => {
+    const items = [
+      I(true, '철거'), I(false, 'a', 100000), I(false, 'b', 200000),
+      I(true, '방수'), I(false, 'c', 300000),
+      I(true, '빈 공종'),
+      I(true, '내장'), I(false, 'd', 400000),
+    ]
+    const sums = sectionSums(items)
+    const total = items.reduce((s, i) => i.is_header ? s : s + i.amount, 0)
+    expect(sums.reduce((s, x) => s + x.amount, 0)).toBe(total)
   })
 })

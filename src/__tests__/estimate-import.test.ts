@@ -204,7 +204,7 @@ describe('진짜 엑셀 파일로 한 바퀴', () => {
 
     const r = parseRows(rows, { headerRow, cols })
     expect(r.items.filter(i => !i.is_header)).toHaveLength(5)
-    expect(r.items.filter(i => i.is_header)).toHaveLength(2)   // 공정 구분 두 줄
+    expect(r.items.filter(i => i.is_header)).toHaveLength(2)   // 공종 구분 두 줄
     expect(r.skippedTotals).toBe(3)                            // 소계·부가세·합계
     expect(r.mismatched).toBe(0)
     expect(r.items.reduce((s, i) => s + i.amount, 0)).toBe(3998000)

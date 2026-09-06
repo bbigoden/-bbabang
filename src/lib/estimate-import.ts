@@ -139,7 +139,7 @@ export function isTotalRow(cells: string[]): boolean {
  *
  * 견적서는 합계 아래에 특기사항·안내문이 이어지는 일이 많다. 그것까지 내역으로
  * 읽으면 '[특기사항]'·'1. 유효기간 …' 이 품명으로 딸려 들어온다.
- * 공정마다 나오는 '소계' 는 여기 넣지 않는다 — 아래에 내역이 더 있다.
+ * 공종마다 나오는 '소계' 는 여기 넣지 않는다 — 아래에 내역이 더 있다.
  */
 export function isEndRow(cells: string[]): boolean {
   const head = cells.slice(0, 3).map(norm).filter(Boolean)
@@ -260,7 +260,7 @@ export interface ParseResult {
 /**
  * 고른 자리대로 줄을 만든다.
  *
- * - 수량·단가가 모두 비어 있고 품명만 있으면 공정 머리줄로 본다
+ * - 수량·단가가 모두 비어 있고 품명만 있으면 공종 머리줄로 본다
  * - 소계·합계·부가세 줄은 건너뛴다 (가져오면 금액이 두 번 더해진다)
  * - 아무것도 없는 줄은 버린다
  */
