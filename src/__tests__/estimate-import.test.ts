@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
-  toNum, isTotalRow, findHeaderRow, guessMapping, parseRows, type Mapping,
+  toNum, isTotalRow, findHeaderRow, detectHeaderSpan, guessMapping, parseRows, type Mapping,
 } from '@/lib/estimate-import'
 
 describe('toNum — 엑셀에 적히는 온갖 꼴', () => {
@@ -94,6 +94,7 @@ describe('셈줄 가려내기', () => {
 
 const MAP = (headerRow: number): Mapping => ({
   headerRow,
+  headerSpan: 1,
   cols: { category: 0, name: 1, spec: 2, unit: 3, qty: 4, unit_price: 5, amount: 6, remark: 7, cost_price: -1 },
 })
 
@@ -255,5 +256,72 @@ describe('CSV 글자 풀기 — 한글이 깨지지 않는가', () => {
       header: 1, raw: false, defval: '',
     }) as string[][]
     expect(rows[0]).toEqual(['공종', '품명'])   // 깨지지 않았다
+  })
+})
+
+/**
+ * 실제로 쓰이는 견적서 두 벌.
+ *
+ * 사장님이 가져다 준 남의 회사 양식이다. 둘 다 내가 처음 만든 규칙으로는
+ * 제대로 읽지 못했다 — 여기에 박아 두고 앞으로 깨지지 않게 지킨다.
+ */
+describe('진짜 쓰이는 양식', () => {
+  const run = (rows: string[][]) => {
+    const headerRow = findHeaderRow(rows)
+    const headerSpan = detectHeaderSpan(rows, headerRow)
+    const cols = guessMapping(rows, headerRow, headerSpan)
+    return { headerRow, headerSpan, cols, ...parseRows(rows, { headerRow, headerSpan, cols }) }
+  }
+
+  it('재료비·노무비·경비·합계가 따로 있는 양식', () => {
+    const r = run([
+      ['품명','규격','물량산출근거','단위','수량','재료비','','노무비','','경비','','합계','','비고'],
+      ['','','','','','단가','금액','단가','금액','단가','금액','단가','금액',''],
+      ['8.방수공사/타일공사','검산ok','','','','','-','','-','','-','','-',''],
+      ['전체방수','맴브레인 방수','','개소','6.00','500,000','3,000,000','','-','','-','500,000','3,000,000',''],
+      ['레미탈','20kg','','포','70.00','5,000','350,000','5,000','350,000','','-','10,000','700,000',''],
+      ['타일 시공비','','','평','28.74','','-','60,000','1,724,250','','-','60,000','1,724,250',''],
+      ['방수소계','','','','','','6,289,000','','2,474,250','','-','','8,763,250',''],
+    ])
+    expect(r.headerSpan).toBe(2)                 // 두 줄 머리글
+    expect(r.cols.unit_price).toBe(11)           // 재료비 단가(5)가 아니라 합계 단가
+    expect(r.cols.amount).toBe(12)               // 합계 금액
+    expect(r.cols.cost_price).toBe(5)            // 재료비 단가는 원가 자리로
+    expect(r.items.filter(i => !i.is_header)).toHaveLength(3)
+    expect(r.items[0].is_header).toBe(true)      // '8.방수공사/타일공사'
+    expect(r.skippedTotals).toBe(1)              // '방수소계'
+    // 노무비만 있는 줄도 합계 단가로 제대로 잡힌다
+    expect(r.items[3].unit_price).toBe(60000)
+  })
+
+  it('구분·항목이 세로로 병합되고 아래에 특기사항이 붙은 양식', () => {
+    const r = run([
+      ['내      역','','단 가','수 량','금 액'],
+      ['구 분','항 목','','',''],
+      ['인테리어','■ 시골 2층 슬라브주택 25평 보수','','','-'],
+      ['Design &','1) 옥상방수작업 (우레탄계열 방수)','','','-'],
+      ['리모델링','그라인딩,크랙퍼티,하도,중도,상도','128,000','25','3,200,000'],
+      ['','2) 주택 1층,2층 난간벽,처마,베란다','5,300,000','1','5,300,000'],
+      ['','소계','','','8,500,000'],
+      ['경비','일반경비','100,000','5','500,000'],
+      ['','공구손료','50,000','5','250,000'],
+      ['합계(VAT별도)','','','','9,250,000'],
+      ['[특기사항]','','','',''],
+      ['1. 유효기간 : 견적일로부터 30일','','','',''],
+      ['4. 견적 미포함사항, 변경사항 은 공사시 협의 하여 결정한다','','','',''],
+    ])
+    expect(r.headerSpan).toBe(2)
+    expect(r.cols.category).toBe(0)              // '내역구분'
+    expect(r.cols.name).toBe(1)                  // '내역항목'
+
+    const rows = r.items.filter(i => !i.is_header)
+    // 경비는 셈줄이 아니라 내역이다 — 예전에는 통째로 빠졌다
+    expect(rows.map(i => i.name)).toContain('일반경비')
+    expect(rows.map(i => i.name)).toContain('공구손료')
+    // 합계(VAT별도) 아래 특기사항은 딸려 오지 않는다
+    expect(r.items.some(i => i.name?.startsWith('[특기사항]'))).toBe(false)
+    expect(r.items.some(i => i.name?.includes('유효기간'))).toBe(false)
+    // 원본 합계와 딱 맞는다
+    expect(r.items.reduce((s, i) => s + i.amount, 0)).toBe(9250000)
   })
 })

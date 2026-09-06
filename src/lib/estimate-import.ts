@@ -26,25 +26,47 @@ export const FIELD_LABEL: Record<Field, string> = {
   remark: '비고',
 }
 
-/** 엑셀 머리글에 흔히 쓰이는 말들 — 붙여 쓰거나 띄어 쓴 것 모두 잡는다 */
+/**
+ * 머리글에 흔히 쓰이는 말들. **앞에 적힌 것이 우선**이다.
+ *
+ * 건설 견적서는 재료비·노무비·경비·합계마다 단가와 금액이 따로 있는 일이 잦다.
+ * 그럴 때 재료비 단가를 집으면 노무비가 통째로 빠지므로 '합계' 쪽을 먼저 본다.
+ * (두 줄 머리글은 '재료비 단가' 처럼 위아래를 붙여 하나로 만들어 둔다)
+ */
 const HEADER_HINTS: Record<Field, string[]> = {
   category: ['공종', '공정', '구분', '분류', '항목구분'],
-  name: ['품명', '품목', '내역', '공사명', '명칭', '작업명'],
+  name: ['품명', '품목', '항목', '내역', '공사명', '명칭', '작업명'],
   spec: ['규격', '사양', '스펙', '크기'],
   unit: ['단위'],
   qty: ['수량', '물량', '개수'],
-  unit_price: ['단가', '단가(원)', '재료비단가', '일위단가'],
-  cost_price: ['원가', '매입가', '매입단가', '원가단가'],
-  amount: ['금액', '합계금액', '공급가', '계'],
+  unit_price: ['합계단가', '계단가', '단가', '단가(원)', '일위단가'],
+  cost_price: ['원가', '매입가', '매입단가', '원가단가', '재료비단가'],
+  amount: ['합계금액', '계금액', '금액', '공급가'],
   remark: ['비고', '메모', '참고', '특이사항'],
 }
 
-/** 내역이 아니라 표 아래쪽 셈줄인 것들 — 가져오면 금액이 겹쳐 셈이 어긋난다 */
-const TOTAL_WORDS = [
-  '소계', '합계', '총계', '총합', '누계', '계',
-  '부가세', '부가가치세', 'vat', '공급가액', '공급가',
-  '경비', '일반관리비', '이윤', '할인', '에누리',
+/**
+ * 내역이 아니라 셈줄인 것들 — 가져오면 금액이 겹쳐 셈이 어긋난다.
+ *
+ * '소계' 뿐 아니라 '방수소계'·'철거공사 소계' 처럼 앞에 공사 이름을 붙여 쓰는 일이
+ * 훨씬 많다. 그래서 '~로 끝나는' 것도 잡되, '계단 설치' 같은 품명을 오해하지 않게
+ * 끝말만 본다('계단'은 '계' 로 끝나지 않는다).
+ */
+const TOTAL_PARTS = [
+  '소계', '합계', '총계', '총합', '누계',
+  '부가세', '부가가치세', '공급가액', '공급가',
+  '일반관리비', '이윤',
 ]
+/**
+ * 이건 그 칸 전체가 이 말일 때만 셈줄로 본다.
+ *
+ * '경비' 는 넣지 않는다 — 견적서에서 경비는 셈줄이 아니라 '일반경비'·'공구손료'
+ * 같은 실제 내역인 일이 많다. 셈줄로 오해하면 그 금액이 통째로 빠진다.
+ */
+const TOTAL_EXACT = ['계', 'vat', '할인', '에누리']
+
+/** 이 말로 시작하면 그 아래는 표가 끝난 것으로 본다 (특기사항·안내문이 이어진다) */
+const END_PARTS = ['합계', '총계', '총합']
 
 export interface Sheet {
   name: string
@@ -79,6 +101,8 @@ export function decodeCsv(buf: ArrayBuffer): string {
 export interface Mapping {
   /** 머리글이 있는 줄 (0부터). -1 이면 머리글 없이 첫 줄부터 값 */
   headerRow: number
+  /** 머리글이 몇 줄인지. 2 면 아랫줄까지 머리글이고 내역은 그다음부터 */
+  headerSpan: 1 | 2
   /** 자리 → 열 번호. 없으면 -1 */
   cols: Record<Field, number>
 }
@@ -94,12 +118,32 @@ export function toNum(v: unknown): number {
 
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, '').toLowerCase()
 
-/** 셈줄(소계·합계·부가세…)인지 */
+/**
+ * 셈줄(소계·합계·부가세…)인지.
+ *
+ * '방수소계'·'철거공사 소계' 처럼 앞에 공사 이름을 붙이거나, '합계(VAT별도)'
+ * 처럼 뒤에 토를 다는 일이 흔하다. 그래서 앞뒤 어느 쪽에 붙어도 잡는다.
+ * 대신 '계단 설치' 같은 품명을 오해하지 않게 '계' 는 그 칸 전체일 때만 본다.
+ */
 export function isTotalRow(cells: string[]): boolean {
-  const joined = cells.map(norm).filter(Boolean)
-  if (joined.length === 0) return false
-  // 앞쪽 두어 칸에 셈 낱말만 덩그러니 있는 줄을 잡는다
-  return joined.slice(0, 3).some(c => TOTAL_WORDS.some(w => c === w || c === w + '금액'))
+  const head = cells.slice(0, 3).map(norm).filter(Boolean)
+  if (head.length === 0) return false
+  return head.some(c =>
+    TOTAL_EXACT.some(w => c === w || c === w + '금액') ||
+    TOTAL_PARTS.some(w => c.startsWith(w) || c.endsWith(w))
+  )
+}
+
+/**
+ * 표가 여기서 끝나는지 (합계 줄).
+ *
+ * 견적서는 합계 아래에 특기사항·안내문이 이어지는 일이 많다. 그것까지 내역으로
+ * 읽으면 '[특기사항]'·'1. 유효기간 …' 이 품명으로 딸려 들어온다.
+ * 공정마다 나오는 '소계' 는 여기 넣지 않는다 — 아래에 내역이 더 있다.
+ */
+export function isEndRow(cells: string[]): boolean {
+  const head = cells.slice(0, 3).map(norm).filter(Boolean)
+  return head.some(c => END_PARTS.some(w => c.startsWith(w)))
 }
 
 /**
@@ -120,28 +164,80 @@ export function findHeaderRow(rows: string[][]): number {
   return -1
 }
 
+/**
+ * 머리글이 두 줄인지 본다.
+ *
+ * 건설 견적서는 위에 '재료비·노무비·경비·합계'를 병합해 놓고 그 아래에
+ * '단가·금액'을 두는 일이 흔하다. 아랫줄에 단가·금액 같은 말이 둘 넘게 있으면
+ * 두 줄짜리 머리글로 본다.
+ */
+export function detectHeaderSpan(rows: string[][], headerRow: number): 1 | 2 {
+  const next = rows[headerRow + 1]
+  if (headerRow < 0 || !next) return 1
+
+  // 아랫줄이 '머리글스러운가' 로 가른다 — 아는 낱말이 있고 숫자는 하나도 없을 때.
+  //   위: 재료비 | 노무비 | 합계     아래: 단가 | 금액 | 단가 | 금액
+  //   위: 내  역(두 칸 병합)         아래: 구 분 | 항 목
+  // 내역 줄이라면 수량·단가 자리에 숫자가 들어 있으므로 이걸로 갈린다.
+  let words = 0
+  for (const cell of next) {
+    const c = norm(cell)
+    if (!c) continue
+    if (/[0-9]/.test(c)) return 1        // 숫자가 있으면 내역 줄이다
+    if (Object.values(HEADER_HINTS).some(list => list.some(h => c === norm(h)))) words++
+  }
+  return words >= 2 ? 2 : 1
+}
+
+/**
+ * 머리글 줄(들)을 한 줄짜리 이름으로 만든다.
+ *
+ * 병합된 칸은 첫 칸에만 값이 오고 뒤는 비어 있으므로 왼쪽 값을 이어 쓴다.
+ * '재료비 + 단가' → '재료비단가', '합계 + 금액' → '합계금액'.
+ * 그래야 어느 단가가 재료비고 어느 것이 합계인지 가릴 수 있다.
+ */
+export function buildHeaderLabels(rows: string[][], headerRow: number, span: 1 | 2): string[] {
+  if (headerRow < 0 || !rows[headerRow]) return []
+  const top = rows[headerRow]
+  const sub = span === 2 ? (rows[headerRow + 1] ?? []) : []
+  const width = Math.max(top.length, sub.length)
+
+  const labels: string[] = []
+  let carried = ''
+  for (let c = 0; c < width; c++) {
+    const t = norm(top[c])
+    const b = norm(sub[c])
+    // 위 칸이 비었으면 병합의 이어짐으로 보고 왼쪽 값을 물려받는다
+    if (t) carried = t
+    labels.push(span === 2 && b ? `${carried}${b}` : (t || b || ''))
+  }
+  return labels
+}
+
 /** 머리글 낱말을 보고 자리를 맞혀 본다 */
-export function guessMapping(rows: string[][], headerRow: number): Record<Field, number> {
+export function guessMapping(rows: string[][], headerRow: number, span: 1 | 2 = 1): Record<Field, number> {
   const cols = Object.fromEntries(
     (Object.keys(FIELD_LABEL) as Field[]).map(f => [f, -1])
   ) as Record<Field, number>
 
   if (headerRow < 0 || !rows[headerRow]) return cols
 
-  const header = rows[headerRow].map(norm)
+  const header = buildHeaderLabels(rows, headerRow, span)
   const taken = new Set<number>()
 
-  // 정확히 같은 낱말을 먼저 가져가고, 그다음 '들어 있는' 것을 본다
+  // 힌트에 적힌 순서가 우선순위다 ('합계단가' 를 '재료비단가' 보다 먼저 집는다).
+  // 정확히 같은 것을 한 바퀴 다 돌고 나서 '들어 있는' 것을 본다.
   for (const pass of ['exact', 'loose'] as const) {
     for (const f of Object.keys(HEADER_HINTS) as Field[]) {
       if (cols[f] >= 0) continue
-      for (let c = 0; c < header.length; c++) {
-        if (taken.has(c) || !header[c]) continue
-        const hit = HEADER_HINTS[f].some(h => {
-          const n = norm(h)
-          return pass === 'exact' ? header[c] === n : header[c].includes(n)
-        })
-        if (hit) { cols[f] = c; taken.add(c); break }
+      outer:
+      for (const h of HEADER_HINTS[f]) {
+        const n = norm(h)
+        for (let c = 0; c < header.length; c++) {
+          if (taken.has(c) || !header[c]) continue
+          const hit = pass === 'exact' ? header[c] === n : header[c].includes(n)
+          if (hit) { cols[f] = c; taken.add(c); break outer }
+        }
       }
     }
   }
@@ -169,7 +265,7 @@ export interface ParseResult {
  * - 아무것도 없는 줄은 버린다
  */
 export function parseRows(rows: string[][], m: Mapping): ParseResult {
-  const start = m.headerRow < 0 ? 0 : m.headerRow + 1
+  const start = m.headerRow < 0 ? 0 : m.headerRow + (m.headerSpan ?? 1)
   const get = (row: string[], f: Field) => m.cols[f] >= 0 ? (row[m.cols[f]] ?? '') : ''
   const text = (v: string) => { const s = String(v ?? '').trim(); return s || null }
 
@@ -181,6 +277,8 @@ export function parseRows(rows: string[][], m: Mapping): ParseResult {
     const row = rows[r]
     if (!row || row.every(c => !String(c ?? '').trim())) continue
 
+    // 합계를 만나면 표가 끝난 것으로 보고 그만 읽는다 (아래는 특기사항·안내문)
+    if (isEndRow(row)) { skippedTotals++; break }
     if (isTotalRow(row)) { skippedTotals++; continue }
 
     const name = text(get(row, 'name'))

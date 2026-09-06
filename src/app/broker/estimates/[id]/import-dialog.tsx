@@ -12,7 +12,7 @@ import { useToast } from '@/components/toast'
 import { X, Upload, FileSpreadsheet, AlertTriangle } from 'lucide-react'
 import { fmtComma, type EstimateItem } from '@/lib/estimate'
 import {
-  FIELD_LABEL, decodeCsv, findHeaderRow, guessMapping, parseRows,
+  FIELD_LABEL, decodeCsv, detectHeaderSpan, findHeaderRow, guessMapping, parseRows,
   type Field, type Mapping, type ParseResult, type Sheet,
 } from '@/lib/estimate-import'
 
@@ -79,7 +79,8 @@ export function ImportDialog({ hasItems, onClose, onApply }: Props) {
     setSheetIdx(idx)
     const rows = list[idx].rows
     const headerRow = findHeaderRow(rows)
-    setMap({ headerRow, cols: guessMapping(rows, headerRow) })
+    const span = detectHeaderSpan(rows, headerRow)
+    setMap({ headerRow, headerSpan: span, cols: guessMapping(rows, headerRow, span) })
   }
 
   const setCol = (f: Field, col: number) =>
@@ -87,8 +88,9 @@ export function ImportDialog({ hasItems, onClose, onApply }: Props) {
 
   const setHeaderRow = (r: number) => {
     if (!sheet) return
-    // 머리글 줄을 바꾸면 열도 다시 맞혀 준다
-    setMap({ headerRow: r, cols: guessMapping(sheet.rows, r) })
+    // 머리글 줄을 바꾸면 몇 줄짜리인지와 열을 다시 맞혀 준다
+    const span = detectHeaderSpan(sheet.rows, r)
+    setMap({ headerRow: r, headerSpan: span, cols: guessMapping(sheet.rows, r, span) })
   }
 
   const apply = (mode: 'replace' | 'append') => {
