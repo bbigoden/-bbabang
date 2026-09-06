@@ -12,7 +12,9 @@
 import type { EstimateItem } from './estimate'
 
 /** 내역 한 줄에 채울 수 있는 자리 */
-export type Field = 'category' | 'name' | 'spec' | 'unit' | 'qty' | 'unit_price' | 'cost_price' | 'amount' | 'remark'
+export type Field =
+  | 'category' | 'name' | 'spec' | 'unit' | 'qty'
+  | 'unit_price' | 'material_price' | 'labor_price' | 'cost_price' | 'amount' | 'remark'
 
 export const FIELD_LABEL: Record<Field, string> = {
   category: '공종',
@@ -20,7 +22,9 @@ export const FIELD_LABEL: Record<Field, string> = {
   spec: '규격',
   unit: '단위',
   qty: '수량',
-  unit_price: '단가',
+  unit_price: '단가(합계)',
+  material_price: '재료비 단가',
+  labor_price: '인건비 단가',
   cost_price: '원가(내부용)',
   amount: '금액',
   remark: '비고',
@@ -40,7 +44,9 @@ const HEADER_HINTS: Record<Field, string[]> = {
   unit: ['단위'],
   qty: ['수량', '물량', '개수'],
   unit_price: ['합계단가', '계단가', '단가', '단가(원)', '일위단가'],
-  cost_price: ['원가', '매입가', '매입단가', '원가단가', '재료비단가'],
+  material_price: ['재료비단가', '자재비단가', '재료단가', '자재단가'],
+  labor_price: ['노무비단가', '인건비단가', '노무단가', '인건단가', '시공비단가'],
+  cost_price: ['원가', '매입가', '매입단가', '원가단가'],
   amount: ['합계금액', '계금액', '금액', '공급가'],
   remark: ['비고', '메모', '참고', '특이사항'],
 }
@@ -284,7 +290,10 @@ export function parseRows(rows: string[][], m: Mapping): ParseResult {
     const name = text(get(row, 'name'))
     const category = text(get(row, 'category'))
     const qty = toNum(get(row, 'qty'))
-    const unitPrice = toNum(get(row, 'unit_price'))
+    const material = toNum(get(row, 'material_price'))
+    const labor = toNum(get(row, 'labor_price'))
+    // 합계 단가 칸이 없고 재료비·노무비만 있는 양식도 있다 — 그때는 둘을 더해 쓴다
+    const unitPrice = toNum(get(row, 'unit_price')) || (material + labor)
     const excelAmount = m.cols.amount >= 0 ? toNum(get(row, 'amount')) : null
 
     // 품명도 공종도 없으면 내역 줄이 아니다
@@ -302,6 +311,8 @@ export function parseRows(rows: string[][], m: Mapping): ParseResult {
       unit: isHeader ? null : text(get(row, 'unit')),
       qty: isHeader ? 0 : qty,
       unit_price: isHeader ? 0 : unitPrice,
+      material_price: isHeader ? 0 : material,
+      labor_price: isHeader ? 0 : labor,
       cost_price: isHeader ? 0 : toNum(get(row, 'cost_price')),
       amount: isHeader ? 0 : amount,
       remark: isHeader ? null : text(get(row, 'remark')),

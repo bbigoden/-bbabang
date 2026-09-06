@@ -595,3 +595,150 @@ ALTER TABLE estimates
   ALTER COLUMN issue_date SET DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')::date;
 ALTER TABLE estimate_invoices
   ALTER COLUMN issue_date SET DEFAULT (NOW() AT TIME ZONE 'Asia/Seoul')::date;
+
+-- ── 재료비·인건비 나누기 (2026-09-06) ──────────────────────────
+-- 건설 견적서는 한 줄의 단가가 '재료비 + 노무비' 로 갈리는 것이 표준이다.
+-- 거래처가 값을 깎자고 할 때 어디가 얼마인지 짚어 줄 수 있다.
+--
+--   unit_price      거래처에 청구하는 단가 (= material + labor, 나눠 적었을 때)
+--   material_price  그중 재료비
+--   labor_price     그중 인건비
+--   cost_price      내가 실제로 치르는 원가 — 내부용이라 견적서에 나가지 않는다
+--
+-- 둘 다 0 이면 예전처럼 unit_price 하나만 쓴 것으로 본다(기존 견적서 그대로).
+ALTER TABLE estimate_items
+  ADD COLUMN IF NOT EXISTS material_price BIGINT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS labor_price    BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE estimate_item_catalog
+  ADD COLUMN IF NOT EXISTS material_price BIGINT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS labor_price    BIGINT NOT NULL DEFAULT 0;
+
+-- 아래 세 함수는 위쪽에도 정의가 있지만 그때는 이 두 칸이 없었다.
+-- CREATE OR REPLACE 라 나중에 적힌 이쪽이 최종본이다.
+
+CREATE OR REPLACE FUNCTION public.replace_estimate_items(p_estimate_id uuid, p_items jsonb)
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $fn$
+DECLARE
+  v_count integer := 0;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM estimates WHERE id = p_estimate_id) THEN
+    RAISE EXCEPTION '견적서를 찾을 수 없습니다';
+  END IF;
+
+  DELETE FROM estimate_items WHERE estimate_id = p_estimate_id;
+
+  INSERT INTO estimate_items
+    (estimate_id, sort_order, is_header, category, name, spec, unit,
+     qty, unit_price, material_price, labor_price, cost_price, amount, remark)
+  SELECT p_estimate_id,
+         COALESCE((x->>'sort_order')::int, 0),
+         COALESCE((x->>'is_header')::boolean, false),
+         x->>'category', x->>'name', x->>'spec', x->>'unit',
+         COALESCE((x->>'qty')::numeric, 0),
+         COALESCE((x->>'unit_price')::bigint, 0),
+         COALESCE((x->>'material_price')::bigint, 0),
+         COALESCE((x->>'labor_price')::bigint, 0),
+         COALESCE((x->>'cost_price')::bigint, 0),
+         COALESCE((x->>'amount')::bigint, 0),
+         x->>'remark'
+    FROM jsonb_array_elements(COALESCE(p_items, '[]'::jsonb)) AS x;
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$fn$;
+
+CREATE OR REPLACE FUNCTION public.sync_estimate_catalog(p_items jsonb)
+RETURNS integer
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $fn$
+DECLARE
+  v_owner uuid;
+  v_count integer := 0;
+BEGIN
+  SELECT id INTO v_owner FROM broker_profiles WHERE user_id = auth.uid() LIMIT 1;
+  IF v_owner IS NULL THEN RETURN 0; END IF;
+
+  INSERT INTO estimate_item_catalog
+    (owner_broker_id, category, name, spec, unit,
+     unit_price, material_price, labor_price, cost_price, use_count, last_used_at)
+  SELECT v_owner,
+         NULLIF(TRIM(x->>'category'), ''),
+         TRIM(x->>'name'),
+         NULLIF(TRIM(x->>'spec'), ''),
+         NULLIF(TRIM(x->>'unit'), ''),
+         COALESCE((x->>'unit_price')::bigint, 0),
+         COALESCE((x->>'material_price')::bigint, 0),
+         COALESCE((x->>'labor_price')::bigint, 0),
+         COALESCE((x->>'cost_price')::bigint, 0),
+         1, NOW()
+    FROM jsonb_array_elements(p_items) AS x
+   WHERE COALESCE(TRIM(x->>'name'), '') <> ''
+  ON CONFLICT (owner_broker_id, name, spec, unit) DO UPDATE
+    SET unit_price     = EXCLUDED.unit_price,
+        material_price = EXCLUDED.material_price,
+        labor_price    = EXCLUDED.labor_price,
+        cost_price     = EXCLUDED.cost_price,
+        category       = COALESCE(EXCLUDED.category, estimate_item_catalog.category),
+        use_count      = estimate_item_catalog.use_count + 1,
+        last_used_at   = NOW();
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$fn$;
+
+-- 공개 열람에도 재료비·인건비를 내려준다. 원가는 여전히 내보내지 않는다.
+CREATE OR REPLACE FUNCTION public.get_shared_estimate(p_token text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $fn$
+DECLARE
+  v_share estimate_shares%ROWTYPE;
+  v_est   estimates%ROWTYPE;
+  v_items jsonb;
+BEGIN
+  SELECT * INTO v_share FROM estimate_shares WHERE token = p_token;
+  IF NOT FOUND OR v_share.revoked THEN RETURN NULL; END IF;
+  IF v_share.expires_at IS NOT NULL AND v_share.expires_at < NOW() THEN RETURN NULL; END IF;
+
+  SELECT * INTO v_est FROM estimates WHERE id = v_share.estimate_id;
+  IF NOT FOUND THEN RETURN NULL; END IF;
+
+  UPDATE estimate_shares
+     SET view_count = view_count + 1,
+         first_viewed_at = COALESCE(first_viewed_at, NOW()),
+         last_viewed_at = NOW()
+   WHERE id = v_share.id;
+
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'sort_order', i.sort_order, 'is_header', i.is_header,
+           'category', i.category, 'name', i.name, 'spec', i.spec,
+           'unit', i.unit, 'qty', i.qty, 'unit_price', i.unit_price,
+           'material_price', i.material_price, 'labor_price', i.labor_price,
+           'amount', i.amount, 'remark', i.remark
+         ) ORDER BY i.sort_order), '[]'::jsonb)
+    INTO v_items
+    FROM estimate_items i WHERE i.estimate_id = v_est.id;
+
+  RETURN jsonb_build_object(
+    'estimate_no', v_est.estimate_no, 'issue_date', v_est.issue_date,
+    'valid_days', v_est.valid_days, 'client_name', v_est.client_name,
+    'client_contact', v_est.client_contact, 'site_address', v_est.site_address,
+    'project_name', v_est.project_name, 'period', v_est.period,
+    'payment_terms', v_est.payment_terms, 'notes', v_est.notes,
+    'overhead_rate', v_est.overhead_rate, 'discount', v_est.discount,
+    'vat_mode', v_est.vat_mode, 'subtotal', v_est.subtotal,
+    'overhead_amount', v_est.overhead_amount, 'supply_amount', v_est.supply_amount,
+    'vat', v_est.vat, 'total', v_est.total,
+    'company', v_est.company_snapshot - 'stamp_path' - 'default_notes',
+    'items', v_items
+  );
+END;
+$fn$;

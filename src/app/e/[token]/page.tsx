@@ -11,7 +11,9 @@
 import { Fragment } from 'react'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { fmtComma, koreanAmount, sectionSums, validUntil, type VatMode } from '@/lib/estimate'
+import {
+  fmtComma, koreanAmount, sectionSums, splitTotals, isSplitPricing, validUntil, type VatMode,
+} from '@/lib/estimate'
 import { FileText } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -25,6 +27,8 @@ interface SharedItem {
   unit: string | null
   qty: number
   unit_price: number
+  material_price: number
+  labor_price: number
   amount: number
   remark: string | null
 }
@@ -98,6 +102,10 @@ export default async function SharedEstimatePage(
   const until = validUntil(e.issue_date, e.valid_days)
   // 공종 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
   const subs = new Map(sectionSums(e.items).map(x => [x.afterIndex, x]))
+  // 재료비·인건비를 나눠 적었으면 그대로 보여 준다 (원가는 나가지 않는다)
+  const split = isSplitPricing(e.items)
+  const st = split ? splitTotals(e.items) : null
+  const cols = split ? 9 : 7
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8 dark:bg-gray-950">
@@ -143,7 +151,7 @@ export default async function SharedEstimatePage(
           </dl>
 
           <div className="mb-4 overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-sm">
+            <table className={`w-full ${split ? 'min-w-[46rem]' : 'min-w-[36rem]'} text-sm`}>
               <thead className="border-y border-gray-300 bg-gray-50 text-xs dark:border-gray-700 dark:bg-gray-950/50">
                 <tr>
                   <th className="px-2 py-2 text-left font-bold">공종</th>
@@ -151,6 +159,12 @@ export default async function SharedEstimatePage(
                   <th className="px-2 py-2 text-left font-bold">규격</th>
                   <th className="px-2 py-2 text-center font-bold">단위</th>
                   <th className="px-2 py-2 text-right font-bold">수량</th>
+                  {split ? (
+                    <>
+                      <th className="px-2 py-2 text-right font-bold">재료비</th>
+                      <th className="px-2 py-2 text-right font-bold">인건비</th>
+                    </>
+                  ) : null}
                   <th className="px-2 py-2 text-right font-bold">단가</th>
                   <th className="px-2 py-2 text-right font-bold">금액</th>
                 </tr>
@@ -160,7 +174,7 @@ export default async function SharedEstimatePage(
                   <Fragment key={i}>
                     {it.is_header ? (
                       <tr className="bg-gray-50 dark:bg-gray-800/40">
-                        <td colSpan={7} className="px-2 py-1.5 font-bold text-gray-800 dark:text-gray-200">
+                        <td colSpan={cols} className="px-2 py-1.5 font-bold text-gray-800 dark:text-gray-200">
                           {it.name ?? it.category}
                         </td>
                       </tr>
@@ -181,6 +195,16 @@ export default async function SharedEstimatePage(
                         <td className="px-2 py-1.5 text-gray-600 dark:text-gray-400">{it.spec ?? ''}</td>
                         <td className="px-2 py-1.5 text-center text-gray-600 dark:text-gray-400">{it.unit ?? ''}</td>
                         <td className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">{it.qty}</td>
+                        {split ? (
+                          <>
+                            <td className="px-2 py-1.5 text-right text-gray-500">
+                              {it.material_price ? fmtComma(it.material_price) : ''}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-gray-500">
+                              {it.labor_price ? fmtComma(it.labor_price) : ''}
+                            </td>
+                          </>
+                        ) : null}
                         <td className="px-2 py-1.5 text-right text-gray-600 dark:text-gray-400">{fmtComma(it.unit_price)}</td>
                         <td className="px-2 py-1.5 text-right font-semibold text-gray-900 dark:text-white">{fmtComma(it.amount)}</td>
                       </tr>
@@ -190,7 +214,7 @@ export default async function SharedEstimatePage(
                         거래처는 총액보다 "방수만 얼마요?" 를 먼저 묻는다. */}
                     {subs.has(i) ? (
                       <tr className="border-y border-gray-200 bg-gray-100/70 dark:border-gray-700 dark:bg-gray-800/60">
-                        <td colSpan={6} className="px-2 py-1.5 text-right font-bold text-gray-600 dark:text-gray-400">
+                        <td colSpan={cols - 1} className="px-2 py-1.5 text-right font-bold text-gray-600 dark:text-gray-400">
                           {subs.get(i)!.name} 소계
                         </td>
                         <td className="px-2 py-1.5 text-right font-bold text-gray-900 dark:text-white">
@@ -206,6 +230,12 @@ export default async function SharedEstimatePage(
 
           <div className="mb-6 flex justify-end">
             <dl className="w-full max-w-xs text-sm">
+              {st ? (
+                <>
+                  <Sum k="재료비" v={st.material} />
+                  <Sum k="인건비" v={st.labor} />
+                </>
+              ) : null}
               <Sum k="소계" v={e.subtotal} />
               {e.overhead_amount > 0 && <Sum k={`경비 (${(e.overhead_rate * 100).toFixed(1)}%)`} v={e.overhead_amount} />}
               {e.discount > 0 && <Sum k="할인" v={-e.discount} />}

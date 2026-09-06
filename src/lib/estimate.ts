@@ -19,11 +19,56 @@ export interface EstimateItem {
   spec: string | null
   unit: string | null
   qty: number
+  /** 거래처에 청구하는 단가. 나눠 적었으면 material_price + labor_price 와 같다 */
   unit_price: number
+  /** 단가 중 재료비 (0 이면 나누지 않은 것) */
+  material_price: number
+  /** 단가 중 인건비 (0 이면 나누지 않은 것) */
+  labor_price: number
   /** 원가 (내부용). 견적서 PDF 에는 절대 내보내지 않는다 */
   cost_price: number
   amount: number
   remark: string | null
+}
+
+/**
+ * 재료비·인건비를 나눠 적었는지.
+ *
+ * 둘 다 0 이면 예전처럼 단가 하나만 쓴 것이다. 그때는 견적서에도 단가 한 칸으로
+ * 찍어 표를 좁게 쓴다 — 안 쓰는 칸을 두 개나 벌려 둘 이유가 없다.
+ */
+export function isSplitPricing(
+  items: Pick<EstimateItem, 'is_header' | 'material_price' | 'labor_price'>[]
+): boolean {
+  return items.some(it =>
+    !it.is_header && ((Number(it.material_price) || 0) > 0 || (Number(it.labor_price) || 0) > 0))
+}
+
+/**
+ * 나눠 적었으면 재료비+인건비를 단가로 삼는다.
+ * 한쪽만 적었을 때도 합이 곧 단가다(인건비만 드는 일도 흔하다).
+ */
+export function effectiveUnitPrice(
+  it: Pick<EstimateItem, 'unit_price' | 'material_price' | 'labor_price'>
+): number {
+  const m = Number(it.material_price) || 0
+  const l = Number(it.labor_price) || 0
+  return m + l > 0 ? m + l : (Number(it.unit_price) || 0)
+}
+
+/** 내역 전체의 재료비·인건비 합 (나눠 적은 줄만 센다) */
+export function splitTotals(
+  items: Pick<EstimateItem, 'is_header' | 'qty' | 'material_price' | 'labor_price'>[]
+): { material: number; labor: number } {
+  let material = 0
+  let labor = 0
+  for (const it of items) {
+    if (it.is_header) continue
+    const q = Number(it.qty) || 0
+    material += Math.round(q * (Number(it.material_price) || 0))
+    labor += Math.round(q * (Number(it.labor_price) || 0))
+  }
+  return { material, labor }
 }
 
 /** 품목 사전 — 내역에서 품명을 치면 과거에 쓴 항목이 단가·원가와 함께 뜬다 */
@@ -34,6 +79,8 @@ export interface CatalogItem {
   spec: string | null
   unit: string | null
   unit_price: number
+  material_price: number
+  labor_price: number
   cost_price: number
   use_count: number
 }
@@ -387,13 +434,15 @@ const toItems = (rows: PresetRow[]): EstimateItem[] => {
     if (category !== lastCat) {
       out.push({
         sort_order: order++, is_header: true, category, name: category,
-        spec: null, unit: null, qty: 0, unit_price: 0, cost_price: 0, amount: 0, remark: null,
+        spec: null, unit: null, qty: 0, unit_price: 0,
+        material_price: 0, labor_price: 0, cost_price: 0, amount: 0, remark: null,
       })
       lastCat = category
     }
     out.push({
       sort_order: order++, is_header: false, category, name, spec: spec || null,
-      unit, qty, unit_price: price, cost_price: 0, amount: lineAmount(qty, price), remark: null,
+      unit, qty, unit_price: price,
+      material_price: 0, labor_price: 0, cost_price: 0, amount: lineAmount(qty, price), remark: null,
     })
   }
   return out

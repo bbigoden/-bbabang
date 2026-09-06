@@ -286,12 +286,20 @@ describe('진짜 쓰이는 양식', () => {
     expect(r.headerSpan).toBe(2)                 // 두 줄 머리글
     expect(r.cols.unit_price).toBe(11)           // 재료비 단가(5)가 아니라 합계 단가
     expect(r.cols.amount).toBe(12)               // 합계 금액
-    expect(r.cols.cost_price).toBe(5)            // 재료비 단가는 원가 자리로
+    expect(r.cols.material_price).toBe(5)        // 재료비·노무비는 제 칸으로 간다
+    expect(r.cols.labor_price).toBe(7)
+    expect(r.cols.cost_price).toBe(-1)           // 원가(내가 치르는 값)는 이 표에 없다
     expect(r.items.filter(i => !i.is_header)).toHaveLength(3)
     expect(r.items[0].is_header).toBe(true)      // '8.방수공사/타일공사'
     expect(r.skippedTotals).toBe(1)              // '방수소계'
     // 노무비만 있는 줄도 합계 단가로 제대로 잡힌다
     expect(r.items[3].unit_price).toBe(60000)
+    expect(r.items[3].material_price).toBe(0)
+    expect(r.items[3].labor_price).toBe(60000)
+    // 재료비와 노무비가 둘 다 있는 줄(레미탈 5,000 + 5,000 = 10,000)
+    expect(r.items[2].material_price).toBe(5000)
+    expect(r.items[2].labor_price).toBe(5000)
+    expect(r.items[2].unit_price).toBe(10000)
   })
 
   it('구분·항목이 세로로 병합되고 아래에 특기사항이 붙은 양식', () => {

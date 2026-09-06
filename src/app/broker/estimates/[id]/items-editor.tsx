@@ -10,8 +10,11 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff } from 'lucide-react'
-import { fmtComma, lineAmount, type CatalogItem, type EstimateItem } from '@/lib/estimate'
+import { Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, SplitSquareHorizontal } from 'lucide-react'
+import {
+  fmtComma, lineAmount, effectiveUnitPrice, isSplitPricing,
+  type CatalogItem, type EstimateItem,
+} from '@/lib/estimate'
 
 const CELL = 'w-full bg-transparent px-2 py-1.5 text-sm outline-none focus:bg-blue-50 dark:text-white dark:focus:bg-blue-500/10 rounded'
 const UNITS = ['식', '㎡', 'M', 'EA', '개', '대', '조', '본', '통', '일']
@@ -26,12 +29,20 @@ interface Props {
 export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
   // 원가는 기본으로 숨긴다 — 화면을 거래처에 보여줄 일이 있다
   const [showCost, setShowCost] = useState(false)
+  // 재료비·인건비를 나눠 적는 칸. 이미 나눠 적은 견적서를 열면 저절로 켜진다
+  const [showSplit, setShowSplit] = useState(() => isSplitPricing(items))
 
   const patch = (idx: number, p: Partial<EstimateItem>) => {
     const next = items.map((it, i) => {
       if (i !== idx) return it
       const merged = { ...it, ...p }
-      if ('qty' in p || 'unit_price' in p) merged.amount = lineAmount(merged.qty, merged.unit_price)
+      // 재료비·인건비를 적었으면 그 합이 단가다. 둘 다 비었으면 단가를 그대로 쓴다.
+      if ('material_price' in p || 'labor_price' in p) {
+        merged.unit_price = effectiveUnitPrice(merged)
+      }
+      if ('qty' in p || 'unit_price' in p || 'material_price' in p || 'labor_price' in p) {
+        merged.amount = lineAmount(merged.qty, merged.unit_price)
+      }
       return merged
     })
     onChange(next)
@@ -43,7 +54,8 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
     const blank: EstimateItem = {
       sort_order: 0, is_header: isHeader,
       category: null, name: null, spec: null, unit: isHeader ? null : '식',
-      qty: isHeader ? 0 : 1, unit_price: 0, cost_price: 0, amount: 0, remark: null,
+      qty: isHeader ? 0 : 1, unit_price: 0,
+      material_price: 0, labor_price: 0, cost_price: 0, amount: 0, remark: null,
     }
     const pos = at ?? items.length
     onChange(reindex([...items.slice(0, pos), blank, ...items.slice(pos)]))
@@ -67,15 +79,26 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
       spec: c.spec,
       unit: c.unit ?? items[idx].unit,
       unit_price: c.unit_price,
+      // 사전에 갈라진 채로 담아 두었으면 그대로 불러온다
+      material_price: c.material_price ?? 0,
+      labor_price: c.labor_price ?? 0,
       cost_price: c.cost_price,
     })
   }
 
-  const colCount = showCost ? 11 : 10
+  const colCount = 10 + (showCost ? 1 : 0) + (showSplit ? 2 : 0)
 
   return (
     <div>
-      <div className="mb-2 flex justify-end">
+      <div className="mb-2 flex flex-wrap justify-end gap-2">
+        <button
+          onClick={() => setShowSplit(v => !v)}
+          title="한 줄의 단가를 재료비와 인건비로 갈라 적습니다"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400"
+        >
+          <SplitSquareHorizontal className="h-3.5 w-3.5" />
+          재료비·인건비 {showSplit ? '합치기' : '나누기'}
+        </button>
         <button
           onClick={() => setShowCost(v => !v)}
           className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400"
@@ -86,7 +109,9 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
-        <table className={`w-full ${showCost ? 'min-w-[64rem]' : 'min-w-[56rem]'} border-collapse text-sm`}>
+        <table className={`w-full ${
+          showCost && showSplit ? 'min-w-[80rem]' : showCost || showSplit ? 'min-w-[70rem]' : 'min-w-[56rem]'
+        } border-collapse text-sm`}>
           <thead className="bg-gray-50 text-xs text-gray-500 dark:bg-gray-950/50">
             <tr>
               <th className="w-8 px-1 py-2"></th>
@@ -95,7 +120,15 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
               <th className="w-32 px-2 py-2 text-left font-semibold">규격</th>
               <th className="w-16 px-2 py-2 text-left font-semibold">단위</th>
               <th className="w-20 px-2 py-2 text-right font-semibold">수량</th>
-              <th className="w-28 px-2 py-2 text-right font-semibold">단가</th>
+              {showSplit && (
+                <>
+                  <th className="w-28 px-2 py-2 text-right font-semibold">재료비</th>
+                  <th className="w-28 px-2 py-2 text-right font-semibold">인건비</th>
+                </>
+              )}
+              <th className="w-28 px-2 py-2 text-right font-semibold">
+                단가{showSplit && <span className="ml-1 font-normal text-gray-400">(합)</span>}
+              </th>
               {showCost && (
                 <th className="w-28 px-2 py-2 text-right font-semibold text-amber-700 dark:text-amber-500">
                   원가<span className="ml-1 font-normal">(내부)</span>
@@ -158,9 +191,31 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
                   <input type="number" step="0.01" value={it.qty || ''} onChange={e => patch(idx, { qty: Number(e.target.value) })}
                     aria-label="수량" className={`${CELL} text-right`} />
                 </td>
+                {showSplit && (
+                  <>
+                    <td className="px-1">
+                      <input type="number" value={it.material_price || ''}
+                        onChange={e => patch(idx, { material_price: Number(e.target.value) })}
+                        aria-label="재료비 단가" placeholder="0" className={`${CELL} text-right`} />
+                    </td>
+                    <td className="px-1">
+                      <input type="number" value={it.labor_price || ''}
+                        onChange={e => patch(idx, { labor_price: Number(e.target.value) })}
+                        aria-label="인건비 단가" placeholder="0" className={`${CELL} text-right`} />
+                    </td>
+                  </>
+                )}
                 <td className="px-1">
-                  <input type="number" value={it.unit_price || ''} onChange={e => patch(idx, { unit_price: Number(e.target.value) })}
-                    aria-label="단가" className={`${CELL} text-right`} />
+                  {/* 나눠 적는 중이면 단가는 둘의 합이라 직접 고치지 못하게 한다 —
+                      따로 고칠 수 있으면 합과 어긋난 단가가 남는다 */}
+                  {showSplit && (it.material_price > 0 || it.labor_price > 0) ? (
+                    <div className={`${CELL} bg-gray-50 text-right font-semibold text-gray-700 dark:bg-gray-950 dark:text-gray-300`}>
+                      {fmtComma(it.unit_price)}
+                    </div>
+                  ) : (
+                    <input type="number" value={it.unit_price || ''} onChange={e => patch(idx, { unit_price: Number(e.target.value) })}
+                      aria-label="단가" className={`${CELL} text-right`} />
+                  )}
                 </td>
                 {showCost && (
                   <td className="px-1">

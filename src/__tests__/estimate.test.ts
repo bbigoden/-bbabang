@@ -8,7 +8,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcTotals, koreanAmount, numberToKorean, lineAmount, validUntil,
-  fillTemplate, isExpired, calcStats, sectionSums, DEFAULT_PRESETS,
+  fillTemplate, isExpired, calcStats, sectionSums,
+  isSplitPricing, effectiveUnitPrice, splitTotals, DEFAULT_PRESETS,
   type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 
@@ -256,5 +257,50 @@ describe('공종별 소계', () => {
     const sums = sectionSums(items)
     const total = items.reduce((s, i) => i.is_header ? s : s + i.amount, 0)
     expect(sums.reduce((s, x) => s + x.amount, 0)).toBe(total)
+  })
+})
+
+describe('재료비·인건비 나누기', () => {
+  const R = (o: Partial<EstimateItem>) => ({
+    sort_order: 0, is_header: false, category: null, name: null, spec: null, unit: null,
+    qty: 0, unit_price: 0, material_price: 0, labor_price: 0, cost_price: 0,
+    amount: 0, remark: null, ...o,
+  }) as EstimateItem
+
+  it('한 줄이라도 나눠 적었으면 나눈 것으로 본다', () => {
+    expect(isSplitPricing([R({ unit_price: 10000 })])).toBe(false)
+    expect(isSplitPricing([R({ material_price: 5000 })])).toBe(true)
+    expect(isSplitPricing([R({ labor_price: 5000 })])).toBe(true)
+    // 머리줄은 세지 않는다
+    expect(isSplitPricing([R({ is_header: true, material_price: 5000 })])).toBe(false)
+  })
+
+  it('나눠 적었으면 둘의 합이 단가다', () => {
+    expect(effectiveUnitPrice(R({ material_price: 5000, labor_price: 5000 }))).toBe(10000)
+    expect(effectiveUnitPrice(R({ labor_price: 60000 }))).toBe(60000)        // 인건비만
+    expect(effectiveUnitPrice(R({ material_price: 26000 }))).toBe(26000)     // 재료비만
+  })
+
+  it('안 나눴으면 원래 단가를 그대로 쓴다', () => {
+    expect(effectiveUnitPrice(R({ unit_price: 13000 }))).toBe(13000)
+  })
+
+  it('재료비 합 + 인건비 합 = 전체 소계', () => {
+    const items = [
+      R({ is_header: true, name: '방수' }),
+      R({ name: '레미탈', qty: 70, material_price: 5000, labor_price: 5000, unit_price: 10000, amount: 700000 }),
+      R({ name: '방수공', qty: 2, labor_price: 200000, unit_price: 200000, amount: 400000 }),
+      R({ name: '드라이픽스', qty: 14, material_price: 26000, unit_price: 26000, amount: 364000 }),
+    ]
+    const st = splitTotals(items)
+    expect(st.material).toBe(70 * 5000 + 14 * 26000)   // 714,000
+    expect(st.labor).toBe(70 * 5000 + 2 * 200000)      // 750,000
+    expect(st.material + st.labor).toBe(calcTotals(items, { vat_mode: 'add' }).subtotal)
+  })
+
+  it('소수 수량도 원 단위로 맞아떨어진다', () => {
+    const items = [R({ name: '타일', qty: 28.74, labor_price: 60000, unit_price: 60000, amount: 1724400 })]
+    const st = splitTotals(items)
+    expect(st.material + st.labor).toBe(calcTotals(items, { vat_mode: 'add' }).subtotal)
   })
 })

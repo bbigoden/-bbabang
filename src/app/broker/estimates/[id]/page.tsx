@@ -72,7 +72,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       supabase.from('estimate_templates').select('id,name,items').eq('owner_broker_id', brokerId).order('sort_order'),
       supabase.from('estimate_sends').select('id,to_email,ok,error,sent_at').eq('estimate_id', id).order('sent_at', { ascending: false }),
       supabase.from('estimate_item_catalog')
-        .select('id,category,name,spec,unit,unit_price,cost_price,use_count')
+        .select('id,category,name,spec,unit,unit_price,material_price,labor_price,cost_price,use_count')
         .eq('owner_broker_id', brokerId).order('use_count', { ascending: false }).limit(500),
     ])
     setEst((e.data as Estimate) ?? null)
@@ -173,7 +173,8 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       .filter(it => !it.is_header && it.name?.trim())
       .map(it => ({
         category: it.category, name: it.name, spec: it.spec, unit: it.unit,
-        unit_price: it.unit_price, cost_price: it.cost_price,
+        unit_price: it.unit_price, material_price: it.material_price,
+        labor_price: it.labor_price, cost_price: it.cost_price,
       }))
     if (rows.length === 0) return
 
@@ -224,7 +225,8 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
           sort_order: i,
           is_header: it.is_header,
           category: it.category, name: it.name, spec: it.spec, unit: it.unit,
-          qty: it.qty, unit_price: it.unit_price, cost_price: it.cost_price,
+          qty: it.qty, unit_price: it.unit_price,
+          material_price: it.material_price, labor_price: it.labor_price, cost_price: it.cost_price,
           amount: it.amount, remark: it.remark,
         })),
       })
@@ -423,7 +425,8 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
         items.map((it, i) => ({
           estimate_id: data.id, sort_order: i, is_header: it.is_header,
           category: it.category, name: it.name, spec: it.spec, unit: it.unit,
-          qty: it.qty, unit_price: it.unit_price, cost_price: it.cost_price,
+          qty: it.qty, unit_price: it.unit_price,
+          material_price: it.material_price, labor_price: it.labor_price, cost_price: it.cost_price,
           amount: it.amount, remark: it.remark,
         }))
       )

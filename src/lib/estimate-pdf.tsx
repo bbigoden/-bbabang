@@ -9,7 +9,7 @@ import {
   Document, Page, Text, View, Image, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import {
-  fmtComma, koreanAmount, sectionSums, validUntil, INVOICE_KIND_LABEL,
+  fmtComma, koreanAmount, sectionSums, splitTotals, isSplitPricing, validUntil, INVOICE_KIND_LABEL,
   type Estimate, type EstimateCompany, type EstimateInvoice, type EstimateItem,
 } from './estimate'
 
@@ -126,6 +126,10 @@ const s = StyleSheet.create({
 // 공종은 '내장'·'철거'처럼 짧아 줄여도 되므로 거기서 덜어 비고에 붙였다.
 export const W = { no: 24, cat: 50, name: 130, spec: 64, unit: 30, qty: 36, price: 60, amount: 70, remark: 67 }
 
+// 재료비·인건비를 나눠 적었을 때. 칸이 둘 늘어나므로 품명·규격·비고에서 덜어 온다.
+// 합은 그대로 531 이어야 표가 종이 밖으로 나가지 않는다.
+export const WS = { no: 22, cat: 44, name: 104, spec: 52, unit: 26, qty: 32, mat: 50, lab: 50, price: 54, amount: 62, remark: 35 }
+
 const A = { right: 'right' as const, center: 'center' as const }
 
 interface Props {
@@ -140,6 +144,10 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
   const rows = items.filter(it => it.is_header || it.name || it.amount)
   // 공종 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
   const subs = new Map(sectionSums(rows).map(x => [x.afterIndex, x]))
+  // 한 줄이라도 재료비·인건비를 나눠 적었으면 표를 그 꼴로 그린다
+  const split = isSplitPricing(rows)
+  const w = split ? WS : { ...W, mat: 0, lab: 0 }
+  const st = split ? splitTotals(rows) : null
 
   return (
     <Document
@@ -225,15 +233,21 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
 
         {/* 내역 — 페이지가 넘어가도 머리글 반복 */}
         <View style={s.th} fixed>
-          <Text style={[s.cellHead, { width: W.no }]}>No</Text>
-          <Text style={[s.cellHead, { width: W.cat }]}>공종</Text>
-          <Text style={[s.cellHead, { width: W.name }]}>품명</Text>
-          <Text style={[s.cellHead, { width: W.spec }]}>규격</Text>
-          <Text style={[s.cellHead, { width: W.unit }]}>단위</Text>
-          <Text style={[s.cellHead, { width: W.qty }]}>수량</Text>
-          <Text style={[s.cellHead, { width: W.price }]}>단가</Text>
-          <Text style={[s.cellHead, { width: W.amount }]}>금액</Text>
-          <Text style={[s.cellHead, { width: W.remark }]}>비고</Text>
+          <Text style={[s.cellHead, { width: w.no }]}>No</Text>
+          <Text style={[s.cellHead, { width: w.cat }]}>공종</Text>
+          <Text style={[s.cellHead, { width: w.name }]}>품명</Text>
+          <Text style={[s.cellHead, { width: w.spec }]}>규격</Text>
+          <Text style={[s.cellHead, { width: w.unit }]}>단위</Text>
+          <Text style={[s.cellHead, { width: w.qty }]}>수량</Text>
+          {split ? (
+            <>
+              <Text style={[s.cellHead, { width: w.mat }]}>재료비</Text>
+              <Text style={[s.cellHead, { width: w.lab }]}>인건비</Text>
+            </>
+          ) : null}
+          <Text style={[s.cellHead, { width: w.price }]}>단가</Text>
+          <Text style={[s.cellHead, { width: w.amount }]}>금액</Text>
+          <Text style={[s.cellHead, { width: w.remark }]}>비고</Text>
         </View>
 
         {rows.map((it, i, arr) => {
@@ -244,34 +258,44 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
             <Fragment key={i}>
               {it.is_header ? (
                 <View style={s.trHead} wrap={false}>
-                  <Text style={[s.cell, { width: W.no }]}> </Text>
+                  <Text style={[s.cell, { width: w.no }]}> </Text>
                   <Text style={[s.cell, { flex: 1, fontWeight: 'bold' }]}>{it.name ?? it.category ?? ''}</Text>
                 </View>
               ) : (
                 <View style={s.tr} wrap={false}>
-                  <Text style={[s.cell, { width: W.no, textAlign: A.center, color: C.sub }]}>{no}</Text>
-                  <Text style={[s.cell, { width: W.cat }]}>{it.category ?? ''}</Text>
-                  <Text style={[s.cell, { width: W.name }]}>{it.name ?? ''}</Text>
-                  <Text style={[s.cell, { width: W.spec }]}>{it.spec ?? ''}</Text>
-                  <Text style={[s.cell, { width: W.unit, textAlign: A.center }]}>{it.unit ?? ''}</Text>
-                  <Text style={[s.cell, { width: W.qty, textAlign: A.right }]}>{trimNum(it.qty)}</Text>
-                  <Text style={[s.cell, { width: W.price, textAlign: A.right }]}>{fmtComma(it.unit_price)}</Text>
-                  <Text style={[s.cell, { width: W.amount, textAlign: A.right, fontWeight: 'bold' }]}>{fmtComma(it.amount)}</Text>
-                  <Text style={[s.cell, { width: W.remark, fontSize: 7 }]}>{it.remark ?? ''}</Text>
+                  <Text style={[s.cell, { width: w.no, textAlign: A.center, color: C.sub }]}>{no}</Text>
+                  <Text style={[s.cell, { width: w.cat }]}>{it.category ?? ''}</Text>
+                  <Text style={[s.cell, { width: w.name }]}>{it.name ?? ''}</Text>
+                  <Text style={[s.cell, { width: w.spec }]}>{it.spec ?? ''}</Text>
+                  <Text style={[s.cell, { width: w.unit, textAlign: A.center }]}>{it.unit ?? ''}</Text>
+                  <Text style={[s.cell, { width: w.qty, textAlign: A.right }]}>{trimNum(it.qty)}</Text>
+                  {split ? (
+                    <>
+                      <Text style={[s.cell, { width: w.mat, textAlign: A.right, color: C.sub }]}>
+                        {it.material_price ? fmtComma(it.material_price) : ''}
+                      </Text>
+                      <Text style={[s.cell, { width: w.lab, textAlign: A.right, color: C.sub }]}>
+                        {it.labor_price ? fmtComma(it.labor_price) : ''}
+                      </Text>
+                    </>
+                  ) : null}
+                  <Text style={[s.cell, { width: w.price, textAlign: A.right }]}>{fmtComma(it.unit_price)}</Text>
+                  <Text style={[s.cell, { width: w.amount, textAlign: A.right, fontWeight: 'bold' }]}>{fmtComma(it.amount)}</Text>
+                  <Text style={[s.cell, { width: w.remark, fontSize: 7 }]}>{it.remark ?? ''}</Text>
                 </View>
               )}
 
               {/* 공종이 끝나는 자리에 그 공종만의 합계를 찍는다 */}
               {sub ? (
                 <View style={s.trSub} wrap={false}>
-                  <Text style={[s.cell, { width: W.no }]}> </Text>
+                  <Text style={[s.cell, { width: w.no }]}> </Text>
                   <Text style={[s.cell, { flex: 1, textAlign: A.right, fontWeight: 'bold', color: C.sub }]}>
                     {sub.name} 소계
                   </Text>
-                  <Text style={[s.cell, { width: W.amount, textAlign: A.right, fontWeight: 'bold' }]}>
+                  <Text style={[s.cell, { width: w.amount, textAlign: A.right, fontWeight: 'bold' }]}>
                     {fmtComma(sub.amount)}
                   </Text>
-                  <Text style={[s.cell, { width: W.remark }]}> </Text>
+                  <Text style={[s.cell, { width: w.remark }]}> </Text>
                 </View>
               ) : null}
             </Fragment>
@@ -281,6 +305,12 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
         {/* 정산 */}
         <View style={s.sumWrap} wrap={false}>
           <View style={s.sumTable}>
+            {st ? (
+              <>
+                <SumRow label="재료비" value={st.material} />
+                <SumRow label="인건비" value={st.labor} />
+              </>
+            ) : null}
             <SumRow label="소　계" value={e.subtotal} />
             {e.overhead_amount > 0 && <SumRow label={`경비 (${(e.overhead_rate * 100).toFixed(1)}%)`} value={e.overhead_amount} />}
             {e.discount > 0 && <SumRow label="할　인" value={-e.discount} />}
