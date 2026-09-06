@@ -571,10 +571,22 @@ function hasParking(p: ParsedListing): boolean {
   return n ? Number(n[0]) > 0 : !/없|불가/.test(p.parking)
 }
 
-/** 특장점 후보 수집 (제목·한줄요약·태그에서 공용) */
-function features(p: ParsedListing): string[] {
+/**
+ * 특장점 후보 수집 (제목·한줄요약·태그에서 공용)
+ *
+ * **이 매물만의 것을 앞에 둔다.** 한줄요약이 `즉시입주 가능 + 주차 7대 +
+ * 1층 매물` 로 나가면 셀은 표에 그대로 있는 것을 세 번째로 읽는 셀이다.
+ * 코너·전면 도로변·층고·인테리어 같은 것이 진짜 특장점이다.
+ *
+ * @param src 원문 (자리·조건 표시를 읽으려고 받는다. 없으면 예전처럼 동작한다)
+ */
+function features(p: ParsedListing, src = ''): string[] {
   const out: string[] = []
-  if (p.premium === '없음') out.push('무권리')
+  // 사장님이 적어 둔 자리·조건. 표에 없는 것이라 제일 먼저 넣는다.
+  if (src) for (const m of marksIn(SPOT_MARKS, ownWords(src))) if (!out.includes(m)) out.push(m)
+  if (p.ceilingHeight) out.push(`층고 ${p.ceilingHeight}`)
+  if (p.power) out.push(`계약전력 ${p.power}`)
+  if (p.premium === '없음' && !out.includes('무권리')) out.push('무권리')
   if (p.moveIn === '즉시입주') out.push('즉시입주 가능')
   // 대수를 그대로 적는다. 2대짜리를 '주차 가능' 이라고만 하면 넉넉한 줄 안다.
   // 특장점 줄에 들어가므로 '총 2대' 가 아니라 '주차 2대' 로 쓴다.
@@ -1287,11 +1299,11 @@ function buildDetails(p: ParsedListing, src = ''): string {
       '권리금이 붙지 않은 자리입니다. 시설을 새로 하실 생각이라면 오히려 이런 자리가 손이 덜 갑니다',
     ], seed, 6)
     : p.premium === '유선 문의' ? 골라쓰기([
-      '권리금은 기존 임차인과 얽혀 있는 부분이라 글로 적지 않고 전화로 안내드리고 있습니다',
+      '권리금은 시설과 함께 정해지는 것이라 전화로 안내드리고 있습니다',
       '권리금은 지금 제시된 금액과 시설 범위를 같이 봐야 해서, 전화 주시면 그때 말씀드립니다',
       '권리금은 협의 여지가 있는 항목이라 전화로만 안내드립니다. 어느 선까지 조율되는지도 함께 알려드립니다',
       '권리금은 시설을 얼마나 받으시느냐에 따라 달라집니다. 전화 주시면 지금 조건을 알려드립니다',
-      '권리금은 글로 적어 두면 오해가 생기는 항목이라, 통화하시면 그대로 말씀드립니다',
+      '권리금은 조건을 같이 보면서 말씀드려야 해서, 통화하시면 그때 알려드립니다',
     ], seed, 6)
       : p.premium ? `권리금은 ${조사(p.premium, '으로', '로')} 나와 있습니다`
         : '권리금이 걸려 있는지는 임대인에게 확인해 알려드리겠습니다')
@@ -1300,7 +1312,7 @@ function buildDetails(p: ParsedListing, src = ''): string {
       '지금 비어 있어 계약하시면 바로 공사에 들어가실 수 있습니다',
       '공실이라 입주 시기는 계약 일정에 맞추시면 됩니다',
       '들어가 계신 분이 없어 일정을 앞당기기 좋습니다',
-      '명도를 기다리지 않아도 돼서 오픈 날짜를 먼저 정하고 움직이실 수 있습니다',
+      '쓰고 계신 분이 없어 비워 주기를 기다릴 필요가 없습니다. 오픈 날짜를 먼저 정하고 움직이실 수 있습니다',
       '빈 상태로 보실 수 있어 구조를 그려 보기도 편합니다',
     ], seed, 7))
   } else if (p.moveIn === '협의') {
@@ -1378,7 +1390,7 @@ function buildQnA(p: ParsedListing): string {
     '즉시입주 가능한 매물입니다. 계약 일정에 맞춰 바로 사용하실 수 있습니다.',
     '비어 있는 상태라 계약하시면 바로 들어가실 수 있습니다. 공사 일정을 앞당기기 좋은 자리입니다.',
     '지금 공실이어서 입주 시기는 계약 일정에 맞추시면 됩니다.',
-    '비어 있는 자리라 명도를 기다릴 필요가 없습니다. 공사 일정부터 잡으셔도 됩니다.',
+    '비어 있는 자리라 앞사람이 비울 때까지 기다리지 않아도 됩니다. 공사 일정부터 잡으셔도 됩니다.',
     '계약과 동시에 쓰실 수 있습니다. 사용하실 시점을 말씀해 주시면 그에 맞춰 진행하겠습니다.',
   ], s, 5)])
   pool.push([골라쓰기(['현장은 언제 볼 수 있나요?', '언제 보러 갈 수 있을까요?', '직접 보고 싶은데 가능한가요?'], s, 16), 골라쓰기([
@@ -1583,7 +1595,7 @@ export function generateCafePost(
     `✨ **매물 세부 특징 설명**\n\n${buildDetails(p, source)}`,
     `💬 **자주 묻는 질문**\n\n${buildQnA(p)}`,
     `📞 **중개사 정보**\n\n${buildBrokerInfo(p)}`,
-    `📌 **특장점 한 줄 요약**\n\n→ ${features(p).slice(0, 3).join(' + ')}`,
+    `📌 **특장점 한 줄 요약**\n\n→ ${features(p, source).slice(0, 3).join(' + ')}`,
     `🏷️ **태그**\n\n${buildTags(p)}`,
     `📋 매물번호: ${listingNo}`,
   ]
@@ -1665,7 +1677,7 @@ export function buildCafeHtmlConfig(
     report: reportItems,
     missing_required: missingRequired(p),
     office_lead: `현장을 직접 확인한 실매물만 소개해 드리며, 광고되지 않은 매물도 함께 비교해 보실 수 있도록 준비해 드립니다.${p.coBrokerage ? ' 공동중개도 환영합니다.' : ''}`,
-    highlight: features(p).slice(0, 3).join(' + '),
+    highlight: features(p, source).slice(0, 3).join(' + '),
     tags: buildTags(p, keywords),
   }
 }
