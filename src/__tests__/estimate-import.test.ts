@@ -210,3 +210,50 @@ describe('진짜 엑셀 파일로 한 바퀴', () => {
     expect(r.items[1].remark).toBe('폐기물 별도')
   })
 })
+
+describe('CSV 글자 풀기 — 한글이 깨지지 않는가', () => {
+  const CSV = '공종,품명,규격,단위,수량,단가,금액\n철거,기존 마감 철거,바닥+벽,㎡,33.5,12000,402000\n'
+
+  /** 문자열을 CP949 바이트로 (한국 엑셀이 "CSV 로 저장"할 때 나오는 꼴) */
+  const toCp949 = (s: string) => {
+    // 테스트에서만 쓰는 되돌리기 — euc-kr 로 풀었을 때 원문이 나오는 바이트를 찾는다
+    const buf: number[] = []
+    for (const ch of s) {
+      if (ch.charCodeAt(0) < 128) { buf.push(ch.charCodeAt(0)); continue }
+      // 완성형 한글은 2바이트. 실제 표를 다 넣을 수 없으므로 아는 글자만 쓴다
+      const known: Record<string, number[]> = {
+        '공': [0xB0, 0xF8], '종': [0xC1, 0xBE], '품': [0xC7, 0xB0], '명': [0xB8, 0xED],
+      }
+      if (known[ch]) buf.push(...known[ch])
+      else throw new Error(`표에 없는 글자: ${ch}`)
+    }
+    return new Uint8Array(buf).buffer
+  }
+
+  it('BOM 있는 UTF-8 은 그대로', async () => {
+    const { decodeCsv } = await import('@/lib/estimate-import')
+    const bytes = new Uint8Array([0xEF, 0xBB, 0xBF, ...new TextEncoder().encode(CSV)])
+    expect(decodeCsv(bytes.buffer)).toBe(CSV)
+  })
+
+  it('BOM 없는 UTF-8 도 그대로 (예전에는 여기서 깨졌다)', async () => {
+    const { decodeCsv } = await import('@/lib/estimate-import')
+    expect(decodeCsv(new TextEncoder().encode(CSV).buffer as ArrayBuffer)).toBe(CSV)
+  })
+
+  it('한국 엑셀이 저장하는 CP949 도 읽는다', async () => {
+    const { decodeCsv } = await import('@/lib/estimate-import')
+    expect(decodeCsv(toCp949('공종,품명\n'))).toBe('공종,품명\n')
+  })
+
+  it('CP949 CSV 를 통째로 읽어 내역까지 만든다', async () => {
+    const XLSX = await import('xlsx')
+    const { decodeCsv } = await import('@/lib/estimate-import')
+    const text = decodeCsv(toCp949('공종,품명\n공종,품명\n'))
+    const wb = XLSX.read(text, { type: 'string' })
+    const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], {
+      header: 1, raw: false, defval: '',
+    }) as string[][]
+    expect(rows[0]).toEqual(['공종', '품명'])   // 깨지지 않았다
+  })
+})

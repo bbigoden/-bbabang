@@ -49,6 +49,31 @@ const TOTAL_WORDS = [
 export interface Sheet {
   name: string
   rows: string[][]
+  /** 너무 길어 잘라 낸 줄 수 (0 이면 다 읽었다) */
+  truncated: number
+}
+
+/**
+ * CSV 를 글자로 푼다.
+ *
+ * SheetJS 는 BOM 없는 CSV 를 서양 코드페이지로 읽어서 한글이 통째로 깨진다
+ * ('공종' → 'ê³µì¢'). 게다가 한국 엑셀이 "CSV 로 저장"하면 CP949 로 나가는데
+ * 그건 아예 읽지 못한다. 그래서 CSV 만은 우리가 직접 풀어서 넘긴다.
+ *
+ *  1) BOM 이 있으면 UTF-8
+ *  2) 없으면 UTF-8 로 엄격히 풀어 보고, 어긋나면 CP949(euc-kr) 로 본다
+ */
+export function decodeCsv(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf)
+  if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+    return new TextDecoder('utf-8').decode(bytes.subarray(3))
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    // UTF-8 로 성립하지 않는 바이트가 있다 — 한국 엑셀이 저장한 CP949 로 본다
+    return new TextDecoder('euc-kr').decode(bytes)
+  }
 }
 
 export interface Mapping {

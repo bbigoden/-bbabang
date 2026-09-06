@@ -12,7 +12,7 @@ import { useToast } from '@/components/toast'
 import { X, Upload, FileSpreadsheet, AlertTriangle } from 'lucide-react'
 import { fmtComma, type EstimateItem } from '@/lib/estimate'
 import {
-  FIELD_LABEL, findHeaderRow, guessMapping, parseRows,
+  FIELD_LABEL, decodeCsv, findHeaderRow, guessMapping, parseRows,
   type Field, type Mapping, type ParseResult, type Sheet,
 } from '@/lib/estimate-import'
 
@@ -47,14 +47,19 @@ export function ImportDialog({ hasItems, onClose, onApply }: Props) {
       // 엑셀 읽기는 이 화면에서만 쓰므로 열 때 가져온다 (평소 앱을 무겁게 하지 않게)
       const XLSX = await import('xlsx')
       const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: 'array' })
+
+      // CSV 는 우리가 직접 글자로 풀어 넘긴다 — 그러지 않으면 한글이 깨진다
+      const isCsv = /\.csv$/i.test(file.name)
+      const wb = isCsv
+        ? XLSX.read(decodeCsv(buf), { type: 'string' })
+        : XLSX.read(buf, { type: 'array' })
 
       const got: Sheet[] = wb.SheetNames.map(name => {
         const ws = wb.Sheets[name]
-        const rows = XLSX.utils.sheet_to_json<string[]>(ws, {
+        const all = XLSX.utils.sheet_to_json<string[]>(ws, {
           header: 1, raw: false, defval: '', blankrows: false,
         }) as string[][]
-        return { name, rows: rows.slice(0, MAX_ROWS) }
+        return { name, rows: all.slice(0, MAX_ROWS), truncated: Math.max(0, all.length - MAX_ROWS) }
       }).filter(s => s.rows.length > 0)
 
       if (got.length === 0) { toast.error('읽을 내용이 없습니다'); return }
@@ -139,6 +144,14 @@ export function ImportDialog({ hasItems, onClose, onApply }: Props) {
                 <button onClick={() => { setSheets([]); setMap(null) }}
                   className="text-xs font-semibold text-blue-600 hover:underline">다른 파일</button>
               </div>
+
+              {sheet.truncated > 0 && (
+                <p className="mb-3 flex items-start gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+                  <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                  이 시트는 {MAX_ROWS}줄까지만 읽었습니다 ({sheet.truncated}줄이 남았습니다).
+                  나머지는 파일을 나눠서 한 번 더 가져오세요.
+                </p>
+              )}
 
               {/* 미리보기 — 머리글 줄을 눌러서 고른다 */}
               <p className="mb-1.5 text-xs text-gray-500">
