@@ -210,7 +210,13 @@ export default function CollectPage() {
 
   const [rows, setRows] = useState<Row[]>([])
   /** 매물번호 → 몇 번 눌러 봤나. 없으면 아직 안 본 것. */
-  const [seen, setSeen] = useState<Map<string, number>>(new Map())
+  /**
+   * 매물번호 → 몇 번 눌러 봤나. `나` 는 내 횟수, `사무소` 는 사무소 사람 전체 횟수.
+   *
+   * **판단은 사무소 기준이다.** 직원이 이미 열어 본 매물을 사장님이 또 훑을
+   * 이유가 없다. 다만 '내가 봤는지' 도 알아야 하므로 둘 다 센다.
+   */
+  const [seen, setSeen] = useState<Map<string, { 나: number; 사무소: number }>>(new Map())
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [savingSettings, setSavingSettings] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -278,15 +284,22 @@ export default function CollectPage() {
             .range(from, to)
         }),
         // 본 기록은 계속 쌓인다. 화면이 최대 7일치만 보여주므로 그만큼만 받는다.
-        fetchAllPaged<{ article_no: string; view_count: number }>((from, to) =>
-          supabase.from(s.views).select('article_no, view_count')
+        // 사무소 사람 전체의 기록을 받는다 (권한이 사무소 단위로 열려 있다).
+        fetchAllPaged<{ article_no: string; view_count: number; user_id: string }>((from, to) =>
+          supabase.from(s.views).select('article_no, view_count, user_id')
             .gte('seen_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
             .order('seen_at', { ascending: false })
             .range(from, to)),
       ])
       setError(null)
       setRows(arts.map(s.toRow))
-      setSeen(new Map(views.map(v => [v.article_no, v.view_count ?? 1])))
+      const 셈 = new Map<string, { 나: number; 사무소: number }>()
+      for (const v of views) {
+        const 전 = 셈.get(v.article_no) ?? { 나: 0, 사무소: 0 }
+        const n = v.view_count ?? 1
+        셈.set(v.article_no, { 나: 전.나 + (v.user_id === auth.user?.id ? n : 0), 사무소: 전.사무소 + n })
+      }
+      setSeen(셈)
     } catch (e) {
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     }
@@ -348,11 +361,15 @@ export default function CollectPage() {
    */
   const markSeen = (articleNo: string) => {
     const uid = auth.user?.id
-    if (!uid) return
-    const 횟수 = (seen.get(articleNo) ?? 0) + 1
-    setSeen(prev => new Map(prev).set(articleNo, 횟수))
+    if (!uid || !officeId) return
+    const 전 = seen.get(articleNo) ?? { 나: 0, 사무소: 0 }
+    const 다음 = { 나: 전.나 + 1, 사무소: 전.사무소 + 1 }
+    setSeen(prev => new Map(prev).set(articleNo, 다음))
     sendAndForget(supabase.from(src.views).upsert(
-      { user_id: uid, article_no: articleNo, view_count: 횟수, seen_at: new Date().toISOString() },
+      {
+        user_id: uid, broker_id: officeId, article_no: articleNo,
+        view_count: 다음.나, seen_at: new Date().toISOString(),
+      },
       { onConflict: 'user_id,article_no' },
     ))
   }
@@ -513,7 +530,8 @@ export default function CollectPage() {
       // 표시 기능을 꺼 두면 사라짐 표시는 없는 셈 친다.
       // 사라진 매물은 따로 볼 때만 나온다 — 목록에 섞이면 죽은 링크를 누르게 된다.
       if (goneOnly ? !r.gone_at : !!r.gone_at) return false
-      if (unseenOnly && seen.has(r.article_no)) return false
+      // 사무소에서 아무도 안 본 것만. 직원이 확인한 것을 또 훑을 이유가 없다.
+      if (unseenOnly && (seen.get(r.article_no)?.사무소 ?? 0) > 0) return false
       if (settings.hide_own && ownName && r.owner === ownName) return false
       if (regions.length) {
         const region = REGIONS.find(g => r.division?.startsWith(g.divisionPrefix))
@@ -529,7 +547,10 @@ export default function CollectPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize)
-  const unseenCount = useMemo(() => filtered.filter(r => !seen.has(r.article_no)).length, [filtered, seen])
+  const unseenCount = useMemo(
+    () => filtered.filter(r => (seen.get(r.article_no)?.사무소 ?? 0) === 0).length,
+    [filtered, seen],
+  )
 
   /**
    * 오늘 처음 받아 온 매물이 몇 건인가.
@@ -733,7 +754,7 @@ export default function CollectPage() {
             <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
               {shown.map(r => {
-                const 본횟수 = seen.get(r.article_no) ?? 0
+                const 본것 = seen.get(r.article_no) ?? { 나: 0, 사무소: 0 }
                 return (
                   <li key={r.article_no}>
                     <a
@@ -768,13 +789,21 @@ export default function CollectPage() {
                         </span>
                         {r.gone_at ? (
                           <span className={`${BADGE} bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}>사라짐</span>
-                        ) : isFresh(r) && !본횟수 ? (
+                        ) : isFresh(r) && !본것.사무소 ? (
                           <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
                         ) : null}
                         {/* 흐리게 만드는 대신 몇 번 봤는지 적는다. 흐려 놓으면 본 것이
-                            읽기 어려워지는데, 정작 다시 들여다볼 만한 것은 그중에 있다. */}
-                        <span className="w-8 shrink-0 text-right text-xs leading-5 tabular-nums text-gray-400 dark:text-gray-600">
-                          {본횟수 ? `${본횟수}회` : ''}
+                            읽기 어려워지는데, 정작 다시 들여다볼 만한 것은 그중에 있다.
+                            **사무소 사람 것도 같이 적는다** — 직원이 이미 확인한 매물을
+                            또 열어 볼 이유가 없다. 내가 본 것은 앞에, 사무소 전체는 괄호에. */}
+                        <span
+                          className="w-[86px] shrink-0 whitespace-nowrap text-right text-xs leading-5
+                                     tabular-nums text-gray-400 dark:text-gray-600"
+                          title={본것.사무소 ? `사무소 ${본것.사무소}회 · 내가 ${본것.나}회` : ''}
+                        >
+                          {본것.나
+                            ? 본것.사무소 > 본것.나 ? `${본것.나}회 (사무소 ${본것.사무소})` : `${본것.나}회`
+                            : 본것.사무소 ? `사무소 ${본것.사무소}` : ''}
                         </span>
                       </div>
                     </a>
