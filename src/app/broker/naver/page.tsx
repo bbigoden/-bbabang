@@ -66,8 +66,11 @@ type Row = {
   first_seen_at: string
   last_seen_at: string
   gone_at: string | null
-  /** 면적 ㎡ (화면에서 평으로 바꾼다) */
-  area: number | null
+  /** 면적 ㎡ (화면에서 평으로 바꾼다). 토지·건물은 전용/공급 대신 대지·연면적을 쓴다. */
+  area_exclusive: number | null
+  area_supply: number | null
+  area_land: number | null
+  area_floor: number | null
   /** 가격 — 만원. 매매면 매매가, 아니면 보증금·월세. */
   price_deal: number | null
   price_deposit: number | null
@@ -91,7 +94,7 @@ const SOURCES = {
     jobKind: 'naver',
     /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
     takes: '5~8분',
-    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, price_deal, price_deposit, price_rent' as string,
+    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent' as string,
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
@@ -117,7 +120,10 @@ const SOURCES = {
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
-      area: a.area_exclusive ?? a.area_supply ?? null,
+      area_exclusive: a.area_exclusive,
+      area_supply: a.area_supply,
+      area_land: a.area_land,
+      area_floor: a.area_floor,
       price_deal: a.price_deal,
       price_deposit: a.price_deposit,
       price_rent: a.price_rent,
@@ -130,7 +136,7 @@ const SOURCES = {
     jobKind: 'daangn',
     /** 실측 346초. 우리 지역 아닌 동을 첫 쪽에서 접기 전에는 460초였다. */
     takes: '6~9분',
-    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, price_deal, price_deposit, price_rent' as string,
+    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent' as string,
     kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
     kindOf: daangnKindOf,
     trades: DAANGN_TRADES as Record<string, string>,
@@ -156,7 +162,10 @@ const SOURCES = {
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
-      area: a.area_exclusive ?? a.area_supply ?? null,
+      area_exclusive: a.area_exclusive,
+      area_supply: a.area_supply,
+      area_land: a.area_land,
+      area_floor: a.area_floor,
       price_deal: a.price_deal,
       price_deposit: a.price_deposit,
       price_rent: a.price_rent,
@@ -201,20 +210,47 @@ function 경계(day: string, 시각칸: boolean): string {
  */
 const NL = String.fromCharCode(10)
 
-/** ㎡ → 평. 광고관리 화면과 같은 잣대다. */
-function 평(m2: number | null): string {
-  return m2 ? `${(m2 * 0.3025).toFixed(1)}평` : ''
+/**
+ * ㎡ → 평. **광고관리와 같은 규칙을 쓴다** — 소수점 아래가 0이면 뗀다.
+ * 한 곳은 `36.0평`, 다른 곳은 `36평` 이면 같은 매물을 두 화면이 다르게 부른다.
+ */
+function 평(m2: number | null): string | null {
+  if (!m2) return null
+  const v = (m2 * 0.3025).toFixed(1)
+  return v.endsWith('.0') ? v.slice(0, -2) : v
 }
 
 /**
- * 가격 한 줄 — 광고관리와 같은 모양으로 적는다.
- * 매매는 '52,000', 보증·월세는 '3,000/210'.
+ * 면적 두 가지 — 광고관리와 같은 모양이다.
+ *
+ * 상가·사무실은 `전용 15.5평 공급 35.1평`, 토지·건물은 `대지 470평 연면적 …`.
+ * 토지는 전용/공급이 아예 없어서, 그걸 안 챙기면 면적 칸이 통째로 빈다.
  */
-function 값(r: Row): string {
+function 면적(r: Row): { 앞: string; 뒤: string | null } | null {
+  const 쌍 = r.area_exclusive
+    ? { 이름: '전용', 값: r.area_exclusive, 곁이름: '공급', 곁: r.area_supply }
+    : r.area_land
+      ? { 이름: '대지', 값: r.area_land, 곁이름: '연면적', 곁: r.area_floor }
+      : r.area_supply
+        ? { 이름: '공급', 값: r.area_supply, 곁이름: '', 곁: null }
+        : r.area_floor
+          ? { 이름: '연면적', 값: r.area_floor, 곁이름: '', 곁: null }
+          : null
+  if (!쌍) return null
+  const 앞 = `${쌍.이름} ${평(쌍.값)}평`
+  const 뒤 = 쌍.곁 && 쌍.곁 !== 쌍.값 ? `${쌍.곁이름} ${평(쌍.곁)}평` : null
+  return { 앞, 뒤 }
+}
+
+/**
+ * 가격 한 줄 — 광고관리와 같은 모양이다.
+ * 매매는 '52,000', 보증·월세는 '3,000/210'. 전부 만원이다.
+ */
+function 값(r: Row): string | null {
   const 천 = (n: number) => n.toLocaleString('ko-KR')
   if (r.price_deal) return 천(r.price_deal)
   if (r.price_deposit || r.price_rent) return `${천(r.price_deposit ?? 0)}/${천(r.price_rent ?? 0)}`
-  return ''
+  return null
 }
 
 /** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
@@ -796,32 +832,35 @@ export default function CollectPage() {
                                  hover:bg-blue-50/60 sm:flex-row sm:items-center sm:gap-3
                                  dark:hover:bg-gray-800"
                     >
-                      {/* 폰에서는 두 줄로 나눈다 — 한 줄에 다 넣으면 정작 제일 중요한
-                          소재지가 '아산시 배…' 로 잘린다. `sm:contents` 라 넓은 화면에서는
-                          이 감싸개가 사라져 예전처럼 한 줄로 늘어선다. */}
+                      {/* 열 차례를 광고관리와 같게 둔다 — 종류·소재지·면적·가격.
+                          폰에서는 두 줄로 나눈다(한 줄에 다 넣으면 소재지가 잘린다).
+                          `sm:contents` 로 넓은 화면에서는 감싸개가 사라지고, 차례는
+                          `sm:order-*` 로 광고관리와 맞춘다. */}
                       <div className="flex items-center gap-3 sm:contents">
-                        <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 dark:text-gray-600">
+                        <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 sm:order-1 dark:text-gray-600">
                           {r.shown_date?.slice(5).replace('-', '/')}
                         </span>
-                        {/* '지식산업센터' 가 두 줄로 접히면 그 줄만 키가 커져 목록이
-                            울퉁불퉁해진다. 가장 긴 이름이 한 줄에 들어가게 잡는다. */}
-                        <span className="shrink-0 whitespace-nowrap text-sm text-gray-500 sm:w-[92px] dark:text-gray-500">
+                        {/* 종류와 거래를 한 칸에 붙인다 — 광고관리와 같다.
+                            '지식산업센터' 가 접히면 그 줄만 키가 커지므로 한 줄로 못박는다. */}
+                        <span className="shrink-0 whitespace-nowrap text-sm text-gray-600 sm:order-2 sm:w-[124px] dark:text-gray-400">
                           {src.kindOf(r.kind_code)}
-                        </span>
-                        <span className="w-10 shrink-0 text-sm text-gray-500 dark:text-gray-500">
-                          {r.trade_code ? (src.trades[r.trade_code] ?? r.trade_code) : ''}
+                          <span className="ml-1 text-xs text-gray-400">
+                            {r.trade_code ? (src.trades[r.trade_code] ?? r.trade_code) : ''}
+                          </span>
                         </span>
                         {/* 하루 1,300건이 올라온다. 링크만으로는 무엇을 열어 볼지 고를 수
                             없어 면적과 가격을 같이 적는다 — 광고관리와 같은 모양이다. */}
-                        <span className="w-14 shrink-0 text-right text-sm tabular-nums text-gray-500 dark:text-gray-500">
-                          {평(r.area)}
+                        <span className="shrink-0 whitespace-nowrap text-xs text-gray-600 sm:order-4 sm:w-[150px] dark:text-gray-400">
+                          {면적(r)
+                            ? <>{면적(r)!.앞}{면적(r)!.뒤 && <span className="ml-1 text-gray-400">{면적(r)!.뒤}</span>}</>
+                            : <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
-                        <span className="w-[86px] shrink-0 text-right text-sm tabular-nums text-gray-700 dark:text-gray-300">
-                          {값(r)}
+                        <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-5 sm:w-[86px] dark:text-gray-300">
+                          {값(r) ?? <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
                       </div>
                       <div className="flex min-w-0 items-center gap-2 sm:contents">
-                        <span className={`min-w-0 flex-1 truncate text-sm text-gray-900 group-hover:underline
+                        <span className={`min-w-0 flex-1 truncate text-sm text-gray-900 group-hover:underline sm:order-3
                                           dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
                           {[r.division, r.sector].filter(Boolean).join(' ')}
                         </span>
@@ -829,7 +868,7 @@ export default function CollectPage() {
                             어떤 줄은 숫자가 서로 다른 자리에 찍혀 눈에 거슬린다.
                             셋은 한 번에 하나만 나온다 — 사라짐 > 본 횟수 > 신규 순. */}
                         <span
-                          className="flex w-14 shrink-0 items-center justify-end"
+                          className="flex w-14 shrink-0 items-center justify-end sm:order-6"
                           title={본것.사무소 ? `사무소 사람들이 ${본것.사무소}회 봤습니다 (내가 ${본것.나}회)` : ''}
                         >
                           {r.gone_at ? (

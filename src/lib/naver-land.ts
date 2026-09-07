@@ -165,6 +165,9 @@ export type NaverArticle = {
   /** 면적은 ㎡ 그대로. 화면에서 평으로 바꾼다. */
   area_exclusive: number | null
   area_supply: number | null
+  /** 토지·건물은 전용/공급이 없다. 그때는 이 둘을 적는다. */
+  area_land: number | null
+  area_floor: number | null
   /** 가격은 **만원**. 네이버는 원으로 주므로 담을 때 한 번 바꾼다. */
   price_deal: number | null
   price_deposit: number | null
@@ -242,6 +245,8 @@ function normalize(raw: Record<string, any>): NaverArticle | null {
     // 화면과 광고관리가 만원으로 말하므로 여기서 한 번만 바꿔 둔다.
     area_exclusive: a.spaceInfo?.exclusiveSpace || null,
     area_supply: a.spaceInfo?.supplySpace || null,
+    area_land: a.spaceInfo?.landSpace || null,
+    area_floor: a.spaceInfo?.floorSpace || null,
     price_deal: 만원(a.priceInfo?.dealPrice),
     price_deposit: 만원(a.priceInfo?.warrantyPrice),
     price_rent: 만원(a.priceInfo?.rentPrice),

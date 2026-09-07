@@ -117,6 +117,8 @@ export type DaangnArticle = {
   writer_name: string | null
   area_exclusive: number | null
   area_supply: number | null
+  area_land: number | null
+  area_floor: number | null
   price_deal: number | null
   price_deposit: number | null
   price_rent: number | null
@@ -202,6 +204,9 @@ function normalize(a: any): DaangnArticle | null {
     // (매매는 price, 전세·월세는 deposit) 있는 쪽을 집는다.
     area_exclusive: Number(a.area) || null,
     area_supply: Number(a.supplyArea) || null,
+    // 당근은 대지·연면적을 따로 주지 않는다. 토지도 `area` 하나뿐이다.
+    area_land: null,
+    area_floor: null,
     price_deal: trade?.type === 'BUY' ? (trade?.price ?? trade?.deposit ?? null) : null,
     price_deposit: trade?.type === 'BUY' ? null : (trade?.deposit ?? trade?.price ?? null),
     price_rent: trade?.monthlyPay ?? null,
