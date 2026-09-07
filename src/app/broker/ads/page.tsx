@@ -1119,13 +1119,21 @@ export default function AdsPage() {
                         {l.region}
                         {l.address_detail && <span className="ml-1 text-xs text-gray-400">{l.address_detail}</span>}
                       </td>
-                      {/* 무슨 면적인지를 원문에서 읽어 둔다. 통건물은 뱅크 목록이
-                          `대지 연면적` 을 주는데 우리가 공급/전용으로 담았다. 그래서 연면적
-                          1,141평을 `전용 1,141.8평` 이라고 적어 놓고 있었다. */}
+                      {/* 뱅크처럼 두 면적을 함께 보여 준다.
+                          구분상가면 `공급 / 전용`, 통건물이면 `대지 / 연면적` 이다.
+                          무슨 면적인지는 원문에서 읽어 둔다(area_label) — 예전에는 둘 다
+                          공급/전용으로 알아, 연면적 1,141평을 `전용 1,141.8평` 이라 적었다. */}
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
-                        {l.area_exclusive
-                          ? `${l.area_label ?? ''} ${m2ToPyeong(l.area_exclusive)}평`.trim()
-                          : '–'}
+                        {l.area_exclusive ? (
+                          <>
+                            {`${l.area_label ?? ''} ${m2ToPyeong(l.area_exclusive)}평`.trim()}
+                            {l.area_supply && l.area_supply !== l.area_exclusive && (
+                              <span className="ml-1 text-gray-400">
+                                {l.area_label === '연면적' ? '대지' : '공급'} {m2ToPyeong(l.area_supply)}평
+                              </span>
+                            )}
+                          </>
+                        ) : '–'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{l.price_text ?? '–'}</td>
                       {/* 뱅크상태('서비스중' 따위)는 칸으로 두지 않는다. 탭이 이미
