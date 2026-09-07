@@ -83,3 +83,60 @@ it('견적서 한 건이 화면·PDF·공유·청구서까지 같은 금액을 �
   expect(raw.includes('1118000')).toBe(false)
   expect(raw.includes('1,118,000')).toBe(false)
 }, 60000)
+
+/**
+ * 재료비·인건비를 접었을 때 사장님이 고친 단가가 살아남는가.
+ *
+ * "합치기" 가 칸만 숨기던 시절엔, 접고 나서 단가를 고치면 저장할 때
+ * "단가 = 재료비 + 인건비" 규칙에 걸려 옛 값으로 되돌아갔다. 화면에는
+ * 20만원이라 적어 놓고 종이에는 10만원이 찍히는 것이라 그냥 두면 안 된다.
+ */
+it('재료비·인건비를 합치면 그 뒤 고친 단가가 유지된다', () => {
+  const split: EstimateItem[] = [
+    { sort_order:0, is_header:false, category:null, name:'도배', spec:null, unit:'㎡',
+      qty:10, unit_price:100000, material_price:60000, labor_price:40000,
+      cost_price:0, amount:1000000, remark:null },
+  ]
+
+  // 접을 때 실제로 합친다 (items-editor 의 collapseSplit 과 같은 규칙)
+  const collapsed = split.map(it => ({
+    ...it, unit_price: it.material_price + it.labor_price,
+    material_price: 0, labor_price: 0,
+  }))
+
+  // 접은 뒤 단가를 20만원으로 고쳐 적는다
+  const edited = collapsed.map(it => ({ ...it, unit_price: 200000, amount: 10 * 200000 }))
+
+  // 저장 직전의 정규화를 통과해도 20만원 그대로여야 한다
+  const { items: saved, fixed } = normalizeItems(edited)
+  expect(saved[0].unit_price).toBe(200000)
+  expect(saved[0].amount).toBe(2000000)
+  expect(fixed).toHaveLength(0)
+})
+
+/**
+ * 프리셋은 앞으로 만들 견적서마다 그대로 복사돼 들어간다.
+ * 어긋난 값을 한 번 굳혀 두면 그 뒤로 만드는 견적서가 전부 틀린 데서 출발한다.
+ */
+it('어긋난 내역을 프리셋으로 저장하면 바로잡아 담긴다', () => {
+  const 어긋난내역: EstimateItem[] = [
+    // 수량 5 × 단가 30,000 = 150,000 인데 금액이 999,999 로 적혀 있다
+    { sort_order:0, is_header:false, category:null, name:'몰딩', spec:null, unit:'M',
+      qty:5, unit_price:30000, material_price:0, labor_price:0,
+      cost_price:0, amount:999999, remark:null },
+    // 단가 1원인데 재료비+인건비는 50,000 이다
+    { sort_order:1, is_header:false, category:null, name:'걸레받이', spec:null, unit:'M',
+      qty:2, unit_price:1, material_price:30000, labor_price:20000,
+      cost_price:0, amount:2, remark:null },
+  ]
+
+  const { items: 프리셋 } = normalizeItems(어긋난내역)
+  expect(프리셋[0].amount).toBe(150000)
+  expect(프리셋[1].unit_price).toBe(50000)
+  expect(프리셋[1].amount).toBe(100000)
+
+  // 그 프리셋을 다시 꺼내 써도 값이 그대로다 (두 번 걸어도 흔들리지 않는다)
+  const { items: 다시, fixed } = normalizeItems(프리셋)
+  expect(다시).toEqual(프리셋)
+  expect(fixed).toHaveLength(0)
+})

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/toast'
 import { Trash2, Download, Layers, Pencil } from 'lucide-react'
-import { DEFAULT_PRESETS, calcTotals, fmtComma, type EstimateItem } from '@/lib/estimate'
+import { DEFAULT_PRESETS, calcTotals, fmtComma, normalizeItems, type EstimateItem } from '@/lib/estimate'
 
 interface TemplateRow {
   id: string
@@ -98,8 +98,11 @@ export function TemplatesTab({ brokerId }: { brokerId: string }) {
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {rows.map(t => {
-            const lines = (t.items ?? []).filter(i => !i.is_header)
-            const total = calcTotals(t.items ?? [], { vat_mode: 'add' })
+            // 견적서에 꺼내 쓸 때와 같은 규칙으로 셈한다 — 여기 적힌 소계와
+            // 실제로 불러왔을 때의 소계가 다르면 어느 쪽을 믿어야 할지 알 수 없다
+            const { items: safe } = normalizeItems(t.items ?? [])
+            const lines = safe.filter(i => !i.is_header)
+            const total = calcTotals(safe, { vat_mode: 'add' })
             return (
               <div key={t.id} className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
                 <div className="mb-2 flex items-center gap-2">

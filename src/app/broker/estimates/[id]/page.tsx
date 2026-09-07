@@ -399,7 +399,10 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     const tpl = templates.find(t => t.id === tplId)
     if (!tpl) return
     if (items.length && !confirm(`현재 내역 ${items.length}줄을 "${tpl.name}" 프리셋으로 바꿀까요?`)) return
-    setItems(tpl.items.map((it, i) => ({ ...it, sort_order: i })))
+    // 옛 프리셋에는 어긋난 값이 담겨 있을 수 있다 (정규화를 걸기 전에 저장된 것,
+    // 엑셀에서 가져와 프리셋으로 굳힌 것). 꺼내 쓸 때 다시 셈해 들여온다.
+    const { items: safe } = normalizeItems(tpl.items)
+    setItems(safe.map((it, i) => ({ ...it, sort_order: i })))
     setDirty(true)
   }
 
@@ -413,7 +416,10 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     const existing = templates.find(t => t.name === name)
     if (existing && !confirm(`"${name}" 프리셋을 지금 내역으로 덮어쓸까요?`)) return
 
-    const payload = { owner_broker_id: brokerId, name, items }
+    // 프리셋은 앞으로 만들 견적서마다 그대로 복사돼 들어간다. 어긋난 값을 한 번
+    // 굳혀 두면 그 뒤로 만드는 견적서가 전부 틀린 값에서 출발한다.
+    const { items: safeItems } = normalizeItems(items)
+    const payload = { owner_broker_id: brokerId, name, items: safeItems }
     const res = existing
       ? await supabase.from('estimate_templates').update(payload).eq('id', existing.id).select('id,name,items').single()
       : await supabase.from('estimate_templates').insert({ ...payload, sort_order: templates.length }).select('id,name,items').single()
@@ -835,7 +841,11 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             </section>
             <SharePanel estimateId={est.id} brokerId={brokerId!} refreshKey={shareTick} />
 
-            <InvoicesPanel estimate={{ ...est, ...totals }} brokerId={brokerId!} />
+            <InvoicesPanel
+              estimate={{ ...est, ...totals }}
+              brokerId={brokerId!}
+              onBeforeIssue={async () => !dirty || await save(true)}
+            />
           </div>
 
           {/* ── 오른쪽: 실제 PDF 미리보기 ────────────────── */}

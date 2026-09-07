@@ -48,6 +48,30 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
     onChange(next)
   }
 
+  /**
+   * 재료비·인건비 칸을 접는다 — 칸만 숨기는 게 아니라 실제로 단가로 합친다.
+   *
+   * 숨기기만 하면 단가 칸이 다시 손댈 수 있게 열리는데, 거기 고쳐 넣은 값이
+   * 저장할 때 "단가 = 재료비 + 인건비" 규칙에 걸려 옛 값으로 되돌아갔다.
+   * 사장님이 고친 숫자가 사라지는 것이라 칸을 접을 때 아예 합쳐 버린다.
+   */
+  const collapseSplit = () => {
+    const has = isSplitPricing(items)
+    if (has && !confirm(
+      '재료비·인건비를 단가 한 칸으로 합칩니다.\n'
+      + '나눠 적은 값은 없어지고 합계만 남습니다. 계속할까요?'
+    )) return
+    if (has) {
+      onChange(items.map(it => it.is_header ? it : {
+        ...it,
+        unit_price: effectiveUnitPrice(it),
+        material_price: 0,
+        labor_price: 0,
+      }))
+    }
+    setShowSplit(false)
+  }
+
   const reindex = (list: EstimateItem[]) => list.map((it, i) => ({ ...it, sort_order: i }))
 
   const addRow = (isHeader: boolean, at?: number) => {
@@ -106,7 +130,7 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
     <div>
       <div className="mb-2 flex flex-wrap justify-end gap-2">
         <button
-          onClick={() => setShowSplit(v => !v)}
+          onClick={() => showSplit ? collapseSplit() : setShowSplit(true)}
           title="한 줄의 단가를 재료비와 인건비로 갈라 적습니다"
           className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400"
         >

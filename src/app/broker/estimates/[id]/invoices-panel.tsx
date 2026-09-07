@@ -21,7 +21,20 @@ const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400
 /** 오늘부터 n일 뒤 (입금기한 기본값). 한국 날짜로 센다 */
 const daysLater = (n: number) => addDays(todayKST(), n)
 
-export function InvoicesPanel({ estimate, brokerId }: { estimate: Estimate; brokerId: string }) {
+interface PanelProps {
+  estimate: Estimate
+  brokerId: string
+  /**
+   * 발행 직전에 견적서를 먼저 저장한다. false 를 돌려주면 발행하지 않는다.
+   *
+   * 이 칸이 받는 estimate 는 화면에서 셈한 값이라 저장 전 금액이 섞인다.
+   * 그대로 발행하면 견적서에는 2,000만원이 적혀 있는데 청구서만 3,000만원으로
+   * 나가고, 그 청구서가 그대로 발주자에게 간다.
+   */
+  onBeforeIssue?: () => Promise<boolean>
+}
+
+export function InvoicesPanel({ estimate, brokerId, onBeforeIssue }: PanelProps) {
   const toast = useToast()
   const supabase = useMemo(() => createClient(), [])
   const [rows, setRows] = useState<EstimateInvoice[]>([])
@@ -52,6 +65,10 @@ export function InvoicesPanel({ estimate, brokerId }: { estimate: Estimate; brok
 
   const issue = async () => {
     if (preview.supply_amount <= 0) { toast.error('청구 금액이 0원입니다'); return }
+
+    // 견적서를 먼저 저장한다 — 청구 금액은 견적 금액에서 떼어 오는 값이라
+    // 저장되지 않은 견적서로 발행하면 둘이 어긋난 채 굳는다
+    if (onBeforeIssue && !(await onBeforeIssue())) return
 
     // 계약금·중도금·잔금을 떼다 보면 이미 다 청구한 걸 잊고 한 장을 더 뗀다.
     // 막지는 않는다 — 추가 공사로 견적보다 더 받는 일이 실제로 있다. 다만
