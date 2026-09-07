@@ -8,7 +8,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { renderToBuffer } from '@react-pdf/renderer'
-import { EstimateDocument, InvoiceDocument, W } from '@/lib/estimate-pdf'
+import { EstimateDocument, InvoiceDocument, W, WS } from '@/lib/estimate-pdf'
 import {
   calcTotals, invoiceAmounts,
   type Estimate, type EstimateInvoice, type EstimateItem,
@@ -74,6 +74,19 @@ describe('견적서 PDF', () => {
     // 열 폭 합계는 A4 에서 좌우 여백을 뺀 531 을 넘으면 안 된다 (넘으면 표가 잘린다)
     const total = Object.values(W).reduce((a, b) => a + b, 0)
     expect(total).toBeLessThanOrEqual(531)
+  })
+
+  it('재료비·인건비를 나눈 표도 종이를 넘지 않는다', () => {
+    // 칸이 둘 늘어나므로 품명·규격·비고에서 폭을 덜어 왔다. 나중에 어느 칸을
+    // 넓히면서 여기를 잊으면 표가 종이 밖으로 나간다.
+    const total = Object.values(WS).reduce((a, b) => a + b, 0)
+    expect(total).toBeLessThanOrEqual(531)
+
+    // 나눈 표에서도 비고가 한 글자씩 세로로 떨어지지 않아야 한다
+    expect((WS.remark - 8) / 7).toBeGreaterThanOrEqual(3)
+    // 재료비·인건비 칸은 백만 단위(9,999,999)가 들어갈 만큼은 돼야 한다
+    expect(WS.mat).toBeGreaterThanOrEqual(44)
+    expect(WS.lab).toBeGreaterThanOrEqual(44)
   })
 
   it('긴 비고가 있어도 렌더된다', async () => {

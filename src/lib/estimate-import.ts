@@ -147,7 +147,7 @@ export function isTotalRow(cells: string[]): boolean {
  * 읽으면 '[특기사항]'·'1. 유효기간 …' 이 품명으로 딸려 들어온다.
  * 공종마다 나오는 '소계' 는 여기 넣지 않는다 — 아래에 내역이 더 있다.
  */
-export function isEndRow(cells: string[]): boolean {
+function isEndRow(cells: string[]): boolean {
   const head = cells.slice(0, 3).map(norm).filter(Boolean)
   return head.some(c => END_PARTS.some(w => c.startsWith(w)))
 }
@@ -202,7 +202,7 @@ export function detectHeaderSpan(rows: string[][], headerRow: number): 1 | 2 {
  * '재료비 + 단가' → '재료비단가', '합계 + 금액' → '합계금액'.
  * 그래야 어느 단가가 재료비고 어느 것이 합계인지 가릴 수 있다.
  */
-export function buildHeaderLabels(rows: string[][], headerRow: number, span: 1 | 2): string[] {
+function buildHeaderLabels(rows: string[][], headerRow: number, span: 1 | 2): string[] {
   if (headerRow < 0 || !rows[headerRow]) return []
   const top = rows[headerRow]
   const sub = span === 2 ? (rows[headerRow + 1] ?? []) : []

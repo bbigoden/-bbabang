@@ -742,3 +742,18 @@ BEGIN
   );
 END;
 $fn$;
+
+-- ── 뒤늦게 채워 넣는 기록 2 (2026-09-07) ───────────────────────
+-- estimates 의 네 칸이 이 파일에 없었다. 새 환경에서 이 파일만 돌리면
+-- 수정 견적(-r2)·만료 알림·원가 합계가 통째로 깨진다.
+ALTER TABLE estimates
+  -- 수정 견적의 뿌리. 원본은 자기 자신을 가리키지 않고 null 이다
+  ADD COLUMN IF NOT EXISTS root_estimate_id UUID REFERENCES estimates(id) ON DELETE SET NULL,
+  -- 수정 차수. 1 이면 원본, 2 부터가 '수정 N차'
+  ADD COLUMN IF NOT EXISTS revision INTEGER NOT NULL DEFAULT 1,
+  -- 만료 3일 전 알림을 이미 보냈는지 (cron/estimate-expiry 가 본다)
+  ADD COLUMN IF NOT EXISTS expiry_notified_at TIMESTAMPTZ,
+  -- 원가 합계 (내부용). 견적서 PDF·공유 링크에는 절대 나가지 않는다
+  ADD COLUMN IF NOT EXISTS total_cost BIGINT NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS estimates_root_idx ON estimates (root_estimate_id, revision);
