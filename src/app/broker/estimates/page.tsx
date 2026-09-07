@@ -190,11 +190,15 @@ export default function EstimatesPage() {
    * 품목 사전에도 함께 쌓는다 — 어차피 단가를 모으는 것이 목적이다.
    */
   const bulkEstimates = async (list: { name: string; items: EstimateItem[] }[]) => {
-    if (!brokerId) return 0
+    if (!brokerId) return { made: 0, failed: [] as string[] }
     const comp = companies.find(c => c.is_default) ?? companies[0] ?? null
     let made = 0
+    const failed: string[] = []
 
+    // 한 건이 어긋나도 나머지는 계속 만든다. 통째로 멈춰 버리면 서른 개 중 하나
+    // 때문에 전부 다시 해야 하고, 이미 만들어진 것을 모른 채 다시 눌러 겹치게 된다.
     for (const one of list) {
+      try {
       const { data: noData, error: noErr } = await supabase.rpc('next_estimate_no', { p_owner: brokerId })
       if (noErr) throw noErr
 
@@ -227,11 +231,15 @@ export default function EstimatesPage() {
       })
       if (e2) throw e2
       made++
+      } catch {
+        failed.push(one.name)
+      }
     }
 
-    await bulkCatalog(list.flatMap(l => l.items))
+    // 사전 쌓기가 실패해도 견적서는 이미 만들어졌다 — 따로 다룬다
+    try { await bulkCatalog(list.flatMap(l => l.items)) } catch { /* 사전은 편의 기능 */ }
     await load()
-    return made
+    return { made, failed }
   }
 
   const remove = async (row: Estimate) => {

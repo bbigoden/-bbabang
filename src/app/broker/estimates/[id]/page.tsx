@@ -76,14 +76,25 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
         .eq('owner_broker_id', brokerId).order('use_count', { ascending: false }).limit(500),
     ])
     setEst((e.data as Estimate) ?? null)
-    setItems((it.data as EstimateItem[]) ?? [])
+
+    // 읽어올 때도 한 번 맞춘다.
+    //
+    // 저장·발행 길목에서만 셈하면, 어딘가에서 틀어진 값이 담긴 견적서를 열었을 때
+    // 표에는 틀린 금액이 뜨고 오른쪽 미리보기에는 바로잡힌 금액이 떠서 둘이 어긋난다.
+    // 여기서 맞춰 두면 화면·미리보기·인쇄물이 늘 같은 숫자를 보여준다.
+    const loaded = normalizeItems((it.data as EstimateItem[]) ?? [])
+    setItems(loaded.items)
     setCompanies((co.data as EstimateCompany[]) ?? [])
     setClients((cl.data as EstimateClient[]) ?? [])
     setTemplates((tp.data as TemplateRow[]) ?? [])
     setSends((sd.data as SendRow[]) ?? [])
     setCatalog((cat.data as CatalogItem[]) ?? [])
     setLoading(false)
-    setDirty(false)
+    // 바로잡은 게 있으면 아직 저장 전이므로 '고칠 것 있음' 으로 둔다
+    setDirty(loaded.fixed.length > 0)
+    if (loaded.fixed.length > 0) {
+      toast.info(`${new Set(loaded.fixed.map(f => f.index)).size}줄의 금액이 수량×단가와 맞지 않아 바로잡았습니다. 저장해 주세요.`)
+    }
   }, [brokerId, id, supabase])
 
   useEffect(() => { if (brokerId) load() }, [brokerId, load])
@@ -167,9 +178,9 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
    * 이미 있는 품목이면 단가·원가를 최신으로 갱신하고 사용 횟수를 올린다.
    * (사전은 편의 기능이라 실패해도 저장 자체는 성공으로 둔다)
    */
-  const syncCatalog = useCallback(async () => {
+  const syncCatalog = useCallback(async (source: EstimateItem[]) => {
     if (!brokerId) return
-    const rows = items
+    const rows = source
       .filter(it => !it.is_header && it.name?.trim())
       .map(it => ({
         category: it.category, name: it.name, spec: it.spec, unit: it.unit,
@@ -181,7 +192,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     // 같은 품목(품명+규격+단위)은 한 건으로 묶고 사용 횟수를 올린다 (서버에서 처리)
     const { error } = await supabase.rpc('sync_estimate_catalog', { p_items: rows })
     if (error) console.error('[품목 사전] 반영 실패', error)
-  }, [brokerId, items, supabase])
+  }, [brokerId, supabase])
 
   const save = useCallback(async (silent = false) => {
     if (!est || !brokerId || saving) return false
@@ -249,7 +260,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       })
       if (e2) throw e2
 
-      await syncCatalog()
+      await syncCatalog(safeItems)
       if (clientId && clientId !== est.client_id) setEst(prev => prev ? { ...prev, client_id: clientId } : prev)
 
       setDirty(false)
@@ -261,7 +272,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     } finally {
       setSaving(false)
     }
-  }, [est, brokerId, saving, companies, items, totals, margin, syncCatalog, syncClient, supabase, toast])
+  }, [est, brokerId, saving, companies, items, syncCatalog, syncClient, supabase, toast])
 
   /** 화면 값 그대로 PDF 를 받아 미리보기에 건다 (DB 는 건드리지 않는다) */
   const previewSeq = useRef(0)

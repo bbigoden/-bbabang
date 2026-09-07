@@ -390,41 +390,6 @@ export function normalizeItems<T extends Pick<EstimateItem,
   return { items: next, fixed }
 }
 
-/**
- * 견적서가 앞뒤로 맞는지 본다. 맞지 않는 대목을 사람 말로 돌려준다.
- *
- * normalizeItems 로 줄을 바로잡고 calcTotals 로 합계를 다시 내면 어긋날 일이
- * 없지만, 저장된 뒤에 어딘가에서 값이 틀어졌을 수 있다. 내보내기 전에 한 번 본다.
- */
-export function auditEstimate(
-  e: Pick<Estimate, 'subtotal' | 'overhead_rate' | 'overhead_amount' | 'discount' | 'supply_amount' | 'vat' | 'vat_mode' | 'total'>,
-  items: Pick<EstimateItem, 'is_header' | 'qty' | 'unit_price' | 'material_price' | 'labor_price' | 'amount'>[]
-): string[] {
-  const out: string[] = []
-  const want = calcTotals(items, {
-    overhead_rate: e.overhead_rate, discount: e.discount, vat_mode: e.vat_mode,
-  })
-
-  const cmp = (label: string, was: number, should: number) => {
-    if (Math.round(Number(was) || 0) !== should) {
-      out.push(`${label}가 ${fmtComma(was)}원인데 셈해 보면 ${fmtComma(should)}원입니다`)
-    }
-  }
-  cmp('소계', e.subtotal, want.subtotal)
-  cmp('경비', e.overhead_amount, want.overhead_amount)
-  cmp('공급가액', e.supply_amount, want.supply_amount)
-  cmp('부가세', e.vat, want.vat)
-  cmp('합계', e.total, want.total)
-
-  // 줄마다 스스로 맞는지
-  const { fixed } = normalizeItems(items.map(i => ({ ...i, name: null })))
-  if (fixed.length > 0) {
-    const n = new Set(fixed.map(f => f.index)).size
-    out.push(`${n}줄의 단가·금액이 수량×단가와 맞지 않습니다`)
-  }
-  return out
-}
-
 export const fmtComma = (n: number | null | undefined): string =>
   (Number(n) || 0).toLocaleString('ko-KR')
 

@@ -43,8 +43,8 @@ interface Props {
   onDone: (msg: string) => void
   /** 품목 사전에 쌓기 */
   onCatalog: (items: EstimateItem[]) => Promise<number>
-  /** 견적서로 만들기 — 만든 건수를 돌려준다 */
-  onEstimates: (list: { name: string; items: EstimateItem[] }[]) => Promise<number>
+  /** 견적서로 만들기 — 만든 건수와 실패한 파일 이름을 돌려준다 */
+  onEstimates: (list: { name: string; items: EstimateItem[] }[]) => Promise<{ made: number; failed: string[] }>
 }
 
 export function BulkImportDialog({ onClose, onDone, onCatalog, onEstimates }: Props) {
@@ -140,7 +140,13 @@ export function BulkImportDialog({ onClose, onDone, onCatalog, onEstimates }: Pr
     if (chosen.length === 0) return
     setBusy(true)
     try {
-      const made = await onEstimates(chosen.map(r => ({ name: r.baseName, items: r.items })))
+      const { made, failed } = await onEstimates(chosen.map(r => ({ name: r.baseName, items: r.items })))
+      if (failed.length > 0) {
+        // 몇 건이 만들어졌는지 알려야 다시 눌러 겹치는 일을 막는다
+        toast.error(`${made}건을 만들었고 ${failed.length}건은 실패했습니다: ${failed.join(', ')}`)
+        setBusy(false)
+        return
+      }
       onDone(`견적서 ${made}건을 만들었습니다`)
     } catch {
       toast.error('견적서를 만들지 못했습니다')

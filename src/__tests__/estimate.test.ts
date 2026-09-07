@@ -10,7 +10,7 @@ import {
   calcTotals, koreanAmount, numberToKorean, lineAmount, validUntil,
   fillTemplate, isExpired, calcStats, sectionSums,
   isSplitPricing, effectiveUnitPrice, splitTotals,
-  normalizeItems, auditEstimate, DEFAULT_PRESETS,
+  normalizeItems, DEFAULT_PRESETS,
   type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 
@@ -390,30 +390,5 @@ describe('저장 전 검산', () => {
     const { items } = normalizeItems(raw)
     const totals = calcTotals(items, { overhead_rate: 0.1, vat_mode: 'add' })
     expect(totals.subtotal).toBe(130000 + 20000)
-    expect(auditEstimate({ ...totals, overhead_rate: 0.1, discount: 0, vat_mode: 'add' }, items)).toEqual([])
-  })
-})
-
-describe('내보내기 전 점검', () => {
-  const L = (o: Partial<EstimateItem>) => ({
-    sort_order: 0, is_header: false, category: null, name: '품목', spec: null, unit: null,
-    qty: 0, unit_price: 0, material_price: 0, labor_price: 0, cost_price: 0,
-    amount: 0, remark: null, ...o,
-  }) as EstimateItem
-
-  const items = [L({ qty: 10, unit_price: 10000, amount: 100000 })]
-
-  it('앞뒤가 맞으면 아무 말도 하지 않는다', () => {
-    const t = calcTotals(items, { vat_mode: 'add' })
-    expect(auditEstimate({ ...t, overhead_rate: 0, discount: 0, vat_mode: 'add' }, items)).toEqual([])
-  })
-
-  it('저장된 합계가 틀어져 있으면 짚어 준다', () => {
-    const t = calcTotals(items, { vat_mode: 'add' })
-    const bad = { ...t, total: 999999, overhead_rate: 0, discount: 0, vat_mode: 'add' as const }
-    const problems = auditEstimate(bad, items)
-    expect(problems).toHaveLength(1)
-    expect(problems[0]).toContain('합계')
-    expect(problems[0]).toContain('110,000')
   })
 })
