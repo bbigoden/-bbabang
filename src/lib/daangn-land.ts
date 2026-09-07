@@ -62,8 +62,6 @@ export const DAANGN_KINDS = {
   토지: 'LAND',
 } as const
 
-export type DaangnKind = keyof typeof DAANGN_KINDS
-
 const KIND_BY_CODE: Record<string, string> = Object.fromEntries(
   Object.entries(DAANGN_KINDS).map(([k, v]) => [v, k]),
 )
@@ -80,10 +78,6 @@ export const DAANGN_TRADES = {
   MONTH: '월세',
   SHORT: '단기',
 } as const
-
-export function daangnTradeOf(code: string | null): string {
-  return (DAANGN_TRADES as Record<string, string>)[code ?? ''] ?? (code ?? '')
-}
 
 /**
  * 감시 구역.
