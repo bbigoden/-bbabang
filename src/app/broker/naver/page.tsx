@@ -511,7 +511,8 @@ export default function CollectPage() {
     return rows.filter(r => {
       // 사라진 매물은 따로 볼 때만 나온다 — 목록에 섞이면 죽은 링크를 누르게 된다.
       // 표시 기능을 꺼 두면 사라짐 표시는 없는 셈 친다.
-      if (settings.track_gone && (goneOnly ? !r.gone_at : !!r.gone_at)) return false
+      // 사라진 매물은 따로 볼 때만 나온다 — 목록에 섞이면 죽은 링크를 누르게 된다.
+      if (goneOnly ? !r.gone_at : !!r.gone_at) return false
       if (unseenOnly && seen.has(r.article_no)) return false
       if (settings.hide_own && ownName && r.owner === ownName) return false
       if (regions.length) {
@@ -524,7 +525,7 @@ export default function CollectPage() {
       return true
     })
   }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, seen,
-      settings.hide_own, settings.track_gone, ownName, src])
+      settings.hide_own, ownName, src])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -626,9 +627,13 @@ export default function CollectPage() {
             </Chip>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
-            {settings.track_gone && (
-              <Chip on={goneOnly} onClick={() => { setGoneOnly(v => !v); setPage(1) }}>사라진 것</Chip>
-            )}
+            {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
+                이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
+                켜지는 일(받아올 때 가려내기)까지 같이 맡는다. */}
+            <Chip on={goneOnly} onClick={() => {
+              if (!settings.track_gone) void saveSetting({ track_gone: true })
+              setGoneOnly(v => !v); setPage(1)
+            }}>사라진 것</Chip>
             {/* 보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
                 탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
                 네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
@@ -690,12 +695,6 @@ export default function CollectPage() {
             >
               우리 사무소 매물 빼기
             </Chip>
-            <Chip
-              on={settings.track_gone}
-              onClick={() => { void saveSetting({ track_gone: !settings.track_gone }); setPage(1) }}
-            >
-              사라진 매물 표시
-            </Chip>
             {savingSettings && <span className="text-xs text-gray-400">저장 중…</span>}
             <span className="text-xs text-gray-400 dark:text-gray-600">
               {settings.hide_own && ownName
@@ -718,6 +717,9 @@ export default function CollectPage() {
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
             {rows.length === 0
               ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.`
+              /* 사라짐은 **받아올 때** 가려낸다. 켠 직후에는 판정한 적이 없어 늘 0건인데,
+                 그냥 '없습니다' 라고만 하면 고장 난 줄 안다. */
+              : goneOnly ? '아직 사라진 매물이 없습니다. 사라졌는지는 받아올 때 가려내므로, 다음 [가져오기] 부터 표시됩니다.'
               : unseenOnly ? '안 본 매물이 없습니다. 다 훑으셨습니다.'
               : '고른 조건에 맞는 매물이 없습니다.'}
           </p>
@@ -764,7 +766,7 @@ export default function CollectPage() {
                                           dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
                           {[r.division, r.sector].filter(Boolean).join(' ')}
                         </span>
-                        {settings.track_gone && r.gone_at ? (
+                        {r.gone_at ? (
                           <span className={`${BADGE} bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}>사라짐</span>
                         ) : isFresh(r) && !본횟수 ? (
                           <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
