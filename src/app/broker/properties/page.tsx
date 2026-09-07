@@ -2327,7 +2327,7 @@ function BrokerPropertiesContent() {
                       <div className="flex flex-wrap gap-1.5">
                         {cat.types.map(t => (
                           <button key={t} onClick={() => toggleRoomType(t)}
-                            className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterRoomTypes.includes(t) ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
+                            className={chipClass(filterRoomTypes.includes(t), 'xs')}
                           >{t}</button>
                         ))}
                       </div>
@@ -2342,7 +2342,7 @@ function BrokerPropertiesContent() {
                 <div className="flex flex-wrap gap-1.5">
                   {teamMembers.map(name => (
                     <button key={name} onClick={() => toggleAssignee(name)}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterAssignees.includes(name) ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
+                      className={chipClass(filterAssignees.includes(name), 'xs')}
                     >{name}</button>
                   ))}
                 </div>
