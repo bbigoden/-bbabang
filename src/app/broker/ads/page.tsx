@@ -1117,8 +1117,12 @@ export default function AdsPage() {
                         )}
                         {!!l.check_report?.length && (
                           <div>
+                            {/* 대상 아님은 원문을 고칠 거리가 아니다. 이 프로그램이 안 다루는
+                                종류라는 알림이라, 뱅크에서 고치라고 하면 말이 안 맞는다. */}
                             <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-                              {l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다
+                              {l.check_report.every(r => r.startsWith('[대상 아님]'))
+                                ? `${l.bank_no} — 이 종류는 프로그램이 글로 만들지 않습니다`
+                                : `${l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다`}
                             </p>
                             <ul className="space-y-1.5">
                               {l.check_report.map((r, i) => (
