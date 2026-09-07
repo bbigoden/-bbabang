@@ -115,6 +115,11 @@ export type DaangnArticle = {
   division: string | null
   sector: string | null
   writer_name: string | null
+  area_exclusive: number | null
+  area_supply: number | null
+  price_deal: number | null
+  price_deposit: number | null
+  price_rent: number | null
 }
 
 const HEADERS = {
@@ -193,6 +198,13 @@ function normalize(a: any): DaangnArticle | null {
     division: a.region?.name2 ?? null,
     sector: a.region?.name3 ?? a.region?.name ?? null,
     writer_name: a.bizProfile?.name ?? a.writer?.nickname ?? null,
+    // 당근은 면적을 글자로, 가격을 **만원**으로 준다. 거래 종류마다 이름이 달라
+    // (매매는 price, 전세·월세는 deposit) 있는 쪽을 집는다.
+    area_exclusive: Number(a.area) || null,
+    area_supply: Number(a.supplyArea) || null,
+    price_deal: trade?.type === 'BUY' ? (trade?.price ?? trade?.deposit ?? null) : null,
+    price_deposit: trade?.type === 'BUY' ? null : (trade?.deposit ?? trade?.price ?? null),
+    price_rent: trade?.monthlyPay ?? null,
   }
 }
 

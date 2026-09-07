@@ -162,6 +162,13 @@ export type NaverArticle = {
   exposure_start_date: string | null
   /** 우리 사무소가 올린 매물을 빼는 데만 쓴다. 화면에는 안 적는다. */
   brokerage_name: string | null
+  /** 면적은 ㎡ 그대로. 화면에서 평으로 바꾼다. */
+  area_exclusive: number | null
+  area_supply: number | null
+  /** 가격은 **만원**. 네이버는 원으로 주므로 담을 때 한 번 바꾼다. */
+  price_deal: number | null
+  price_deposit: number | null
+  price_rent: number | null
 }
 
 type BoundingBox = { left: number; right: number; top: number; bottom: number }
@@ -231,7 +238,19 @@ function normalize(raw: Record<string, any>): NaverArticle | null {
     sector: a.address?.sector ?? null,
     exposure_start_date: a.verificationInfo?.exposureStartDate ?? null,
     brokerage_name: a.brokerInfo?.brokerageName ?? null,
+    // 면적은 ㎡ 그대로, 가격은 **만원**으로 담는다. 네이버는 원 단위로 주는데
+    // 화면과 광고관리가 만원으로 말하므로 여기서 한 번만 바꿔 둔다.
+    area_exclusive: a.spaceInfo?.exclusiveSpace || null,
+    area_supply: a.spaceInfo?.supplySpace || null,
+    price_deal: 만원(a.priceInfo?.dealPrice),
+    price_deposit: 만원(a.priceInfo?.warrantyPrice),
+    price_rent: 만원(a.priceInfo?.rentPrice),
   }
+}
+
+/** 원 → 만원. 0 이나 없는 값은 비운다. */
+function 만원(원: number | null | undefined): number | null {
+  return 원 ? Math.round(원 / 10_000) : null
 }
 
 /** 매물 필터. 한 벌로 만들어 두 API 에 같이 쓴다. */

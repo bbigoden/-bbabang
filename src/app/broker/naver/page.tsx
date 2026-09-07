@@ -66,6 +66,12 @@ type Row = {
   first_seen_at: string
   last_seen_at: string
   gone_at: string | null
+  /** 면적 ㎡ (화면에서 평으로 바꾼다) */
+  area: number | null
+  /** 가격 — 만원. 매매면 매매가, 아니면 보증금·월세. */
+  price_deal: number | null
+  price_deposit: number | null
+  price_rent: number | null
 }
 
 type Settings = { hide_own: boolean; track_gone: boolean }
@@ -85,7 +91,7 @@ const SOURCES = {
     jobKind: 'naver',
     /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
     takes: '5~8분',
-    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at',
+    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, price_deal, price_deposit, price_rent' as string,
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
@@ -111,6 +117,10 @@ const SOURCES = {
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
+      area: a.area_exclusive ?? a.area_supply ?? null,
+      price_deal: a.price_deal,
+      price_deposit: a.price_deposit,
+      price_rent: a.price_rent,
     }),
   },
   daangn: {
@@ -120,7 +130,7 @@ const SOURCES = {
     jobKind: 'daangn',
     /** 실측 346초. 우리 지역 아닌 동을 첫 쪽에서 접기 전에는 460초였다. */
     takes: '6~9분',
-    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at',
+    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, price_deal, price_deposit, price_rent' as string,
     kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
     kindOf: daangnKindOf,
     trades: DAANGN_TRADES as Record<string, string>,
@@ -146,6 +156,10 @@ const SOURCES = {
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
+      area: a.area_exclusive ?? a.area_supply ?? null,
+      price_deal: a.price_deal,
+      price_deposit: a.price_deposit,
+      price_rent: a.price_rent,
     }),
   },
 } as const
@@ -186,6 +200,22 @@ function 경계(day: string, 시각칸: boolean): string {
  * 깨진 적이 있어, 줄바꿈은 글자 코드로 만들어 상수에 담아 둔다.
  */
 const NL = String.fromCharCode(10)
+
+/** ㎡ → 평. 광고관리 화면과 같은 잣대다. */
+function 평(m2: number | null): string {
+  return m2 ? `${(m2 * 0.3025).toFixed(1)}평` : ''
+}
+
+/**
+ * 가격 한 줄 — 광고관리와 같은 모양으로 적는다.
+ * 매매는 '52,000', 보증·월세는 '3,000/210'.
+ */
+function 값(r: Row): string {
+  const 천 = (n: number) => n.toLocaleString('ko-KR')
+  if (r.price_deal) return 천(r.price_deal)
+  if (r.price_deposit || r.price_rent) return `${천(r.price_deposit ?? 0)}/${천(r.price_rent ?? 0)}`
+  return ''
+}
 
 /** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
 function isFresh(r: Row): boolean {
@@ -781,29 +811,36 @@ export default function CollectPage() {
                         <span className="w-10 shrink-0 text-sm text-gray-500 dark:text-gray-500">
                           {r.trade_code ? (src.trades[r.trade_code] ?? r.trade_code) : ''}
                         </span>
+                        {/* 하루 1,300건이 올라온다. 링크만으로는 무엇을 열어 볼지 고를 수
+                            없어 면적과 가격을 같이 적는다 — 광고관리와 같은 모양이다. */}
+                        <span className="w-14 shrink-0 text-right text-sm tabular-nums text-gray-500 dark:text-gray-500">
+                          {평(r.area)}
+                        </span>
+                        <span className="w-[86px] shrink-0 text-right text-sm tabular-nums text-gray-700 dark:text-gray-300">
+                          {값(r)}
+                        </span>
                       </div>
                       <div className="flex min-w-0 items-center gap-2 sm:contents">
                         <span className={`min-w-0 flex-1 truncate text-sm text-gray-900 group-hover:underline
                                           dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
                           {[r.division, r.sector].filter(Boolean).join(' ')}
                         </span>
-                        {r.gone_at ? (
-                          <span className={`${BADGE} bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}>사라짐</span>
-                        ) : isFresh(r) && !본것.사무소 ? (
-                          <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
-                        ) : null}
-                        {/* 흐리게 만드는 대신 몇 번 봤는지 적는다. 흐려 놓으면 본 것이
-                            읽기 어려워지는데, 정작 다시 들여다볼 만한 것은 그중에 있다.
-                            **사무소 사람 것도 같이 적는다** — 직원이 이미 확인한 매물을
-                            또 열어 볼 이유가 없다. 내가 본 것은 앞에, 사무소 전체는 괄호에. */}
+                        {/* 배지와 횟수를 **한 칸**에 모은다. 따로 두면 어떤 줄은 배지가,
+                            어떤 줄은 숫자가 서로 다른 자리에 찍혀 눈에 거슬린다.
+                            셋은 한 번에 하나만 나온다 — 사라짐 > 본 횟수 > 신규 순. */}
                         <span
-                          className="w-[86px] shrink-0 whitespace-nowrap text-right text-xs leading-5
-                                     tabular-nums text-gray-400 dark:text-gray-600"
-                          title={본것.사무소 ? `사무소 ${본것.사무소}회 · 내가 ${본것.나}회` : ''}
+                          className="flex w-14 shrink-0 items-center justify-end"
+                          title={본것.사무소 ? `사무소 사람들이 ${본것.사무소}회 봤습니다 (내가 ${본것.나}회)` : ''}
                         >
-                          {본것.나
-                            ? 본것.사무소 > 본것.나 ? `${본것.나}회 (사무소 ${본것.사무소})` : `${본것.나}회`
-                            : 본것.사무소 ? `사무소 ${본것.사무소}` : ''}
+                          {r.gone_at ? (
+                            <span className={`${BADGE} bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}>사라짐</span>
+                          ) : 본것.사무소 ? (
+                            <span className="text-xs leading-5 tabular-nums text-gray-400 dark:text-gray-600">
+                              {본것.사무소}회
+                            </span>
+                          ) : isFresh(r) ? (
+                            <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
+                          ) : null}
                         </span>
                       </div>
                     </a>
