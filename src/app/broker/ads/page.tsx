@@ -296,13 +296,10 @@ function CheckCell({ listing, open, onToggle }: {
  * 내림·실패를 따로 적어 봤자 할 일이 달라지지 않는다. 올렸는데도 [올리기] 가
  * 그대로면 그게 곧 실패다. 무엇이 잘못됐는지는 점검 칸이 말한다.
  */
-function ChannelCell({ post, onPublish, 올릴수있는매물, 하루상한, busy }: {
+function ChannelCell({ post, onPublish, busy }: {
   post: Post | undefined
   /** 올릴 수 있는 매물이면 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
   onPublish?: () => void
-  /** 올릴 수 있는 매물인가 (하루 상한과 무관하게) */
-  올릴수있는매물?: boolean
-  하루상한?: boolean
   busy?: boolean
 }) {
   // 내리는 중이어도 글은 아직 카페에 있다. 지워진 것을 확인한 뒤에야 '내림' 이 된다.
@@ -312,11 +309,9 @@ function ChannelCell({ post, onPublish, 올릴수있는매물, 하루상한, bus
       ? <a href={post.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-green-700">{body}</a>
       : body
   }
-  // 올릴 수 있는 매물인데 버튼이 없으면 하루 상한에 걸린 것이다. 그냥 '–' 로
-  // 두면 왜 못 올리는지 알 수 없어 화면이 고장난 것처럼 보인다.
-  if (!onPublish && 올릴수있는매물 && 하루상한) {
-    return <span className="text-amber-600 dark:text-amber-400" title="오늘 올릴 수 있는 만큼 올렸습니다. 내일 다시 올릴 수 있습니다">내일</span>
-  }
+  // 오늘 상한을 다 썬을 때도 그냥 '–' 로 둔다. 상태줄에 이미
+  // `오늘 카페에 올린 것: 10 / 10건 — 오늘은 여기까지` 가 적혀 있다.
+  // 줄마다 또 적으면 목록만 조잡해진다.
   if (!onPublish) return <span className="text-gray-300 dark:text-gray-600">–</span>
   return (
     <button
@@ -1070,8 +1065,6 @@ export default function AdsPage() {
                             post={l.ad_posts.find(p => p.channel === c.key)}
                             onPublish={canPublish(l) && !isLive(l) && 오늘올림 < DAILY_CAP
                               ? () => publishOne(l) : undefined}
-                            올릴수있는매물={canPublish(l) && !isLive(l)}
-                            하루상한={오늘올림 >= DAILY_CAP}
                             busy={publishWatch}
                           />
                         </td>
