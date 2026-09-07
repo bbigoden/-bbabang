@@ -104,7 +104,7 @@ const CHANNEL_LABEL: Record<string, string> = {
  *
  * 예전에는 여기서만 `toFixed(1)` 을 써서 화면은 `전용 36.0평`,
  * 글은 `전용 36평` 이었다. 같은 매물을 두 곳이 다르게 불렀다 — 51건.
- * 소수점 아래가 0이면 뗄다.
+ * 소수점 아래가 0이면 뗀다.
  */
 const m2ToPyeong = (m2: number | null) => {
   if (!m2) return null
