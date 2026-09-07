@@ -457,28 +457,46 @@ export default function AdsPage() {
       return
     }
 
-    // 끝날 때까지 지켜본다. 30분이 넘으면 화면만 놓아주고 작업은 그대로 둔다.
-    const deadline = Date.now() + 30 * 60_000
+    // 끝날 때까지 지켜본다. 매물수집 화면과 같은 잣대를 쓴다.
+    //
+    // **시한은 실행이 시작된 뒤부터 센다.** 앞에 카페 발행 같은 긴 작업이 서 있으면
+    // 수집은 한 시간 넘게 차례를 기다린다. 누른 때부터 세면 멀쩡히 줄 서 있는 것을
+    // 두고 '너무 오래 걸립니다' 라고 겁을 준다. 다만 프로그램이 꺼져 있으면 영영
+    // 차례가 안 오므로 지켜보는 것 자체는 두 시간에서 놓아준다.
+    const 놓아줄때 = Date.now() + 2 * 60 * 60_000
+    let 시한 = Date.now() + 30 * 60_000
+    const 끝 = () => { clearInterval(poll); setSyncing(false); setSyncProgress(null) }
     const poll = setInterval(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('status, progress, result, error').eq('id', job.id).maybeSingle()
-      if (!data) return
-      setSyncProgress(data.progress ?? null)
+      // 작업 기록이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이
+      // 지켜보기가 영영 안 끝나고 버튼도 잠긴 채로 남는다.
+      if (!data) {
+        if (Date.now() > 시한) { 끝(); toast.error('가져오기 상태를 알 수 없습니다. 다시 눌러 주세요.') }
+        return
+      }
       if (data.status === 'done') {
-        clearInterval(poll)
-        setSyncing(false); setSyncProgress(null)
+        끝()
         const n = (data.result as { collected?: number } | null)?.collected
         toast.success(n ? `뱅크에서 ${n}건을 받아왔습니다.` : '가져오기를 마쳤습니다.')
         load()
       } else if (data.status === 'failed' || data.status === 'canceled') {
-        clearInterval(poll)
-        setSyncing(false); setSyncProgress(null)
+        끝()
         setSyncError(data.error ?? '알 수 없는 오류')
         toast.error(`가져오지 못했습니다: ${data.error ?? '알 수 없는 오류'}`)
-      } else if (Date.now() > deadline) {
-        clearInterval(poll)
-        setSyncing(false); setSyncProgress(null)
+      } else if (data.status === 'queued') {
+        시한 = Date.now() + 30 * 60_000        // 아직 차례가 아니다. 시한은 실행부터 센다
+        if (Date.now() > 놓아줄때) {
+          끝()
+          toast.error('가져오기가 아직 차례를 못 받았습니다. PC 프로그램이 켜져 있는지 봐 주세요.')
+        } else {
+          setSyncProgress('차례 기다리는 중')
+        }
+      } else if (Date.now() > 시한) {
+        끝()
         toast.error('시간이 너무 오래 걸립니다. PC 창을 확인해 주세요.')
+      } else {
+        setSyncProgress(data.progress ?? null)
       }
     }, 2000)
   }
