@@ -246,6 +246,17 @@ function ClosedReason({ listing }: { listing: Listing }) {
  *
  * 칸을 따로 내지 않고 합친다 — 볼 곳이 둘이면 한쪽은 안 보게 된다.
  */
+/**
+ * 사장님이 **손봐야 할 것**이 있는 매물인가.
+ *
+ * 점검 칸에는 두 가지가 섞여 들어간다 — 원문에서 고칠 것과, 이 프로그램이
+ * 다루지 않는 종류라는 알림. 뒤에서 사장님이 할 일은 없으므로 세지 않는다.
+ */
+function 손볼것(l: Listing) {
+  const 알림만 = (r: string) => r.startsWith('[대상 아님]')
+  return (l.check_report ?? []).some(r => !알림만(r))
+}
+
 function CheckCell({ listing, open, onToggle }: {
   listing: Listing; open: boolean; onToggle: () => void
 }) {
@@ -285,10 +296,13 @@ function CheckCell({ listing, open, onToggle }: {
  * 내림·실패를 따로 적어 봤자 할 일이 달라지지 않는다. 올렸는데도 [올리기] 가
  * 그대로면 그게 곧 실패다. 무엇이 잘못됐는지는 점검 칸이 말한다.
  */
-function ChannelCell({ post, onPublish, busy }: {
+function ChannelCell({ post, onPublish, 올릴수있는매물, 하루상한, busy }: {
   post: Post | undefined
   /** 올릴 수 있는 매물이면 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
   onPublish?: () => void
+  /** 올릴 수 있는 매물인가 (하루 상한과 무관하게) */
+  올릴수있는매물?: boolean
+  하루상한?: boolean
   busy?: boolean
 }) {
   // 내리는 중이어도 글은 아직 카페에 있다. 지워진 것을 확인한 뒤에야 '내림' 이 된다.
@@ -297,6 +311,11 @@ function ChannelCell({ post, onPublish, busy }: {
     return post.url
       ? <a href={post.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-green-700">{body}</a>
       : body
+  }
+  // 올릴 수 있는 매물인데 버튼이 없으면 하루 상한에 걸린 것이다. 그냥 '–' 로
+  // 두면 왜 못 올리는지 알 수 없어 화면이 고장난 것처럼 보인다.
+  if (!onPublish && 올릴수있는매물 && 하루상한) {
+    return <span className="text-amber-600 dark:text-amber-400" title="오늘 올릴 수 있는 만큼 올렸습니다. 내일 다시 올릴 수 있습니다">내일</span>
   }
   if (!onPublish) return <span className="text-gray-300 dark:text-gray-600">–</span>
   return (
@@ -321,7 +340,9 @@ export default function AdsPage() {
   const [manager, setManager] = useState('')   // 담당자 좁혀 보기
   // 특이사항만 모아 보기. 탭을 더 만들지 않고 집게로 둔다 — 등록매물을
   // 보다가 그중 문제 있는 것만 보는 식이지, 따로 떨어져 있는 목록이 아니다.
-  const [특이만, set특이만] = useState(false)
+  // 좁혀 보기 — 점검 칸에 뜼는 두 가지를 각각 걸러 볼 수 있게 한다.
+  // 한 개로 두면 집게 숫자와 칸의 숫자가 안 맞아 화면을 못 믿게 된다.
+  const [좁혀보기, set좁혀보기] = useState<'' | '점검' | '특이'>('')
   const [tab, setTab] = useState<
     'all' | 'expiring' | 'past' | 'live' | 'takedown'
   >('all')
@@ -725,13 +746,14 @@ export default function AdsPage() {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
       if (!inTab(l)) return false
-      if (특이만 && !l.anomalies?.length) return false
+      if (좁혀보기 === '특이' && !l.anomalies?.length) return false
+      if (좁혀보기 === '점검' && !손볼것(l)) return false
       if (manager && (l.manager ?? '') !== manager) return false
       if (!key) return true
       return [l.bank_no, l.naver_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
         .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
     })
-  }, [listings, q, manager, 특이만, inTab])
+  }, [listings, q, manager, 좁혀보기, inTab])
 
   // 고객목록과 같은 방식으로 자른다 — 250건 규모라 전부 받아 두고 화면에서만 나눈다.
   // 매물목록만 서버에서 페이지 단위로 받는데, 그쪽은 1,800건에 2.3MB라 사정이 다르다.
@@ -739,7 +761,7 @@ export default function AdsPage() {
   // 만들어야 하고, "내려야 함"은 틀리면 안 되는 숫자다.
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
-  useEffect(() => { setPage(1) }, [q, tab, manager, 특이만, pageSize])
+  useEffect(() => { setPage(1) }, [q, tab, manager, 좁혀보기, pageSize])
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l)).length
@@ -748,6 +770,7 @@ export default function AdsPage() {
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
   // 특이사항은 등록매물에서만 센다 — 끝난 매물은 정리할 거리가 아니다.
   const 특이건수 = listings.filter(l => l.bank_tab === '등록매물' && l.anomalies?.length).length
+  const 점검건수 = listings.filter(l => l.bank_tab === '등록매물' && 손볼것(l)).length
 
   // 오늘 카페에 올린 건수. 하루 10건까지만 올린다 — 한 카페에 그 이상 올리면
   // 광고로 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
@@ -928,15 +951,26 @@ export default function AdsPage() {
           {lastSynced && <span>{fmtWhen(lastSynced)} 받아옴</span>}
           {/* 매물을 나란히 놓고 봐야 보이는 것 — 뱅크에 같은 매물이 두 번
               올라가 있거나, 글끼리 문장이 겹치는 것. 누르면 그것만 본다. */}
+          {점검건수 > 0 && (
+            <button
+              onClick={() => set좁혀보기(v => (v === '점검' ? '' : '점검'))}
+              className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
+                좁혀보기 === '점검' ? 'bg-amber-600 text-white no-underline' : 'text-amber-600 dark:text-amber-400'
+              }`}
+              title="원문에서 손봐야 할 것이 있는 매물 — 고칠 곳은 뱅크입니다"
+            >
+              점검 {점검건수}건{좁혀보기 === '점검' && ' — 이것만 보는 중'}
+            </button>
+          )}
           {특이건수 > 0 && (
             <button
-              onClick={() => set특이만(v => !v)}
+              onClick={() => set좁혀보기(v => (v === '특이' ? '' : '특이'))}
               className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
-                특이만 ? 'bg-red-600 text-white no-underline' : 'text-red-600 dark:text-red-400'
+                좁혀보기 === '특이' ? 'bg-red-600 text-white no-underline' : 'text-red-600 dark:text-red-400'
               }`}
               title="뱅크에 같은 매물이 두 번 있거나, 다른 글과 문장이 겹치는 매물"
             >
-              특이사항 {특이건수}건{특이만 && ' — 이것만 보는 중'}
+              특이사항 {특이건수}건{좁혀보기 === '특이' && ' — 이것만 보는 중'}
             </button>
           )}
           <span className={오늘올림 >= DAILY_CAP ? 'font-medium text-amber-600 dark:text-amber-400' : ''}>
@@ -1036,6 +1070,8 @@ export default function AdsPage() {
                             post={l.ad_posts.find(p => p.channel === c.key)}
                             onPublish={canPublish(l) && !isLive(l) && 오늘올림 < DAILY_CAP
                               ? () => publishOne(l) : undefined}
+                            올릴수있는매물={canPublish(l) && !isLive(l)}
+                            하루상한={오늘올림 >= DAILY_CAP}
                             busy={publishWatch}
                           />
                         </td>

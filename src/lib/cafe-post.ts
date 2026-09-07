@@ -1539,8 +1539,14 @@ function buildReport(p: ParsedListing, src: string, listingNo: string): string |
 
   if (!listingNo || listingNo === 'XXXXXXXXXX') issues.push('매물번호가 입력되지 않아 `XXXXXXXXXX`로 표기했습니다. 게시 전 10자리 번호로 교체해 주세요.')
 
-  if (p.exclusiveArea && p.supplyArea && p.exclusiveArea === p.supplyArea) {
-    issues.push('공급면적과 전용면적이 동일합니다. 다층 건물에서는 이례적이므로 원문 수치를 확인해 주세요.')
+  // 공급 = 전용은 **원래 그런 자리가 있다.** 단층 건물, 한 층을 통으로 쓰는
+  // 자리, 단독 건물은 나눠 쓸 공용부가 없어 두 값이 같게 나온다. 그걸 다
+  // 알리니 등록매물 237건 중 118건에 같은 말이 붙어, 점검 칸이 배경화면이 됐다.
+  // **나눠 쓰는 건물인데 같을 때만** 이례적이다.
+  const 통으로쓰는자리 = p.totalFloors === '1'
+    || /전체|전층|통임대|단독/.test(`${p.addressRaw ?? ''} ${src}`)
+  if (p.exclusiveArea && p.supplyArea && p.exclusiveArea === p.supplyArea && !통으로쓰는자리) {
+    issues.push('공급면적과 전용면적이 동일합니다. 여러 호실이 나눠 쓰는 건물에서는 이례적이므로 원문 수치를 확인해 주세요.')
   }
   if (p.maintenanceFeeAmount && p.maintenanceFeeAmount > 100000 && p.maintenanceFee && !/포함|비목|수도|전기|청소|승강기/.test(p.maintenanceFee)) {
     issues.push('관리비가 10만원을 초과하는데 세부 비목이 없습니다. 포함 항목(청소비·승강기 유지비 등)을 확인해 주세요.')
