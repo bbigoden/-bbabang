@@ -9,7 +9,8 @@ import { describe, it, expect } from 'vitest'
 import {
   calcTotals, koreanAmount, numberToKorean, lineAmount, validUntil,
   fillTemplate, isExpired, calcStats, sectionSums,
-  isSplitPricing, effectiveUnitPrice, splitTotals, DEFAULT_PRESETS,
+  isSplitPricing, effectiveUnitPrice, splitTotals,
+  normalizeItems, auditEstimate, DEFAULT_PRESETS,
   type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 
@@ -285,6 +286,21 @@ describe('재료비·인건비 나누기', () => {
     expect(effectiveUnitPrice(R({ unit_price: 13000 }))).toBe(13000)
   })
 
+  it('나누지 않은 줄이 섞여 있으면 그 합도 따로 낸다', () => {
+    // 셋을 더해 소계가 나와야 보는 사람이 검산할 수 있다.
+    // 예전에는 나눈 줄만 세어 "350,000 + 350,000 인데 소계는 1,102,000" 이 됐다.
+    const items = [
+      R({ is_header: true, name: '철거' }),
+      R({ name: '기존 마감 철거', qty: 33.5, unit_price: 12000, amount: 402000 }),  // 안 나눔
+      R({ name: '레미탈', qty: 70, material_price: 5000, labor_price: 5000, unit_price: 10000, amount: 700000 }),
+    ]
+    const st = splitTotals(items)
+    expect(st.material).toBe(350000)
+    expect(st.labor).toBe(350000)
+    expect(st.rest).toBe(402000)
+    expect(st.material + st.labor + st.rest).toBe(calcTotals(items, { vat_mode: 'add' }).subtotal)
+  })
+
   it('재료비 합 + 인건비 합 = 전체 소계', () => {
     const items = [
       R({ is_header: true, name: '방수' }),
@@ -302,5 +318,102 @@ describe('재료비·인건비 나누기', () => {
     const items = [R({ name: '타일', qty: 28.74, labor_price: 60000, unit_price: 60000, amount: 1724400 })]
     const st = splitTotals(items)
     expect(st.material + st.labor).toBe(calcTotals(items, { vat_mode: 'add' }).subtotal)
+  })
+})
+
+/**
+ * 견적서는 발주자에게 나가는 문서다. 사장님이 한 줄씩 검산할 수는 없으므로
+ * 저장·발행 직전에 스스로 다시 셈해야 한다.
+ *
+ * 값이 들어오는 길이 여럿이라(손입력·품목 사전·프리셋·엑셀·복사·수정 견적)
+ * 그중 하나만 어긋나도 틀린 금액이 그대로 나간다. 여기서 전부 붙잡는다.
+ */
+describe('저장 전 검산', () => {
+  const L = (o: Partial<EstimateItem>) => ({
+    sort_order: 0, is_header: false, category: null, name: '품목', spec: null, unit: null,
+    qty: 0, unit_price: 0, material_price: 0, labor_price: 0, cost_price: 0,
+    amount: 0, remark: null, ...o,
+  }) as EstimateItem
+
+  it('금액이 수량×단가와 다르면 바로잡는다', () => {
+    const { items, fixed } = normalizeItems([L({ qty: 10, unit_price: 13000, amount: 999999 })])
+    expect(items[0].amount).toBe(130000)
+    expect(fixed).toEqual([{ index: 0, name: '품목', field: '금액', was: 999999, now: 130000 }])
+  })
+
+  it('단가가 재료비+인건비와 다르면 바로잡는다', () => {
+    // 품목 사전에서 단가만 고쳐 온 경우 — 예전에는 이 값이 조용히 무시됐다
+    const { items, fixed } = normalizeItems([
+      L({ qty: 10, material_price: 5000, labor_price: 5000, unit_price: 12000, amount: 120000 }),
+    ])
+    expect(items[0].unit_price).toBe(10000)
+    expect(items[0].amount).toBe(100000)
+    expect(fixed.map(f => f.field)).toEqual(['단가', '금액'])
+  })
+
+  it('맞는 줄은 손대지 않는다 (같은 객체를 그대로 돌려준다)', () => {
+    const ok = L({ qty: 12.5, unit_price: 13000, amount: 162500 })
+    const { items, fixed } = normalizeItems([ok])
+    expect(items[0]).toBe(ok)
+    expect(fixed).toEqual([])
+  })
+
+  it('공종 구분줄에 금액이 묻어 있으면 지운다', () => {
+    const { items } = normalizeItems([L({ is_header: true, qty: 5, unit_price: 1000, amount: 5000 })])
+    expect(items[0].amount).toBe(0)
+    expect(items[0].unit_price).toBe(0)
+    expect(items[0].qty).toBe(0)
+  })
+
+  it('소수 수량도 원 단위로 반올림한다', () => {
+    const { items } = normalizeItems([L({ qty: 28.74, unit_price: 60000, amount: 1724250 })])
+    expect(items[0].amount).toBe(1724400)   // 엑셀에 적힌 값이 아니라 다시 셈한 값
+  })
+
+  it('여러 줄 중 어긋난 것만 골라 고친다', () => {
+    const { items, fixed } = normalizeItems([
+      L({ name: '가', qty: 1, unit_price: 1000, amount: 1000 }),
+      L({ name: '나', qty: 2, unit_price: 2000, amount: 5000 }),
+      L({ name: '다', qty: 3, unit_price: 3000, amount: 9000 }),
+    ])
+    expect(fixed).toHaveLength(1)
+    expect(fixed[0].name).toBe('나')
+    expect(items.map(i => i.amount)).toEqual([1000, 4000, 9000])
+  })
+
+  it('바로잡은 뒤에는 합계가 반드시 맞는다', () => {
+    const raw = [
+      L({ is_header: true, name: '철거' }),
+      L({ qty: 10, unit_price: 13000, amount: 1 }),          // 금액이 엉망
+      L({ qty: 2, material_price: 5000, labor_price: 5000, unit_price: 99, amount: 99 }),
+    ]
+    const { items } = normalizeItems(raw)
+    const totals = calcTotals(items, { overhead_rate: 0.1, vat_mode: 'add' })
+    expect(totals.subtotal).toBe(130000 + 20000)
+    expect(auditEstimate({ ...totals, overhead_rate: 0.1, discount: 0, vat_mode: 'add' }, items)).toEqual([])
+  })
+})
+
+describe('내보내기 전 점검', () => {
+  const L = (o: Partial<EstimateItem>) => ({
+    sort_order: 0, is_header: false, category: null, name: '품목', spec: null, unit: null,
+    qty: 0, unit_price: 0, material_price: 0, labor_price: 0, cost_price: 0,
+    amount: 0, remark: null, ...o,
+  }) as EstimateItem
+
+  const items = [L({ qty: 10, unit_price: 10000, amount: 100000 })]
+
+  it('앞뒤가 맞으면 아무 말도 하지 않는다', () => {
+    const t = calcTotals(items, { vat_mode: 'add' })
+    expect(auditEstimate({ ...t, overhead_rate: 0, discount: 0, vat_mode: 'add' }, items)).toEqual([])
+  })
+
+  it('저장된 합계가 틀어져 있으면 짚어 준다', () => {
+    const t = calcTotals(items, { vat_mode: 'add' })
+    const bad = { ...t, total: 999999, overhead_rate: 0, discount: 0, vat_mode: 'add' as const }
+    const problems = auditEstimate(bad, items)
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('합계')
+    expect(problems[0]).toContain('110,000')
   })
 })

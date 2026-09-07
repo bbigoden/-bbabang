@@ -12,7 +12,8 @@ import { Fragment } from 'react'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import {
-  fmtComma, koreanAmount, sectionSums, splitTotals, isSplitPricing, validUntil, type VatMode,
+  calcTotals, fmtComma, koreanAmount, normalizeItems, sectionSums, splitTotals,
+  isSplitPricing, validUntil, type VatMode,
 } from '@/lib/estimate'
 import { FileText } from 'lucide-react'
 
@@ -97,6 +98,13 @@ export default async function SharedEstimatePage(
       </main>
     )
   }
+
+  // 거래처가 보는 화면이라 여기서도 다시 셈한다 (PDF 와 같은 규칙)
+  const { items } = normalizeItems(e.items)
+  const t = calcTotals(items, {
+    overhead_rate: e.overhead_rate, discount: e.discount, vat_mode: e.vat_mode,
+  })
+  Object.assign(e, { items }, t)
 
   const co = e.company ?? {}
   const until = validUntil(e.issue_date, e.valid_days)
@@ -234,6 +242,8 @@ export default async function SharedEstimatePage(
                 <>
                   <Sum k="재료비" v={st.material} />
                   <Sum k="인건비" v={st.labor} />
+                  {/* 나누지 않은 줄 — 이게 있어야 셋을 더해 소계가 나온다 */}
+                  {st.rest > 0 && <Sum k="그 밖에" v={st.rest} />}
                 </>
               ) : null}
               <Sum k="소계" v={e.subtotal} />

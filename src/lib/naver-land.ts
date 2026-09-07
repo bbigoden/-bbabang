@@ -141,23 +141,9 @@ export const REGIONS = [
 
 export type RegionId = (typeof REGIONS)[number]['id']
 
-/**
- * 한국 날짜 'YYYY-MM-DD'.
- *
- * 네이버가 주는 `exposureStartDate` 는 한국 날짜다. 그런데 `toISOString()` 은 UTC라
- * **아침 9시 이전에는 어제 날짜가 나온다.** 그걸로 기간을 자르면 새벽에 화면을 연
- * 사장님에게 하루가 밀린 목록이 나가고, '재등록' 표시도 엉뚱하게 붙는다.
- *
- * @param backDays 며칠 전인지 (0 = 오늘)
- */
-export function kstDate(backDays = 0): string {
-  return new Date(Date.now() + 9 * 3_600_000 - backDays * 86_400_000).toISOString().slice(0, 10)
-}
+// 날짜는 한국 기준으로 센다. 그 셈은 `date-kst.ts` 한 곳에만 둔다 —
+// 여기에도 두었더니 같은 일을 하는 함수가 두 벌이 됐다.
 
-/** 어떤 시각의 한국 날짜. 위와 같은 이유로 필요하다. */
-export function toKstDate(iso: string): string {
-  return new Date(new Date(iso).getTime() + 9 * 3_600_000).toISOString().slice(0, 10)
-}
 
 /**
  * 매물 한 건. 표의 열과 이름을 맞춰 둔다.

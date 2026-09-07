@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import {
   calcStats, fmtComma, isExpired, STATUS_LABEL,
-  calcTotals,
+  calcTotals, normalizeItems,
   type Estimate, type EstimateCompany, type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 import { todayKST } from '@/lib/date-kst'
@@ -198,7 +198,10 @@ export default function EstimatesPage() {
       const { data: noData, error: noErr } = await supabase.rpc('next_estimate_no', { p_owner: brokerId })
       if (noErr) throw noErr
 
-      const totals = calcTotals(one.items, { vat_mode: 'add' })
+      // 엑셀에 적힌 금액을 그대로 옮기지 않는다 — 손으로 덮어쓴 값이나 깨진 수식이
+      // 남아 있는 일이 잦다. 수량×단가로 다시 셈해 넣는다.
+      const { items: safeItems } = normalizeItems(one.items)
+      const totals = calcTotals(safeItems, { vat_mode: 'add' })
       const { data, error } = await supabase.from('estimates').insert({
         owner_broker_id: brokerId,
         estimate_no: noData as string,
@@ -214,7 +217,7 @@ export default function EstimatesPage() {
 
       const { error: e2 } = await supabase.rpc('replace_estimate_items', {
         p_estimate_id: data.id,
-        p_items: one.items.map((it, i) => ({
+        p_items: safeItems.map((it, i) => ({
           sort_order: i, is_header: it.is_header,
           category: it.category, name: it.name, spec: it.spec, unit: it.unit,
           qty: it.qty, unit_price: it.unit_price,

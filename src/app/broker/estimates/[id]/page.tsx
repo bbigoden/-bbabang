@@ -12,7 +12,7 @@ import {
   CheckCircle2, XCircle, Lock, CopyPlus, Link2,
 } from 'lucide-react'
 import {
-  calcTotals, calcMargin, fmtComma, koreanAmount, revisionNo, validUntil, STATUS_LABEL,
+  calcTotals, calcMargin, fmtComma, koreanAmount, normalizeItems, revisionNo, validUntil, STATUS_LABEL,
   type CatalogItem, type Estimate, type EstimateCompany, type EstimateClient,
   type EstimateItem, type EstimateStatus, type VatMode,
 } from '@/lib/estimate'
@@ -187,6 +187,23 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     if (!est || !brokerId || saving) return false
     setSaving(true)
     try {
+      // 화면이 잘 셈했기를 믿지 않고 저장 직전에 다시 맞춘다.
+      // 값이 들어오는 길이 여럿이라(손입력·품목 사전·프리셋·엑셀·복사) 그중 하나만
+      // 어긋나도 틀린 금액이 발주자에게 그대로 나간다.
+      const { items: safeItems, fixed } = normalizeItems(items)
+      const safeTotals = calcTotals(safeItems, {
+        overhead_rate: est.overhead_rate, discount: est.discount, vat_mode: est.vat_mode,
+      })
+      const safeMargin = calcMargin(safeItems, safeTotals.supply_amount)
+      if (fixed.length > 0) {
+        // 모르는 사이에 숫자가 바뀌면 그것대로 믿을 수 없다 — 무엇을 고쳤는지 알린다
+        setItems(safeItems)
+        const one = fixed[0]
+        toast.info(fixed.length === 1
+          ? `${one.name || `${one.index + 1}번째 줄`}의 ${one.field}를 ${fmtComma(one.now)}원으로 바로잡았습니다`
+          : `${new Set(fixed.map(f => f.index)).size}줄의 단가·금액을 수량×단가로 바로잡았습니다`)
+      }
+
       const company = companies.find(c => c.id === est.company_id) ?? null
       const clientId = await syncClient()
 
@@ -210,8 +227,8 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
         discount: est.discount,
         vat_mode: est.vat_mode,
         status: est.status,
-        ...totals,
-        total_cost: margin?.cost ?? 0,
+        ...safeTotals,
+        total_cost: safeMargin?.cost ?? 0,
       }).eq('id', est.id)
       if (e1) throw e1
 
@@ -221,7 +238,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       // 둘 다 안 되게 한다.
       const { error: e2 } = await supabase.rpc('replace_estimate_items', {
         p_estimate_id: est.id,
-        p_items: items.map((it, i) => ({
+        p_items: safeItems.map((it, i) => ({
           sort_order: i,
           is_header: it.is_header,
           category: it.category, name: it.name, spec: it.spec, unit: it.unit,
@@ -421,8 +438,10 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     if (error) { toast.error('수정 견적을 만들지 못했습니다'); return }
 
     if (items.length) {
+      // 옮겨 담을 때도 다시 셈한다 — 어긋난 값을 그대로 물려주지 않는다
+      const { items: safe } = normalizeItems(items)
       await supabase.from('estimate_items').insert(
-        items.map((it, i) => ({
+        safe.map((it, i) => ({
           estimate_id: data.id, sort_order: i, is_header: it.is_header,
           category: it.category, name: it.name, spec: it.spec, unit: it.unit,
           qty: it.qty, unit_price: it.unit_price,

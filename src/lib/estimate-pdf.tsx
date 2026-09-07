@@ -9,7 +9,8 @@ import {
   Document, Page, Text, View, Image, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import {
-  fmtComma, koreanAmount, sectionSums, splitTotals, isSplitPricing, validUntil, INVOICE_KIND_LABEL,
+  calcTotals, fmtComma, koreanAmount, normalizeItems, sectionSums, splitTotals,
+  isSplitPricing, validUntil, INVOICE_KIND_LABEL,
   type Estimate, type EstimateCompany, type EstimateInvoice, type EstimateItem,
 } from './estimate'
 
@@ -140,7 +141,19 @@ interface Props {
   stampUrl?: string | null
 }
 
-export function EstimateDocument({ estimate: e, items, company, stampUrl }: Props) {
+export function EstimateDocument({ estimate: given, items: rawItems, company, stampUrl }: Props) {
+  // 종이에 찍히는 숫자는 언제나 여기서 다시 셈한다.
+  //
+  // 이 문서는 발주자에게 나간다. 사장님이 한 줄씩 검산할 수는 없으므로, 저장된
+  // 값이 어떤 까닭으로 틀어져 있더라도 인쇄물만은 앞뒤가 맞아야 한다.
+  // 저장할 때도 같은 셈을 하므로 보통은 그대로지만, 마지막 방어선을 여기 둔다.
+  const { items } = normalizeItems(rawItems)
+  const e = {
+    ...given,
+    ...calcTotals(items, {
+      overhead_rate: given.overhead_rate, discount: given.discount, vat_mode: given.vat_mode,
+    }),
+  }
   const rows = items.filter(it => it.is_header || it.name || it.amount)
   // 공종 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
   const subs = new Map(sectionSums(rows).map(x => [x.afterIndex, x]))
@@ -309,6 +322,8 @@ export function EstimateDocument({ estimate: e, items, company, stampUrl }: Prop
               <>
                 <SumRow label="재료비" value={st.material} />
                 <SumRow label="인건비" value={st.labor} />
+                {/* 나누지 않은 줄 — 이게 있어야 셋을 더해 소계가 나온다 */}
+                {st.rest > 0 && <SumRow label="그 밖에" value={st.rest} />}
               </>
             ) : null}
             <SumRow label="소　계" value={e.subtotal} />

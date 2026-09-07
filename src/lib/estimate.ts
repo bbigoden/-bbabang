@@ -56,19 +56,33 @@ export function effectiveUnitPrice(
   return m + l > 0 ? m + l : (Number(it.unit_price) || 0)
 }
 
-/** 내역 전체의 재료비·인건비 합 (나눠 적은 줄만 센다) */
+/**
+ * 내역 전체의 재료비·인건비 합.
+ *
+ * 나누지 않은 줄의 합(rest)도 함께 돌려준다. **재료비 + 인건비 + 그 밖에 = 소계**
+ * 가 되어야 보는 사람이 더해 볼 수 있다. 나눈 줄만 세어 내놓으면
+ * "350,000 + 350,000 인데 소계는 왜 1,102,000 이냐"는 물음이 남는다.
+ */
 export function splitTotals(
-  items: Pick<EstimateItem, 'is_header' | 'qty' | 'material_price' | 'labor_price'>[]
-): { material: number; labor: number } {
+  items: Pick<EstimateItem, 'is_header' | 'qty' | 'unit_price' | 'material_price' | 'labor_price' | 'amount'>[]
+): { material: number; labor: number; rest: number } {
   let material = 0
   let labor = 0
+  let rest = 0
   for (const it of items) {
     if (it.is_header) continue
     const q = Number(it.qty) || 0
-    material += Math.round(q * (Number(it.material_price) || 0))
-    labor += Math.round(q * (Number(it.labor_price) || 0))
+    const m = Number(it.material_price) || 0
+    const l = Number(it.labor_price) || 0
+    if (m + l > 0) {
+      material += Math.round(q * m)
+      labor += Math.round(q * l)
+    } else {
+      // 나누지 않은 줄 — 어느 쪽인지 알 수 없으므로 따로 센다
+      rest += Number(it.amount) || 0
+    }
   }
-  return { material, labor }
+  return { material, labor, rest }
 }
 
 /** 품목 사전 — 내역에서 품명을 치면 과거에 쓴 항목이 단가·원가와 함께 뜬다 */
@@ -321,6 +335,93 @@ export function sectionSums(
   const all = items.reduce((s, it) => it.is_header ? s : s + (Number(it.amount) || 0), 0)
   if (covered !== all) return []
 
+  return out
+}
+
+// ── 검산 ────────────────────────────────────────────────────────
+
+export interface FixedLine {
+  /** 몇 번째 줄인지 (0부터) */
+  index: number
+  name: string
+  field: '단가' | '금액'
+  was: number
+  now: number
+}
+
+/**
+ * 모든 줄을 다시 셈해 어긋난 값을 바로잡는다.
+ *
+ * **견적서는 발주자에게 나가는 문서다.** 사장님이 한 줄씩 검산할 수는 없으므로,
+ * 화면이 잘 셈했기를 믿지 않고 저장·발행 직전에 여기서 한 번 더 맞춘다.
+ * 값이 들어오는 길은 여럿이다 — 손입력·품목 사전·프리셋·엑셀 가져오기·복사·
+ * 수정 견적. 그중 하나만 어긋나도 틀린 금액이 그대로 나간다.
+ *
+ * 규칙은 둘뿐이다.
+ *   단가 = 재료비 + 인건비   (나눠 적었을 때. 아니면 적어 둔 단가 그대로)
+ *   금액 = 수량 × 단가       (원 단위 반올림)
+ *
+ * 고친 것은 조용히 넘기지 않고 무엇을 어떻게 고쳤는지 함께 돌려준다 —
+ * 모르는 사이에 숫자가 바뀌면 그것대로 믿을 수 없는 도구가 된다.
+ */
+export function normalizeItems<T extends Pick<EstimateItem,
+  'is_header' | 'name' | 'qty' | 'unit_price' | 'material_price' | 'labor_price' | 'amount'>>(
+  items: T[]
+): { items: T[]; fixed: FixedLine[] } {
+  const fixed: FixedLine[] = []
+
+  const next = items.map((it, index) => {
+    // 공종 구분줄은 금액을 갖지 않는다
+    if (it.is_header) {
+      if (!it.unit_price && !it.amount) return it
+      return { ...it, qty: 0, unit_price: 0, material_price: 0, labor_price: 0, amount: 0 }
+    }
+
+    const price = effectiveUnitPrice(it)
+    const amount = lineAmount(it.qty, price)
+    if (price === it.unit_price && amount === it.amount) return it
+
+    const name = it.name ?? ''
+    if (price !== it.unit_price) fixed.push({ index, name, field: '단가', was: it.unit_price, now: price })
+    if (amount !== it.amount) fixed.push({ index, name, field: '금액', was: it.amount, now: amount })
+    return { ...it, unit_price: price, amount }
+  })
+
+  return { items: next, fixed }
+}
+
+/**
+ * 견적서가 앞뒤로 맞는지 본다. 맞지 않는 대목을 사람 말로 돌려준다.
+ *
+ * normalizeItems 로 줄을 바로잡고 calcTotals 로 합계를 다시 내면 어긋날 일이
+ * 없지만, 저장된 뒤에 어딘가에서 값이 틀어졌을 수 있다. 내보내기 전에 한 번 본다.
+ */
+export function auditEstimate(
+  e: Pick<Estimate, 'subtotal' | 'overhead_rate' | 'overhead_amount' | 'discount' | 'supply_amount' | 'vat' | 'vat_mode' | 'total'>,
+  items: Pick<EstimateItem, 'is_header' | 'qty' | 'unit_price' | 'material_price' | 'labor_price' | 'amount'>[]
+): string[] {
+  const out: string[] = []
+  const want = calcTotals(items, {
+    overhead_rate: e.overhead_rate, discount: e.discount, vat_mode: e.vat_mode,
+  })
+
+  const cmp = (label: string, was: number, should: number) => {
+    if (Math.round(Number(was) || 0) !== should) {
+      out.push(`${label}가 ${fmtComma(was)}원인데 셈해 보면 ${fmtComma(should)}원입니다`)
+    }
+  }
+  cmp('소계', e.subtotal, want.subtotal)
+  cmp('경비', e.overhead_amount, want.overhead_amount)
+  cmp('공급가액', e.supply_amount, want.supply_amount)
+  cmp('부가세', e.vat, want.vat)
+  cmp('합계', e.total, want.total)
+
+  // 줄마다 스스로 맞는지
+  const { fixed } = normalizeItems(items.map(i => ({ ...i, name: null })))
+  if (fixed.length > 0) {
+    const n = new Set(fixed.map(f => f.index)).size
+    out.push(`${n}줄의 단가·금액이 수량×단가와 맞지 않습니다`)
+  }
   return out
 }
 
