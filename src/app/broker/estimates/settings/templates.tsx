@@ -67,7 +67,7 @@ export function TemplatesTab({ brokerId }: { brokerId: string }) {
   }
 
   const remove = async (row: TemplateRow) => {
-    if (!confirm(`"${row.name}" 프리셋을 삭제할까요?`)) return
+    if (!confirm(`"${row.name}" 프리셋을 삭제할까요?\n이미 만든 견적서의 내역은 그대로 남습니다.`)) return
     const { error } = await supabase.from('estimate_templates').delete().eq('id', row.id)
     if (error) { toast.error('삭제하지 못했습니다'); return }
     setRows(prev => prev.filter(r => r.id !== row.id))

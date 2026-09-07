@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/toast'
 import { Trash2, Search, Package, Plus, X } from 'lucide-react'
-import { fmtComma, type CatalogItem } from '@/lib/estimate'
+import { fmtComma, effectiveUnitPrice, type CatalogItem } from '@/lib/estimate'
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'
@@ -26,7 +26,7 @@ export function CatalogTab({ brokerId }: { brokerId: string }) {
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('estimate_item_catalog')
-      .select('id,category,name,spec,unit,unit_price,cost_price,use_count')
+      .select('id,category,name,spec,unit,unit_price,material_price,labor_price,cost_price,use_count')
       .eq('owner_broker_id', brokerId)
       .order('use_count', { ascending: false }).order('name')
     setRows((data as CatalogItem[]) ?? [])
@@ -46,7 +46,15 @@ export function CatalogTab({ brokerId }: { brokerId: string }) {
       spec: editing.spec?.trim() || null,
       unit: editing.unit?.trim() || null,
       category: editing.category?.trim() || null,
-      unit_price: editing.unit_price ?? 0,
+      // 재료비·인건비를 적었으면 단가는 그 합이다. 여기서 단가만 따로 고칠 수 있게 두면
+      // 합과 어긋난 단가가 사전에 남고, 내역으로 불러올 때 그 값이 무시된다.
+      unit_price: effectiveUnitPrice({
+        unit_price: editing.unit_price ?? 0,
+        material_price: editing.material_price ?? 0,
+        labor_price: editing.labor_price ?? 0,
+      }),
+      material_price: editing.material_price ?? 0,
+      labor_price: editing.labor_price ?? 0,
       cost_price: editing.cost_price ?? 0,
     }
     const res = id
@@ -63,7 +71,7 @@ export function CatalogTab({ brokerId }: { brokerId: string }) {
   }
 
   const remove = async (row: CatalogItem) => {
-    if (!confirm(`"${row.name}" 을(를) 품목 사전에서 지울까요?\n이미 만든 견적서의 내용은 그대로 남습니다.`)) return
+    if (!confirm(`"${row.name}" 을(를) 품목 사전에서 삭제할까요?\n이미 만든 견적서의 내용은 그대로 남습니다.`)) return
     const { error } = await supabase.from('estimate_item_catalog').delete().eq('id', row.id)
     if (error) { toast.error('삭제하지 못했습니다'); return }
     setRows(prev => prev.filter(r => r.id !== row.id))
@@ -87,7 +95,7 @@ export function CatalogTab({ brokerId }: { brokerId: string }) {
             aria-label="품목 검색"
             className="w-60 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white" />
         </div>
-        <button onClick={() => setEditing({ unit_price: 0, cost_price: 0 })}
+        <button onClick={() => setEditing({ unit_price: 0, material_price: 0, labor_price: 0, cost_price: 0 })}
           className="flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700">
           <Plus className="h-4 w-4" />품목 추가
         </button>
@@ -130,7 +138,15 @@ export function CatalogTab({ brokerId }: { brokerId: string }) {
                   <td className="px-3 py-2.5 font-semibold text-gray-900 dark:text-white">{c.name}</td>
                   <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400">{c.spec || '—'}</td>
                   <td className="px-3 py-2.5 text-center text-gray-600 dark:text-gray-400">{c.unit || '—'}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-white">{fmtComma(c.unit_price)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-white">
+                    {fmtComma(c.unit_price)}
+                    {/* 나눠 적어 둔 것은 열을 더 늘리지 않고 단가 밑에 적는다 */}
+                    {(c.material_price > 0 || c.labor_price > 0) && (
+                      <span className="mt-0.5 block text-xs font-normal text-gray-500">
+                        재료 {fmtComma(c.material_price)} · 인건 {fmtComma(c.labor_price)}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2.5 text-right text-amber-800 dark:text-amber-500">
                     {c.cost_price ? fmtComma(c.cost_price) : '—'}
                   </td>
@@ -181,8 +197,26 @@ export function CatalogTab({ brokerId }: { brokerId: string }) {
                   placeholder="㎡" className={FIELD} />
               </div>
               <div>
+                <label className={LABEL} htmlFor="ct-mat">재료비</label>
+                <input id="ct-mat" type="number" value={editing.material_price || ''} placeholder="0"
+                  onChange={e => setEditing(p => ({ ...p, material_price: Number(e.target.value) }))} className={FIELD} />
+              </div>
+              <div>
+                <label className={LABEL} htmlFor="ct-lab">인건비</label>
+                <input id="ct-lab" type="number" value={editing.labor_price || ''} placeholder="0"
+                  onChange={e => setEditing(p => ({ ...p, labor_price: Number(e.target.value) }))} className={FIELD} />
+              </div>
+              <div>
                 <label className={LABEL} htmlFor="ct-price">단가</label>
-                <input id="ct-price" type="number" value={editing.unit_price || ''} onChange={e => setEditing(p => ({ ...p, unit_price: Number(e.target.value) }))} className={FIELD} />
+                {/* 나눠 적었으면 합이 곧 단가다 — 따로 못 고치게 한다 */}
+                {(editing.material_price || 0) + (editing.labor_price || 0) > 0 ? (
+                  <div className={`${FIELD} bg-gray-50 font-semibold text-gray-700 dark:bg-gray-950 dark:text-gray-300`}>
+                    {fmtComma((editing.material_price || 0) + (editing.labor_price || 0))}
+                  </div>
+                ) : (
+                  <input id="ct-price" type="number" value={editing.unit_price || ''}
+                    onChange={e => setEditing(p => ({ ...p, unit_price: Number(e.target.value) }))} className={FIELD} />
+                )}
               </div>
               <div>
                 <label className={LABEL} htmlFor="ct-cost">원가 (내부용)</label>

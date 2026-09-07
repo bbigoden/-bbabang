@@ -114,7 +114,7 @@ export function InvoicesPanel({ estimate, brokerId }: { estimate: Estimate; brok
   }
 
   const remove = async (row: EstimateInvoice) => {
-    if (!confirm(`청구서 ${row.invoice_no} 를 삭제할까요?`)) return
+    if (!confirm(`청구서 ${row.invoice_no} 를 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return
     const { error } = await supabase.from('estimate_invoices').delete().eq('id', row.id)
     if (error) { toast.error('삭제하지 못했습니다'); return }
     setRows(prev => prev.filter(r => r.id !== row.id))

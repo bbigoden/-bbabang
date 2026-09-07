@@ -141,7 +141,7 @@ export function SharePanel({ estimateId, brokerId, refreshKey = 0 }: {
   }
 
   const removeFile = async (row: FileRow) => {
-    if (!confirm(`"${row.filename}" 을(를) 지울까요?`)) return
+    if (!confirm(`첨부 "${row.filename}" 을(를) 삭제할까요?\n메일 보낼 때 더 이상 함께 나가지 않습니다.`)) return
     await supabase.storage.from(BUCKET).remove([row.path])
     const { error } = await supabase.from('estimate_attachments').delete().eq('id', row.id)
     if (error) { toast.error('삭제하지 못했습니다'); return }

@@ -9,10 +9,10 @@
  * 원가 칸은 내부용이라 견적서 PDF 에는 나가지 않는다.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, SplitSquareHorizontal } from 'lucide-react'
 import {
-  fmtComma, lineAmount, effectiveUnitPrice, isSplitPricing,
+  fmtComma, lineAmount, effectiveUnitPrice, isSplitPricing, sectionSums,
   type CatalogItem, type EstimateItem,
 } from '@/lib/estimate'
 
@@ -87,6 +87,8 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
   }
 
   const colCount = 10 + (showCost ? 1 : 0) + (showSplit ? 2 : 0)
+  // 공종 구분이 둘 이상일 때만 나온다 — 견적서에 찍히는 것과 같은 규칙
+  const subs = new Map(sectionSums(items).map(x => [x.afterIndex, x]))
 
   return (
     <div>
@@ -148,8 +150,10 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
               </tr>
             )}
 
-            {items.map((it, idx) => it.is_header ? (
-              <tr key={idx} className="border-t border-gray-100 bg-gray-50/70 dark:border-gray-800 dark:bg-gray-800/40">
+            {items.map((it, idx) => (
+              <Fragment key={idx}>
+              {it.is_header ? (
+              <tr className="border-t border-gray-100 bg-gray-50/70 dark:border-gray-800 dark:bg-gray-800/40">
                 <td className="px-1"></td>
                 <td colSpan={colCount - 2} className="px-2 py-1">
                   <input
@@ -165,7 +169,7 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
                 </td>
               </tr>
             ) : (
-              <tr key={idx} className="border-t border-gray-100 dark:border-gray-800">
+              <tr className="border-t border-gray-100 dark:border-gray-800">
                 <td className="px-1 text-center text-xs text-gray-500">{idx + 1}</td>
                 <td className="px-1">
                   <input value={it.category ?? ''} onChange={e => patch(idx, { category: e.target.value })}
@@ -235,6 +239,22 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
                   <RowActions idx={idx} last={items.length - 1} onMove={move} onRemove={removeRow} />
                 </td>
               </tr>
+              )}
+
+              {/* 공종이 끝나는 자리에 그 공종만의 합계.
+                  견적서 PDF·공유 링크에도 같은 줄이 나가므로 여기서 미리 보인다. */}
+              {subs.has(idx) && (
+                <tr className="border-y border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/60">
+                  <td colSpan={colCount - 3} className="px-2 py-1.5 text-right text-xs font-bold text-gray-500">
+                    {subs.get(idx)!.name} 소계
+                  </td>
+                  <td className="px-2 py-1.5 text-right font-bold text-gray-900 dark:text-white">
+                    {fmtComma(subs.get(idx)!.amount)}
+                  </td>
+                  <td colSpan={2} />
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>
