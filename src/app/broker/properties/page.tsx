@@ -33,6 +33,7 @@ import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 import { PROPERTY_STATUS_META } from '@/lib/property-status'
 import { Spinner } from '@/components/ui/spinner'
 import { SearchClear } from '@/components/ui/search-clear'
+import { chipClass } from '@/components/ui/chip'
 
 interface Property {
   id: string
@@ -2289,7 +2290,7 @@ function BrokerPropertiesContent() {
               <div className="flex flex-wrap gap-1.5">
                 {([['available', '가능'], ['contracted', '완료']] as const).map(([v, label]) => (
                   <button key={v} onClick={() => setFilterStatus(filterStatus === v ? '' : v)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterStatus === v ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
+                    className={chipClass(filterStatus === v, 'xs')}
                   >{label}</button>
                 ))}
               </div>
@@ -2299,7 +2300,7 @@ function BrokerPropertiesContent() {
               <div className="flex flex-wrap gap-1.5">
                 {DEAL_TYPES.map(t => (
                   <button key={t} onClick={() => setFilterDealType(filterDealType === t ? '' : t)}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${filterDealType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-500 hover:border-gray-300 dark:border-gray-700'}`}
+                    className={chipClass(filterDealType === t, 'xs')}
                   >{t}</button>
                 ))}
               </div>

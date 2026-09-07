@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { formatDate, formatPrice } from '@/lib/utils'
 import { MapPin, MessageCircle, Home as HomeIcon, Inbox, ExternalLink, Star, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { chipClass } from '@/components/ui/chip'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,11 +70,7 @@ export default async function MyProposalsPage({ searchParams }: { searchParams: 
       <Link
         key={key}
         href={href}
-        className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
-          active
-            ? 'border-blue-500 bg-blue-50 text-blue-700'
-            : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800'
-        }`}
+        className={chipClass(active)}
       >
         {label} <span className="ml-1 text-xs">({count})</span>
       </Link>

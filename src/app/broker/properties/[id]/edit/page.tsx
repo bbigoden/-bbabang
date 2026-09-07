@@ -16,6 +16,7 @@ import { validatePrice, validateArea } from '@/lib/validation'
 import { geocodeAddress } from '@/lib/geocode'
 import { PROPERTY_CATEGORIES } from '@/lib/property-types'
 import { Spinner } from '@/components/ui/spinner'
+import { chipClass } from '@/components/ui/chip'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 const OPTIONS = [
@@ -451,10 +452,7 @@ export default function EditPropertyPage() {
                       key={opt} type="button"
                       onClick={() => toggleOption(opt)}
                       className={cn(
-                        'rounded-full border px-3 py-1.5 text-xs font-medium transition-all',
-                        selectedOptions.includes(opt)
-                          ? 'border-blue-500 bg-blue-500 text-white'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        chipClass(selectedOptions.includes(opt), 'xs')
                       )}
                     >
                       {opt}

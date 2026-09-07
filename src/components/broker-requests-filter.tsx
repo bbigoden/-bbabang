@@ -9,6 +9,7 @@ import { MapPin, Clock, Search, SlidersHorizontal, X } from 'lucide-react'
 import Link from 'next/link'
 import { ALL_ROOM_TYPES as ROOM_TYPES } from '@/lib/property-types'
 import { EmptyState } from '@/components/empty-state'
+import { chipClass } from '@/components/ui/chip'
 
 const DEAL_TYPES = ['매매', '전세', '월세']
 
@@ -126,9 +127,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
                 <button
                   key={t}
                   onClick={() => setDealType(dealType === t ? '' : t)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                    dealType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
+                  className={chipClass(dealType === t, 'xs')}
                 >{t}</button>
               ))}
             </div>
@@ -142,9 +141,7 @@ export function BrokerRequestsFilter({ brokerDistricts }: Props) {
                 <button
                   key={t}
                   onClick={() => setRoomType(roomType === t ? '' : t)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-all ${
-                    roomType === t ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
+                  className={chipClass(roomType === t, 'xs')}
                 >{t}</button>
               ))}
             </div>

@@ -10,11 +10,12 @@ import { SearchClear } from '@/components/ui/search-clear'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useToast } from '@/components/toast'
 import { Radar, Download } from 'lucide-react'
-import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf, toKstDate } from '@/lib/naver-land'
+import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf } from '@/lib/naver-land'
 import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
 import { sendAndForget } from '@/lib/send-and-forget'
 import { DateRangeCell } from '@/components/sheet/cells/date-cell'
 import { todayKST, addDays, ymdKST } from '@/lib/date-kst'
+import { Chip } from '@/components/ui/chip'
 
 /**
  * 매물수집 — 네이버·당근에 올라온 매물을 최신순으로 모아 둔 링크 목록.
@@ -141,7 +142,7 @@ const SOURCES = {
       division: a.division,
       sector: a.sector,
       owner: a.writer_name,
-      shown_date: toKstDate(a.first_seen_at),
+      shown_date: ymdKST(a.first_seen_at),
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
@@ -180,6 +181,12 @@ function 경계(day: string, 시각칸: boolean): string {
   return 시각칸 ? new Date(`${day}T00:00:00+09:00`).toISOString() : day
 }
 
+/**
+ * 줄바꿈. 광고관리 화면과 같은 표기를 쓴다 — 파이썬으로 코드를 고치다 이스케이프가
+ * 깨진 적이 있어, 줄바꿈은 글자 코드로 만들어 상수에 담아 둔다.
+ */
+const NL = String.fromCharCode(10)
+
 /** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
 function isFresh(r: Row): boolean {
   return Date.now() - new Date(r.first_seen_at).getTime() < 24 * 60 * 60 * 1000
@@ -192,22 +199,6 @@ function isFresh(r: Row): boolean {
  * 목록이 미세하게 울퉁불퉁해진다.
  */
 const BADGE = 'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium leading-4'
-
-const CHIP_ON = 'border-blue-600 bg-blue-600 text-white'
-const CHIP_OFF =
-  'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 ' +
-  'dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800'
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${on ? CHIP_ON : CHIP_OFF}`}
-    >
-      {children}
-    </button>
-  )
-}
 
 export default function CollectPage() {
   const supabase = useMemo(() => createClient(), [])
@@ -408,7 +399,7 @@ export default function CollectPage() {
         if (sourceRef.current === id) void loadRef.current()
       } else if (data.status === 'failed' || data.status === 'canceled') {
         끝()
-        toast.error(`${s.label} 을(를) 가져오지 못했습니다 — ${data.error ?? '알 수 없는 오류'}`)
+        toast.error(`${s.label} 매물을 가져오지 못했습니다: ${data.error ?? '알 수 없는 오류'}`)
       } else if (data.status === 'queued') {
         // 아직 차례가 안 왔다. 시한은 실행부터 세므로 뒤로 민다.
         시한 = Date.now() + 30 * 60_000
@@ -442,8 +433,8 @@ export default function CollectPage() {
     if (!officeId || jobs[id]) return
     const s = SOURCES[id]
     if (!agentOnline && !confirm(
-      'PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.' + String.fromCharCode(10, 10)
-      + '요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.' + String.fromCharCode(10)
+      `PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.${NL}${NL}`
+      + `요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.${NL}`
       + '계속할까요?'
     )) return
 
@@ -462,7 +453,7 @@ export default function CollectPage() {
         .select('id').single()
     if (error || !job) {
       setJobs(prev => ({ ...prev, [id]: null }))
-      toast.error(`${s.label} 가져오기를 요청하지 못했습니다 — ${error?.message ?? '알 수 없는 오류'}`)
+      toast.error(`${s.label} 가져오기를 요청하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`)
       return
     }
     watchJob(id, job.id)
