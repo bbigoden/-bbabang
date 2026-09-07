@@ -99,7 +99,18 @@ const CHANNEL_LABEL: Record<string, string> = {
   cafe: '카페', daangn: '당근', bank: '뱅크',
 }
 
-const m2ToPyeong = (m2: number | null) => (m2 ? (m2 * 0.3025).toFixed(1) : null)
+/**
+ * ㎡ → 평. **글과 같은 규칙을 쓴다** (cafe-post.ts 의 m2ToPyeong).
+ *
+ * 예전에는 여기서만 `toFixed(1)` 을 써서 화면은 `전용 36.0평`,
+ * 글은 `전용 36평` 이었다. 같은 매물을 두 곳이 다르게 불렀다 — 51건.
+ * 소수점 아래가 0이면 뗄다.
+ */
+const m2ToPyeong = (m2: number | null) => {
+  if (!m2) return null
+  const v = (m2 * 0.3025).toFixed(1)
+  return v.endsWith('.0') ? v.slice(0, -2) : v
+}
 
 /** PC 프로그램이 이 시간 안에 신호를 보냈으면 켜져 있는 것으로 본다 (신호 주기는 20초). */
 const AGENT_ALIVE_MS = 60_000
@@ -424,6 +435,32 @@ export default function AdsPage() {
   }, [auth.broker?.id])
 
   /**
+   * 화면을 새로 열어도 돌고 있는 작업을 이어서 보여 준다.
+   *
+   * 발행은 길면 한 시간이 넘는다. 걸어 두고 새로고침하거나 다른 화면에 다녀오면
+   * 진행 표시가 통째로 사라져, 도는 중인지 끝났는지 알 수 없었다.
+   */
+  useEffect(() => {
+    if (!auth.broker) return
+    let 살아있음 = true
+    void (async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('id, kind, progress')
+        .in('kind', ['sync', 'publish', 'renew', 'takedown'])
+        .in('status', ['queued', 'running'])
+      if (!살아있음) return
+      for (const j of data ?? []) {
+        if (j.kind === 'sync') { setSyncProgress(j.progress ?? null); watchSync(j.id) }
+        if (j.kind === 'publish') { setPublishWatch(true); setPublishProgress(j.progress ?? null) }
+        if (j.kind === 'renew') setRenewWatch(true)
+        if (j.kind === 'takedown') setTakedownWatch(true)
+      }
+    })()
+    return () => { 살아있음 = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.broker?.id])
+
+  /**
    * 뱅크 수집을 PC에 맡긴다.
    *
    * 이 화면은 Vercel 서버에서 도니까 뱅크에 직접 못 간다 — 브라우저를 띄워 사람처럼
@@ -457,6 +494,17 @@ export default function AdsPage() {
       return
     }
 
+    watchSync(job.id)
+  }
+
+  /**
+   * 걸어 둔 뱅크 수집이 끝날 때까지 지켜본다.
+   *
+   * 누를 때만이 아니라 **화면을 새로 열 때도** 쓴다. 그래야 걸어 두고 새로고침해도
+   * 진행이 이어져 보인다. 매물수집 화면과 같은 잣대다.
+   */
+  function watchSync(jobId: string) {
+    setSyncing(true); setSyncProgress(prev => prev ?? '가져오는 중…')
     // 끝날 때까지 지켜본다. 매물수집 화면과 같은 잣대를 쓴다.
     //
     // **시한은 실행이 시작된 뒤부터 센다.** 앞에 카페 발행 같은 긴 작업이 서 있으면
@@ -468,7 +516,7 @@ export default function AdsPage() {
     const 끝 = () => { clearInterval(poll); setSyncing(false); setSyncProgress(null) }
     const poll = setInterval(async () => {
       const { data } = await supabase.from('ad_jobs')
-        .select('status, progress, result, error').eq('id', job.id).maybeSingle()
+        .select('status, progress, result, error').eq('id', jobId).maybeSingle()
       // 작업 기록이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이
       // 지켜보기가 영영 안 끝나고 버튼도 잠긴 채로 남는다.
       if (!data) {
