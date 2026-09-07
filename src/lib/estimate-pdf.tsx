@@ -384,11 +384,18 @@ function trimNum(n: number): string {
  * 견적서와 같은 머리·공급자 틀을 쓰되, 내역 대신 청구 회차와 금액·입금계좌를 싣는다.
  * 받는 사람이 확인할 것은 "얼마를 언제 어디로" 뿐이라 한 장으로 끝낸다.
  */
-export function InvoiceDocument({ invoice: v, company, stampUrl }: {
+export function InvoiceDocument({ invoice: given, company, stampUrl }: {
   invoice: EstimateInvoice
   company: Partial<EstimateCompany> | null
   stampUrl?: string | null
 }) {
+  // 청구서도 견적서와 같이 종이에 찍기 직전에 다시 셈한다.
+  // 돈을 달라는 문서라 오히려 더 어긋나면 안 되는데, 그동안 견적서만 보고 있었다.
+  // 공급가액을 믿고 부가세·합계를 다시 낸다.
+  const supply = Math.round(Number(given.supply_amount) || 0)
+  const vat = given.vat_mode === 'none' ? 0 : Math.round(supply * 0.1)
+  const v = { ...given, supply_amount: supply, vat, total: supply + vat }
+
   return (
     <Document
       title={`청구서_${v.invoice_no}`}

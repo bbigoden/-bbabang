@@ -81,6 +81,9 @@ export function MailTab({ brokerId }: { brokerId: string }) {
   }
 
   const sendTest = async () => {
+    // 서버는 저장된 설정을 읽어 보낸다. 주소를 고치고 저장하지 않은 채 누르면
+    // 옛 주소로 나가고, 사장님은 "왜 안 오지" 하게 된다. 먼저 저장한다.
+    await save()
     setTesting(true)
     try {
       const res = await fetch('/api/estimates/mail-test', { method: 'POST' })

@@ -2,8 +2,7 @@
 
 /**
  * 견적 거래처 관리.
- * 견적서 작성 중 "거래처 목록에 저장"으로도 쌓이지만, 오타를 고치거나
- * 지우려면 여기가 필요하다.
+ * 견적서를 저장하면 거래처도 저절로 쌓인다. 오타를 고치거나 지우려면 여기가 필요하다.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -107,7 +106,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
           </p>
           {rows.length === 0 && (
             <p className="mt-1 text-xs text-gray-500">
-              견적서를 쓰면서 &quot;거래처 목록에 저장&quot;을 눌러도 여기에 쌓입니다.
+              견적서를 저장하면 그 거래처가 여기에 저절로 쌓입니다.
             </p>
           )}
         </div>
@@ -120,7 +119,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
                 <th className="px-3 py-2.5 text-left font-semibold">담당자</th>
                 <th className="px-3 py-2.5 text-left font-semibold">연락처</th>
                 <th className="px-3 py-2.5 text-left font-semibold">이메일</th>
-                <th className="px-3 py-2.5 text-left font-semibold">현장 주소</th>
+                <th className="px-3 py-2.5 text-left font-semibold">주소</th>
                 <th className="px-3 py-2.5 text-right font-semibold">견적 이력</th>
                 <th className="px-3 py-2.5 text-center font-semibold">관리</th>
               </tr>
@@ -179,7 +178,7 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
                 <input id="cl-email" type="email" value={editing.email ?? ''} onChange={e => setEditing(p => ({ ...p, email: e.target.value }))} className={FIELD} />
               </div>
               <div className="sm:col-span-2">
-                <label className={LABEL} htmlFor="cl-addr">현장 주소</label>
+                <label className={LABEL} htmlFor="cl-addr">주소</label>
                 <input id="cl-addr" value={editing.address ?? ''} onChange={e => setEditing(p => ({ ...p, address: e.target.value }))} className={FIELD} />
               </div>
               <div className="sm:col-span-2">

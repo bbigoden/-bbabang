@@ -19,6 +19,10 @@ import {
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'
 
+const fmtSize = (n: number) => n >= 1024 * 1024
+  ? `${(n / 1024 / 1024).toFixed(1)}MB`
+  : `${Math.max(1, Math.round(n / 1024))}KB`
+
 interface Props {
   estimate: Estimate
   onClose: () => void
@@ -37,6 +41,14 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
+  /**
+   * 함께 나갈 첨부.
+   *
+   * 서버는 붙여 둔 도면·사진을 견적서와 같이 보내는데 이 창에는 PDF 한 줄만
+   * 보였다. 도면을 붙여 두고도 안 가는 줄 알거나, 반대로 갈 줄 모르고 보내게 된다.
+   * 총 용량도 함께 본다 — 서버가 15MB 에서 막으므로 미리 알아야 한다.
+   */
+  const [files, setFiles] = useState<{ filename: string; size: number }[]>([])
 
   // 제목·본문은 창이 열릴 때 한 번만 채운다.
   //
@@ -66,6 +78,11 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
         견적번호: estimate.estimate_no,
         합계: fmtComma(estimate.total),
       }
+      const { data: atts } = await supabase
+        .from('estimate_attachments').select('filename,size').eq('estimate_id', estimate.id)
+      if (!alive) return
+      setFiles(atts ?? [])
+
       setConfigured(!!data?.smtp_user)
       setCc(data?.cc ?? '')
       setSubject(fillTemplate(data?.subject_template || DEFAULT_SUBJECT, vars))
@@ -146,10 +163,26 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
                 className={`${FIELD} resize-y leading-relaxed`} />
             </div>
 
-            <div className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:bg-gray-950/50 dark:text-gray-400">
-              <Paperclip className="h-4 w-4 shrink-0 text-gray-500" />
-              <span className="font-mono text-xs">견적서_{estimate.estimate_no}_{estimate.client_name || '거래처'}.pdf</span>
-              <span className="ml-auto text-xs text-gray-500">자동 첨부</span>
+            <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:bg-gray-950/50 dark:text-gray-400">
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4 shrink-0 text-gray-500" />
+                <span className="font-mono text-xs">견적서_{estimate.estimate_no}_{estimate.client_name || '거래처'}.pdf</span>
+                <span className="ml-auto shrink-0 text-xs text-gray-500">자동 첨부</span>
+              </div>
+              {files.map((f, i) => (
+                <div key={i} className="mt-1 flex items-center gap-2 pl-6">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs">{f.filename}</span>
+                  <span className="shrink-0 text-xs text-gray-500">{fmtSize(f.size)}</span>
+                </div>
+              ))}
+              {files.length > 0 && (
+                <p className="mt-1.5 border-t border-gray-200 pt-1.5 pl-6 text-xs text-gray-500 dark:border-gray-800">
+                  붙여 둔 파일 {files.length}개도 함께 나갑니다 · 합계 {fmtSize(files.reduce((s, f) => s + f.size, 0))}
+                  {files.reduce((s, f) => s + f.size, 0) > 14 * 1024 * 1024 && (
+                    <b className="ml-1 text-amber-700 dark:text-amber-400">— 너무 커서 막힐 수 있습니다</b>
+                  )}
+                </p>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 pt-1">

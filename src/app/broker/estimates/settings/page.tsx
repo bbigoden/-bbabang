@@ -62,7 +62,9 @@ export default function EstimateSettingsPage() {
           <h1 className="text-xl font-black text-gray-900 dark:text-white">견적서 설정</h1>
         </div>
 
-        <div className="mb-5 ml-11 flex gap-1 border-b border-gray-200 dark:border-gray-800">
+        {/* 탭이 다섯이라 폰에서는 줄이 넘친다. 감싸지 않으면 부모의 overflow-x-hidden
+            때문에 맨 끝 [메일 설정] 이 잘려 손이 닿지 않는다. */}
+        <div className="mb-5 flex flex-wrap gap-1 border-b border-gray-200 sm:ml-11 dark:border-gray-800">
           {TABS.map(t => {
             const Icon = t.icon
             const active = tab === t.id

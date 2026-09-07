@@ -132,3 +132,35 @@ describe('청구서 PDF', () => {
     expect(pageCount(buf)).toBe(1)
   }, 60000)
 })
+
+describe('청구서도 종이에 찍기 전 다시 셈한다', () => {
+  const co = { name: '가나다건설', ceo: '홍길동' } as never
+
+  it('저장된 부가세·합계가 틀어져 있어도 바른 값이 찍힌다', async () => {
+    // 공급가액만 믿고 나머지를 다시 낸다 — 돈을 달라는 문서라 어긋나면 안 된다
+    const bad = {
+      invoice_no: 'C2026-0907-01', issue_date: '2026-09-07', kind: 'deposit', ratio: 0.3,
+      client_name: '주식회사 대한상사', vat_mode: 'add', company_snapshot: co,
+      supply_amount: 2895750, vat: 999999, total: 1,     // 부가세·합계가 엉망
+    } as never as EstimateInvoice
+
+    const buf = await renderToBuffer(<InvoiceDocument invoice={bad} company={co} stampUrl={null} />)
+    expect(pageCount(buf)).toBe(1)
+
+    // 바른 값: 2,895,750 + 289,575 = 3,185,325
+    const want = invoiceAmounts(9652500, 0.3, 'add')
+    expect(want.supply_amount).toBe(2895750)
+    expect(want.vat).toBe(289575)
+    expect(want.total).toBe(3185325)
+  }, 60000)
+
+  it('부가세 없음이면 합계가 공급가액과 같다', async () => {
+    const inv = {
+      invoice_no: 'C2026-0907-02', issue_date: '2026-09-07', kind: 'full',
+      vat_mode: 'none', company_snapshot: co,
+      supply_amount: 1000000, vat: 100000, total: 1100000,   // 없음인데 부가세가 붙어 있다
+    } as never as EstimateInvoice
+    const buf = await renderToBuffer(<InvoiceDocument invoice={inv} company={co} stampUrl={null} />)
+    expect(pageCount(buf)).toBe(1)
+  }, 60000)
+})

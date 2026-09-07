@@ -55,6 +55,14 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
   const [sharing, setSharing] = useState(false)
   const [shareTick, setShareTick] = useState(0)
   const [importOpen, setImportOpen] = useState(false)
+  /**
+   * 경비 비율은 타이핑하는 동안 글자 그대로 들고 있는다.
+   *
+   * 값에서 곧바로 (rate*100).toFixed(1) 을 만들어 넣으면 한 글자 칠 때마다 값이
+   * 뭉개진다 — '12.5' 를 치려고 '1' 을 누르면 '1.0' 이 되고, 이어서 '2' 를 치면
+   * '1.02' → 다시 '1.0' 으로 반올림돼 영영 12.5 를 넣을 수 없다.
+   */
+  const [overheadText, setOverheadText] = useState<string | null>(null)
 
   const set = <K extends keyof Estimate>(k: K, v: Estimate[K]) => {
     setEst(prev => prev ? { ...prev, [k]: v } : prev)
@@ -566,10 +574,15 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <select
               value={est.status}
-              onChange={e => {
+              onChange={async e => {
                 const next = e.target.value as EstimateStatus
+                const wasWon = est.status === 'won'
                 set('status', next)
-                if (next === 'won' && est.status !== 'won') addToSchedule({ ...est, status: next })
+                // 상태는 실적에 바로 걸리는 값이라 즉시 저장한다.
+                // 일정만 잡히고 견적서는 '발송함' 인 채로 남으면 앞뒤가 맞지 않는다.
+                setEst(prev => prev ? { ...prev, status: next } : prev)
+                const ok = await save(true)
+                if (ok && next === 'won' && !wasWon) addToSchedule({ ...est, status: next })
               }}
               aria-label="견적 상태"
               className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm font-semibold dark:border-gray-800 dark:bg-gray-900 dark:text-white"
@@ -741,8 +754,14 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 <div className="space-y-3">
                   <div>
                     <label className={LABEL} htmlFor="f-oh">경비(공과잡비) 비율 %</label>
-                    <input id="f-oh" type="number" step="0.1" value={(est.overhead_rate * 100).toFixed(1)}
-                      onChange={e => set('overhead_rate', Number(e.target.value) / 100)} className={FIELD} />
+                    <input id="f-oh" type="number" step="0.1"
+                      value={overheadText ?? (est.overhead_rate * 100).toFixed(1)}
+                      onChange={e => {
+                        setOverheadText(e.target.value)
+                        set('overhead_rate', (Number(e.target.value) || 0) / 100)
+                      }}
+                      onBlur={() => setOverheadText(null)}
+                      className={FIELD} />
                   </div>
                   <div>
                     <label className={LABEL} htmlFor="f-disc">할인액</label>

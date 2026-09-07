@@ -61,7 +61,19 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
     onChange(reindex([...items.slice(0, pos), blank, ...items.slice(pos)]))
   }
 
-  const removeRow = (idx: number) => onChange(reindex(items.filter((_, i) => i !== idx)))
+  /**
+   * 줄 삭제. 내용이 있는 줄만 한 번 묻는다.
+   *
+   * 다른 곳(견적서·거래처·회사·프리셋·청구서·첨부)은 모두 확인을 받는데 여기만
+   * 바로 지웠다. 서른 줄짜리 내역에서 잘못 누르면 되돌릴 길이 없다.
+   * 빈 줄은 지워도 잃을 것이 없으므로 묻지 않는다.
+   */
+  const removeRow = (idx: number) => {
+    const it = items[idx]
+    const hasContent = !!(it?.name?.trim() || it?.category?.trim() || it?.amount)
+    if (hasContent && !confirm(`"${it.name || it.category || `${idx + 1}번째 줄`}" 을(를) 지울까요?`)) return
+    onChange(reindex(items.filter((_, i) => i !== idx)))
+  }
 
   const move = (idx: number, dir: -1 | 1) => {
     const to = idx + dir

@@ -13,17 +13,13 @@ import {
   fmtComma, invoiceAmounts, INVOICE_KIND_LABEL, INVOICE_KIND_RATIO,
   type Estimate, type EstimateInvoice, type InvoiceKind,
 } from '@/lib/estimate'
-import { todayKST } from '@/lib/date-kst'
+import { addDays, todayKST } from '@/lib/date-kst'
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'
 
-/** 오늘부터 n일 뒤 (입금기한 기본값) */
-function daysLater(n: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + n)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+/** 오늘부터 n일 뒤 (입금기한 기본값). 한국 날짜로 센다 */
+const daysLater = (n: number) => addDays(todayKST(), n)
 
 export function InvoicesPanel({ estimate, brokerId }: { estimate: Estimate; brokerId: string }) {
   const toast = useToast()

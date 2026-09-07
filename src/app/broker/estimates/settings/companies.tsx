@@ -98,6 +98,18 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
     load()
   }
 
+  /**
+   * 편집을 그만둘 때, 이번에 올렸다가 저장하지 않은 직인은 치운다.
+   * 그냥 두면 올렸다 취소할 때마다 도장 그림이 창고에 쌓인다.
+   */
+  const closeEditor = async () => {
+    const before = editing?.id ? rows.find(r => r.id === editing.id)?.stamp_path ?? null : null
+    const now = editing?.stamp_path ?? null
+    setEditing(null)
+    setEditingStamp(null)
+    if (now && now !== before) await supabase.storage.from(STAMP_BUCKET).remove([now])
+  }
+
   const uploadStamp = async (file: File) => {
     if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 올릴 수 있습니다'); return }
     if (file.size > 2 * 1024 * 1024) { toast.error('2MB 이하 이미지를 사용하세요'); return }
@@ -178,14 +190,14 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
 
       {/* 편집 모달 */}
       {editing && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={() => setEditing(null)}>
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={closeEditor}>
           <div onClick={e => e.stopPropagation()}
             className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 dark:bg-gray-900 sm:rounded-2xl">
             <div className="mb-4 flex items-center">
               <h2 className="text-base font-black text-gray-900 dark:text-white">
                 {editing.id ? '회사 수정' : '회사 추가'}
               </h2>
-              <button onClick={() => setEditing(null)} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+              <button onClick={closeEditor} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -246,7 +258,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setEditing(null)}
+              <button onClick={closeEditor}
                 className="rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                 취소
               </button>

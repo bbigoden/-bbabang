@@ -25,12 +25,11 @@ type Period = 'month' | 'year' | 'all'
 
 const PERIOD_LABEL: Record<Period, string> = { month: '이번 달', year: '올해', all: '전체' }
 
-/** 기간 시작일(YYYY-MM-DD). all이면 null */
+/** 기간 시작일(YYYY-MM-DD). all이면 null. 한국 날짜로 센다 */
 function periodStart(p: Period, today = new Date()): string | null {
   if (p === 'all') return null
-  const y = today.getFullYear()
-  if (p === 'year') return `${y}-01-01`
-  return `${y}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+  const [y, m] = todayKST(today).split('-')
+  return p === 'year' ? `${y}-01-01` : `${y}-${m}-01`
 }
 
 const STATUS_STYLE: Record<EstimateStatus, string> = {
@@ -324,7 +323,9 @@ export default function EstimatesPage() {
       <Header />
 
       <div className="px-4 py-6">
-        <div className="mb-2 flex items-center gap-3">
+        {/* 단추가 넷이라 폰에서는 줄이 넘친다. 감싸지 않으면 부모의 overflow-x-hidden
+            때문에 맨 끝 [새 견적] 이 잘려 아예 누를 수 없다. */}
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <button onClick={() => router.back()} aria-label="뒤로 가기" title="뒤로" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
             <ArrowLeft className="h-5 w-5" />
           </button>
