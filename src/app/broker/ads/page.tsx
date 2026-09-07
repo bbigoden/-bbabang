@@ -47,6 +47,8 @@ type Listing = {
   address_detail: string | null
   area_supply: number | null
   area_exclusive: number | null
+  /** area_exclusive 가 무슨 면적인지 — 전용 / 공급 / 연면적. 원문에서 읽는다. */
+  area_label: string | null
   price_text: string | null
   bank_period: string | null
   is_advertising: boolean
@@ -485,8 +487,12 @@ export default function AdsPage() {
   async function markContracted(l: Listing) {
     // 뱅크는 발행 기록이 없어도 항상 내려야 한다. 네이버부동산까지 자동 전송되므로
     // 계약이 끝난 매물이 여기 남으면 노출이 가장 큰 곳에서 위반이 된다.
-    const bankLive = l.ad_posts.find(p => p.channel === 'bank')?.status !== 'removed'
-      && !goneFromBank.has(l.id)
+    //
+    // **표의 bankLive 와 같은 잣대를 쓴다.** 예전에는 여기만 뱅크 기록을 보고
+    // 표는 bank_tab 을 봐서, 등록종료 매물은 화면에 버튼이 안 뜼는데 누를 수만
+    // 있으면 이미 내려간 뱅크 광고를 또 내리려 했다.
+    const bankLive = l.bank_tab === '등록매물'
+      && l.ad_posts.find(p => p.channel === 'bank')?.status !== 'removed'
     const where = [
       ...(bankLive ? ['뱅크'] : []),
       ...l.ad_posts
@@ -1047,8 +1053,13 @@ export default function AdsPage() {
                         {l.region}
                         {l.address_detail && <span className="ml-1 text-xs text-gray-400">{l.address_detail}</span>}
                       </td>
+                      {/* 무슨 면적인지를 원문에서 읽어 둔다. 통건물은 뱅크 목록이
+                          `대지 연면적` 을 주는데 우리가 공급/전용으로 담았다. 그래서 연면적
+                          1,141평을 `전용 1,141.8평` 이라고 적어 놓고 있었다. */}
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
-                        {l.area_exclusive ? `전용 ${m2ToPyeong(l.area_exclusive)}평` : '–'}
+                        {l.area_exclusive
+                          ? `${l.area_label ?? ''} ${m2ToPyeong(l.area_exclusive)}평`.trim()
+                          : '–'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{l.price_text ?? '–'}</td>
                       {/* 뱅크상태('서비스중' 따위)는 칸으로 두지 않는다. 탭이 이미
