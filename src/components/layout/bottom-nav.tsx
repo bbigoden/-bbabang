@@ -8,7 +8,7 @@ import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
   Home, Search, Bell, Heart, User, Building2, Briefcase,
   MoreHorizontal, X, ChevronDown, LogOut,
-  LayoutDashboard, Flag, CalendarDays, MessagesSquare,
+  LayoutDashboard, Flag, Users, ClipboardList,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -60,10 +60,12 @@ export function BottomNav() {
   } else if (role === 'broker') {
     items = [
       { href: '/dashboard/broker', label: '홈', icon: Home },
+      { href: '/broker/customers', label: '고객', icon: Users },
       { href: '/broker/properties', label: '매물', icon: Building2 },
-      { href: '/broker/schedule', label: '일정', icon: CalendarDays },
-      { href: '/broker/messenger', label: '대화', icon: MessagesSquare, badge: chatUnread },
-      { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
+      { href: '/broker/diary', label: '일지', icon: ClipboardList },
+      // 일정·대화를 탭에서 뺐으므로 안 읽은 대화도 여기로 모아 센다.
+      // 아니면 안 읽은 대화가 있다는 표시가 폰 어디에도 남지 않는다.
+      { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread + chatUnread },
     ]
   } else if (role === 'admin') {
     items = [
