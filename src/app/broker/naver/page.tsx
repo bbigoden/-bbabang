@@ -77,8 +77,24 @@ type Row = {
   price_rent: number | null
 }
 
-type Settings = { hide_own: boolean; track_gone: boolean }
-const DEFAULT_SETTINGS: Settings = { hide_own: false, track_gone: false }
+type Settings = { hide_own: boolean; track_gone: boolean; own_names: string[] | null }
+
+/**
+ * 우리 매물에 찍히는 이름들.
+ *
+ * **곳마다 다르게 적힌다.** 네이버는 사무소 정식명칭(플러스불당공인중개사사무소)이
+ * 그대로 오지만, 당근은 상호가 아니라 **닉네임**(불당부동산은용소장)이 온다. 그래서
+ * 상호만 보던 때는 당근에서 한 건도 못 걸렀다 — 0/3,103.
+ *
+ * 소스마다 따로 적어 두고(`collect_settings.own_names`), 안 적었으면 상호를 쓴다.
+ */
+function 우리이름(설정: Settings, 상호?: string | null): string[] {
+  const 적어둔것 = (설정.own_names ?? []).map(n => n.trim()).filter(Boolean)
+  if (적어둔것.length) return 적어둔것
+  const 다듬은상호 = 상호?.trim()
+  return 다듬은상호 ? [다듬은상호] : []
+}
+const DEFAULT_SETTINGS: Settings = { hide_own: false, track_gone: false, own_names: null }
 
 /**
  * 곳마다 다른 것들을 여기 한 곳에 모아 둔다.
@@ -384,7 +400,7 @@ export default function CollectPage() {
     if (!officeId) return
     void (async () => {
       const { data } = await supabase.from('collect_settings')
-        .select('hide_own, track_gone').eq('broker_id', officeId).eq('source', source).maybeSingle()
+        .select('hide_own, track_gone, own_names').eq('broker_id', officeId).eq('source', source).maybeSingle()
       setSettings((data as Settings) ?? DEFAULT_SETTINGS)
     })()
   }, [supabase, officeId, source])
@@ -405,6 +421,24 @@ export default function CollectPage() {
     const id = setInterval(tick, 15_000)
     return () => { alive = false; clearInterval(id) }
   }, [supabase])
+
+  /**
+   * 이름을 고치는 중인가.
+   *
+   * 늘 입력칸을 열어 두면 줄이 길어지고, 한 번 맞춰 두면 다시 고칠 일이 거의 없다.
+   * 그래서 평소에는 지금 쓰는 이름을 글로 보여주고 누르면 고치게 한다.
+   */
+  const [이름고침, set이름고침] = useState(false)
+  const [이름초안, set이름초안] = useState('')
+
+  const 이름저장 = () => {
+    set이름고침(false)
+    const 목록 = 이름초안.split(',').map(n => n.trim()).filter(Boolean)
+    const 같나 = 목록.length === ownNames.length && 목록.every((n, i) => n === ownNames[i])
+    if (같나) return
+    void saveSetting({ own_names: 목록.length ? 목록 : null })
+    setPage(1)
+  }
 
   const saveSetting = async (patch: Partial<Settings>) => {
     if (!officeId) return
@@ -575,22 +609,36 @@ export default function CollectPage() {
     setPage(1)
   }
 
-  const ownName = auth.broker?.office_name?.trim()
+  /**
+   * 우리 매물에 찍히는 이름들.
+   *
+   * **곳마다 다르게 적힌다.** 네이버는 사무소 정식명칭(플러스불당공인중개사사무소)이
+   * 그대로 오지만, 당근은 상호가 아니라 **닉네임**(불당부동산은용소장)이 온다. 그래서
+   * 상호만 보던 때는 당근에서 한 건도 못 걸렀다 — 0/3,103.
+   *
+   * 그래서 소스마다 이름을 따로 적어 둔다(`collect_settings.own_names`). 안 적었으면
+   * 예전처럼 상호를 쓴다 — 네이버는 그것으로 맞는다.
+   */
+  const ownNames = 우리이름(settings, auth.broker?.office_name)
+
+  /** 화면에 적어 줄 이름. 여러 개면 가운뎃점으로 잇는다. */
+  const ownLabel = ownNames.join(' · ')
 
   /**
    * 우리 사무소 매물 빼기가 실제로 몇 건을 뺐나.
    *
-   * **0건이면 0건이라고 말해야 한다.** 곳마다 우리 이름이 다르게 적힌다 — 네이버는
-   * 사무소 정식명칭(플러스불당공인중개사사무소)이지만 당근은 닉네임이나 비즈프로필
-   * 이름이라 아예 안 걸린다. 조용히 아무것도 안 빼면 켜 둔 채로 되는 줄 안다.
+   * **0건이면 0건이라고 말해야 한다.** 이름이 안 맞으면 조용히 아무것도 안 빼는데,
+   * 그러면 켜 둔 채로 되는 줄 안다. 실제로 당근이 그 꼴이었다.
    */
-  const 뺀건수 = useMemo(
-    () => (settings.hide_own && ownName ? rows.filter(r => r.owner === ownName).length : 0),
-    [rows, settings.hide_own, ownName],
-  )
+  const 뺀건수 = useMemo(() => {
+    if (!settings.hide_own) return 0
+    const 우리 = new Set(우리이름(settings, auth.broker?.office_name))
+    return rows.filter(r => r.owner && 우리.has(r.owner)).length
+  }, [rows, settings, auth.broker])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
+    const 우리 = new Set(settings.hide_own ? 우리이름(settings, auth.broker?.office_name) : [])
     return rows.filter(r => {
       // 사라진 매물은 따로 볼 때만 나온다 — 목록에 섞이면 죽은 링크를 누르게 된다.
       // 표시 기능을 꺼 두면 사라짐 표시는 없는 셈 친다.
@@ -598,7 +646,7 @@ export default function CollectPage() {
       if (goneOnly ? !r.gone_at : !!r.gone_at) return false
       // 사무소에서 아무도 안 본 것만. 직원이 확인한 것을 또 훑을 이유가 없다.
       if (unseenOnly && (seen.get(r.article_no)?.사무소 ?? 0) > 0) return false
-      if (settings.hide_own && ownName && r.owner === ownName) return false
+      if (우리.size && r.owner && 우리.has(r.owner)) return false
       if (regions.length) {
         const region = REGIONS.find(g => r.division?.startsWith(g.divisionPrefix))
         if (!region || !regions.includes(region.id)) return false
@@ -609,7 +657,7 @@ export default function CollectPage() {
       return true
     })
   }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, seen,
-      settings.hide_own, ownName, src])
+      settings, auth.broker, src])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -783,13 +831,37 @@ export default function CollectPage() {
               우리 사무소 매물 빼기
             </Chip>
             {savingSettings && <span className="text-xs text-gray-400">저장 중…</span>}
-            <span className="text-xs text-gray-400 dark:text-gray-600">
-              {settings.hide_own && ownName
-                ? 뺀건수
-                  ? `'${ownName}' 매물 ${뺀건수}건을 뺐습니다`
-                  : `'${ownName}' 이름으로 올린 ${src.label} 매물이 이 기간에 없습니다`
-                : ''}
-            </span>
+            {settings.hide_own && (이름고침 ? (
+              /* 여러 개면 쉼표로 나눈다 — 사무소 이름이 곳마다 하나라는 법이 없다. */
+              <input
+                autoFocus
+                value={이름초안}
+                onChange={e => set이름초안(e.target.value)}
+                onBlur={이름저장}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') 이름저장()
+                  if (e.key === 'Escape') set이름고침(false)
+                }}
+                placeholder={`${src.label}에 찍히는 우리 이름`}
+                className="w-64 rounded-lg border border-gray-200 px-3 py-1 text-xs text-gray-900
+                           placeholder:text-gray-400 focus:border-blue-500 focus:outline-none
+                           dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => { set이름초안(ownNames.join(', ')); set이름고침(true) }}
+                title="우리 매물에 찍히는 이름을 고칩니다"
+                className="text-xs text-gray-400 underline decoration-dotted underline-offset-2
+                           hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400"
+              >
+                {!ownNames.length
+                  ? `${src.label}에 찍히는 우리 이름을 적어 주세요`
+                  : 뺀건수
+                    ? `'${ownLabel}' 매물 ${뺀건수}건을 뺐습니다`
+                    : `'${ownLabel}' 이름으로 올린 ${src.label} 매물이 이 기간에 없습니다`}
+              </button>
+            ))}
           </div>
         </div>
 
