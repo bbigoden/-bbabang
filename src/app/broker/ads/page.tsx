@@ -1141,7 +1141,6 @@ export default function AdsPage() {
                               target="_blank"
                               rel="noreferrer"
                               className="underline underline-offset-2 hover:text-blue-600"
-                              title={`뱅크에서 이 매물 열기 (뱅크 번호 ${l.bank_no})`}
                             >{보이는번호(l)}</a>
                           : 보이는번호(l)}
                       </td>
