@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
   const oldProperties = await fetchAllPaged<{ id: string; broker_id: string; address: string | null; broker_profiles: unknown }>(
     (from, to) => supa
       .from('broker_properties')
-      .select('id, broker_id, address, broker_profiles(user_id)')
+      .select('id, broker_id, address, broker_profiles!broker_properties_broker_id_fkey(user_id)')
       .eq('status', 'available')
       .lte('created_at', propertyOldSince)
       .range(from, to))

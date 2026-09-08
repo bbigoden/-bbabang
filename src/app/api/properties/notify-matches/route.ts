@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   // 매물 + 본인 확인
   const { data: prop } = await supabase
     .from('broker_properties')
-    .select('id, broker_id, address, deal_type, room_type, price, status, broker_profiles(office_name, user_id)')
+    .select('id, broker_id, address, deal_type, room_type, price, status, broker_profiles!broker_properties_broker_id_fkey(office_name, user_id)')
     .eq('id', body.propertyId)
     .single()
   if (!prop) return NextResponse.json({ error: 'not_found' }, { status: 404 })

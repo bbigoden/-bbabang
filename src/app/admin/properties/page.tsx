@@ -112,7 +112,7 @@ export default function AdminPropertiesPage() {
 
     let q = supabase
       .from('broker_properties')
-      .select('*, broker_profiles(id, user_id, office_name, is_verified, profiles(name))')
+      .select('*, broker_profiles!broker_properties_broker_id_fkey(id, user_id, office_name, is_verified, profiles(name))')
       .order('created_at', { ascending: false })
 
     if (status !== 'all') q = q.eq('status', status)
