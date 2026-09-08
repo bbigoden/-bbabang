@@ -32,6 +32,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList },
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone },
   { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar },
+  { id: 'estimates',  href: '/broker/estimates', label: '견적서', icon: FileText, ownerOnly: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator },
   {
@@ -53,7 +54,6 @@ export const BROKER_ITEMS: ItemDef[] = [
       { href: '/broker/messenger', label: '대화목록', icon: MessagesSquare },
       { href: '/broker/schedule',  label: '일정관리', icon: CalendarDays },
       { href: '/broker/jobs',      label: '구인구직', icon: Briefcase, ownerOnly: true },
-      { href: '/broker/estimates', label: '견적서',   icon: FileText, ownerOnly: true },
     ],
   },
 ]
