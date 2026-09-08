@@ -179,6 +179,16 @@ function bankDetailUrl(l: Listing): string | null {
     + `?offerings_cd=${l.bank_no}&offerings_gbn=${l.bank_kind}`
 }
 
+/**
+ * 화면에 적는 번호.
+ *
+ * **사장님이 쓰는 번호는 네이버부동산 매물번호 하나뿐이다.** 뱅크 번호는
+ * 뱅크 안에서만 쓰는 내부 번호라, 확인 문구나 점검 보고에 그게 뜨면
+ * 무슨 매물인지 알아보려고 한 번 더 찾아봐야 한다.
+ * 뱅크 번호는 뱅크 원본으로 가는 링크에만 쓴다.
+ */
+const 보이는번호 = (l: Listing) => l.naver_no ?? l.bank_no
+
 /** 이 매물을 지금 카페에 올려도 되는가. PC 프로그램의 판단과 같아야 한다. */
 function canPublish(l: Listing) {
   return !l.contracted_at && l.bank_tab === '등록매물'
@@ -586,9 +596,9 @@ export default function AdsPage() {
         .map(p => CHANNEL_LABEL[p.channel] ?? p.channel),
     ]
     const msg = where.length
-      ? `${l.bank_no} 매물의 광고를 ${where.length}곳(${where.join(', ')})에서 내립니다.\n\n` +
+      ? `${보이는번호(l)} 매물의 광고를 ${where.length}곳(${where.join(', ')})에서 내립니다.\n\n` +
         (agentOnline ? '되돌릴 수 없습니다. 계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 내려갑니다. 계속할까요?')
-      : `${l.bank_no} 매물을 광고종료로 표시할까요?`
+      : `${보이는번호(l)} 매물을 광고종료로 표시할까요?`
     if (!confirm(msg)) return
 
     const { error } = await supabase
@@ -691,7 +701,7 @@ export default function AdsPage() {
       return
     }
     if (!confirm(
-      `${l.naver_no ?? l.bank_no} 매물을 ${이름}에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
+      `${보이는번호(l)} 매물을 ${이름}에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
       + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
     )) return
@@ -750,7 +760,7 @@ export default function AdsPage() {
     if (!auth.broker) return
     if (!confirm(
       `뱅크에서 내린 매물 ${goneButLive.length}건의 카페·당근 광고를 내립니다.\n` +
-      `${goneButLive.map(l => l.bank_no).join(', ')}\n\n` +
+      `${goneButLive.map(보이는번호).join(', ')}\n\n` +
       '글이 삭제되며 되돌릴 수 없습니다. 계속할까요?'
     )) return
 
@@ -931,7 +941,7 @@ export default function AdsPage() {
                 뱅크에 없는 매물 {goneButLive.length}건이 아직 광고 중입니다.
               </p>
               <p className="mt-0.5 text-red-700 dark:text-red-400">
-                {goneButLive.map(l => l.bank_no).slice(0, 5).join(', ')}
+                {goneButLive.map(보이는번호).slice(0, 5).join(', ')}
                 {goneButLive.length > 5 && ' 외'} — 뱅크에는 없는데 다른 채널에 광고가 남아 있습니다.
               </p>
               <p className="mt-1 text-red-700 dark:text-red-400">
@@ -1132,8 +1142,8 @@ export default function AdsPage() {
                               rel="noreferrer"
                               className="underline underline-offset-2 hover:text-blue-600"
                               title={`뱅크에서 이 매물 열기 (뱅크 번호 ${l.bank_no})`}
-                            >{l.naver_no ?? l.bank_no}</a>
-                          : (l.naver_no ?? l.bank_no)}
+                            >{보이는번호(l)}</a>
+                          : 보이는번호(l)}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
                         {l.manager ?? <span className="text-gray-300 dark:text-gray-600">–</span>}
@@ -1220,7 +1230,7 @@ export default function AdsPage() {
                         {!!l.anomalies?.length && (
                           <div>
                             <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
-                              {l.bank_no} 다른 매물과 견줘 본 것 — 뱅크에서 정리하실 거리입니다
+                              {보이는번호(l)} 다른 매물과 견줘 본 것 — 뱅크에서 정리하실 거리입니다
                             </p>
                             <ul className="space-y-1.5">
                               {l.anomalies.map((a, i) => (
@@ -1237,8 +1247,8 @@ export default function AdsPage() {
                                 종류라는 알림이라, 뱅크에서 고치라고 하면 말이 안 맞는다. */}
                             <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
                               {l.check_report.every(r => r.startsWith('[대상 아님]'))
-                                ? `${l.bank_no} — 이 종류는 프로그램이 글로 만들지 않습니다`
-                                : `${l.bank_no} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다`}
+                                ? `${보이는번호(l)} — 이 종류는 프로그램이 글로 만들지 않습니다`
+                                : `${보이는번호(l)} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다`}
                             </p>
                             <ul className="space-y-1.5">
                               {l.check_report.map((r, i) => (
