@@ -23,7 +23,8 @@ import { SearchClear } from '@/components/ui/search-clear'
  * 표시광고법상 계약된 매물의 광고는 즉시 내려야 한다. **누락이 남지 않게 하는 것이
  * 이 화면의 목적이다** — 그래서 내린 것을 확인한 뒤에만 내렸다고 표시한다.
  *
- * 블로그·당근은 로컬 프로그램에 코드가 있지만 아직 이 화면에서 다루지 않는다.
+ * 채널은 뱅크(원본)·카페·당근 셋이다. 카페는 글을 새로 지어 올리고, 당근은
+ * 뱅크 원문을 그대로 옮긴다. 내릴 때는 셋이 한 번에 내려간다.
  */
 
 type Post = {
@@ -82,10 +83,14 @@ type Listing = {
  *
  * 뱅크는 칸을 두지 않는다. 등록매물 탭에 있다는 것 자체가 뱅크 게시중이고,
  * 뱅크 원본으로 가는 링크는 매물번호가 이미 하고 있다. 계약이 끝났는데 뱅크에
- * 남아 있는 경우는 화면 위 경고와 '계약 끝·광고 남음' 탭이 잡는다.
+ * 남아 있는 경우는 화면 위 경고와 '종료 못 함' 탭이 잡는다.
+ *
+ * 당근은 카페와 나란히 둔다. 뱅크 원문을 그대로 옮기는 곳이라 글을 새로 짓지
+ * 않을 뿐, 올리고 내리는 흐름은 카페와 똑같다.
  */
-const CHANNELS: Array<{ key: 'cafe'; label: string }> = [
+const CHANNELS: Array<{ key: 'cafe' | 'daangn'; label: string }> = [
   { key: 'cafe', label: '카페' },
+  { key: 'daangn', label: '당근' },
 ]
 
 /**
@@ -180,11 +185,11 @@ function canPublish(l: Listing) {
 }
 
 /**
- * 계약이 끝났는데 아직 광고가 살아 있는가.
+ * 광고를 접기로 했는데 아직 살아 있는가.
  *
- * 거래완료 표시와 실제로 내리는 일은 한 동작이 아니다. 웹은 표시만 하고
+ * 종료 표시와 실제로 내리는 일은 한 동작이 아니다. 웹은 표시만 하고
  * 내리는 것은 PC 프로그램이 한다. 그 사이(프로그램이 꺼져 있거나 노출종료가
- * 실패한 경우)에 계약 끝난 매물이 뱅크·네이버부동산에 그대로 노출된다.
+ * 실패한 경우)에 접기로 한 매물이 뱅크·네이버부동산에 그대로 노출된다.
  *
  * 뱅크는 우리가 올린 게 아니라 기록이 없다. **뱅크가 어느 탭에 넣었는지**로
  * 판단한다 — 등록매물에 남아 있으면 아직 광고 중이다.
@@ -208,9 +213,14 @@ const BANK_TABS: Record<string, string | undefined> = {
   past: '등록종료',
 }
 
-/** 지금 카페에 글이 살아 있는가. 올린 기록이 아니라 **살아 있는 글**만 센다. */
-function isLive(l: Listing) {
-  return l.ad_posts.some(p => p.status === 'posted')
+/**
+ * 지금 그 채널에 광고가 살아 있는가. 올린 기록이 아니라 **살아 있는 것**만 센다.
+ *
+ * 채널을 주지 않으면 카페든 당근이든 하나라도 살아 있으면 참이다. 광고를
+ * 내려야 하는지 따질 때는 이쪽이 맞다 — 한 곳만 봐서는 다른 곳에 남은 것을 놓친다.
+ */
+function isLive(l: Listing, channel?: Post['channel']) {
+  return l.ad_posts.some(p => p.status === 'posted' && (!channel || p.channel === channel))
 }
 
 /**
@@ -235,13 +245,13 @@ function isExpiring(l: Listing) {
  * 보여줘야 무엇을 할지 정할 수 있다.
  */
 function ClosedReason({ listing }: { listing: Listing }) {
-  if (listing.contracted_at) return <span className="text-gray-400">거래완료</span>
+  if (listing.contracted_at) return <span className="text-gray-400">광고종료</span>
   const r = listing.bank_closed_reason
   if (r === '기간만료') {
     return <span className="text-amber-600 dark:text-amber-400" title="30일이 지나 자동 종료됐습니다. 재등록하면 계속 광고할 수 있습니다.">기간만료</span>
   }
   if (r === '직접종료') {
-    return <span className="text-red-600 dark:text-red-400" title="뱅크에서 노출종료를 누른 매물입니다. 계약된 것이면 거래완료로 표시해 다른 채널도 내려 주세요.">직접 내림</span>
+    return <span className="text-red-600 dark:text-red-400" title="뱅크에서 노출종료를 누른 매물입니다. 광고를 접은 것이면 [광고종료]를 눌러 카페·당근도 같이 내려 주세요.">직접 내림</span>
   }
   return <span className="text-gray-400" title="마지막 수집 때 뱅크 목록에 없었습니다">뱅크에 없음</span>
 }
@@ -302,14 +312,15 @@ function CheckCell({ listing, open, onToggle }: {
   )
 }
 
-/** 채널 게시 상태를 한 칸으로 표시 */
 /**
- * 카페 칸. **두 가지만 보여준다 — 게시중이거나, 올릴 수 있거나.**
+ * 채널 칸(카페·당근). **두 가지만 보여준다 — 게시중이거나, 올릴 수 있거나.**
  *
  * 내림·실패를 따로 적어 봤자 할 일이 달라지지 않는다. 올렸는데도 [올리기] 가
  * 그대로면 그게 곧 실패다. 무엇이 잘못됐는지는 점검 칸이 말한다.
  */
-function ChannelCell({ post, onPublish, busy }: {
+function ChannelCell({ label, post, onPublish, busy }: {
+  /** 확인 문구에 쓸 채널 이름 — '카페' / '당근' */
+  label: string
   post: Post | undefined
   /** 올릴 수 있는 매물이면 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
   onPublish?: () => void
@@ -330,7 +341,7 @@ function ChannelCell({ post, onPublish, busy }: {
     <button
       onClick={onPublish}
       disabled={busy}
-      title={post?.error ? `지난번 실패: ${post.error}` : '이 매물만 카페에 올립니다'}
+      title={post?.error ? `지난번 실패: ${post.error}` : `이 매물만 ${label}에 올립니다`}
       className="underline underline-offset-2 text-gray-500 hover:text-green-600 disabled:opacity-50 dark:text-gray-400"
     >올리기</button>
   )
@@ -384,7 +395,7 @@ export default function AdsPage() {
 
   /**
    * 뱅크의 어느 탭에도 없는 매물 — 휴지통으로 보낸 것이다. 이 매물이 아직
-   * 카페·블로그에 광고 중이면 없는 물건을 광고하는 셈이라 표시광고법 문제가 된다.
+   * 카페·당근에 광고 중이면 없는 물건을 광고하는 셈이라 표시광고법 문제가 된다.
    *
    * 예전에는 '마지막 수집에 안 들어온 것' 으로 판정했는데, 수집이 도중에
    * 끊기면 멀쩡한 매물이 통째로 빠진 것으로 보였다. 지금은 프로그램이 네 탭을
@@ -549,8 +560,17 @@ export default function AdsPage() {
     }, 2000)
   }
 
-  /** 거래완료 표시 — 실제 광고 내리기는 로컬 프로그램이 수행한다. */
-  async function markContracted(l: Listing) {
+  /**
+   * 이 매물의 광고를 전 채널에서 내린다 — 표의 [광고종료].
+   *
+   * **'거래완료' 가 아니라 '광고종료' 다.** 계약이 확정돼야만 광고를 내리는 게
+   * 아니다. 손님이 직접 뺐거나, 조건이 바뀌어 잠시 내리거나, 계약은 됐는데
+   * 뱅크의 거래완료(거래금액·계약일을 채워야 한다)는 안 누른 경우가 더 많다.
+   * 어느 쪽이든 하는 일은 하나 — 뱅크·카페·당근에서 광고를 내린다.
+   *
+   * 표시만 여기서 하고 실제로 내리는 것은 PC 프로그램이 한다.
+   */
+  async function endAds(l: Listing) {
     // 뱅크는 발행 기록이 없어도 항상 내려야 한다. 네이버부동산까지 자동 전송되므로
     // 계약이 끝난 매물이 여기 남으면 노출이 가장 큰 곳에서 위반이 된다.
     //
@@ -566,9 +586,9 @@ export default function AdsPage() {
         .map(p => CHANNEL_LABEL[p.channel] ?? p.channel),
     ]
     const msg = where.length
-      ? `${l.bank_no} 매물을 거래완료로 표시하고, 광고 중인 ${where.length}곳(${where.join(', ')})에서 내립니다.\n\n` +
+      ? `${l.bank_no} 매물의 광고를 ${where.length}곳(${where.join(', ')})에서 내립니다.\n\n` +
         (agentOnline ? '되돌릴 수 없습니다. 계속할까요?' : 'PC 프로그램이 꺼져 있어 켤 때 내려갑니다. 계속할까요?')
-      : `${l.bank_no} 매물을 거래완료로 표시할까요?`
+      : `${l.bank_no} 매물을 광고종료로 표시할까요?`
     if (!confirm(msg)) return
 
     const { error } = await supabase
@@ -577,7 +597,7 @@ export default function AdsPage() {
       .eq('id', l.id)
     if (error) { toast.error(`처리하지 못했습니다: ${error.message}`); return }
 
-    if (!where.length) { toast.success('거래완료로 표시했습니다.'); load(); return }
+    if (!where.length) { toast.success('광고종료로 표시했습니다.'); load(); return }
 
     // 표시만으로 끝나면 광고가 그대로 남는다. 내리는 일까지 PC에 맡긴다.
     const { error: jobError } = await supabase.from('ad_jobs').insert({
@@ -585,7 +605,7 @@ export default function AdsPage() {
       params: { listingId: l.id }, requested_by: auth.user?.id,
     })
     if (jobError) {
-      toast.error(`거래완료로 표시했지만 내리기를 요청하지 못했습니다: ${jobError.message}`)
+      toast.error(`광고종료로 표시했지만 내리기를 요청하지 못했습니다: ${jobError.message}`)
       load(); return
     }
     toast.success(agentOnline ? `${where.join(', ')} 광고를 내리는 중입니다.` : '내리기를 예약했습니다. PC 프로그램을 켜 주세요.')
@@ -649,23 +669,29 @@ export default function AdsPage() {
    * 체크한 매물을 카페에 올린다.
    *
    * 체크(광고)는 "이 매물을 광고하겠다"는 표시다. 여기서 그 표시를 실제 발행으로
-   * 잇는다. 이미 카페에 올라가 있는 것은 빼고, 계약이 끝났거나 뱅크에서 빠진
+   * 잇는다. 이미 올라가 있는 것은 빼고, 광고를 접었거나 뱅크에서 빠진
    * 매물은 PC 프로그램이 실행 직전에 한 번 더 거른다.
    */
   /**
-   * 이 매물 하나만 올린다. 표의 카페 칸에서 바로 누른다.
+   * 이 매물 하나를 그 채널에 올린다. 표의 카페·당근 칸에서 바로 누른다.
    *
-   * 여러 건은 체크해서 위쪽 버튼으로 올린다 — 200건을 한 줄씩 누를 수는 없다.
-   * 한 건만 올릴 때 체크하고 위로 올라갔다 오는 것이 번거로워 둘 다 둔다.
+   * 두 채널이 같은 작업(publish)을 쓰고 채널만 달리 보낸다. 브라우저는 한
+   * 프로그램이 하나만 쓰므로 어차피 한 번에 하나씩 돈다.
+   *
+   * 카페는 글을 새로 지어 올리고, 당근은 뱅크 원문을 그대로 옮긴다. 무엇이
+   * 다른지는 PC 프로그램이 알고, 화면은 어디로 보낼지만 정한다.
    */
-  async function publishOne(l: Listing) {
+  async function publishOne(l: Listing, channel: 'cafe' | 'daangn') {
     if (!auth.broker) return
-    if (오늘올림 >= DAILY_CAP) {
+    const 이름 = CHANNEL_LABEL[channel] ?? channel
+    // 하루 상한은 카페만의 것이다 — 한 카페에 하루 열 건 넘게 올리면 광고로
+    // 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
+    if (channel === 'cafe' && 오늘올림 >= DAILY_CAP) {
       toast.error(`오늘 이미 ${오늘올림}건을 올렸습니다. 하루 ${DAILY_CAP}건까지만 올립니다.`)
       return
     }
     if (!confirm(
-      `${l.naver_no ?? l.bank_no} 매물을 카페에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
+      `${l.naver_no ?? l.bank_no} 매물을 ${이름}에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
       + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
     )) return
@@ -676,10 +702,10 @@ export default function AdsPage() {
 
     const { error } = await supabase.from('ad_jobs').insert({
       broker_id: officeId!, kind: 'publish',
-      params: { bankNos: [l.bank_no] }, requested_by: auth.user?.id,
+      params: { bankNos: [l.bank_no], channel }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
-    toast.success(agentOnline ? '카페에 올리는 중입니다.' : '올리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    toast.success(agentOnline ? `${이름}에 올리는 중입니다.` : '올리기를 예약했습니다. PC 프로그램을 켜 주세요.')
     setPublishWatch(true)
   }
 
@@ -698,7 +724,8 @@ export default function AdsPage() {
       if (last?.status === 'failed') toast.error(`올리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
       else if (last?.status === 'done') {
         const r = last.result as { published?: number; skipped?: string[] } | null
-        toast.success(r?.published ? `카페에 ${r.published}건 올렸습니다.` : '발행을 마쳤습니다.')
+        const 어디 = CHANNEL_LABEL[(last.result as { channel?: string } | null)?.channel ?? 'cafe'] ?? '카페'
+        toast.success(r?.published ? `${어디}에 ${r.published}건 올렸습니다.` : '발행을 마쳤습니다.')
         // 원문에 문제가 있어 안 올라간 건. 무엇이 문제였는지는 점검 칸에 남는다.
         if (r?.skipped?.length) {
           toast.error(`원문에 문제가 있어 ${r.skipped.length}건은 올리지 않았습니다. 점검 칸을 눌러 확인해 주세요.`)
@@ -722,7 +749,7 @@ export default function AdsPage() {
   async function takedownGone() {
     if (!auth.broker) return
     if (!confirm(
-      `뱅크에서 내린 매물 ${goneButLive.length}건의 카페·블로그 광고를 내립니다.\n` +
+      `뱅크에서 내린 매물 ${goneButLive.length}건의 카페·당근 광고를 내립니다.\n` +
       `${goneButLive.map(l => l.bank_no).join(', ')}\n\n` +
       '글이 삭제되며 되돌릴 수 없습니다. 계속할까요?'
     )) return
@@ -750,7 +777,7 @@ export default function AdsPage() {
     /** 밀려 있는 것을 한꺼번에 내린다. 앞서 실패한 건을 다시 시도할 때도 쓴다. */
   async function takedownAll() {
     if (!auth.broker) return
-    if (!confirm(`광고 중인 거래완료 매물 ${takedownCount}건을 전 채널에서 내립니다.\n\n되돌릴 수 없습니다. 계속할까요?`)) return
+    if (!confirm(`광고종료한 매물 ${takedownCount}건을 뱅크·카페·당근에서 내립니다.\n\n되돌릴 수 없습니다. 계속할까요?`)) return
 
     // 이미 대기·실행 중인 내리기가 있으면 그걸 기다린다
     const { data: pending } = await supabase.from('ad_jobs')
@@ -879,7 +906,7 @@ export default function AdsPage() {
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
             <div>
               <p className="font-medium text-red-800 dark:text-red-300">
-                거래완료된 매물 {takedownCount}건이 아직 광고 중입니다.
+                광고종료한 매물 {takedownCount}건이 아직 내려가지 않았습니다.
               </p>
               <p className="mt-0.5 text-red-700 dark:text-red-400">
                 표시광고법상 즉시 내려야 합니다.
@@ -952,9 +979,9 @@ export default function AdsPage() {
               // 없고 전부 뱅크에서 처리할 것들이라, 탭만 늘어나 눈이 흩어진다.
               // (수집은 계속한다 — 등록매물 건수를 뱅크와 맞추고, 그 매물들이
               //  카페에 올라가지 못하게 막는 근거가 된다.)
-              ['live', `카페에 올림 ${liveCount}`, '지금 카페에 글이 살아 있는 매물'],
-              ['takedown', `계약 끝·광고 남음 ${takedownCount}`,
-                '계약이 끝났는데 광고가 아직 내려가지 않은 매물. 표시광고법상 즉시 내려야 합니다'],
+              ['live', `광고 중 ${liveCount}`, '카페나 당근에 광고가 살아 있는 매물'],
+              ['takedown', `종료 못 함 ${takedownCount}`,
+                '광고종료를 눌렀는데 아직 내려가지 않은 매물. 표시광고법상 즉시 내려야 합니다'],
             ] as [string, string, string?][]).map(([key, label, hint]) => (
               <button
                 key={key}
@@ -1083,13 +1110,13 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
                   <th className="px-3 py-2 font-medium" title="올릴 때 원문에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
-                  <th className="px-3 py-2 font-medium">거래</th>
+                  <th className="px-3 py-2 font-medium" title="뱅크·카페·당근의 광고를 한 번에 내립니다">광고종료</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {paginated.map(l => {
                   const done = !!l.contracted_at
-                  // 뱅크에 아직 살아 있는가. 끝난 매물에 남은 날짜·[거래완료] 를
+                  // 뱅크에 아직 살아 있는가. 끝난 매물에 남은 날짜·[광고종료] 를
                   // 띄우면 지금 손봐야 할 일처럼 보인다.
                   const bankLive = l.bank_tab === '등록매물'
                   const row = (
@@ -1147,9 +1174,13 @@ export default function AdsPage() {
                       {CHANNELS.map(c => (
                         <td key={c.key} className="px-3 py-2 whitespace-nowrap text-xs">
                           <ChannelCell
+                            label={c.label}
                             post={l.ad_posts.find(p => p.channel === c.key)}
-                            onPublish={canPublish(l) && !isLive(l) && 오늘올림 < DAILY_CAP
-                              ? () => publishOne(l) : undefined}
+                            // 하루 상한은 카페만의 것이다. 당근은 내가 올린 것이
+                            // 내 가게에 쌓이는 곳이라 건수를 세는 규칙이 없다.
+                            onPublish={canPublish(l) && !isLive(l, c.key)
+                              && (c.key !== 'cafe' || 오늘올림 < DAILY_CAP)
+                              ? () => publishOne(l, c.key) : undefined}
                             busy={publishWatch}
                           />
                         </td>
@@ -1164,16 +1195,16 @@ export default function AdsPage() {
                       <td className="px-3 py-2">
                         {done ? (
                           <span className="flex items-center gap-1 whitespace-nowrap text-xs text-gray-400">
-                            <CircleCheck className="h-3.5 w-3.5" /> 완료
+                            <CircleCheck className="h-3.5 w-3.5" /> 종료
                           </span>
                         ) : bankLive || isLive(l) ? (
-                          // 뱅크에 살아 있거나 카페 글이 남아 있을 때만 의미가 있다.
+                          // 뱅크에 살아 있거나 카페·당근에 광고가 남아 있을 때만 의미가 있다.
                           <button
-                            onClick={() => markContracted(l)}
+                            onClick={() => endAds(l)}
                             className="whitespace-nowrap rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-blue-400 hover:text-blue-600 dark:border-gray-700 dark:text-gray-300"
-                          >거래완료</button>
+                          >광고종료</button>
                         ) : (
-                          // 뱅크에서 이미 내려갔고 카페에도 없다. 누를 이유가 없다.
+                          // 어디에도 광고가 남아 있지 않다. 누를 이유가 없다.
                           <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
                         )}
                       </td>
