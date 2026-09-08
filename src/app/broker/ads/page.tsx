@@ -694,8 +694,8 @@ export default function AdsPage() {
   /**
    * 지금 이 매물을 올릴 수 있는 채널.
    *
-   * 채널 칸의 [올리기] 와 [모두]의 [올리기] 가 **같은 잣대를 써야 한다.**
-   * 따로 두면 칸에는 올리기가 떠 있는데 모두는 안 뜨는 식으로 어긋난다.
+   * 채널 칸의 [올리기] 와 [전체]의 [올리기] 가 **같은 잣대를 써야 한다.**
+   * 따로 두면 칸에는 올리기가 떠 있는데 전체는 안 뜨는 식으로 어긋난다.
    */
   function 올릴곳(l: Listing): Array<'cafe' | 'daangn'> {
     if (!canPublish(l)) return []
@@ -704,7 +704,7 @@ export default function AdsPage() {
   }
 
   /**
-   * 카페·당근에 한 번에 올린다 — 표의 [모두] 칸.
+   * 카페·당근에 한 번에 올린다 — 표의 [전체] 칸.
    *
    * **올릴 수 있는 곳만 올린다.** 카페가 하루 상한에 걸린 날 통째로 막으면
    * 상한과 상관없는 당근까지 못 올린다. 무엇을 올리는지는 확인창에 적는다.
@@ -782,7 +782,7 @@ export default function AdsPage() {
           published?: number
           채널별?: Array<{ channel: string; published?: number; skipped?: string[]; error?: string }>
         } | null
-        // 어디에 몇 건 올렸는지 채널별로 말한다 — [모두] 는 한 번에 두 곳에 올린다.
+        // 어디에 몇 건 올렸는지 채널별로 말한다 — [전체] 는 한 번에 두 곳에 올린다.
         const 올린곳 = (r?.채널별 ?? []).filter(c => c.published)
           .map(c => `${CHANNEL_LABEL[c.channel] ?? c.channel} ${c.published}건`)
         toast.success(올린곳.length ? `${올린곳.join(' · ')} 올렸습니다.` : '발행을 마쳤습니다.')
@@ -1176,7 +1176,7 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
                   <th className="px-3 py-2 font-medium" title="올릴 때 원문에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
-                  <th className="px-3 py-2 font-medium" title="↑ 카페·당근에 한 번에 올립니다   ↓ 뱅크·카페·당근에서 모두 내립니다">모두</th>
+                  <th className="px-3 py-2 font-medium" title="↑ 카페·당근에 한 번에 올립니다   ↓ 뱅크·카페·당근에서 한 번에 내립니다">전체</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -1241,7 +1241,7 @@ export default function AdsPage() {
                           <ChannelCell
                             label={c.label}
                             post={l.ad_posts.find(p => p.channel === c.key)}
-                            // 올릴 수 있는지는 [모두] 와 같은 잣대로 본다.
+                            // 올릴 수 있는지는 [전체] 와 같은 잣대로 본다.
                             onPublish={올릴곳(l).includes(c.key)
                               ? () => publishOne(l, c.key) : undefined}
                             busy={publishWatch}
@@ -1281,7 +1281,7 @@ export default function AdsPage() {
                               <button
                                 onClick={() => endAds(l)}
                                 aria-label="내리기"
-                                title="뱅크·카페·당근에서 모두 내립니다"
+                                title="뱅크·카페·당근에서 한 번에 내립니다"
                                 className="rounded border border-gray-200 p-1 text-gray-500 hover:border-red-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950"
                               ><ArrowDown className="h-3.5 w-3.5" /></button>
                             )}
