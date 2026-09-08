@@ -691,6 +691,51 @@ export default function AdsPage() {
    * 카페는 글을 새로 지어 올리고, 당근은 뱅크 원문을 그대로 옮긴다. 무엇이
    * 다른지는 PC 프로그램이 알고, 화면은 어디로 보낼지만 정한다.
    */
+  /**
+   * 지금 이 매물을 올릴 수 있는 채널.
+   *
+   * 채널 칸의 [올리기] 와 [모두]의 [올리기] 가 **같은 잣대를 써야 한다.**
+   * 따로 두면 칸에는 올리기가 떠 있는데 모두는 안 뜨는 식으로 어긋난다.
+   */
+  function 올릴곳(l: Listing): Array<'cafe' | 'daangn'> {
+    if (!canPublish(l)) return []
+    return CHANNELS.map(c => c.key).filter(k =>
+      !isLive(l, k) && (k !== 'cafe' || 오늘올림 < DAILY_CAP))
+  }
+
+  /**
+   * 카페·당근에 한 번에 올린다 — 표의 [모두] 칸.
+   *
+   * **올릴 수 있는 곳만 올린다.** 카페가 하루 상한에 걸린 날 통째로 막으면
+   * 상한과 상관없는 당근까지 못 올린다. 무엇을 올리는지는 확인창에 적는다.
+   */
+  async function publishAll(l: Listing) {
+    if (!auth.broker) return
+    const 갈곳 = 올릴곳(l)
+    if (!갈곳.length) return
+    const 이름 = 갈곳.map(c => CHANNEL_LABEL[c]).join('·')
+    const 카페빠짐 = !갈곳.includes('cafe') && !isLive(l, 'cafe') && 오늘올림 >= DAILY_CAP
+
+    if (!confirm(
+      `${보이는번호(l)} 매물을 ${이름}에 올립니다. ${갈곳.length > 1 ? '몇 분' : '1분'}쯤 걸립니다.${NL}${NL}`
+      + (카페빠짐 ? `오늘 카페 ${DAILY_CAP}건을 다 써서 카페는 빼고 올립니다.${NL}${NL}` : '')
+      + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
+      + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
+    )) return
+
+    const { data: pending } = await supabase.from('ad_jobs')
+      .select('id').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1).maybeSingle()
+    if (pending) { toast.error('이미 올리는 중입니다. 끝나면 다시 눌러 주세요.'); return }
+
+    const { error } = await supabase.from('ad_jobs').insert({
+      broker_id: officeId!, kind: 'publish',
+      params: { bankNos: [l.bank_no], channels: 갈곳 }, requested_by: auth.user?.id,
+    })
+    if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    toast.success(agentOnline ? `${이름}에 올리는 중입니다.` : '올리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    setPublishWatch(true)
+  }
+
   async function publishOne(l: Listing, channel: 'cafe' | 'daangn') {
     if (!auth.broker) return
     const 이름 = CHANNEL_LABEL[channel] ?? channel
@@ -733,12 +778,23 @@ export default function AdsPage() {
         .order('requested_at', { ascending: false }).limit(1).maybeSingle()
       if (last?.status === 'failed') toast.error(`올리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
       else if (last?.status === 'done') {
-        const r = last.result as { published?: number; skipped?: string[] } | null
-        const 어디 = CHANNEL_LABEL[(last.result as { channel?: string } | null)?.channel ?? 'cafe'] ?? '카페'
-        toast.success(r?.published ? `${어디}에 ${r.published}건 올렸습니다.` : '발행을 마쳤습니다.')
-        // 원문에 문제가 있어 안 올라간 건. 무엇이 문제였는지는 점검 칸에 남는다.
-        if (r?.skipped?.length) {
-          toast.error(`원문에 문제가 있어 ${r.skipped.length}건은 올리지 않았습니다. 점검 칸을 눌러 확인해 주세요.`)
+        const r = last.result as {
+          published?: number
+          채널별?: Array<{ channel: string; published?: number; skipped?: string[]; error?: string }>
+        } | null
+        // 어디에 몇 건 올렸는지 채널별로 말한다 — [모두] 는 한 번에 두 곳에 올린다.
+        const 올린곳 = (r?.채널별 ?? []).filter(c => c.published)
+          .map(c => `${CHANNEL_LABEL[c.channel] ?? c.channel} ${c.published}건`)
+        toast.success(올린곳.length ? `${올린곳.join(' · ')} 올렸습니다.` : '발행을 마쳤습니다.')
+
+        // 한 곳은 올라갔는데 다른 곳은 안 된 경우. 작업 자체는 성공이라
+        // 여기서 말하지 않으면 안 올라간 것을 아무도 모른다.
+        for (const c of r?.채널별 ?? []) {
+          const 이름 = CHANNEL_LABEL[c.channel] ?? c.channel
+          if (c.error) toast.error(`${이름}: ${c.error}`)
+          else if (c.skipped?.length) {
+            toast.error(`${이름} — 원문에 문제가 있어 올리지 않았습니다. 점검 칸을 눌러 확인해 주세요.`)
+          }
         }
       }
       load()
@@ -1120,7 +1176,7 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
                   <th className="px-3 py-2 font-medium" title="올릴 때 원문에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
-                  <th className="px-3 py-2 font-medium" title="뱅크·카페·당근의 광고를 한 번에 내립니다">광고종료</th>
+                  <th className="px-3 py-2 font-medium" title="카페·당근에 한 번에 올리고, 뱅크까지 한 번에 내립니다">모두</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -1185,10 +1241,8 @@ export default function AdsPage() {
                           <ChannelCell
                             label={c.label}
                             post={l.ad_posts.find(p => p.channel === c.key)}
-                            // 하루 상한은 카페만의 것이다. 당근은 내가 올린 것이
-                            // 내 가게에 쌓이는 곳이라 건수를 세는 규칙이 없다.
-                            onPublish={canPublish(l) && !isLive(l, c.key)
-                              && (c.key !== 'cafe' || 오늘올림 < DAILY_CAP)
+                            // 올릴 수 있는지는 [모두] 와 같은 잣대로 본다.
+                            onPublish={올릴곳(l).includes(c.key)
                               ? () => publishOne(l, c.key) : undefined}
                             busy={publishWatch}
                           />
@@ -1206,15 +1260,30 @@ export default function AdsPage() {
                           <span className="flex items-center gap-1 whitespace-nowrap text-xs text-gray-400">
                             <CircleCheck className="h-3.5 w-3.5" /> 종료
                           </span>
-                        ) : bankLive || isLive(l) ? (
-                          // 뱅크에 살아 있거나 카페·당근에 광고가 남아 있을 때만 의미가 있다.
-                          <button
-                            onClick={() => endAds(l)}
-                            className="whitespace-nowrap rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-blue-400 hover:text-blue-600 dark:border-gray-700 dark:text-gray-300"
-                          >광고종료</button>
                         ) : (
-                          // 어디에도 광고가 남아 있지 않다. 누를 이유가 없다.
-                          <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
+                          // 한 줄에서 다 되게 둔다 — 채널 칸을 하나씩 누르는 것과
+                          // 같은 일이지만, 열 건을 올릴 때 손이 절반으로 준다.
+                          <div className="flex gap-1">
+                            {올릴곳(l).length > 0 && (
+                              <button
+                                onClick={() => publishAll(l)}
+                                disabled={publishWatch}
+                                title={`${올릴곳(l).map(c => CHANNEL_LABEL[c]).join('·')}에 올립니다`}
+                                className="whitespace-nowrap rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-green-500 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300"
+                              >올리기</button>
+                            )}
+                            {(bankLive || isLive(l)) && (
+                              <button
+                                onClick={() => endAds(l)}
+                                title="뱅크·카페·당근에서 모두 내립니다"
+                                className="whitespace-nowrap rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-red-400 hover:text-red-600 dark:border-gray-700 dark:text-gray-300"
+                              >내리기</button>
+                            )}
+                            {!올릴곳(l).length && !bankLive && !isLive(l) && (
+                              // 어디에도 올릴 곳이 없고 남은 광고도 없다.
+                              <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
+                            )}
+                          </div>
                         )}
                       </td>
                     </tr>
