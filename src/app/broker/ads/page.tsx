@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import {
-  Megaphone, Search, CircleCheck, TriangleAlert, Download,
+  Megaphone, Search, CircleCheck, TriangleAlert, Download, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
@@ -1176,7 +1176,7 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
                   <th className="px-3 py-2 font-medium" title="올릴 때 원문에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
-                  <th className="px-3 py-2 font-medium" title="카페·당근에 한 번에 올리고, 뱅크까지 한 번에 내립니다">모두</th>
+                  <th className="px-3 py-2 font-medium" title="↑ 카페·당근에 한 번에 올립니다   ↓ 뱅크·카페·당근에서 모두 내립니다">모두</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -1263,21 +1263,27 @@ export default function AdsPage() {
                         ) : (
                           // 한 줄에서 다 되게 둔다 — 채널 칸을 하나씩 누르는 것과
                           // 같은 일이지만, 열 건을 올릴 때 손이 절반으로 준다.
-                          <div className="flex gap-1">
+                          // 글자 대신 화살표를 쓴다 — 칸이 좁아지고 줄이 가벼워진다.
+                          // 다만 **내리기는 되돌릴 수 없다.** 아이콘만 두면 잘못
+                          // 누르기 쉬우므로 색을 갈라 놓고 사이를 띄운다.
+                          // (누른 뒤 확인창이 한 번 더 막는다.)
+                          <div className="flex items-center gap-2">
                             {올릴곳(l).length > 0 && (
                               <button
                                 onClick={() => publishAll(l)}
                                 disabled={publishWatch}
+                                aria-label="올리기"
                                 title={`${올릴곳(l).map(c => CHANNEL_LABEL[c]).join('·')}에 올립니다`}
-                                className="whitespace-nowrap rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-green-500 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300"
-                              >올리기</button>
+                                className="rounded border border-gray-200 p-1 text-gray-500 hover:border-green-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-green-950"
+                              ><ArrowUp className="h-3.5 w-3.5" /></button>
                             )}
                             {(bankLive || isLive(l)) && (
                               <button
                                 onClick={() => endAds(l)}
+                                aria-label="내리기"
                                 title="뱅크·카페·당근에서 모두 내립니다"
-                                className="whitespace-nowrap rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:border-red-400 hover:text-red-600 dark:border-gray-700 dark:text-gray-300"
-                              >내리기</button>
+                                className="rounded border border-gray-200 p-1 text-gray-500 hover:border-red-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950"
+                              ><ArrowDown className="h-3.5 w-3.5" /></button>
                             )}
                             {!올릴곳(l).length && !bankLive && !isLive(l) && (
                               // 어디에도 올릴 곳이 없고 남은 광고도 없다.
