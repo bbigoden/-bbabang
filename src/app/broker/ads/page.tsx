@@ -410,9 +410,17 @@ export default function AdsPage() {
    * 예전에는 '마지막 수집에 안 들어온 것' 으로 판정했는데, 수집이 도중에
    * 끊기면 멀쩡한 매물이 통째로 빠진 것으로 보였다. 지금은 프로그램이 네 탭을
    * 모두 훑은 뒤에 표시를 남기므로 그 표시만 보면 된다.
+   *
+   * **'뱅크에 없음' 만 보면 안 된다.** 뱅크가 광고를 안 내보내는 상태는 그것
+   * 말고도 있다 — `전송실패`(홍보확인서 최종실패)와 `등록종료`가 그렇다. 이들은
+   * 화면의 어느 탭에도 안 뜨므로, 여기서 안 잡으면 사장님이 볼 길이 아예 없다.
+   * 실제로 최종실패 매물 하나가 카페·당근에 걸린 채 조용히 남아 있었다.
+   *
+   * 거래완료는 여기서 걸러도 아래 goneButLive 가 `contracted_at` 으로 빼고,
+   * [종료 못 함] 탭이 따로 챙긴다.
    */
   const goneFromBank = useMemo(
-    () => new Set(listings.filter(l => l.bank_tab === '뱅크에 없음').map(l => l.id)),
+    () => new Set(listings.filter(l => l.bank_tab && l.bank_tab !== '등록매물').map(l => l.id)),
     [listings])
 
   // 뱅크에서 지웠는데 카페 광고가 살아 있는 것 — 없는 물건을 광고하는 셈이다.
@@ -994,11 +1002,11 @@ export default function AdsPage() {
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
             <div>
               <p className="font-medium text-red-800 dark:text-red-300">
-                뱅크에 없는 매물 {goneButLive.length}건이 아직 광고 중입니다.
+                뱅크에서 내려간 매물 {goneButLive.length}건이 아직 광고 중입니다.
               </p>
               <p className="mt-0.5 text-red-700 dark:text-red-400">
-                {goneButLive.map(보이는번호).slice(0, 5).join(', ')}
-                {goneButLive.length > 5 && ' 외'} — 뱅크에는 없는데 다른 채널에 광고가 남아 있습니다.
+                {goneButLive.slice(0, 5).map(l => `${보이는번호(l)}(${l.bank_tab})`).join(', ')}
+                {goneButLive.length > 5 && ' 외'} — 뱅크에서는 광고가 안 나가는데 다른 채널에 남아 있습니다.
               </p>
               <p className="mt-1 text-red-700 dark:text-red-400">
                 계약이 끝나 뱅크에서 내린 것이면 아래 버튼으로 한 번에 내리고,
