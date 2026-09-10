@@ -258,6 +258,14 @@ function isExpiring(l: Listing) {
  */
 function ClosedReason({ listing }: { listing: Listing }) {
   if (listing.contracted_at) return <span className="text-gray-400">광고종료</span>
+  // 뱅크가 어디에 넣었는지를 먼저 말한다. 전송실패를 '뱅크에 없음' 으로 뭉뚱그리면
+  // 무엇을 해야 하는지 알 수 없다 — 재전송하면 되는 일이다.
+  if (listing.bank_tab === '전송실패') {
+    return <span className="text-red-600 dark:text-red-400" title="네이버부동산에 못 올라간 매물입니다. 뱅크의 전송실패 탭에서 재전송해 주세요.">전송실패</span>
+  }
+  if (listing.bank_tab === '거래완료') {
+    return <span className="text-gray-400" title="뱅크에서 거래완료 처리한 매물입니다">거래완료</span>
+  }
   const r = listing.bank_closed_reason
   if (r === '기간만료') {
     return <span className="text-amber-600 dark:text-amber-400" title="30일이 지나 자동 종료됐습니다. 재등록하면 계속 광고할 수 있습니다.">기간만료</span>
@@ -993,7 +1001,12 @@ export default function AdsPage() {
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
-      if (!inTab(l)) return false
+      // **찾을 때는 탭을 가리지 않는다.**
+      //
+      // 전송실패·뱅크에서 지워진 매물은 어느 탭에도 안 들어간다. 위 경고는
+      // 그 번호를 알려 주는데, 정작 쳐 보면 "조건에 맞는 매물이 없습니다" 가
+      // 떴다 — 알려 주고 못 찾게 한 셈이다.
+      if (!key && !inTab(l)) return false
       if (좁혀보기 === '특이' && !남은특이(l).length) return false
       if (좁혀보기 === '점검' && !손볼것(l)) return false
       if (manager && (l.manager ?? '') !== manager) return false
@@ -1197,6 +1210,13 @@ export default function AdsPage() {
           {/* 건수는 위 탭(등록매물 245)에 이미 있다. 여기는 언제 받아온
               목록인지만 둔다 — 신규매물 화면과 같은 모양이다. */}
           {lastSynced && <span>{fmtWhen(lastSynced)} 받아옴</span>}
+          {/* 찾을 때는 탭을 벗어난다. 말해 주지 않으면 등록매물 탭인데 왜
+              등록종료 매물이 보이는지 알 수 없다. */}
+          {q.trim() && (
+            <span className="text-blue-600 dark:text-blue-400">
+              찾는 중 — 탭을 가리지 않고 전부에서 {filtered.length}건
+            </span>
+          )}
           {/* 매물을 나란히 놓고 봐야 보이는 것 — 뱅크에 같은 매물이 두 번
               올라가 있거나, 글끼리 문장이 겹치는 것. 누르면 그것만 본다. */}
           {점검건수 > 0 && (
