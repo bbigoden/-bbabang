@@ -232,6 +232,12 @@ async function fetchPage(
 }
 
 /** API 응답 한 건을 표의 한 행으로. */
+/** 층수 원문 다듬기. `-` 는 층이 없다는 뜻이라 빈 값으로 본다. */
+function 층글(v: unknown): string | null {
+  const t = typeof v === 'string' ? v.trim() : ''
+  return t && t !== '-' ? t : null
+}
+
 function normalize(raw: Record<string, any>): NaverArticle | null {
   const a = raw?.representativeArticleInfo
   if (!a?.articleNumber) return null
@@ -252,7 +258,9 @@ function normalize(raw: Record<string, any>): NaverArticle | null {
     // **상가는 1층이냐 아니냐가 거의 다른 물건이다.** 면적·가격만으로는 못 가려
     // 목록에서 하나씩 눌러 확인하게 된다. "2/5" · "B1/5" 처럼 모양이 여러 가지라
     // 숫자로 쪼개지 않고 원문 그대로 담는다.
-    floor_info: a.articleDetail?.floorInfo ?? null,
+    // 층이 없는 매물(토지 등)에는 `-` 를 준다. 그대로 담으면 목록에 `-층` 이
+    // 찍히므로 빈 값으로 바꾼다.
+    floor_info: 층글(a.articleDetail?.floorInfo),
     price_deal: 만원(a.priceInfo?.dealPrice),
     price_deposit: 만원(a.priceInfo?.warrantyPrice),
     price_rent: 만원(a.priceInfo?.rentPrice),
