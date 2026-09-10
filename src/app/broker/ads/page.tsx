@@ -303,6 +303,17 @@ function 남은특이(l: Listing) {
   return (l.anomalies ?? []).filter(a => !접은것.has(a))
 }
 
+/**
+ * **지금 실제로 가려지고 있는** 접은 줄.
+ *
+ * 접어 둔 문구 중 보고에 아직 남아 있는 것만이다. 원문을 고쳐 사라진 문구는
+ * 세지 않는다 — 이미 없는 일을 되살리라고 권하는 꼴이 된다.
+ */
+function 가려진것(l: Listing) {
+  const 지금있는것 = new Set([...(l.check_report ?? []), ...(l.anomalies ?? [])])
+  return (l.dismissed_notes ?? []).filter(t => 지금있는것.has(t))
+}
+
 function 손볼것(l: Listing) {
   const 알림만 = (r: string) => r.startsWith('[대상 아님]')
   return 남은점검(l).some(r => !알림만(r))
@@ -328,10 +339,23 @@ function CheckCell({ listing, open, onToggle }: {
   const 특이목록 = 남은특이(listing)
   const n = 점검.length
   const 특이 = 특이목록.length
-  if (!listing.checked_at && !특이) {
+  // 접어 둔 것이 있으면 칸이 그걸 말해야 한다. 예전에는 다 접으면 '이상 없음'
+  // 이라는 **누를 수 없는 글자**가 되어, 펼쳐 둔 패널을 닫을 수도 없고 접은
+  // 것을 다시 볼 길도 없었다.
+  const 접힘 = 가려진것(listing)
+  if (!listing.checked_at && !특이 && !접힘.length) {
     return <span className="text-gray-300 dark:text-gray-600" title="아직 올려 보지 않았습니다. 올리기를 누르면 함께 점검합니다">–</span>
   }
-  if (!n && !특이) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
+  if (!n && !특이) {
+    if (!접힘.length) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
+    return (
+      <button
+        onClick={onToggle}
+        title={`확인하고 접어 둔 것이 ${접힘.length}건 있습니다`}
+        className="rounded px-1.5 py-0.5 text-gray-400 underline underline-offset-2 hover:text-blue-600 dark:text-gray-500"
+      >{open ? '접기' : '되살리기'}</button>
+    )
+  }
 
   // 이 표시가 붙은 건은 올리기에서 건너뛴 것 — 원문을 고쳐야 나간다.
   const blocked = 점검.some(r => /^\[(위반|형식|필수|실패|건너뜀)\]/.test(r))
@@ -1363,11 +1387,7 @@ export default function AdsPage() {
                   // (뱅크의 이 매물 / 뱅크의 다른 매물) 문단을 나눠 적는다.
                   const 점검줄 = 남은점검(l)
                   const 특이줄 = 남은특이(l)
-                  // 접어 둔 것 중 **지금 실제로 가려지고 있는 것**만 보여준다.
-                  // 원문을 고쳐 사라진 문구까지 보이면, 이미 없는 일을 되살리라고
-                  // 권하는 꼴이 된다.
-                  const 지금있는것 = new Set([...(l.check_report ?? []), ...(l.anomalies ?? [])])
-                  const 접은줄 = (l.dismissed_notes ?? []).filter(t => 지금있는것.has(t))
+                  const 접은줄 = 가려진것(l)
                   const 펼침 = openReport === l.id && (점검줄.length || 특이줄.length || 접은줄.length)
                   const report = 펼침 ? (
                     <tr key={`${l.id}-report`} className="bg-amber-50/60 dark:bg-amber-950/30">
