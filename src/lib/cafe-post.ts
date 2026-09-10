@@ -740,9 +740,13 @@ function buildTitles(p: ParsedListing, src = ''): string[] {
   // 가격은 검색어는 아니지만 목록에서 조건을 가늠하게 해 준다. 중개 실무에서
   // 쓰는 `3,000/250` 표기를 그대로 쓴다 — 길게 풀어 쓰면 제목이 넘친다.
   const 만원뺌 = (v?: string) => v?.replace(/\s*만\s*원?/g, '').trim()
+  // **매매가도 본문과 같은 잣대로 적는다.** 예전에는 원문을 그대로 붙여
+  // `매매 52,000 만원` 이 제목에 나갔다. 같은 매물의 본문은 `5억 2,000만원`
+  // 이라 한 글 안에서 표기가 갈렸고, 띄어쓰기도 어긋났다. 억으로 바꾼 뒤
+  // `만원` 만 뗀다 — 월세가 `3,000/210` 인 것과 같은 방식이다.
   const 가격 = fmtPrice(p) === NEEDS_CHECK ? null
     : p.deposit && p.monthlyRent ? `${만원뺌(p.deposit)}/${만원뺌(p.monthlyRent)}`
-      : p.salePrice ? `매매 ${p.salePrice}` : null
+      : p.salePrice ? `매매 ${만원뺌(fmtMoney(p.salePrice)) ?? p.salePrice}` : null
 
   return [
     // ① 업종·상권 — 무엇을 하기 좋은 자리인가
