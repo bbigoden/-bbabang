@@ -8,7 +8,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import {
-  Megaphone, Search, CircleCheck, TriangleAlert, Download, ArrowUp, ArrowDown,
+  Megaphone, Search, CircleCheck, TriangleAlert, Download, ArrowUp, ArrowDown, X,
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
@@ -64,6 +64,8 @@ type Listing = {
   /** 매물끼리 비교해야 보이는 것 — 뱅크 중복 등록, 글 겹침. 수집할 때 다시 센다. */
   anomalies: string[] | null
   anomalies_at: string | null
+  /** 사장님이 보고 접어 둔 문구. 화면에서만 뺀다 — 보고 자체는 그대로 둔다. */
+  dismissed_notes: string[] | null
   ad_posts: Post[]
 }
 
@@ -285,28 +287,59 @@ function ClosedReason({ listing }: { listing: Listing }) {
  * 점검 칸에는 두 가지가 섞여 들어간다 — 원문에서 고칠 것과, 이 프로그램이
  * 다루지 않는 종류라는 알림. 뒤에서 사장님이 할 일은 없으므로 세지 않는다.
  */
+/**
+ * 접어 둔 것을 뺀 나머지.
+ *
+ * 점검 보고는 발행할 때마다, 특이사항은 수집할 때마다 다시 만들어진다.
+ * 그래서 **지우지 않고 접어 둔다** — 접어 둔 문구를 화면에서만 뺀다.
+ * 세는 곳(집게·칸)과 펴 보는 곳이 반드시 같은 잣대를 써야 숫자가 안 어긋난다.
+ */
+function 남은점검(l: Listing) {
+  const 접은것 = new Set(l.dismissed_notes ?? [])
+  return (l.check_report ?? []).filter(r => !접은것.has(r))
+}
+function 남은특이(l: Listing) {
+  const 접은것 = new Set(l.dismissed_notes ?? [])
+  return (l.anomalies ?? []).filter(a => !접은것.has(a))
+}
+
 function 손볼것(l: Listing) {
   const 알림만 = (r: string) => r.startsWith('[대상 아님]')
-  return (l.check_report ?? []).some(r => !알림만(r))
+  return 남은점검(l).some(r => !알림만(r))
+}
+
+/** 한 줄을 접는 ✕. 줄에 마우스를 올렸을 때만 보인다 — 늘 보이면 시끄럽다. */
+function DismissButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="이 줄 접기"
+      title="확인했습니다 — 이 줄을 접습니다 (되살릴 수 있습니다)"
+      className="mt-px shrink-0 rounded p-0.5 leading-none text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-200 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+    ><X className="h-3 w-3" /></button>
+  )
 }
 
 function CheckCell({ listing, open, onToggle }: {
   listing: Listing; open: boolean; onToggle: () => void
 }) {
-  const n = listing.check_report?.length ?? 0
-  const 특이 = listing.anomalies?.length ?? 0
+  // 접어 둔 것은 세지 않는다 — 사장님이 이미 보고 넘긴 것들이다.
+  const 점검 = 남은점검(listing)
+  const 특이목록 = 남은특이(listing)
+  const n = 점검.length
+  const 특이 = 특이목록.length
   if (!listing.checked_at && !특이) {
     return <span className="text-gray-300 dark:text-gray-600" title="아직 올려 보지 않았습니다. 올리기를 누르면 함께 점검합니다">–</span>
   }
   if (!n && !특이) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
 
   // 이 표시가 붙은 건은 올리기에서 건너뛴 것 — 원문을 고쳐야 나간다.
-  const blocked = listing.check_report?.some(r => /^\[(위반|형식|필수|실패|건너뜀)\]/.test(r))
+  const blocked = 점검.some(r => /^\[(위반|형식|필수|실패|건너뜀)\]/.test(r))
   // 이 프로그램이 다루지 않는 종류(아파트·토지…). 잘못된 게 아니라 대상이 아닌 것이라
   // 빨간색으로 겁줄 일이 아니다.
-  const notTarget = listing.check_report?.some(r => r.startsWith('[대상 아님]'))
+  const notTarget = 점검.some(r => r.startsWith('[대상 아님]'))
   // 같은 자리를 두 번 광고하는 것은 그냥 넘길 일이 아니다. 눈에 띄어야 한다.
-  const 중복 = listing.anomalies?.some(a => a.startsWith('[중복]'))
+  const 중복 = 특이목록.some(a => a.startsWith('[중복]'))
   return (
     <button
       onClick={onToggle}
@@ -700,6 +733,29 @@ export default function AdsPage() {
    * 다른지는 PC 프로그램이 알고, 화면은 어디로 보낼지만 정한다.
    */
   /**
+   * 점검·특이사항 한 줄을 접어 둔다 / 되살린다.
+   *
+   * **지우지 않는다.** 보고는 발행할 때마다, 특이사항은 수집할 때마다 다시
+   * 만들어져서 지워 봐야 되살아난다. 접어 둔 문구를 따로 모아 두고 화면에서만 뺀다.
+   *
+   * 화면을 먼저 바꾸고 저장한다 — 한 줄 접는 데 새로고침을 기다릴 이유가 없다.
+   * 저장이 실패하면 되돌리고 알린다.
+   */
+  async function 접기토글(l: Listing, 문구: string, 접을까: boolean) {
+    const 이전 = l.dismissed_notes ?? []
+    const 다음 = 접을까 ? [...이전, 문구] : 이전.filter(t => t !== 문구)
+    setListings(prev => prev.map(x => x.id === l.id ? { ...x, dismissed_notes: 다음 } : x))
+    const { error } = await supabase.from('ad_listings')
+      .update({ dismissed_notes: 다음 }).eq('id', l.id)
+    if (error) {
+      setListings(prev => prev.map(x => x.id === l.id ? { ...x, dismissed_notes: 이전 } : x))
+      toast.error(`저장하지 못했습니다: ${error.message}`)
+    }
+  }
+  const 접어두기 = (l: Listing, 문구: string) => 접기토글(l, 문구, true)
+  const 되살리기 = (l: Listing, 문구: string) => 접기토글(l, 문구, false)
+
+  /**
    * 지금 이 매물을 올릴 수 있는 채널.
    *
    * 채널 칸의 [올리기] 와 [전체]의 [올리기] 가 **같은 잣대를 써야 한다.**
@@ -914,7 +970,7 @@ export default function AdsPage() {
     const key = q.trim().toLowerCase()
     return listings.filter(l => {
       if (!inTab(l)) return false
-      if (좁혀보기 === '특이' && !l.anomalies?.length) return false
+      if (좁혀보기 === '특이' && !남은특이(l).length) return false
       if (좁혀보기 === '점검' && !손볼것(l)) return false
       if (manager && (l.manager ?? '') !== manager) return false
       if (!key) return true
@@ -937,7 +993,7 @@ export default function AdsPage() {
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
   // 특이사항은 등록매물에서만 센다 — 끝난 매물은 정리할 거리가 아니다.
-  const 특이건수 = listings.filter(l => l.bank_tab === '등록매물' && l.anomalies?.length).length
+  const 특이건수 = listings.filter(l => l.bank_tab === '등록매물' && 남은특이(l).length).length
   const 점검건수 = listings.filter(l => l.bank_tab === '등록매물' && 손볼것(l)).length
 
   // 오늘 카페에 올린 건수. 하루 10건까지만 올린다 — 한 카페에 그 이상 올리면
@@ -1305,37 +1361,65 @@ export default function AdsPage() {
                   // 점검 보고는 길어서 칸에 못 담는다. 누르면 그 행 아래에 편다.
                   // 원문의 문제와 '나란히 놓고 봐야 보이는 것' 은 고칠 곳이 달라
                   // (뱅크의 이 매물 / 뱅크의 다른 매물) 문단을 나눠 적는다.
-                  const 펼침 = openReport === l.id && (l.check_report?.length || l.anomalies?.length)
+                  const 점검줄 = 남은점검(l)
+                  const 특이줄 = 남은특이(l)
+                  // 접어 둔 것 중 **지금 실제로 가려지고 있는 것**만 보여준다.
+                  // 원문을 고쳐 사라진 문구까지 보이면, 이미 없는 일을 되살리라고
+                  // 권하는 꼴이 된다.
+                  const 지금있는것 = new Set([...(l.check_report ?? []), ...(l.anomalies ?? [])])
+                  const 접은줄 = (l.dismissed_notes ?? []).filter(t => 지금있는것.has(t))
+                  const 펼침 = openReport === l.id && (점검줄.length || 특이줄.length || 접은줄.length)
                   const report = 펼침 ? (
                     <tr key={`${l.id}-report`} className="bg-amber-50/60 dark:bg-amber-950/30">
                       <td colSpan={CHANNELS.length + FIXED_COLS} className="space-y-3 px-4 py-3">
-                        {!!l.anomalies?.length && (
+                        {!!특이줄.length && (
                           <div>
                             <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
                               {보이는번호(l)} 다른 매물과 견줘 본 것 — 뱅크에서 정리하실 거리입니다
                             </p>
                             <ul className="space-y-1.5">
-                              {l.anomalies.map((a, i) => (
-                                <li key={i} className="text-xs leading-relaxed text-red-900 dark:text-red-200">
-                                  · {a}
+                              {특이줄.map((a, i) => (
+                                <li key={i} className="group flex items-start gap-1.5 text-xs leading-relaxed text-red-900 dark:text-red-200">
+                                  <span>· {a}</span>
+                                  <DismissButton onClick={() => 접어두기(l, a)} />
                                 </li>
                               ))}
                             </ul>
                           </div>
                         )}
-                        {!!l.check_report?.length && (
+                        {!!점검줄.length && (
                           <div>
                             {/* 대상 아님은 원문을 고칠 거리가 아니다. 이 프로그램이 안 다루는
                                 종류라는 알림이라, 뱅크에서 고치라고 하면 말이 안 맞는다. */}
                             <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-                              {l.check_report.every(r => r.startsWith('[대상 아님]'))
+                              {점검줄.every(r => r.startsWith('[대상 아님]'))
                                 ? `${보이는번호(l)} — 이 종류는 프로그램이 글로 만들지 않습니다`
                                 : `${보이는번호(l)} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다`}
                             </p>
                             <ul className="space-y-1.5">
-                              {l.check_report.map((r, i) => (
-                                <li key={i} className="text-xs leading-relaxed text-amber-900 dark:text-amber-200">
-                                  · {r}
+                              {점검줄.map((r, i) => (
+                                <li key={i} className="group flex items-start gap-1.5 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+                                  <span>· {r}</span>
+                                  <DismissButton onClick={() => 접어두기(l, r)} />
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {/* 접어 둔 것. 잘못 접었을 때 되돌릴 곳이 없으면 안 된다. */}
+                        {!!접은줄.length && (
+                          <div className="border-t border-amber-200 pt-2 dark:border-amber-900">
+                            <p className="mb-1.5 text-xs text-gray-500 dark:text-gray-400">
+                              접어 둔 것 {접은줄.length}건 — 다시 뜨게 하려면 [되살리기]
+                            </p>
+                            <ul className="space-y-1">
+                              {접은줄.map((t, i) => (
+                                <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-gray-400 dark:text-gray-500">
+                                  <span className="line-through">· {t}</span>
+                                  <button
+                                    onClick={() => 되살리기(l, t)}
+                                    className="shrink-0 underline underline-offset-2 hover:text-blue-600"
+                                  >되살리기</button>
                                 </li>
                               ))}
                             </ul>
