@@ -168,6 +168,8 @@ export type NaverArticle = {
   /** 토지·건물은 전용/공급이 없다. 그때는 이 둘을 적는다. */
   area_land: number | null
   area_floor: number | null
+  /** 층수 원문. "2/5" = 해당층/전체층. 모양이 여러 가지라 글자 그대로 담는다. */
+  floor_info: string | null
   /** 가격은 **만원**. 네이버는 원으로 주므로 담을 때 한 번 바꾼다. */
   price_deal: number | null
   price_deposit: number | null
@@ -247,6 +249,10 @@ function normalize(raw: Record<string, any>): NaverArticle | null {
     area_supply: a.spaceInfo?.supplySpace || null,
     area_land: a.spaceInfo?.landSpace || null,
     area_floor: a.spaceInfo?.floorSpace || null,
+    // **상가는 1층이냐 아니냐가 거의 다른 물건이다.** 면적·가격만으로는 못 가려
+    // 목록에서 하나씩 눌러 확인하게 된다. "2/5" · "B1/5" 처럼 모양이 여러 가지라
+    // 숫자로 쪼개지 않고 원문 그대로 담는다.
+    floor_info: a.articleDetail?.floorInfo ?? null,
     price_deal: 만원(a.priceInfo?.dealPrice),
     price_deposit: 만원(a.priceInfo?.warrantyPrice),
     price_rent: 만원(a.priceInfo?.rentPrice),

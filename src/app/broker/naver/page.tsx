@@ -9,7 +9,7 @@ import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useToast } from '@/components/toast'
-import { Radar, Download } from 'lucide-react'
+import { Radar, ChevronDown, Download } from 'lucide-react'
 import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf } from '@/lib/naver-land'
 import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
 import { sendAndForget } from '@/lib/send-and-forget'
@@ -63,6 +63,8 @@ type Row = {
   owner: string | null
   /** 목록 왼쪽에 적는 날짜 */
   shown_date: string | null
+  /** 층수 원문. "2/5" = 해당층/전체층. 당근은 안 준다. */
+  floor_info: string | null
   first_seen_at: string
   last_seen_at: string
   gone_at: string | null
@@ -110,7 +112,7 @@ const SOURCES = {
     jobKind: 'naver',
     /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
     takes: '5~8분',
-    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent' as string,
+    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent, floor_info' as string,
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
@@ -133,6 +135,7 @@ const SOURCES = {
       sector: a.sector,
       owner: a.brokerage_name,
       shown_date: a.exposure_start_date,
+      floor_info: a.floor_info,
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
@@ -175,6 +178,8 @@ const SOURCES = {
       sector: a.sector,
       owner: a.writer_name,
       shown_date: ymdKST(a.first_seen_at),
+      // 당근은 목록에서 층을 안 준다. 빈 칸으로 두고 층 조건도 안 걸린다.
+      floor_info: null,
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
@@ -262,6 +267,98 @@ function 면적(r: Row): { 앞: string; 뒤: string | null } | null {
  * 가격 한 줄 — 광고관리와 같은 모양이다.
  * 매매는 '52,000', 보증·월세는 '3,000/210'. 전부 만원이다.
  */
+/**
+ * 거르고 세울 때 쓰는 면적 — **목록에 보여주는 그 값**이다(평).
+ *
+ * 종류마다 보여주는 것이 다르다(상가는 전용, 토지는 대지). 필터가 다른 값을 보면
+ * 화면에 `대지 820평` 이라 적힌 매물이 '면적 20평 이하' 에 걸리는 일이 생긴다.
+ */
+function 대표면적평(r: Row): number | null {
+  const m2 = r.area_exclusive || r.area_land || r.area_supply || r.area_floor
+  return m2 ? m2 * 0.3025 : null
+}
+
+/** 거르고 세울 때 쓰는 가격(만원) — 매매는 매매가, 나머지는 보증금. */
+function 대표가격(r: Row): number | null {
+  return r.price_deal || r.price_deposit || null
+}
+
+/**
+ * 층수 원문에서 해당 층만 숫자로. `"2/5" → 2`, `"B1/5" → -1`.
+ *
+ * 네이버는 `저/5` `중/15` 처럼 글자로 주기도 한다. 그때는 알 수 없음(null)으로
+ * 두고 층 조건에서 뺀다 — 아파트류에 쓰는 표기라 상업용에서는 드물다.
+ */
+function 해당층(r: Row): number | null {
+  const t = r.floor_info?.split('/')[0]?.trim()
+  if (!t) return null
+  const 지하 = t.match(/^B(\d+)$/i)
+  if (지하) return -Number(지하[1])
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * 사람이 치는 대로 읽는다 — `50000` · `5억` · `1억5000` · `3,000`. 가격은 만원 단위.
+ *
+ * 5억을 `50000` 으로 옮겨 치는 것은 번거롭고, 자릿수를 하나 틀리기 쉽다.
+ */
+function 수읽기(글: string): number | null {
+  const t = 글.replace(/[\s,]/g, '')
+  if (!t) return null
+  const m = t.match(/^(?:(\d+(?:\.\d+)?)억)?(\d+(?:\.\d+)?)?$/)
+  if (!m || (!m[1] && !m[2])) return null
+  const v = (m[1] ? Number(m[1]) * 10_000 : 0) + (m[2] ? Number(m[2]) : 0)
+  return v > 0 ? v : null
+}
+
+/** 세우는 차례. 기본은 최신순 — 이 화면이 하는 일이 '오늘 뭐 나왔나' 라서다. */
+const SORTS = {
+  최신순: 'date',
+  '면적 넓은 순': 'area_desc',
+  '면적 좁은 순': 'area_asc',
+  '가격 높은 순': 'price_desc',
+  '가격 낮은 순': 'price_asc',
+} as const
+type SortKey = (typeof SORTS)[keyof typeof SORTS]
+
+/**
+ * 최소~최대 입력 한 쌍.
+ *
+ * **슬라이더를 안 쓴다.** 우리 매물은 전용 12평부터 대지 40,000평까지라 손잡이
+ * 하나에 수백 평이 걸려 조준이 안 된다. 대신 자주 쓰는 구간을 칩으로 옆에 둔다 —
+ * 사람은 범위가 아니라 구간으로 생각한다.
+ *
+ * **한쪽만 채워도 걸린다.** 실제로는 '최소만' 거는 일이 가장 흔하다.
+ */
+function 범위칸({ 값, 바꾸기, 단위, 폭 }: {
+  값: { 최소: string; 최대: string }
+  바꾸기: (v: { 최소: string; 최대: string }) => void
+  단위: string
+  폭: string
+}) {
+  const 칸 = `${폭} rounded-xl border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 `
+    + 'placeholder:text-gray-400 focus:border-blue-500 focus:outline-none '
+    + 'dark:border-gray-800 dark:bg-gray-950 dark:text-white'
+  return (
+    <span className="flex items-center gap-1">
+      <input value={값.최소} onChange={e => 바꾸기({ ...값, 최소: e.target.value })}
+        placeholder="최소" inputMode="numeric" className={칸} />
+      <span className="text-gray-400">~</span>
+      <input value={값.최대} onChange={e => 바꾸기({ ...값, 최대: e.target.value })}
+        placeholder="최대" inputMode="numeric" className={칸} />
+      <span className="mr-1 text-xs text-gray-400">{단위}</span>
+    </span>
+  )
+}
+
+/** 층 조건. 상가는 1층이냐 아니냐가 거의 다른 물건이다. */
+const 층조건 = {
+  '1층': (n: number) => n === 1,
+  '2층 이상': (n: number) => n >= 2,
+  지하: (n: number) => n < 0,
+} as const
+
 function 값(r: Row): string | null {
   const 천 = (n: number) => n.toLocaleString('ko-KR')
   if (r.price_deal) return 천(r.price_deal)
@@ -336,6 +433,52 @@ export default function CollectPage() {
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('collect-watch', 50)
+
+  /**
+   * 면적·가격·층 조건. **글자 그대로 쥔다** — 사람이 치는 중간 상태(`5억` 을 치다
+   * 만 `5`)를 숫자로 바꿔 쥐면 커서가 튀고 지우기가 안 된다. 셈은 거를 때 한다.
+   */
+  const [면적조건, set면적조건] = useState({ 최소: '', 최대: '' })
+  const [가격조건, set가격조건] = useState({ 최소: '', 최대: '' })
+  const [월세조건, set월세조건] = useState({ 최소: '', 최대: '' })
+  const [층, set층] = useState<string[]>([])
+  const [sort, setSort] = useState<SortKey>('date')
+  /** 조건을 펼쳐 두었나. 폰에서는 이걸 접어야 목록이 첫 화면에 든다. */
+  const [조건열림, set조건열림] = useState(false)
+
+  /**
+   * 걸어 둔 조건을 기억한다.
+   *
+   * 매일 같은 조건으로 훑는 일이라, 새로 열 때마다 다시 고르게 하면 결국 안 쓰게
+   * 된다. 다만 **기간과 [안 본 것만]·[사라진 것]은 기억하지 않는다** — 그건 그때그때
+   * 달라지는 것이고, 어제 켜 둔 줄 모르고 빈 화면을 보면 고장으로 오해한다.
+   *
+   * 곳마다 따로 담는다. 종류·거래 코드가 네이버와 당근이 서로 다르다.
+   */
+  const 저장열쇠 = `collect:filters:${source}`
+  const 되살림 = useRef<SourceId | null>(null)
+  useEffect(() => {
+    if (되살림.current === source) return
+    되살림.current = source
+    try {
+      const 담긴것 = JSON.parse(localStorage.getItem(저장열쇠) ?? 'null')
+      setRegions(담긴것?.regions ?? []); setKinds(담긴것?.kinds ?? []); setTrades(담긴것?.trades ?? [])
+      set면적조건(담긴것?.면적 ?? { 최소: '', 최대: '' })
+      set가격조건(담긴것?.가격 ?? { 최소: '', 최대: '' })
+      set월세조건(담긴것?.월세 ?? { 최소: '', 최대: '' })
+      set층(담긴것?.층 ?? []); setSort(담긴것?.sort ?? 'date')
+      set조건열림(담긴것?.열림 ?? false)
+    } catch { /* 시크릿 모드 등 저장이 막힌 환경 */ }
+  }, [source, 저장열쇠])
+
+  useEffect(() => {
+    if (되살림.current !== source) return   // 되살리기 전에 빈 값을 덮어쓰지 않는다
+    try {
+      localStorage.setItem(저장열쇠, JSON.stringify({
+        regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림,
+      }))
+    } catch { /* 위와 같음 */ }
+  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림])
 
   /** 사무소 기준 id — 직원이면 대표의 id 다. 설정은 사무소 단위로 하나뿐이다. */
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
@@ -636,6 +779,11 @@ export default function CollectPage() {
     return rows.filter(r => r.owner && 우리.has(r.owner)).length
   }, [rows, settings, auth.broker])
 
+  // 입력칸의 글자를 숫자로 읽어 둔다. 빈 칸이나 못 읽는 글자는 '조건 없음'.
+  const 면적최소 = 수읽기(면적조건.최소), 면적최대 = 수읽기(면적조건.최대)
+  const 가격최소 = 수읽기(가격조건.최소), 가격최대 = 수읽기(가격조건.최대)
+  const 월세최소 = 수읽기(월세조건.최소), 월세최대 = 수읽기(월세조건.최대)
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const 우리 = new Set(settings.hide_own ? 우리이름(settings, auth.broker?.office_name) : [])
@@ -654,13 +802,95 @@ export default function CollectPage() {
       if (kinds.length && !kinds.includes(src.kindOf(r.kind_code))) return false
       if (trades.length && !trades.includes(r.trade_code ?? '')) return false
       if (needle && ![r.division, r.sector].filter(Boolean).join(' ').toLowerCase().includes(needle)) return false
+
+      // **값이 없는 매물은 조건을 걸면 뺀다.** 맞는지 알 수 없는 것을 남겨 두면
+      // 걸러 본 보람이 없다. 몇 건을 뺐는지는 아래 줄에 적는다.
+      if (면적최소 !== null || 면적최대 !== null) {
+        const 평 = 대표면적평(r)
+        if (평 === null) return false
+        if (면적최소 !== null && 평 < 면적최소) return false
+        if (면적최대 !== null && 평 > 면적최대) return false
+      }
+      if (가격최소 !== null || 가격최대 !== null) {
+        const v = 대표가격(r)
+        if (v === null) return false
+        if (가격최소 !== null && v < 가격최소) return false
+        if (가격최대 !== null && v > 가격최대) return false
+      }
+      if (월세최소 !== null || 월세최대 !== null) {
+        const v = r.price_rent
+        if (!v) return false
+        if (월세최소 !== null && v < 월세최소) return false
+        if (월세최대 !== null && v > 월세최대) return false
+      }
+      if (층.length) {
+        const n = 해당층(r)
+        if (n === null || !층.some(k => 층조건[k as keyof typeof 층조건]?.(n))) return false
+      }
       return true
     })
   }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, seen,
-      settings, auth.broker, src])
+      settings, auth.broker, src,
+      면적최소, 면적최대, 가격최소, 가격최대, 월세최소, 월세최대, 층])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const shown = filtered.slice((page - 1) * pageSize, page * pageSize)
+  /**
+   * 세운다. **거른 뒤에 세운다** — 순서를 바꾸면 조건에 안 맞는 것이 앞에 온다.
+   *
+   * 값이 없는 매물은 맨 뒤로 보낸다. 앞에 몰리면 세운 보람이 없다.
+   */
+  const sorted = useMemo(() => {
+    if (sort === 'date') return filtered
+    const 잣대 = sort.startsWith('area') ? 대표면적평 : 대표가격
+    const 내림 = sort.endsWith('desc')
+    return [...filtered].sort((a, b) => {
+      const x = 잣대(a), y = 잣대(b)
+      if (x === null && y === null) return 0
+      if (x === null) return 1
+      if (y === null) return -1
+      return 내림 ? y - x : x - y
+    })
+  }, [filtered, sort])
+
+  /**
+   * 고른 거래유형. 가격은 이게 정해져야 뜻이 생긴다 —
+   * 매매 5억과 월세 210만원을 한 칸으로 거를 수는 없다.
+   */
+  const 거래하나 = trades.length === 1 ? src.trades[trades[0]] : null
+
+  /** 접힌 채로도 무엇을 걸어 두었는지 알 수 있게, 한 줄로 적는다. */
+  const 조건요약 = useMemo(() => {
+    const 범위 = (a: string, b: string, 단위: string) =>
+      !a && !b ? null : a && b ? `${a}~${b}${단위}` : a ? `${a}${단위} 이상` : `${b}${단위} 이하`
+    return [
+      regions.length ? regions.map(id => REGIONS.find(r => r.id === id)?.name).join('·') : null,
+      kinds.length ? kinds.join('·') : null,
+      trades.length ? trades.map(c => src.trades[c]).join('·') : null,
+      범위(면적조건.최소, 면적조건.최대, '평'),
+      범위(가격조건.최소, 가격조건.최대, '만원'),
+      월세조건.최소 || 월세조건.최대 ? `월세 ${범위(월세조건.최소, 월세조건.최대, '만원')}` : null,
+      층.length ? 층.join('·') : null,
+      q.trim() ? `"${q.trim()}"` : null,
+      settings.hide_own ? '우리 매물 뺌' : null,
+    ].filter(Boolean).join(' · ') || '전체'
+  }, [regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, q, settings.hide_own, src])
+
+  const 건조건있음 = 조건요약 !== '전체'
+  const 조건비우기 = () => {
+    setRegions([]); setKinds([]); setTrades([]); setQ('')
+    set면적조건({ 최소: '', 최대: '' }); set가격조건({ 최소: '', 최대: '' })
+    set월세조건({ 최소: '', 최대: '' }); set층([]); setPage(1)
+  }
+
+  /** 세워 놓고 보기엔 값이 섞여 있다고 알려 줄 말. 없으면 조용하다. */
+  const 섞임경고 = useMemo(() => {
+    if (sort === 'date') return null
+    if (sort.startsWith('price') && !거래하나) return '매매·전세·월세가 섞여 있습니다'
+    if (sort.startsWith('area') && kinds.length !== 1) return '종류마다 재는 면적이 다릅니다'
+    return null
+  }, [sort, 거래하나, kinds])
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
+  const shown = sorted.slice((page - 1) * pageSize, page * pageSize)
   const unseenCount = useMemo(
     () => filtered.filter(r => (seen.get(r.article_no)?.사무소 ?? 0) === 0).length,
     [filtered, seen],
@@ -786,6 +1016,32 @@ export default function CollectPage() {
               {jobs[source] ?? '가져오기'}
             </button>
           </div>
+          {/* **조건은 접어 둔다.** 줄이 일곱이면 폰에서 목록이 두 화면 뒤로 밀린다.
+              접힌 채로도 무엇을 걸어 두었는지는 한 줄로 보인다 — 칩이 여기저기
+              흩어져 있을 때보다 오히려 잘 보인다. */}
+          <div className="flex items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+            <button
+              type="button"
+              onClick={() => set조건열림(v => !v)}
+              className="flex shrink-0 items-center gap-1 text-sm text-gray-500 hover:text-gray-700
+                         dark:text-gray-500 dark:hover:text-gray-300"
+            >
+              조건
+              <ChevronDown className={`h-4 w-4 transition-transform ${조건열림 ? 'rotate-180' : ''}`} aria-hidden />
+            </button>
+            <span className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-500">{조건요약}</span>
+            {건조건있음 && (
+              <button
+                type="button"
+                onClick={조건비우기}
+                className="shrink-0 text-xs text-gray-400 underline underline-offset-2 hover:text-gray-600"
+              >
+                조건 비우기
+              </button>
+            )}
+          </div>
+
+          {조건열림 && <>
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">지역</span>
             {REGIONS.map(r => (
@@ -821,6 +1077,64 @@ export default function CollectPage() {
               {q && <SearchClear onClick={() => setQ('')} />}
             </div>
           </div>
+
+          {/* 면적 — 목록에 보이는 그 값(전용·대지·공급·연면적 중 하나)으로 거른다. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">면적</span>
+            <범위칸 값={면적조건} 바꾸기={v => { set면적조건(v); setPage(1) }} 단위="평" 폭="w-20" />
+            {[['~30', '', '30'], ['30~60', '30', '60'], ['60~150', '60', '150'], ['150~', '150', '']].map(([이름, a, b]) => (
+              <Chip key={이름} size="xs"
+                on={면적조건.최소 === a && 면적조건.최대 === b}
+                onClick={() => { set면적조건({ 최소: a, 최대: b }); setPage(1) }}>{이름}평</Chip>
+            ))}
+          </div>
+
+          {/* 가격 — 거래를 하나 골라야 뜻이 생긴다. 월세는 보증금과 월세가 따로다. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">
+              {거래하나 === '월세' ? '보증금' : '가격'}
+            </span>
+            {거래하나 ? (
+              <>
+                <범위칸 값={가격조건} 바꾸기={v => { set가격조건(v); setPage(1) }} 단위="만원" 폭="w-28" />
+                {(거래하나 === '매매'
+                  ? [['1억 이하', '', '10000'], ['1~3억', '10000', '30000'], ['3~10억', '30000', '100000'], ['10억~', '100000', '']]
+                  : [['1천 이하', '', '1000'], ['1~3천', '1000', '3000'], ['3천~1억', '3000', '10000'], ['1억~', '10000', '']]
+                ).map(([이름, a, b]) => (
+                  <Chip key={이름} size="xs"
+                    on={가격조건.최소 === a && 가격조건.최대 === b}
+                    onClick={() => { set가격조건({ 최소: a, 최대: b }); setPage(1) }}>{이름}</Chip>
+                ))}
+              </>
+            ) : (
+              <span className="text-xs text-gray-400 dark:text-gray-600">
+                거래를 하나 고르면 가격으로 좁힐 수 있습니다 — 매매가와 월세는 한 칸으로 못 거릅니다
+              </span>
+            )}
+          </div>
+
+          {거래하나 === '월세' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">월세</span>
+              <범위칸 값={월세조건} 바꾸기={v => { set월세조건(v); setPage(1) }} 단위="만원" 폭="w-20" />
+              {[['~100', '', '100'], ['100~200', '100', '200'], ['200~400', '200', '400'], ['400~', '400', '']].map(([이름, a, b]) => (
+                <Chip key={이름} size="xs"
+                  on={월세조건.최소 === a && 월세조건.최대 === b}
+                  onClick={() => { set월세조건({ 최소: a, 최대: b }); setPage(1) }}>{이름}만원</Chip>
+              ))}
+            </div>
+          )}
+
+          {/* 층 — 상가는 1층이냐 아니냐가 거의 다른 물건이다. 당근은 층을 안 준다. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">층</span>
+            {source === 'naver' ? Object.keys(층조건).map(k => (
+              <Chip key={k} on={층.includes(k)} onClick={() => { toggle(층, set층, k); setPage(1) }}>{k}</Chip>
+            )) : (
+              <span className="text-xs text-gray-400 dark:text-gray-600">당근은 목록에 층을 주지 않습니다</span>
+            )}
+          </div>
+
           {/* 켜고 끄면 사무소 사람 모두에게 걸린다. 눌러야 나오면 있는 줄도 모른다. */}
           <div className="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">설정</span>
@@ -863,6 +1177,7 @@ export default function CollectPage() {
               </button>
             ))}
           </div>
+          </>}
         </div>
 
         {loading ? (
@@ -884,11 +1199,29 @@ export default function CollectPage() {
           </p>
         ) : (
           <>
-            <p className="mb-2 text-sm text-gray-600 dark:text-gray-400">
-              {filtered.length}건
-              {!unseenOnly && unseenCount < filtered.length && ` · 안 본 것 ${unseenCount}건`}
-              {오늘새로 > 0 && ` · 오늘 새로 ${오늘새로}건`}
-            </p>
+            {/* 건수와 정렬은 목록 바로 위가 제자리다 — 무엇을 어떤 차례로 보고
+                있는지가 한 줄에 있어야 한다. */}
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {sorted.length}건
+                {!unseenOnly && unseenCount < sorted.length && ` · 안 본 것 ${unseenCount}건`}
+                {오늘새로 > 0 && ` · 오늘 새로 ${오늘새로}건`}
+              </p>
+              {/* 값이 섞여 있으면 세워 봐야 사과와 오렌지를 견주는 셈이다.
+                  막지는 않고 말해 준다 — 아는 채로 보는 것과 모르고 보는 것은 다르다. */}
+              {섞임경고 && <span className="text-xs text-amber-600 dark:text-amber-500">{섞임경고}</span>}
+              <select
+                value={sort}
+                onChange={e => { setSort(e.target.value as SortKey); setPage(1) }}
+                className="ml-auto h-8 rounded-xl border border-gray-200 bg-white px-2 text-sm
+                           text-gray-700 focus:border-blue-500 focus:outline-none
+                           dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
+              >
+                {Object.entries(SORTS).map(([name, key]) => (
+                  <option key={key} value={key}>{name}</option>
+                ))}
+              </select>
+            </div>
             <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
               {shown.map(r => {
@@ -927,7 +1260,13 @@ export default function CollectPage() {
                             ? <>{면적(r)!.앞}{면적(r)!.뒤 && <span className="ml-1 text-gray-400">{면적(r)!.뒤}</span>}</>
                             : <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
-                        <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-5 sm:w-[86px] dark:text-gray-300">
+                        {/* 층은 **넓은 화면에서만** 적는다. 폰은 한 줄에 네 칸이 이미 꽉
+                            차 있어 하나만 더해도 가로로 넘친다. 층으로 좁히는 일은
+                            책상에서 하는 일이라 이 편이 낫다. */}
+                        <span className="hidden shrink-0 whitespace-nowrap text-xs tabular-nums text-gray-500 sm:order-5 sm:block sm:w-[52px] dark:text-gray-500">
+                          {r.floor_info ? `${r.floor_info}층` : ''}
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[86px] dark:text-gray-300">
                           {값(r) ?? <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
                       </div>
@@ -940,7 +1279,7 @@ export default function CollectPage() {
                             어떤 줄은 숫자가 서로 다른 자리에 찍혀 눈에 거슬린다.
                             셋은 한 번에 하나만 나온다 — 사라짐 > 본 횟수 > 신규 순. */}
                         <span
-                          className="flex w-14 shrink-0 items-center justify-end sm:order-6"
+                          className="flex w-14 shrink-0 items-center justify-end sm:order-7"
                           title={본것.사무소 ? `사무소 사람들이 ${본것.사무소}회 봤습니다 (내가 ${본것.나}회)` : ''}
                         >
                           {r.gone_at ? (
