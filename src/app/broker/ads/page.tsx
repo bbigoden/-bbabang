@@ -489,8 +489,16 @@ export default function AdsPage() {
     [listings])
 
   // 뱅크에서 지웠는데 카페 광고가 살아 있는 것 — 없는 물건을 광고하는 셈이다.
+  //
+  // **전송실패는 여기 넣지 않는다.** 그건 내려간 매물이 아니라 네이버부동산에
+  // 못 올라간 매물이다. 뱅크에는 멀쩡히 등록돼 있고 재전송하면 그만인데,
+  // 여기 섞이면 "광고를 내리라" 고 권하게 된다 — 멀쩡한 광고를 지우는 셈이다.
   const goneButLive = listings.filter(l =>
-    goneFromBank.has(l.id) && !l.contracted_at && isLive(l))
+    goneFromBank.has(l.id) && l.bank_tab !== '전송실패' && !l.contracted_at && isLive(l))
+
+  // 전송실패는 따로 조용히 알린다. 할 일이 다르다 — 내리는 게 아니라 뱅크에서
+  // 재전송하는 것이고, 그때까지 카페·당근 광고는 그대로 두는 게 맞다.
+  const 전송실패 = listings.filter(l => l.bank_tab === '전송실패' && !l.contracted_at)
 
   useEffect(() => {
     if (auth.loading) return
@@ -1087,6 +1095,19 @@ export default function AdsPage() {
                 {takedownWatch ? '내리는 중…' : '지금 전부 내리기'}
               </button>
             </div>
+          </div>
+        )}
+
+        {전송실패.length > 0 && (
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
+            <p className="text-amber-800 dark:text-amber-300">
+              네이버부동산에 못 올라간 매물 {전송실패.length}건 —{' '}
+              {전송실패.slice(0, 5).map(l => 보이는번호(l)).join(', ')}
+              {전송실패.length > 5 && ' 외'}
+            </p>
+            <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+              뱅크의 전송실패 탭에서 재전송하면 됩니다. 카페·당근 광고는 그대로 둡니다.
+            </p>
           </div>
         )}
 
