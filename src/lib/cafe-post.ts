@@ -1487,7 +1487,10 @@ function buildQnA(p: ParsedListing): string {
   // 같은 매물끼리 문답 세 개가 같은 순서로 그대로 나온다.
   const 시작 = pool.length > 3 ? s % pool.length : 0
   const 돌린 = [...pool.slice(시작), ...pool.slice(0, 시작)]
-  return 돌린.slice(0, 3).map(([q, a]) => `**Q. ${q}**\nA. ${a}`).join('\n\n')
+  // **개수도 매물마다 다르게 둔다.** 늘 세 개면 글마다 문답 블록이 같은 크기로
+  // 붙어 한눈에 같은 틀로 보인다. 하나나 둘만 둔다.
+  const 문답수 = 1 + (s % 2)
+  return 돌린.slice(0, 문답수).map(([q, a]) => `**Q. ${q}**\nA. ${a}`).join('\n\n')
 }
 
 function buildBrokerInfo(p: ParsedListing): string {
@@ -1539,6 +1542,43 @@ function realSearchTags(p: ParsedListing, keywords?: Record<string, string[]>): 
     // 태그는 붙여 쓴다. `#불당동 상가월세` 는 태그 두 개로 갈린다.
     .map(q => `#${q.replace(/\s+/g, '')}`)
 }
+
+/**
+ * 소제목을 매물마다 달리 뽑는다.
+ *
+ * 글마다 `소개 / 매물 요약 / 매물 기본 정보 …` 가 같은 순서로 같은 말을 달고
+ * 나가면, 문장을 아무리 갈라 놓아도 뼈대가 같아 한 틀에서 찍어낸 글로 읽힌다.
+ * 뜻이 같은 말 몇 가지를 돌려 쓴다 — 표시광고 필수 항목의 **내용**은 그대로다.
+ */
+function buildHeadings(src: string, p: ParsedListing): Record<string, string> {
+  const seed = `${src}|${p.dong ?? ''}|${p.floor ?? ''}`
+  const 고르기 = (xs: string[]) => xs[hashPick(seed, xs.length)]
+  return {
+    intro: 고르기(['소개', '인사드립니다', '먼저 드리는 말씀']),
+    summary: 고르기(['매물 요약', '한눈에 보기', '이 자리 정리']),
+    info: 고르기(['매물 기본 정보', '기본 정보', '표시 정보']),
+    features: 고르기(['매물 세부 특징 설명', '자세히 보기', '이 자리의 조건']),
+    qa: 고르기(['자주 묻는 질문', '많이 물으시는 것', '궁금해하시는 점']),
+    office: 고르기(['중개사 정보', '중개사무소 안내', '문의 주실 곳']),
+    highlight: 고르기(['특장점 한 줄 요약', '한 줄로 줄이면', '요점만 말씀드리면']),
+    tags: '태그',
+  }
+}
+
+/** 사무소 소개 한 줄. 이것도 글마다 같으면 유사문서로 읽힌다. */
+function buildOfficeLead(p: ParsedListing, src: string): string {
+  const 공동 = p.coBrokerage ? ' 공동중개도 환영합니다.' : ''
+  const 후보 = [
+    '현장을 직접 확인한 실매물만 소개해 드리며, 광고되지 않은 매물도 함께 비교해 보실 수 있도록 준비해 드립니다.',
+    '직접 보고 온 자리만 올립니다. 조건을 말씀해 주시면 내놓지 않은 매물도 같이 찾아 드립니다.',
+    '발품을 팔아 확인한 매물만 다룹니다. 원하시는 조건을 알려주시면 비슷한 자리도 함께 정리해 드립니다.',
+    '올리기 전에 현장을 먼저 봅니다. 광고에 없는 물건도 있으니 편하게 문의해 주세요.',
+  ]
+  return 후보[hashPick(`${src}|lead`, 후보.length)] + 공동
+}
+
+/** 글 하나에 다는 태그 수. 많이 달수록 검색이 아니라 어뷰징으로 읽힌다. */
+const TAG_COUNT = 4
 
 function buildTags(p: ParsedListing, keywords?: Record<string, string[]>): string {
   const region = p.city === '아산시' ? '아산' : '천안'
@@ -1596,7 +1636,10 @@ function buildTags(p: ParsedListing, keywords?: Record<string, string[]>): strin
        `#${region}${noun}매물`, `#${region}점포`, `#충남상가`, `#${region}창업자리`, `#${region}${noun}정보`]
   filler.forEach(t => { if (tags.size < 25) tags.add(t) })
 
-  return Array.from(tags).join(' ')
+  // **네 개만 내보낸다.** 스물다섯 개를 줄줄이 다는 것은 검색에 도움이 되기보다
+  // 어뷰징으로 읽힌다. 앞쪽일수록 실제로 검색되는 말(자동완성에서 모은 것)이라
+  // 앞에서부터 자른다.
+  return Array.from(tags).slice(0, TAG_COUNT).join(' ')
 }
 
 function buildReport(p: ParsedListing, src: string, listingNo: string): string | null {
@@ -1715,6 +1758,8 @@ export interface CafeHtmlConfig {
    */
   missing_required: string[]
   office_lead: string
+  /** 소제목. 매물마다 달리 뽑아 글의 뼈대까지 같아지지 않게 한다. */
+  headings: Record<string, string>
   highlight: string
   tags: string
 }
@@ -1762,9 +1807,10 @@ export function buildCafeHtmlConfig(
     qa: qnaPairs(p),
     report: reportItems,
     missing_required: missingRequired(p),
-    office_lead: `현장을 직접 확인한 실매물만 소개해 드리며, 광고되지 않은 매물도 함께 비교해 보실 수 있도록 준비해 드립니다.${p.coBrokerage ? ' 공동중개도 환영합니다.' : ''}`,
+    office_lead: buildOfficeLead(p, source),
     highlight: features(p, source).slice(0, 3).join(' + '),
     tags: buildTags(p, keywords),
+    headings: buildHeadings(source, p),
   }
 }
 

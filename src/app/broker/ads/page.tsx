@@ -222,7 +222,21 @@ const NL = String.fromCharCode(10)
 
 const BANK_TABS: Record<string, string | undefined> = {
   all: '등록매물',
-  past: '등록종료',
+}
+
+/**
+ * 뱅크에서 빠졌는데 카페·당근 광고가 아직 남은 매물.
+ *
+ * **위 경고와 [등록종료] 탭이 이 하나를 같이 본다.** 따로 세다가 경고는 16건,
+ * 탭은 14건으로 갈렸다 — 같은 화면에 안 맞는 숫자가 둘 뜨면 어느 쪽도 못 믿는다.
+ * (갈린 이유는 뱅크가 오래된 종료 매물을 목록에서 아예 떨구기 때문이다.
+ *  우리는 그걸 '뱅크에 없음' 으로 적는데, 사장님에게는 둘 다 끝난 매물이다.)
+ *
+ * 전송실패는 뺀다. 내려간 게 아니라 못 올라간 것이라, 재전송하면 되는 일이다.
+ */
+function 끝났는데광고남음(l: Listing) {
+  return !!l.bank_tab && l.bank_tab !== '등록매물' && l.bank_tab !== '전송실패'
+    && !l.contracted_at && isLive(l)
 }
 
 /**
@@ -493,8 +507,7 @@ export default function AdsPage() {
   // **전송실패는 여기 넣지 않는다.** 그건 내려간 매물이 아니라 네이버부동산에
   // 못 올라간 매물이다. 뱅크에는 멀쩡히 등록돼 있고 재전송하면 그만인데,
   // 여기 섞이면 "광고를 내리라" 고 권하게 된다 — 멀쩡한 광고를 지우는 셈이다.
-  const goneButLive = listings.filter(l =>
-    goneFromBank.has(l.id) && l.bank_tab !== '전송실패' && !l.contracted_at && isLive(l))
+  const goneButLive = listings.filter(끝났는데광고남음)
 
   // 전송실패는 따로 조용히 알린다. 할 일이 다르다 — 내리는 게 아니라 뱅크에서
   // 재전송하는 것이고, 그때까지 카페·당근 광고는 그대로 두는 게 맞다.
@@ -993,22 +1006,20 @@ export default function AdsPage() {
     // 그래서 이 탭만은 뱅크 탭을 가리지 않고 전부에서 골라야 한다. 아래 '끝난
     // 매물은 뺀다' 를 그대로 태우면 목록이 늘 비어 배너 숫자와 어긋난다.
     if (tab === 'takedown') return needsTakedown(l)
-    // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
-    // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
-    // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
-    // 전송실패는 등록매물 목록에 없으므로 '지난 매물' 판정에 걸린다. 먼저 가른다.
-    // 앞의 다섯 탭은 뱅크가 나눠 둔 그대로다. 뱅크가 어디에 넣었는지만 본다.
-    if (BANK_TABS[tab]) { if (l.bank_tab !== BANK_TABS[tab]) return false }
     // **등록종료는 광고가 남은 것만 본다.** 뱅크에서 끝난 매물은 삼백 건이
     // 넘는데, 그중 할 일이 있는 것은 광고가 아직 안 내려간 몇 건뿐이다.
     // 나머지는 뱅크에서 이미 정리된 것이라 여기서 볼 이유가 없다.
-    if (tab === 'past' && !isLive(l)) return false
+    if (tab === 'past') return 끝났는데광고남음(l)
+    // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
+    // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
+    // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
+    if (BANK_TABS[tab]) { if (l.bank_tab !== BANK_TABS[tab]) return false }
     // 나머지 탭은 광고를 관리하려고 우리가 더한 것이라, 끝난 매물은 빼고 본다.
     else if (l.bank_tab !== '등록매물') return false
     if (tab === 'live' && !isLive(l)) return false
     if (tab === 'expiring' && !isExpiring(l)) return false
     return true
-  }, [tab, goneFromBank])
+  }, [tab])
 
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase()
@@ -1069,8 +1080,6 @@ export default function AdsPage() {
   // 나오는 목록은 inTab 으로 가르므로 두 잣대가 같아야 숫자가 어긋나지 않는다.
   const expiring = listings.filter(l => l.bank_tab === '등록매물' && isExpiring(l))
 
-  // 뱅크에서 끝났는데 광고가 아직 남은 것. 등록종료 탭이 보여주는 것과 같은 잣대다.
-  const 지난광고 = listings.filter(l => l.bank_tab === '등록종료' && isLive(l))
 
   if (auth.loading || !auth.broker) return null
 
@@ -1169,8 +1178,9 @@ export default function AdsPage() {
               // 어느 쪽이 맞는지 따질 일이 없다. 뒤쪽은 광고를 관리하려고 우리가 더한 것.
               ['all', `등록매물 ${countOf('등록매물')}`],
               ['expiring', `종료예정 ${expiring.length}`],
-              ['past', `등록종료 ${지난광고.length}`,
-                `뱅크 등록종료 ${countOf('등록종료')}건 중 광고가 아직 안 내려간 것만 보여줍니다`],
+              ['past', `등록종료 ${goneButLive.length}`,
+                `뱅크에서 끝났는데 카페·당근 광고가 아직 안 내려간 매물입니다`
+                + ` (뱅크 등록종료 ${countOf('등록종료')}건 중 대부분은 이미 정리돼 여기 안 뜹니다)`],
               // 거래완료·전송실패·휴지통은 탭으로 두지 않는다. 부소장에서 할 일이
               // 없고 전부 뱅크에서 처리할 것들이라, 탭만 늘어나 눈이 흩어진다.
               // (수집은 계속한다 — 등록매물 건수를 뱅크와 맞추고, 그 매물들이
