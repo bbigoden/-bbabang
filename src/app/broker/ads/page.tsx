@@ -640,8 +640,17 @@ export default function AdsPage() {
       }
       if (data.status === 'done') {
         끝()
-        const n = (data.result as { collected?: number } | null)?.collected
-        toast.success(n ? `뱅크에서 ${n}건을 받아왔습니다.` : '가져오기를 마쳤습니다.')
+        const r = data.result as
+          { collected?: number; 당근사라짐?: number; 당근미연결?: number } | null
+        toast.success(r?.collected ? `뱅크에서 ${r.collected}건을 받아왔습니다.` : '가져오기를 마쳤습니다.')
+        // 당근에서 손으로 지운 광고를 대장이 모른 채 '게시중' 으로 들고 있던 것.
+        if (r?.당근사라짐) toast.success(`당근에서 사라진 광고 ${r.당근사라짐}건을 내림으로 표시했습니다.`)
+        // **대장과 안 이어진 당근 광고.** 이게 제일 위험하다 — 대장이 '광고 없음'
+        // 으로 아니까, 그 매물의 뱅크 등록이 끝나도 내릴 대상에 안 들어간다.
+        if (r?.당근미연결) {
+          toast.error(`당근에 대장과 안 이어진 광고가 ${r.당근미연결}건 있습니다. `
+            + '이어 두지 않으면 뱅크 등록이 끝나도 안 내려갑니다.')
+        }
         load()
       } else if (data.status === 'failed' || data.status === 'canceled') {
         끝()
