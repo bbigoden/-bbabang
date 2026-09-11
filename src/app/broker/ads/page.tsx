@@ -1174,20 +1174,23 @@ export default function AdsPage() {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-800">
             {([
-              // 앞쪽은 뱅크 탭을 그대로 옮긴 것 — 건수가 뱅크 화면과 그대로 맞아야
-              // 어느 쪽이 맞는지 따질 일이 없다. 뒤쪽은 광고를 관리하려고 우리가 더한 것.
-              ['all', `등록매물 ${countOf('등록매물')}`],
-              ['expiring', `종료예정 ${expiring.length}`],
-              ['past', `등록종료 ${goneButLive.length}`,
-                `뱅크에서 끝났는데 카페·당근 광고가 아직 안 내려간 매물입니다`
-                + ` (뱅크 등록종료 ${countOf('등록종료')}건 중 대부분은 이미 정리돼 여기 안 뜹니다)`],
+              // 왼쪽에서 오른쪽으로 **일이 흘러가는 순서**다 —
+              // 가진 매물 → 지금 광고 중 → 뱅크는 끝났는데 광고가 남음 → 곧 끝남 → 못 내림.
+              //
               // 거래완료·전송실패·휴지통은 탭으로 두지 않는다. 부소장에서 할 일이
               // 없고 전부 뱅크에서 처리할 것들이라, 탭만 늘어나 눈이 흩어진다.
               // (수집은 계속한다 — 등록매물 건수를 뱅크와 맞추고, 그 매물들이
               //  카페에 올라가지 못하게 막는 근거가 된다.)
+              ['all', `등록매물 ${countOf('등록매물')}`,
+                '뱅크 등록매물 탭 그대로입니다'],
               ['live', `광고 중 ${liveCount}`, '카페나 당근에 광고가 살아 있는 매물'],
-              ['takedown', `종료 못 함 ${takedownCount}`,
-                '광고종료를 눌렀는데 아직 내려가지 않은 매물. 표시광고법상 즉시 내려야 합니다'],
+              ['past', `광고만 남음 ${goneButLive.length}`,
+                '뱅크에서는 끝났는데 카페·당근 광고가 아직 남은 매물입니다.'
+                + ' 내리거나, 계속 광고할 것이면 뱅크에 다시 등록해 주세요'],
+              ['expiring', `종료예정 ${expiring.length}`,
+                '뱅크 등록이 곧 30일을 채우는 매물입니다. 재등록하면 계속 광고합니다'],
+              ['takedown', `못 내림 ${takedownCount}`,
+                '[내리기] 를 눌렀는데 아직 안 내려간 매물. 표시광고법상 즉시 내려야 합니다'],
             ] as [string, string, string?][]).map(([key, label, hint]) => (
               <button
                 key={key}
