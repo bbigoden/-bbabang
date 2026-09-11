@@ -999,6 +999,10 @@ export default function AdsPage() {
     // 전송실패는 등록매물 목록에 없으므로 '지난 매물' 판정에 걸린다. 먼저 가른다.
     // 앞의 다섯 탭은 뱅크가 나눠 둔 그대로다. 뱅크가 어디에 넣었는지만 본다.
     if (BANK_TABS[tab]) { if (l.bank_tab !== BANK_TABS[tab]) return false }
+    // **등록종료는 광고가 남은 것만 본다.** 뱅크에서 끝난 매물은 삼백 건이
+    // 넘는데, 그중 할 일이 있는 것은 광고가 아직 안 내려간 몇 건뿐이다.
+    // 나머지는 뱅크에서 이미 정리된 것이라 여기서 볼 이유가 없다.
+    if (tab === 'past' && !isLive(l)) return false
     // 나머지 탭은 광고를 관리하려고 우리가 더한 것이라, 끝난 매물은 빼고 본다.
     else if (l.bank_tab !== '등록매물') return false
     if (tab === 'live' && !isLive(l)) return false
@@ -1064,6 +1068,9 @@ export default function AdsPage() {
   // 종료예정은 등록매물에만 있는 개념이다 — 탭 숫자는 이 배열로, 탭을 눌렀을 때
   // 나오는 목록은 inTab 으로 가르므로 두 잣대가 같아야 숫자가 어긋나지 않는다.
   const expiring = listings.filter(l => l.bank_tab === '등록매물' && isExpiring(l))
+
+  // 뱅크에서 끝났는데 광고가 아직 남은 것. 등록종료 탭이 보여주는 것과 같은 잣대다.
+  const 지난광고 = listings.filter(l => l.bank_tab === '등록종료' && isLive(l))
 
   if (auth.loading || !auth.broker) return null
 
@@ -1162,7 +1169,8 @@ export default function AdsPage() {
               // 어느 쪽이 맞는지 따질 일이 없다. 뒤쪽은 광고를 관리하려고 우리가 더한 것.
               ['all', `등록매물 ${countOf('등록매물')}`],
               ['expiring', `종료예정 ${expiring.length}`],
-              ['past', `등록종료 ${countOf('등록종료')}`],
+              ['past', `등록종료 ${지난광고.length}`,
+                `뱅크 등록종료 ${countOf('등록종료')}건 중 광고가 아직 안 내려간 것만 보여줍니다`],
               // 거래완료·전송실패·휴지통은 탭으로 두지 않는다. 부소장에서 할 일이
               // 없고 전부 뱅크에서 처리할 것들이라, 탭만 늘어나 눈이 흩어진다.
               // (수집은 계속한다 — 등록매물 건수를 뱅크와 맞추고, 그 매물들이
