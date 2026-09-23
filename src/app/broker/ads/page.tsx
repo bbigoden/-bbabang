@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
+import { todayKST, ymdKST } from '@/lib/date-kst'
 import { SearchClear } from '@/components/ui/search-clear'
 
 /**
@@ -70,22 +71,11 @@ type Listing = {
 }
 
 /**
- * 화면에 칸을 내주는 채널.
- *
- * 지금은 **뱅크(원본)와 카페**만 다룬다. 블로그·당근은 코드가 준비돼 있지만
- * 화면에서는 뺐다 — 늘 비어 있는 칸이 둘 붙어 있으면 볼 것만 늘어난다.
- * 실제로 쓰기 시작할 때 여기에 다시 넣는다.
- *
- * 뱅크를 맨 앞에 두는 이유는 네이버부동산까지 자동 전송돼 노출이 가장 크고,
- * 계약이 끝났을 때 반드시 내려야 하는 곳이기 때문이다. 다만 우리가 올린 게
- * 아니라 발행 기록이 없어, 뱅크가 준 상태와 마지막 수집 결과로 판단한다.
- */
-/**
  * 표에 칸을 내주는 채널.
  *
  * 뱅크는 칸을 두지 않는다. 등록매물 탭에 있다는 것 자체가 뱅크 게시중이고,
  * 뱅크 원본으로 가는 링크는 매물번호가 이미 하고 있다. 계약이 끝났는데 뱅크에
- * 남아 있는 경우는 화면 위 경고와 '종료 못 함' 탭이 잡는다.
+ * 남아 있는 경우는 [광고만 남음]·[못 내림] 탭이 잡는다.
  *
  * 당근은 카페와 나란히 둔다. 뱅크 원문을 그대로 옮기는 곳이라 글을 새로 짓지
  * 않을 뿐, 올리고 내리는 흐름은 카페와 똑같다.
@@ -122,13 +112,16 @@ const m2ToPyeong = (m2: number | null) => {
 /** PC 프로그램이 이 시간 안에 신호를 보냈으면 켜져 있는 것으로 본다 (신호 주기는 20초). */
 const AGENT_ALIVE_MS = 60_000
 
-/** 뱅크 '원클릭 재전송'이 한 번에 받는 상한. 넘기면 뱅크가 경고창을 띄운다. */
 /**
  * 하루에 카페에 올리는 최대 건수. PC 프로그램의 DAILY_CAP 과 같아야 한다.
  * 여기만 고치면 화면 숫자는 바뀌어도 프로그램은 그대로 올린다.
+ *
+ * **카페만의 규칙이다.** 남의 카페에 글을 쓰는 곳이라 많이 올리면 네이버가
+ * 그날 글쓰기를 잠근다. 당근은 내 가게에 내 매물을 쌓는 곳이라 상한이 없다.
  */
 const DAILY_CAP = 10
 
+/** 뱅크 '원클릭 재전송'이 한 번에 받는 상한. 넘기면 뱅크가 경고창을 띄운다. */
 const BANK_RENEW_MAX = 30
 
 /** "방금", "12분 전", 하루가 넘으면 날짜. 어제 받은 목록을 오늘 것으로 착각하지 않게. */
@@ -212,14 +205,14 @@ function needsTakedown(l: Listing) {
   return l.bank_tab === '등록매물'
 }
 
+/** 확인창 줄바꿈. 소스에 직접 쓰면 편집 중에 자주 깨진다. */
+const NL = String.fromCharCode(10)
+
 /**
  * 화면 탭 ↔ 뱅크 탭 대응. **뱅크가 나눠 둔 그대로 보여주는 것이 원칙이다.**
  * 우리가 따로 분류하면 건수가 뱅크 화면과 어긋나 어느 쪽이 맞는지 알 수 없게 된다.
  * (여기 없는 탭은 광고를 관리하려고 우리가 더한 것.)
  */
-/** 확인창 줄바꿈. 소스에 직접 쓰면 편집 중에 자주 깨진다. */
-const NL = String.fromCharCode(10)
-
 const BANK_TABS: Record<string, string | undefined> = {
   all: '등록매물',
 }
@@ -227,8 +220,9 @@ const BANK_TABS: Record<string, string | undefined> = {
 /**
  * 뱅크에서 빠졌는데 카페·당근 광고가 아직 남은 매물.
  *
- * **위 경고와 [등록종료] 탭이 이 하나를 같이 본다.** 따로 세다가 경고는 16건,
- * 탭은 14건으로 갈렸다 — 같은 화면에 안 맞는 숫자가 둘 뜨면 어느 쪽도 못 믿는다.
+ * **[광고만 남음] 탭의 건수와 그 안의 일괄 내리기가 이 하나를 같이 본다.**
+ * 따로 세다가 16건과 14건으로 갈린 적이 있다 — 같은 화면에 안 맞는 숫자가
+ * 둘 뜨면 어느 쪽도 못 믿는다.
  * (갈린 이유는 뱅크가 오래된 종료 매물을 목록에서 아예 떨구기 때문이다.
  *  우리는 그걸 '뱅크에 없음' 으로 적는데, 사장님에게는 둘 다 끝난 매물이다.)
  *
@@ -1031,9 +1025,9 @@ export default function AdsPage() {
     return listings.filter(l => {
       // **찾을 때는 탭을 가리지 않는다.**
       //
-      // 전송실패·뱅크에서 지워진 매물은 어느 탭에도 안 들어간다. 위 경고는
-      // 그 번호를 알려 주는데, 정작 쳐 보면 "조건에 맞는 매물이 없습니다" 가
-      // 떴다 — 알려 주고 못 찾게 한 셈이다.
+      // 전송실패·뱅크에서 지워진 매물은 어느 탭에도 안 들어간다. 매물번호를
+      // 알고 쳤는데 "조건에 맞는 매물이 없습니다" 가 뜨면, 있는 매물을 없다고
+      // 말하는 셈이다. 찾을 때만은 대장 전체를 본다.
       if (!key && !inTab(l)) return false
       if (좁혀보기 === '특이' && !남은특이(l).length) return false
       if (좁혀보기 === '점검' && !손볼것(l)) return false
@@ -1054,7 +1048,7 @@ export default function AdsPage() {
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l)).length
-  // 체크박스로 '올릴 것' 이라고 고른 건수 — [카페에 올리기] 버튼에 쓴다.
+  // [광고 중] 탭의 건수. 뱅크에 살아 있으면서 카페나 당근에 광고가 붙은 것.
   const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
   // 특이사항은 등록매물에서만 센다 — 끝난 매물은 정리할 거리가 아니다.
@@ -1063,13 +1057,11 @@ export default function AdsPage() {
 
   // 오늘 카페에 올린 건수. 하루 10건까지만 올린다 — 한 카페에 그 이상 올리면
   // 광고로 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
+  // 날짜는 언제나 date-kst 로 센다. 여기서만 따로 만들면 하루가 밀리는 곳이
+  // 하나 더 늘어난다 (AGENTS.md).
   const 오늘올림 = listings.filter(l => {
     const at = l.ad_posts.find(p => p.channel === 'cafe' && p.status === 'posted')?.posted_at
-    if (!at) return false
-    const d = new Date(at)
-    const 오늘 = new Date()
-    return d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
-      === 오늘.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+    return !!at && ymdKST(at) === todayKST()
   }).length
   // 담당자별 건수 — 고객목록과 같이 이름 옆에 붙인다. 지금 보고 있는 탭 기준이라
   // 탭을 바꾸면 숫자도 같이 바뀐다. 그 탭에 한 건도 없는 담당자는 (0)으로 남긴다 —
@@ -1158,7 +1150,8 @@ export default function AdsPage() {
               disabled={renewWatch}
               className="ml-auto shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-700 disabled:opacity-60"
             >
-              {renewWatch ? '재등록 중…' : `뱅크에 다시 등록 (${Math.min(expiring.filter(l => !l.contracted_at).length, BANK_RENEW_MAX)}건)`}
+              {/* isExpiring 이 이미 거래완료를 뺀다. 여기서 또 거르면 두 잣대가 된다. */}
+              {renewWatch ? '재등록 중…' : `뱅크에 다시 등록 (${Math.min(expiring.length, BANK_RENEW_MAX)}건)`}
             </button>
           </div>
         )}
@@ -1228,7 +1221,7 @@ export default function AdsPage() {
             disabled={syncing}
             title={agentOnline
               ? '뱅크 매물을 새로 받고, 담당자와 카페 글이 실제로 남아 있는지까지 맞춥니다'
-              : 'PC에서 부소장광고 프로그램(npm run agent)을 먼저 켜 주세요'}
+              : 'PC 프로그램을 먼저 켜 주세요'}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
           >
             <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
@@ -1282,15 +1275,12 @@ export default function AdsPage() {
             </span>
             {오늘올림 >= DAILY_CAP && ' — 오늘은 여기까지'}
           </span>
+          {/* 켜짐/꺼짐과 "켜 주세요" 는 같은 말이다. 한 줄로 합쳐 둔다 —
+              예전에는 여기서 한 번, 옆 [가져오기] 안내에서 또 한 번 말했다. */}
           <span className="flex items-center gap-1">
             <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-            {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
+            {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐 — 켜면 눌러 둔 것이 실행됩니다'}
           </span>
-          {!agentOnline && (
-            <span>
-              PowerShell에서 <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">npm run agent</code> 를 실행하면 버튼이 동작합니다.
-            </span>
-          )}
           {syncError && <span className="text-red-600 dark:text-red-400">마지막 시도 실패: {syncError}</span>}
         </div>
 
@@ -1298,10 +1288,11 @@ export default function AdsPage() {
           <p className="py-16 text-center text-sm text-gray-500">불러오는 중…</p>
         ) : !listings.length ? (
           <div className="rounded-lg border border-dashed border-gray-300 py-16 text-center dark:border-gray-700">
+            {/* 버튼이 바로 위에 있는데 명령어를 치라고 하면 안 된다.
+                쓰는 사람이 늘면 그 명령어를 아는 사람만 이 화면을 쓸 수 있다. */}
             <p className="text-sm text-gray-500">아직 가져온 매물이 없습니다.</p>
             <p className="mt-1 text-xs text-gray-400">
-              부소장광고 폴더에서 <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">npm run sync</code> 를 실행하면
-              부동산뱅크 매물을 가져옵니다.
+              PC 프로그램을 켜고 위 [가져오기] 를 누르면 부동산뱅크 매물을 가져옵니다.
             </p>
           </div>
         ) : (
