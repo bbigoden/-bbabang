@@ -874,7 +874,7 @@ export default function AdsPage() {
 
     const { error } = await supabase.from('ad_jobs').insert({
       broker_id: officeId!, kind: 'publish',
-      params: { bankNos: [l.bank_no], channel }, requested_by: auth.user?.id,
+      params: { bankNos: [l.bank_no], channels: [channel] }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
     toast.success(agentOnline ? `${이름}에 올리는 중입니다.` : '올리기를 예약했습니다. PC 프로그램을 켜 주세요.')
