@@ -509,10 +509,6 @@ export default function AdsPage() {
   // 여기 섞이면 "광고를 내리라" 고 권하게 된다 — 멀쩡한 광고를 지우는 셈이다.
   const goneButLive = listings.filter(끝났는데광고남음)
 
-  // 전송실패는 따로 조용히 알린다. 할 일이 다르다 — 내리는 게 아니라 뱅크에서
-  // 재전송하는 것이고, 그때까지 카페·당근 광고는 그대로 두는 게 맞다.
-  const 전송실패 = listings.filter(l => l.bank_tab === '전송실패' && !l.contracted_at)
-
   useEffect(() => {
     if (auth.loading) return
     if (!auth.user) { router.push('/auth/login?redirect=/broker/ads'); return }
@@ -1123,31 +1119,18 @@ export default function AdsPage() {
           </div>
         )}
 
-        {전송실패.length > 0 && (
-          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
-            <p className="text-amber-800 dark:text-amber-300">
-              네이버부동산에 못 올라간 매물 {전송실패.length}건 —{' '}
-              {전송실패.slice(0, 5).map(l => 보이는번호(l)).join(', ')}
-              {전송실패.length > 5 && ' 외'}
-            </p>
-            <p className="mt-0.5 text-amber-700 dark:text-amber-400">
-              뱅크의 전송실패 탭에서 재전송하면 됩니다. 카페·당근 광고는 그대로 둡니다.
-            </p>
-          </div>
-        )}
-
-        {goneButLive.length > 0 && (
+        {/* 뱅크에서 끝난 매물의 광고가 남은 것 — **[광고만 남음] 탭이 건수를
+            말하고 있으므로 화면 위에 또 띄우지 않는다.** 같은 31건을 배너와
+            탭이 두 번 말하면, 배너를 닫을 수 없어 늘 붉은 화면으로 일하게 된다.
+            여기서 할 일은 탭을 열었을 때만 필요하니 안내와 버튼을 그 안에 둔다. */}
+        {tab === 'past' && goneButLive.length > 0 && (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
             <div>
-              <p className="font-medium text-red-800 dark:text-red-300">
-                뱅크에서 내려간 매물 {goneButLive.length}건이 아직 광고 중입니다.
-              </p>
-              <p className="mt-0.5 text-red-700 dark:text-red-400">
-                {goneButLive.slice(0, 5).map(l => `${보이는번호(l)}(${l.bank_tab})`).join(', ')}
-                {goneButLive.length > 5 && ' 외'} — 뱅크에서는 광고가 안 나가는데 다른 채널에 남아 있습니다.
-              </p>
-              <p className="mt-1 text-red-700 dark:text-red-400">
+              {/* 매물번호는 아래 표가 전부 보여준다. 여기서 다섯 개만 다시
+                  적으면 같은 것을 두 번 읽게 될 뿐이다. */}
+              <p className="text-red-700 dark:text-red-400">
+                뱅크에서는 광고가 안 나가는데 카페·당근에 남아 있는 매물입니다.
                 계약이 끝나 뱅크에서 내린 것이면 아래 버튼으로 한 번에 내리고,
                 <b> 기간만료</b>라 계속 광고할 것이면 [뱅크에 다시 등록] 을 누르세요.
               </p>
