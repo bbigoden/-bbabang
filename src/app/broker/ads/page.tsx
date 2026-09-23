@@ -417,7 +417,20 @@ function ChannelCell({ label, post, onPublish, busy }: {
       ? <a href={post.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-green-700">{body}</a>
       : body
   }
-  // 오늘 상한을 다 썬을 때도 그냥 '–' 로 둔다. 상태줄에 이미
+  // **왜 안 내려갔는지는 여기서 보여야 한다.** 광고종료한 매물은 올릴 곳이
+  // 없어 '–' 로 빠지는데, 그러면 [못 내림] 탭에 줄만 있고 이유가 없었다.
+  // 이유가 안 보이면 계속 실패하는 한 건을 손쓸 수가 없다.
+  // (올릴 수 있는 매물이면 그건 내리다 실패한 게 아니라 올리다 실패한 것이라,
+  //  아래 [올리기] 버튼의 안내로 간다.)
+  if (!onPublish && post?.status === 'failed') {
+    return (
+      <span
+        className="cursor-help text-red-600 underline decoration-dotted underline-offset-2 dark:text-red-400"
+        title={post.error ?? '이유를 받지 못했습니다'}
+      >못 내림</span>
+    )
+  }
+  // 오늘 상한을 다 썼을 때도 그냥 '–' 로 둔다. 상태줄에 이미
   // `오늘 카페에 올린 것: 10 / 10건 — 오늘은 여기까지` 가 적혀 있다.
   // 줄마다 또 적으면 목록만 조잡해진다.
   if (!onPublish) return <span className="text-gray-300 dark:text-gray-600">–</span>
@@ -1090,16 +1103,20 @@ export default function AdsPage() {
           title="광고관리"
         />
 
-        {takedownCount > 0 && (
+        {/* 못 내린 광고도 배너로 띄우지 않는다. **PC 프로그램이 20분마다
+            알아서 다시 내리기 때문이다** — 사람이 눌러 주기를 기다리는 일이
+            아니다. 못 내리는 이유는 대개 그때뿐인 것들이라(PC 가 꺼져 있었거나
+            로그인이 잠깐 풀렸거나) 다음 기회에 내려간다. 탭이 건수를 말하고,
+            정말 안 내려가는 것이 있으면 그 탭에서 이유까지 보면 된다. */}
+        {tab === 'takedown' && takedownCount > 0 && (
           <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
             <div>
-              <p className="font-medium text-red-800 dark:text-red-300">
-                광고종료한 매물 {takedownCount}건이 아직 내려가지 않았습니다.
-              </p>
-              <p className="mt-0.5 text-red-700 dark:text-red-400">
-                표시광고법상 즉시 내려야 합니다.
-                {!agentOnline && ' PC 프로그램이 꺼져 있습니다 — 켜면 내려갑니다.'}
+              <p className="text-red-700 dark:text-red-400">
+                광고종료했는데 아직 안 내려간 광고입니다. 표시광고법상 즉시 내려야 합니다.
+                {agentOnline
+                  ? ' PC 프로그램이 20분마다 알아서 다시 내립니다 — 급하면 아래 버튼으로 지금 내리세요.'
+                  : ' PC 프로그램이 꺼져 있습니다 — 켜면 알아서 내려갑니다.'}
               </p>
               <button
                 onClick={takedownAll}
