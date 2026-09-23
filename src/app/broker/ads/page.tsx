@@ -14,6 +14,7 @@ import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
 import { todayKST, ymdKST } from '@/lib/date-kst'
 import { SearchClear } from '@/components/ui/search-clear'
+import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
 
 /**
  * 광고관리 — 부동산뱅크 매물을 그대로 가져와, 그중 카페에 올릴 것을 고르고 관리한다.
@@ -1221,7 +1222,7 @@ export default function AdsPage() {
             disabled={syncing}
             title={agentOnline
               ? '뱅크 매물을 새로 받고, 담당자와 카페 글이 실제로 남아 있는지까지 맞춥니다'
-              : 'PC 프로그램을 먼저 켜 주세요'}
+              : AGENT_OFF_HINT}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
           >
             <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
@@ -1237,6 +1238,15 @@ export default function AdsPage() {
           {/* 건수는 위 탭(등록매물 245)에 이미 있다. 여기는 언제 받아온
               목록인지만 둔다 — 신규매물 화면과 같은 모양이다. */}
           {lastSynced && <span>{fmtWhen(lastSynced)} 받아옴</span>}
+          {/* **올리는 동안 어디까지 갔는지 말해 준다.** PC 프로그램이 단계마다
+              적어 보내는 것을 3초마다 받아 두면서 화면에는 안 보여 주고 있었다.
+              한 건에 1~2분이 걸리는데 버튼만 흐려져 있으면, 되고 있는 건지
+              멈춘 건지 알 수가 없어 한 번 더 누르게 된다. */}
+          {publishWatch && (
+            <span className="text-blue-600 dark:text-blue-400">
+              {publishProgress ?? '올리는 중…'}
+            </span>
+          )}
           {/* 찾을 때는 탭을 벗어난다. 말해 주지 않으면 등록매물 탭인데 왜
               등록종료 매물이 보이는지 알 수 없다. */}
           {q.trim() && (
@@ -1275,12 +1285,7 @@ export default function AdsPage() {
             </span>
             {오늘올림 >= DAILY_CAP && ' — 오늘은 여기까지'}
           </span>
-          {/* 켜짐/꺼짐과 "켜 주세요" 는 같은 말이다. 한 줄로 합쳐 둔다 —
-              예전에는 여기서 한 번, 옆 [가져오기] 안내에서 또 한 번 말했다. */}
-          <span className="flex items-center gap-1">
-            <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-            {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐 — 켜면 눌러 둔 것이 실행됩니다'}
-          </span>
+          <AgentStatus online={agentOnline} />
           {syncError && <span className="text-red-600 dark:text-red-400">마지막 시도 실패: {syncError}</span>}
         </div>
 

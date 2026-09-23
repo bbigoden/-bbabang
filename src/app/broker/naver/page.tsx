@@ -16,6 +16,7 @@ import { sendAndForget } from '@/lib/send-and-forget'
 import { DateRangeCell } from '@/components/sheet/cells/date-cell'
 import { todayKST, addDays, ymdKST } from '@/lib/date-kst'
 import { Chip } from '@/components/ui/chip'
+import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
 
 /**
  * 매물수집 — 네이버·당근에 올라온 매물을 최신순으로 모아 둔 링크 목록.
@@ -949,10 +950,7 @@ export default function CollectPage() {
               {new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 받아옴
             </span>
           )}
-          <span className="flex items-center gap-1">
-            <span className={`h-1.5 w-1.5 rounded-full ${agentOnline ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-            {agentOnline ? 'PC 프로그램 켜짐' : 'PC 프로그램 꺼짐'}
-          </span>
+          <AgentStatus online={agentOnline} />
           {/* 자동으로 받는다는 걸 화면 어딘가에서 말해 주지 않으면, 아침에 이미 받아져
               있는 것을 보고 "어제 것이 남아 있나" 하게 된다. */}
           <span>매일 오전 9시 30분 자동</span>
@@ -965,9 +963,6 @@ export default function CollectPage() {
                 {SOURCES[id].label} 받는 중 — {jobs[id]}
               </span>
             ))}
-          {!agentOnline && (
-            <span>PC 바탕화면의 <b className="font-medium">부소장 광고 프로그램</b> 을 켜면 [가져오기]가 동작합니다.</span>
-          )}
         </div>
 
         <div className="mb-5 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
@@ -1007,7 +1002,7 @@ export default function CollectPage() {
               disabled={!!jobs[source]}
               title={agentOnline
                 ? `${src.label}에서 새 매물을 받아옵니다 (${src.takes})`
-                : 'PC에서 부소장광고 프로그램을 먼저 켜 주세요'}
+                : AGENT_OFF_HINT}
               className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
                          px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
                          disabled:opacity-60"
