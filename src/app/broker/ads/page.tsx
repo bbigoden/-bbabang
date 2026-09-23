@@ -1453,6 +1453,9 @@ export default function AdsPage() {
                   // 원문의 문제와 '나란히 놓고 봐야 보이는 것' 은 고칠 곳이 달라
                   // (뱅크의 이 매물 / 뱅크의 다른 매물) 문단을 나눠 적는다.
                   const 점검줄 = 남은점검(l)
+                  // 올리다 넘어진 것 / 원문에서 고칠 것. 할 일이 다르니 나눠 적는다.
+                  const 못올린줄 = 점검줄.filter(r => r.startsWith('[실패]'))
+                  const 고칠줄 = 점검줄.filter(r => !r.startsWith('[실패]'))
                   const 특이줄 = 남은특이(l)
                   const 접은줄 = 가려진것(l)
                   const 펼침 = openReport === l.id && (점검줄.length || 특이줄.length || 접은줄.length)
@@ -1474,17 +1477,36 @@ export default function AdsPage() {
                             </ul>
                           </div>
                         )}
-                        {!!점검줄.length && (
+                        {/* **못 올린 것과 고칠 것은 다른 이야기다.** 한 묶음으로
+                            두고 "뱅크에서 고치면 다음 발행부터 반영됩니다" 라고
+                            적으니, 우리 프로그램이 넘어진 것까지 사장님이 뱅크에서
+                            고쳐야 할 일로 읽혔다. 뱅크에는 고칠 게 하나도 없는데. */}
+                        {!!못올린줄.length && (
+                          <div>
+                            <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
+                              {보이는번호(l)} 올리지 못했습니다 — 뱅크에서 고칠 것은 없습니다. 다시 눌러 주세요
+                            </p>
+                            <ul className="space-y-1.5">
+                              {못올린줄.map((r, i) => (
+                                <li key={i} className="group flex items-start gap-1.5 text-xs leading-relaxed text-red-900 dark:text-red-200">
+                                  <span>· {r.replace(/^\[실패]\s*/, '')}</span>
+                                  <DismissButton onClick={() => 접어두기(l, r)} />
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {!!고칠줄.length && (
                           <div>
                             {/* 대상 아님은 원문을 고칠 거리가 아니다. 이 프로그램이 안 다루는
                                 종류라는 알림이라, 뱅크에서 고치라고 하면 말이 안 맞는다. */}
                             <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
-                              {점검줄.every(r => r.startsWith('[대상 아님]'))
+                              {고칠줄.every(r => r.startsWith('[대상 아님]'))
                                 ? `${보이는번호(l)} — 이 종류는 프로그램이 글로 만들지 않습니다`
                                 : `${보이는번호(l)} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다`}
                             </p>
                             <ul className="space-y-1.5">
-                              {점검줄.map((r, i) => (
+                              {고칠줄.map((r, i) => (
                                 <li key={i} className="group flex items-start gap-1.5 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
                                   <span>· {r}</span>
                                   <DismissButton onClick={() => 접어두기(l, r)} />
