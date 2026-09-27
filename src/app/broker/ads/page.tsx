@@ -277,10 +277,10 @@ function ClosedReason({ listing }: { listing: Listing }) {
   }
   const r = listing.bank_closed_reason
   if (r === '기간만료') {
-    return <span className="text-amber-600 dark:text-amber-400" title="30일이 지나 자동 종료됐습니다. 재등록하면 계속 광고할 수 있습니다.">기간만료</span>
+    return <span className="text-amber-600 dark:text-amber-400" title="30일이 지나 자동 종료됐습니다. 뱅크에서 다시 등록하면 계속 광고할 수 있습니다.">기간만료</span>
   }
   if (r === '직접종료') {
-    return <span className="text-red-600 dark:text-red-400" title="뱅크에서 노출종료를 누른 매물입니다. 광고를 접은 것이면 [광고종료]를 눌러 카페·당근도 같이 내려 주세요.">직접 내림</span>
+    return <span className="text-red-600 dark:text-red-400" title="뱅크에서 노출종료를 누른 매물입니다. 광고를 접은 것이면 ↓ 를 눌러 카페·당근도 같이 내려 주세요.">직접 내림</span>
   }
   return <span className="text-gray-400" title="마지막 수집 때 뱅크 목록에 없었습니다">뱅크에 없음</span>
 }
@@ -1139,10 +1139,17 @@ export default function AdsPage() {
             <div>
               {/* 매물번호는 아래 표가 전부 보여준다. 여기서 다섯 개만 다시
                   적으면 같은 것을 두 번 읽게 될 뿐이다. */}
+              {/* **없는 버튼을 가리키지 않는다.** 예전에는 "[뱅크에 다시 등록] 을
+                  누르세요" 라고 적었는데, 그 버튼은 [종료예정] 탭에만 있고 그것도
+                  아직 안 끝난 매물만 된다(뱅크의 원클릭 재전송). 여기 있는 것은
+                  이미 끝난 매물이라 뱅크에서 직접 다시 등록해야 한다. */}
               <p className="text-red-700 dark:text-red-400">
-                뱅크에서는 광고가 안 나가는데 카페·당근에 남아 있는 매물입니다.
-                계약이 끝나 뱅크에서 내린 것이면 아래 버튼으로 한 번에 내리고,
-                <b> 기간만료</b>라 계속 광고할 것이면 [뱅크에 다시 등록] 을 누르세요.
+                뱅크에서는 끝났는데 카페·당근에 남아 있는 매물입니다.
+                계속 광고할 매물은 <b>뱅크에서 직접 다시 등록</b>하세요 — 등록되면 다음 [가져오기] 때 이 목록에서 빠집니다.
+                나머지는 줄마다 ↓ 로 내리거나, 아래 버튼으로 한 번에 내리세요.
+              </p>
+              <p className="mt-1 text-xs text-red-600/80 dark:text-red-400/80">
+                한 번에 내리기는 지금 목록 전부를 내립니다. 계속 광고할 매물이 섞여 있으면 먼저 뱅크에 등록하고 [가져오기] 를 한 뒤 누르세요.
               </p>
               <button
                 onClick={takedownGone}
@@ -1193,7 +1200,7 @@ export default function AdsPage() {
               ['expiring', `종료예정 ${expiring.length}`,
                 '뱅크 등록이 곧 30일을 채우는 매물입니다. 재등록하면 계속 광고합니다'],
               ['takedown', `못 내림 ${takedownCount}`,
-                '[내리기] 를 눌렀는데 아직 안 내려간 매물. 표시광고법상 즉시 내려야 합니다'],
+                '↓ 를 눌렀는데 아직 안 내려간 매물. 표시광고법상 즉시 내려야 합니다'],
             ] as [string, string, string?][]).map(([key, label, hint]) => (
               <button
                 key={key}
