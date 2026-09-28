@@ -14,6 +14,7 @@ import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
 import { todayKST, ymdKST } from '@/lib/date-kst'
 import { SearchClear } from '@/components/ui/search-clear'
+import { Chip } from '@/components/ui/chip'
 import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
 
 /**
@@ -459,6 +460,10 @@ export default function AdsPage() {
   // 좁혀 보기 — 점검 칸에 뜼는 두 가지를 각각 걸러 볼 수 있게 한다.
   // 한 개로 두면 집게 숫자와 칸의 숫자가 안 맞아 화면을 못 믿게 된다.
   const [좁혀보기, set좁혀보기] = useState<'' | '점검' | '특이'>('')
+  // [광고 중] 안에서 채널별로 좁혀 본다. 탭으로 두지 않는 이유 — 위 탭은 일의
+  // 순서(가진 것 → 광고 중 → 광고만 남음 …)라 채널까지 탭으로 넣으면 순서와
+  // 채널이 섞이고, 블로그가 생길 때마다 탭이 늘어난다.
+  const [채널, set채널] = useState<'' | 'cafe' | 'daangn'>('')
   const [tab, setTab] = useState<
     'all' | 'expiring' | 'past' | 'live' | 'takedown'
   >('all')
@@ -1023,16 +1028,20 @@ export default function AdsPage() {
     // 넘는데, 그중 할 일이 있는 것은 광고가 아직 안 내려간 몇 건뿐이다.
     // 나머지는 뱅크에서 이미 정리된 것이라 여기서 볼 이유가 없다.
     if (tab === 'past') return 끝났는데광고남음(l)
+    // **[광고 중] 은 뱅크와 상관없다.** 카페·당근 어디든 광고가 살아 있으면 여기
+    // 나온다. 예전에는 뱅크 등록매물 중에서만 세어, 탭 설명("카페나 당근에 광고가
+    // 살아 있는 매물")과 달리 뱅크에서 끝난 매물의 광고 34건이 빠져 있었다.
+    // 뱅크에서 끝난 줄은 뱅크 칸에 빨갛게 뜨므로 섞여도 구분된다.
+    if (tab === 'live') return isLive(l, 채널 || undefined)
     // 끝난 매물(거래완료·뱅크에서 빠짐)은 기본 목록에서 뺀다. 지우지는 않는다 —
     // 언제 무엇을 내렸는지가 표시광고법 대응의 근거가 된다.
     // 이걸 같이 세면 [전체]가 뱅크 등록 건수와 안 맞아 숫자를 못 믿게 된다.
     if (BANK_TABS[tab]) { if (l.bank_tab !== BANK_TABS[tab]) return false }
     // 나머지 탭은 광고를 관리하려고 우리가 더한 것이라, 끝난 매물은 빼고 본다.
     else if (l.bank_tab !== '등록매물') return false
-    if (tab === 'live' && !isLive(l)) return false
     if (tab === 'expiring' && !isExpiring(l)) return false
     return true
-  }, [tab])
+  }, [tab, 채널])
 
   const filtered = useMemo(() => {
     const key = q.trim().toLowerCase()
@@ -1058,12 +1067,16 @@ export default function AdsPage() {
   // 만들어야 하고, "내려야 함"은 틀리면 안 되는 숫자다.
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
-  useEffect(() => { setPage(1) }, [q, tab, manager, 좁혀보기, pageSize])
+  useEffect(() => { setPage(1) }, [q, tab, manager, 좁혀보기, 채널, pageSize])
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l)).length
-  // [광고 중] 탭의 건수. 뱅크에 살아 있으면서 카페나 당근에 광고가 붙은 것.
-  const liveCount = listings.filter(l => l.bank_tab === '등록매물' && isLive(l)).length
+  // [광고 중] 탭과 그 안 칩의 건수. inTab 과 같은 잣대 — 뱅크 상태는 안 본다.
+  const liveCount = listings.filter(l => isLive(l)).length
+  const 채널건수 = {
+    cafe: listings.filter(l => isLive(l, 'cafe')).length,
+    daangn: listings.filter(l => isLive(l, 'daangn')).length,
+  }
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]
   // 특이사항은 등록매물에서만 센다 — 끝난 매물은 정리할 거리가 아니다.
   const 특이건수 = listings.filter(l => l.bank_tab === '등록매물' && 남은특이(l).length).length
@@ -1193,7 +1206,7 @@ export default function AdsPage() {
               //  카페에 올라가지 못하게 막는 근거가 된다.)
               ['all', `등록매물 ${countOf('등록매물')}`,
                 '뱅크 등록매물 탭 그대로입니다'],
-              ['live', `광고 중 ${liveCount}`, '카페나 당근에 광고가 살아 있는 매물'],
+              ['live', `광고 중 ${liveCount}`, '뱅크와 상관없이 카페나 당근에 광고가 살아 있는 매물'],
               ['past', `광고만 남음 ${goneButLive.length}`,
                 '뱅크에서는 끝났는데 카페·당근 광고가 아직 남은 매물입니다.'
                 + ' 내리거나, 계속 광고할 것이면 뱅크에 다시 등록해 주세요'],
@@ -1255,6 +1268,18 @@ export default function AdsPage() {
 
           
         </div>
+
+        {/* [광고 중] 안에서만 보이는 채널 칩. 숫자는 탭과 같은 잣대로 센다. */}
+        {tab === 'live' && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Chip size="xs" on={!채널} onClick={() => set채널('')}>전체 {liveCount}</Chip>
+            {CHANNELS.map(c => (
+              <Chip key={c.key} size="xs" on={채널 === c.key} onClick={() => set채널(c.key)}>
+                {c.label} {채널건수[c.key]}
+              </Chip>
+            ))}
+          </div>
+        )}
 
         {/* 언제 받아온 목록인지, PC 프로그램이 켜져 있는지. 이게 없으면 화면이
             낡았는지 알 수가 없고, 버튼을 눌러도 왜 반응이 없는지 알 수 없다. */}
