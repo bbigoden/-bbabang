@@ -156,7 +156,7 @@ const SOURCES = {
     jobKind: 'daangn',
     /** 실측 346초. 우리 지역 아닌 동을 첫 쪽에서 접기 전에는 460초였다. */
     takes: '6~9분',
-    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent' as string,
+    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent, floor_info' as string,
     kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
     kindOf: daangnKindOf,
     trades: DAANGN_TRADES as Record<string, string>,
@@ -179,8 +179,8 @@ const SOURCES = {
       sector: a.sector,
       owner: a.writer_name,
       shown_date: ymdKST(a.first_seen_at),
-      // 당근은 목록에서 층을 안 준다. 빈 칸으로 두고 층 조건도 안 걸린다.
-      floor_info: null,
+      // 2026-09 개편 뒤로 당근도 층을 준다. 네이버와 같은 "1/5" 모양으로 담아 둔다.
+      floor_info: a.floor_info,
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
@@ -359,6 +359,21 @@ const 층조건 = {
   '2층 이상': (n: number) => n >= 2,
   지하: (n: number) => n < 0,
 } as const
+
+/**
+ * 가져오기가 무엇을 확인했는지 한마디로. 네이버는 받은 매물 수, 당근은 늘어난 지도 칸 수.
+ *
+ * 당근은 새 매물만 받으므로 '전체 N건 확인' 이라 하면 N이 새 매물 수와 같아져 뜻이 없다.
+ */
+function 확인한것(r: { fetched?: number; grown?: number } | null): string {
+  if (r?.grown !== undefined) return ` (늘어난 지도 칸 ${r.grown}곳 확인)`
+  return ` (전체 ${r?.fetched ?? 0}건 확인)`
+}
+
+/** 저장된 시각을 '9. 28. 오전 09:33' 모양으로. */
+function 언제(v: string): string {
+  return new Date(v).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
 function 값(r: Row): string | null {
   const 천 = (n: number) => n.toLocaleString('ko-KR')
@@ -647,15 +662,20 @@ export default function CollectPage() {
       }
       if (data.status === 'done') {
         끝()
-        const r = data.result as
-          { added?: number; fetched?: number; missed?: number; truncated?: number } | null
+        const r = data.result as {
+          added?: number; fetched?: number; missed?: number; truncated?: number
+          first?: boolean; warn?: string; grown?: number
+        } | null
         // 못 본 곳이 있으면 그것부터 말한다 — '새 매물 0건' 과 '못 받았다' 는 다르다.
         if (r?.missed) toast.error(`${s.label} — ${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
+        // 당근은 처음 한 번은 기준만 잡는다. '새 매물 없음' 으로 말하면 거짓말이 된다.
+        else if (r?.first) toast.success(`${s.label} — 기준을 잡았습니다. 다음 가져오기부터 새 매물이 들어옵니다.`)
+        else if (r?.warn) toast.error(`${s.label} — ${r.warn}`)
         // 한 자리에 매물이 너무 많아 다 못 받은 경우. 조용히 넘어가면 멀쩡히 다
         // 받은 줄 안다 — 프로그램이 창 없이 도니 로그의 경고도 아무도 못 본다.
         else if (r?.truncated) toast.error(`${s.label} — ${r.truncated}자리가 한 번에 다 안 들어와 일부를 놓쳤습니다. 잠시 뒤 다시 눌러 주세요.`)
-        else if (r?.added) toast.success(`${s.label} — 새 매물 ${r.added}건을 받았습니다. (전체 ${r.fetched ?? 0}건 확인)`)
-        else toast.success(`${s.label} — 새로 올라온 매물이 없습니다. (전체 ${r?.fetched ?? 0}건 확인)`)
+        else if (r?.added) toast.success(`${s.label} — 새 매물 ${r.added}건을 받았습니다.${확인한것(r)}`)
+        else toast.success(`${s.label} — 새로 올라온 매물이 없습니다.${확인한것(r)}`)
         // 지금 보고 있는 탭일 때만 다시 읽는다. 아니면 그 탭으로 옮길 때 읽힌다.
         if (sourceRef.current === id) void loadRef.current()
       } else if (data.status === 'failed' || data.status === 'canceled') {
@@ -740,11 +760,31 @@ export default function CollectPage() {
     })()
   }, [supabase, officeId, watchJob])
 
-  /** 마지막으로 받아온 시각. 0건일 때 "받아오기가 멈춘 건지"를 여기서 안다. */
-  const lastSweep = useMemo(
-    () => rows.reduce<string | null>((a, r) => (!a || r.last_seen_at > a ? r.last_seen_at : a), null),
-    [rows],
-  )
+  /**
+   * 이 탭의 마지막 가져오기 — 아침 자동이든 사람이 누른 것이든.
+   *
+   * **실패를 여기서 말해야 한다.** 예전에는 [가져오기] 를 누르고 지켜볼 때만 실패를
+   * 띄웠다. 아침 9시 30분 자동 수집이 실패하면 어디에도 안 나와서, 당근이 한 건도
+   * 못 받는 채로 18일이 지나갔다.
+   *
+   * 받아온 시각도 매물의 마지막 확인 시각이 아니라 이걸로 잡는다. 당근은 새 매물만
+   * 받으므로, 매물 쪽 시각으로 세면 새 것이 없던 날 '어제 받아옴' 처럼 보인다.
+   */
+  const [최근작업, set최근작업] = useState<{
+    status: string; finished_at: string | null; error: string | null
+    result: { warn?: string; first?: boolean } | null
+  } | null>(null)
+  useEffect(() => {
+    if (!officeId) return
+    void (async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('status, finished_at, error, result')
+        .eq('kind', src.jobKind).in('status', ['done', 'failed'])
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      set최근작업(data ?? null)
+    })()
+    // 목록을 새로 받을 때마다(가져오기가 끝났을 때 포함) 다시 본다.
+  }, [supabase, officeId, src.jobKind, rows])
 
   const 기간잡기 = (a: string, b: string) => { set첫날(a); set끝날(b); setPage(1) }
 
@@ -945,10 +985,18 @@ export default function CollectPage() {
         </div>
 
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          {lastSweep && (
-            <span>
-              {new Date(lastSweep).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 받아옴
+          {최근작업?.status === 'failed' ? (
+            <span className="font-medium text-red-600 dark:text-red-400">
+              {최근작업.finished_at && `${언제(최근작업.finished_at)} `}가져오기 실패 — {최근작업.error ?? '알 수 없는 오류'}
             </span>
+          ) : 최근작업?.finished_at && (
+            <span>{언제(최근작업.finished_at)} 받아옴</span>
+          )}
+          {최근작업?.result?.first && (
+            <span>처음이라 기준만 잡았습니다 — 다음 가져오기부터 새 매물이 들어옵니다</span>
+          )}
+          {최근작업?.result?.warn && (
+            <span className="text-amber-600 dark:text-amber-500">⚠ {최근작업.result.warn}</span>
           )}
           <AgentStatus online={agentOnline} />
           {/* 자동으로 받는다는 걸 화면 어딘가에서 말해 주지 않으면, 아침에 이미 받아져
@@ -990,10 +1038,14 @@ export default function CollectPage() {
             {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
                 이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
                 켜지는 일(받아올 때 가려내기)까지 같이 맡는다. */}
-            <Chip on={goneOnly} onClick={() => {
-              if (!settings.track_gone) void saveSetting({ track_gone: true })
-              setGoneOnly(v => !v); setPage(1)
-            }}>사라진 것</Chip>
+            {/* 당근은 늘어난 지도 칸만 열어 새 매물을 건지므로, 안 본 매물이 내려갔는지
+                알 길이 없다. 눌러도 늘 비는 칩은 없는 편이 낫다. */}
+            {source === 'naver' && (
+              <Chip on={goneOnly} onClick={() => {
+                if (!settings.track_gone) void saveSetting({ track_gone: true })
+                setGoneOnly(v => !v); setPage(1)
+              }}>사라진 것</Chip>
+            )}
             {/* 보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
                 탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
                 네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
@@ -1120,14 +1172,12 @@ export default function CollectPage() {
             </div>
           )}
 
-          {/* 층 — 상가는 1층이냐 아니냐가 거의 다른 물건이다. 당근은 층을 안 준다. */}
+          {/* 층 — 상가는 1층이냐 아니냐가 거의 다른 물건이다. */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">층</span>
-            {source === 'naver' ? Object.keys(층조건).map(k => (
+            {Object.keys(층조건).map(k => (
               <Chip key={k} on={층.includes(k)} onClick={() => { toggle(층, set층, k); setPage(1) }}>{k}</Chip>
-            )) : (
-              <span className="text-xs text-gray-400 dark:text-gray-600">당근은 목록에 층을 주지 않습니다</span>
-            )}
+            ))}
           </div>
 
           {/* 켜고 끄면 사무소 사람 모두에게 걸린다. 눌러야 나오면 있는 줄도 모른다. */}
