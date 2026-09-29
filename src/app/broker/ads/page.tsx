@@ -1060,8 +1060,14 @@ export default function AdsPage() {
       if (좁혀보기 === '점검' && !손볼것(l)) return false
       if (manager && (l.manager ?? '') !== manager) return false
       if (!key) return true
-      return [l.bank_no, l.naver_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
-        .filter(Boolean).some(v => String(v).toLowerCase().includes(key))
+      // **칸을 이어 붙여 한 줄로 보고, 친 말을 띄어쓰기로 나눠 전부 들어 있으면 맞다.**
+      // 예전에는 칸마다 따로 찾아서 `불당동 1489` 가 0건이었다 — `불당동` 은
+      // 소재지 칸에, `1489` 는 상세주소 칸에 나뉘어 있어 어느 한 칸에도 통째로
+      // 없었다. 화면에는 `천안시 서북구 불당동 1489 109호` 로 한 줄로 보이니
+      // 사람은 당연히 그렇게 친다. 순서도 안 가린다(`1489 불당동` 도 된다).
+      const 한줄 = [l.naver_no, l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
+        .filter(Boolean).join(' ').toLowerCase()
+      return key.split(/\s+/).every(말 => 한줄.includes(말))
     })
   }, [listings, q, manager, 좁혀보기, inTab])
 
