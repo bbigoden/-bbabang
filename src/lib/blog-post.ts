@@ -336,29 +336,6 @@ function sectionQnA(p: ParsedListing, no: string): Array<[string, string]> {
   return [...pool.slice(start), ...pool.slice(0, start)].slice(0, 3)
 }
 
-/** 표시광고 필수 명시사항 블록 — 본문 최하단 고정 */
-function adBlock(p: ParsedListing): string {
-  return [
-    '■ 중개사무소 명칭 : 플러스불당 공인중개사사무소',
-    '■ 등록번호 : 제44133-2024-00142호',
-    '■ 사무소 소재지 : 충청남도 천안시 서북구 불당23로 73-27 502호',
-    '■ 대표자 성명 : 김용유',
-    '■ 연락처 : 010-5585-8943',
-    `■ 매물 소재지 : ${locationLine(p)}`,
-    `■ 면적 : ${p.supplyArea ? `계약 ${area(p.supplyArea)} / ` : ''}${p.exclusiveArea ? `전용 ${area(p.exclusiveArea)}` : CHECK}`,
-    `■ 가격 : ${priceLine(p).replace(' (VAT 별도 여부 확인 필요)', '')}`,
-    `■ 거래형태 : ${p.dealType ?? CHECK}`,
-    `■ 층수 : ${p.floor ? `${floorLabel(p.floor)}${p.totalFloors ? ` / 총 ${p.totalFloors}층` : ''}`
-      : p.totalFloors ? `총 ${p.totalFloors}층` : CHECK}`,
-    `■ 방향 : ${p.direction ? `${p.direction.endsWith('향') ? p.direction : `${p.direction}향`} (주출입구 기준)` : CHECK}`,
-    `■ 입주가능일 : ${p.moveIn ?? CHECK}`,
-    `■ 주차대수 : ${parkingLabel(p.parking) ?? CHECK}`,
-    `■ 관리비 : ${p.maintenanceFee ?? CHECK}`,
-    `■ 건축물 용도 : ${p.propertyKind ?? CHECK}`,
-    `■ 사용승인일 : ${p.approvalDate ?? CHECK}`,
-  ].join('\n')
-}
-
 // ── 4단계: 태그 (정확히 10개) ─────────────────────────
 
 function buildTags(p: ParsedListing, kw: BlogKeywords): string[] {
@@ -446,8 +423,7 @@ export function buildBlogPost(source: string, listingNoInput: string): BlogPost 
     '',
     '현장 방문 안내',
     '연락 주시면 일정에 맞춰 현장을 안내해 드립니다. 원하시는 조건을 함께 말씀해 주시면 광고에 올리지 않은 물건까지 정리해 비교해 보실 수 있도록 준비하겠습니다.',
-    '',
-    adBlock(p),
+    // 중개사무소 명칭·등록번호·연락처 등 사무소 정보는 블로그 [내 템플릿] 이 글 끝에 붙인다.
   ].join('\n')
 
   // 점검 보고
