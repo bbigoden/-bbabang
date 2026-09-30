@@ -130,6 +130,9 @@ const AGENT_ALIVE_MS = 60_000
  */
 const DAILY_CAP = 4
 
+/** 카페 글 사이 간격 안내. PC 프로그램(agent-worker.js 의 PUBLISH_GAP_MS)과 같아야 한다. */
+const 카페간격안내 = '카페는 글 사이를 30~90분 띄워 올립니다. 앞 글이 얼마 전이면 그만큼 기다렸다가 올라갑니다.'
+
 /** 뱅크 '원클릭 재전송'이 한 번에 받는 상한. 넘기면 뱅크가 경고창을 띄운다. */
 const BANK_RENEW_MAX = 30
 
@@ -854,6 +857,24 @@ export default function AdsPage() {
   const 되살리기 = (l: Listing, 문구: string) => 접기토글(l, 문구, false)
 
   /**
+   * 줄 서 있는 발행 작업.
+   *
+   * **발행은 줄을 선다.** 예전에는 하나라도 돌고 있으면 다음 [올리기] 를 받지
+   * 않았는데, 카페가 글 사이를 30~90분 띄우게 되자 네 건을 올리려면 한 시간 반마다
+   * 와서 눌러야 했다. 이제 눌러 두면 PC 프로그램이 간격을 지키며 차례로 올린다.
+   * 같은 매물을 두 번 줄 세우는 것만 막는다.
+   */
+  async function 발행줄() {
+    const { data } = await supabase.from('ad_jobs')
+      .select('params').eq('kind', 'publish').in('status', ['queued', 'running'])
+    const 줄 = (data ?? []) as Array<{ params: { bankNos?: string[]; channels?: string[] } | null }>
+    const 번호들 = new Set(줄.flatMap(j => j.params?.bankNos ?? []).map(String))
+    const 카페줄 = 줄.filter(j => (j.params?.channels ?? []).includes('cafe'))
+      .reduce((n, j) => n + (j.params?.bankNos?.length ?? 0), 0)
+    return { 번호들, 카페줄 }
+  }
+
+  /**
    * 지금 이 매물을 올릴 수 있는 채널.
    *
    * 채널 칸의 [올리기] 와 [전체]의 [올리기] 가 **같은 잣대를 써야 한다.**
@@ -873,29 +894,35 @@ export default function AdsPage() {
    */
   async function publishAll(l: Listing) {
     if (!auth.broker) return
-    const 갈곳 = 올릴곳(l)
-    if (!갈곳.length) return
+    const { 번호들, 카페줄 } = await 발행줄()
+    if (번호들.has(String(l.bank_no))) { toast.error('이미 올리려고 줄 서 있는 매물입니다.'); return }
+    // 줄 서 있는 카페 건도 오늘 몫으로 센다. 안 그러면 여러 건을 눌러 두었을 때
+    // 상한을 넘겨 줄을 세우고, 뒤쪽이 PC 에서 "오늘 이미 n건" 으로 실패한다.
+    const 카페남음 = 오늘올림 + 카페줄 < DAILY_CAP
+    const 갈곳 = 올릴곳(l).filter(c => c !== 'cafe' || 카페남음)
+    const 카페빠짐 = !갈곳.includes('cafe') && !isLive(l, 'cafe') && canPublish(l) && !카페남음
+    if (!갈곳.length) {
+      if (카페빠짐) toast.error(`오늘 카페 ${DAILY_CAP}건을 다 썼습니다 (줄 서 있는 것 포함).`)
+      return
+    }
     const 이름 = 갈곳.map(c => CHANNEL_LABEL[c]).join('·')
-    const 카페빠짐 = !갈곳.includes('cafe') && !isLive(l, 'cafe') && 오늘올림 >= DAILY_CAP
 
     if (!confirm(
-      `${보이는번호(l)} 매물을 ${이름}에 올립니다. ${갈곳.length > 1 ? '몇 분' : '1분'}쯤 걸립니다.${NL}${NL}`
+      `${보이는번호(l)} 매물을 ${이름}에 올립니다.${NL}${NL}`
+      + (갈곳.includes('cafe') ? `${카페간격안내}${NL}${NL}` : '')
       + (갈곳.includes('blog') ? `블로그는 임시저장까지만 합니다. 글을 읽어 보고 직접 발행해 주세요.${NL}${NL}` : '')
       + (카페빠짐 ? `오늘 카페 ${DAILY_CAP}건을 다 써서 카페는 빼고 올립니다.${NL}${NL}` : '')
       + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
     )) return
 
-    const { data: pending } = await supabase.from('ad_jobs')
-      .select('id').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1).maybeSingle()
-    if (pending) { toast.error('이미 올리는 중입니다. 끝나면 다시 눌러 주세요.'); return }
-
     const { error } = await supabase.from('ad_jobs').insert({
       broker_id: officeId!, kind: 'publish',
       params: { bankNos: [l.bank_no], channels: 갈곳 }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
-    toast.success(agentOnline ? `${이름}에 올리는 중입니다.` : '올리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    toast.success(!agentOnline ? '올리기를 예약했습니다. PC 프로그램을 켜 주세요.'
+      : 번호들.size ? '줄을 세웠습니다. 앞의 것이 끝나면 차례로 올라갑니다.' : `${이름}에 올리는 중입니다.`)
     setPublishWatch(true)
   }
 
@@ -904,66 +931,88 @@ export default function AdsPage() {
     const 이름 = CHANNEL_LABEL[channel] ?? channel
     // 하루 상한은 카페만의 것이다 — 한 카페에 하루 열 건 넘게 올리면 광고로
     // 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
-    if (channel === 'cafe' && 오늘올림 >= DAILY_CAP) {
-      toast.error(`오늘 이미 ${오늘올림}건을 올렸습니다. 하루 ${DAILY_CAP}건까지만 올립니다.`)
+    const { 번호들, 카페줄 } = await 발행줄()
+    if (번호들.has(String(l.bank_no))) { toast.error('이미 올리려고 줄 서 있는 매물입니다.'); return }
+    if (channel === 'cafe' && 오늘올림 + 카페줄 >= DAILY_CAP) {
+      toast.error(`오늘 카페 ${DAILY_CAP}건을 다 썼습니다 (올린 것 ${오늘올림} · 줄 서 있는 것 ${카페줄}).`)
       return
     }
     if (!confirm(
-      `${보이는번호(l)} 매물을 ${이름}에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
+      `${보이는번호(l)} 매물을 ${이름}에 올립니다.${NL}${NL}`
+      + (channel === 'cafe' ? `${카페간격안내}${NL}${NL}` : '')
       + (channel === 'blog' ? `블로그는 임시저장까지만 합니다. 글을 읽어 보고 직접 발행해 주세요.${NL}${NL}` : '')
       + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
     )) return
-
-    const { data: pending } = await supabase.from('ad_jobs')
-      .select('id').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1).maybeSingle()
-    if (pending) { toast.error('이미 올리는 중입니다. 끝나면 다시 눌러 주세요.'); return }
 
     const { error } = await supabase.from('ad_jobs').insert({
       broker_id: officeId!, kind: 'publish',
       params: { bankNos: [l.bank_no], channels: [channel] }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
-    toast.success(agentOnline ? `${이름}에 올리는 중입니다.` : '올리기를 예약했습니다. PC 프로그램을 켜 주세요.')
+    toast.success(!agentOnline ? '올리기를 예약했습니다. PC 프로그램을 켜 주세요.'
+      : 번호들.size ? '줄을 세웠습니다. 앞의 것이 끝나면 차례로 올라갑니다.' : `${이름}에 올리는 중입니다.`)
     setPublishWatch(true)
   }
 
 
-  /** 발행이 끝나면 목록을 새로 받아 게시 상태를 보여준다. */
-  useEffect(() => {
-    if (!publishWatch) return
-    const id = setInterval(async () => {
-      const { data } = await supabase.from('ad_jobs')
-        .select('id, progress').eq('kind', 'publish').in('status', ['queued', 'running']).limit(1)
-      if (data && data.length) { setPublishProgress(data[0].progress ?? null); return }
-      setPublishWatch(false); setPublishProgress(null)
-      const { data: last } = await supabase.from('ad_jobs')
-        .select('status, error, result').eq('kind', 'publish')
-        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-      if (last?.status === 'failed') toast.error(`올리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
-      else if (last?.status === 'done') {
-        const r = last.result as {
-          published?: number
-          채널별?: Array<{ channel: string; published?: number; skipped?: string[]; error?: string }>
-        } | null
-        // 어디에 몇 건 올렸는지 채널별로 말한다 — [전체] 는 한 번에 두 곳에 올린다.
-        const 올린곳 = (r?.채널별 ?? []).filter(c => c.published)
-          .map(c => `${CHANNEL_LABEL[c.channel] ?? c.channel} ${c.published}건`)
-        toast.success(올린곳.length ? `${올린곳.join(' · ')} 올렸습니다.` : '발행을 마쳤습니다.')
+  /** 끝난 발행 하나의 결과를 알린다 — 어디에 몇 건, 무엇이 막혔는지. */
+  async function 발행결과알림() {
+    // 미뤘다 다시 줄 선 작업은 요청 시각이 옛날 그대로라, 끝난 순서로 찾는다.
+    const { data: last } = await supabase.from('ad_jobs')
+      .select('status, error, result').eq('kind', 'publish').not('finished_at', 'is', null)
+      .order('finished_at', { ascending: false }).limit(1).maybeSingle()
+    if (last?.status === 'failed') toast.error(`올리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
+    else if (last?.status === 'done') {
+      const r = last.result as {
+        published?: number
+        채널별?: Array<{ channel: string; published?: number; skipped?: string[]; error?: string }>
+      } | null
+      // 어디에 몇 건 올렸는지 채널별로 말한다 — [전체] 는 한 번에 두 곳에 올린다.
+      const 올린곳 = (r?.채널별 ?? []).filter(c => c.published)
+        .map(c => `${CHANNEL_LABEL[c.channel] ?? c.channel} ${c.published}건`)
+      toast.success(올린곳.length ? `${올린곳.join(' · ')} 올렸습니다.` : '발행을 마쳤습니다.')
 
-        // 한 곳은 올라갔는데 다른 곳은 안 된 경우. 작업 자체는 성공이라
-        // 여기서 말하지 않으면 안 올라간 것을 아무도 모른다.
-        for (const c of r?.채널별 ?? []) {
-          const 이름 = CHANNEL_LABEL[c.channel] ?? c.channel
-          if (c.error) toast.error(`${이름}: ${c.error}`)
-          else if (c.skipped?.length) {
-            toast.error(`${이름} — 원문에 문제가 있어 올리지 않았습니다. 점검 칸을 눌러 확인해 주세요.`)
-          }
+      // 한 곳은 올라갔는데 다른 곳은 안 된 경우. 작업 자체는 성공이라
+      // 여기서 말하지 않으면 안 올라간 것을 아무도 모른다.
+      for (const c of r?.채널별 ?? []) {
+        const 이름 = CHANNEL_LABEL[c.channel] ?? c.channel
+        if (c.error) toast.error(`${이름}: ${c.error}`)
+        else if (c.skipped?.length) {
+          toast.error(`${이름} — 원문에 문제가 있어 올리지 않았습니다. 점검 칸을 눌러 확인해 주세요.`)
         }
       }
-      load()
+    }
+  }
+
+  /**
+   * 발행 줄을 지켜본다.
+   *
+   * **하나가 끝날 때마다** 목록을 새로 받고 결과를 알린다. 카페는 글 사이를
+   * 30~90분 띄우므로, 줄이 다 빌 때까지 기다렸다 한 번에 갱신하면 몇 시간 동안
+   * 올라간 글이 칸에 안 보인다.
+   */
+  useEffect(() => {
+    if (!publishWatch) return
+    let 전건수 = -1
+    const id = setInterval(async () => {
+      const { data } = await supabase.from('ad_jobs')
+        .select('status, progress').eq('kind', 'publish').in('status', ['queued', 'running'])
+        .order('requested_at', { ascending: true })
+      const 줄 = data ?? []
+      if (줄.length < 전건수 || (전건수 < 0 && !줄.length)) { await 발행결과알림(); load() }
+      전건수 = 줄.length
+      if (줄.length) {
+        // 돌고 있는 것을 먼저 보여 준다. 없으면 맨 앞에 선 것(미뤄 둔 시각).
+        const 지금것 = 줄.find(j => j.status === 'running') ?? 줄[0]
+        const 뒤 = 줄.length - 1
+        setPublishProgress(`${지금것.progress ?? '올리는 중…'}${뒤 ? ` · 뒤에 ${뒤}건 줄 서 있음` : ''}`)
+        return
+      }
+      setPublishWatch(false); setPublishProgress(null)
     }, 3000)
     return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publishWatch])
 
   /**
