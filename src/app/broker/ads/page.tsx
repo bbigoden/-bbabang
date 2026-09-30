@@ -26,18 +26,20 @@ import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
  * 표시광고법상 계약된 매물의 광고는 즉시 내려야 한다. **누락이 남지 않게 하는 것이
  * 이 화면의 목적이다** — 그래서 내린 것을 확인한 뒤에만 내렸다고 표시한다.
  *
- * 채널은 뱅크(원본)·카페·당근 셋이다. 카페는 글을 새로 지어 올리고, 당근은
- * 뱅크 원문을 그대로 옮긴다. 내릴 때는 셋이 한 번에 내려간다.
+ * 채널은 뱅크(원본)·카페·블로그·당근이다. 블로그는 임시저장까지만 하고 사장님이 직접 발행한다.
+ * 카페·블로그는 글을 새로 짓고, 당근은 뱅크 원문을 그대로 옮긴다.
+ * 내릴 때는 한 번에 내려간다.
  */
 
 type Post = {
   id: string
-  channel: 'cafe' | 'daangn' | 'bank'
+  channel: 'cafe' | 'blog' | 'daangn' | 'bank'
   external_id: string | null
   url: string | null
   status: 'pending' | 'posted' | 'removing' | 'removed' | 'failed'
   posted_at: string | null
   error: string | null
+  title?: string | null
 }
 
 type Listing = {
@@ -82,8 +84,9 @@ type Listing = {
  * 당근은 카페와 나란히 둔다. 뱅크 원문을 그대로 옮기는 곳이라 글을 새로 짓지
  * 않을 뿐, 올리고 내리는 흐름은 카페와 똑같다.
  */
-const CHANNELS: Array<{ key: 'cafe' | 'daangn'; label: string }> = [
+const CHANNELS: Array<{ key: 'cafe' | 'blog' | 'daangn'; label: string }> = [
   { key: 'cafe', label: '카페' },
+  { key: 'blog', label: '블로그' },
   { key: 'daangn', label: '당근' },
 ]
 
@@ -95,7 +98,7 @@ const CHANNELS: Array<{ key: 'cafe' | 'daangn'; label: string }> = [
 const FIXED_COLS = 9
 
 const CHANNEL_LABEL: Record<string, string> = {
-  cafe: '카페', daangn: '당근', bank: '뱅크',
+  cafe: '카페', blog: '블로그', daangn: '당근', bank: '뱅크',
 }
 
 /**
@@ -422,6 +425,26 @@ function ChannelCell({ label, post, onPublish, busy }: {
       ? <a href={post.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-green-700">{body}</a>
       : body
   }
+  // 블로그는 임시저장까지만 하고 사장님이 읽어 본 뒤 직접 발행한다. 발행되면 수집이
+  // 제목으로 찾아 '게시중' 으로 이어 준다. 그 전까지는 이 상태로 남는다.
+  // 마음에 안 들어 버렸으면 [다시] 로 새로 만들 수 있다.
+  if (post?.status === 'pending') {
+    return (
+      <span className="flex items-center gap-1.5">
+        <span
+          className="cursor-help text-amber-600 dark:text-amber-400"
+          title={`임시저장됨 — 블로그 글쓰기 화면의 [저장] 목록에서 열어 발행해 주세요.${post.title ? `
+${post.title}` : ''}`}
+        >임시저장</span>
+        {onPublish && (
+          <button onClick={onPublish} disabled={busy}
+            title="임시저장 글을 새로 만들어 다시 저장합니다"
+            className="underline underline-offset-2 text-gray-400 hover:text-green-600 disabled:opacity-50"
+          >다시</button>
+        )}
+      </span>
+    )
+  }
   // **왜 안 내려갔는지는 여기서 보여야 한다.** 광고종료한 매물은 올릴 곳이
   // 없어 '–' 로 빠지는데, 그러면 [못 내림] 탭에 줄만 있고 이유가 없었다.
   // 이유가 안 보이면 계속 실패하는 한 건을 손쓸 수가 없다.
@@ -467,7 +490,7 @@ export default function AdsPage() {
   // [광고 중] 안에서 채널별로 좁혀 본다. 탭으로 두지 않는 이유 — 위 탭은 일의
   // 순서(가진 것 → 광고 중 → 광고만 남음 …)라 채널까지 탭으로 넣으면 순서와
   // 채널이 섞이고, 블로그가 생길 때마다 탭이 늘어난다.
-  const [채널, set채널] = useState<'' | 'cafe' | 'daangn'>('')
+  const [채널, set채널] = useState<'' | 'cafe' | 'blog' | 'daangn'>('')
   const [tab, setTab] = useState<
     'all' | 'expiring' | 'past' | 'live' | 'takedown'
   >('all')
@@ -537,7 +560,7 @@ export default function AdsPage() {
     setLoading(true)
     const { data, error } = await supabase
       .from('ad_listings')
-      .select('*, ad_posts(id, channel, external_id, url, status, error, posted_at)')
+      .select('*, ad_posts(id, channel, external_id, url, status, error, posted_at, title)')
       .order('bank_no', { ascending: false })
     if (error) toast.error(`목록을 불러오지 못했습니다: ${error.message}`)
     // 등록종료가 매달 쌓이므로 언젠가 서버 한도(1,000행)에 닿는다. 잘린 채로 세면
@@ -836,7 +859,7 @@ export default function AdsPage() {
    * 채널 칸의 [올리기] 와 [전체]의 [올리기] 가 **같은 잣대를 써야 한다.**
    * 따로 두면 칸에는 올리기가 떠 있는데 전체는 안 뜨는 식으로 어긋난다.
    */
-  function 올릴곳(l: Listing): Array<'cafe' | 'daangn'> {
+  function 올릴곳(l: Listing): Array<'cafe' | 'blog' | 'daangn'> {
     if (!canPublish(l)) return []
     return CHANNELS.map(c => c.key).filter(k =>
       !isLive(l, k) && (k !== 'cafe' || 오늘올림 < DAILY_CAP))
@@ -857,6 +880,7 @@ export default function AdsPage() {
 
     if (!confirm(
       `${보이는번호(l)} 매물을 ${이름}에 올립니다. ${갈곳.length > 1 ? '몇 분' : '1분'}쯤 걸립니다.${NL}${NL}`
+      + (갈곳.includes('blog') ? `블로그는 임시저장까지만 합니다. 글을 읽어 보고 직접 발행해 주세요.${NL}${NL}` : '')
       + (카페빠짐 ? `오늘 카페 ${DAILY_CAP}건을 다 써서 카페는 빼고 올립니다.${NL}${NL}` : '')
       + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
@@ -875,7 +899,7 @@ export default function AdsPage() {
     setPublishWatch(true)
   }
 
-  async function publishOne(l: Listing, channel: 'cafe' | 'daangn') {
+  async function publishOne(l: Listing, channel: 'cafe' | 'blog' | 'daangn') {
     if (!auth.broker) return
     const 이름 = CHANNEL_LABEL[channel] ?? channel
     // 하루 상한은 카페만의 것이다 — 한 카페에 하루 열 건 넘게 올리면 광고로
@@ -886,6 +910,7 @@ export default function AdsPage() {
     }
     if (!confirm(
       `${보이는번호(l)} 매물을 ${이름}에 올립니다. 1분쯤 걸립니다.${NL}${NL}`
+      + (channel === 'blog' ? `블로그는 임시저장까지만 합니다. 글을 읽어 보고 직접 발행해 주세요.${NL}${NL}` : '')
       + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
     )) return
@@ -1085,6 +1110,7 @@ export default function AdsPage() {
   const liveCount = listings.filter(l => isLive(l)).length
   const 채널건수 = {
     cafe: listings.filter(l => isLive(l, 'cafe')).length,
+    blog: listings.filter(l => isLive(l, 'blog')).length,
     daangn: listings.filter(l => isLive(l, 'daangn')).length,
   }
   const managers = [...new Set(listings.map(l => l.manager).filter(Boolean))].sort() as string[]

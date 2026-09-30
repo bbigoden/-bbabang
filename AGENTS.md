@@ -95,15 +95,16 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 과거 손으로 목록을 관리하다 두 번 사고 남(jobs 01dace0, cafe-post edd9114) → 자동화(현재 방식)로 전환.
 새 페이지 배포 전 `curl -I localhost:3000/broker/xxx`가 308이 아닌지 한 번 확인하면 더 안전.
 
-# 네 파일은 삭제 금지 — 옆 레포가 파일 경로로 직접 읽는다
+# 다섯 파일은 삭제 금지 — 옆 레포가 파일 경로로 직접 읽는다
 
-`cafe-post.ts` · `naver-land.ts` · `daangn-land.ts` · `date-kst.ts` 넷이다.
+`cafe-post.ts` · `blog-post.ts` · `naver-land.ts` · `daangn-land.ts` · `date-kst.ts` 다섯이다.
 광고 자동화 PC 프로그램(`코드/부소장광고`)이 **상대 경로로 직접 import** 하므로
 이 레포 안에서 아무도 안 쓰는 것처럼 보여도 지우면 안 된다.
 
 | 파일 | 옆 레포가 꺼내 쓰는 것 | 부르는 곳 |
 |---|---|---|
 | `cafe-post.ts` | `buildCafeHtmlConfig` · `generateCafePost` · `parseListing` 등 | `cli/batch.js` `prepare.js` `verify.js` `recheck.js` |
+| `blog-post.ts` | `buildBlogPost` · `buildBlogThumbConfig` | `publish.js` |
 | `naver-land.ts` | `REGIONS` · `fetchRecentArticles` | `naver.js` |
 | `daangn-land.ts` | `DAANGN_REGIONS` · `fetchDaangnArticles` · `DaangnQueryStale` | `daangn-watch.js` |
 | `date-kst.ts` | `todayKST` · `addDays` | `naver.js` |
@@ -116,5 +117,6 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 네이버가 데이터센터 IP를 막아 Vercel 에서는 부를 수 없다(다섯 번 다 60초 타임아웃).
 그래서 수집 코드를 서버 라우트로 되돌리지 말 것 — 한 번 만들었다가 걷어냈다.
 
-블로그(`blog-post.ts`)는 2026-09-03 걷어냈다 — 만들어는 뒀지만 한 건도 발행하지
-않았고 쓸 계획도 없었다. 되살릴 일이 생기면 그날 커밋에서 꺼내면 된다.
+블로그(`blog-post.ts`)는 2026-09-30 되살렸다 — 웹의 블로그 칸 [올리기] 가 이걸로 글을 지어
+임시저장한다. `cafe-post.ts` 의 `parseListing` 등을 가져다 쓰고, 같은 이유로 옆 레포
+(`부소장광고/src/publish.js`)가 직접 import 하므로 **삭제 금지**다.
