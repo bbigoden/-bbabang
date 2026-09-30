@@ -71,12 +71,14 @@ const TILE = { lon: 0.06, lat: 0.045 }
 const CELL_ZOOM = 10
 
 /**
- * 늘어난 칸을 열 때 둘레로 더 보는 넓이(도).
+ * 늘어난 칸을 열 때의 반폭(도) — **칸에 딱 맞게** 연다.
  *
- * 당근은 공개 좌표를 일부러 흐린다(실제로 100미터쯤 밀린 것을 봤다). 칸 딱 그만큼만
- * 열면 흐려진 좌표 때문에 그 칸에 셈해진 매물이 사각형 밖으로 빠질 수 있다.
+ * 칸(한 변 66미터 육각형)을 다 덮는 가장 작은 사각형이다. 처음에는 공개 좌표가
+ * 흐려져 있는 것을 보고 둘레를 ±130미터 넉넉히 잡았는데, 칸 다섯 개 넓이라 쪽이
+ * 두 배로 나왔다(하루 25분). 딱 맞게 열어도 칸 30곳 모두 칸 건수 이상이 들어왔다 —
+ * 당근이 칸을 셀 때와 목록을 거를 때 같은 좌표를 쓴다는 뜻이다.
  */
-const CELL_MARGIN = { lon: 0.0015, lat: 0.0012 }
+const CELL_HALF = { lon: 0.00085, lat: 0.0007 }
 
 /**
  * 매물유형 — **당근 화면과 똑같이 나눈다.**
@@ -160,8 +162,9 @@ export type DaangnArticle = {
  *
  * - `문턱` — 지난번 사이트맵 맨 앞 번호. 이보다 크면 그 뒤에 올라온 매물이다.
  * - `칸` — 지난번 칸별 건수. 이보다 늘어난 칸만 연다.
+ * - `밖` — 열어 보니 남의 동네 매물뿐이던 칸. 다음부터 안 연다.
  */
-export type DaangnState = { 문턱: number; 칸: Record<string, number>; at: string }
+export type DaangnState = { 문턱: number; 칸: Record<string, number>; 밖?: string[]; at: string }
 
 const HEADERS = {
   'content-type': 'application/json',
@@ -350,7 +353,7 @@ export async function fetchDaangnArticles(
   rows: DaangnArticle[]
   상태: DaangnState | null
   stopped: boolean
-  통계: { 전국새번호: number; 칸수: number; 늘어난칸: number; 첫회: boolean }
+  통계: { 전국새번호: number; 칸수: number; 늘어난칸: number; 건너뛴칸: number; 새로안밖: number; 첫회: boolean }
 }> {
   const { 맨앞, 전국새번호 } = await 문턱읽기(이전?.문턱 ?? null)
   // 사이트맵이 늦게 갱신돼 지난번보다 작게 나올 수 있다. 문턱을 내리지는 않는다.
@@ -376,40 +379,58 @@ export async function fetchDaangnArticles(
   const 칸수 = Object.keys(칸).length
   if (!칸수) throw new Error('당근 지도에서 칸을 하나도 못 받았습니다 — 당근이 바뀌었을 수 있습니다')
 
+  // 남의 동네 칸 — 평택·청주 오송·진천·예산·안성·공주. 감시 구역 사각형을 합치면 이런
+  // 곳이 매물 기준으로 38% 섞인다(표본 60칸). 늘어날 때마다 열어 보고 버리는 게
+  // 하루 요청의 셋 중 하나였다. 한 번 열어 보면 알 수 있으니 그때 기억한다.
+  const 밖 = new Set(이전?.밖 ?? [])
+
   const 새상태: DaangnState = {
     문턱,
     칸: Object.fromEntries(Object.entries(칸).map(([id, c]) => [id, c.count])),
+    밖: [...밖],
     at: new Date().toISOString(),
   }
   if (!이전) {
-    return { rows: [], 상태: 새상태, stopped: false, 통계: { 전국새번호, 칸수, 늘어난칸: 0, 첫회: true } }
+    return {
+      rows: [], 상태: 새상태, stopped: false,
+      통계: { 전국새번호, 칸수, 늘어난칸: 0, 건너뛴칸: 0, 새로안밖: 0, 첫회: true },
+    }
   }
 
-  const 늘어난 = Object.entries(칸)
-    .filter(([id, c]) => c.count > (이전.칸[id] ?? 0))
-    .map(([, c]) => c)
+  const 늘어난 = Object.entries(칸).filter(([id, c]) => c.count > (이전.칸[id] ?? 0))
+  const 열칸 = 늘어난.filter(([id]) => !밖.has(id))
   const found = new Map<string, DaangnArticle>()
+  let 새로안밖 = 0
   let stopped = false
-  for (let i = 0; i < 늘어난.length; i++) {
-    const c = 늘어난[i]
+  for (let i = 0; i < 열칸.length; i++) {
+    const [id, c] = 열칸[i]
     const box: Box = {
-      n: c.lat + CELL_MARGIN.lat, s: c.lat - CELL_MARGIN.lat,
-      e: c.lon + CELL_MARGIN.lon, w: c.lon - CELL_MARGIN.lon,
+      n: c.lat + CELL_HALF.lat, s: c.lat - CELL_HALF.lat,
+      e: c.lon + CELL_HALF.lon, w: c.lon - CELL_HALF.lon,
     }
-    for (const raw of await 목록받기(box)) {
+    let 우리것 = 0
+    const 받은것 = await 목록받기(box)
+    for (const raw of 받은것) {
       const r = normalize(raw)
-      if (!r || Number(r.article_no) <= 이전.문턱) continue
       // 사각형이 시 경계를 넘어 옆 동네가 섞여 온다. 감시 구역 것만 남긴다.
-      if (regions.some(g => r.division?.startsWith(g.divisionPrefix))) found.set(r.article_no, r)
+      if (!r || !regions.some(g => r.division?.startsWith(g.divisionPrefix))) continue
+      우리것++
+      if (Number(r.article_no) > 이전.문턱) found.set(r.article_no, r)
     }
+    // 매물이 있는데 하나도 우리 구역이 아니면 남의 동네 칸이다. 빈 칸은 알 수 없으니 두고 본다.
+    // 경계에 걸친 칸에서 우연히 저쪽 매물만 있으면 잘못 배울 수 있으나, 칸이 작아 드물다.
+    if (받은것.length && !우리것) { 밖.add(id); 새로안밖++ }
     await sleep(REQUEST_GAP_MS)
-    if (await onStep?.(i + 1, 늘어난.length)) { stopped = true; break }
+    if (await onStep?.(i + 1, 열칸.length)) { stopped = true; break }
   }
+  새상태.밖 = [...밖]
 
   return {
     rows: [...found.values()],
     상태: stopped ? null : 새상태,
     stopped,
-    통계: { 전국새번호, 칸수, 늘어난칸: 늘어난.length, 첫회: false },
+    통계: {
+      전국새번호, 칸수, 늘어난칸: 늘어난.length, 건너뛴칸: 늘어난.length - 열칸.length, 새로안밖, 첫회: false,
+    },
   }
 }
