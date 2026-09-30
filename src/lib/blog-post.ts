@@ -60,8 +60,17 @@ function priceLine(p: ParsedListing): string {
   return CHECK
 }
 
+/**
+ * 읍·면 아래의 리. `직산읍 부송리` 처럼 읍·면만으로는 어디인지 좁혀지지 않는다.
+ * 지번(`72-10`)과 동호수는 붙이지 않는다 — 매물을 뺏길 수 있다.
+ */
+function riOf(p: ParsedListing): string | undefined {
+  if (!p.dong || !/[읍면]$/.test(p.dong)) return undefined
+  return p.addressRaw?.match(/[읍면]\s+([가-힣]+?\d*리)(?=[\s\d,]|$)/)?.[1]
+}
+
 function locationLine(p: ParsedListing): string {
-  const base = [p.sido ?? '충청남도', p.city, p.gu, p.dong].filter(Boolean).join(' ')
+  const base = [p.sido ?? '충청남도', p.city, p.gu, p.dong, riOf(p)].filter(Boolean).join(' ')
   const fl = p.floor ? ` (${floorLabel(p.floor)})` : ''
   return base ? `${base}${fl}` : CHECK
 }
@@ -205,7 +214,7 @@ function opening(p: ParsedListing, kw: BlogKeywords): string {
 }
 
 function sectionLocation(p: ParsedListing): string {
-  const region = [p.city, p.gu, p.dong].filter(Boolean).join(' ') || '해당 지역'
+  const region = [p.city, p.gu, p.dong, riOf(p)].filter(Boolean).join(' ') || '해당 지역'
   if (isIndustrial(p.category)) {
     return [
       `${region}에 있는 물건입니다. 인근 산업단지와 국도 접근성은 실제 이동 경로에 따라 체감이 달라지므로, 현장에서 진입 동선을 함께 확인해 드립니다.`,

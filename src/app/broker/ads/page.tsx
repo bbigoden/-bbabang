@@ -1413,7 +1413,7 @@ export default function AdsPage() {
                       {/* 고객이 부르는 번호만 보여준다. 뱅크 번호는 사장님도 쓸 일이
                           없고 두 개가 나란히 있으면 어느 것을 말하는지 헷갈린다.
                           링크는 그대로 뱅크 원본으로 간다. */}
-                      <td className="px-3 py-2 font-mono text-xs">
+                      <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
                         {bankDetailUrl(l)
                           ? <a
                               href={bankDetailUrl(l)!}
