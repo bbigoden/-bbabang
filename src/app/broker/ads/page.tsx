@@ -966,20 +966,40 @@ export default function AdsPage() {
     else if (last?.status === 'done') {
       const r = last.result as {
         published?: number
-        채널별?: Array<{ channel: string; published?: number; skipped?: string[]; error?: string }>
+        채널별?: Array<{
+          channel: string; published?: number; skipped?: string[]; error?: string
+          posts?: Array<{ 이미있음?: boolean }>
+        }>
       } | null
       // 어디에 몇 건 올렸는지 채널별로 말한다 — [전체] 는 한 번에 두 곳에 올린다.
-      const 올린곳 = (r?.채널별 ?? []).filter(c => c.published)
-        .map(c => `${CHANNEL_LABEL[c.channel] ?? c.channel} ${c.published}건`)
-      toast.success(올린곳.length ? `${올린곳.join(' · ')} 올렸습니다.` : '발행을 마쳤습니다.')
+      //
+      // **이미 당근에 있어 장부에 잇기만 한 것은 '올렸다' 고 하지 않는다.** 새로
+      // 올라간 게 없는데 "당근 1건 올렸습니다" 라고 하면, 당근에 하나가 더 생긴
+      // 줄 알거나 손으로 올린 것과 겹친 줄 안다.
+      const 올린곳: string[] = []
+      const 이은곳: string[] = []
+      for (const c of r?.채널별 ?? []) {
+        const 이름 = CHANNEL_LABEL[c.channel] ?? c.channel
+        const 이은 = (c.posts ?? []).filter(p => p.이미있음).length
+        const 새로 = (c.published ?? 0) - 이은
+        if (새로 > 0) 올린곳.push(`${이름} ${새로}건`)
+        if (이은 > 0) 이은곳.push(`${이름} ${이은}건`)
+      }
+      if (올린곳.length) toast.success(`${올린곳.join(' · ')} 올렸습니다.`)
+      if (이은곳.length) toast.success(`${이은곳.join(' · ')} — 이미 올라가 있어 장부에 연결만 했습니다.`)
+      if (!올린곳.length && !이은곳.length) toast.success('발행을 마쳤습니다.')
 
       // 한 곳은 올라갔는데 다른 곳은 안 된 경우. 작업 자체는 성공이라
       // 여기서 말하지 않으면 안 올라간 것을 아무도 모른다.
+      //
+      // 이유를 '원문 문제' 로 뭉뚱그리지 않는다 — 당근은 사진을 못 읽었거나,
+      // 지번이 없거나, 같은 자리 광고가 있어서 멈추기도 한다. 뱅크에서 고칠 게
+      // 없는데 원문을 고치라고 하면 헛걸음이다. 이유는 점검 칸에 그대로 있다.
       for (const c of r?.채널별 ?? []) {
         const 이름 = CHANNEL_LABEL[c.channel] ?? c.channel
         if (c.error) toast.error(`${이름}: ${c.error}`)
         else if (c.skipped?.length) {
-          toast.error(`${이름} — 원문에 문제가 있어 올리지 않았습니다. 점검 칸을 눌러 확인해 주세요.`)
+          toast.error(`${이름} — 올리지 않았습니다. 이유는 점검 칸을 눌러 확인해 주세요.`)
         }
       }
     }
@@ -1572,7 +1592,12 @@ export default function AdsPage() {
                   const 점검줄 = 남은점검(l)
                   // 올리다 넘어진 것 / 원문에서 고칠 것. 할 일이 다르니 나눠 적는다.
                   const 못올린줄 = 점검줄.filter(r => r.startsWith('[실패]'))
-                  const 고칠줄 = 점검줄.filter(r => !r.startsWith('[실패]'))
+                  // 채널이 남긴 알림 — 뱅크 원문 문제가 아니다(사진을 못 읽음, 지번이
+                  // 없음, 재등록을 따라감, 메모 번호를 고쳐 달라 …). 줄마다 할 일이
+                  // 적혀 있다. '원문에서 발견한 것' 아래 두면 뱅크를 고치러 가게 된다.
+                  const 알림 = (r: string) => /^\[(건너뜀|당근|카페|블로그|재등록\??)\]/.test(r)
+                  const 알림줄 = 점검줄.filter(r => !r.startsWith('[실패]') && 알림(r))
+                  const 고칠줄 = 점검줄.filter(r => !r.startsWith('[실패]') && !알림(r))
                   const 특이줄 = 남은특이(l)
                   const 접은줄 = 가려진것(l)
                   const 펼침 = openReport === l.id && (점검줄.length || 특이줄.length || 접은줄.length)
@@ -1601,12 +1626,29 @@ export default function AdsPage() {
                         {!!못올린줄.length && (
                           <div>
                             <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
-                              {보이는번호(l)} 올리지 못했습니다 — 뱅크에서 고칠 것은 없습니다. 다시 눌러 주세요
+                              {/* "다시 눌러 주세요" 는 뺐다 — 화면이 바뀌어 나는 오류는 몇 번을
+                                  눌러도 같다(같은 매물을 네 번 누르게 만들었다). 할 일은 줄에 있다. */}
+                              {보이는번호(l)} 올리지 못했습니다 — 뱅크에서 고칠 것은 없습니다
                             </p>
                             <ul className="space-y-1.5">
                               {못올린줄.map((r, i) => (
                                 <li key={i} className="group flex items-start gap-1.5 text-xs leading-relaxed text-red-900 dark:text-red-200">
                                   <span>· {r.replace(/^\[실패]\s*/, '')}</span>
+                                  <DismissButton onClick={() => 접어두기(l, r)} />
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {!!알림줄.length && (
+                          <div>
+                            <p className="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {보이는번호(l)} 알림 — 줄마다 할 일이 적혀 있습니다
+                            </p>
+                            <ul className="space-y-1.5">
+                              {알림줄.map((r, i) => (
+                                <li key={i} className="group flex items-start gap-1.5 text-xs leading-relaxed text-gray-700 dark:text-gray-300">
+                                  <span>· {r}</span>
                                   <DismissButton onClick={() => 접어두기(l, r)} />
                                 </li>
                               ))}
