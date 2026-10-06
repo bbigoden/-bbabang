@@ -12,8 +12,8 @@ import { Fragment } from 'react'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import {
-  calcTotals, fmtComma, koreanAmount, normalizeItems, sectionSums, splitTotals,
-  isSplitPricing, validUntil, type VatMode,
+  calcTotals, docMeta, fmtComma, koreanAmount, normalizeItems, sectionSums, splitTotals,
+  isSplitPricing, validUntil, type DocType, type VatMode,
 } from '@/lib/estimate'
 import { FileText } from 'lucide-react'
 
@@ -36,6 +36,8 @@ interface SharedItem {
 
 interface SharedEstimate {
   estimate_no: string
+  /** 옛 행·옛 함수 응답에는 없다 — 견적서로 본다 */
+  doc_type?: DocType
   issue_date: string
   valid_days: number
   client_name: string | null
@@ -70,7 +72,7 @@ export async function generateMetadata(
   const e = await load(token)
   if (!e) return { title: '견적서', robots: { index: false, follow: false } }
 
-  const title = `${e.project_name || '공사'} 견적서`
+  const title = `${e.project_name || '공사'} ${docMeta(e.doc_type).label}`
   const description = `${e.company?.name ?? ''} · 합계 ${fmtComma(e.total)}원 · ${e.issue_date} 발행`
   return {
     title,
@@ -107,6 +109,7 @@ export default async function SharedEstimatePage(
   Object.assign(e, { items }, t)
 
   const co = e.company ?? {}
+  const dm = docMeta(e.doc_type)
   const until = validUntil(e.issue_date, e.valid_days)
   // 공종 구분이 둘 이상일 때만 소계를 찍는다 (하나뿐이면 전체 합계와 같다)
   const subs = new Map(sectionSums(e.items).map(x => [x.afterIndex, x]))
@@ -119,21 +122,21 @@ export default async function SharedEstimatePage(
     <main className="min-h-screen bg-gray-50 px-4 py-8 dark:bg-gray-950">
       <div className="mx-auto max-w-3xl">
         <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-900 sm:p-8">
-          <h1 className="mb-1 text-center text-2xl font-black tracking-[0.3em] text-gray-900 dark:text-white">견 적 서</h1>
+          <h1 className="mb-1 text-center text-2xl font-black tracking-[0.3em] text-gray-900 dark:text-white">{dm.title}</h1>
           <p className="mb-6 text-center text-xs text-gray-500">
-            견적번호 {e.estimate_no} · 발행일 {e.issue_date}
+            {dm.label === '견적서' ? '견적번호' : '문서번호'} {e.estimate_no} · 발행일 {e.issue_date}
           </p>
 
           <div className="mb-6 grid gap-4 sm:grid-cols-2">
             <section className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-              <h2 className="mb-2 text-xs font-bold text-gray-500">수신</h2>
-              <p className="mb-2 text-lg font-bold text-gray-900 dark:text-white">{e.client_name || ''} 귀중</p>
+              <h2 className="mb-2 text-xs font-bold text-gray-500">{dm.toLabel.replace(/ /g, '')}</h2>
+              <p className="mb-2 text-lg font-bold text-gray-900 dark:text-white">{e.client_name || ''} {dm.honorific}</p>
               {e.client_contact && <Line k="담당자" v={e.client_contact} />}
               {e.site_address && <Line k="현장" v={e.site_address} />}
             </section>
 
             <section className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
-              <h2 className="mb-2 text-xs font-bold text-gray-500">공급자</h2>
+              <h2 className="mb-2 text-xs font-bold text-gray-500">{dm.fromLabel.replace(/ /g, '')}</h2>
               <p className="mb-2 text-lg font-bold text-gray-900 dark:text-white">{co.name ?? ''}</p>
               {co.ceo && <Line k="대표자" v={co.ceo} />}
               {co.biz_no && <Line k="등록번호" v={co.biz_no} />}
@@ -146,15 +149,15 @@ export default async function SharedEstimatePage(
           </div>
 
           <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border-2 border-blue-700 px-4 py-3 dark:border-blue-500">
-            <span className="text-sm font-bold text-blue-800 dark:text-blue-300">합계금액</span>
+            <span className="text-sm font-bold text-blue-800 dark:text-blue-300">{dm.totalLabel}</span>
             <span className="text-lg font-bold text-gray-900 dark:text-white">{koreanAmount(e.total)}</span>
             <span className="text-lg font-black text-blue-800 dark:text-blue-300">₩{fmtComma(e.total)}</span>
           </div>
 
           <dl className="mb-6 grid gap-x-4 gap-y-2 rounded-xl border border-gray-200 p-4 text-sm dark:border-gray-800 sm:grid-cols-2">
-            <Field k="공사명" v={e.project_name} />
-            <Field k="공사기간" v={e.period} />
-            <Field k="유효기간" v={`${e.issue_date} ~ ${until}`} />
+            <Field k={dm.nameLabel} v={e.project_name} />
+            <Field k={dm.periodLabel} v={e.period} />
+            {dm.hasValidity && <Field k="유효기간" v={`${e.issue_date} ~ ${until}`} />}
             <Field k="결제조건" v={e.payment_terms} />
           </dl>
 
