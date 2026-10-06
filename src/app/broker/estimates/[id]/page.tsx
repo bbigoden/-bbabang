@@ -602,7 +602,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-lg font-black text-gray-900 dark:text-white">견적서</h1>
+          <h1 className="text-lg font-black text-gray-900 dark:text-white">{DOC_META[est.doc_type ?? 'estimate'].label}</h1>
           <span className="rounded-lg bg-gray-100 px-2 py-1 font-mono text-xs font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
             {est.estimate_no}
           </span>
@@ -742,7 +742,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                   <input id="f-cphone" value={est.client_phone ?? ''} onChange={e => set('client_phone', e.target.value)} className={FIELD} />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className={LABEL} htmlFor="f-cemail">이메일 (견적서 받을 주소)</label>
+                  <label className={LABEL} htmlFor="f-cemail">이메일 (받을 주소)</label>
                   <input id="f-cemail" type="email" value={est.client_email ?? ''} onChange={e => set('client_email', e.target.value)} className={FIELD} />
                 </div>
                 <div>
@@ -769,10 +769,12 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                     날짜로 적으면 수주로 바꿀 때 착공·준공이 일정관리에 자동 등록됩니다.
                   </p>
                 </div>
-                <div>
-                  <label className={LABEL} htmlFor="f-valid">견적 유효기간 (일)</label>
-                  <input id="f-valid" type="number" value={est.valid_days} onChange={e => set('valid_days', Number(e.target.value))} className={FIELD} />
-                </div>
+                {(est.doc_type ?? 'estimate') === 'estimate' && (
+                  <div>
+                    <label className={LABEL} htmlFor="f-valid">견적 유효기간 (일)</label>
+                    <input id="f-valid" type="number" value={est.valid_days} onChange={e => set('valid_days', Number(e.target.value))} className={FIELD} />
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <label className={LABEL} htmlFor="f-pay">결제조건</label>
                   <input id="f-pay" value={est.payment_terms ?? ''} onChange={e => set('payment_terms', e.target.value)}
@@ -883,13 +885,15 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
               </div>
 
               <div className="mt-4">
-                <label className={LABEL} htmlFor="f-notes">특기사항 (견적서 하단에 표기)</label>
+                <label className={LABEL} htmlFor="f-notes">특기사항 (서류 하단에 표기)</label>
                 <textarea id="f-notes" rows={5} value={est.notes ?? ''} onChange={e => set('notes', e.target.value)}
                   placeholder={'예)\n- 상기 금액은 부가세 별도입니다.\n- 자재 변경 시 단가가 조정될 수 있습니다.\n- 폐기물 처리비는 견적에 포함되어 있습니다.'}
                   className={`${FIELD} resize-y font-mono text-xs leading-relaxed`} />
-                <p className="mt-1 text-xs text-gray-500">
-                  유효기간: {est.issue_date} ~ {validUntil(est.issue_date, est.valid_days)}
-                </p>
+                {(est.doc_type ?? 'estimate') === 'estimate' && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    유효기간: {est.issue_date} ~ {validUntil(est.issue_date, est.valid_days)}
+                  </p>
+                )}
               </div>
             </section>
             <SharePanel estimateId={est.id} brokerId={brokerId!} refreshKey={shareTick} />

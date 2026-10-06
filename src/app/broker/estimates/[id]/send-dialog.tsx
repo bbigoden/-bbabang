@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { X, Mail, Paperclip, AlertTriangle } from 'lucide-react'
 import {
-  DEFAULT_BODY, DEFAULT_SUBJECT, fillTemplate, fmtComma, type Estimate,
+  DEFAULT_BODY, DEFAULT_SUBJECT, docMeta, fillTemplate, fmtComma, type Estimate,
 } from '@/lib/estimate'
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
@@ -85,8 +85,13 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
 
       setConfigured(!!data?.smtp_user)
       setCc(data?.cc ?? '')
-      setSubject(fillTemplate(data?.subject_template || DEFAULT_SUBJECT, vars))
-      setBody(fillTemplate(data?.body_template || DEFAULT_BODY, vars))
+      // 발주서·영수증은 문구의 '견적서'만 서류 이름으로 바꾼다 (직접 고친 문구도 같은 규칙)
+      const dm = docMeta(estimate.doc_type)
+      const named = (t: string) => estimate.doc_type && estimate.doc_type !== 'estimate'
+        ? t.replaceAll('견적 합계', '합계').replaceAll('견적서', dm.label)
+        : t
+      setSubject(named(fillTemplate(data?.subject_template || DEFAULT_SUBJECT, vars)))
+      setBody(named(fillTemplate(data?.body_template || DEFAULT_BODY, vars)))
       setReady(true)
       filled.current = true
     })()
@@ -121,7 +126,7 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
       >
         <div className="mb-4 flex items-center gap-2">
           <Mail className="h-5 w-5 text-blue-600" />
-          <h2 className="text-base font-black text-gray-900 dark:text-white">견적서 메일 발송</h2>
+          <h2 className="text-base font-black text-gray-900 dark:text-white">{docMeta(estimate.doc_type).label} 메일 발송</h2>
           <button onClick={onClose} aria-label="닫기" className="ml-auto rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
             <X className="h-5 w-5" />
           </button>
@@ -166,7 +171,7 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
             <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-sm text-gray-600 dark:bg-gray-950/50 dark:text-gray-400">
               <div className="flex items-center gap-2">
                 <Paperclip className="h-4 w-4 shrink-0 text-gray-500" />
-                <span className="font-mono text-xs">견적서_{estimate.estimate_no}_{estimate.client_name || '거래처'}.pdf</span>
+                <span className="font-mono text-xs">{docMeta(estimate.doc_type).filePrefix}_{estimate.estimate_no}_{estimate.client_name || '거래처'}.pdf</span>
                 <span className="ml-auto shrink-0 text-xs text-gray-500">자동 첨부</span>
               </div>
               {files.map((f, i) => (
