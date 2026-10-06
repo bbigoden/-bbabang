@@ -9,7 +9,7 @@ import {
   Document, Page, Text, View, Image, StyleSheet, Font,
 } from '@react-pdf/renderer'
 import {
-  calcTotals, fmtComma, koreanAmount, normalizeItems, sectionSums, splitTotals,
+  calcTotals, docMeta, fmtComma, koreanAmount, normalizeItems, sectionSums, splitTotals,
   isSplitPricing, validUntil, INVOICE_KIND_LABEL,
   type Estimate, type EstimateCompany, type EstimateInvoice, type EstimateItem,
 } from './estimate'
@@ -148,6 +148,7 @@ export function EstimateDocument({ estimate: given, items: rawItems, company, st
   // 값이 어떤 까닭으로 틀어져 있더라도 인쇄물만은 앞뒤가 맞아야 한다.
   // 저장할 때도 같은 셈을 하므로 보통은 그대로지만, 마지막 방어선을 여기 둔다.
   const { items } = normalizeItems(rawItems)
+  const dm = docMeta(given.doc_type)
   const e = {
     ...given,
     ...calcTotals(items, {
@@ -164,24 +165,24 @@ export function EstimateDocument({ estimate: given, items: rawItems, company, st
 
   return (
     <Document
-      title={`견적서_${e.estimate_no}`}
+      title={`${dm.filePrefix}_${e.estimate_no}`}
       author={company?.name ?? ''}
-      subject={e.project_name ?? '견적서'}
+      subject={e.project_name ?? dm.label}
     >
       <Page size="A4" style={s.page}>
-        <Text style={s.title}>견 적 서</Text>
+        <Text style={s.title}>{dm.title}</Text>
         <View style={s.titleRule} />
 
         <View style={s.metaRow}>
-          <Text style={s.metaText}>견적번호 {e.estimate_no}    발행일 {e.issue_date}</Text>
+          <Text style={s.metaText}>{dm.label === '견적서' ? '견적번호' : '문서번호'} {e.estimate_no}    발행일 {e.issue_date}</Text>
         </View>
 
         {/* 수신 / 공급자 */}
         <View style={s.cols}>
           <View style={s.col}>
-            <Text style={s.boxTitle}>수 신</Text>
+            <Text style={s.boxTitle}>{dm.toLabel}</Text>
             <View style={[s.box, { minHeight: 96 }]}>
-              <Text style={s.toName}>{e.client_name || ''} 귀중</Text>
+              <Text style={s.toName}>{e.client_name || ''} {dm.honorific}</Text>
               {e.client_contact ? (
                 <View style={s.kv}><Text style={s.k}>담당자</Text><Text style={s.v}>{e.client_contact}</Text></View>
               ) : null}
@@ -191,12 +192,12 @@ export function EstimateDocument({ estimate: given, items: rawItems, company, st
               {e.site_address ? (
                 <View style={s.kv}><Text style={s.k}>현 장</Text><Text style={s.v}>{e.site_address}</Text></View>
               ) : null}
-              <Text style={{ marginTop: 8, color: C.sub }}>아래와 같이 견적서를 제출합니다.</Text>
+              <Text style={{ marginTop: 8, color: C.sub }}>{dm.closing}</Text>
             </View>
           </View>
 
           <View style={s.col}>
-            <Text style={s.boxTitle}>공 급 자</Text>
+            <Text style={s.boxTitle}>{dm.fromLabel}</Text>
             <View style={[s.box, { minHeight: 96, flexDirection: 'row' }]}>
               <View style={{ flex: 1 }}>
                 <View style={s.kv}><Text style={s.k}>등록번호</Text><Text style={s.v}>{company?.biz_no ?? ''}</Text></View>
@@ -229,18 +230,20 @@ export function EstimateDocument({ estimate: given, items: rawItems, company, st
 
         {/* 합계 금액 */}
         <View style={s.totalBox}>
-          <Text style={s.totalLabel}>합계금액</Text>
+          <Text style={s.totalLabel}>{dm.totalLabel}</Text>
           <Text style={s.totalKor}>{koreanAmount(e.total)}</Text>
           <Text style={s.totalNum}>₩{fmtComma(e.total)}</Text>
         </View>
 
         {/* 공사 개요 */}
         <View style={s.overview}>
-          <View style={s.ovCell}><Text style={s.ovK}>공사명</Text><Text style={s.ovV}>{e.project_name ?? ''}</Text></View>
-          <View style={s.ovCell}><Text style={s.ovK}>공사기간</Text><Text style={s.ovV}>{e.period ?? ''}</Text></View>
-          <View style={[s.ovCell, { borderBottomWidth: 0 }]}><Text style={s.ovK}>유효기간</Text>
-            <Text style={s.ovV}>{e.issue_date} ~ {validUntil(e.issue_date, e.valid_days)} ({e.valid_days}일)</Text>
-          </View>
+          <View style={s.ovCell}><Text style={s.ovK}>{dm.nameLabel}</Text><Text style={s.ovV}>{e.project_name ?? ''}</Text></View>
+          <View style={s.ovCell}><Text style={s.ovK}>{dm.periodLabel}</Text><Text style={s.ovV}>{e.period ?? ''}</Text></View>
+          {dm.hasValidity ? (
+            <View style={[s.ovCell, { borderBottomWidth: 0 }]}><Text style={s.ovK}>유효기간</Text>
+              <Text style={s.ovV}>{e.issue_date} ~ {validUntil(e.issue_date, e.valid_days)} ({e.valid_days}일)</Text>
+            </View>
+          ) : null}
           <View style={[s.ovCell, { borderBottomWidth: 0 }]}><Text style={s.ovK}>결제조건</Text><Text style={s.ovV}>{e.payment_terms ?? ''}</Text></View>
         </View>
 

@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Estimate, EstimateCompany, EstimateItem } from '@/lib/estimate'
+import { docMeta, type Estimate, type EstimateCompany, type EstimateItem } from '@/lib/estimate'
 
 export interface LoadedEstimate {
   estimate: Estimate
@@ -56,8 +56,8 @@ export async function loadEstimate(
   }
 }
 
-/** 견적서_2026-0904-01_○○상사.pdf */
+/** 견적서_2026-0904-01_○○상사.pdf (발주서·영수증이면 앞 글자가 바뀐다) */
 export function pdfFileName(e: Estimate): string {
   const client = (e.client_name || '거래처').replace(/[\\/:*?"<>|]/g, '')
-  return `견적서_${e.estimate_no}_${client}.pdf`
+  return `${docMeta(e.doc_type).filePrefix}_${e.estimate_no}_${client}.pdf`
 }

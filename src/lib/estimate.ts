@@ -10,6 +10,47 @@ import { addDays, todayKST } from './date-kst'
 export type VatMode = 'add' | 'none'
 export type EstimateStatus = 'draft' | 'sent' | 'won' | 'lost'
 
+/** 같은 틀로 찍는 서류 종류. 견적서가 기본이고 나머지는 말투·표제만 다르다 */
+export type DocType = 'estimate' | 'purchase_order' | 'receipt'
+
+export interface DocMeta {
+  label: string
+  /** 표제 (글자 사이를 띄운다) */
+  title: string
+  /** 받는 쪽 칸 제목 */
+  toLabel: string
+  /** 우리 쪽 칸 제목 */
+  fromLabel: string
+  honorific: string
+  closing: string
+  totalLabel: string
+  /** 견적서만 유효기간이 있다 */
+  hasValidity: boolean
+  nameLabel: string
+  periodLabel: string
+  filePrefix: string
+}
+
+export const DOC_META: Record<DocType, DocMeta> = {
+  estimate: {
+    label: '견적서', title: '견 적 서', toLabel: '수 신', fromLabel: '공 급 자', honorific: '귀중',
+    closing: '아래와 같이 견적서를 제출합니다.', totalLabel: '합계금액', hasValidity: true,
+    nameLabel: '공사명', periodLabel: '공사기간', filePrefix: '견적서',
+  },
+  purchase_order: {
+    label: '발주서', title: '발 주 서', toLabel: '공 급 처', fromLabel: '발 주 자', honorific: '귀중',
+    closing: '아래와 같이 발주합니다.', totalLabel: '발주금액', hasValidity: false,
+    nameLabel: '건명', periodLabel: '납기', filePrefix: '발주서',
+  },
+  receipt: {
+    label: '간이영수증', title: '영 수 증', toLabel: '받는 분', fromLabel: '공 급 자', honorific: '귀하',
+    closing: '위 금액을 정히 영수합니다.', totalLabel: '영수금액', hasValidity: false,
+    nameLabel: '건명', periodLabel: '거래일', filePrefix: '영수증',
+  },
+}
+
+export const docMeta = (t: DocType | null | undefined): DocMeta => DOC_META[t ?? 'estimate'] ?? DOC_META.estimate
+
 export interface EstimateItem {
   id?: string
   sort_order: number
@@ -139,6 +180,8 @@ export interface Estimate {
   company_id: string | null
   client_id: string | null
   estimate_no: string
+  /** 서류 종류. 예전 행은 'estimate' */
+  doc_type?: DocType
   issue_date: string
   company_snapshot: Partial<EstimateCompany> | null
   client_name: string | null

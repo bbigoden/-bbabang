@@ -17,7 +17,7 @@ import {
 import {
   calcStats, fmtComma, isExpired, STATUS_LABEL,
   calcTotals, normalizeItems,
-  type Estimate, type EstimateCompany, type EstimateItem, type EstimateStatus,
+  DOC_META, type DocType, type Estimate, type EstimateCompany, type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
 import { todayKST } from '@/lib/date-kst'
 
@@ -90,7 +90,7 @@ export default function EstimatesPage() {
   useEffect(() => { if (brokerId) load() }, [brokerId, load])
 
   // 새 견적: draft 행을 먼저 만들고 상세로 이동 (별도 new 라우트 불필요)
-  const createNew = async () => {
+  const createNew = async (docType: DocType = 'estimate') => {
     if (!brokerId || creating) return
     setCreating(true)
     try {
@@ -112,6 +112,7 @@ export default function EstimatesPage() {
         .insert({
           owner_broker_id: brokerId,
           estimate_no: noData as string,
+          doc_type: docType,
           company_id: comp?.id ?? null,
           company_snapshot: comp ?? null,
           notes: comp?.default_notes ?? null,
@@ -344,12 +345,18 @@ export default function EstimatesPage() {
             <Settings className="h-4 w-4" />설정
           </Link>
           <button
-            onClick={createNew}
+            onClick={() => createNew()}
             disabled={creating}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />새 견적
           </button>
+          {(['purchase_order', 'receipt'] as const).map(t => (
+            <button key={t} onClick={() => createNew(t)} disabled={creating}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+              + {DOC_META[t].label}
+            </button>
+          ))}
         </div>
         <p className="mb-4 ml-11 text-xs text-gray-500 dark:text-gray-400">
           공사·인테리어 견적서를 만들고 PDF로 메일 발송합니다. 임대 고객목록과는 별개로 관리됩니다.
@@ -443,7 +450,7 @@ export default function EstimatesPage() {
                 {rows.length === 0 ? '아직 만든 견적서가 없습니다.' : '조건에 맞는 견적서가 없습니다.'}
               </p>
               {rows.length === 0 && (
-                <button onClick={createNew} disabled={creating} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                <button onClick={() => createNew()} disabled={creating} className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
                   첫 견적서 만들기
                 </button>
               )}
@@ -476,6 +483,11 @@ export default function EstimatesPage() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">{r.estimate_no}</span>
+                        {r.doc_type && r.doc_type !== 'estimate' && (
+                          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                            {DOC_META[r.doc_type].label}
+                          </span>
+                        )}
                         {(r.revision ?? 1) > 1 && (
                           <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[11px] font-bold text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
                             수정 {r.revision}차

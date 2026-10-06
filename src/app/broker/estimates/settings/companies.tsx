@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/toast'
 import { Plus, Trash2, Star, Upload, X, Building2 } from 'lucide-react'
 import type { EstimateCompany } from '@/lib/estimate'
+import { removeWhiteBackground } from '@/lib/stamp-bg'
 
 const FIELD = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white'
 const LABEL = 'mb-1 block text-xs font-semibold text-gray-500 dark:text-gray-400'
@@ -110,8 +111,13 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
     if (now && now !== before) await supabase.storage.from(STAMP_BUCKET).remove([now])
   }
 
-  const uploadStamp = async (file: File) => {
-    if (!file.type.startsWith('image/')) { toast.error('이미지 파일만 올릴 수 있습니다'); return }
+  const uploadStamp = async (original: File) => {
+    if (!original.type.startsWith('image/')) { toast.error('이미지 파일만 올릴 수 있습니다'); return }
+    // 폰 사진은 수 MB 라 먼저 줄이면서 흰 배경을 지운다. 실패하면 원본 그대로 올린다.
+    let file = original
+    if (original.type !== 'image/svg+xml') {
+      try { file = await removeWhiteBackground(original) } catch { file = original }
+    }
     if (file.size > 2 * 1024 * 1024) { toast.error('2MB 이하 이미지를 사용하세요'); return }
     // Storage 키에 한글이 들어가면 거부당한다 — 확장자도 ASCII 만 받는다
     const ext = (file.name.match(/\.[A-Za-z0-9]{1,8}$/)?.[0] ?? '.png').toLowerCase()
@@ -244,7 +250,7 @@ export function CompaniesTab({ brokerId }: { brokerId: string }) {
                     </button>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">배경이 투명한 PNG를 쓰면 견적서에 깔끔하게 찍힙니다. (2MB 이하)</p>
+                <p className="mt-1 text-xs text-gray-500">도장 사진을 올리면 흰 배경은 자동으로 지워집니다. 흰 종이에 또렷하게 찍을수록 깔끔합니다.</p>
               </div>
 
               <div className="sm:col-span-2">

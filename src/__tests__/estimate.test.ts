@@ -12,6 +12,7 @@ import {
   isSplitPricing, effectiveUnitPrice, splitTotals,
   normalizeItems, DEFAULT_PRESETS,
   type EstimateItem, type EstimateStatus,
+  docMeta,
 } from '@/lib/estimate'
 
 const item = (amount: number, is_header = false): EstimateItem => ({
@@ -390,5 +391,18 @@ describe('저장 전 검산', () => {
     const { items } = normalizeItems(raw)
     const totals = calcTotals(items, { overhead_rate: 0.1, vat_mode: 'add' })
     expect(totals.subtotal).toBe(130000 + 20000)
+  })
+})
+
+describe('docMeta', () => {
+  it('종류가 없거나 모르면 견적서로 본다', () => {
+    expect(docMeta(undefined).label).toBe('견적서')
+    expect(docMeta(null).hasValidity).toBe(true)
+    expect(docMeta('x' as never).label).toBe('견적서')
+  })
+  it('발주서·영수증은 유효기간이 없고 말투가 다르다', () => {
+    expect(docMeta('purchase_order').hasValidity).toBe(false)
+    expect(docMeta('purchase_order').fromLabel).toBe('발 주 자')
+    expect(docMeta('receipt').honorific).toBe('귀하')
   })
 })

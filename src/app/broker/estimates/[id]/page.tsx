@@ -9,11 +9,11 @@ import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import {
   ArrowLeft, Save, Download, Mail, RefreshCw, Settings, Building2,
-  CheckCircle2, XCircle, Lock, CopyPlus, Link2,
+  CheckCircle2, XCircle, Lock, CopyPlus, Link2, Sheet, Image as ImageIcon,
 } from 'lucide-react'
 import {
   calcTotals, calcMargin, fmtComma, koreanAmount, normalizeItems, revisionNo, validUntil, STATUS_LABEL,
-  type CatalogItem, type Estimate, type EstimateCompany, type EstimateClient,
+  DOC_META, type DocType, type CatalogItem, type Estimate, type EstimateCompany, type EstimateClient,
   type EstimateItem, type EstimateStatus, type VatMode,
 } from '@/lib/estimate'
 import { todayKST } from '@/lib/date-kst'
@@ -230,6 +230,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
         company_id: est.company_id,
         client_id: clientId,
         estimate_no: est.estimate_no,
+        doc_type: est.doc_type ?? 'estimate',
         issue_date: est.issue_date,
         company_snapshot: company,
         client_name: est.client_name,
@@ -484,6 +485,28 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     window.open(`/api/estimates/${id}/pdf`, '_blank')
   }
 
+  const downloadXlsx = async () => {
+    if (dirty && !(await save(true))) return
+    window.open(`/api/estimates/${id}/xlsx`, '_blank')
+  }
+
+  const downloadImage = async () => {
+    if (dirty && !(await save(true))) return
+    try {
+      const res = await fetch(`/api/estimates/${id}/pdf`)
+      if (!res.ok) throw new Error()
+      const { pdfToPng } = await import('@/lib/pdf-to-image')
+      const blob = await pdfToPng(await res.arrayBuffer())
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `견적서_${est?.estimate_no ?? id}.png`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
+    } catch {
+      toast.error('이미지로 저장하지 못했습니다')
+    }
+  }
+
   const openMail = async () => {
     if (dirty && !(await save(true))) return
     setMailOpen(true)
@@ -519,6 +542,19 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       }
 
       const url = `${window.location.origin}/e/${token}`
+      // 폰이면 공유 시트(카톡 포함)를 바로 띄운다. 데스크톱은 기존대로 복사.
+      if (typeof navigator.share === 'function' && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        try {
+          await navigator.share({
+            title: `견적서 ${est.estimate_no}`,
+            text: `${est.client_name ? est.client_name + ' ' : ''}견적서입니다.`,
+            url,
+          })
+          return
+        } catch (err) {
+          if ((err as Error).name === 'AbortError') return   // 사용자가 닫음
+        }
+      }
       try {
         await navigator.clipboard.writeText(url)
         toast.success('링크를 복사했습니다. 카톡에 붙여넣으세요.')
@@ -609,6 +645,14 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
               <Download className="h-4 w-4" />PDF
             </button>
+            <button onClick={downloadImage} disabled={saving}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+              <ImageIcon className="h-4 w-4" />이미지
+            </button>
+            <button onClick={downloadXlsx} disabled={saving}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+              <Sheet className="h-4 w-4" />엑셀
+            </button>
             <button onClick={shareLink} disabled={saving || sharing} title="열람용 링크를 만들어 복사합니다"
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
               <Link2 className="h-4 w-4" />{sharing ? '준비 중…' : '공유'}
@@ -642,6 +686,15 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 </Link>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className={LABEL} htmlFor="f-doctype">서류 종류</label>
+                  <select id="f-doctype" value={est.doc_type ?? 'estimate'}
+                    onChange={e => set('doc_type', e.target.value as DocType)} className={FIELD}>
+                    {(Object.keys(DOC_META) as DocType[]).map(t => (
+                      <option key={t} value={t}>{DOC_META[t].label}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className={LABEL} htmlFor="f-company">발행 명의</label>
                   <select id="f-company" value={est.company_id ?? ''} onChange={e => pickCompany(e.target.value)} className={FIELD}>
