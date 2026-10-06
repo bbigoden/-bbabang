@@ -624,7 +624,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 // 일정만 잡히고 견적서는 '발송함' 인 채로 남으면 앞뒤가 맞지 않는다.
                 setEst(prev => prev ? { ...prev, status: next } : prev)
                 const ok = await save(true)
-                if (ok && next === 'won' && !wasWon) addToSchedule({ ...est, status: next })
+                if (ok && next === 'won' && !wasWon && (est.doc_type ?? 'estimate') === 'estimate') addToSchedule({ ...est, status: next })
               }}
               aria-label="견적 상태"
               className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-sm font-semibold dark:border-gray-800 dark:bg-gray-900 dark:text-white"
@@ -674,7 +674,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
           </div>
         )}
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_26rem]">
           {/* ── 왼쪽: 입력 ─────────────────────────────── */}
           <div className="space-y-4">
             {/* 발행 정보 */}
@@ -894,11 +894,13 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             </section>
             <SharePanel estimateId={est.id} brokerId={brokerId!} refreshKey={shareTick} />
 
-            <InvoicesPanel
-              estimate={{ ...est, ...totals }}
-              brokerId={brokerId!}
-              onBeforeIssue={async () => !dirty || await save(true)}
-            />
+            {(est.doc_type ?? 'estimate') === 'estimate' && (
+              <InvoicesPanel
+                estimate={{ ...est, ...totals }}
+                brokerId={brokerId!}
+                onBeforeIssue={async () => !dirty || await save(true)}
+              />
+            )}
           </div>
 
           {/* ── 오른쪽: 실제 PDF 미리보기 ────────────────── */}

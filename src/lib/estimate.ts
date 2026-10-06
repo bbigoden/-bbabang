@@ -445,8 +445,10 @@ export function validUntil(issueDate: string, days: number): string {
  * 유효기간이 지났는지. 오늘이 만료일을 넘긴 경우만 true.
  * 이미 수주·실주로 결론난 건은 만료를 따지지 않는다.
  */
-export function isExpired(e: Pick<Estimate, 'issue_date' | 'valid_days' | 'status'>, today = new Date()): boolean {
+export function isExpired(e: Pick<Estimate, 'issue_date' | 'valid_days' | 'status'> & { doc_type?: DocType }, today = new Date()): boolean {
   if (e.status === 'won' || e.status === 'lost') return false
+  // 유효기간은 견적서만 갖는다 — 발주서·영수증은 만료되지 않는다
+  if (e.doc_type && e.doc_type !== 'estimate') return false
   const until = validUntil(e.issue_date, e.valid_days)
   if (!until) return false
   // '오늘'은 사장님이 계신 한국 기준으로 본다

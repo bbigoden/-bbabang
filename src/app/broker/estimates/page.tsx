@@ -277,7 +277,7 @@ export default function EstimatesPage() {
     })
   }, [rows, period, companyId])
 
-  const stats = useMemo(() => calcStats(inPeriod), [inPeriod])
+  const stats = useMemo(() => calcStats(inPeriod.filter(r => (r.doc_type ?? 'estimate') === 'estimate')), [inPeriod])
 
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase()

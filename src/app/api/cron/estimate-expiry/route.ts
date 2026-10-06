@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
   const { data: rows, error } = await supa
     .from('estimates')
     .select('id, owner_broker_id, estimate_no, issue_date, valid_days, client_name, project_name, total, expiry_notified_at')
+    .eq('doc_type', 'estimate')
     .in('status', ['draft', 'sent'])
     .is('expiry_notified_at', null)
   if (error) {
