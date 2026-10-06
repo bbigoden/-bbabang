@@ -156,9 +156,21 @@ export default function EstimatesPage() {
       const { data: items } = await supabase
         .from('estimate_items').select('*').eq('estimate_id', src.id).order('sort_order')
       if (items?.length) {
-        await supabase.from('estimate_items').insert(
-          items.map(({ id: _i, estimate_id: _e, ...it }) => ({ ...it, estimate_id: data.id }))
-        )
+        // 저장과 같은 RPC 로 옮긴다. 직접 insert 는 실패해도 조용히 지나가 내역 없는 복사본이 남았다.
+        const { error: itemErr } = await supabase.rpc('replace_estimate_items', {
+          p_estimate_id: data.id,
+          p_items: items.map((it, i) => ({
+            sort_order: i, is_header: it.is_header,
+            category: it.category, name: it.name, spec: it.spec, unit: it.unit,
+            qty: it.qty, unit_price: it.unit_price,
+            material_price: it.material_price, labor_price: it.labor_price, cost_price: it.cost_price,
+            amount: it.amount, remark: it.remark,
+          })),
+        })
+        if (itemErr) {
+          await supabase.from('estimates').delete().eq('id', data.id)
+          throw itemErr
+        }
       }
       toast.success('복사했습니다')
       router.push(`/broker/estimates/${data.id}`)
