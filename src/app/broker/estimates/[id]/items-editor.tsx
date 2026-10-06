@@ -333,6 +333,25 @@ function NameCell({ value, catalog, onChange, onPick }: {
   const [open, setOpen] = useState(false)
   const [hits, setHits] = useState<CatalogItem[]>([])
   const boxRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  // 표 칸이 overflow:auto 라 absolute 목록은 칸 안에 갇혀 잘린다(줄이 적으면 작은 상자 안에서
+  // 스크롤해야 보인다). 화면 기준(fixed)으로 입력칸 바로 아래에 띄운다.
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const place = () => {
+      const r = inputRef.current?.getBoundingClientRect()
+      if (r) setPos({ left: r.left, top: r.bottom + 2 })
+    }
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [open])
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -355,6 +374,7 @@ function NameCell({ value, catalog, onChange, onPick }: {
   return (
     <div ref={boxRef} className="relative">
       <input
+        ref={inputRef}
         value={value}
         onChange={e => { onChange(e.target.value); search(e.target.value) }}
         onFocus={() => search(value)}
@@ -363,8 +383,9 @@ function NameCell({ value, catalog, onChange, onPick }: {
         autoComplete="off"
         className={CELL}
       />
-      {open && (
-        <ul className="absolute left-0 top-full z-30 mt-0.5 max-h-64 w-80 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+      {open && pos && (
+        <ul style={{ left: pos.left, top: pos.top }}
+          className="fixed z-50 max-h-64 w-80 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
           {hits.map(c => (
             <li key={c.id}>
               <button
