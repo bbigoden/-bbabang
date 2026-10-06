@@ -449,8 +449,16 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
 
     const baseNo = est.estimate_no.replace(/-r\d+$/, '')
     const { id: _i, created_at: _c, sent_at: _s, ...rest } = est
+    // 합계는 est 에 들어 있지 않고 화면에서 그때그때 셈한 값이라(est.total 은 낡은 값일 수 있다),
+    // 그대로 물려주면 수정본이 0원으로 생긴다. 옮겨 담을 내역에서 다시 셈해 넣는다.
+    const { items: safe } = normalizeItems(items)
+    const safeTotals = calcTotals(safe, {
+      overhead_rate: est.overhead_rate, discount: est.discount, vat_mode: est.vat_mode,
+    })
     const { data, error } = await supabase.from('estimates').insert({
       ...rest,
+      ...safeTotals,
+      total_cost: calcMargin(safe, safeTotals.supply_amount)?.cost ?? 0,
       owner_broker_id: brokerId,
       root_estimate_id: root,
       revision: nextRev,
@@ -463,18 +471,24 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     }).select('id').single()
     if (error) { toast.error('수정 견적을 만들지 못했습니다'); return }
 
-    if (items.length) {
-      // 옮겨 담을 때도 다시 셈한다 — 어긋난 값을 그대로 물려주지 않는다
-      const { items: safe } = normalizeItems(items)
-      await supabase.from('estimate_items').insert(
-        safe.map((it, i) => ({
-          estimate_id: data.id, sort_order: i, is_header: it.is_header,
+    if (safe.length) {
+      // 저장과 같은 RPC 로 옮긴다 (한 트랜잭션). 실패를 삼키면 내역 없는 수정본이 남는다.
+      const { error: itemErr } = await supabase.rpc('replace_estimate_items', {
+        p_estimate_id: data.id,
+        p_items: safe.map((it, i) => ({
+          sort_order: i, is_header: it.is_header,
           category: it.category, name: it.name, spec: it.spec, unit: it.unit,
           qty: it.qty, unit_price: it.unit_price,
           material_price: it.material_price, labor_price: it.labor_price, cost_price: it.cost_price,
           amount: it.amount, remark: it.remark,
-        }))
-      )
+        })),
+      })
+      if (itemErr) {
+        // 내역 없이 합계만 있는 빈 수정본을 남기지 않는다
+        await supabase.from('estimates').delete().eq('id', data.id)
+        toast.error('수정 견적의 내역을 옮기지 못했습니다')
+        return
+      }
     }
     toast.success(`수정 견적 r${nextRev} 를 만들었습니다`)
     router.push(`/broker/estimates/${data.id}`)
