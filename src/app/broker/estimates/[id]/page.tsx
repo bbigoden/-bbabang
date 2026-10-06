@@ -499,7 +499,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       const blob = await pdfToPng(await res.arrayBuffer())
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
-      a.download = `견적서_${est?.estimate_no ?? id}.png`
+      a.download = `${DOC_META[est?.doc_type ?? 'estimate'].filePrefix}_${est?.estimate_no ?? id}.png`
       a.click()
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000)
     } catch {
@@ -754,15 +754,15 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
 
             {/* 공사 개요 */}
             <section className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="mb-3 text-sm font-bold text-gray-900 dark:text-white">공사 개요</h2>
+              <h2 className="mb-3 text-sm font-bold text-gray-900 dark:text-white">{est.doc_type && est.doc_type !== 'estimate' ? '건 개요' : '공사 개요'}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label className={LABEL} htmlFor="f-project">공사명</label>
+                  <label className={LABEL} htmlFor="f-project">{DOC_META[est.doc_type ?? 'estimate'].nameLabel}</label>
                   <input id="f-project" value={est.project_name ?? ''} onChange={e => set('project_name', e.target.value)}
                     placeholder="예: 불당동 ○○상가 1층 인테리어 공사" className={FIELD} />
                 </div>
                 <div>
-                  <label className={LABEL} htmlFor="f-period">공사기간</label>
+                  <label className={LABEL} htmlFor="f-period">{DOC_META[est.doc_type ?? 'estimate'].periodLabel}</label>
                   <input id="f-period" value={est.period ?? ''} onChange={e => set('period', e.target.value)}
                     placeholder="예: 2026-10-01 ~ 2026-10-31" className={FIELD} />
                   <p className="mt-1 text-xs text-gray-500">
