@@ -55,7 +55,7 @@ export async function GET(
   if (company?.phone) push('연락처', company.phone)
   if (company?.email) push('이메일', company.email)
   push()
-  push(dm.totalLabel, `일금 ${koreanAmount(t.total)}`, '', '', t.total)
+  push(dm.totalLabel, koreanAmount(t.total), '', '', t.total)
   push()
 
   const head = split

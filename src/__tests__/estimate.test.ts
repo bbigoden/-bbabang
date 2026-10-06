@@ -406,3 +406,15 @@ describe('docMeta', () => {
     expect(docMeta('receipt').honorific).toBe('귀하')
   })
 })
+
+describe('isExpired — 서류 종류', () => {
+  const old = { issue_date: '2020-01-01', valid_days: 30, status: 'sent' as const }
+  it('오래된 견적서는 만료', () => {
+    expect(isExpired(old)).toBe(true)
+    expect(isExpired({ ...old, doc_type: 'estimate' })).toBe(true)
+  })
+  it('발주서·영수증은 유효기간이 없어 만료되지 않는다', () => {
+    expect(isExpired({ ...old, doc_type: 'purchase_order' })).toBe(false)
+    expect(isExpired({ ...old, doc_type: 'receipt' })).toBe(false)
+  })
+})

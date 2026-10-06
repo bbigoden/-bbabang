@@ -147,14 +147,19 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+        {/* 품명 칸은 남는 폭을 받는 칸이라, 다른 칸 폭 합보다 표가 아주 조금만 넓으면
+            글자 한 자도 못 들어가는 너비로 쪼그라든다. 품명 16rem 을 따로 보장한다. */}
         <table className={`w-full ${
-          showCost && showSplit ? 'min-w-[80rem]' : showCost || showSplit ? 'min-w-[70rem]' : 'min-w-[56rem]'
+          showCost && showSplit ? 'min-w-[94rem]'
+            : showSplit ? 'min-w-[86rem]'
+            : showCost ? 'min-w-[79rem]'
+            : 'min-w-[72rem]'
         } border-collapse text-sm`}>
           <thead className="bg-gray-50 text-xs text-gray-500 dark:bg-gray-950/50">
             <tr>
               <th className="w-8 px-1 py-2"></th>
               <th className="w-40 px-2 py-2 text-left font-semibold">공종</th>
-              <th className="px-2 py-2 text-left font-semibold">품명</th>
+              <th className="min-w-[16rem] px-2 py-2 text-left font-semibold">품명</th>
               <th className="w-32 px-2 py-2 text-left font-semibold">규격</th>
               <th className="w-16 px-2 py-2 text-left font-semibold">단위</th>
               <th className="w-20 px-2 py-2 text-right font-semibold">수량</th>

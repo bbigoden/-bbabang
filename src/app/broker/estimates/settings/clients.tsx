@@ -52,6 +52,9 @@ export function ClientsTab({ brokerId }: { brokerId: string }) {
 
   const save = async () => {
     if (!editing?.name?.trim()) { toast.error('상호·고객명을 입력하세요'); return }
+    // type=email 은 폼 밖이라 브라우저가 검사해 주지 않는다. 메일 주소가 틀리면 견적서가 엉뚱한 곳으로 간다.
+    const mail = editing.email?.trim()
+    if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) { toast.error('이메일 주소 형식을 확인하세요'); return }
     setSaving(true)
     const { id, ...rest } = editing
     const payload = { ...rest, owner_broker_id: brokerId, name: editing.name.trim() }
