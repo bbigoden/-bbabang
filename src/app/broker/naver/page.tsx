@@ -524,11 +524,13 @@ export default function CollectPage() {
             .order('article_no', { ascending: false })
             .range(from, to)
         }),
-        // 본 기록은 계속 쌓인다. 화면이 최대 7일치만 보여주므로 그만큼만 받는다.
+        // 본 기록은 계속 쌓이므로 **고른 기간에 맞춰** 받는다. 오늘부터 세면 지난달
+        // 기간을 고를 때 본 것이 전부 안 본 것이 된다. 매물이 들어온 뒤에야 볼 수 있지만,
+        // 네이버는 노출일이 다시 잡히기도 해서 첫날보다 30일 앞에서부터 받는다.
         // 사무소 사람 전체의 기록을 받는다 (권한이 사무소 단위로 열려 있다).
         fetchAllPaged<{ article_no: string; view_count: number; user_id: string }>((from, to) =>
           supabase.from(s.views).select('article_no, view_count, user_id')
-            .gte('seen_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
+            .gte('seen_at', 경계(addDays(첫날, -30), true))
             .order('seen_at', { ascending: false })
             .range(from, to)),
       ])
