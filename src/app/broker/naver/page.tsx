@@ -46,7 +46,9 @@ import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
  * 거는 쪽은 PC 프로그램이다(`부소장광고/src/cli/agent-worker.js`).
  *
  * **기간은 달력에서 고른다.** 한 번에 최대 7일 — 여기서 할 일은 훑는 것이지 뒤지는
- * 것이 아니고, 길게 잡으면 하루 천 건씩이라 화면이 만 건을 넘는다.
+ * 것이 아니고, 길게 잡으면 하루 천 건씩이라 화면이 만 건을 넘는다. 다만 그 천 건은
+ * 거의 네이버 상가다. 상가를 빼고 종류를 고르면 30일까지 본다 — 공장은 7일이면
+ * 몇 건 안 된다.
  *
  * **[가져오기] 는 보고 있는 탭의 것만 받는다.** 버튼에 곳 이름을 붙이지 않는 이유는
  * 탭이 이미 말하고 있어서다. 다만 안에서는 곳마다 따로 돌아, 네이버를 걸어 두고
@@ -117,6 +119,12 @@ const SOURCES = {
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
+    kindColumn: 'real_estate_type',
+    /**
+     * 이게 끼면 기간을 7일로 막는 종류. 네이버 상가는 하루 500건 가까이 올라온다 —
+     * 다음이 토지 130건, 공장/창고 90건이고 나머지는 30건이 안 된다.
+     */
+    붐비는종류: ['상가'] as readonly string[],
     trades: TRADE_TYPES as Record<string, string>,
     /**
      * 기간을 자르는 칸.
@@ -159,6 +167,9 @@ const SOURCES = {
     columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent, floor_info' as string,
     kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
     kindOf: daangnKindOf,
+    kindColumn: 'sales_type',
+    /** 당근은 종류를 다 합쳐도 하루 수십 건이라 늘 30일까지 본다. */
+    붐비는종류: [] as readonly string[],
     trades: DAANGN_TRADES as Record<string, string>,
     /**
      * **당근은 날짜를 안 준다.** 응답에 등록일·수정일이 아예 없다. 그래서 우리가
@@ -204,6 +215,21 @@ type SourceId = keyof typeof SOURCES
  * 여기서 할 일은 훑는 것이지 뒤지는 것이 아니다 — 7일이면 밀린 것을 메우고도 남는다.
  */
 const MAX_DAYS = 7
+
+/** 붐비는 종류(네이버 상가)를 빼고 보면 여기까지. 공장·토지는 7일이면 몇 건 안 된다. */
+const LONG_DAYS = 30
+
+/**
+ * 지금 고른 종류로 한 번에 볼 수 있는 날수.
+ *
+ * 종류를 안 고르면 전부 보는 것이라 붐비는 종류도 끼어 있다.
+ */
+function 기간한도(s: (typeof SOURCES)[SourceId], kinds: readonly string[]): number {
+  const 붐빔 = kinds.length
+    ? kinds.some(k => s.붐비는종류.includes(k))
+    : s.붐비는종류.length > 0
+  return 붐빔 ? MAX_DAYS : LONG_DAYS
+}
 
 /** 얼마나 지난 날까지 고를 수 있나. 프로그램이 90일 지난 매물을 지운다. */
 const KEEP_DAYS = 90
@@ -446,6 +472,18 @@ export default function CollectPage() {
   const [regions, setRegions] = useState<string[]>([])
   const [kinds, setKinds] = useState<string[]>([])
   const [trades, setTrades] = useState<string[]>([])
+
+  /**
+   * 지금 종류로 볼 수 있는 날수와, 그에 맞춰 당긴 첫날.
+   *
+   * 공장만 30일을 보다가 상가를 더 누르면 7일로 줄여 보인다. 고른 날은 그대로 쥐고
+   * 있어서 상가를 다시 빼면 30일로 돌아온다 — 칩 하나 눌렀다고 달력을 다시 고르게
+   * 하지 않는다.
+   */
+  const 한도 = 기간한도(src, kinds)
+  const 보는첫날 = 날수(첫날, 끝날) > 한도 ? addDays(끝날, -(한도 - 1)) : 첫날
+  /** 받을 때 쓰는 종류. 배열을 그대로 물리면 새로 그릴 때마다 다시 받는다. */
+  const 종류열쇠 = kinds.join(',')
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('collect-watch', 50)
@@ -509,11 +547,16 @@ export default function CollectPage() {
   const load = useCallback(async () => {
     setLoading(true)
     const s = SOURCES[source]
+    // 종류는 받을 때 거른다. 상가를 빼면 30일까지 보는데, 거르지 않고 받으면 그
+    // 30일치 상가(만 건 넘게)까지 다 받아 놓고 화면에서 버리게 된다. 다른 곳의
+    // 종류 이름이 남아 있으면(탭을 막 바꾼 때) 코드가 안 나오니 거르지 않는다.
+    const 종류코드 = 종류열쇠 ? 종류열쇠.split(',').flatMap(k => s.kinds[k] ?? []) : []
     try {
       const [arts, views] = await Promise.all([
         fetchAllPaged<any>((from, to) => {
           let q = supabase.from(s.table).select(s.columns)
-            .gte(s.dateColumn, 경계(첫날, s.dateIsTimestamp))
+            .gte(s.dateColumn, 경계(보는첫날, s.dateIsTimestamp))
+          if (종류코드.length) q = q.in(s.kindColumn, 종류코드)
           // 끝날이 오늘이면 위를 막지 않는다. 막으면 날짜가 앞선 매물이 조용히
           // 빠지는데, 지금까지 보이던 것이 안 보이게 되는 셈이다.
           if (끝날 < todayKST()) q = q.lt(s.dateColumn, 경계(다음날(끝날), s.dateIsTimestamp))
@@ -530,7 +573,7 @@ export default function CollectPage() {
         // 사무소 사람 전체의 기록을 받는다 (권한이 사무소 단위로 열려 있다).
         fetchAllPaged<{ article_no: string; view_count: number; user_id: string }>((from, to) =>
           supabase.from(s.views).select('article_no, view_count, user_id')
-            .gte('seen_at', 경계(addDays(첫날, -30), true))
+            .gte('seen_at', 경계(addDays(보는첫날, -30), true))
             .order('seen_at', { ascending: false })
             .range(from, to)),
       ])
@@ -547,7 +590,7 @@ export default function CollectPage() {
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     }
     setLoading(false)
-  }, [supabase, source, 첫날, 끝날])
+  }, [supabase, source, 보는첫날, 끝날, 종류열쇠])
 
   useEffect(() => { void load() }, [load])
 
@@ -1023,16 +1066,19 @@ export default function CollectPage() {
                 매물목록·고객목록이 쓰는 그 달력 그대로다. 다른 곳은 한 날만 고르므로,
                 기간이 필요한 여기서만 두 날을 눌러 정한다. */}
             <DateRangeCell
-              from={첫날} to={끝날}
+              from={보는첫날} to={끝날}
               onSave={기간잡기}
-              maxDays={MAX_DAYS}
+              maxDays={한도}
               min={addDays(todayKST(), -(KEEP_DAYS - 1))}
               max={todayKST()}
             />
-            <span className="text-xs text-gray-400 dark:text-gray-600">{날수(첫날, 끝날)}일</span>
+            <span className="text-xs text-gray-400 dark:text-gray-600">{날수(보는첫날, 끝날)}일
+              {/* 7일에 막힌 까닭을 말해 둔다. 모르면 공장을 볼 때도 7일만 보게 된다. */}
+              {한도 === MAX_DAYS && src.붐비는종류.length > 0 && ` · ${src.붐비는종류.join('·')}를 빼고 종류를 고르면 ${LONG_DAYS}일까지`}
+            </span>
             {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
                 되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
-            <Chip on={첫날 === todayKST() && 끝날 === todayKST()} onClick={() => 기간잡기(todayKST(), todayKST())}>
+            <Chip on={보는첫날 === todayKST() && 끝날 === todayKST()} onClick={() => 기간잡기(todayKST(), todayKST())}>
               오늘
             </Chip>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
