@@ -341,9 +341,14 @@ const API_BASIC_INFO = 'https://fin.land.naver.com/front-api/v1/article/basicInf
  * 주소를 숨긴 매물도 준다. 공장은 리만 알아서는 어디인지 못 찾아 쓴다.
  *
  * 중개사가 넣은 지번이라 틀릴 수 있고, 여러 필지에 걸친 공장은 대표 하나만 온다.
- * 매물이 내려갔거나 PNU 가 없으면 null.
+ *
+ * 매물이 내려갔으면 `{ gone: true }` — 네이버가 `isSuccess: false` 로 답한다. 네이버
+ * 광고는 30일쯤이면 내려가고 다시 올리면 새 번호가 붙는다. 매물은 있는데 PNU 가
+ * 없으면 null.
  */
-export async function fetchArticleJibun(articleNo: string): Promise<{ pnu: string; li: string | null } | null> {
+export async function fetchArticleJibun(
+  articleNo: string,
+): Promise<{ pnu: string; li: string | null } | { gone: true } | null> {
   const url = `${API_KEY}?articleNumber=${encodeURIComponent(articleNo)}`
   const headers = { ...HEADERS, referer: `https://fin.land.naver.com/articles/${articleNo}` }
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -352,12 +357,13 @@ export async function fetchArticleJibun(articleNo: string): Promise<{ pnu: strin
       await sleep(3_000)
       continue
     }
-    // 내려간 매물은 4xx 로 온다. 막힌 것(429)과 달리 다시 물어도 같다.
-    if (res.status >= 400 && res.status < 500) return null
+    // 403 은 막힌 것일 수 있다 — 내려감으로 찍으면 멀쩡한 매물이 사라진다.
+    if (res.status === 404) return { gone: true }
     if (!res.ok) throw new Error(`네이버 응답 ${res.status}`)
     const json = await res.json()
+    if (json?.isSuccess === false) return { gone: true }
     const pnu = json?.result?.key?.pnu
-    if (!json?.isSuccess || typeof pnu !== 'string' || !/^\d{19}$/.test(pnu)) return null
+    if (typeof pnu !== 'string' || !/^\d{19}$/.test(pnu)) return null
     return { pnu, li: json.result.address?.li || null }
   }
   throw new Error('네이버가 계속 요청을 거절합니다 (429)')
