@@ -39,7 +39,11 @@ export function useKakaoMapSdk() {
 
     const w = window as any
 
+    // maps.load 콜백까지 끝나야 진짜 ready. (CSP 등으로 2단계 스크립트가 막히면 콜백이 영영 안 와서
+    // 'loading' 에 갇힌다 → 타임아웃은 window.kakao.maps.load 존재가 아니라 이 플래그로 판단)
+    let done = false
     const markReady = () => {
+      done = true
       setStatus('ready')
       setErrorReason(null)
     }
@@ -69,7 +73,7 @@ export function useKakaoMapSdk() {
       timer = setTimeout(() => {
         cancelled = true
         clearInterval(poll)
-        if (!w.kakao?.maps?.load) {
+        if (!done) {
           setStatus('error')
           setErrorReason('load-failed')
         }
@@ -100,7 +104,7 @@ export function useKakaoMapSdk() {
 
     timer = setTimeout(() => {
       cancelled = true
-      if (!w.kakao?.maps?.load) {
+      if (!done) {
         setStatus('error')
         setErrorReason('load-failed')
       }
