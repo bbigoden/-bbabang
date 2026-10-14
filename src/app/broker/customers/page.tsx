@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState, useRef, useCallback, useId } from 'react'
+import { useEffect, useState, useRef, useCallback, useId, useMemo, useDeferredValue } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
@@ -664,7 +664,9 @@ export default function BrokerCustomersPage() {
 
   // 필터/통계
   // 월별 카운트 (단일 순회)
-  const monthCounts = (() => {
+  // 고객 800여 건을 글자 하나 칠 때마다 세 번씩 훑었다 — 폰에서 검색 입력이 끊겼다.
+  // 목록이 바뀔 때만 다시 세고, 검색은 입력을 먼저 그린 뒤 따라간다.
+  const monthCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     customers.forEach(c => {
       if (!c.received_date) return
@@ -672,12 +674,12 @@ export default function BrokerCustomersPage() {
       counts[m] = (counts[m] || 0) + 1
     })
     return counts
-  })()
+  }, [customers])
   const months = ['전체', ...Object.keys(monthCounts).sort((a, b) => b.localeCompare(a))]
 
   // 담당자별 카운트 — assignee의 콤마 분리해서 개별 이름 단위로 누적
   // (공동 담당 "오혜진, 김규영"은 오혜진 1건 + 김규영 1건으로 카운트)
-  const assigneeCounts = (() => {
+  const assigneeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     customers.forEach(c => {
       if (!c.assignee) return
@@ -687,18 +689,19 @@ export default function BrokerCustomersPage() {
       })
     })
     return counts
-  })()
+  }, [customers])
   const assignees = ['전체', ...Object.keys(assigneeCounts).sort()]
 
-  const filtered = customers.filter(c => {
+  const deferredSearch = useDeferredValue(search)
+  const filtered = useMemo(() => customers.filter(c => {
     if (monthFilter !== '전체' && (!c.received_date || !c.received_date.startsWith(monthFilter))) return false
     if (assigneeFilter !== '전체') {
       if (!c.assignee) return false
       const names = c.assignee.split(',').map(s => s.trim())
       if (!names.includes(assigneeFilter)) return false
     }
-    if (search) {
-      const q = search.toLowerCase()
+    if (deferredSearch) {
+      const q = deferredSearch.toLowerCase()
       const fields = [
         c.request, c.contact, c.assignee, c.category, c.source, c.status, c.received_date,
       ]
@@ -709,8 +712,8 @@ export default function BrokerCustomersPage() {
       return false
     }
     return true
-  })
-  const thisMonth = new Date().toISOString().slice(0, 7)
+  }), [customers, monthFilter, assigneeFilter, deferredSearch])
+  const thisMonth = todayKST().slice(0, 7)
   const newThisMonth = customers.filter(c => c.received_date?.startsWith(thisMonth)).length
 
   // 페이지네이션 (filtered + 정렬 후 슬라이스)

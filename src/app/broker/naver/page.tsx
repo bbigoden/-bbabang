@@ -17,6 +17,7 @@ import { DateRangeCell } from '@/components/sheet/cells/date-cell'
 import { todayKST, addDays, ymdKST } from '@/lib/date-kst'
 import { Chip } from '@/components/ui/chip'
 import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
+import { pollWhileVisible } from '@/lib/poll-visible'
 
 /**
  * 매물수집 — 네이버·당근에 올라온 매물을 최신순으로 모아 둔 링크 목록.
@@ -512,8 +513,8 @@ export default function CollectPage() {
   const [jobs, setJobs] = useState<Record<SourceId, string | null>>({ naver: null, daangn: null })
 
   /** 지켜보는 중인 타이머. 화면을 떠날 때 정리하지 않으면 없는 화면을 계속 고치려 든다. */
-  const timers = useRef<Partial<Record<SourceId, ReturnType<typeof setInterval>>>>({})
-  useEffect(() => () => { for (const t of Object.values(timers.current)) clearInterval(t) }, [])
+  const timers = useRef<Partial<Record<SourceId, () => void>>>({})
+  useEffect(() => () => { for (const stop of Object.values(timers.current)) stop?.() }, [])
 
   /**
    * 볼 기간 — 달력에서 직접 고른다. 자주 쓰는 것은 위 칩으로 한 번에 잡는다.
@@ -682,8 +683,8 @@ export default function CollectPage() {
       if (alive) setAgentSeenAt(data?.last_seen_at ?? null)
     }
     void tick()
-    const id = setInterval(tick, 15_000)
-    return () => { alive = false; clearInterval(id) }
+    const stop = pollWhileVisible(tick, 15_000)
+    return () => { alive = false; stop() }
   }, [supabase])
 
   /**
@@ -751,12 +752,12 @@ export default function CollectPage() {
   const watchJob = useCallback((id: SourceId, jobId: string) => {
     const s = SOURCES[id]
     const 진행 = (text: string | null) => setJobs(prev => ({ ...prev, [id]: text }))
-    const 끝 = () => { clearInterval(timers.current[id]); delete timers.current[id]; 진행(null) }
+    const 끝 = () => { timers.current[id]?.(); delete timers.current[id]; 진행(null) }
     진행('가져오는 중…')
 
     const 놓아줄때 = Date.now() + 2 * 60 * 60_000   // 이보다 오래 지켜보지는 않는다
     let 시한 = Date.now() + 30 * 60_000              // 실행이 시작되면 여기서부터 다시 센다
-    timers.current[id] = setInterval(async () => {
+    timers.current[id] = pollWhileVisible(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('status, progress, result, error').eq('id', jobId).maybeSingle()
       // 작업이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이 지켜보기가

@@ -88,14 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [broker, setBroker] = useState<BrokerProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  // 마지막으로 프로필까지 다 받아 둔 사용자 id — 리스너 클로저의 user 는 마운트 시점 값이라 못 쓴다
+  const loadedUserId = useRef<string | null>(null)
 
   const fetchAll = useCallback(async () => {
     const { data } = await supabase.auth.getUser()
     if (!data.user) {
+      loadedUserId.current = null
       setUser(null); setProfile(null); setBroker(null); setLoading(false)
       clearCache()
       return
     }
+    loadedUserId.current = data.user.id
     setUser(data.user)
     // 한쪽 쿼리 실패해도 다른쪽은 진행 — 네트워크 일시 장애에 강건하게
     const [profileRes, brokerRes] = await Promise.all([
@@ -145,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     fetchAll()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         // 토큰 갱신이 일시적으로 실패해도(모바일 네트워크 단절, 여러 탭이 동시에
         // 갱신을 시도해 refresh token rotation이 엇갈림) SIGNED_OUT이 날아온다.
@@ -155,7 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session } } = await supabase.auth.getSession()
         if (session) { fetchAll(); return }
 
-        const hadUser = user !== null  // 명시적 로그아웃 vs refresh token 만료 구분
+        const hadUser = loadedUserId.current !== null  // 명시적 로그아웃 vs refresh token 만료 구분
+        loadedUserId.current = null
         setUser(null); setProfile(null); setBroker(null)
         clearCache()
         // refresh token 만료로 인한 자동 로그아웃이면 사용자에게 알림 + 로그인 페이지 이동
@@ -175,7 +180,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             window.location.href = `/auth/login?expired=1&redirect=${redirect}`
           }
         }
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // 폰은 앱으로 돌아올 때마다 SIGNED_IN 이, 한 시간마다 TOKEN_REFRESHED 가 온다.
+        // 같은 사람이면 프로필은 그대로라 다시 받지 않는다 — 받으면 새 객체가 들어가
+        // 화면 전체가 다시 그려지고, Auth 서버·DB 왕복 3번이 복귀할 때마다 붙었다.
+        if (session?.user.id && session.user.id === loadedUserId.current) return
+        fetchAll()
+      } else if (event === 'USER_UPDATED') {
         fetchAll()
       }
     })

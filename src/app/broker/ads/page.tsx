@@ -16,6 +16,7 @@ import { todayKST, ymdKST } from '@/lib/date-kst'
 import { SearchClear } from '@/components/ui/search-clear'
 import { Chip } from '@/components/ui/chip'
 import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
+import { pollWhileVisible } from '@/lib/poll-visible'
 
 /**
  * 광고관리 — 부동산뱅크 매물을 그대로 가져와, 그중 카페에 올릴 것을 고르고 관리한다.
@@ -584,8 +585,8 @@ export default function AdsPage() {
       if (alive) setAgentSeenAt(data?.last_seen_at ?? null)
     }
     tick()
-    const id = setInterval(tick, 15_000)
-    return () => { alive = false; clearInterval(id) }
+    const stop = pollWhileVisible(tick, 15_000)
+    return () => { alive = false; stop() }
   }, [auth.broker?.id])
 
   /**
@@ -667,8 +668,8 @@ export default function AdsPage() {
     // 차례가 안 오므로 지켜보는 것 자체는 두 시간에서 놓아준다.
     const 놓아줄때 = Date.now() + 2 * 60 * 60_000
     let 시한 = Date.now() + 30 * 60_000
-    const 끝 = () => { clearInterval(poll); setSyncing(false); setSyncProgress(null) }
-    const poll = setInterval(async () => {
+    const 끝 = () => { poll(); setSyncing(false); setSyncProgress(null) }
+    const poll = pollWhileVisible(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('status, progress, result, error').eq('id', jobId).maybeSingle()
       // 작업 기록이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이
@@ -796,7 +797,7 @@ export default function AdsPage() {
   /** 재등록이 끝나면 목록을 새로 받아 남은 날짜를 갱신한다. */
   useEffect(() => {
     if (!renewWatch) return
-    const id = setInterval(async () => {
+    const stop = pollWhileVisible(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('id').eq('kind', 'renew').in('status', ['queued', 'running']).limit(1)
       if (data && data.length) return
@@ -814,7 +815,7 @@ export default function AdsPage() {
       }
       load()
     }, 3000)
-    return () => clearInterval(id)
+    return stop
   }, [renewWatch])
 
   /**
@@ -1015,7 +1016,7 @@ export default function AdsPage() {
   useEffect(() => {
     if (!publishWatch) return
     let 전건수 = -1
-    const id = setInterval(async () => {
+    const stop = pollWhileVisible(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('status, progress').eq('kind', 'publish').in('status', ['queued', 'running'])
         .order('requested_at', { ascending: true })
@@ -1031,7 +1032,7 @@ export default function AdsPage() {
       }
       setPublishWatch(false); setPublishProgress(null)
     }, 3000)
-    return () => clearInterval(id)
+    return stop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [publishWatch])
 
@@ -1099,7 +1100,7 @@ export default function AdsPage() {
    */
   useEffect(() => {
     if (!takedownWatch) return
-    const id = setInterval(async () => {
+    const stop = pollWhileVisible(async () => {
       const { data } = await supabase.from('ad_jobs')
         .select('status, error').eq('kind', 'takedown')
         .in('status', ['queued', 'running']).limit(1)
@@ -1112,7 +1113,7 @@ export default function AdsPage() {
       else if (last?.status === 'done') toast.success('광고를 내렸습니다.')
       load()
     }, 3000)
-    return () => clearInterval(id)
+    return stop
   }, [takedownWatch])
 
   // 지금 고른 탭에 들어가는 매물인지 — 담당자별 건수도 같은 잣대로 세야
