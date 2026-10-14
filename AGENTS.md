@@ -105,7 +105,7 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 |---|---|---|
 | `cafe-post.ts` | `buildCafeHtmlConfig` · `generateCafePost` · `parseListing` 등 | `cli/batch.js` `prepare.js` `verify.js` `recheck.js` |
 | `blog-post.ts` | `buildBlogPost` · `buildBlogThumbConfig` | `publish.js` |
-| `naver-land.ts` | `REGIONS` · `fetchRecentArticles` | `naver.js` |
+| `naver-land.ts` | `REGIONS` · `fetchRecentArticles` · `fetchArticleJibun` · `fetchArticleHidden` | `naver.js` |
 | `daangn-land.ts` | `DAANGN_REGIONS` · `fetchDaangnArticles` · `DaangnQueryStale` | `daangn-watch.js` |
 | `date-kst.ts` | `todayKST` · `addDays` | `naver.js` |
 

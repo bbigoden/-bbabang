@@ -80,7 +80,28 @@ type Row = {
   price_deal: number | null
   price_deposit: number | null
   price_rent: number | null
+  /** 리 + 번지 ("동암리 346-1"). 네이버 공장/창고만 받아 둔다. */
+  jibun: string | null
+  /** 중개사가 주소를 숨긴 매물. 지번은 보이지만 광고에 쓰면 안 된다. 모르면 null. */
+  address_hidden: boolean | null
 }
+
+/**
+ * 필지번호(PNU) → "동암리 346-1".
+ *
+ * 19자리 = 법정동코드 10 + 산 1(1 일반·2 산) + 본번 4 + 부번 4. 동 지역은 리가 없다.
+ */
+function 지번글(li: string | null, pnu: string | null): string | null {
+  if (!pnu || pnu.length !== 19) return null
+  const 산 = pnu[10] === '2' ? '산' : ''
+  const 본 = Number(pnu.slice(11, 15))
+  const 부 = Number(pnu.slice(15, 19))
+  return [li, `${산}${본}${부 ? `-${부}` : ''}`].filter(Boolean).join(' ')
+}
+
+/** 카카오맵에서 그 지번을 연다. 거기서 지적도·로드뷰를 바로 볼 수 있다. */
+const 지도주소 = (r: Row) =>
+  `https://map.kakao.com/link/search/${encodeURIComponent([r.division, r.sector, r.jibun].filter(Boolean).join(' '))}`
 
 type Settings = { hide_own: boolean; track_gone: boolean; own_names: string[] | null }
 
@@ -115,7 +136,7 @@ const SOURCES = {
     jobKind: 'naver',
     /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
     takes: '5~8분',
-    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent, floor_info' as string,
+    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent, floor_info, pnu, li, address_hidden' as string,
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
@@ -145,6 +166,8 @@ const SOURCES = {
       owner: a.brokerage_name,
       shown_date: a.exposure_start_date,
       floor_info: a.floor_info,
+      jibun: 지번글(a.li, a.pnu),
+      address_hidden: a.address_hidden,
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
@@ -192,6 +215,9 @@ const SOURCES = {
       shown_date: ymdKST(a.first_seen_at),
       // 2026-09 개편 뒤로 당근도 층을 준다. 네이버와 같은 "1/5" 모양으로 담아 둔다.
       floor_info: a.floor_info,
+      // 당근은 동까지만 준다.
+      jibun: null,
+      address_hidden: null,
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
       gone_at: a.gone_at,
@@ -887,7 +913,7 @@ export default function CollectPage() {
       }
       if (kinds.length && !kinds.includes(src.kindOf(r.kind_code))) return false
       if (trades.length && !trades.includes(r.trade_code ?? '')) return false
-      if (needle && ![r.division, r.sector].filter(Boolean).join(' ').toLowerCase().includes(needle)) return false
+      if (needle && ![r.division, r.sector, r.jibun].filter(Boolean).join(' ').toLowerCase().includes(needle)) return false
 
       // **값이 없는 매물은 조건을 걸면 뺀다.** 맞는지 알 수 없는 것을 남겨 두면
       // 걸러 본 보람이 없다. 몇 건을 뺐는지는 아래 줄에 적는다.
@@ -1364,9 +1390,36 @@ export default function CollectPage() {
                         </span>
                       </div>
                       <div className="flex min-w-0 items-center gap-2 sm:contents">
-                        <span className={`min-w-0 flex-1 truncate text-sm text-gray-900 group-hover:underline sm:order-3
-                                          dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
-                          {[r.division, r.sector].filter(Boolean).join(' ')}
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:order-3">
+                          <span className={`min-w-0 truncate text-sm text-gray-900 group-hover:underline
+                                            dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
+                            {[r.division, r.sector, r.jibun].filter(Boolean).join(' ')}
+                          </span>
+                          {/* 줄 전체가 네이버로 가는 링크라 안에 링크를 또 못 넣는다.
+                              눌렀을 때 바깥 링크를 막고 지도를 연다. */}
+                          {r.jibun && (
+                            <span
+                              role="link"
+                              tabIndex={0}
+                              title="카카오맵에서 이 지번 보기 — 지적도·로드뷰"
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(지도주소(r), '_blank', 'noopener') }}
+                              onKeyDown={e => {
+                                if (e.key !== 'Enter') return
+                                e.preventDefault(); e.stopPropagation(); window.open(지도주소(r), '_blank', 'noopener')
+                              }}
+                              className="shrink-0 rounded border border-gray-200 px-1.5 text-[11px] leading-4 text-gray-500 hover:border-blue-400 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400"
+                            >
+                              지도
+                            </span>
+                          )}
+                          {r.jibun && r.address_hidden && (
+                            <span
+                              title="중개사가 네이버에서 주소를 숨긴 매물입니다. 지번은 사무소 안에서만 보고, 광고·블로그에는 쓰지 마세요."
+                              className="shrink-0 text-[11px] text-amber-600 dark:text-amber-500"
+                            >
+                              비공개
+                            </span>
+                          )}
                         </span>
                         {/* 배지와 횟수를 **한 칸**에 모은다. 따로 두면 어떤 줄은 배지가,
                             어떤 줄은 숫자가 서로 다른 자리에 찍혀 눈에 거슬린다.

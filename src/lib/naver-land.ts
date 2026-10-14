@@ -170,6 +170,11 @@ export type NaverArticle = {
   area_floor: number | null
   /** 층수 원문. "2/5" = 해당층/전체층. 모양이 여러 가지라 글자 그대로 담는다. */
   floor_info: string | null
+  /**
+   * 중개사가 주소를 숨겼나. 숨긴 매물은 목록에 **좌표가 빠져서** 온다(지도에 핀이
+   * 안 꽂힌다). 지번은 그래도 받아지므로, 화면에 '비공개' 를 붙여 가려 쓰게 한다.
+   */
+  address_hidden: boolean
   /** 가격은 **만원**. 네이버는 원으로 주므로 담을 때 한 번 바꾼다. */
   price_deal: number | null
   price_deposit: number | null
@@ -261,6 +266,7 @@ function normalize(raw: Record<string, any>): NaverArticle | null {
     // 층이 없는 매물(토지 등)에는 `-` 를 준다. 그대로 담으면 목록에 `-층` 이
     // 찍히므로 빈 값으로 바꾼다.
     floor_info: 층글(a.articleDetail?.floorInfo),
+    address_hidden: !a.address?.coordinates,
     price_deal: 만원(a.priceInfo?.dealPrice),
     price_deposit: 만원(a.priceInfo?.warrantyPrice),
     price_rent: 만원(a.priceInfo?.rentPrice),
@@ -322,6 +328,64 @@ function cellToBox(key: string): BoundingBox {
     left: x * TILE_LON, right: (x + 1) * TILE_LON,
     bottom: y * TILE_LAT, top: (y + 1) * TILE_LAT,
   }
+}
+
+const API_KEY = 'https://fin.land.naver.com/front-api/v1/article/key'
+const API_BASIC_INFO = 'https://fin.land.naver.com/front-api/v1/article/basicInfo'
+
+/**
+ * 매물 하나의 필지번호(PNU)와 리.
+ *
+ * 네이버 화면은 리까지만 보여주지만, 상세 화면이 맨 먼저 부르는 이 API 가 PNU 를
+ * 준다 — 19자리, 법정동코드 10 + 산 1(1 일반·2 산) + 본번 4 + 부번 4. 중개사가
+ * 주소를 숨긴 매물도 준다. 공장은 리만 알아서는 어디인지 못 찾아 쓴다.
+ *
+ * 중개사가 넣은 지번이라 틀릴 수 있고, 여러 필지에 걸친 공장은 대표 하나만 온다.
+ * 매물이 내려갔거나 PNU 가 없으면 null.
+ */
+export async function fetchArticleJibun(articleNo: string): Promise<{ pnu: string; li: string | null } | null> {
+  const url = `${API_KEY}?articleNumber=${encodeURIComponent(articleNo)}`
+  const headers = { ...HEADERS, referer: `https://fin.land.naver.com/articles/${articleNo}` }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(url, { headers })
+    if (res.status === 429) {
+      await sleep(3_000)
+      continue
+    }
+    // 내려간 매물은 4xx 로 온다. 막힌 것(429)과 달리 다시 물어도 같다.
+    if (res.status >= 400 && res.status < 500) return null
+    if (!res.ok) throw new Error(`네이버 응답 ${res.status}`)
+    const json = await res.json()
+    const pnu = json?.result?.key?.pnu
+    if (!json?.isSuccess || typeof pnu !== 'string' || !/^\d{19}$/.test(pnu)) return null
+    return { pnu, li: json.result.address?.li || null }
+  }
+  throw new Error('네이버가 계속 요청을 거절합니다 (429)')
+}
+
+/**
+ * 중개사가 주소를 숨겼나 — 상세 정보(basicInfo)의 `isAddressExposed`.
+ *
+ * 목록에서 받는 매물은 좌표가 빠졌는지로 알 수 있어 이걸 안 부른다. 숨김 여부를
+ * 담기 전에 받아 둔 매물을 메울 때만 쓴다. 모르면 null.
+ */
+export async function fetchArticleHidden(
+  articleNo: string, realEstateType: string, tradeType: string,
+): Promise<boolean | null> {
+  const q = new URLSearchParams({ articleNumber: articleNo, realEstateType, tradeType })
+  const headers = { ...HEADERS, referer: `https://fin.land.naver.com/articles/${articleNo}` }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(`${API_BASIC_INFO}?${q}`, { headers })
+    if (res.status === 429) {
+      await sleep(3_000)
+      continue
+    }
+    if (res.status >= 400 && res.status < 500) return null
+    if (!res.ok) throw new Error(`네이버 응답 ${res.status}`)
+    const v = (await res.json())?.result?.detailInfo?.articleDetailInfo?.isAddressExposed
+    return typeof v === 'boolean' ? !v : null
+  }
+  throw new Error('네이버가 계속 요청을 거절합니다 (429)')
 }
 
 /**
