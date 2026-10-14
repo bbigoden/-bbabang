@@ -376,7 +376,8 @@ const SORTS = {
   '면적 좁은 순': 'area_asc',
   '가격 높은 순': 'price_desc',
   '가격 낮은 순': 'price_asc',
-  지번순: 'jibun',
+  '지번 오름차순': 'jibun_asc',
+  '지번 내림차순': 'jibun_desc',
 } as const
 type SortKey = (typeof SORTS)[keyof typeof SORTS]
 
@@ -387,17 +388,23 @@ const 가나다 = new Intl.Collator('ko')
  *
  * 같은 필지를 여러 중개사가 올린 것이 나란히 붙는다. 번지는 PNU 의 뒤 9자리
  * (산 1 + 본번 4 + 부번 4)가 0으로 채워져 있어 글자로 견줘도 숫자순이 된다.
- * 지번이 없는 매물(공장/창고 말고는 안 받는다)은 같은 동 안에서 뒤로 간다.
+ * 지번이 없는 매물(공장/창고 말고는 안 받는다)은 같은 동 안에서 뒤로 간다 —
+ * 내림차순이어도 그렇다. 앞에 몰리면 세운 보람이 없다.
  */
-function 지번견주기(a: Row, b: Row): number {
+function 지번견주기(a: Row, b: Row, 내림: boolean): number {
+  const 방향 = 내림 ? -1 : 1
   for (const k of ['division', 'sector'] as const) {
     const d = 가나다.compare(a[k] ?? '', b[k] ?? '')
-    if (d) return d
+    if (d) return d * 방향
   }
   if (!a.pnu !== !b.pnu) return a.pnu ? -1 : 1
   if (!a.pnu || !b.pnu) return 0
-  return 가나다.compare(a.jibun?.split(' ')[0] ?? '', b.jibun?.split(' ')[0] ?? '')
+  // 리 이름. 동 지역은 리가 없어 지번이 번지 하나뿐이다 — 그걸 리로 읽으면
+  // '106-1' 과 '13' 을 글자로 견줘 순서가 뒤집힌다.
+  const 리 = (r: Row) => (r.jibun?.includes(' ') ? r.jibun.split(' ')[0] : '')
+  const d = 가나다.compare(리(a), 리(b))
     || (a.pnu.slice(10) < b.pnu.slice(10) ? -1 : a.pnu.slice(10) > b.pnu.slice(10) ? 1 : 0)
+  return d * 방향
 }
 
 /**
@@ -571,7 +578,9 @@ export default function CollectPage() {
       set면적조건(담긴것?.면적 ?? { 최소: '', 최대: '' })
       set가격조건(담긴것?.가격 ?? { 최소: '', 최대: '' })
       set월세조건(담긴것?.월세 ?? { 최소: '', 최대: '' })
-      set층(담긴것?.층 ?? []); setSort(담긴것?.sort ?? 'date')
+      set층(담긴것?.층 ?? [])
+      // 이름을 바꾼 정렬(지번순 → 지번 오름차순)이 담겨 있으면 최신순으로 돌린다.
+      setSort(Object.values(SORTS).includes(담긴것?.sort) ? 담긴것!.sort : 'date')
       set조건열림(담긴것?.열림 ?? false)
     } catch { /* 시크릿 모드 등 저장이 막힌 환경 */ }
   }, [source, 저장열쇠])
@@ -977,7 +986,7 @@ export default function CollectPage() {
    */
   const sorted = useMemo(() => {
     if (sort === 'date') return filtered
-    if (sort === 'jibun') return [...filtered].sort(지번견주기)
+    if (sort.startsWith('jibun')) return [...filtered].sort((a, b) => 지번견주기(a, b, sort === 'jibun_desc'))
     const 잣대 = sort.startsWith('area') ? 대표면적평 : 대표가격
     const 내림 = sort.endsWith('desc')
     return [...filtered].sort((a, b) => {
@@ -1024,7 +1033,7 @@ export default function CollectPage() {
     if (sort === 'date') return null
     if (sort.startsWith('price') && !거래하나) return '매매·전세·월세가 섞여 있습니다'
     if (sort.startsWith('area') && kinds.length !== 1) return '종류마다 재는 면적이 다릅니다'
-    if (sort === 'jibun' && !(kinds.length === 1 && kinds[0] === '공장/창고')) {
+    if (sort.startsWith('jibun') && !(kinds.length === 1 && kinds[0] === '공장/창고')) {
       return '지번은 공장/창고만 받아 둡니다 — 나머지는 동 이름순'
     }
     return null
@@ -1366,7 +1375,7 @@ export default function CollectPage() {
                            dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
               >
                 {/* 지번은 네이버에서만 받는다. 당근은 동까지만 준다. */}
-                {Object.entries(SORTS).filter(([, key]) => key !== 'jibun' || source === 'naver').map(([name, key]) => (
+                {Object.entries(SORTS).filter(([, key]) => !key.startsWith('jibun') || source === 'naver').map(([name, key]) => (
                   <option key={key} value={key}>{name}</option>
                 ))}
               </select>
