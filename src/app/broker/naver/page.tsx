@@ -82,6 +82,8 @@ type Row = {
   price_rent: number | null
   /** 리 + 번지 ("동암리 346-1"). 네이버 공장/창고만 받아 둔다. */
   jibun: string | null
+  /** 필지번호. 지번순으로 세울 때 번지를 숫자로 견주려고 쥔다. */
+  pnu: string | null
   /** 중개사가 주소를 숨긴 매물. 지번은 보이지만 광고에 쓰면 안 된다. 모르면 null. */
   address_hidden: boolean | null
 }
@@ -167,6 +169,7 @@ const SOURCES = {
       shown_date: a.exposure_start_date,
       floor_info: a.floor_info,
       jibun: 지번글(a.li, a.pnu),
+      pnu: a.pnu,
       address_hidden: a.address_hidden,
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
@@ -217,6 +220,7 @@ const SOURCES = {
       floor_info: a.floor_info,
       // 당근은 동까지만 준다.
       jibun: null,
+      pnu: null,
       address_hidden: null,
       first_seen_at: a.first_seen_at,
       last_seen_at: a.last_seen_at,
@@ -372,8 +376,29 @@ const SORTS = {
   '면적 좁은 순': 'area_asc',
   '가격 높은 순': 'price_desc',
   '가격 낮은 순': 'price_asc',
+  지번순: 'jibun',
 } as const
 type SortKey = (typeof SORTS)[keyof typeof SORTS]
+
+const 가나다 = new Intl.Collator('ko')
+
+/**
+ * 지번순 — 구 → 읍면동 → 리는 이름순, 그 안에서 번지는 숫자순.
+ *
+ * 같은 필지를 여러 중개사가 올린 것이 나란히 붙는다. 번지는 PNU 의 뒤 9자리
+ * (산 1 + 본번 4 + 부번 4)가 0으로 채워져 있어 글자로 견줘도 숫자순이 된다.
+ * 지번이 없는 매물(공장/창고 말고는 안 받는다)은 같은 동 안에서 뒤로 간다.
+ */
+function 지번견주기(a: Row, b: Row): number {
+  for (const k of ['division', 'sector'] as const) {
+    const d = 가나다.compare(a[k] ?? '', b[k] ?? '')
+    if (d) return d
+  }
+  if (!a.pnu !== !b.pnu) return a.pnu ? -1 : 1
+  if (!a.pnu || !b.pnu) return 0
+  return 가나다.compare(a.jibun?.split(' ')[0] ?? '', b.jibun?.split(' ')[0] ?? '')
+    || (a.pnu.slice(10) < b.pnu.slice(10) ? -1 : a.pnu.slice(10) > b.pnu.slice(10) ? 1 : 0)
+}
 
 /**
  * 최소~최대 입력 한 쌍.
@@ -952,6 +977,7 @@ export default function CollectPage() {
    */
   const sorted = useMemo(() => {
     if (sort === 'date') return filtered
+    if (sort === 'jibun') return [...filtered].sort(지번견주기)
     const 잣대 = sort.startsWith('area') ? 대표면적평 : 대표가격
     const 내림 = sort.endsWith('desc')
     return [...filtered].sort((a, b) => {
@@ -998,6 +1024,9 @@ export default function CollectPage() {
     if (sort === 'date') return null
     if (sort.startsWith('price') && !거래하나) return '매매·전세·월세가 섞여 있습니다'
     if (sort.startsWith('area') && kinds.length !== 1) return '종류마다 재는 면적이 다릅니다'
+    if (sort === 'jibun' && !(kinds.length === 1 && kinds[0] === '공장/창고')) {
+      return '지번은 공장/창고만 받아 둡니다 — 나머지는 동 이름순'
+    }
     return null
   }, [sort, 거래하나, kinds])
 
@@ -1336,7 +1365,8 @@ export default function CollectPage() {
                            text-gray-700 focus:border-blue-500 focus:outline-none
                            dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
               >
-                {Object.entries(SORTS).map(([name, key]) => (
+                {/* 지번은 네이버에서만 받는다. 당근은 동까지만 준다. */}
+                {Object.entries(SORTS).filter(([, key]) => key !== 'jibun' || source === 'naver').map(([name, key]) => (
                   <option key={key} value={key}>{name}</option>
                 ))}
               </select>
