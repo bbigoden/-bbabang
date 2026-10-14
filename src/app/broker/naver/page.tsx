@@ -7,7 +7,6 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
-import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useToast } from '@/components/toast'
 import { Radar, ChevronDown, Download } from 'lucide-react'
 import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf } from '@/lib/naver-land'
@@ -134,16 +133,16 @@ const DEFAULT_SETTINGS: Settings = { hide_own: false, track_gone: false, own_nam
 const SOURCES = {
   naver: {
     label: '네이버',
-    table: 'naver_articles',
+    // 표·날짜 칸·종류 칸은 collect_listings 가 곳마다 정한다. 여기를 바꾸면 거기도.
     views: 'naver_article_views',
     jobKind: 'naver',
     /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
     takes: '5~8분',
-    columns: 'article_no, real_estate_type, trade_type, division, sector, brokerage_name, exposure_start_date, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent, floor_info, pnu, li, address_hidden' as string,
+    /** 받을 칸. collect_listings 가 이 차례대로 배열에 담아 준다. */
+    columns: ['article_no', 'real_estate_type', 'trade_type', 'division', 'sector', 'brokerage_name', 'exposure_start_date', 'first_seen_at', 'last_seen_at', 'gone_at', 'area_exclusive', 'area_supply', 'area_land', 'area_floor', 'price_deal', 'price_deposit', 'price_rent', 'floor_info', 'pnu', 'li', 'address_hidden'] as readonly string[],
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
-    kindColumn: 'real_estate_type',
     /**
      * 이게 끼면 기간을 7일로 막는 종류. 네이버 상가는 하루 500건 가까이 올라온다 —
      * 다음이 토지 130건, 공장/창고 90건이고 나머지는 30건이 안 된다.
@@ -151,13 +150,10 @@ const SOURCES = {
     붐비는종류: ['상가'] as readonly string[],
     trades: TRADE_TYPES as Record<string, string>,
     /**
-     * 기간을 자르는 칸.
-     *
-     * 네이버는 광고 노출 시작일을 주므로 그것으로 자른다. 그 날짜는 재등록하면
+     * 기간은 광고 노출 시작일(exposure_start_date)로 자른다. 그 날짜는 재등록하면
      * 갱신되지만, 그래도 '언제부터 걸려 있는 광고인가' 는 그 값이 맞다.
+     * 날짜만 담는 칸이라 '2026-09-05' 를 그대로 견줘도 된다.
      */
-    dateColumn: 'exposure_start_date',
-    /** 날짜만 담는 칸이라 '2026-09-05' 를 그대로 견줘도 된다. */
     dateIsTimestamp: false,
     link: (no: string) => `https://fin.land.naver.com/articles/${no}`,
     toRow: (a: any): Row => ({
@@ -186,24 +182,20 @@ const SOURCES = {
   },
   daangn: {
     label: '당근',
-    table: 'daangn_articles',
     views: 'daangn_article_views',
     jobKind: 'daangn',
     /** 실측 346초. 우리 지역 아닌 동을 첫 쪽에서 접기 전에는 460초였다. */
     takes: '6~9분',
-    columns: 'article_no, sales_type, trade_type, division, sector, writer_name, first_seen_at, last_seen_at, gone_at, area_exclusive, area_supply, area_land, area_floor, price_deal, price_deposit, price_rent, floor_info' as string,
+    columns: ['article_no', 'sales_type', 'trade_type', 'division', 'sector', 'writer_name', 'first_seen_at', 'last_seen_at', 'gone_at', 'area_exclusive', 'area_supply', 'area_land', 'area_floor', 'price_deal', 'price_deposit', 'price_rent', 'floor_info'] as readonly string[],
     kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
     kindOf: daangnKindOf,
-    kindColumn: 'sales_type',
     /** 당근은 종류를 다 합쳐도 하루 수십 건이라 늘 30일까지 본다. */
     붐비는종류: [] as readonly string[],
     trades: DAANGN_TRADES as Record<string, string>,
     /**
      * **당근은 날짜를 안 준다.** 응답에 등록일·수정일이 아예 없다. 그래서 우리가
-     * 처음 받은 날로 자르고, 목록에도 그 날짜를 적는다.
-     */
-    dateColumn: 'first_seen_at',
-    /**
+     * 처음 받은 날(first_seen_at)로 자르고, 목록에도 그 날짜를 적는다.
+     *
      * 시각까지 담는 칸이다. 날짜 글자를 그대로 견주면 세계표준시 0시로 읽혀
      * 한국 날짜와 아홉 시간 어긋난다 — 아침에 받은 매물이 어제로 밀린다.
      */
@@ -519,8 +511,8 @@ export default function CollectPage() {
   /**
    * 볼 기간 — 달력에서 직접 고른다. 자주 쓰는 것은 위 칩으로 한 번에 잡는다.
    *
-   * `from`/`to` 라고 안 쓴 것은 아래 `fetchAllPaged` 의 쪽 번호(from, to)와 이름이
-   * 겹쳐서다. 한 화면 안에서 같은 이름이 다른 뜻으로 두 번 나오면 반드시 헷갈린다.
+   * `from`/`to` 라고 안 쓴 것은 받기 인자(p_from, p_to)와 헷갈리지 않게 하려는 것이다.
+   * 한 화면 안에서 같은 이름이 다른 뜻으로 두 번 나오면 반드시 헷갈린다.
    */
   const [첫날, set첫날] = useState<string>(() => addDays(todayKST(), -2))
   const [끝날, set끝날] = useState<string>(() => todayKST())
@@ -599,13 +591,26 @@ export default function CollectPage() {
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
 
   /**
+   * 마지막으로 건 받기의 차례. 응답이 왔을 때 이것과 다르면 그 사이 조건이나 탭이
+   * 바뀐 것이라 버린다 — 늦게 온 네이버 응답이 당근 탭에 깔리던 일을 막는다.
+   */
+  const 받기차례 = useRef(0)
+
+  /**
    * 고른 기간의 매물을 받는다.
    *
    * **기간을 서버에서 자른다.** 하루에 천 건 넘게 올라오는 동네라 표 전체를 받으면
-   * 금세 만 건이 넘는다. 그리고 PostgREST 는 한 번에 1000행만 주고 나머지를
-   * 말없이 자르므로(실제로 3781건 중 1000건만 보였다) 반드시 이어받아야 한다.
+   * 금세 만 건이 넘는다.
+   *
+   * **한 번에 받는다.** PostgREST 는 한 번에 1000행만 주므로 전에는 이어받았는데,
+   * 30일이면 요청 14번이 차례로 돌아 폰에서 왕복만 몇 초였다. collect_listings 는
+   * 값 하나(json)로 돌려줘 그 제한에 안 걸리고, 행을 배열로 담아 크기도 반 아래다.
+   * 본 기록도 같은 호출에서 이 매물들 것만 붙여 온다 — '나' 는 서버가 로그인한
+   * 사람으로 센다. 화면이 세면 새로고침 직후 사용자 정보가 차기 전이라 0 이 되고,
+   * 그 상태로 누르면 내 횟수가 1 로 덮어써졌다.
    */
   const load = useCallback(async () => {
+    const 차례 = ++받기차례.current
     setLoading(true)
     const s = SOURCES[source]
     // 종류는 받을 때 거른다. 상가를 빼면 30일까지 보는데, 거르지 않고 받으면 그
@@ -613,41 +618,23 @@ export default function CollectPage() {
     // 종류 이름이 남아 있으면(탭을 막 바꾼 때) 코드가 안 나오니 거르지 않는다.
     const 종류코드 = 종류열쇠 ? 종류열쇠.split(',').flatMap(k => s.kinds[k] ?? []) : []
     try {
-      const [arts, views] = await Promise.all([
-        fetchAllPaged<any>((from, to) => {
-          let q = supabase.from(s.table).select(s.columns)
-            .gte(s.dateColumn, 경계(보는첫날, s.dateIsTimestamp))
-          if (종류코드.length) q = q.in(s.kindColumn, 종류코드)
-          // 끝날이 오늘이면 위를 막지 않는다. 막으면 날짜가 앞선 매물이 조용히
-          // 빠지는데, 지금까지 보이던 것이 안 보이게 되는 셈이다.
-          if (끝날 < todayKST()) q = q.lt(s.dateColumn, 경계(다음날(끝날), s.dateIsTimestamp))
-          return q
-            .order(s.dateColumn, { ascending: false })
-            // 매물번호로 순서를 못박는다. 날짜만으로는 같은 값이 수백 건이라
-            // 나눠 받는 사이에 순서가 흔들려 중복·누락이 난다.
-            .order('article_no', { ascending: false })
-            .range(from, to)
-        }),
-        // 본 기록은 계속 쌓이므로 **고른 기간에 맞춰** 받는다. 오늘부터 세면 지난달
-        // 기간을 고를 때 본 것이 전부 안 본 것이 된다. 매물이 들어온 뒤에야 볼 수 있지만,
-        // 네이버는 노출일이 다시 잡히기도 해서 첫날보다 30일 앞에서부터 받는다.
-        // 사무소 사람 전체의 기록을 받는다 (권한이 사무소 단위로 열려 있다).
-        fetchAllPaged<{ article_no: string; view_count: number; user_id: string }>((from, to) =>
-          supabase.from(s.views).select('article_no, view_count, user_id')
-            .gte('seen_at', 경계(addDays(보는첫날, -30), true))
-            .order('seen_at', { ascending: false })
-            .range(from, to)),
-      ])
+      const { data, error } = await supabase.rpc('collect_listings', {
+        p_source: source,
+        p_columns: s.columns,
+        p_from: 경계(보는첫날, s.dateIsTimestamp),
+        // 끝날이 오늘이면 위를 막지 않는다. 막으면 날짜가 앞선 매물이 조용히
+        // 빠지는데, 지금까지 보이던 것이 안 보이게 되는 셈이다.
+        p_to: 끝날 < todayKST() ? 경계(다음날(끝날), s.dateIsTimestamp) : null,
+        p_kinds: 종류코드.length ? 종류코드 : null,
+      })
+      if (차례 !== 받기차례.current) return
+      if (error) throw new Error(error.message)
+      const 받은것 = data as { rows: unknown[][]; views: [string, number, number][] }
       setError(null)
-      setRows(arts.map(s.toRow))
-      const 셈 = new Map<string, { 나: number; 사무소: number }>()
-      for (const v of views) {
-        const 전 = 셈.get(v.article_no) ?? { 나: 0, 사무소: 0 }
-        const n = v.view_count ?? 1
-        셈.set(v.article_no, { 나: 전.나 + (v.user_id === auth.user?.id ? n : 0), 사무소: 전.사무소 + n })
-      }
-      setSeen(셈)
+      setRows(받은것.rows.map(값 => s.toRow(Object.fromEntries(s.columns.map((칸, i) => [칸, 값[i]])))))
+      setSeen(new Map(받은것.views.map(([no, 나, 사무소]) => [no, { 나, 사무소 }])))
     } catch (e) {
+      if (차례 !== 받기차례.current) return
       setError(e instanceof Error ? e.message : '알 수 없는 오류')
     }
     setLoading(false)
