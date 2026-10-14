@@ -71,6 +71,11 @@ interface Property {
   lng: number | null
 }
 
+// 지도 뷰 행 — map_office_properties 가 핀·우측 패널·[목록에서 열기]에 쓰는 칸만 준다
+type MapRow = Pick<Property,
+  'id' | 'seq_no' | 'address' | 'deal_type' | 'room_type' | 'status' | 'price' | 'monthly_rent'
+  | 'size_pyeong' | 'floor' | 'total_floors' | 'brief_memo' | 'images' | 'lat' | 'lng'>
+
 interface CustomColumn {
   id: string
   name: string
@@ -107,6 +112,55 @@ const DEAL_TYPE_COLOR_MAP: Record<string, string> = {
 // 지도용 거래형태 hex 색
 const DEAL_TYPE_HEX_MAP: Record<string, string> = {
   매매: '#14274e', 전세: '#7c3aed', 월세: '#ea580c', 분양: '#db2777', 분양권: '#e11d48',
+}
+
+// 범위 필터 디바운스 초기값 — 디바운스가 만드는 것과 같은 모양으로 시작해야
+// 진입 300ms 뒤 첫 디바운스가 "같은 값"으로 걸러져 목록 RPC 가 두 번 나가지 않는다
+const EMPTY_RANGES: Record<string, number | null> = {
+  priceMin: null, priceMax: null, rentMin: null, rentMax: null,
+  pyeongMin: null, pyeongMax: null, floorMin: null, floorMax: null,
+}
+
+// 지도에서 좌표를 못 찾은 주소(정규화) → 기록 시각(ms). '지시푸 507-1504' 같은 엉터리 주소
+// ~70건을 지도 열 때마다 다시 묻느라 분당 상한(60회)까지 먹었다 — 7일간 건너뛴다.
+// 주소를 고치면 정규화 키가 바뀌어 다시 묻는다. 저장소가 막혀도 매번 다시 물을 뿐.
+const GEOCODE_FAIL_KEY = 'bbabang_geocode_fail'
+const GEOCODE_FAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000
+/** 지도 데이터를 다시 받지 않고 쓰는 시간. 지도↔목록을 오가는 동안만 아낀다. */
+const MAP_REUSE_MS = 3 * 60 * 1000
+function loadGeocodeFails(): Record<string, number> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GEOCODE_FAIL_KEY) || '{}')
+    const now = Date.now()
+    const fresh: Record<string, number> = {}
+    for (const [k, t] of Object.entries(raw)) {
+      if (typeof t === 'number' && now - t < GEOCODE_FAIL_TTL_MS) fresh[k] = t
+    }
+    return fresh
+  } catch {
+    return {}
+  }
+}
+function saveGeocodeFails(fails: Record<string, number>) {
+  try { localStorage.setItem(GEOCODE_FAIL_KEY, JSON.stringify(fails)) } catch { /* 기억 못 해도 다음에 다시 물을 뿐 */ }
+}
+
+// 지도 배경 지오코딩 — '못 찾는 주소'(200 + lat null)와 일시 오류(429 분당 상한·502·네트워크)를 가른다.
+// geocodeAddress 는 둘 다 null 이라, 그대로 쓰면 멀쩡한 주소가 한 번 막혔다고 7일 빠진다.
+async function geocodeForMap(address: string): Promise<{ lat: number; lng: number } | null | 'error'> {
+  try {
+    const res = await fetch('/api/geocode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    })
+    if (!res.ok) return 'error'
+    const data = await res.json()
+    if (typeof data?.lat === 'number' && typeof data?.lng === 'number') return { lat: data.lat, lng: data.lng }
+    return null
+  } catch {
+    return 'error'
+  }
 }
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
@@ -1200,7 +1254,8 @@ function BrokerPropertiesContent() {
   const [officeAddress, setOfficeAddress] = useState<string | null>(null)  // 지도 초기 중심용 사무소 주소
   const [totalCount, setTotalCount] = useState(0)   // 필터·검색 반영 총 건수
   const [allCount, setAllCount] = useState(0)       // 필터 무관 전체 건수 (헤더 표시)
-  const [mapRows, setMapRows] = useState<Property[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
+  const [mapRows, setMapRows] = useState<MapRow[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
+  const [mapLoading, setMapLoading] = useState(false)    // 지도 행 받는 중 (안 받았을 때 '매물 없음'이 먼저 뜨지 않게)
   const [canEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [isAdminView, setIsAdminView] = useState(false)
@@ -1236,15 +1291,19 @@ function BrokerPropertiesContent() {
   const [filterPyeongMax, setFilterPyeongMax] = useState('')
   const [filterFloorMin, setFilterFloorMin] = useState('')   // 층수
   const [filterFloorMax, setFilterFloorMax] = useState('')
-  const [debouncedRanges, setDebouncedRanges] = useState<Record<string, number | null>>({})
+  const [debouncedRanges, setDebouncedRanges] = useState<Record<string, number | null>>(EMPTY_RANGES)
   useEffect(() => {
     const num = (s: string) => { const n = parseFloat(s.replace(/,/g, '')); return isNaN(n) ? null : n }
-    const t = setTimeout(() => setDebouncedRanges({
-      priceMin: num(filterPriceMin), priceMax: num(filterPriceMax),
-      rentMin: num(filterRentMin), rentMax: num(filterRentMax),
-      pyeongMin: num(filterPyeongMin), pyeongMax: num(filterPyeongMax),
-      floorMin: num(filterFloorMin), floorMax: num(filterFloorMax),
-    }), 300)
+    const t = setTimeout(() => {
+      const next = {
+        priceMin: num(filterPriceMin), priceMax: num(filterPriceMax),
+        rentMin: num(filterRentMin), rentMax: num(filterRentMax),
+        pyeongMin: num(filterPyeongMin), pyeongMax: num(filterPyeongMax),
+        floorMin: num(filterFloorMin), floorMax: num(filterFloorMax),
+      }
+      // 값이 같으면 이전 객체 유지 — 새 객체면 rpcParams 가 다시 만들어져 같은 RPC 가 또 나간다
+      setDebouncedRanges(prev => JSON.stringify(prev) === JSON.stringify(next) ? prev : next)
+    }, 300)
     return () => clearTimeout(t)
   }, [filterPriceMin, filterPriceMax, filterRentMin, filterRentMax, filterPyeongMin, filterPyeongMax, filterFloorMin, filterFloorMax])
   // 활성 필터 개수 (버튼 배지·초기화 버튼 노출 판정) — 범위는 종류당 1개로 센다
@@ -1271,8 +1330,8 @@ function BrokerPropertiesContent() {
   const [pageSize, setPageSize] = usePageSize('properties')
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [isMapView, setIsMapView] = useState(false)
-  const { status: mapStatus, errorReason: mapErr, ready: mapReady } = useKakaoMapSdk()
-  const [geocoding, setGeocoding] = useState(false)
+  // 카카오 SDK(스크립트 4개)는 지도를 처음 열 때 받는다 — 목록만 보는 사람은 안 받는다
+  const { status: mapStatus, errorReason: mapErr, ready: mapReady } = useKakaoMapSdk(isMapView)
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])         // 카카오 Marker 인스턴스들
@@ -1280,9 +1339,10 @@ function BrokerPropertiesContent() {
   const myLocOverlayRef = useRef<any>(null)     // 현 위치 파란 점 오버레이
   const [jumpId, setJumpId] = useState<string | null>(null)  // 지도 패널 → 목록 이동 시 강조할 행
   // 지도 마커 클릭 시 우측 사이드바(네이버 부동산 식)에 표시할 매물 그룹
-  const [mapPanel, setMapPanel] = useState<{ address: string; items: Property[] } | null>(null)
+  const [mapPanel, setMapPanel] = useState<{ address: string; items: MapRow[] } | null>(null)
   // 카카오 geocoder 결과 캐시 (effect 재실행·검색 변경 시에도 유지) — OVER_QUERY_LIMIT 회피
   const geocodeCacheRef = useRef<Record<string, { lat: number; lng: number } | null>>({})
+  const savedCoordIdsRef = useRef<Set<string>>(new Set())
   const [addingId, setAddingId] = useState<string | null>(null)
   const [autoFillingId, setAutoFillingId] = useState<string | null>(null)
   const [autoFillToast, setAutoFillToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -1477,7 +1537,8 @@ function BrokerPropertiesContent() {
   // ── 서버 페이지네이션 — 현재 페이지 분량만 RPC로 조회 ──────────
   // 필터·검색·정렬·방향이 바뀔 때마다 해당 조건으로 서버에서 다시 받는다.
   // sortKey 없으면 등록순(direction: up=최신부터, down=오래된 것부터).
-  const rpcParams = useCallback((limit: number, offset: number) => ({
+  // 조건(페이지 제외)은 지도 RPC 도 그대로 쓴다 — 같은 순서여야 [목록에서 열기]가 페이지를 맞힌다.
+  const filterParams = useMemo(() => ({
     p_office: scopeState && 'office' in scopeState ? scopeState.office : null,
     p_broker_ids: scopeState && 'brokerIds' in scopeState ? scopeState.brokerIds : null,
     p_q: debouncedQuery || null,
@@ -1495,9 +1556,12 @@ function BrokerPropertiesContent() {
     p_floor_max: debouncedRanges.floorMax ?? null,
     p_sort_key: sortKey ?? 'created_at',
     p_sort_dir: sortKey ? sortDir : (direction === 'up' ? 'desc' : 'asc'),
-    p_limit: limit,
-    p_offset: offset,
   }), [scopeState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, sortKey, sortDir, direction])
+  const rpcParams = useCallback((limit: number, offset: number) => ({
+    ...filterParams, p_limit: limit, p_offset: offset,
+  }), [filterParams])
+  // 목록 행이 받아 온 배열 그대로인지 — 아니면 목록에서 고친 것 (아래 지도 데이터 무효화용)
+  const fetchedPageRef = useRef<Property[] | null>(null)
 
   useEffect(() => {
     if (!scopeState) return
@@ -1512,6 +1576,7 @@ function BrokerPropertiesContent() {
         return
       }
       const rows = (data ?? []).map((r: any) => r.data as Property)
+      fetchedPageRef.current = rows
       setProperties(rows)
       setTotalCount(Number(data?.[0]?.total_count ?? 0))
       setLoading(false)
@@ -1522,17 +1587,33 @@ function BrokerPropertiesContent() {
   }, [scopeState, page, pageSize, rpcParams])
 
   // ── 지도 뷰 데이터 — 지도를 열 때만 현재 필터의 전체 매물 로드 ──
+  // 목록 RPC(행 집합)로 받으면 PostgREST max-rows(1000)에 조용히 잘려 최신 1,000건만 핀이 찍혔다.
+  // map_office_properties 는 json 배열 하나라 안 잘리고, 칸도 지도가 읽는 것만 담는다.
+  // 같은 조건으로 방금 받았으면(지도↔목록 왕복, 같은 값으로 다시 만들어진 조건) 다시 안 받는다.
+  // 다만 몇 분까지만 — 폰은 하루 종일 켜 두는데, 그사이 다른 직원이 매물을 더하거나 지우면
+  // 핀 색이 낡고 [목록에서 열기]가 배열 순번으로 쪽을 셈해 엉뚱한 쪽을 연다.
+  const mapParamsKey = useMemo(() => JSON.stringify(filterParams), [filterParams])
+  const mapFetchedRef = useRef({ key: '', at: 0 })
   useEffect(() => {
     if (!isMapView || !scopeState) return
+    const 받은것 = mapFetchedRef.current
+    if (받은것.key === mapParamsKey && Date.now() - 받은것.at < MAP_REUSE_MS) return
     let cancelled = false
+    setMapLoading(true)
     ;(async () => {
-      const { data, error } = await supabase.rpc('search_office_properties', rpcParams(10000, 0))
+      const { data, error } = await supabase.rpc('map_office_properties', filterParams)
       if (cancelled) return
+      setMapLoading(false)
       if (error) { console.error('[properties] map fetch failed', error); return }
-      setMapRows((data ?? []).map((r: any) => r.data as Property))
+      mapFetchedRef.current = { key: mapParamsKey, at: Date.now() }
+      setMapRows((data ?? []) as MapRow[])
     })()
-    return () => { cancelled = true }
-  }, [isMapView, scopeState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, rpcParams])
+    return () => { cancelled = true; setMapLoading(false) }
+  }, [isMapView, scopeState, filterParams, mapParamsKey])
+  // 목록에서 고치거나 추가·삭제하면 받아 둔 지도 데이터는 낡았다 — 다음에 지도를 열 때 다시 받는다
+  useEffect(() => {
+    if (properties !== fetchedPageRef.current) mapFetchedRef.current = { key: '', at: 0 }
+  }, [properties])
 
   // 단일 필드 저장 (optimistic UI + 실패 시 롤백)
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
@@ -1856,8 +1937,9 @@ function BrokerPropertiesContent() {
         // 매물 없는 신규 사무소도 자기 동네에서 시작해야 한다 (지오코딩 실패 시 폴백 유지)
         if (officeAddress) {
           // JS SDK addressSearch는 라이브에서 CORS로 실패 — 매물 좌표와 동일하게 /api/geocode 사용
+          // 핀이 먼저 꽂혀 화면을 맞췄으면 건드리지 않는다 (이제 핀을 기다림 없이 바로 꽂으므로 이 응답이 더 늦을 수 있다)
           geocodeAddress(officeAddress).then(coords => {
-            if (coords && mapInstanceRef.current) {
+            if (coords && mapInstanceRef.current && markersRef.current.length === 0) {
               mapInstanceRef.current.setCenter(new kakao.maps.LatLng(coords.lat, coords.lng))
             }
           })
@@ -1894,9 +1976,8 @@ function BrokerPropertiesContent() {
       markersRef.current = []
 
       const targets = mapRows.filter(p => p.address)
-      if (targets.length === 0) { setGeocoding(false); return }
+      if (targets.length === 0) return
 
-      setGeocoding(true)
       // 거래형태가 "매매, 월세" 같은 멀티면 첫 번째 값 기준 색
       const pickPrimaryDeal = (d: string) => (d ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
 
@@ -1908,7 +1989,7 @@ function BrokerPropertiesContent() {
         }
         return v.toLocaleString() + '만'
       }
-      const fmtPrice = (p: Property) => {
+      const fmtPrice = (p: MapRow) => {
         const isWolse = (p.deal_type ?? '').includes('월세')
         if (isWolse) {
           // 월세: 보증금/월세 형식 (예: "500/60만")
@@ -1952,144 +2033,182 @@ function BrokerPropertiesContent() {
         return r.replace(/\s+/g, ' ').trim()
       }
 
-      // 1차: 모든 매물의 좌표를 먼저 모음 (그룹화하기 위해)
-      type Geocoded = { prop: Property; lat: number; lng: number }
-      const geocoded: Geocoded[] = []
-      let done = 0
+      // 같은 좌표(소수 5자리 ≈ 1m 정밀도) 매물을 한 핀으로 묶는다 — 같은 건물의 다른 호수는
+      // 카카오 geocoder가 동일 좌표를 반환하므로 마커가 겹쳐 1개만 보이는 문제 발생
+      type Geocoded = { prop: MapRow; lat: number; lng: number }
+      const groups: Record<string, { list: Geocoded[]; marker: any }> = {}
+      const groupKey = (lat: number, lng: number) => `${lat.toFixed(5)}_${lng.toFixed(5)}`
 
-      const buildAllMarkers = () => {
-        if (cancelled) return
-        setGeocoding(false)
+      // 그룹 하나 → 핀 하나
+      const makeMarker = (group: Geocoded[]) => {
+        const pos = new kakao.maps.LatLng(group[0].lat, group[0].lng)
 
-        // 같은 좌표(소수 5자리 ≈ 1m 정밀도) 매물을 그룹화 — 같은 건물의 다른 호수는
-        // 카카오 geocoder가 동일 좌표를 반환하므로 마커가 겹쳐 1개만 보이는 문제 발생
-        const groups: Record<string, Geocoded[]> = {}
-        geocoded.forEach(g => {
-          const key = `${g.lat.toFixed(5)}_${g.lng.toFixed(5)}`
-          if (!groups[key]) groups[key] = []
-          groups[key].push(g)
-        })
-
-        const newMarkers: any[] = []
-        const bounds = new kakao.maps.LatLngBounds()
-
-        Object.values(groups).forEach(group => {
-          const pos = new kakao.maps.LatLng(group[0].lat, group[0].lng)
-          bounds.extend(pos)
-
-          // 마커 아이콘: 단일=색깔 pill / 그룹=검정 카운트 pill
-          let icon: { url: string; width: number; height: number }
-          if (group.length === 1) {
-            const g = group[0]
-            const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
-            // 계약완료 매물은 회색 핀 — 지도만 보고 안내해도 가능/완료가 구분되게
-            const color = g.prop.status === 'contracted' ? '#9ca3af' : (DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151')
-            icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
-          } else {
-            icon = makeGroupPillIcon(group.length)
-          }
-          const markerImage = new kakao.maps.MarkerImage(
-            icon.url,
-            new kakao.maps.Size(icon.width, icon.height),
-            { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
-          )
-          const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
-          newMarkers.push(marker)
-
-          // 클릭 시 React 우측 사이드바 패널에 매물 리스트 표시
-          // 헤더 주소는 동·호수 제거한 건물 단위 (group 매물이 같은 건물 다른 호수일 때 정확)
-          const addr = group.length > 1
-            ? normalizeAddr(group[0].prop.address ?? '')
-            : (group[0].prop.address ?? '')
-          // 같은 건물 다호수는 동(문자)·호수(숫자) 오름차순으로 — 등록순이면 호수가 뒤죽박죽
-          const unitOf = (a: string) => {
-            const ho = a.match(/(\d+)[0-9\-]*호\s*$/)
-            const dong = a.match(/([0-9A-Za-z\-]+)동\s*\S*호\s*$/)
-            return { dong: dong?.[1] ?? '', ho: ho ? parseInt(ho[1], 10) : Number.MAX_SAFE_INTEGER }
-          }
-          const items = group.map(g => g.prop).sort((x, y) => {
-            const ux = unitOf(x.address ?? ''), uy = unitOf(y.address ?? '')
-            return ux.dong.localeCompare(uy.dong) || ux.ho - uy.ho
-          })
-          kakao.maps.event.addListener(marker, 'click', () => {
-            setMapPanel({ address: addr, items })
-          })
-        })
-
-        clustererRef.current.addMarkers(newMarkers)
-        markersRef.current = newMarkers
-        if (newMarkers.length > 0) {
-          if (newMarkers.length === 1) {
-            // 줌 3으로 줌인 — clusterer minLevel(4)과 충돌 방지
-            map.setLevel(3)
-            map.setCenter(newMarkers[0].getPosition())
-          } else {
-            map.setBounds(bounds)
-          }
-          // 컨테이너 사이즈 변경 직후 타일 누락 방지 — relayout + 한 번 더 중심 보정
-          requestAnimationFrame(() => {
-            map.relayout()
-            if (newMarkers.length === 1) map.setCenter(newMarkers[0].getPosition())
-            else map.setBounds(bounds)
-          })
+        // 마커 아이콘: 단일=색깔 pill / 그룹=검정 카운트 pill
+        let icon: { url: string; width: number; height: number }
+        if (group.length === 1) {
+          const g = group[0]
+          const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
+          // 계약완료 매물은 회색 핀 — 지도만 보고 안내해도 가능/완료가 구분되게
+          const color = g.prop.status === 'contracted' ? '#9ca3af' : (DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151')
+          icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
+        } else {
+          icon = makeGroupPillIcon(group.length)
         }
+        const markerImage = new kakao.maps.MarkerImage(
+          icon.url,
+          new kakao.maps.Size(icon.width, icon.height),
+          { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
+        )
+        const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
+
+        // 클릭 시 React 우측 사이드바 패널에 매물 리스트 표시
+        // 헤더 주소는 동·호수 제거한 건물 단위 (group 매물이 같은 건물 다른 호수일 때 정확)
+        const addr = group.length > 1
+          ? normalizeAddr(group[0].prop.address ?? '')
+          : (group[0].prop.address ?? '')
+        // 같은 건물 다호수는 동(문자)·호수(숫자) 오름차순으로 — 등록순이면 호수가 뒤죽박죽
+        const unitOf = (a: string) => {
+          const ho = a.match(/(\d+)[0-9\-]*호\s*$/)
+          const dong = a.match(/([0-9A-Za-z\-]+)동\s*\S*호\s*$/)
+          return { dong: dong?.[1] ?? '', ho: ho ? parseInt(ho[1], 10) : Number.MAX_SAFE_INTEGER }
+        }
+        const items = group.map(g => g.prop).sort((x, y) => {
+          const ux = unitOf(x.address ?? ''), uy = unitOf(y.address ?? '')
+          return ux.dong.localeCompare(uy.dong) || ux.ho - uy.ho
+        })
+        kakao.maps.event.addListener(marker, 'click', () => {
+          setMapPanel({ address: addr, items })
+        })
+        return marker
       }
 
-      // 1) DB에 lat/lng가 이미 있으면 카카오 호출 없이 즉시 마커 — 백필·등록·자동채움 시 채워짐.
-      // 2) 없는 매물만 카카오 JS geocoder 호출 (백필 누락·신규 등록 직후 등) → 성공 시 DB에 저장.
-      // 동시 호출 수 제한으로 OVER_QUERY_LIMIT 회피.
+      // 핀 전체가 보이게 맞춘다
+      const fitToMarkers = () => {
+        const markers = [...markersRef.current]
+        if (markers.length === 0) return
+        const bounds = new kakao.maps.LatLngBounds()
+        markers.forEach(m => bounds.extend(m.getPosition()))
+        if (markers.length === 1) {
+          // 줌 3으로 줌인 — clusterer minLevel(4)과 충돌 방지
+          map.setLevel(3)
+          map.setCenter(markers[0].getPosition())
+        } else {
+          map.setBounds(bounds)
+        }
+        // 컨테이너 사이즈 변경 직후 타일 누락 방지 — relayout + 한 번 더 중심 보정
+        requestAnimationFrame(() => {
+          if (cancelled) return
+          map.relayout()
+          if (markers.length === 1) map.setCenter(markers[0].getPosition())
+          else map.setBounds(bounds)
+        })
+      }
+
+      // DB에도 저장 — 다음 지도 로드부터는 카카오 호출 안 함 (then 을 불러야 요청이 나간다)
+      // 받아 둔 지도 데이터는 lat 이 빈 채 다시 쓰이므로, 한 번 저장한 매물은 다시 안 쓴다.
+      const saveCoords = (prop: MapRow, coords: { lat: number; lng: number }) => {
+        if (savedCoordIdsRef.current.has(prop.id)) return
+        savedCoordIdsRef.current.add(prop.id)
+        void supabase.from('broker_properties').update({ lat: coords.lat, lng: coords.lng }).eq('id', prop.id).then(() => {})
+      }
+
+      // 1) 좌표를 아는 매물로 바로 핀을 꽂는다 — DB lat/lng(백필·등록·자동채움 시 채워짐)
+      //    또는 이번 화면에서 이미 찾아 둔 주소(geocodeCacheRef).
+      // 2) 나머지는 지도를 막지 않고 뒤에서 /api/geocode — 찾는 대로 기존 클러스터에 더한다.
+      //    예전엔 전부 끝나야 핀을 그려서, 매번 실패하는 엉터리 주소 ~70건 때문에 몇 초씩 빈 지도였다.
       const cache = geocodeCacheRef.current
-      const needsGeocode: Property[] = []
+      const fails = loadGeocodeFails()
+      const needsGeocode: Record<string, MapRow[]> = {}  // 정규화 주소 → 매물들 (같은 건물은 한 번만 묻는다)
+      const addToGroup = (g: Geocoded) => {
+        const key = groupKey(g.lat, g.lng)
+        if (!groups[key]) groups[key] = { list: [], marker: null }
+        groups[key].list.push(g)
+      }
       for (const prop of targets) {
         if (prop.lat != null && prop.lng != null) {
-          geocoded.push({ prop, lat: prop.lat, lng: prop.lng })
-          done++
-        } else {
-          needsGeocode.push(prop)
+          addToGroup({ prop, lat: prop.lat, lng: prop.lng })
+          continue
+        }
+        const key = normalizeAddr(prop.address)
+        if (key in cache) {
+          const coords = cache[key]
+          if (coords) {
+            addToGroup({ prop, lat: coords.lat, lng: coords.lng })
+            saveCoords(prop, coords)
+          }
+        } else if (!(key in fails)) {
+          if (!needsGeocode[key]) needsGeocode[key] = []
+          needsGeocode[key].push(prop)
         }
       }
-      // 모두 DB 좌표면 즉시 렌더
-      if (needsGeocode.length === 0) {
-        buildAllMarkers()
-        return
+
+      const clusterer = clustererRef.current
+      for (const grp of Object.values(groups)) {
+        grp.marker = makeMarker(grp.list)
+        markersRef.current.push(grp.marker)
+      }
+      clusterer.addMarkers(markersRef.current)
+      fitToMarkers()
+      const fittedInitially = markersRef.current.length > 0
+
+      // 뒤늦게 찾은 매물(같은 좌표들)을 클러스터에 더한다 — 그 좌표 핀만 새로 만들어 갈아 끼우고,
+      // 다시 묶기(redraw)는 한 프레임에 한 번. 전체 핀(~1,900개)을 다시 만들지 않는다.
+      let redrawQueued = false
+      const addLate = (found: Geocoded[]) => {
+        const key = groupKey(found[0].lat, found[0].lng)
+        const old = groups[key]?.marker ?? null
+        found.forEach(addToGroup)
+        const grp = groups[key]
+        grp.marker = makeMarker(grp.list)
+        if (old) {
+          clusterer.removeMarker(old, true)
+          markersRef.current[markersRef.current.indexOf(old)] = grp.marker
+        } else {
+          markersRef.current.push(grp.marker)
+        }
+        clusterer.addMarker(grp.marker, true)
+        if (!redrawQueued) {
+          redrawQueued = true
+          requestAnimationFrame(() => {
+            redrawQueued = false
+            if (!cancelled) clusterer.redraw()
+          })
+        }
       }
 
+      // 동시 호출 수 제한 — /api/geocode 는 분당 60회 상한
+      const queue = Object.keys(needsGeocode)
       const CONCURRENT = 4
       let inFlight = 0
       let cursor = 0
 
-      const finalize = (prop: Property, coords: { lat: number; lng: number } | null) => {
-        done++
-        if (coords) {
-          geocoded.push({ prop, lat: coords.lat, lng: coords.lng })
-          // DB에도 비동기로 저장 — 다음 지도 로드부터는 카카오 호출 안 함
-          supabase.from('broker_properties').update({ lat: coords.lat, lng: coords.lng }).eq('id', prop.id).then(() => {
-            setMapRows(prev => prev.map(p => p.id === prop.id ? { ...p, lat: coords.lat, lng: coords.lng } : p))
-          })
-        }
-        if (done === targets.length) buildAllMarkers()
-        else schedule()
-      }
-
-      // 카카오 JS geocoder는 라이브에서 CORS로 전부 실패(콘솔 에러 폭주)했음 —
-      // 서버 라우트 /api/geocode(REST 키, 동일 정규화)로 대체. 실패해도 조용히 null.
-      const processOne = (prop: Property) => {
-        const key = normalizeAddr(prop.address!)
-        if (key in cache) {
-          finalize(prop, cache[key])
-          return
-        }
+      const processOne = (key: string) => {
         inFlight++
-        geocodeAddress(prop.address!).then(coords => {
+        geocodeForMap(needsGeocode[key][0].address).then(coords => {
           inFlight--
-          cache[key] = coords
-          finalize(prop, coords)
+          // 일시 오류(분당 상한 등)는 캐시·기억하지 않는다 — 다음에 다시 묻는다
+          if (coords !== 'error') {
+            cache[key] = coords
+            if (!coords) { fails[key] = Date.now(); saveGeocodeFails(fails) }
+          }
+          if (cancelled) return  // 지도를 닫았거나 다른 조건으로 다시 그리는 중 — 옛 클러스터를 건드리지 않는다
+          if (coords && coords !== 'error') {
+            const found = needsGeocode[key].map(prop => ({ prop, lat: coords.lat, lng: coords.lng }))
+            found.forEach(g => saveCoords(g.prop, coords))
+            addLate(found)
+          }
+          if (cursor >= queue.length && inFlight === 0) {
+            // 처음에 꽂을 핀이 하나도 없었으면 다 찾은 뒤 한 번만 맞춘다 — 도중에 화면이 튀지 않게
+            if (!fittedInitially) fitToMarkers()
+            return
+          }
+          schedule()
         })
       }
 
       const schedule = () => {
-        while (inFlight < CONCURRENT && cursor < needsGeocode.length) {
-          processOne(needsGeocode[cursor++])
+        while (!cancelled && inFlight < CONCURRENT && cursor < queue.length) {
+          processOne(queue[cursor++])
         }
       }
       schedule()
@@ -2393,14 +2512,15 @@ function BrokerPropertiesContent() {
                 </p>
               </div>
             )}
-            {mapStatus !== 'error' && (!mapReady || geocoding) && (
+            {/* 좌표 없는 매물의 주소 변환은 뒤에서 하므로 지도를 가리지 않는다 — 가리는 건 SDK·매물을 받는 동안만 */}
+            {mapStatus !== 'error' && (!mapReady || mapLoading) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10">
                 <Loader2 className="h-7 w-7 animate-spin text-blue-600 mb-2" />
-                <p className="text-sm text-gray-500">{!mapReady ? '지도 불러오는 중...' : `주소 변환 중... (${mapRows.filter(p=>p.address).length}건)`}</p>
+                <p className="text-sm text-gray-500">{!mapReady ? '지도 불러오는 중...' : '매물 불러오는 중...'}</p>
               </div>
             )}
             {/* 범례 */}
-            {mapReady && !geocoding && (
+            {mapReady && !mapLoading && (
               <div className="absolute bottom-4 left-4 flex gap-2 z-10">
                 {[['매매','#14274e'],['전세','#7c3aed'],['월세','#ea580c'],['계약완료','#9ca3af']].map(([label, color]) => (
                   <span key={label} style={{ background: color }} className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white shadow">
@@ -2410,7 +2530,7 @@ function BrokerPropertiesContent() {
               </div>
             )}
             {/* 현 위치 버튼 */}
-            {mapReady && !geocoding && (
+            {mapReady && !mapLoading && (
               <button
                 type="button"
                 onClick={goToMyLocation}
@@ -2422,7 +2542,7 @@ function BrokerPropertiesContent() {
               </button>
             )}
             {/* 검색 결과 없음 */}
-            {mapReady && !geocoding && mapRows.filter(p => p.address).length === 0 && (
+            {mapReady && !mapLoading && mapRows.filter(p => p.address).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
                 <p className="text-sm text-gray-500">주소가 있는 매물이 없습니다</p>
               </div>

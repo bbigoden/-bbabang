@@ -1043,7 +1043,7 @@ export default function CollectPage() {
    * 보면 "오늘 별거 없네" 하고 넘어가게 된다. 오늘 수확을 따로 적어 준다.
    */
   const 오늘새로 = useMemo(
-    () => filtered.filter(r => ymdKST(r.first_seen_at) === todayKST()).length,
+    () => { const 오늘 = todayKST(); return filtered.filter(r => ymdKST(r.first_seen_at) === 오늘).length },
     [filtered],
   )
 

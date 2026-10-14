@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback, useId } from 'react'
+import { useEffect, useState, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuthOptional } from '@/lib/auth-context'
 import { FileText, Check, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -28,37 +29,29 @@ const TYPE_HREF: Record<string, string> = {
  */
 export function ConsentGate() {
   const supabase = createClient()
-  const [userId, setUserId] = useState<string | null>(null)
+  // 로그인 상태는 AuthProvider 것을 그대로 쓴다. 여기서 따로 getUser 를 부르면
+  // auth-js 가 getUser/getSession 을 한 줄로 세워서, 콜드스타트마다 첫 데이터 조회가
+  // 이 확인 한 번을 더 기다렸다.
+  const userId = useAuthOptional().user?.id ?? null
   const [pending, setPending] = useState<TermsVersion[]>([])
   const [checked, setChecked] = useState<Set<number>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const titleId = useId()
 
-  // auth 상태 감지
+  // 미동의 약관 조회. 사람이 바뀌면(다른 탭에서 로그아웃 뒤 바로 다른 계정) 앞사람 약관이
+  // 남지 않게 먼저 비우고, 늦게 온 앞사람 응답은 버린다.
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id)
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_ev, session) => {
-      setUserId(session?.user?.id ?? null)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  // 미동의 약관 조회
-  const checkPending = useCallback(async (uid: string) => {
-    const { data } = await supabase.rpc('get_pending_term_versions', { p_user_id: uid })
-    if (Array.isArray(data) && data.length > 0) {
-      setPending(data as TermsVersion[])
+    setPending([])
+    if (!userId) return
+    let 살아있음 = true
+    void supabase.rpc('get_pending_term_versions', { p_user_id: userId }).then(({ data }) => {
+      if (!살아있음) return
+      setPending(Array.isArray(data) ? data as TermsVersion[] : [])
       setChecked(new Set())
-    }
-  }, [])
-
-  useEffect(() => {
-    if (userId) checkPending(userId)
-    else setPending([])
-  }, [userId, checkPending])
+    })
+    return () => { 살아있음 = false }
+  }, [userId])
 
   if (!userId || pending.length === 0) return null
 

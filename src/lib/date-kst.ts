@@ -13,6 +13,18 @@
  * 문제가 되는 건 거기서 **날짜만 뽑을 때**다.
  */
 
+/**
+ * 변환기는 한 번만 만든다. Intl.DateTimeFormat 은 만드는 데 수십 µs 가 든다 —
+ * 매물수집 화면이 '오늘 새로' 를 셀 때 행마다 두 번씩 새로 만들어, 매물을 탭하거나
+ * 글자 하나 칠 때마다 폰이 1~2초씩 굳었다(3,400행 × 2번).
+ */
+const YMD = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+})
+const HM = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
+})
+
 /** 오늘 날짜(한국 기준) YYYY-MM-DD */
 export function todayKST(now = new Date()): string {
   return ymdKST(now)
@@ -22,9 +34,7 @@ export function todayKST(now = new Date()): string {
 export function ymdKST(value: Date | string | number): string {
   const d = value instanceof Date ? value : new Date(value)
   if (isNaN(d.getTime())) return ''
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(d)
+  const parts = YMD.formatToParts(d)
   const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
   return `${get('year')}-${get('month')}-${get('day')}`
 }
@@ -33,9 +43,7 @@ export function ymdKST(value: Date | string | number): string {
 export function hmKST(value: Date | string | number): string {
   const d = value instanceof Date ? value : new Date(value)
   if (isNaN(d.getTime())) return ''
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false,
-  }).formatToParts(d)
+  const parts = HM.formatToParts(d)
   const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
   // 자정을 '24'로 주는 환경이 있어 '00'으로 맞춘다
   const h = get('hour') === '24' ? '00' : get('hour')

@@ -8,13 +8,15 @@ export const metadata = { title: '설정' }
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  // id만 있으면 되므로 Auth 서버까지 가는 getUser 대신 JWT만 확인한다
+  // 깨진 토큰이면 getClaims 가 던진다 — 오류 화면 대신 로그인으로 보낸다
+  const userId = await supabase.auth.getClaims().then(r => r.data?.claims?.sub, () => undefined)
+  if (!userId) redirect('/auth/login')
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   const isBroker = profile?.role === 'broker'

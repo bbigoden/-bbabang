@@ -60,7 +60,10 @@ export async function POST(req: NextRequest) {
   // (앞에 지번 토큰이 남아있을 때만 — 지번 자체는 건드리지 않음)
   if (!coords && /\d\s+\d+\s*$/.test(query)) {
     const retried = await search(query.replace(/\s+\d+\s*$/, ''))
-    if (retried !== 'upstream_failed') coords = retried
+    // 다시 물은 것이 카카오 쪽 오류면 '주소 없음' 으로 답하지 않는다 — 지도가 그 주소를
+    // 7일간 묻지 않고 건너뛰게 된다. 잠깐의 오류는 502 로 알려 다음에 다시 묻게 한다.
+    if (retried === 'upstream_failed') return NextResponse.json({ error: 'upstream_failed' }, { status: 502 })
+    coords = retried
   }
 
   if (!coords) return NextResponse.json({ lat: null, lng: null, normalized: query })

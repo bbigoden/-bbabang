@@ -435,10 +435,17 @@ export default function BrokerCustomersPage() {
     // (전건을 다 받은 뒤에야 화면이 뜨면 폰에서 수 초씩 빈 화면 — 매물장과 동일 전략)
     // 1000건에서 조용히 잘리면 고객이 사라지므로 백그라운드 수집은 반드시 전건 페이지네이션.
     const FIRST_CHUNK = 200
-    const custQuery = (from: number, to: number) => supabase.from('broker_customers').select('*')
-      .eq('office_broker_id', office).order('received_date', { ascending: false }).order('created_at', { ascending: false })
-      .order('id', { ascending: false })  // 동률 시 페이지 경계 안정화 (중복/누락 방지)
-      .range(from, to)
+    // 직원은 서버에서 먼저 좁혀 받는다 — 사무소 전건(~900건)을 다 받아 대부분 버리던 낭비.
+    // 이름 부분일치라 넓게 잡히고, 정확한 판정(콤마 분리·완전일치)은 visibleRows 가 그대로 한다.
+    // 이름의 특수문자는 or() 문법(콤마·괄호·점·따옴표)과 LIKE(%·_·\)를 깨므로 와일드카드(*)로 바꿔 넓게만 잡는다.
+    const namePat = myName?.trim() ? `*${myName.replace(/[^\p{L}\p{N}]+/gu, '*')}*`.replace(/\*+/g, '*') : ''
+    const custQuery = (from: number, to: number) => {
+      let q = supabase.from('broker_customers').select('*').eq('office_broker_id', office)
+      if (!owner) q = namePat ? q.or(`broker_id.eq.${b.id},assignee.ilike.${namePat}`) : q.eq('broker_id', b.id)
+      return q.order('received_date', { ascending: false }).order('created_at', { ascending: false })
+        .order('id', { ascending: false })  // 동률 시 페이지 경계 안정화 (중복/누락 방지)
+        .range(from, to)
+    }
 
     const { data: firstPage } = await custQuery(0, FIRST_CHUNK - 1)
     setCustomers(visibleRows(firstPage ?? []))

@@ -13,6 +13,7 @@
  * - localStorage 캐시로 새 탭/리로드/앱 재시작 시 즉시 hydrate (round-trip 없이 화면 그림)
  *   sessionStorage는 PWA를 완전히 종료하면 비워져 콜드스타트마다 캐시 미스가 났다.
  *   → localStorage로 두어야 앱을 껐다 켜도 첫 화면이 즉시 뜬다. (로그아웃 시 clearCache)
+ * - 재조회 결과가 화면에 든 값과 같으면 state 를 건드리지 않는다 (snapshotKey 참고)
  * - refresh()로 명시적 재조회 가능
  */
 
@@ -45,6 +46,7 @@ export interface BrokerProfile {
   permissions?: Record<string, any> | null
   col_settings?: Record<string, any> | null
   alert_regions?: unknown
+  metrics_updated_at?: string | null
   [k: string]: unknown
 }
 
@@ -82,6 +84,24 @@ function clearCache() {
   try { localStorage.removeItem(CACHE_KEY); sessionStorage.removeItem(CACHE_KEY) } catch {}
 }
 
+/**
+ * 화면에 넣은 값과 새로 받은 값이 같은지 볼 때 쓰는 직렬화. 셋을 따로 견줘 바뀐 것만 넣는다.
+ * - user.updated_at·last_sign_in_at 은 뺀다. Auth 서버가 토큰을 갱신할 때마다 updated_at 을
+ *   올려서(한 시간마다), 넣으면 콜드스타트마다 늘 '바뀜'으로 나왔다. 앱에서 읽는 곳이 없다.
+ * - broker 의 성과 지표(acceptance_rate·avg_response_hours·metrics_updated_at)도 뺀다.
+ *   대시보드 패널이 갱신할 때마다 바뀌는데, 그걸로 화면 전체를 다시 그릴 일은 아니다.
+ *   캐시에는 그대로 담기므로 다음에 켤 때 새 값이 들어간다.
+ */
+function snapshotKeys(user: SupabaseUser, profile: Profile | null, broker: BrokerProfile | null) {
+  const { updated_at: _u, last_sign_in_at: _l, ...stableUser } = user
+  let stableBroker: Record<string, unknown> | null = null
+  if (broker) {
+    const { acceptance_rate: _a, avg_response_hours: _h, metrics_updated_at: _m, ...rest } = broker
+    stableBroker = rest
+  }
+  return { user: JSON.stringify(stableUser), profile: JSON.stringify(profile), broker: JSON.stringify(stableBroker) }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useRef(createClient()).current
   const [user, setUser] = useState<SupabaseUser | null>(null)
@@ -90,17 +110,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   // 마지막으로 프로필까지 다 받아 둔 사용자 id — 리스너 클로저의 user 는 마운트 시점 값이라 못 쓴다
   const loadedUserId = useRef<string | null>(null)
+  // 지금 화면에 들어가 있는 {user, profile, broker} 의 snapshotKeys.
+  // 콜드스타트에 캐시로 그린 뒤 재조회 결과가 내용은 같아도 새 객체라, 그대로 넣으면
+  // auth.user·auth.broker 에 걸린 effect 가 전부 다시 돌아 첫 데이터 로드가 두 번씩 났다.
+  const applied = useRef<({ userId: string } & ReturnType<typeof snapshotKeys>) | null>(null)
 
   const fetchAll = useCallback(async () => {
     const { data } = await supabase.auth.getUser()
     if (!data.user) {
       loadedUserId.current = null
+      applied.current = null
       setUser(null); setProfile(null); setBroker(null); setLoading(false)
       clearCache()
       return
     }
     loadedUserId.current = data.user.id
-    setUser(data.user)
+    // 다른 사람(또는 처음)이면 프로필을 기다리지 않고 user 부터 넣는다.
+    // 같은 사람이면 이미 그려져 있으니 끝에서 통째로 비교한 뒤에만 넣는다.
+    if (applied.current?.userId !== data.user.id) setUser(data.user)
     // 한쪽 쿼리 실패해도 다른쪽은 진행 — 네트워크 일시 장애에 강건하게
     const [profileRes, brokerRes] = await Promise.all([
       supabase.from('profiles_visible').select('id,email,name,phone,role,created_at,notification_preferences,account_status,suspended_until').eq('id', data.user.id).maybeSingle()
@@ -132,9 +159,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 정지 기간이 지났으면 정상 진행 (어드민이 수동으로 active 처리해야 함)
     }
 
-    setProfile(p)
-    setBroker(bp as BrokerProfile | null)
+    const keys = snapshotKeys(data.user, p, bp as BrokerProfile | null)
+    const prev = applied.current?.userId === data.user.id ? applied.current : null
+    if (keys.user !== prev?.user) setUser(data.user)
+    if (keys.profile !== prev?.profile) setProfile(p)
+    if (keys.broker !== prev?.broker) setBroker(bp as BrokerProfile | null)
+    applied.current = { userId: data.user.id, ...keys }
     setLoading(false)
+    // 캐시는 늘 새로 쓴다 — 다른 탭이 지웠을 수도 있고, 지표 같은 뺀 칸도 담아 둔다
     writeCache(data.user, p, bp as BrokerProfile | null)
   }, [supabase])
 
@@ -142,6 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const cached = readCache()
     if (cached) {
+      applied.current = { userId: cached.user.id, ...snapshotKeys(cached.user, cached.profile, cached.broker) }
       setUser(cached.user)
       setProfile(cached.profile)
       setBroker(cached.broker)
@@ -161,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const hadUser = loadedUserId.current !== null  // 명시적 로그아웃 vs refresh token 만료 구분
         loadedUserId.current = null
+        applied.current = null  // 같은 사람이 다시 로그인해도 비교에 걸려 빈 화면으로 남지 않게
         setUser(null); setProfile(null); setBroker(null)
         clearCache()
         // refresh token 만료로 인한 자동 로그아웃이면 사용자에게 알림 + 로그인 페이지 이동

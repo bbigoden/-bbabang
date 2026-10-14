@@ -1192,9 +1192,10 @@ export default function AdsPage() {
   // 광고로 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
   // 날짜는 언제나 date-kst 로 센다. 여기서만 따로 만들면 하루가 밀리는 곳이
   // 하나 더 늘어난다 (AGENTS.md).
+  const 오늘 = todayKST()
   const 오늘올림 = listings.filter(l => {
     const at = l.ad_posts.find(p => p.channel === 'cafe' && p.status === 'posted')?.posted_at
-    return !!at && ymdKST(at) === todayKST()
+    return !!at && ymdKST(at) === 오늘
   }).length
   // 담당자별 건수 — 고객목록과 같이 이름 옆에 붙인다. 지금 보고 있는 탭 기준이라
   // 탭을 바꾸면 숫자도 같이 바뀐다. 그 탭에 한 건도 없는 담당자는 (0)으로 남긴다 —

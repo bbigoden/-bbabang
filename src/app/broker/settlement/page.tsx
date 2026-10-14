@@ -253,12 +253,15 @@ export default function SettlementPage() {
   }, [auth.loading, auth.user, auth.profile?.role, router])
 
   // 사무소·동료 정보 로드
+  // 객체 대신 id 로 건다 — 같은 사람인데 새 객체가 들어오면 사무소·퇴사자 조회가 두 번 돈다.
+  // (auth.broker 엔 profiles 이름 조인이 없고 정산 비율도 캐시라 묵을 수 있어 직접 조회는 그대로 둔다)
+  const userId = auth.user?.id
   const loadMeta = useCallback(async () => {
-    if (!auth.user) return
+    if (!userId) return
     const { data: me } = await supabase
       .from('broker_profiles')
       .select('id, user_id, is_owner, parent_broker_id, default_settlement_rate, withhold_exempt, profiles:user_id(name)')
-      .eq('user_id', auth.user.id)
+      .eq('user_id', userId)
       .maybeSingle()
     if (!me) { setLoading(false); return }
     const office = me.is_owner ? me.id : me.parent_broker_id
@@ -320,7 +323,7 @@ export default function SettlementPage() {
         setExAssignees(exList)
       }
     }
-  }, [auth.user, supabase])
+  }, [userId, supabase])
 
   // 월 필터 기준은 '기록월(record_month)' — 사용자가 수동 분류 (계약일·입금일 무관)
   const loadRows = useCallback(async () => {

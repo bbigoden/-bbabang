@@ -1,5 +1,4 @@
-﻿import type { User } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,28 +12,32 @@ import { BrokerStatsPanel } from '@/components/broker/stats-panel'
 import { OnboardingChecklist, type OnboardingItems } from '@/components/broker/onboarding-checklist'
 import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
 import { EmptyState } from '@/components/empty-state'
+import { todayKST, ymdKST } from '@/lib/date-kst'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
 
-  let user: User | null = null
+  // getUser는 매번 Auth 서버까지 다녀온다. 프록시가 방금 세션을 갱신했으니 여기선 JWT 서명만 확인한다.
+  let user: { id: string; email?: string } | null = null
   try {
-    const { data } = await supabase.auth.getUser()
-    user = data.user
+    const { data } = await supabase.auth.getClaims()
+    if (data?.claims?.sub) user = { id: data.claims.sub, email: data.claims.email }
   } catch {
     redirect('/auth/login?redirect=/dashboard/broker')
   }
   if (!user) redirect('/auth/login?redirect=/dashboard/broker')
 
   // ── 역할 확인 (redirect는 try/catch 밖에서 호출) ───────────
-  const { data: profileData } = await supabase.from('profiles').select('name, role').eq('id', user.id).single()
+  // 두 조회는 서로 기다릴 이유가 없어 같이 보낸다. redirect 순서(역할 → 사무소)는 그대로.
+  const [{ data: profileData }, { data: brokerData }] = await Promise.all([
+    supabase.from('profiles').select('name, role').eq('id', user.id).single(),
+    supabase
+      .from('broker_profiles')
+      .select('id, district, is_verified, office_name, rating, review_count, deal_count, is_owner, is_approved, parent_broker_id, onboarding_dismissed_at')
+      .eq('user_id', user.id)
+      .single(),
+  ])
   if (!profileData || profileData.role !== 'broker') redirect('/dashboard/user')
-
-  const { data: brokerData } = await supabase
-    .from('broker_profiles')
-    .select('id, district, is_verified, office_name, rating, review_count, deal_count, is_owner, is_approved, parent_broker_id, onboarding_dismissed_at')
-    .eq('user_id', user.id)
-    .single()
   if (!brokerData) redirect('/broker/register')
 
   const profile = profileData
@@ -50,47 +53,56 @@ export default async function BrokerDashboardPage() {
   let recommendedRequests: any[] = []
   let settlements: any[] = []
 
-  const now = new Date()
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  // 서버는 UTC 로 돈다 — getMonth() 로 세면 매달 1일 아침 9시 전까지 지난달이 나온다 (AGENTS.md)
+  const thisMonth = todayKST().slice(0, 7)
+  const thisMonthNo = Number(thisMonth.slice(5, 7))
+
+  // ── 신규 사무소 시작 가이드 (대표 전용, 3항목 완료 또는 숨김 시 미표시) ──
+  // 부가 데이터를 다 받은 뒤 따로 물으면 한 번 더 기다리게 되므로 같은 묶음에 실어 보낸다.
+  let onboarding: OnboardingItems | null = null
+  const wantsOnboarding = broker.is_owner !== false && !broker.onboarding_dismissed_at
 
   try {
-    const [{ data: pr }, { data: rv }, { data: rec }, { data: st }] = await Promise.all([
-      supabase
-        .from('proposals')
-        .select('*, request_posts(*, profiles:profiles_visible(*))')
-        .eq('broker_id', broker.id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('reviews')
-        .select('*, profiles(name)')
-        .eq('broker_id', broker.id)
-        .order('created_at', { ascending: false })
-        .limit(3),
-      supabase.rpc('recommend_requests_for_broker', { p_broker_id: broker.id, p_limit: 6 }),
-      supabase
-        .from('settlements')
-        .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override, contract_address')
-        .eq('assignee_broker_id', broker.id)
-        .eq('record_month', thisMonth),
+    const [[{ data: pr }, { data: rv }, { data: rec }, { data: st }], onboardingRes] = await Promise.all([
+      Promise.all([
+        supabase
+          .from('proposals')
+          .select('*, request_posts(*, profiles:profiles_visible(*))')
+          .eq('broker_id', broker.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('reviews')
+          .select('*, profiles(name)')
+          .eq('broker_id', broker.id)
+          .order('created_at', { ascending: false })
+          .limit(3),
+        supabase.rpc('recommend_requests_for_broker', { p_broker_id: broker.id, p_limit: 6 }),
+        supabase
+          .from('settlements')
+          .select('id, settlement_rate, seller_fee, buyer_fee, withhold_exempt, vat_override, contract_address')
+          .eq('assignee_broker_id', broker.id)
+          .eq('record_month', thisMonth),
+      ]),
+      wantsOnboarding
+        ? Promise.all([
+            supabase.from('broker_properties').select('id', { count: 'exact', head: true }).eq('office_broker_id', broker.id),
+            supabase.from('broker_profiles').select('id', { count: 'exact', head: true }).eq('parent_broker_id', broker.id),
+            supabase.from('office_settlement_settings').select('office_broker_id').eq('office_broker_id', broker.id).maybeSingle(),
+          ])
+        : null,
     ])
     proposals = pr ?? []
     recentReviews = rv ?? []
     recommendedRequests = rec ?? []
     settlements = st ?? []
+
+    if (onboardingRes) {
+      const [{ count: propCount }, { count: empCount }, { data: settleRow }] = onboardingRes
+      const items = { property: (propCount ?? 0) > 0, employee: (empCount ?? 0) > 0, settlement: !!settleRow }
+      if (!(items.property && items.employee && items.settlement)) onboarding = items
+    }
   } catch {
     // 부가 데이터 로드 실패 시 빈 상태로 렌더링
-  }
-
-  // ── 신규 사무소 시작 가이드 (대표 전용, 3항목 완료 또는 숨김 시 미표시) ──
-  let onboarding: OnboardingItems | null = null
-  if (broker.is_owner !== false && !broker.onboarding_dismissed_at) {
-    const [{ count: propCount }, { count: empCount }, { data: settleRow }] = await Promise.all([
-      supabase.from('broker_properties').select('id', { count: 'exact', head: true }).eq('office_broker_id', broker.id),
-      supabase.from('broker_profiles').select('id', { count: 'exact', head: true }).eq('parent_broker_id', broker.id),
-      supabase.from('office_settlement_settings').select('office_broker_id').eq('office_broker_id', broker.id).maybeSingle(),
-    ])
-    const items = { property: (propCount ?? 0) > 0, employee: (empCount ?? 0) > 0, settlement: !!settleRow }
-    if (!(items.property && items.employee && items.settlement)) onboarding = items
   }
 
   const statusLabel = { pending: '대기 중', accepted: '수락됨', rejected: '거절됨' }
@@ -107,10 +119,7 @@ export default async function BrokerDashboardPage() {
   }, { total: 0, assignee: 0, count: 0 })
 
   // ── 성과분석 보조 지표 (이번 달 제안·평균 성사가·6개월 추이) ──
-  const thisMonthProposals = proposals.filter(p => {
-    const d = new Date(p.created_at)
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  }).length
+  const thisMonthProposals = proposals.filter(p => ymdKST(p.created_at).startsWith(thisMonth)).length
 
   const acceptedWithPrice = proposals.filter(p => p.status === 'accepted' && p.price)
   const avgPrice = acceptedWithPrice.length > 0
@@ -119,18 +128,15 @@ export default async function BrokerDashboardPage() {
   const acceptedProposals = proposals.filter(p => p.status === 'accepted').length
 
   const monthlyStats = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
-    const month = d.getMonth()
-    const year = d.getFullYear()
-    const total = proposals.filter(p => {
-      const pd = new Date(p.created_at)
-      return pd.getMonth() === month && pd.getFullYear() === year
-    }).length
-    const accepted = proposals.filter(p => {
-      const pd = new Date(p.created_at)
-      return pd.getMonth() === month && pd.getFullYear() === year && p.status === 'accepted'
-    }).length
-    return { label: `${d.getMonth() + 1}월`, total, accepted }
+    // 이번 달(한국 기준)에서 거슬러 센다. 달 셈만 하므로 UTC Date 로 충분하다.
+    const d = new Date(Date.UTC(Number(thisMonth.slice(0, 4)), thisMonthNo - 1 - (5 - i), 1))
+    const ym = d.toISOString().slice(0, 7)
+    const inMonth = proposals.filter(p => ymdKST(p.created_at).startsWith(ym))
+    return {
+      label: `${d.getUTCMonth() + 1}월`,
+      total: inMonth.length,
+      accepted: inMonth.filter(p => p.status === 'accepted').length,
+    }
   })
   const maxMonthly = Math.max(...monthlyStats.map(m => m.total), 1)
 
@@ -194,7 +200,7 @@ export default async function BrokerDashboardPage() {
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Calculator className="h-5 w-5 text-teal-600" />
-              <h2 className="font-bold text-gray-900 dark:text-white">{now.getMonth() + 1}월 정산</h2>
+              <h2 className="font-bold text-gray-900 dark:text-white">{thisMonthNo}월 정산</h2>
               <span className="text-xs text-gray-500">· 내 담당 기준</span>
             </div>
             <Link href="/broker/settlement" className="text-xs text-blue-600 hover:underline">정산 전체 보기 →</Link>
@@ -259,7 +265,7 @@ export default async function BrokerDashboardPage() {
                   {thisMonthProposals}
                   <span className="text-lg font-medium text-gray-500">건</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-500">{now.getMonth() + 1}월 기준</div>
+                <div className="mt-2 text-xs text-gray-500">{thisMonthNo}월 기준</div>
               </CardBody>
             </Card>
             <Card>

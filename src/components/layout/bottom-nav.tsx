@@ -113,7 +113,8 @@ export function BottomNav() {
       {/* 본문 가림 방지용 spacer */}
       <div className="md:hidden h-16" aria-hidden />
 
-      <nav aria-label="하단 네비게이션" className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* 블러 없이 불투명 — 상시 떠 있는 바라 폰에서 스크롤 프레임마다 블러를 다시 계산했다(95%라 보이지도 않았음) */}
+      <nav aria-label="하단 네비게이션" className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <ul className="flex">
           {items.map((it, _idx) => {
             const Icon = it.icon

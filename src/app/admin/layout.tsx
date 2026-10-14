@@ -14,9 +14,11 @@ export const metadata: Metadata = {
 // 그대로 관리자 기능이 된다. 서버에서 한 번에 막는다.
 export default async function Layout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login?redirect=/admin')
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  // 관리자 여부는 아래에서 DB로 확인하므로, 로그인 확인은 Auth 서버 왕복 없이 JWT로 충분하다
+  // 깨진 토큰이면 getClaims 가 던진다 — 오류 화면 대신 로그인으로 보낸다
+  const userId = await supabase.auth.getClaims().then(r => r.data?.claims?.sub, () => undefined)
+  if (!userId) redirect('/auth/login?redirect=/admin')
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle()
   if (profile?.role !== 'admin') redirect('/')
 
   return (

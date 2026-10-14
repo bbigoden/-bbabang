@@ -438,7 +438,7 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
             </div>
           ) : (
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50/95 backdrop-blur text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <thead className="sticky top-0 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 <tr className="border-b border-gray-100 dark:border-gray-800">
                   <th className="px-3 py-2.5 text-left">요청사항</th>
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">접수일자</th>

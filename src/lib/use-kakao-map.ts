@@ -15,6 +15,9 @@
  *
  * 도메인 미등록 시 카카오는 콘솔 에러만 찍고 onerror 안 부르는 경우가 있어
  * 타임아웃(10초) 안에 ready 안 되면 'load-failed' 로 surface.
+ *
+ * enabled=false 면 아무것도 받지 않고 'idle' — 매물장처럼 지도를 열 때만 필요한 화면은
+ * 목록만 보는 사람에게 SDK(스크립트 4개, ~60KB gz)를 안 받게 한다. 한 번 받은 window.kakao 는 남는다.
  */
 
 import { useEffect, useState } from 'react'
@@ -25,11 +28,12 @@ type ErrorReason = 'no-key' | 'load-failed' | null
 const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY ?? ''
 const TIMEOUT_MS = 10_000
 
-export function useKakaoMapSdk() {
+export function useKakaoMapSdk(enabled = true) {
   const [status, setStatus] = useState<Status>('idle')
   const [errorReason, setErrorReason] = useState<ErrorReason>(null)
 
   useEffect(() => {
+    if (!enabled) return
     if (typeof window === 'undefined') return
     if (!KAKAO_KEY) {
       setStatus('error')
@@ -114,7 +118,7 @@ export function useKakaoMapSdk() {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [])
+  }, [enabled])
 
   return { status, errorReason, ready: status === 'ready' }
 }

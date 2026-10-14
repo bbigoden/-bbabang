@@ -19,10 +19,26 @@ interface Row { key: string; count: number }
 interface MonthBucket { month: string; total: number; supply: number; assignee: number; takeHome: number; count: number }
 interface Member { id: string; name: string }
 
+// 지표 재계산(refresh_broker_metrics)은 한 시간에 한 번이면 된다.
+const METRICS_TTL_MS = 60 * 60 * 1000
+// 이 기기에서 마지막으로 재계산을 부른 시각 (broker id 별). 앱을 껐다 켜도 남아야 한다 —
+// auth.broker 의 metrics_updated_at 은 캐시 값이라 부른 뒤에도 한동안 옛 시각 그대로다.
+const METRICS_AT_KEY = 'busojang:metrics-refreshed-at:'
+function metricsRefreshedAt(brokerId: string): number {
+  try { return Number(localStorage.getItem(METRICS_AT_KEY + brokerId)) || 0 } catch { return 0 }
+}
+function markMetricsRefreshed(brokerId: string) {
+  try { localStorage.setItem(METRICS_AT_KEY + brokerId, String(Date.now())) } catch { /* 시크릿 모드 등 */ }
+}
+
 export function BrokerStatsPanel() {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const auth = useAuth()
+  // 객체 대신 id 로 건다 — 같은 사람인데 새 객체가 들어오면 load 가 두 번 돈다
+  const userId = auth.user?.id
+  const brokerId = auth.broker?.id
+  const metricsAt = auth.broker?.metrics_updated_at
 
   const [range, setRange] = useState<Range>(90)
   const [loading, setLoading] = useState(true)
@@ -40,13 +56,13 @@ export function BrokerStatsPanel() {
   const [settlementAssigneeId, setSettlementAssigneeId] = useState<string>('')
 
   const load = useCallback(async () => {
-    if (!auth.user) return
+    if (!userId) return
     setLoading(true)
 
     const { data: broker } = await supabase
       .from('broker_profiles')
       .select('id, deal_count, rating, review_count, is_owner, parent_broker_id')
-      .eq('user_id', auth.user.id)
+      .eq('user_id', userId)
       .single()
     if (!broker) { setLoading(false); return }
 
@@ -65,8 +81,6 @@ export function BrokerStatsPanel() {
         .map(m => ({ id: m.id, name: m.profiles?.name ?? '이름 없음' }))
       setMembers(list)
     }
-
-    supabase.rpc('refresh_broker_metrics', { p_broker_id: broker.id }).then(() => {}, () => {})
 
     const since = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString()
 
@@ -98,7 +112,7 @@ export function BrokerStatsPanel() {
         .select('id, proposal_id, broker_id')
         .in('proposal_id', proposalIds)
       const roomIds = (rooms ?? []).map(r => r.id)
-      const brokerUserId = auth.user.id
+      const brokerUserId = userId
       if (roomIds.length > 0) {
         const { data: msgs } = await supabase
           .from('chat_messages')
@@ -214,11 +228,22 @@ export function BrokerStatsPanel() {
     }
 
     setLoading(false)
-  }, [auth.user, range, supabase, settlementAssigneeId])
+  }, [userId, range, supabase, settlementAssigneeId])
 
   useEffect(() => {
     if (auth.profile?.role === 'broker') load()
   }, [auth.profile?.role, load])
+
+  // 수락률·평균 응답 지표를 DB(broker_profiles)에 다시 계산해 둔다 — 매물 상세의 '수락 n%' 가 이 값.
+  // 이 패널의 숫자는 proposals 에서 직접 세므로 화면과는 무관하다. 그래서 load·필터 바꿀 때마다
+  // 부르던 것을 metrics_updated_at 이 없거나 한 시간 넘었을 때만 부른다.
+  useEffect(() => {
+    if (auth.profile?.role !== 'broker' || !brokerId) return
+    const last = Math.max(metricsAt ? new Date(metricsAt).getTime() : 0, metricsRefreshedAt(brokerId))
+    if (Date.now() - last < METRICS_TTL_MS) return
+    markMetricsRefreshed(brokerId)
+    supabase.rpc('refresh_broker_metrics', { p_broker_id: brokerId }).then(() => {}, () => {})
+  }, [auth.profile?.role, brokerId, metricsAt, supabase])
 
   if (auth.loading || auth.profile?.role !== 'broker') return null
 
