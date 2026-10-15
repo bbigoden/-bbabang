@@ -72,9 +72,16 @@ export default async function PropertyDetailPage({ params }: Props) {
       .from('broker_profiles').select('id').eq('user_id', user.id).maybeSingle()
     if (myBroker?.id === prop.broker_id) isMine = true
   }
+  // public_properties 의 address 는 DB 에서 이미 가린 값이다(공개 키로 원문을 긁어 가지 못하게).
+  // 본인 매물이면 원문을 원래 표에서 읽는다 — RLS 가 본인·사무소에게만 연다.
+  let ownAddress: string | null = null
+  if (isMine) {
+    const { data: own } = await supabase.from('broker_properties').select('address').eq('id', id).maybeSingle()
+    ownAddress = own?.address ?? null
+  }
   // 비본인: 먼저 '307-1502'→'307동 1502호'로 풀어쓴 다음 mask가 '1502호' 토큰을 제거하도록 순서를 뒤집음
   const displayAddress = isMine
-    ? formatAddress(prop.address)
+    ? formatAddress(ownAddress ?? prop.address)
     : (prop.address ? maskAddressByType(formatAddress(prop.address), prop.room_type) : '주소 미입력')
 
   // 본인 찜 상태
