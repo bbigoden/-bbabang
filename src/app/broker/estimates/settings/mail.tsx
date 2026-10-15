@@ -135,9 +135,10 @@ export function MailTab({ brokerId }: { brokerId: string }) {
               autoComplete="new-password" className={FIELD} />
           </div>
           <div>
-            <label className={LABEL} htmlFor="m-from">발신자 표시 이름</label>
+            <label className={LABEL} htmlFor="m-from">보내는 사람 이름 (회사 정보가 없을 때)</label>
             <input id="m-from" value={fromName} onChange={e => setFromName(e.target.value)}
-              placeholder="예: ○○건설 김대표" className={FIELD} />
+              placeholder="예: 김용유" className={FIELD} />
+            <p className="mt-1 text-xs text-gray-500">메일함에 뜨는 이름은 견적서의 발행 회사 이름으로 나갑니다.</p>
           </div>
           <div>
             <label className={LABEL} htmlFor="m-cc">항상 참조 (선택)</label>

@@ -111,7 +111,9 @@ export async function POST(
     auth: { user: settings.smtp_user, pass: settings.smtp_pass },
   })
 
-  const fromName = settings.from_name || company?.name || ''
+  // 받는 쪽 메일함에 뜨는 이름은 이 견적서를 낸 회사다. 명의 회사가 여럿이라
+  // 설정의 이름 하나로 고정하면 다른 회사 견적서도 그 이름으로 나간다.
+  const fromName = company?.name || settings.from_name || ''
   const ccList = [cc, settings.cc].filter(Boolean).join(',')
 
   let ok = false

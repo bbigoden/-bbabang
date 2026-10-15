@@ -74,7 +74,8 @@ export function SendMailDialog({ estimate, onClose, onSent }: Props) {
         담당자: estimate.client_contact ?? '',
         공사명: estimate.project_name ?? '',
         회사명: company?.name ?? '',
-        발신자: data?.from_name ?? company?.ceo ?? '',
+        // 본문의 {발신자} 는 사람 이름이다 — 회사 담당자 → 설정의 이름 → 대표자 순
+        발신자: company?.manager_name || data?.from_name || company?.ceo || '',
         견적번호: estimate.estimate_no,
         합계: fmtComma(estimate.total),
       }
