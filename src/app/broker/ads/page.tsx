@@ -17,6 +17,7 @@ import { SearchClear } from '@/components/ui/search-clear'
 import { Chip } from '@/components/ui/chip'
 import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
 import { pollWhileVisible } from '@/lib/poll-visible'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
 /**
  * 광고관리 — 부동산뱅크 매물을 그대로 가져와, 그중 카페에 올릴 것을 고르고 관리한다.
@@ -562,17 +563,20 @@ export default function AdsPage() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('ad_listings')
-      .select('*, ad_posts(id, channel, external_id, url, status, error, posted_at, title)')
-      .order('bank_no', { ascending: false })
-    if (error) toast.error(`목록을 불러오지 못했습니다: ${error.message}`)
-    // 등록종료가 매달 쌓이므로 언젠가 서버 한도(1,000행)에 닿는다. 잘린 채로 세면
-    // '내려야 함' 이 실제보다 적게 나온다 — 그건 틀리면 안 되는 숫자다.
-    if ((data?.length ?? 0) >= 1000) {
-      toast.error('매물이 너무 많아 목록이 잘렸습니다. 건수가 실제와 다를 수 있습니다.')
+    // 등록종료가 매달 쌓여(월 약 300행) 서버 한도 1,000행을 곧 넘는다. 잘린 채로 세면 '내려야 함' 이
+    // 실제보다 적게 나온다 — 틀리면 안 되는 숫자라 끝까지 나눠 받는다. id 로 순서를 못박아야
+    // 나눠 받는 사이에 겹치거나 빠지지 않는다.
+    try {
+      const data = await fetchAllPaged<Listing>((from, to) => supabase
+        .from('ad_listings')
+        .select('*, ad_posts(id, channel, external_id, url, status, error, posted_at, title)')
+        .order('bank_no', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to))
+      setListings(data)
+    } catch (e) {
+      toast.error(`목록을 불러오지 못했습니다: ${e instanceof Error ? e.message : (e as { message?: string })?.message ?? '알 수 없는 오류'}`)
     }
-    setListings((data as Listing[]) ?? [])
     setLoading(false)
   }
 

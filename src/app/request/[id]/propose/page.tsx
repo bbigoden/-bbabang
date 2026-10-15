@@ -67,6 +67,7 @@ export default function ProposePage() {
         .eq('broker_id', broker.id)
         .eq('status', 'available')
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })  // 등록일이 같은 묶음이 쪽 경계에 걸려도 겹치거나 빠지지 않게
         .range(from, from + PAGE - 1)
       if (!page || page.length === 0) break
       collected.push(...page)

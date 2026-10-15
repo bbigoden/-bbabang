@@ -485,6 +485,7 @@ export default function ChatPage() {
           .eq('broker_id', broker.id)
           .eq('status', 'available')
           .order('created_at', { ascending: false })
+          .order('id', { ascending: false })  // 등록일 동률이 쪽 경계에 걸려도 겹치거나 빠지지 않게
           .range(from, to))
       setBrokerProperties(rows)
     }

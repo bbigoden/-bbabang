@@ -110,7 +110,8 @@ export default function AdminAnnouncementsPage() {
     let profiles: Array<{ id: string; notification_preferences: unknown }>
     try {
       profiles = await fetchAllPaged<{ id: string; notification_preferences: unknown }>((from, to) => {
-        let q = supabase.from('profiles').select('id, notification_preferences').range(from, to)
+        // 나눠 받을 땐 유일 키로 정렬해야 쪽 사이에 겹치거나 빠지는 행이 없다
+        let q = supabase.from('profiles').select('id, notification_preferences').order('id').range(from, to)
         if (audience === 'user') q = q.eq('role', 'user')
         else if (audience === 'broker') q = q.eq('role', 'broker')
         return q

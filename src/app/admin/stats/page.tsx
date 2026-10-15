@@ -66,7 +66,7 @@ export default function AdminStatsPage() {
       // 1000행에서 조용히 잘라, 매물이 1745건인 지금 실제의 57%만 반영됐다.
       // (바로 아래 count는 정확해서 "신규 매물 수"와 합계가 어긋나 보였다)
       fetchAllPaged<{ status: string | null }>((from, to) =>
-        supabase.from('broker_properties').select('status').range(from, to)),
+        supabase.from('broker_properties').select('status').order('id').range(from, to)),
       supabase.from('broker_properties').select('*', { count: 'exact', head: true }).gte('created_at', since),
     ])
 
