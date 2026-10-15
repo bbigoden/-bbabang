@@ -3,14 +3,13 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuthOptional } from '@/lib/auth-context'
+import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
   Home, Search, Bell, Heart, User, Building2, Briefcase,
   MoreHorizontal, X, ChevronDown, LogOut,
   LayoutDashboard, Flag, Users, ClipboardList,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { BROKER_ITEMS, type ItemDef } from '@/components/broker/menu-items'
 import { ADMIN_ITEMS } from '@/components/admin/menu-items'
@@ -100,13 +99,8 @@ export function BottomNav() {
     return next
   })
 
-  const handleLogout = async () => {
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut({ scope: 'local' })  // 이 기기만 (기본 global은 전 기기 세션 삭제)
-    } catch {}
-    window.location.href = '/'
-  }
+  // 이 기기만 로그아웃(scope local)·캐시·푸시 구독 정리·이동은 공용 함수가 한다
+  const handleLogout = () => { signOutAndLeave() }
 
   return (
     <>

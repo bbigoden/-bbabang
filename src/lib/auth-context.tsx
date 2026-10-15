@@ -20,6 +20,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { claimPushSubscription, releasePushSubscription } from '@/lib/push'
 
 export interface Profile {
   id: string
@@ -84,6 +85,63 @@ function clearCache() {
   try { localStorage.removeItem(CACHE_KEY); sessionStorage.removeItem(CACHE_KEY) } catch {}
 }
 
+/** ms 안에 안 끝나면 'timeout' 으로 푼다 — 로그아웃은 어느 단계가 멈춰도 화면은 넘어가야 한다 */
+function within<T>(p: Promise<T>, ms: number): Promise<T | 'timeout'> {
+  return Promise.race([p, new Promise<'timeout'>(r => setTimeout(() => r('timeout'), ms))])
+}
+
+/**
+ * 이 기기의 Supabase 세션 쿠키(@supabase/ssr 기본 이름 sb-<ref>-auth-token, 길면 .0 .1 조각)를 직접 지운다.
+ * signOut 이 멈추거나(잠금·네트워크) 실패하면 세션이 남아 '/' 로 가도 로그인된 채라서 마지막 수단으로 쓴다.
+ */
+function dropSessionCookies() {
+  try {
+    for (const part of document.cookie.split(';')) {
+      const name = part.split('=')[0].trim()
+      if (/^sb-.+-auth-token(-code-verifier)?(\.\d+)?$/.test(name)) document.cookie = `${name}=; path=/; max-age=0`
+    }
+  } catch {}
+}
+
+let leaving: Promise<void> | null = null
+
+/**
+ * 모든 로그아웃 버튼이 쓰는 공용 로그아웃. 순서가 중요하다.
+ * 1) auth 캐시를 먼저 지운다 — 예전엔 SIGNED_OUT 콜백에만 맡겨, 콜백이 막히면 이전 사람의
+ *    이름·사무소가 다음 로드까지 남았다.
+ * 2) 이 기기 푸시 구독 행을 뗀다(세션이 살아 있어야 지울 수 있어 signOut 앞).
+ * 3) signOut. 기본 scope 'local' — 'global' 은 그 계정의 모든 세션을 지워 PC 에서
+ *    로그아웃하면 폰 PWA 까지 풀린다. 차단·탈퇴처럼 전 기기를 끊어야 할 때만 'global'.
+ * 4) 이동. 앞 단계가 멈추거나 실패해도 시간을 정해 두고 넘어간다(전체 새로고침이라
+ *    메모리에 남은 이전 사용자 상태·구독 채널도 함께 버려진다).
+ * to=null 이면 이동하지 않는다(이미 가야 할 화면에 있을 때).
+ */
+export function signOutAndLeave(opts: { scope?: 'local' | 'global'; to?: string | null } = {}): Promise<void> {
+  const { scope = 'local', to = '/' } = opts
+  // 버튼을 두 번 눌러도 로그아웃은 한 번만. 이동 없는 로그아웃(정지 화면의 차단 처리) 중에
+  // 누른 버튼은 그게 끝난 뒤 이동시킨다 — 같은 promise 만 돌려주면 버튼이 먹통이 된다.
+  if (leaving) return leaving.then(() => { if (to !== null) window.location.href = to })
+  leaving = (async () => {
+    clearCache()
+    try { await within(releasePushSubscription(), 2500) } catch {}
+    let signedOut = false
+    try {
+      const r = await within(createClient().auth.signOut({ scope }), 3000)
+      signedOut = r !== 'timeout' && !r.error
+    } catch {}
+    if (!signedOut) dropSessionCookies()
+    clearCache()  // 기다리는 사이 다른 재조회가 캐시를 다시 썼을 수 있다
+    // router.push 가 아니라 전체 새로고침이어야 이전 사용자 상태가 메모리에 안 남는다
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    if (to !== null) {
+      window.location.href = to
+      // 이동이 취소되면(작성 중 화면의 '머무르기') 버튼이 다시 듣게 풀어 둔다
+      setTimeout(() => { leaving = null }, 4000)
+    } else leaving = null
+  })()
+  return leaving
+}
+
 /**
  * 화면에 넣은 값과 새로 받은 값이 같은지 볼 때 쓰는 직렬화. 셋을 따로 견줘 바뀐 것만 넣는다.
  * - user.updated_at·last_sign_in_at 은 뺀다. Auth 서버가 토큰을 갱신할 때마다 updated_at 을
@@ -114,6 +172,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 콜드스타트에 캐시로 그린 뒤 재조회 결과가 내용은 같아도 새 객체라, 그대로 넣으면
   // auth.user·auth.broker 에 걸린 effect 가 전부 다시 돌아 첫 데이터 로드가 두 번씩 났다.
   const applied = useRef<({ userId: string } & ReturnType<typeof snapshotKeys>) | null>(null)
+  // 이 페이지에서 푸시 구독을 이미 다시 붙인 사용자 — 마운트·SIGNED_IN 이 겹쳐 두 번 보내지 않게
+  const pushClaimedFor = useRef<string | null>(null)
 
   const fetchAll = useCallback(async () => {
     const { data } = await supabase.auth.getUser()
@@ -127,7 +187,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadedUserId.current = data.user.id
     // 다른 사람(또는 처음)이면 프로필을 기다리지 않고 user 부터 넣는다.
     // 같은 사람이면 이미 그려져 있으니 끝에서 통째로 비교한 뒤에만 넣는다.
-    if (applied.current?.userId !== data.user.id) setUser(data.user)
+    // 다른 사람이면 이전 사람의 프로필·사무소도 같이 비운다 — 안 비우면 user=B·broker=A 가
+    // 잠깐 섞여 화면들이 A 의 사무소 id 로 조회를 시작했다.
+    const switched = applied.current?.userId !== data.user.id
+    if (switched) { setUser(data.user); setProfile(null); setBroker(null); setLoading(true) }
     // 한쪽 쿼리 실패해도 다른쪽은 진행 — 네트워크 일시 장애에 강건하게
     const [profileRes, brokerRes] = await Promise.all([
       supabase.from('profiles_visible').select('id,email,name,phone,role,created_at,notification_preferences,account_status,suspended_until').eq('id', data.user.id).maybeSingle()
@@ -135,17 +198,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabase.from('broker_profiles').select('*').eq('user_id', data.user.id).maybeSingle()
         .then(r => r, () => ({ data: null })),
     ])
+    // 그사이 로그아웃이 시작됐으면 이전 사람 정보를 화면·캐시에 다시 넣지 않는다
+    if (leaving) return
     const p = profileRes.data as Profile | null
     const bp = brokerRes.data
 
     // 계정 상태 enforcement
     if (p?.account_status === 'banned') {
-      // 차단된 계정 — 즉시 로그아웃. 여기만 기본 scope(global) 유지:
-      // 차단은 모든 기기에서 끊는 게 맞다(사용자가 누르는 로그아웃은 local).
-      await supabase.auth.signOut()
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/account-suspended')) {
-        window.location.href = '/account-suspended?reason=banned'
-      }
+      // 차단된 계정 — 즉시 로그아웃. 여기만 global: 차단은 모든 기기에서 끊는 게 맞다
+      // (사용자가 누르는 로그아웃은 local). 만료가 아니라 일부러 끊는 것이라
+      // SIGNED_OUT 쪽의 '세션 만료 → 로그인 화면' 이동은 타지 않게 먼저 비워 둔다.
+      loadedUserId.current = null
+      applied.current = null
+      const onSuspendedPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/account-suspended')
+      await signOutAndLeave({ scope: 'global', to: onSuspendedPage ? null : '/account-suspended?reason=banned' })
       return
     }
     if (p?.account_status === 'suspended') {
@@ -166,6 +232,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (keys.broker !== prev?.broker) setBroker(bp as BrokerProfile | null)
     applied.current = { userId: data.user.id, ...keys }
     setLoading(false)
+    // 새로 로그인한 사람에게 이 기기 푸시 구독을 다시 붙인다(로그아웃 때 떼어 둠). 실패해도 그만.
+    // 같은 사람의 콜드스타트(캐시 있음)에는 switched 가 아니라 요청이 안 나간다.
+    if (switched && pushClaimedFor.current !== data.user.id) {
+      pushClaimedFor.current = data.user.id
+      claimPushSubscription().catch(() => {})
+    }
     // 캐시는 늘 새로 쓴다 — 다른 탭이 지웠을 수도 있고, 지표 같은 뺀 칸도 담아 둔다
     writeCache(data.user, p, bp as BrokerProfile | null)
   }, [supabase])
@@ -182,49 +254,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     fetchAll()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    let disposed = false
+    // 이 콜백은 async 로 두지 않고 supabase 메서드도 여기서 기다리지 않는다. auth-js 는 잠금을 쥔 채
+    // 콜백이 끝나길 기다리는데, 콜백이 getSession 처럼 같은 잠금을 쓰는 걸 기다리면 서로 기다려
+    // signOut·토큰 갱신이 영영 안 끝났다(로그아웃 버튼 먹통, 그 탭의 모든 쿼리가 멈춤).
+    // 할 일은 setTimeout 으로 넘겨 콜백은 바로 끝낸다.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         // 토큰 갱신이 일시적으로 실패해도(모바일 네트워크 단절, 여러 탭이 동시에
         // 갱신을 시도해 refresh token rotation이 엇갈림) SIGNED_OUT이 날아온다.
         // 곧바로 세션을 버리면 멀쩡한 로그인이 풀리므로, 잠깐 뒤 실제로 세션이
         // 없는지 다시 확인한 뒤에만 정리한다. 살아있으면 갱신에 성공한 것.
-        await new Promise(r => setTimeout(r, 1500))
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) { fetchAll(); return }
-
-        const hadUser = loadedUserId.current !== null  // 명시적 로그아웃 vs refresh token 만료 구분
-        loadedUserId.current = null
-        applied.current = null  // 같은 사람이 다시 로그인해도 비교에 걸려 빈 화면으로 남지 않게
-        setUser(null); setProfile(null); setBroker(null)
-        clearCache()
-        // refresh token 만료로 인한 자동 로그아웃이면 사용자에게 알림 + 로그인 페이지 이동
-        // 단, 이미 /auth/* 페이지거나 공개 페이지면 그냥 둠
-        if (hadUser && typeof window !== 'undefined') {
-          const path = window.location.pathname
-          // 중개사 공개 프로필(/broker/[id])·둘러보기(/brokers) 페이지 제거됨
-          // → /broker/* 는 모두 보호 경로(중개사 전용)이므로 공개 목록에서 제외
-          const isPublic = (
-            path.startsWith('/auth/') || path === '/' ||
-            path.startsWith('/property/') ||
-            path.startsWith('/regions') || path.startsWith('/terms') || path.startsWith('/privacy') ||
-            path.startsWith('/support')
-          )
-          if (!isPublic) {
-            const redirect = encodeURIComponent(path + window.location.search)
-            window.location.href = `/auth/login?expired=1&redirect=${redirect}`
-          }
-        }
+        setTimeout(() => { if (!disposed) confirmSignedOut() }, 1500)
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         // 폰은 앱으로 돌아올 때마다 SIGNED_IN 이, 한 시간마다 TOKEN_REFRESHED 가 온다.
         // 같은 사람이면 프로필은 그대로라 다시 받지 않는다 — 받으면 새 객체가 들어가
         // 화면 전체가 다시 그려지고, Auth 서버·DB 왕복 3번이 복귀할 때마다 붙었다.
         if (session?.user.id && session.user.id === loadedUserId.current) return
-        fetchAll()
+        setTimeout(() => { if (!disposed) fetchAll() }, 0)
       } else if (event === 'USER_UPDATED') {
-        fetchAll()
+        setTimeout(() => { if (!disposed) fetchAll() }, 0)
       }
     })
-    return () => subscription.unsubscribe()
+
+    async function confirmSignedOut() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) { fetchAll(); return }
+
+      const hadUser = loadedUserId.current !== null  // 명시적 로그아웃 vs refresh token 만료 구분
+      loadedUserId.current = null
+      applied.current = null  // 같은 사람이 다시 로그인해도 비교에 걸려 빈 화면으로 남지 않게
+      setUser(null); setProfile(null); setBroker(null)
+      clearCache()
+      // 사용자가 누른 로그아웃이면 이동은 signOutAndLeave 가 한다. 여기서 보내면 느린 망에서
+      // '/' 로 가던 길이 '세션이 만료됐어요' 로그인 화면으로 덮어써졌다.
+      if (leaving) return
+      // refresh token 만료로 인한 자동 로그아웃이면 사용자에게 알림 + 로그인 페이지 이동
+      // 단, 이미 /auth/* 페이지거나 공개 페이지면 그냥 둠
+      if (hadUser && typeof window !== 'undefined') {
+        const path = window.location.pathname
+        // 중개사 공개 프로필(/broker/[id])·둘러보기(/brokers) 페이지 제거됨
+        // → /broker/* 는 모두 보호 경로(중개사 전용)이므로 공개 목록에서 제외
+        const isPublic = (
+          path.startsWith('/auth/') || path === '/' ||
+          path.startsWith('/property/') ||
+          path.startsWith('/regions') || path.startsWith('/terms') || path.startsWith('/privacy') ||
+          path.startsWith('/support')
+        )
+        if (!isPublic) {
+          const redirect = encodeURIComponent(path + window.location.search)
+          window.location.href = `/auth/login?expired=1&redirect=${redirect}`
+        }
+      }
+    }
+    return () => { disposed = true; subscription.unsubscribe() }
   }, [fetchAll, supabase])
 
   return (

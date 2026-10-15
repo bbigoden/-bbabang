@@ -34,8 +34,9 @@ export function OnboardingChecklist({ brokerId, items }: { brokerId: string; ite
     },
     {
       done: items.settlement,
-      title: '정산 기준 설정하기',
-      desc: '월 기본경비와 수수료 분배율을 사무소에 맞게 저장하세요',
+      // 정산 기준 설정 화면은 7/26 에 없앴다(분배 행이 계산기 역할) — 완료는 첫 정산 기록으로 본다
+      title: '첫 정산 등록하기',
+      desc: '정산 화면에서 첫 거래의 수수료를 기록해 보세요',
       href: '/broker/settlement',
     },
   ]

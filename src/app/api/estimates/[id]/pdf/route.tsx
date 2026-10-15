@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { EstimateDocument } from '@/lib/estimate-pdf'
 import { loadEstimate, pdfFileName } from '../shared'
 
@@ -24,6 +25,11 @@ export async function GET(
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
+
+  // 렌더가 무거워(PDF·엑셀) 로그인만 되면 무제한으로 돌릴 수 있었다. 세 라우트가 한 버킷을 나눠 쓴다.
+  if (!await checkRateLimit(`user:${user.id}:estimate-render`, 60, 60)) {
+    return NextResponse.json({ error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요' }, { status: 429 })
+  }
 
   const loaded = await loadEstimate(supabase, id)
   if (!loaded) return NextResponse.json({ error: '견적서를 찾을 수 없습니다' }, { status: 404 })

@@ -2,12 +2,11 @@
 
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Menu, X, Settings, Heart, Search, ArrowLeft } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
-import { useAuthOptional } from '@/lib/auth-context'
+import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 
 interface HeaderProps {
   user?: { id: string; email?: string } | null
@@ -18,8 +17,6 @@ interface HeaderProps {
 export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCount = 0 }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const supabaseRef = useRef(createClient())
-  const supabase = supabaseRef.current
   const [mobileOpen, setMobileOpen] = useState(false)
   // 정적 프리렌더 페이지(홈)가 rewrite/Proxy 경유 요청으로 ISR 재생성되면 usePathname()이
   // 브라우저 실제 경로와 어긋난 값으로 렌더돼 hydration mismatch(#418)가 난다 —
@@ -43,12 +40,8 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   // 모바일(< md)에선 헤더 그대로 보임 (사이드바는 hidden md:flex).
   const isCustomerSidebarArea = !!user && role !== 'broker' && role !== 'admin'
 
-  const handleLogout = async () => {
-    // scope:'local' — 이 기기만 로그아웃. 기본값 'global'은 서버에서 그 계정의
-    // 모든 세션을 지워서, PC에서 로그아웃하면 폰 PWA까지 같이 풀린다.
-    await supabase.auth.signOut({ scope: 'local' })
-    window.location.href = '/'
-  }
+  // 이 기기만 로그아웃(scope local)·캐시·푸시 구독 정리·이동은 공용 함수가 한다
+  const handleLogout = () => { signOutAndLeave() }
 
   // 뒤로가기 버튼 노출 조건 — 모바일·PWA에서 서브 페이지에 있을 때.
   // 루트 페이지(홈/대시보드 등)는 "뒤로 갈 곳"이 없으므로 제외.

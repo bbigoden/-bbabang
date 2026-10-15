@@ -4,12 +4,12 @@
 // 안 불러 브라우저 기본 처리로 넘긴다는 뜻이지, SW를 건너뛴다는 뜻이 아니다.
 // - /_next/static/* : CacheFirst (불변 해시)
 // - 정적 자원(아이콘·manifest) : CacheFirst
-// - Supabase /storage/ 이미지 : StaleWhileRevalidate
+// - Supabase 공개 버킷 이미지(/storage/v1/object/public/) : StaleWhileRevalidate
 // - 그 외(/api/*, supabase rest 등) : respondWith 없이 통과 (브라우저 기본 처리)
 // - navigate(HTML) : 내비게이션 프리로드 응답 우선, 실패 시에만 offline.html fallback
 // - 푸시 알림 / 클릭 처리
 
-const VERSION = 'busojang-v3'
+const VERSION = 'busojang-v4'
 const STATIC_CACHE = `${VERSION}-static`
 const IMAGE_CACHE = `${VERSION}-images`
 const OFFLINE_URL = '/offline.html'
@@ -62,9 +62,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   const sameOrigin = url.origin === self.location.origin
 
-  // 1) Supabase Storage 이미지만 캐시 (다른 supabase 호출은 통과)
+  // 1) Supabase 공개 버킷 이미지만 캐시 (다른 supabase 호출은 통과)
+  //    비공개 버킷의 서명 URL(/object/sign/ — DM·채팅 사진, 직인)은 캐시하지 않는다. URL 마다
+  //    새 항목이 생겨 끝없이 쌓이고, 로그아웃·퇴사 뒤에도 기기에 남았다.
   if (url.hostname.includes('supabase.co')) {
-    if (url.pathname.includes('/storage/')) {
+    if (url.pathname.includes('/storage/v1/object/public/')) {
       event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE))
     }
     return

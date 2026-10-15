@@ -2,8 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { signOutAndLeave } from '@/lib/auth-context'
 import { SUPPORT_EMAIL } from '@/lib/support'
 import { Ban, AlertCircle, Mail, Home } from 'lucide-react'
 
@@ -11,14 +10,10 @@ export default function AccountSuspendedPage() {
   const sp = useSearchParams()
   const reason = sp.get('reason') ?? 'suspended'
   const until = sp.get('until')
-  const supabaseRef = useRef(createClient())
 
   const isBanned = reason === 'banned'
 
-  const signOut = async () => {
-    await supabaseRef.current.auth.signOut({ scope: 'local' })  // 이 기기만
-    window.location.href = '/'
-  }
+  const signOut = () => { signOutAndLeave() }  // 이 기기만(scope local)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4 py-12">

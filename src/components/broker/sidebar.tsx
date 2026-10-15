@@ -7,9 +7,8 @@ import {
   ChevronDown, PanelLeftClose, PanelLeftOpen, LogOut, Bell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuthOptional } from '@/lib/auth-context'
+import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
-import { createClient } from '@/lib/supabase/client'
 import { BROKER_ITEMS as ITEMS, type ItemDef } from './menu-items'
 import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
@@ -73,13 +72,8 @@ export function BrokerSidebar() {
     })
   }
 
-  const handleLogout = async () => {
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut({ scope: 'local' })  // 이 기기만 (기본 global은 전 기기 세션 삭제)
-    } catch {}
-    window.location.href = '/'
-  }
+  // 이 기기만 로그아웃(scope local)·캐시·푸시 구독 정리·이동은 공용 함수가 한다
+  const handleLogout = () => { signOutAndLeave() }
 
   return (
     <aside

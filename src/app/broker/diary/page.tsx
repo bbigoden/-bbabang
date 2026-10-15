@@ -22,6 +22,7 @@ import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { EmptyState } from '@/components/empty-state'
 import { useToast } from '@/components/toast'
 import { todayKST, addDays } from '@/lib/date-kst'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -85,7 +86,29 @@ interface DiaryCustomerRow {
   id: string; client_name: string; contact: string | null; received_date: string | null
   assignee: string | null; category: string; source: string | null; status: string
   request: string | null; custom_fields: Record<string, string> | null
+  // 휴지통에 들어간 고객. 일지에는 그날 기록으로 남지만 broker_customers RLS가
+  // deleted_at IS NULL을 요구해 수정이 0행으로 끝나므로 읽기 전용으로 보여 준다.
+  is_deleted?: boolean
 }
+
+// diary_customers_for_date RPC 한 행 → 화면 행 (로드·불러오기가 같은 규칙을 쓰도록 한 곳에)
+const toDiaryRow = (l: any): DiaryCustomerRow => ({
+  link_id: l.link_id, sort_order: l.sort_order,
+  proposed_property_ids: l.proposed_property_ids ?? [],
+  id: l.id, client_name: l.client_name, contact: l.contact,
+  received_date: l.received_date, assignee: l.assignee, category: l.category,
+  source: l.source, status: l.status, request: l.request, interest: l.interest,
+  consult_note: l.consult_note, custom_fields: l.custom_fields,
+  is_deleted: !!l.is_deleted,
+} as DiaryCustomerRow)
+
+// update가 오류 없이 0행으로 끝나면(RLS에 막혔거나 그새 삭제됨) PostgREST는 204만 준다.
+// 이걸 성공으로 보면 화면만 바뀌고 새로고침하면 사라지므로 실패로 다룬다.
+const NO_ROW_MSG = '권한이 없거나 삭제된 항목이에요'
+
+// 일지 본문·구조를 저장할 대상 행. archive면 퇴사자 일지(broker_diary_archive).
+// req는 저장을 시작할 때의 로드 순번, key는 같은 칸 저장을 묶는 이름.
+interface DiaryTarget { archive: boolean; officeId: string; brokerId: string; date: string; req: number; key: string }
 
 interface SectionDef { id: string; title: string }
 const DEFAULT_SECTIONS: SectionDef[] = [
@@ -489,14 +512,18 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
 // ── DiarySection (동적, 이름변경/삭제 가능) ───────────────
 function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly }: {
   def: SectionDef; num: number; content: string | null
-  onSave: (v: string) => void; onRename: (id: string, title: string) => void
+  onSave: (v: string) => Promise<boolean>; onRename: (id: string, title: string) => void
   onDelete: (id: string) => void; readOnly?: boolean
 }) {
   const [renaming, setRenaming] = useState(false)
   const [titleDraft, setTitleDraft] = useState(def.title)
   const [draft, setDraft] = useState(content ?? '')
   const [saving, setSaving] = useState(false)
+  const [failed, setFailed] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
+  // 입력 중인지 — 저장은 blur 뒤에 비동기로 끝나는데, 그 사이 다시 들어와 이어 쓰던
+  // 글자를 저장 완료 값(content)이 덮어쓰면 안 된다. 입력 중엔 화면의 글이 우선이다.
+  const focusedRef = useRef(false)
   // textarea를 내용 줄 수에 맞춰 자동 늘어나게 (스크롤 없이)
   const autoSize = () => {
     const el = taRef.current
@@ -504,16 +531,28 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
     el.style.height = 'auto'
     el.style.height = el.scrollHeight + 'px'
   }
-  useEffect(() => { setDraft(content ?? '') }, [content])
+  useEffect(() => { if (!focusedRef.current) setDraft(content ?? '') }, [content])
   useEffect(() => { setTitleDraft(def.title) }, [def.title])
   useEffect(() => { autoSize() }, [draft, readOnly])
   const commitRename = () => {
     if (titleDraft.trim() && titleDraft !== def.title) onRename(def.id, titleDraft.trim())
     setRenaming(false)
   }
-  const handleBlur = async () => {
-    if (draft === (content ?? '')) return
-    setSaving(true); await onSave(draft); setSaving(false)
+  // 저장이 실패하면 쓴 글은 화면에 그대로 두고(content는 안 바뀜) 다시 저장할 수 있게 한다.
+  // 토스트는 몇 초 뒤 사라지므로 머리에도 '저장 안 됨'을 남긴다.
+  // 저장은 줄을 서서 차례로 끝나므로, 앞 것이 먼저 끝나도 뒤 것이 남아 있으면 '저장 중'을 유지한다.
+  const inflightRef = useRef(0)
+  const save = async (v: string) => {
+    inflightRef.current++
+    setSaving(true)
+    const ok = await onSave(v)
+    if (--inflightRef.current === 0) setSaving(false)
+    setFailed(!ok)
+  }
+  const handleBlur = () => {
+    focusedRef.current = false
+    if (draft === (content ?? '')) { setFailed(false); return }
+    void save(draft)
   }
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
@@ -530,6 +569,11 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
           </span>
         )}
         {saving && <span className="text-xs text-gray-500 ml-2">저장 중...</span>}
+        {!saving && failed && !readOnly && (
+          <button onClick={() => void save(draft)} className="ml-2 text-xs font-medium text-red-500 hover:text-red-600 hover:underline">
+            저장 안 됨 · 다시 저장
+          </button>
+        )}
         {!readOnly && !renaming && (
           <button onClick={() => onDelete(def.id)} aria-label={`${def.title} 일지 삭제`} title="삭제"
             className="ml-auto opacity-0 group-hover/header:opacity-100 flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-red-50 hover:text-red-400 transition-all">
@@ -541,6 +585,7 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
         ? <div className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap min-h-[60px]">{content || <span className="text-gray-300">—</span>}</div>
         : <textarea ref={taRef} value={draft}
             onChange={e => { setDraft(e.target.value); autoSize() }}
+            onFocus={() => { focusedRef.current = true }}
             onBlur={handleBlur}
             placeholder={`${def.title} 입력...`}
             rows={1}
@@ -588,6 +633,8 @@ export default function BrokerDiaryPage() {
   // Section 2-5 데이터
   const [sections, setSections] = useState<SectionDef[]>(DEFAULT_SECTIONS)
   const [sectionContent, setSectionContent] = useState<Record<string, string>>({})
+  // 마지막으로 DB와 맞춰진(로드했거나 저장에 성공한) 섹션 구조 — 구조 저장이 실패하면 여기로 되돌린다
+  const savedSectionsRef = useRef<SectionDef[]>(DEFAULT_SECTIONS)
 
   // 날짜
   const [diaryDate, setDiaryDate] = useState(() => todayKST())
@@ -685,25 +732,34 @@ export default function BrokerDiaryPage() {
       } else {
         setTeamMembers(prof?.name ? [prof.name] : [])
       }
-      // archive에서 distinct 퇴사자 목록 — diary archive · customer archive 양쪽 합집합
-      const [{ data: archAuthors1 }, { data: archAuthors2 }] = await Promise.all([
-        supabase.from('broker_diary_archive')
-          .select('author_broker_id, author_name')
-          .eq('office_broker_id', b.id),
-        supabase.from('broker_diary_customers_archive')
-          .select('author_broker_id, author_name')
-          .eq('office_broker_id', b.id),
-      ])
-      const seen = new Set<string>()
-      const exList: Array<{ id: string; name: string }> = []
-      for (const a of [...(archAuthors1 ?? []), ...(archAuthors2 ?? [])]) {
-        const aid = (a as any).author_broker_id
-        if (aid && !seen.has(aid)) {
-          seen.add(aid)
-          exList.push({ id: aid, name: (a as any).author_name ?? '퇴사자' })
+      // archive에서 distinct 퇴사자 목록 — diary archive · customer archive 양쪽 합집합.
+      // customer archive는 이미 1,000행을 넘었다. PostgREST는 1,000행에서 조용히 자르므로
+      // 그냥 받으면 그 뒤에만 기록이 있는 퇴사자가 목록에서 빠진다 → 페이지를 이어 받는다.
+      // 실패해도 일지는 떠야 하므로(아래 피커 범위 설정까지 막히면 안 됨) 여기서 삼킨다.
+      try {
+        const [archAuthors1, archAuthors2] = await Promise.all([
+          fetchAllPaged((from, to) => supabase.from('broker_diary_archive')
+            .select('author_broker_id, author_name')
+            .eq('office_broker_id', b.id)
+            .order('id').range(from, to)),
+          fetchAllPaged((from, to) => supabase.from('broker_diary_customers_archive')
+            .select('author_broker_id, author_name')
+            .eq('office_broker_id', b.id)
+            .order('id').range(from, to)),
+        ])
+        const seen = new Set<string>()
+        const exList: Array<{ id: string; name: string }> = []
+        for (const a of [...archAuthors1, ...archAuthors2]) {
+          const aid = (a as any).author_broker_id
+          if (aid && !seen.has(aid)) {
+            seen.add(aid)
+            exList.push({ id: aid, name: (a as any).author_name ?? '퇴사자' })
+          }
         }
+        setExEmployees(exList)
+      } catch (e) {
+        console.error('[diary] 퇴사자 목록 로드 실패:', e)
       }
-      setExEmployees(exList)
     } else {
       setTeamMembers(prof?.name ? [prof.name] : [])
     }
@@ -732,6 +788,12 @@ export default function BrokerDiaryPage() {
   const loadDiaryInner = async (date: string, req: number) => {
     if (!broker) return
     const stale = () => req !== diaryReqRef.current
+    // 아직 끝나지 않은 일지 저장이 있으면 끝난 뒤에 읽는다 — 날짜를 넘겼다 바로 돌아오면
+    // 저장보다 읽기가 먼저 끝나 방금 쓴 글이 빠진 채로 보이고, 그걸 고치면 그대로 덮인다.
+    // 저장 줄을 기다리되 끝없이는 아니다. 폰에서 요청 하나가 멈추면 날짜를 바꿔도 영영
+    // '불러오는 중' 이었다.
+    await Promise.race([saveChainRef.current, new Promise(r => setTimeout(r, 8000))])
+    if (stale()) return
 
     // 퇴사자 archive 모드 — 사무소 archive 테이블에서 읽기 전용 로드
     if (viewingExEmployee && viewingBrokerId) {
@@ -795,7 +857,9 @@ export default function BrokerDiaryPage() {
       }
       setSectionContent(content)
       // 퇴사자는 전역 섹션 정의가 없으므로 기본값 기준으로 복원
-      setSections(resolveSections((archDiary as any)?.sections, DEFAULT_SECTIONS, Object.keys(content)))
+      const archSections = resolveSections((archDiary as any)?.sections, DEFAULT_SECTIONS, Object.keys(content))
+      setSections(archSections)
+      savedSectionsRef.current = archSections
       return
     }
 
@@ -816,17 +880,12 @@ export default function BrokerDiaryPage() {
     ])
     if (linkErr) throw linkErr
     if (stale()) return
-    setDiaryCustomers((links ?? []).map((l: any) => ({
-      link_id: l.link_id, sort_order: l.sort_order,
-      proposed_property_ids: l.proposed_property_ids ?? [],
-      id: l.id, client_name: l.client_name, contact: l.contact,
-      received_date: l.received_date, assignee: l.assignee, category: l.category,
-      source: l.source, status: l.status, request: l.request, interest: l.interest,
-      consult_note: l.consult_note, custom_fields: l.custom_fields,
-    })))
+    setDiaryCustomers((links ?? []).map(toDiaryRow))
     const content = (diaryRow?.sections_content as any) ?? {}
     setSectionContent(content)
-    setSections(resolveSections((diaryRow as any)?.sections, legacySections, Object.keys(content)))
+    const loadedSections = resolveSections((diaryRow as any)?.sections, legacySections, Object.keys(content))
+    setSections(loadedSections)
+    savedSectionsRef.current = loadedSections
   }
 
   // 고객 피커: 기존 고객 추가 (direction에 따라 위/아래)
@@ -874,17 +933,25 @@ export default function BrokerDiaryPage() {
   }
 
   // 고객 행 삭제 (diary_customers 링크만 제거)
+  // 실패(오프라인·RLS)를 무시하고 행을 지우면 화면에선 빠졌는데 새로고침하면 다시 나온다.
+  // 지워진 게 확인될 때만 화면에서 뺀다.
   const unlinkCustomer = async (linkId: string) => {
-    await supabase.from('broker_diary_customers').delete().eq('id', linkId)
-    setDiaryCustomers(prev => prev.filter(c => c.link_id !== linkId))
     setDeleteConfirm(null)
+    const { data, error } = await supabase.from('broker_diary_customers').delete().eq('id', linkId).select('id')
+    if (error || !data?.length) {
+      console.error('[diary unlinkCustomer] failed', error)
+      toast.error(`제거 실패: ${error?.message ?? NO_ROW_MSG}`)
+      return
+    }
+    setDiaryCustomers(prev => prev.filter(c => c.link_id !== linkId))
   }
 
   // 일지 행 복사 — 원본 고객 필드를 복제한 새 고객을 생성하고 같은 일지에 link 추가
   const duplicateDiaryCustomer = async (row: any) => {
     if (!broker) return
     const targetBrokerId = viewingBrokerId ?? broker.id
-    const { link_id: _lid, sort_order: _so, proposed_property_ids: _ppi, id: _id, created_at: _ca, updated_at: _ua, ...rest } = row
+    // is_deleted는 RPC가 붙여 주는 표시용 값이라 broker_customers 컬럼이 아니다 — 같이 넣으면 insert가 깨진다
+    const { link_id: _lid, sort_order: _so, proposed_property_ids: _ppi, id: _id, created_at: _ca, updated_at: _ua, is_deleted: _del, ...rest } = row
     const { data: newCust, error: ce } = await supabase.from('broker_customers').insert({ ...rest, broker_id: targetBrokerId }).select().single()
     if (ce || !newCust) return
     const orders = diaryCustomers.map(d => d.sort_order)
@@ -925,31 +992,30 @@ export default function BrokerDiaryPage() {
   // 보이고 DB엔 안 들어가, 새로고침해야 유실을 안다. 고객관리·매물 시트가 쓰는
   // "실패 시 이전 값으로 되돌리고 알린다" 패턴을 일지에도 맞춘다.
   const saveCustomerField = useCallback(async (customerId: string, field: string, value: any) => {
-    let prevValue: any = undefined
-    setDiaryCustomers(prev => {
-      const row = prev.find(c => c.id === customerId) as any
-      if (row) prevValue = row[field]
-      return prev.map(c => c.id === customerId ? { ...c, [field]: value } : c)
-    })
-    const { error } = await supabase.from('broker_customers').update({ [field]: value }).eq('id', customerId)
-    if (error) {
+    // 되돌릴 값은 updater 밖에서 읽는다 — updater 는 나중에(두 번) 돌 수 있어, 안에서 채우면
+    // 실패했을 때 칸이 옛 값이 아니라 빈칸으로 돌아갔다
+    const prevValue = (diaryCustomers.find(c => c.id === customerId) as any)?.[field]
+    setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, [field]: value } : c))
+    // 0행도 실패다 — 그새 휴지통에 갔거나 권한이 막히면 오류 없이 0행으로 끝난다
+    const { data, error } = await supabase.from('broker_customers').update({ [field]: value }).eq('id', customerId).select('id')
+    if (error || !data?.length) {
       console.error('[diary saveCustomerField] failed', error)
       setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, [field]: prevValue } : c))
-      toast.error(`저장 실패: ${error.message}`)
+      toast.error(`저장 실패: ${error?.message ?? NO_ROW_MSG}`)
     }
     // 피커는 열 때마다 서버에서 다시 검색하므로 별도 로컬 캐시 동기화가 필요 없다
-  }, [toast])
+  }, [toast, diaryCustomers])
 
   const saveCustomField = useCallback(async (customerId: string, colId: string, value: string) => {
     const row = diaryCustomers.find(c => c.id === customerId)
     const prevFields = row?.custom_fields ?? null
     const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
     setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, custom_fields: newFields } : c))
-    const { error } = await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', customerId)
-    if (error) {
+    const { data, error } = await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', customerId).select('id')
+    if (error || !data?.length) {
       console.error('[diary saveCustomField] failed', error)
       setDiaryCustomers(prev => prev.map(c => c.id === customerId ? { ...c, custom_fields: prevFields } : c))
-      toast.error(`저장 실패: ${error.message}`)
+      toast.error(`저장 실패: ${error?.message ?? NO_ROW_MSG}`)
     }
   }, [diaryCustomers, toast])
 
@@ -958,65 +1024,140 @@ export default function BrokerDiaryPage() {
     const prevIds = diaryCustomers.find(c => c.link_id === linkId)?.proposed_property_ids ?? []
     setDiaryCustomers(prev => prev.map(c => c.link_id === linkId ? { ...c, proposed_property_ids: ids } : c))
     setPropertyPickerLinkId(null)
-    const { error } = await supabase.from('broker_diary_customers').update({ proposed_property_ids: ids }).eq('id', linkId)
-    if (error) {
+    const { data, error } = await supabase.from('broker_diary_customers').update({ proposed_property_ids: ids }).eq('id', linkId).select('id')
+    if (error || !data?.length) {
       console.error('[diary saveProposedProperties] failed', error)
       setDiaryCustomers(prev => prev.map(c => c.link_id === linkId ? { ...c, proposed_property_ids: prevIds } : c))
-      toast.error(`제안매물 저장 실패: ${error.message}`)
+      toast.error(`제안매물 저장 실패: ${error?.message ?? NO_ROW_MSG}`)
+    }
+  }
+
+  // ── 일지 본문·섹션 구조 저장 ─────────────────────────
+  // 본문(sections_content)과 구조(sections)는 그날 일지 행 하나에 같이 들어간다. 예전엔
+  //  ① 화면이 들고 있던 sectionContent 전체로 덮어써서, A 저장(조회→수정 두 번 왕복)이
+  //    끝나기 전에 B를 blur하면 B의 payload에 A의 새 값이 없어 DB에서 A가 사라졌고,
+  //  ② 그날 첫 저장 두 건이 겹치면 둘 다 행이 없다고 보고 insert해 두 번째가
+  //    UNIQUE(broker_id,date)에 막혀 조용히 사라졌고,
+  //  ③ 오류를 안 봐서 폰에서 망이 끊기면 저장된 것처럼 보이고 실제로는 유실됐다.
+  // 그래서 이 행에 대한 쓰기는 모두 한 줄로 세우고(앞의 첫 insert가 끝나야 다음이 돈다),
+  // 매번 DB에서 방금 읽은 내용에 바꿀 섹션 키만 넣어 쓰며, 실패는 알린다.
+  // 이렇게 하면 다른 기기에서 고친 다른 섹션도 지우지 않는다.
+  const saveChainRef = useRef<Promise<unknown>>(Promise.resolve())
+  const enqueueSave = <T,>(job: () => Promise<T>): Promise<T> => {
+    const run = saveChainRef.current.then(job)
+    saveChainRef.current = run.catch(() => {})
+    return run
+  }
+  // 같은 칸 저장이 줄에 또 서면 아직 안 돈 앞 것은 건너뛴다 — 마지막 값만 쓰면 된다
+  const saveSeqRef = useRef(0)
+  const latestSaveRef = useRef<Record<string, number>>({})
+  const claimLatest = (key: string) => {
+    const seq = ++saveSeqRef.current
+    latestSaveRef.current[key] = seq
+    return () => latestSaveRef.current[key] !== seq  // true면 더 새 저장이 있다
+  }
+
+  // 지금 보고 있는 일지 — 저장은 비동기로 끝나므로 부를 때 대상을 잡아 둔다.
+  // req는 그때의 로드 순번: 끝났을 때 날짜·대상을 바꿨으면 화면 상태는 건드리지 않는다.
+  const currentTarget = (): DiaryTarget | null => {
+    if (!broker) return null
+    const archive = viewingExEmployee && !!viewingBrokerId
+    const brokerId = viewingBrokerId ?? broker.id
+    return {
+      archive, officeId: broker.id, brokerId, date: diaryDate, req: diaryReqRef.current,
+      key: `${archive ? 'ex' : 'live'}|${brokerId}|${diaryDate}`,
+    }
+  }
+
+  // archive 행을 새로 만들 때 남길 작성자 이름
+  const archiveAuthorName = async (authorId: string): Promise<string | null> => {
+    const { data: prof } = await supabase.from('broker_profiles').select('user_id').eq('id', authorId).maybeSingle()
+    const { data: nameRow } = prof?.user_id
+      ? await supabase.from('profiles').select('name').eq('id', prof.user_id).maybeSingle()
+      : { data: null }
+    return (nameRow as any)?.name ?? null
+  }
+
+  // 그날 일지 행(퇴사자면 사무소 archive 행)을 DB에서 읽어 patch를 적용한다. 없으면 만든다.
+  // 반드시 enqueueSave 안에서 부를 것. patch는 방금 읽은 sections_content를 받아 바꿀 컬럼만 돌려준다.
+  const writeDiaryRow = async (
+    t: DiaryTarget,
+    patch: (cur: Record<string, string>) => Record<string, unknown>,
+    insertExtra: Record<string, unknown> = {},
+  ): Promise<{ created: boolean; before: Record<string, string> }> => {
+    if (t.archive) {
+      const { data: row, error } = await supabase.from('broker_diary_archive').select('id, sections_content')
+        .eq('office_broker_id', t.officeId).eq('author_broker_id', t.brokerId).eq('date', t.date).maybeSingle()
+      if (error) throw error
+      const before = (row?.sections_content ?? {}) as Record<string, string>
+      if (row) {
+        const { data, error: ue } = await supabase.from('broker_diary_archive').update(patch(before)).eq('id', row.id).select('id')
+        if (ue) throw ue
+        if (!data?.length) throw new Error(NO_ROW_MSG)
+      } else {
+        // archive엔 (사무소·작성자·날짜) 유일 제약이 없다 — 위의 줄 세우기가 중복 insert를 막는다
+        const { error: ie } = await supabase.from('broker_diary_archive').insert({
+          office_broker_id: t.officeId, author_broker_id: t.brokerId,
+          author_name: await archiveAuthorName(t.brokerId), date: t.date,
+          ...insertExtra, ...patch(before),
+        })
+        if (ie) throw ie
+      }
+      return { created: !row, before }
+    }
+    // 다른 기기가 같은 순간 그날 첫 행을 만들면 insert가 UNIQUE에 걸린다 → 한 번 더 읽어 update로
+    for (let attempt = 0; ; attempt++) {
+      const { data: row, error } = await supabase.from('broker_diary').select('id, sections_content')
+        .eq('broker_id', t.brokerId).eq('date', t.date).maybeSingle()
+      if (error) throw error
+      const before = (row?.sections_content ?? {}) as Record<string, string>
+      const updated_at = new Date().toISOString()
+      if (row) {
+        const { data, error: ue } = await supabase.from('broker_diary').update({ ...patch(before), updated_at }).eq('id', row.id).select('id')
+        if (ue) throw ue
+        if (!data?.length) throw new Error(NO_ROW_MSG)
+        return { created: false, before }
+      }
+      const { error: ie } = await supabase.from('broker_diary')
+        .insert({ broker_id: t.brokerId, date: t.date, ...insertExtra, ...patch(before), updated_at })
+      if (!ie) return { created: true, before }
+      if (ie.code !== '23505' || attempt > 0) throw ie
     }
   }
 
   // 섹션 내용 저장 — viewing 대상의 broker_id에 저장 (사장님이 직원 일지 편집 가능하도록)
-  // 퇴사자 archive 모드면 broker_diary_archive에 update (대표 권한 필요)
-  const saveSectionContent = useCallback(async (sectionId: string, value: string) => {
-    if (!broker) return
-    const newContent = { ...sectionContent, [sectionId]: value || undefined }
-    if (!value) delete newContent[sectionId]
-
-    if (viewingExEmployee && viewingBrokerId) {
-      const payload = { sections_content: newContent }
-      const { data: existing } = await supabase.from('broker_diary_archive')
-        .select('id')
-        .eq('office_broker_id', broker.id)
-        .eq('author_broker_id', viewingBrokerId)
-        .eq('date', diaryDate)
-        .maybeSingle()
-      if (existing) await supabase.from('broker_diary_archive').update(payload).eq('id', existing.id)
-      // archive에 해당 날짜 일지 없으면 신규 생성 — author_name도 같이
-      else {
-        const { data: prof } = await supabase.from('broker_profiles').select('user_id').eq('id', viewingBrokerId).maybeSingle()
-        const { data: nameRow } = prof?.user_id
-          ? await supabase.from('profiles').select('name').eq('id', prof.user_id).maybeSingle()
-          : { data: null }
-        await supabase.from('broker_diary_archive').insert({
-          office_broker_id: broker.id,
-          author_broker_id: viewingBrokerId,
-          author_name: (nameRow as any)?.name ?? null,
-          date: diaryDate,
-          sections_content: newContent,
-          sections,  // 현재 구조를 함께 기록 (이 날짜 고정)
-        })
+  // 퇴사자 archive 모드면 broker_diary_archive에 저장 (대표 권한 필요)
+  // 저장됐으면 true. 실패하면 sectionContent는 그대로 둬서 쓴 글이 칸에 남고, 다시 저장할 수 있다.
+  const saveSectionContent = async (sectionId: string, value: string): Promise<boolean> => {
+    const t = currentTarget()
+    if (!t) return false
+    const superseded = claimLatest(`${t.key}|c|${sectionId}`)
+    const structure = sections  // 그날 첫 행이면 지금 섹션 구조를 함께 기록해 이 날짜에 고정
+    try {
+      const res = await enqueueSave(async () => {
+        if (superseded()) return null
+        return writeDiaryRow(t, cur => {
+          const next = { ...cur }
+          if (value) next[sectionId] = value
+          else delete next[sectionId]
+          return { sections_content: next }
+        }, { sections: structure })
+      })
+      if (!res) return true  // 뒤에 같은 칸 저장이 있어 그쪽이 마지막 값을 썼다
+      // 그날 첫 내용이면 대표에게 알림 — 섹션 추가 등으로 빈 행이 먼저 생긴 경우도 포함 (이후 수정은 알림 없음)
+      if (!t.archive && value && (res.created || Object.keys(res.before).length === 0)) {
+        notifyOwnerOfBrokerAction(t.brokerId, 'diary', `/broker/diary?date=${t.date}&broker=${t.brokerId}`)
       }
-      setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
-      return
+      // 같은 칸의 더 새 저장이 줄 서 있으면 화면을 이 값으로 되돌리지 않는다 — 되돌리면 이어 쓴 글이
+      // 화면에서 사라지고, 다음 저장이 그 옛 값을 덮어써 조용히 잃었다.
+      if (t.req === diaryReqRef.current && !superseded()) setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
+      return true
+    } catch (e: any) {
+      console.error('[diary saveSectionContent] failed', e)
+      toast.error(`일지 저장 실패: ${e?.message ?? '다시 시도해 주세요'}`)
+      return false
     }
-
-    const targetBrokerId = viewingBrokerId ?? broker.id
-    const wasEmpty = Object.keys(sectionContent).length === 0  // 이 날 첫 내용인지
-    const payload = { sections_content: newContent, updated_at: new Date().toISOString() }
-    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
-    if (existing) {
-      await supabase.from('broker_diary').update(payload).eq('id', existing.id)
-      // 섹션 추가 등으로 행이 먼저 생겼다가 이제 첫 내용이 들어오는 경우도 알림
-      if (wasEmpty && value) notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
-    } else {
-      // 그날 첫 일지 작성 — 현재 섹션 구조를 함께 기록해 이 날짜에 고정
-      await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload, sections })
-      // 그날 첫 일지 작성 시 대표에게 알림 (이후 셀 update는 알림 없음)
-      notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
-    }
-    setSectionContent(prev => ({ ...prev, [sectionId]: value || '' }))
-  }, [broker, diaryDate, sectionContent, sections, viewingBrokerId, viewingExEmployee])
+  }
 
   // 섹션 이름 변경
   const renameSection = (id: string, title: string) => {
@@ -1042,32 +1183,23 @@ export default function BrokerDiaryPage() {
 
   // 섹션 구조 저장 — 날짜별 (viewing 대상의 그날 일지 행에 저장)
   // 퇴사자 archive 모드면 archive 행에 저장 (대표만). 행이 없으면 새로 만든다.
+  // 본문 저장과 같은 줄에 선다 — 섹션을 추가하자마자 본문을 쓰면 첫 insert가 겹치기 때문.
+  // 실패하면 조용히 넘기지 않고, 마지막으로 맞춰진 구조로 되돌린 뒤 알린다.
   const persistSections = async (newSections: SectionDef[]) => {
-    if (!broker) return
-    if (viewingExEmployee && viewingBrokerId) {
-      const { data: existing } = await supabase.from('broker_diary_archive')
-        .select('id')
-        .eq('office_broker_id', broker.id)
-        .eq('author_broker_id', viewingBrokerId)
-        .eq('date', diaryDate)
-        .maybeSingle()
-      if (existing) await supabase.from('broker_diary_archive').update({ sections: newSections }).eq('id', existing.id)
-      else {
-        const { data: prof } = await supabase.from('broker_profiles').select('user_id').eq('id', viewingBrokerId).maybeSingle()
-        const { data: nameRow } = prof?.user_id
-          ? await supabase.from('profiles').select('name').eq('id', prof.user_id).maybeSingle()
-          : { data: null }
-        await supabase.from('broker_diary_archive').insert({
-          office_broker_id: broker.id, author_broker_id: viewingBrokerId,
-          author_name: (nameRow as any)?.name ?? null, date: diaryDate, sections: newSections,
-        })
-      }
-      return
+    const t = currentTarget()
+    if (!t) return
+    const superseded = claimLatest(`${t.key}|s`)
+    try {
+      const res = await enqueueSave(async () => {
+        if (superseded()) return null  // 더 새 구조가 줄 서 있다
+        return writeDiaryRow(t, () => ({ sections: newSections }))
+      })
+      if (res && t.req === diaryReqRef.current) savedSectionsRef.current = newSections
+    } catch (e: any) {
+      console.error('[diary persistSections] failed', e)
+      toast.error(`섹션 저장 실패: ${e?.message ?? '다시 시도해 주세요'}`)
+      if (!superseded() && t.req === diaryReqRef.current) setSections(savedSectionsRef.current)
     }
-    const targetBrokerId = viewingBrokerId ?? broker.id
-    const { data: existing } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
-    if (existing) await supabase.from('broker_diary').update({ sections: newSections, updated_at: new Date().toISOString() }).eq('id', existing.id)
-    else await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, sections: newSections })
   }
 
   // 칼럼 설정 헬퍼
@@ -1140,14 +1272,7 @@ export default function BrokerDiaryPage() {
         // 삽입 결과를 되읽지 않고 RPC로 다시 불러온다 — 표시 규칙을 로드 경로와 일치시키기 위해
         const { data: fresh, error: freshErr } = await supabase.rpc('diary_customers_for_date', { p_broker_id: targetBrokerId, p_date: diaryDate })
         if (freshErr) throw freshErr
-        setDiaryCustomers((fresh ?? []).map((l: any) => ({
-          link_id: l.link_id, sort_order: l.sort_order,
-          proposed_property_ids: l.proposed_property_ids ?? [],
-          id: l.id, client_name: l.client_name, contact: l.contact,
-          received_date: l.received_date, assignee: l.assignee, category: l.category,
-          source: l.source, status: l.status, request: l.request, interest: l.interest,
-          consult_note: l.consult_note, custom_fields: l.custom_fields,
-        })))
+        setDiaryCustomers((fresh ?? []).map(toDiaryRow))
       } else {
         setDiaryCustomers([])
       }
@@ -1155,19 +1280,14 @@ export default function BrokerDiaryPage() {
       // 3) 섹션 내용 + 구조 복사 (불러온 날의 섹션 구성을 이 날짜로 가져옴)
       const newContent = sourceDiary?.sections_content ?? {}
       const newSections = resolveSections((sourceDiary as any)?.sections, sections, Object.keys(newContent))
-      const payload = { sections_content: newContent, sections: newSections, updated_at: new Date().toISOString() }
-      const { data: existingDiary, error: findErr } = await supabase.from('broker_diary').select('id').eq('broker_id', targetBrokerId).eq('date', diaryDate).maybeSingle()
-      if (findErr) throw findErr
-      if (existingDiary) {
-        const { error } = await supabase.from('broker_diary').update(payload).eq('id', existingDiary.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('broker_diary').insert({ broker_id: targetBrokerId, date: diaryDate, ...payload })
-        if (error) throw error
-        notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
-      }
+      // 본문 저장과 같은 줄에 세운다 — 방금 blur된 섹션 저장의 첫 insert와 겹치면 UNIQUE에 걸린다
+      const t = currentTarget()
+      if (!t) return
+      const { created } = await enqueueSave(() => writeDiaryRow(t, () => ({ sections_content: newContent, sections: newSections })))
+      if (created) notifyOwnerOfBrokerAction(targetBrokerId, 'diary', `/broker/diary?date=${diaryDate}&broker=${targetBrokerId}`)
       setSectionContent(newContent)
       setSections(newSections)
+      savedSectionsRef.current = newSections
       // 건너뛴 게 있으면 모달을 닫지 않고 알린다 — 조용히 빠지면 왜 줄었는지 알 수 없다
       const skipped = (sourceLinks ?? []).length - liveLinks.length
       if (skipped > 0) setImportNotice(`불러왔어요. 다만 휴지통에 있는 고객 ${skipped}명은 제외했습니다.`)
@@ -1220,7 +1340,8 @@ export default function BrokerDiaryPage() {
   const getColWidth = (col: ActiveCol) => { const key = getColKey(col); return settings.widths[key] ?? (col.type === 'custom' ? 120 : (col.def.minWidth ?? 100)) }
 
   const renderCell = (c: DiaryCustomerRow, col: ActiveCol) => {
-    const ro = !effectiveCanEdit
+    // 휴지통 고객은 그날 기록으로만 보여 준다 — 고쳐도 RLS에 막혀 저장되지 않는다
+    const ro = !effectiveCanEdit || !!c.is_deleted
     if (col.type === 'custom') {
       const cd = settings.customCols.find(cc => cc.id === col.id)
       if (cd?.type === 'select') return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={settings.options[col.id] ?? []} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} multi={settings.multi[col.id]} />
@@ -1353,9 +1474,14 @@ export default function BrokerDiaryPage() {
                   {diaryCustomers.length === 0 ? (
                     <EmptyRow colSpan={activeCols.length + 1} message="아래 버튼으로 고객을 추가하세요" />
                   ) : diaryCustomers.map((c) => (
-                    <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40')}>
-                      {activeCols.map(col => (
-                        <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>{renderCell(c, col)}</td>
+                    <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40', c.is_deleted && 'bg-gray-50/70 dark:bg-gray-800/30')}>
+                      {activeCols.map((col, ci) => (
+                        <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
+                          {ci === 0 && c.is_deleted && (
+                            <span className="mb-0.5 inline-block rounded-full bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-300" title="휴지통에 있는 고객이라 수정할 수 없어요">휴지통</span>
+                          )}
+                          {renderCell(c, col)}
+                        </td>
                       ))}
                       <SheetActionCell canEdit={effectiveCanEdit} onCopy={() => duplicateDiaryCustomer(c)} onDelete={() => setDeleteConfirm(c.link_id)} />
                     </tr>

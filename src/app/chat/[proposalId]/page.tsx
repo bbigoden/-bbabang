@@ -11,6 +11,7 @@ import { Send, ArrowLeft, CheckCircle, MapPin, Phone, Building2, X, ChevronRight
 import Image from 'next/image'
 import Link from 'next/link'
 import { Spinner } from '@/components/ui/spinner'
+import { chatImageError, sendChatImage, useChatImageUrls } from '@/components/chat-panel'
 
 // ── 타입 ──────────────────────────────────────────
 interface PropertySnapshot {
@@ -304,6 +305,7 @@ export default function ChatPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const imageUrl = useChatImageUrls(supabase, messages)
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -447,37 +449,16 @@ export default function ChatPage() {
     inputRef.current?.focus()
   }
 
-  // 이미지 전송
+  // 이미지 전송 — 비공개 버킷(chat-images)에 올리고 메시지엔 경로만 남긴다 (chat-panel 과 공용)
   const sendImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !room) return
     e.target.value = ''
 
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    if (!ALLOWED_TYPES.includes(file.type)) { toast.error('지원하지 않는 이미지 형식입니다 (jpg/png/webp/gif)'); return }
-    if (file.size > 10 * 1024 * 1024) { toast.error('이미지가 10MB를 초과합니다'); return }
-    if (file.size === 0) { toast.error('빈 파일입니다'); return }
-
-    const ext = file.name.split('.').pop()
-    const path = `chat/${room.id}/${Date.now()}.${ext}`
-    const { error: uploadErr } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
-    if (uploadErr) {
-      console.error('[chat] image upload failed', uploadErr)
-      toast.error(`이미지 업로드 실패: ${uploadErr.message}`)
-      return
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
-    const { error: msgErr } = await supabase.from('chat_messages').insert({
-      room_id: room.id,
-      sender_id: user.id,
-      content: publicUrl,
-      message_type: 'image',
-    })
-    if (msgErr) {
-      console.error('[chat] image message insert failed', msgErr)
-      toast.error(`이미지 메시지 전송 실패: ${msgErr.message}`)
-    }
+    const invalid = chatImageError(file)
+    if (invalid) { toast.error(invalid); return }
+    const failed = await sendChatImage(supabase, room.id, user.id, file)
+    if (failed) toast.error(failed)
   }
 
   // 매물 피커 열기 (중개사만)
@@ -700,6 +681,7 @@ export default function ChatPage() {
                   if (isPropertyMsg) {
                     try { propertySnapshot = JSON.parse(msg.content) } catch { }
                   }
+                  const imgUrl = msg.message_type === 'image' ? imageUrl(msg.content) : null
 
                   return (
                     <div
@@ -721,18 +703,23 @@ export default function ChatPage() {
                         {isPropertyMsg && propertySnapshot ? (
                           <PropertyCard snapshot={propertySnapshot} isMine={isMine} onClick={() => setViewingSnapshot(propertySnapshot)} />
                         ) : msg.message_type === 'image' ? (
-                          /* 이미지 메시지 */
-                          <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                            <div className="relative max-w-xs overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm" style={{ width: '240px', height: '200px' }}>
-                              <Image
-                                src={msg.content}
-                                alt="사진"
-                                fill
-                                className="object-cover"
-                                sizes="240px"
-                              />
-                            </div>
-                          </a>
+                          /* 이미지 메시지 — 서명 URL 은 최적화 허용 경로(public)가 아니라 unoptimized 로 연다 */
+                          imgUrl ? (
+                            <a href={imgUrl} target="_blank" rel="noopener noreferrer">
+                              <div className="relative max-w-xs overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm" style={{ width: '240px', height: '200px' }}>
+                                <Image
+                                  src={imgUrl}
+                                  alt="사진"
+                                  fill
+                                  unoptimized
+                                  className="object-cover"
+                                  sizes="240px"
+                                />
+                              </div>
+                            </a>
+                          ) : (
+                            <div className="max-w-xs animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" style={{ width: '240px', height: '200px' }} />
+                          )
                         ) : (
                           /* 일반 텍스트 말풍선 */
                           <div className={cn(

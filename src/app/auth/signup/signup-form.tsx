@@ -74,12 +74,10 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
     }
 
     if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        name,
-        phone,
-        role,
+      // 프로필 행·이름·휴대폰·역할은 가입 트리거(handle_new_user)가 메타데이터로 이미 만든다.
+      // 여기선 마케팅 수신 동의만 얹는다. upsert 로 email·phone 까지 보내면 그 칸들의 읽기 권한이
+      // 없어(ON CONFLICT 의 EXCLUDED 를 읽어야 한다) 통째로 실패해, 동의가 저장되지 않았다.
+      await supabase.from('profiles').update({
         // 마케팅 수신 분리 동의 — 별도 체크박스 결과만 반영, 나머지는 DB 기본값
         notification_preferences: {
           matches: true,
@@ -88,7 +86,7 @@ export function SignupForm({ defaultRole = 'user' }: { defaultRole?: 'user' | 'b
           announcements: true,
           marketing: agreeMarketing,
         },
-      })
+      }).eq('id', data.user.id)
 
       // 신규 가입 시 현재 유효한 모든 약관 버전 동의 기록
       await fetch('/api/consent/signup', {

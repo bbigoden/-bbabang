@@ -1248,6 +1248,11 @@ function BrokerPropertiesContent() {
   // 서버 페이지네이션: properties는 "현재 페이지 행"만 담는다.
   // 필터·검색·정렬·페이지는 search_office_properties RPC가 DB에서 처리.
   const [properties, setProperties] = useState<Property[]>([])
+  // 저장 함수(useCallback deps 없음)가 최신 행을 읽는 통로.
+  // setProperties updater 안에서 바깥 변수를 채우면 안 된다 — React 는 대기 중인 갱신이 있으면
+  // updater 를 다음 렌더로 미뤄서, 바로 다음 줄의 DB 저장에는 빈 값이 나갔다(custom_fields 가 {} 로 저장됨).
+  const propertiesRef = useRef(properties)
+  propertiesRef.current = properties
   // 조회 스코프 — 일반 경로는 사무소 단일 id(office_broker_id), 어드민 개별 열람만 broker id 배열 유지
   const [scopeState, setScopeState] = useState<{ office: string } | { brokerIds: string[] } | null>(null)
   const officeIdRef = useRef<string>('')  // saveField(useCallback deps 없음)에서 최신 사무소 범위 참조용
@@ -1618,13 +1623,11 @@ function BrokerPropertiesContent() {
   // 단일 필드 저장 (optimistic UI + 실패 시 롤백)
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
-    let prevValue: any = undefined
-    let rowDealType: string | null = null
-    setProperties(prev => {
-      const row = prev.find(p => p.id === id) as any
-      if (row) { prevValue = row[field]; rowDealType = row.deal_type || null }
-      return prev.map(p => p.id === id ? { ...p, [field]: value } : p)
-    })
+    // 되돌릴 값·중복 검사 기준은 updater 밖에서 읽는다 (updater 는 언제 돌지 모른다)
+    const row = propertiesRef.current.find(p => p.id === id) as any
+    const prevValue = row?.[field]
+    const rowDealType: string | null = row?.deal_type || null
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
     const { error } = await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
     if (error) {
       console.error('[saveField] failed', error)
@@ -1726,8 +1729,7 @@ function BrokerPropertiesContent() {
       if (data.room_type) updates.room_type = data.room_type
 
       // 자동채움 시 좌표도 함께 확보 (이미 있으면 굳이 재호출 안 함)
-      let hasCoords = false
-      setProperties(prev => { hasCoords = !!prev.find(p => p.id === id)?.lat; return prev })
+      const hasCoords = !!propertiesRef.current.find(p => p.id === id)?.lat
       if (!hasCoords) {
         const coords = await geocodeAddress(addr)
         if (coords) {
@@ -1766,19 +1768,29 @@ function BrokerPropertiesContent() {
   }, [supabase])
 
   // 커스텀 필드 값 저장 (optimistic + 실패 시 롤백)
+  // custom_fields 는 객체 통째로 덮어쓴다 — 봇이 넣은 contact·price_raw 같은 키도 같이 들어 있으므로
+  // 반드시 행의 지금 값 전체에 이 칸만 얹어 보낸다.
   const saveCustomField = useCallback(async (propertyId: string, colId: string, value: string) => {
-    let prevFields: Record<string, string> | null = null
-    let updated: Record<string, string> = {}
-    setProperties(prev => {
-      const prop = prev.find(p => p.id === propertyId)
-      prevFields = (prop?.custom_fields ?? null) as any
-      updated = { ...(prop?.custom_fields ?? {}), [colId]: value }
-      return prev.map(p => p.id === propertyId ? { ...p, custom_fields: updated } : p)
-    })
+    const rows = propertiesRef.current
+    const prop = rows.find(p => p.id === propertyId)
+    // 행을 못 찾으면 {[colId]: value} 만 나가 다른 키가 다 지워진다 — 저장하지 않는다
+    if (!prop) { toast.error('저장 실패: 매물을 찾지 못했어요. 새로고침 후 다시 시도해 주세요'); return }
+    const prevFields = prop.custom_fields ?? null
+    const updated = { ...(prevFields ?? {}), [colId]: value }
+    // 같은 틱에 같은 행의 다른 칸을 또 저장해도 이 값을 딛고 서도록 렌더를 기다리지 않고 바로 반영
+    propertiesRef.current = rows.map(p => p.id === propertyId ? { ...p, custom_fields: updated } : p)
+    setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, custom_fields: updated } : p))
     const { error } = await supabase.from('broker_properties').update({ custom_fields: updated }).eq('id', propertyId)
     if (error) {
       console.error('[saveCustomField] failed', error)
-      setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, custom_fields: prevFields ?? {} } : p))
+      // 이 칸만 되돌린다 — 그사이 저장한 다른 칸까지 옛 값으로 덮지 않게
+      setProperties(prev => prev.map(p => {
+        if (p.id !== propertyId) return p
+        const fields = { ...(p.custom_fields ?? {}) }
+        if (prevFields && colId in prevFields) fields[colId] = prevFields[colId]
+        else delete fields[colId]
+        return { ...p, custom_fields: fields }
+      }))
       toast.error(`저장 실패: ${error.message}`)
     }
   }, [])

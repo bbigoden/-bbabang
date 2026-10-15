@@ -1,23 +1,19 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { LogOut, ExternalLink } from 'lucide-react'
-import { useAuth } from '@/lib/auth-context'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth, signOutAndLeave } from '@/lib/auth-context'
 import { cn } from '@/lib/utils'
 import { ADMIN_ITEMS } from './menu-items'
 
 export function AdminSidebar() {
   const pathname = usePathname() ?? ''
-  const router = useRouter()
   const auth = useAuth()
 
-  const handleLogout = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: 'local' })  // 이 기기만 (기본 global은 전 기기 세션 삭제)
-    router.push('/')
-  }
+  // 이 기기만 로그아웃(scope local)·캐시·푸시 구독 정리·이동은 공용 함수가 한다.
+  // 전체 새로고침으로 넘어가 메모리에 남은 관리자 화면 상태도 같이 버린다.
+  const handleLogout = () => { signOutAndLeave() }
 
   // admin 권한 없으면 사이드바 자체를 렌더하지 않음 (page.tsx의 가드와 별개로 UI 노출 차단)
   if (auth.loading || auth.profile?.role !== 'admin') return null

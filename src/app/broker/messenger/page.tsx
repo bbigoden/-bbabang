@@ -316,9 +316,17 @@ export default function BrokerMessengerPage() {
   // 메시지 삭제 (본인 메시지만). 낙관적 제거 + 실시간 DELETE로 상대도 반영.
   const deleteMessage = async (id: string) => {
     if (!window.confirm('이 메시지를 삭제할까요?')) return
+    const target = messages.find(m => m.id === id)
     setMessages(prev => prev.filter(m => m.id !== id))
-    const { error } = await supabase.from('office_chat_messages').delete().eq('id', id)
-    if (error) toast.error('삭제 실패: ' + error.message)
+    const { data: gone, error } = await supabase.from('office_chat_messages').delete().eq('id', id).select('id')
+    if (error) { toast.error('삭제 실패: ' + error.message); return }
+    // 첨부 파일도 지운다 — 안 지우면 삭제한 사진·파일이 스토리지에 그대로 남는다.
+    // 행이 실제로 지워진 뒤에만 지워야 행 삭제가 막혔을 때 깨진 메시지가 남지 않는다.
+    // 스토리지 정책은 올린 사람만 삭제 가능(storage_chat_policies.sql). 실패해도 메시지 삭제는 끝난 것이라 기록만 한다.
+    const paths = [chatStoragePath(target?.image_url), chatStoragePath(target?.file_url)].filter((p): p is string => !!p)
+    if (!gone?.length || paths.length === 0) return
+    const { error: rmErr } = await supabase.storage.from(CHAT_BUCKET).remove(paths)
+    if (rmErr) console.error('[messenger] attachment remove failed', rmErr)
   }
 
   // 메시지 복사

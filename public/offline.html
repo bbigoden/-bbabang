@@ -71,9 +71,11 @@
   <div class="card">
     <div class="icon">📡</div>
     <h1>네트워크에 연결되지 않았어요</h1>
-    <p>인터넷 연결을 확인하고 다시 시도해주세요. 이전에 본 페이지는 캐시에서 그대로 볼 수 있어요.</p>
+    <!-- SW(sw.js)는 페이지(HTML)를 저장해 두지 않는다. 연결이 끊기면 어느 페이지든 이 안내로
+         바뀌므로 '전에 본 페이지는 볼 수 있다'고 약속하면 안 된다. -->
+    <p>인터넷 연결을 확인한 뒤 [다시 시도]를 눌러 주세요.</p>
     <button onclick="location.reload()">다시 시도</button>
-    <div class="hint">부소장 • Service Worker 캐시</div>
+    <div class="hint">부소장</div>
   </div>
 </body>
 </html>

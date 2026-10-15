@@ -15,7 +15,9 @@ import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { SheetActionHeader } from '@/components/sheet/action-cell'
-import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
+import {
+  calcSettlement, clampRate, csvCell, fmtComma, isDistributionRow, sumOfficeProfitByMonth, thisRecordMonth,
+} from '@/lib/settlement'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
@@ -50,6 +52,8 @@ interface Member {
   profiles: { name: string | null } | null
 }
 
+// 연·월 숫자로 만든 Date 전용(이전/다음 달 이동) — 시간대와 무관하다.
+// '이번 달' 은 기기 시계로 세면 UTC 기기에서 하루 밀리므로 thisRecordMonth() 를 쓴다.
 const yyyymm = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
 // ── 인라인 숫자 셀 (정산 전용 — 원 단위, 콤마 표시) ─────────
@@ -168,7 +172,7 @@ function RateCell({ value, onSave, readOnly }: { value: number; onSave: (v: numb
     const num = Number(draft)
     if (isNaN(num)) return
     // 비율은 0~1 — 50을 입력해도 담당자수수료가 50배가 되지 않게 클램프
-    const clamped = Math.min(1, Math.max(0, num))
+    const clamped = clampRate(num)
     if (clamped !== value) onSave(clamped)
   }
 
@@ -213,7 +217,7 @@ export default function SettlementPage() {
   const [exAssignees, setExAssignees] = useState<Array<{ key: string; name: string }>>([])
   // 대표 전용: 월 기본경비·동업 분배 비율 (office_settlement_settings, 사무소당 1행)
   const [expenseSettings, setExpenseSettings] = useState<{ monthly_expense: number; partner_split: number } | null>(null)
-  const [month, setMonth] = useState(() => yyyymm(new Date()))
+  const [month, setMonth] = useState(() => thisRecordMonth())
   const [allMode, setAllMode] = useState(false)
   const [highlightSettlementId, setHighlightSettlementId] = useState<string | null>(null)
 
@@ -411,16 +415,7 @@ export default function SettlementPage() {
 
   // 월별 사무실 수익 (분배 행 제외 — 분배에 분배가 섞이는 순환 방지)
   // 직원 필터와 무관하게 로드된 전체 행 기준
-  const officeProfitByMonth = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const r of rows) {
-      if (isDistributionRow(r)) continue
-      const c = calcSettlement(r)
-      const key = r.record_month ?? ''
-      m.set(key, (m.get(key) ?? 0) + (c.supply - c.assignee))
-    }
-    return m
-  }, [rows])
+  const officeProfitByMonth = useMemo(() => sumOfficeProfitByMonth(rows), [rows])
 
   // 분배 행의 매도수수료(사무실 수익)는 저장값 대신 현재 합계를 실시간 반영
   // → 이후 정산을 추가·삭제·수정해도 분배 행이 자동으로 따라간다 (재등록 불필요)
@@ -469,7 +464,7 @@ export default function SettlementPage() {
   // 대표가 특정 직원 필터를 걸어둔 상태면 그 직원 기준으로 행 생성 (필터된 화면에 즉시 보이도록)
   const addNewRow = async () => {
     if (!officeId || !meBroker) return
-    const recordMonth = allMode ? yyyymm(new Date()) : month
+    const recordMonth = allMode ? thisRecordMonth() : month
 
     const target = (isOwner && filterAssigneeId && !filterAssigneeId.startsWith('ex:'))
       ? (members.find(m => m.id === filterAssigneeId) ?? meBroker)
@@ -482,7 +477,7 @@ export default function SettlementPage() {
         assignee_broker_id: target.id,
         assignee_name: target.profiles?.name ?? null,
         record_month: recordMonth,
-        settlement_rate: Number(target.default_settlement_rate ?? 0.5),
+        settlement_rate: clampRate(target.default_settlement_rate ?? 0.5),
         withhold_exempt: !!target.is_owner,
         seller_fee: 0,
         buyer_fee: 0,
@@ -511,7 +506,7 @@ export default function SettlementPage() {
       return
     }
     const expense = expenseSettings.monthly_expense
-    const partnerRate = 1 - expenseSettings.partner_split
+    const partnerRate = clampRate(1 - expenseSettings.partner_split)
     const { data, error } = await supabase
       .from('settlements')
       .insert({
@@ -541,7 +536,7 @@ export default function SettlementPage() {
     setRows(prev => prev.filter(x => x.id !== r.id))
   }
 
-  // CSV 다운로드 (직원·사무소 두 양식)
+  // CSV 다운로드 (지금은 파일 이름만 다르고 열 구성은 같다)
   const downloadCsv = (mode: 'employee' | 'office') => {
     const head = ['계약일','계약주소','매도인(임대)','매수인(임차)','담당자','정산비','매도수수료','매수수수료','총수수료','VAT','공급가','담당자수수료','실수령(원천후)','매도입금일','매수입금일']
 
@@ -549,16 +544,13 @@ export default function SettlementPage() {
     for (const raw of visibleRows) {
       const r = withLiveProfit(raw)
       const c = calcSettlement(r)
-      const csv = (s: string | number | null | undefined) => {
-        const v = s == null ? '' : String(s)
-        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v
-      }
+      // 글자 칸만 csvCell — '=...' 같은 주소·이름이 엑셀에서 수식으로 실행되지 않게 막는다
       const row: (string | number)[] = [
         r.contract_date ?? '',
-        csv(r.contract_address ?? ''),
-        csv(r.seller ?? ''),
-        csv(r.buyer ?? ''),
-        csv(r.assignee_name ?? ''),
+        csvCell(r.contract_address),
+        csvCell(r.seller),
+        csvCell(r.buyer),
+        csvCell(r.assignee_name),
         r.settlement_rate,
         r.seller_fee,
         r.buyer_fee,
@@ -642,8 +634,8 @@ export default function SettlementPage() {
               className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronRight className="h-4 w-4" />
             </button>
-            <button onClick={() => { setAllMode(false); setMonth(yyyymm(new Date())) }}
-              className={`ml-1 rounded-lg border px-3 py-1.5 text-xs font-semibold ${!allMode && month === yyyymm(new Date())
+            <button onClick={() => { setAllMode(false); setMonth(thisRecordMonth()) }}
+              className={`ml-1 rounded-lg border px-3 py-1.5 text-xs font-semibold ${!allMode && month === thisRecordMonth()
                 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}>
               이번 달

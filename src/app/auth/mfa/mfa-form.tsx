@@ -7,6 +7,22 @@ import { Shield } from 'lucide-react'
 import Link from 'next/link'
 
 /**
+ * next 는 같은 사이트 경로만 받는다. 예전엔 검증 없이 router.replace(next) 라
+ * /auth/mfa?next=https://evil.example 로 2단계 인증 직후 외부로 보낼 수 있었다.
+ * '//', '/\' 로 시작하는 것도 브라우저가 외부 주소로 읽으므로, 실제로 풀어 본
+ * 출처가 지금 사이트와 같을 때만 그 경로를 쓴다.
+ */
+function safeNext(raw: string | null): string | null {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return null
+  try {
+    const u = new URL(raw, window.location.origin)
+    return u.origin === window.location.origin ? u.pathname + u.search + u.hash : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * 로그인 후 AAL2가 필요할 때 TOTP 코드를 입력받는 페이지.
  * login-form.tsx가 nextLevel==='aal2'를 감지하면 /auth/mfa?next=<dest> 로 보낸다.
  */
@@ -62,7 +78,7 @@ export function MfaForm() {
 
     // 인증 성공 → role 기반 리다이렉트
     const params = new URLSearchParams(window.location.search)
-    const next = params.get('next')
+    const next = safeNext(params.get('next'))
     if (next) {
       router.replace(next)
       return

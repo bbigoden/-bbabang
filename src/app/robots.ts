@@ -7,10 +7,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        // /request/는 사용자 데이터라 통째로 막는데, /request/new는 조건 등록
-        // 랜딩이라 색인돼야 한다(sitemap에도 priority 0.9로 제출 중이었다).
-        // 더 긴 규칙이 우선하므로 명시적으로 열어준다.
-        allow: ['/', '/request/new'],
+        // /request/new는 따로 열지 않는다 — 로그인 보호 경로(proxy PROTECTED)라 크롤러는
+        // 로그인 화면으로 307만 받는다. 색인시키려면 비로그인 안내 랜딩부터 만들어야 한다.
+        allow: ['/'],
         // 로그인·중개사 영역·API·사용자별 상세 페이지는 색인 제외
         disallow: [
           '/api/',
@@ -29,6 +28,9 @@ export default function robots(): MetadataRoute.Robots {
           '/history',
           '/recommendations',
           '/account-suspended',
+          // 비로그인에겐 로그인으로 넘기는 빈 껍데기가 기본 제목·index로 200 응답된다
+          '/my/',          // /my/proposals, /my/requests
+          '/saved-searches',
           '/search',       // 임의 검색어 무한 크롤 방지
         ],
       },

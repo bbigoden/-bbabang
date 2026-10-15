@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { signOutAndLeave } from '@/lib/auth-context'
 import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2, Shield, ShieldCheck, ShieldOff, Copy, LogOut } from 'lucide-react'
 import { transferBrokerData } from '@/lib/leave-office'
 import { BrokerChangeOffice } from '@/components/broker-change-office'
@@ -10,7 +10,6 @@ import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
 import { Spinner } from '@/components/ui/spinner'
 
 export default function SettingsAccountPage() {
-  const router = useRouter()
   const supabase = createClient()
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null)
   const [profile, setProfile] = useState<{ name?: string; phone?: string; role?: string; created_at?: string } | null>(null)
@@ -143,8 +142,8 @@ export default function SettingsAccountPage() {
       setWithdrawing(false)
       return
     }
-    await supabase.auth.signOut()
-    router.push('/')
+    // 계정이 지워졌으니 전 기기 세션(global)을 끊고, 캐시를 지운 뒤 전체 새로고침으로 나간다
+    await signOutAndLeave({ scope: 'global' })
   }
 
   // 2FA 등록 시작 → QR 코드 표시

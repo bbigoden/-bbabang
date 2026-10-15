@@ -349,6 +349,11 @@ export default function BrokerCustomersPage() {
   const [canEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
+  // 저장 함수(useCallback deps 없음)가 최신 행을 읽는 통로.
+  // setCustomers updater 안에서 바깥 변수를 채우면 안 된다 — React 는 대기 중인 갱신이 있으면
+  // updater 를 다음 렌더로 미뤄서, 바로 다음 줄의 DB 저장에는 빈 값이 나갔다(커스텀 칸이 통째로 덮여 다른 칸이 지워짐).
+  const customersRef = useRef(customers)
+  customersRef.current = customers
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [monthFilter, setMonthFilter] = useState('전체')
@@ -461,12 +466,9 @@ export default function BrokerCustomersPage() {
 
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
-    let prevValue: any = undefined
-    setCustomers(prev => {
-      const row = prev.find(c => c.id === id) as any
-      if (row) prevValue = row[field]
-      return prev.map(c => c.id === id ? { ...c, [field]: value } : c)
-    })
+    // 되돌릴 값·중복 검사 기준은 updater 밖에서 읽는다 (updater 는 언제 돌지 모른다)
+    const prevValue = (customersRef.current.find(c => c.id === id) as any)?.[field]
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
     const { error } = await supabase.from('broker_customers')
       .update({ [field]: value, updated_at: new Date().toISOString() }).eq('id', id)
     if (error) {
@@ -485,19 +487,28 @@ export default function BrokerCustomersPage() {
     }
   }, [])
 
+  // custom_fields 는 칸 하나가 아니라 객체 통째로 덮어쓰므로, 반드시 행의 지금 값 전체에 이 칸만 얹어 보낸다.
   const saveCustomField = useCallback(async (id: string, colId: string, value: string) => {
-    let prevFields: Record<string, string> | null = null
-    setCustomers(prev => {
-      const row = prev.find(c => c.id === id)
-      prevFields = (row?.custom_fields ?? null) as any
-      const newFields = { ...(row?.custom_fields ?? {}), [colId]: value }
-      return prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c)
-    })
+    const rows = customersRef.current
+    const row = rows.find(c => c.id === id)
+    // 행을 못 찾으면 {[colId]: value} 만 나가 다른 칸이 다 지워진다 — 저장하지 않는다
+    if (!row) { toast.error('저장 실패: 고객을 찾지 못했어요. 새로고침 후 다시 시도해 주세요'); return }
+    const prevFields = row.custom_fields ?? null
     const newFields = { ...(prevFields ?? {}), [colId]: value }
+    // 같은 틱에 같은 행의 다른 칸을 또 저장해도 이 값을 딛고 서도록 렌더를 기다리지 않고 바로 반영
+    customersRef.current = rows.map(c => c.id === id ? { ...c, custom_fields: newFields } : c)
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, custom_fields: newFields } : c))
     const { error } = await supabase.from('broker_customers').update({ custom_fields: newFields }).eq('id', id)
     if (error) {
       console.error('[saveCustomField] failed', error)
-      setCustomers(prev => prev.map(c => c.id === id ? { ...c, custom_fields: prevFields ?? {} } : c))
+      // 이 칸만 되돌린다 — 그사이 저장한 다른 칸까지 옛 값으로 덮지 않게
+      setCustomers(prev => prev.map(c => {
+        if (c.id !== id) return c
+        const fields = { ...(c.custom_fields ?? {}) }
+        if (prevFields && colId in prevFields) fields[colId] = prevFields[colId]
+        else delete fields[colId]
+        return { ...c, custom_fields: fields }
+      }))
       toast.error(`저장 실패: ${error.message}`)
     }
   }, [])

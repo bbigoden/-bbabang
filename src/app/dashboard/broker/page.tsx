@@ -87,7 +87,8 @@ export default async function BrokerDashboardPage() {
         ? Promise.all([
             supabase.from('broker_properties').select('id', { count: 'exact', head: true }).eq('office_broker_id', broker.id),
             supabase.from('broker_profiles').select('id', { count: 'exact', head: true }).eq('parent_broker_id', broker.id),
-            supabase.from('office_settlement_settings').select('office_broker_id').eq('office_broker_id', broker.id).maybeSingle(),
+            // 정산 기준 설정 화면은 없앴다 — 첫 정산 기록이 있으면 끝난 것으로 본다
+            supabase.from('settlements').select('id', { count: 'exact', head: true }).eq('office_broker_id', broker.id),
           ])
         : null,
     ])
@@ -97,8 +98,8 @@ export default async function BrokerDashboardPage() {
     settlements = st ?? []
 
     if (onboardingRes) {
-      const [{ count: propCount }, { count: empCount }, { data: settleRow }] = onboardingRes
-      const items = { property: (propCount ?? 0) > 0, employee: (empCount ?? 0) > 0, settlement: !!settleRow }
+      const [{ count: propCount }, { count: empCount }, { count: settleCount }] = onboardingRes
+      const items = { property: (propCount ?? 0) > 0, employee: (empCount ?? 0) > 0, settlement: (settleCount ?? 0) > 0 }
       if (!(items.property && items.employee && items.settlement)) onboarding = items
     }
   } catch {

@@ -42,6 +42,68 @@ export interface PropertySnapshot {
   options: string[]; description: string | null; images?: string[]; property_id: string
 }
 
+// ── 채팅 사진 (chat/[proposalId] 페이지와 같이 쓴다) ──────────
+// 고객↔중개사 대화 사진은 비공개 버킷에 두고, 메시지에는 경로만 저장해 볼 때 서명 URL 로 연다.
+// 예전엔 공개 버킷 property-images 의 chat/ 폴더에 올렸는데, 그 버킷은 '본인 uid 폴더'만
+// 올릴 수 있어 사진 전송이 한 번도 성공하지 못했고, 됐더라도 영구 공개 URL 이 남았다.
+// 정책: supabase/migrations/storage_chat_policies.sql (방의 고객·중개사만 읽기/쓰기)
+const CHAT_IMAGE_BUCKET = 'chat-images'
+const CHAT_IMAGE_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
+type ChatSupabase = ReturnType<typeof createClient>
+
+// 고를 때 바로 거른다 — 버킷도 같은 조건(10MB·4종)이라 올려 봐야 거부된다.
+export function chatImageError(file: File): string | null {
+  if (!CHAT_IMAGE_EXT[file.type]) return '지원하지 않는 이미지 형식입니다 (jpg/png/webp/gif)'
+  if (file.size > 10 * 1024 * 1024) return '이미지가 10MB를 초과합니다'
+  if (file.size === 0) return '빈 파일입니다'
+  return null
+}
+
+// 올리고 → 메시지 기록. 기록이 실패하면 방금 올린 파일도 지워 아무도 못 보는 파일을 남기지 않는다.
+// 실패 시 사용자에게 보일 문장을, 성공 시 null 을 돌려준다.
+export async function sendChatImage(supabase: ChatSupabase, roomId: string, senderId: string, file: File): Promise<string | null> {
+  const path = `${roomId}/${crypto.randomUUID()}.${CHAT_IMAGE_EXT[file.type] ?? 'jpg'}`
+  const { error: upErr } = await supabase.storage.from(CHAT_IMAGE_BUCKET).upload(path, file, { contentType: file.type, upsert: false })
+  if (upErr) {
+    console.error('[chat] image upload failed', upErr)
+    return `이미지 업로드 실패: ${upErr.message}`
+  }
+  const { error: msgErr } = await supabase.from('chat_messages').insert({ room_id: roomId, sender_id: senderId, content: path, message_type: 'image' })
+  if (msgErr) {
+    console.error('[chat] image message insert failed', msgErr)
+    await supabase.storage.from(CHAT_IMAGE_BUCKET).remove([path])
+    return `이미지 메시지 전송 실패: ${msgErr.message}`
+  }
+  return null
+}
+
+// 사진 메시지 content → 열 수 있는 URL. 새로 보이는 경로만 모아 한 번에 서명한다(24시간).
+// http 로 시작하면 예전 방식의 공개 URL 이라 그대로 쓴다. 서명 전이면 null.
+export function useChatImageUrls(supabase: ChatSupabase, messages: { message_type: string; content: string }[]) {
+  const [signed, setSigned] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const paths = Array.from(new Set(
+      messages.filter(m => m.message_type === 'image' && m.content && !m.content.startsWith('http')).map(m => m.content)
+    )).filter(p => !signed[p])
+    if (paths.length === 0) return
+    let alive = true
+    supabase.storage.from(CHAT_IMAGE_BUCKET).createSignedUrls(paths, 60 * 60 * 24)
+      .then(({ data }) => {
+        if (!alive || !data) return
+        setSigned(prev => {
+          const next = { ...prev }
+          for (const r of data) if (r.signedUrl && r.path) next[r.path] = r.signedUrl
+          return next
+        })
+      })
+    return () => { alive = false }
+    // signed 는 이 effect 가 채우는 대상이라 의존성에서 뺀다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, supabase])
+  return (content: string): string | null =>
+    !content ? null : content.startsWith('http') ? content : (signed[content] ?? null)
+}
+
 // ── 매물 카드 ──────────────────────────────────────
 export function PropertyCard({ snapshot, isMine, onClick }: { snapshot: PropertySnapshot; isMine: boolean; onClick?: () => void }) {
   const priceText = snapshot.deal_type === '월세'
@@ -253,6 +315,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
   const [showQuickReplies, setShowQuickReplies] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const imageUrl = useChatImageUrls(supabase, messages)
 
   const scrollToBottom = useCallback(() => { const el = scrollContainerRef.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }) }, [])
   useEffect(() => { scrollToBottom() }, [messages, scrollToBottom])
@@ -365,13 +428,11 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
 
   const sendImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file || !room) return; e.target.value = ''
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    if (!ALLOWED_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) return
-    const path = `chat/${room.id}/${Date.now()}.${file.name.split('.').pop()}`
-    const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
-    if (error) return
-    const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
-    await supabase.from('chat_messages').insert({ room_id: room.id, sender_id: currentUser.id, content: publicUrl, message_type: 'image' })
+    // 예전엔 거부·실패를 조용히 삼켜서, 사진이 안 가도 사용자는 알 길이 없었다
+    const invalid = chatImageError(file)
+    if (invalid) { toast.error(invalid); return }
+    const failed = await sendChatImage(supabase, room.id, currentUser.id, file)
+    if (failed) { toast.error(failed); return }
     notifyRecipient('📷 사진을 보냈어요')
   }
 
@@ -591,6 +652,7 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                   let event: EventPayload | null = null
                   if (msg.message_type === 'property') { try { snap = JSON.parse(msg.content) } catch { } }
                   if (msg.message_type === 'event') { try { event = JSON.parse(msg.content) } catch { } }
+                  const imgUrl = msg.message_type === 'image' ? imageUrl(msg.content) : null
                   return (
                     <div key={msg.id} className={cn('flex items-end gap-1.5', isMine ? 'justify-end' : 'justify-start')}>
                       {!isMine && (
@@ -604,11 +666,16 @@ export function ChatPanel({ proposalId, currentUser, isOwner, onBack }: {
                         ) : msg.message_type === 'event' && event ? (
                           <EventCard event={event} isMine={isMine} />
                         ) : msg.message_type === 'image' ? (
-                          <a href={msg.content} target="_blank" rel="noopener noreferrer">
-                            <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800" style={{ width: '200px', height: '160px' }}>
-                              <Image src={msg.content} alt="사진" fill className="object-cover" sizes="200px" />
-                            </div>
-                          </a>
+                          imgUrl ? (
+                            <a href={imgUrl} target="_blank" rel="noopener noreferrer">
+                              <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800" style={{ width: '200px', height: '160px' }}>
+                                {/* 서명 URL 은 이미지 최적화 허용 경로(public)가 아니라 unoptimized 로 바로 연다 */}
+                                <Image src={imgUrl} alt="사진" fill unoptimized className="object-cover" sizes="200px" />
+                              </div>
+                            </a>
+                          ) : (
+                            <div className="animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" style={{ width: '200px', height: '160px' }} />
+                          )
                         ) : (
                           <div className={cn('max-w-[200px] rounded-2xl px-3 py-2 text-sm leading-relaxed break-words',
                             isMine ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-white border border-gray-100 text-gray-800 shadow-sm rounded-bl-sm')}>

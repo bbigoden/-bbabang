@@ -6,13 +6,28 @@
 //   total       = seller_fee + buyer_fee
 //   supply      = total / 1.1                  (공급가 = VAT 별도)
 //   vat         = total - supply
-//   assignee    = supply * settlement_rate     (담당자 수수료, VAT 제외 공급가 × 정산비)
+//   assignee    = supply * settlement_rate     (담당자 수수료, VAT 제외 공급가 × 정산비 — 정산비는 0~1로 자름)
 //   withhold    = 소득세 3% + 지방세 0.3% (각각 10원 단위 절사)
 //   takeHome    = assignee - withhold          (실수령)
 //   officeShare = supply - assigneeSum         (지점 수익 — 공동중개면 담당자들 합 제외)
 
+import { todayKST } from './date-kst'
+
 /** 10원 단위 절사 */
 const floorTo10 = (n: number) => Math.floor(n / 10) * 10
+
+/**
+ * 정산비는 0~1. 화면 입력만 막으면 REST 로 9.999 를 넣었을 때 담당자수수료가 공급가의
+ * 10배로 잡혀 요약·통계·CSV 가 통째로 틀어지므로 계산에서도 한 번 더 자른다(DB CHECK 와 이중).
+ * 숫자가 아니면 0.
+ */
+export const clampRate = (v: unknown): number => Math.min(1, Math.max(0, Number(v) || 0))
+
+/**
+ * 정산 기록월(record_month) 기준 '이번 달' YYYY-MM — 한국 날짜로 센다.
+ * getMonth() 로 세면 UTC 기기에선 매월 1일 아침 9시 전까지 지난달로 열리고 새 행도 지난달에 들어간다.
+ */
+export const thisRecordMonth = (now = new Date()): string => todayKST(now).slice(0, 7)
 
 /**
  * 사무실 손익 분배 행 여부 — contract_address가 "YYYY-MM 사무실 손익 분배" 형식.
@@ -50,7 +65,7 @@ export function calcSettlement(input: SettlementInput): SettlementCalc {
     supply = Math.round(total / 1.1)
     vat = total - supply
   }
-  const assignee = Math.round(supply * (input.settlement_rate || 0))
+  const assignee = Math.round(supply * clampRate(input.settlement_rate))
   const withhold = input.withhold_exempt ? 0 : calcWithhold(assignee)
   const takeHome = assignee - withhold
   return { total, supply, vat, assignee, withhold, takeHome }
@@ -60,6 +75,34 @@ export function calcSettlement(input: SettlementInput): SettlementCalc {
 export function calcWithhold(amount: number): number {
   if (amount <= 0) return 0
   return floorTo10(amount * 0.03) + floorTo10(amount * 0.003)
+}
+
+/**
+ * 월별 사무실 수익(공급가 − 담당자수수료) 합. 키는 record_month.
+ * 분배 행은 뺀다 — 분배 행의 매도칸이 바로 이 값이라, 넣으면 분배에 분배가 섞여 돈다.
+ */
+export function sumOfficeProfitByMonth(
+  rows: Array<SettlementInput & { contract_address?: string | null; record_month?: string | null }>,
+): Map<string, number> {
+  const m = new Map<string, number>()
+  for (const r of rows) {
+    if (isDistributionRow(r)) continue
+    const c = calcSettlement(r)
+    const key = r.record_month ?? ''
+    m.set(key, (m.get(key) ?? 0) + (c.supply - c.assignee))
+  }
+  return m
+}
+
+/**
+ * CSV 글자 칸 하나. 쉼표·따옴표·줄바꿈은 따옴표로 감싸고,
+ * = + - @ 탭 CR 로 시작하면 앞에 ' 를 붙여 엑셀이 수식으로 실행하지 못하게 한다.
+ * 금액 칸은 이걸 거치지 않으므로(숫자 그대로) 음수 금액이 글자로 바뀌지 않는다.
+ */
+export function csvCell(s: string | null | undefined): string {
+  let v = s ?? ''
+  if (/^[=+\-@\t\r]/.test(v)) v = "'" + v
+  return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v
 }
 
 /** 표·엑셀에서 쓰는 짧은 콤마 표기 (원 없음) */

@@ -36,8 +36,9 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'maskable',
       },
       {
+        // 실제 파일은 32x32 PNG 한 장을 ICO로 감싼 것이다(48로 적으면 틀린 선언)
         src: '/favicon.ico?v=3',
-        sizes: '48x48',
+        sizes: '32x32',
         type: 'image/x-icon',
       },
     ],
