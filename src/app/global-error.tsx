@@ -12,7 +12,7 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     console.error(error)
-    // 루트 레벨 크래시도 error_logs에 기록 → /admin/errors·이메일 알림으로 확인
+    // 루트 레벨 크래시도 error_logs에 기록 → /admin/errors·관리자 푸시 알림으로 확인
     reportError({ message: error.message || 'Global error', stack: error.stack ?? null, source: 'global_error' })
   }, [error])
 

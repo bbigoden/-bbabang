@@ -23,7 +23,7 @@
 **7. 클라이언트 상태** — 폼·캐시·낙관 업데이트, auth 캐시(localStorage) 동작
 **8. 외부 연동** — Telegram bot(별도 폴더 `코드\부소장등록`, 웹앱 레포 아님 — 보류 가능), `SELECT jobname, schedule, active FROM cron.job` 중복·비활성 확인 + **실행 결과(v4)**: `select j.jobname, d.status, count(*) from cron.job_run_details d join cron.job j using(jobid) where d.start_time > now()-'7 days' group by 1,2` — active 만 보면 매일 실패해도 모른다(purge-old-trash 가 7/22부터 85일 연속 실패했다). pg_net `_http_response` 상태코드 분포도 본다(404 = 지운 라우트를 트리거가 부름)
 **9. 파일/이미지** — `storage.buckets` public 여부 + `storage.objects` 정책을 **INSERT with_check까지**(bucket_id만 체크하는 열린 INSERT 함정). 비공개 버킷 3종 검증: 멤버 서명 URL→200, 비멤버→Object not found, 비로그인 public URL→400. office-chat-images는 비공개 유지(DB엔 경로만, public URL 재저장 금지).
-**10. 로깅/모니터링** — error_logs 수집 동작, `/api/cron/error-alert` + **실제 발송 여부(v4)**: error_logs 중 alerted_at 이 채워진 비율. 0%면 알림이 한 번도 안 나간 것이다(10/15 기준 251건 전부 NULL — RESEND_API_KEY 미등록). 홈 #418 hydration은 2026-07-28 원인 규명·수정 완료(헤더 뒤로가기 분기가 ISR 재생성 시 usePathname 오염으로 어긋남 — e7a2f16). 재발 시 서버 HTML vs 클라이언트 DOM 문자 diff로 지점 특정할 것(환경성 노이즈로 단정 금지).
+**10. 로깅/모니터링** — error_logs 수집 동작, `/api/cron/error-alert` + **실제 발송 여부(v4)**: error_logs 중 alerted_at 이 채워진 비율. 0%면 알림이 한 번도 안 나간 것이다(10/15 기준 251건 전부 NULL — 메일 키 미등록이었다. 10/16 웹 푸시로 바꿈: 받는 사람 internal_config.error_alert_user_ids + 관리자, 그 사람들의 push_subscriptions 건수도 같이 본다). 홈 #418 hydration은 2026-07-28 원인 규명·수정 완료(헤더 뒤로가기 분기가 ISR 재생성 시 usePathname 오염으로 어긋남 — e7a2f16). 재발 시 서버 HTML vs 클라이언트 DOM 문자 diff로 지점 특정할 것(환경성 노이즈로 단정 금지).
 **11. 결제/정산** — 분배 행 구조(매도=수익·매수=−경비·정산비=동업자비율), 사무실수익 집계에서 분배 행 제외, 정산비 0~1 클램프
 **12. 배포 파이프라인** — push 후 Vercel `list_deployments`로 **commit SHA·READY 직접 확인** (매 push마다). **함수 리전(v4)**: 동적 라우트 응답의 `x-vercel-id` 가 `icn1::icn1` 인지(10/14까지 `icn1::iad1` — 서버가 미국에서 서울 DB 를 불러 화면마다 태평양 왕복). vercel.json `regions: ["icn1"]`
 **13. 모바일/PWA** — sw.js VERSION, 안드로이드+iOS 아이콘 자산(AGENTS.md 체크리스트), 오프라인 fallback. **푸시 도달**: `npm run push:test` (기본 대상 t2=김용유 대표 실계정 — 다른 직원에게 보내지 말 것, PUSH_TEST_PASSWORD env 필요) → 410/404=만료 구독 정리. 퇴사자 구독 잔존 SQL 확인. 수신 확인은 사장님 육안.
@@ -46,5 +46,5 @@
 - 버킷 비공개 전환 순서: 정책 먼저 → 코드 배포 READY → public=false
 - UI 검증이 headless 로그인 실패하면 supabase-js `signInWithPassword` 직접 검증이 더 확실
 - 시각 검증 기준선: consoleErrors/pageErrors/networkFailures/a11y 전부 0 (2026-07-26 달성)
-- 사장님 보류 항목(재촉 금지, 상태 한 줄만): SUPABASE_DB_URL 등록, leaked password protection 토글, RESEND_API_KEY(에러 알림 메일)·PUBLICDATA_API_KEY(사업자 자동 인증) 미등록, 점검 계정(t1/t2/admin) 비밀번호 교체(공개 레포 이력에 노출 — 10/15 확인)
+- 사장님 보류 항목(재촉 금지, 상태 한 줄만): SUPABASE_DB_URL 등록, leaked password protection 토글, PUBLICDATA_API_KEY(사업자 자동 인증 — 사무소 내부 사용 중이라 미룸) 미등록, 점검 계정(t1/t2/admin) 비밀번호 교체(공개 레포 이력에 노출 — 10/15 확인)
 - 점검 도중 멈추라고 하면 즉시 중단

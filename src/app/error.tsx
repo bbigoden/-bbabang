@@ -13,7 +13,7 @@ export default function Error({
   useEffect(() => {
     console.error(error)
     // React 렌더 크래시를 error_logs에 기록 (window.onerror로는 안 잡힘) →
-    // /admin/errors에서 확인 + 이메일 알림. 자동 새로고침으로 insert가 중단돼도
+    // /admin/errors에서 확인 + 관리자 푸시 알림. 자동 새로고침으로 insert가 중단돼도
     // 새로고침 후 같은 에러가 재현되면(key 존재 → reload 안 함) 그때 확실히 기록됨.
     reportError({ message: error.message || 'Route error', stack: error.stack ?? null, source: 'route_error' })
     // 무한 루프 방지: 이미 한 번 자동 새로고침했으면 멈춤

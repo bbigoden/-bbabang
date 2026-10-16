@@ -18,7 +18,6 @@
 - `SUPABASE_SERVICE_ROLE_KEY` (서버 전용)
 - `NEXT_PUBLIC_KAKAO_MAP_KEY`, `KAKAO_REST_KEY`
 - `SEUM_API_KEY`, `PUBLICDATA_API_KEY`
-- `RESEND_API_KEY`, `EMAIL_FROM`, `ALERT_EMAIL_TO`
 - `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
 - `CRON_SECRET`
 
@@ -31,7 +30,7 @@
 
 ## 배포
 - git push → Vercel 자동 배포
-- Vercel cron 2개: error-alert (매일 09:00), expire-requests (매일 00:00)
+- Vercel cron: error-alert (매일 18:00 KST — 관리자·사장님 폰 푸시, 받는 사람은 internal_config.error_alert_user_ids), expire-requests (매일 09:00 KST) 등 — vercel.json 참고
 
 ## 구조
 - `src/app/` — Next.js App Router 페이지·API
