@@ -1,34 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardBody } from '@/components/ui/card'
 import { Copy, Check, RefreshCw, Users } from 'lucide-react'
 
-interface OfficeCodeCardProps {
-  brokerId: string
-  initialCode: string | null
-}
-
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 혼동 문자 제외 (I,O,0,1)
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-}
-
-export function OfficeCodeCard({ brokerId, initialCode }: OfficeCodeCardProps) {
+// 합류 코드는 broker_profiles 칸이 아니라 정책 없는 office_join_codes 에 있다(로그인만 하면 남의
+// 사무소 코드까지 읽히던 구멍). 그래서 읽기·재발급 모두 대표 본인만 통과하는 rpc 로 한다.
+// 코드 만들기도 서버가 합류 함수와 같은 글자표(I·O·0·1 제외 6자리)로 한다.
+export function OfficeCodeCard() {
   const supabase = createClient()
-  const [code, setCode] = useState(initialCode)
+  // undefined = 아직 불러오는 중. 이때 "코드 발급하기"를 보여 주면 대표가 멀쩡한 코드를
+  // 갈아치울 수 있어 자리만 잡아 둔다.
+  const [code, setCode] = useState<string | null | undefined>(undefined)
+  // 불러오기 실패. 이때도 "코드 발급하기"를 보이면 눌렀을 때 직원에게 알려 준 코드가 바뀐다.
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  useEffect(() => {
+    let 살아있음 = true
+    // 브라우저 클라이언트는 싱글턴이라 여기서 다시 불러도 같은 것 — 의존성 배열을 비워 두려고.
+    void createClient().rpc('my_office_code').then(({ data, error }) => {
+      if (!살아있음) return
+      if (error) { console.error('[office-code] load failed', error); setLoadFailed(true); return }
+      setLoadFailed(false)
+      setCode(typeof data === 'string' ? data : null)
+    })
+    return () => { 살아있음 = false }
+  }, [reloadKey])
+
   const handleGenerate = async () => {
     setLoading(true)
-    const newCode = generateCode()
-    const { error } = await supabase
-      .from('broker_profiles')
-      .update({ office_code: newCode })
-      .eq('id', brokerId)
-    if (!error) setCode(newCode)
+    const { data, error } = await supabase.rpc('regenerate_office_code')
+    if (error) console.error('[office-code] regenerate failed', error)
+    else if (typeof data === 'string') setCode(data)
     setLoading(false)
   }
 
@@ -47,7 +54,15 @@ export function OfficeCodeCard({ brokerId, initialCode }: OfficeCodeCardProps) {
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">직원 합류 코드</span>
         </div>
 
-        {code ? (
+        {loadFailed ? (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 px-4 py-3">
+            <span className="text-sm text-gray-500">코드를 불러오지 못했어요</span>
+            <button type="button" onClick={() => { setLoadFailed(false); setCode(undefined); setReloadKey(k => k + 1) }}
+              className="text-sm font-medium text-blue-600 hover:underline">다시 시도</button>
+          </div>
+        ) : code === undefined ? (
+          <div className="mb-2 h-14 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+        ) : code ? (
           <>
             <div className="flex items-center gap-2 mb-2">
               <span className="flex-1 rounded-xl bg-gray-100 dark:bg-gray-800 px-4 py-3 text-center text-2xl font-mono font-black tracking-widest text-gray-900 dark:text-white">

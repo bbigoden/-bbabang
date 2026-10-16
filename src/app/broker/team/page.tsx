@@ -140,7 +140,7 @@ export default function BrokerTeamPage() {
 
         {broker && (
           <div className="mb-6">
-            <OfficeCodeCard brokerId={broker.id} initialCode={broker.office_code ?? null} />
+            <OfficeCodeCard />
           </div>
         )}
 

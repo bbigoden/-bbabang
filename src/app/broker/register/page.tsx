@@ -69,14 +69,14 @@ export default function BrokerRegisterPage() {
     if (v.length === 6) {
       setCodeChecking(true)
       try {
-        const { data } = await supabase
-          .from('broker_profiles')
-          .select('id, office_name, address')
-          .eq('office_code', v)
-          .eq('is_owner', true)
-          .single()
-        if (data) {
-          setCodePreview({ office_name: data.office_name, address: data.address })
+        // 코드는 정책 없는 office_join_codes 에만 있다(예전처럼 broker_profiles 에서 코드로 찾으면
+        // 로그인한 누구나 모든 사무소 코드를 읽을 수 있었다). 맞는 코드일 때만 사무소명·주소가 온다.
+        const { data, error } = await supabase.rpc('preview_office_by_code', { p_code: v })
+        const office = Array.isArray(data) ? (data[0] as { office_name: string; address: string } | undefined) : undefined
+        if (error) {
+          setCodeError('조회 중 오류가 발생했습니다.')
+        } else if (office) {
+          setCodePreview({ office_name: office.office_name, address: office.address })
         } else {
           setCodeError('등록된 사무소 코드가 아닙니다.')
         }
