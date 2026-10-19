@@ -25,6 +25,24 @@ export function validateArea(value: string | number | null | undefined, label = 
   return { valid: true }
 }
 
+/** 전화번호를 하이픈 형식으로 정리 — '01073320252' · '010 7332 0252' · '010.7332.0252' → '010-7332-0252'.
+ *  숫자와 구분자(공백·하이픈·점·괄호)만으로 된 값만 건드린다. 메모가 섞인 값('010-1234-5678 부인')이나
+ *  자릿수가 안 맞는 값은 입력한 그대로 둔다. */
+export function formatPhoneKR(value: string): string {
+  const raw = value.trim()
+  if (!raw || /[^\d\s\-.()]/.test(raw)) return value
+  const d = raw.replace(/\D/g, '')
+  if (!d.startsWith('0')) return value
+  if (d.startsWith('02')) {
+    if (d.length === 9) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`
+    if (d.length === 10) return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`
+    return value
+  }
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`
+  return value
+}
+
 export function validatePhoneKR(value: string): ValidationResult {
   if (!value) return { valid: false, error: '전화번호를 입력해주세요' }
   // 010-XXXX-XXXX 또는 010XXXXXXXX (대시 없이도 허용)

@@ -24,6 +24,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import { todayKST, ymdKST } from '@/lib/date-kst'
+import { formatPhoneKR } from '@/lib/validation'
 
 // ── 컬럼 정의 ──────────────────────────────────────────
 interface ColDef {
@@ -466,6 +467,8 @@ export default function BrokerCustomersPage() {
 
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
+    // 연락처는 01073320252 · 010 7332 0252 로 넣어도 010-7332-0252 로 저장
+    if (field === 'contact' && typeof value === 'string') value = formatPhoneKR(value)
     // 되돌릴 값·중복 검사 기준은 updater 밖에서 읽는다 (updater 는 언제 돌지 모른다)
     const prevValue = (customersRef.current.find(c => c.id === id) as any)?.[field]
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
