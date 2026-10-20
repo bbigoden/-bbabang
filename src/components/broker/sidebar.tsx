@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  ChevronDown, PanelLeftClose, PanelLeftOpen, LogOut, Bell,
+  ChevronDown, PanelLeftClose, PanelLeftOpen, LogOut, Bell, Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
@@ -50,6 +50,10 @@ export function BrokerSidebar() {
 
   const isOwner = broker?.is_owner !== false
   const items = ITEMS.filter(i => !i.ownerOnly || isOwner)
+  // 사무소 등록 전엔 사무소 메뉴에 자물쇠를 단다 — 눌러야 잠김 안내가 뜨는 것보다 먼저 보이는 게 낫다.
+  // 메뉴는 숨기지 않는다(무엇이 있는지는 보여야 등록할 이유가 된다).
+  const isLocked = (m: { needsOffice?: boolean }) => !broker && !!m.needsOffice
+  const lockedTitle = (label: string) => `${label} · 사무소 등록 후 쓸 수 있어요`
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -144,10 +148,12 @@ export function BrokerSidebar() {
                       {subItems.map(sub => {
                         const SubIcon = sub.icon
                         const subActive = isActive(sub.href)
+                        const subLocked = isLocked(sub)
                         return (
                           <li key={sub.href}>
                             <Link
                               href={sub.href}
+                              title={subLocked ? lockedTitle(sub.label) : undefined}
                               className={cn(
                                 'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                                 subActive
@@ -156,7 +162,8 @@ export function BrokerSidebar() {
                               )}
                             >
                               <SubIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                              {sub.label}
+                              <span className="flex-1">{sub.label}</span>
+                              {subLocked && <Lock className="h-3 w-3 flex-shrink-0 text-gray-400" aria-hidden />}
                             </Link>
                           </li>
                         )
@@ -168,11 +175,12 @@ export function BrokerSidebar() {
             }
             const active = isActive(item.href!)
             const badge = item.id === 'messenger' ? chatUnread : 0
+            const locked = isLocked(item)
             return (
               <li key={item.id}>
                 <Link
                   href={item.href!}
-                  title={collapsed ? item.label : undefined}
+                  title={locked ? lockedTitle(item.label) : collapsed ? item.label : undefined}
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl py-2.5 text-sm font-semibold transition-colors',
                     active
@@ -188,10 +196,15 @@ export function BrokerSidebar() {
                         {badge > 9 ? '9+' : badge}
                       </span>
                     )}
+                    {/* 접힌 사이드바는 글자가 없어 아이콘 귀퉁이에 자물쇠를 겹친다 */}
+                    {locked && collapsed && (
+                      <Lock className="absolute -bottom-1 -right-1.5 h-2.5 w-2.5 text-gray-400" aria-hidden />
+                    )}
                   </span>
                   {!collapsed && (
                     <span className="flex flex-1 items-center justify-between gap-2">
                       <span>{item.label}</span>
+                      {locked && <Lock className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" aria-hidden />}
                       {badge > 0 && (
                         <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
                           {badge > 9 ? '9+' : badge}

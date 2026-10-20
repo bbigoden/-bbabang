@@ -57,7 +57,8 @@ interface AuthState {
   profile: Profile | null
   broker: BrokerProfile | null
   loading: boolean
-  /** 명시적으로 다시 fetch. 프로필 수정 후 등에 사용. */
+  /** 명시적으로 다시 fetch. 프로필 수정 후 등에 사용. 사무소 등록·합류 뒤엔 await 하고 나서 이동할 것
+   *  (안 그러면 화면에 든 broker=null 로 사무소 가드들이 등록 화면으로 되돌려 보낸다). */
   refresh: () => Promise<void>
 }
 
@@ -195,14 +196,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 한쪽 쿼리 실패해도 다른쪽은 진행 — 네트워크 일시 장애에 강건하게
     const [profileRes, brokerRes] = await Promise.all([
       supabase.from('profiles_visible').select('id,email,name,phone,role,created_at,notification_preferences,account_status,suspended_until').eq('id', data.user.id).maybeSingle()
-        .then(r => r, () => ({ data: null })),
+        .then(r => r, () => ({ data: null, error: { message: 'fetch_failed' } })),
       supabase.from('broker_profiles').select('*').eq('user_id', data.user.id).maybeSingle()
-        .then(r => r, () => ({ data: null })),
+        .then(r => r, () => ({ data: null, error: { message: 'fetch_failed' } })),
     ])
     // 그사이 로그아웃이 시작됐으면 이전 사람 정보를 화면·캐시에 다시 넣지 않는다
     if (leaving) return
     const p = profileRes.data as Profile | null
     const bp = brokerRes.data
+    // 조회가 실패한 칸은 '없음'으로 덮어쓰지 않는다. 망이 잠깐 끊겨 broker=null 이 들어가면
+    // 사무소 가드(매물·고객·업무일지…)가 멀쩡한 중개사를 빈 등록 양식으로 보냈고, 그 null 이 캐시에도 남았다.
+    const profileFailed = !!profileRes.error
+    const brokerFailed = !!brokerRes.error
 
     // 계정 상태 enforcement
     if (p?.account_status === 'banned') {
@@ -229,9 +234,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const keys = snapshotKeys(data.user, p, bp as BrokerProfile | null)
     const prev = applied.current?.userId === data.user.id ? applied.current : null
     if (keys.user !== prev?.user) setUser(data.user)
-    if (keys.profile !== prev?.profile) setProfile(p)
-    if (keys.broker !== prev?.broker) setBroker(bp as BrokerProfile | null)
-    applied.current = { userId: data.user.id, ...keys }
+    if (!profileFailed && keys.profile !== prev?.profile) setProfile(p)
+    if (!brokerFailed && keys.broker !== prev?.broker) setBroker(bp as BrokerProfile | null)
+    applied.current = {
+      userId: data.user.id,
+      user: keys.user,
+      profile: profileFailed && prev ? prev.profile : keys.profile,
+      broker: brokerFailed && prev ? prev.broker : keys.broker,
+    }
     setLoading(false)
     // 새로 로그인한 사람에게 이 기기 푸시 구독을 다시 붙인다(로그아웃 때 떼어 둠). 실패해도 그만.
     // 같은 사람의 콜드스타트(캐시 있음)에는 switched 가 아니라 요청이 안 나간다.
@@ -239,21 +249,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       pushClaimedFor.current = data.user.id
       claimPushSubscription().catch(() => {})
     }
-    // 캐시는 늘 새로 쓴다 — 다른 탭이 지웠을 수도 있고, 지표 같은 뺀 칸도 담아 둔다
-    writeCache(data.user, p, bp as BrokerProfile | null)
+    // 캐시는 늘 새로 쓴다 — 다른 탭이 지웠을 수도 있고, 지표 같은 뺀 칸도 담아 둔다.
+    // 단 한쪽이라도 조회가 실패했으면 쓰지 않는다(실패로 빈 값을 다음 콜드스타트까지 끌고 가지 않게).
+    if (!profileFailed && !brokerFailed) writeCache(data.user, p, bp as BrokerProfile | null)
   }, [supabase])
 
   // 마운트: 캐시가 있으면 즉시 hydrate, 그 다음 백그라운드 재조회
   useEffect(() => {
     const cached = readCache()
+    // 캐시가 '중개사인데 사무소 없음'이면 화면은 그려 두되 loading 은 새 값이 올 때까지 쥐고 있는다.
+    // 사무소를 막 등록했거나(다른 탭·기기 포함) 등록 직후 새로고침하면 캐시만 옛것이라, 가드들이
+    // 이 옛 값으로 먼저 판정해 매물목록·고객목록이 빈 등록 양식으로 튕겼다(다시 로그인해야 풀림).
+    // 사무소가 있는 사람·고객은 예전처럼 캐시로 바로 연다 — 기다리는 건 등록 전 중개사뿐이다.
+    const waitForFresh = !!cached && cached.profile?.role === 'broker' && !cached.broker
     if (cached) {
       applied.current = { userId: cached.user.id, ...snapshotKeys(cached.user, cached.profile, cached.broker) }
       setUser(cached.user)
       setProfile(cached.profile)
       setBroker(cached.broker)
-      setLoading(false)
+      if (!waitForFresh) setLoading(false)
     }
-    fetchAll()
+    // 재조회가 통째로 실패해도 화면이 영영 로딩에 머물지는 않게.
+    // 새 값을 기다리는 경우(등록 전 중개사)도 시간을 정해 둔다 — getUser 가 잠금에 걸려 안 돌아오면
+    // (아래 onAuthStateChange 주석의 그 잠금) 등록 화면까지 스피너에 영영 갇혔다. 시간이 지나면
+    // 가드·잠김 안내가 캐시 값으로라도 그리게 풀고, fetchAll 은 뒤늦게 끝나도 제 값을 넣는다.
+    const first = fetchAll()
+    if (waitForFresh) {
+      within(first, 8000).then(r => { if (r === 'timeout') setLoading(false) }).catch(() => setLoading(false))
+    } else {
+      first.catch(() => setLoading(false))
+    }
 
     let disposed = false
     // 이 콜백은 async 로 두지 않고 supabase 메서드도 여기서 기다리지 않는다. auth-js 는 잠금을 쥔 채

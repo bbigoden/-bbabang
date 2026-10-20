@@ -3,7 +3,7 @@ import { Header } from '@/components/layout/header'
 import { SUPPORT_EMAIL } from '@/lib/support'
 import {
   Building2, Users, BookOpen, Calculator, CalendarDays, MessageCircle,
-  MapPin, ShieldCheck, Smartphone, CheckCircle2, ArrowRight, Mail,
+  MapPin, ShieldCheck, Smartphone, CheckCircle2, ArrowRight, Mail, Search,
 } from 'lucide-react'
 
 // 중개사무소 대상 소개(랜딩) 페이지 — 정적, 24시간 캐시
@@ -55,9 +55,14 @@ const TRUST = [
     desc: '매물·고객·정산·일지 모든 데이터는 사무소 단위로 격리되어 다른 사무소에서는 볼 수 없습니다. 직원별 열람 권한도 대표가 직접 정합니다.',
   },
   {
+    // 개설은 검증 통과를 기다리지 않는다(broker/register 는 바로 열고 auto-verify 는 배지만 붙인다).
+    // 예전 '확인된 중개사무소만 참여합니다'는 코드와 달라, 실제로 하는 일만 적는다.
+    // '국세청·국토부 자동 확인'도 아직 사실이 아니다 — 운영에 PUBLICDATA_API_KEY·VWORLD_API_KEY 가 없어
+    // auto-verify 가 config_missing 으로 운영자 검토에 넘긴다(verify-business/route.ts:21). 두 키가 Vercel 에
+    // 들어가면 그때 기관명을 되살린다. 그 전엔 '자동 조회 또는 운영자 검토'로 둔다(표시광고).
     icon: MapPin,
-    title: '국세청 사업자 검증',
-    desc: '사무소 개설 시 사업자등록번호를 국세청에서 검증합니다. 확인된 중개사무소만 참여합니다.',
+    title: '등록번호 확인 · 인증 배지',
+    desc: '사무소를 열 때 입력한 사업자등록번호·중개사무소 등록번호를 확인(자동 조회 또는 운영자 검토)해, 확인된 사무소에 인증 배지를 붙입니다. 고객이 배지로 구분할 수 있어요.',
   },
   {
     icon: Smartphone,
@@ -68,7 +73,7 @@ const TRUST = [
 
 const STEPS = [
   { title: '중개사로 가입', desc: '이메일로 가입하고 중개사를 선택하세요.' },
-  { title: '사무소 개설', desc: '상호·사업자등록번호를 입력하면 국세청 검증 후 바로 개설됩니다.' },
+  { title: '사무소 개설', desc: '상호·등록번호를 입력하면 바로 개설됩니다. 등록번호 확인이 끝나면 인증 배지가 붙어요.' },
   { title: '직원 초대', desc: '사무소 코드를 직원에게 공유하면 합류 신청이 오고, 대표가 승인하면 끝.' },
 ]
 
@@ -121,6 +126,15 @@ export default function OfficeIntroPage() {
             </div>
           ))}
         </div>
+        {/* 홈(고객 요청 매칭)·푸터와 같은 서비스로 읽히게 — 요청 제안도 같은 계정, 같은 '현재 무료' */}
+        <p className="mt-6 text-center text-sm leading-relaxed text-gray-500">
+          {/* blue-600 은 이 테마에서 네이비(#14274e)라 다크 배경에선 1.4:1 로 안 보인다 — 아이콘과 같은 dark:blue-400 */}
+          <Search className="mr-1.5 inline h-4 w-4 align-[-3px] text-blue-500 dark:text-blue-400" />
+          고객이 올린 매물 요청에 먼저 제안하는 기능도 함께 들어 있어요 (현재 무료){' '}
+          <Link href="/explore/requests" className="whitespace-nowrap font-medium text-blue-600 dark:text-blue-400 underline-offset-4 hover:underline">
+            요청 둘러보기 →
+          </Link>
+        </p>
       </section>
 
       {/* 신뢰 요소 */}

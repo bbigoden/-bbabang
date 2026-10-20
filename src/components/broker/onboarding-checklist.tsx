@@ -23,20 +23,21 @@ export function OnboardingChecklist({ brokerId, items }: { brokerId: string; ite
     {
       done: items.property,
       title: '첫 매물 등록하기',
-      desc: '매물장에서 + 버튼으로 바로 추가할 수 있어요',
+      // 안내 문구의 화면·버튼 이름은 실제 메뉴(menu-items.tsx)·버튼 글자와 같게 — '매물장'·'팀 관리'라 적어 찾지 못했다
+      desc: '매물목록에서 [+ 매물 등록]을 눌러 바로 추가할 수 있어요',
       href: '/broker/properties',
     },
     {
       done: items.employee,
       title: '직원 초대하기',
-      desc: '팀 관리에서 사무소 코드를 발급해 직원에게 공유하세요',
+      desc: '설정 › 직원에 있는 직원 합류 코드를 직원에게 알려 주세요',
       href: '/broker/team',
     },
     {
       done: items.settlement,
       // 정산 기준 설정 화면은 7/26 에 없앴다(분배 행이 계산기 역할) — 완료는 첫 정산 기록으로 본다
       title: '첫 정산 등록하기',
-      desc: '정산 화면에서 첫 거래의 수수료를 기록해 보세요',
+      desc: '정산에서 [+ 정산 등록]을 눌러 첫 거래의 수수료를 기록해 보세요',
       href: '/broker/settlement',
     },
   ]

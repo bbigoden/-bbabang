@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useId, useRef, useCallback } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -8,32 +8,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Header } from '@/components/layout/header'
 import { cn } from '@/lib/utils'
-import { validateBudgetRange, validateArea } from '@/lib/validation'
-import { CheckCircle, ChevronRight, ChevronLeft, Home } from 'lucide-react'
+import { todayKST } from '@/lib/date-kst'
+import {
+  DEAL_TYPES, REQUEST_STEPS as STEPS, EMPTY_REQUEST_FORM, REQUEST_SAVED_FLASH_KEY,
+  priceLabel, isMixedPrice, pricePlaceholders, budgetErrors, sizeErrors, moveInDateError,
+  stepIssues, clampStep, firstIssueStep, toRequestPayload, describeSaveError, rangeText,
+  readStepHistory, withStepHistory, makeSavedFlash, splitTypes,
+  type RequestForm,
+} from '@/lib/request-validation'
+import { CheckCircle, ChevronRight, ChevronLeft, Home, AlertCircle } from 'lucide-react'
+import { RegionPicker, type RegionValue } from '@/components/region-picker'
 import { CUSTOMER_PROPERTY_CATEGORIES, toCustomerRoomTypes } from '@/lib/property-types'
-
-const DEAL_TYPES = ['매매', '월세', '전세']
-const REGIONS: Record<string, string[]> = {
-  '서울특별시': ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'],
-  '경기도': ['수원시','성남시','고양시','용인시','부천시','안산시','화성시','남양주시','안양시','평택시','의정부시','파주시','시흥시','김포시','광주시','광명시','군포시','하남시','오산시','이천시','안성시','의왕시','양주시','구리시','포천시','여주시','동두천시','과천시','가평군','양평군','연천군'],
-  '인천광역시': ['중구','동구','미추홀구','연수구','남동구','부평구','계양구','서구','강화군','옹진군'],
-  '부산광역시': ['중구','서구','동구','영도구','부산진구','동래구','남구','북구','해운대구','사하구','금정구','강서구','연제구','수영구','사상구','기장군'],
-  '대구광역시': ['중구','동구','서구','남구','북구','수성구','달서구','달성군'],
-  '대전광역시': ['동구','중구','서구','유성구','대덕구'],
-  '광주광역시': ['동구','서구','남구','북구','광산구'],
-  '울산광역시': ['중구','남구','동구','북구','울주군'],
-  '세종특별자치시': ['세종시 전체'],
-  '강원특별자치도': ['춘천시','원주시','강릉시','동해시','태백시','속초시','삼척시','홍천군','횡성군','영월군','평창군','정선군','철원군','화천군','양구군','인제군','고성군','양양군'],
-  '충청북도': ['청주시','충주시','제천시','보은군','옥천군','영동군','증평군','진천군','괴산군','음성군','단양군'],
-  '충청남도': ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시','금산군','부여군','서천군','청양군','홍성군','예산군','태안군'],
-  '전북특별자치도': ['전주시','군산시','익산시','정읍시','남원시','김제시','완주군','진안군','무주군','장수군','임실군','순창군','고창군','부안군'],
-  '전라남도': ['목포시','여수시','순천시','나주시','광양시','담양군','곡성군','구례군','고흥군','보성군','화순군','장흥군','강진군','해남군','영암군','무안군','함평군','영광군','장성군','완도군','진도군','신안군'],
-  '경상북도': ['포항시','경주시','김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시','의성군','청송군','영양군','영덕군','청도군','고령군','성주군','칠곡군','예천군','봉화군','울진군','울릉군'],
-  '경상남도': ['창원시','진주시','통영시','사천시','김해시','밀양시','거제시','양산시','의령군','함안군','창녕군','고성군','남해군','하동군','산청군','함양군','거창군','합천군'],
-  '제주특별자치도': ['제주시','서귀포시'],
-}
-const CITIES = Object.keys(REGIONS)
-const STEPS = ['거래·매물 유형', '위치', '예산', '상세 조건']
 
 export default function RequestEditPage() {
   const router = useRouter()
@@ -45,17 +30,24 @@ export default function RequestEditPage() {
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState('')
+  // 이 단계에서 '다음'을 한 번 눌러 봤는가 — 빈칸 경고는 그 뒤에만 띄운다
+  const [attempted, setAttempted] = useState(false)
 
   const [dealTypes, setDealTypes] = useState<string[]>([])
   const [propertyTypes, setPropertyTypes] = useState<string[]>([])
+  // 등록 화면과 같은 동 단위 검색 — 예전 시·구 버튼 방식은 저장된 동(불당동)을 읽지도, 지키지도 못했다
+  const [region, setRegion] = useState<RegionValue | null>(null)
   const descriptionId = useId()
-  const [form, setForm] = useState({
-    city: '서울특별시', district: '',
-    min_price: '', max_price: '',
-    min_monthly: '', max_monthly: '',
-    min_size: '', max_size: '',
-    move_in_date: '', description: '',
-  })
+  const [form, setForm] = useState<RequestForm>(EMPTY_REQUEST_FORM)
+  // 저장돼 있던 입주일 — 그 사이 지난 날짜가 됐어도 다른 칸만 고치는 것은 막지 않는다
+  const [savedMoveIn, setSavedMoveIn] = useState<string | null>(null)
+
+  const today = todayKST()
+  const draft = { dealTypes, propertyTypes, region, form }
+  const stepOpts = { keepMoveInDate: savedMoveIn }
+  const latestDraft = useRef({ draft, stepOpts })
+  latestDraft.current = { draft, stepOpts }
+  const savedRef = useRef(false) // 저장이 끝나 상세로 넘어가는 중 — 기록을 되감아도 단계를 다시 그리지 않는다
 
   useEffect(() => {
     const load = async () => {
@@ -71,82 +63,141 @@ export default function RequestEditPage() {
 
       const { data, error } = await supabase
         .from('request_posts')
-        .select('user_id, deal_type, room_type, city, district, min_price, max_price, min_monthly, max_monthly, min_size, max_size, move_in_date, description')
+        .select('user_id, deal_type, room_type, city, district, dong, min_price, max_price, min_monthly, max_monthly, min_size, max_size, move_in_date, description')
         .eq('id', id)
         .single()
 
       if (error || !data) { router.push('/dashboard/user'); return }
       if (data.user_id !== user.id) { router.push('/dashboard/user'); return }
 
-      setDealTypes(data.deal_type ? data.deal_type.split(',').map((s: string) => s.trim()) : [])
-      setPropertyTypes(data.room_type ? toCustomerRoomTypes(data.room_type.split(',').map((s: string) => s.trim())) : [])
-      setForm({
-        city: data.city ?? '서울특별시',
-        district: data.district ?? '',
-        min_price: data.min_price?.toString() ?? '',
-        max_price: data.max_price?.toString() ?? '',
-        min_monthly: data.min_monthly?.toString() ?? '',
-        max_monthly: data.max_monthly?.toString() ?? '',
-        min_size: data.min_size?.toString() ?? '',
-        max_size: data.max_size?.toString() ?? '',
-        move_in_date: data.move_in_date ?? '',
-        description: data.description ?? '',
-      })
+      const loaded = {
+        dealTypes: splitTypes(data.deal_type).filter(t => DEAL_TYPES.includes(t)),
+        propertyTypes: data.room_type ? toCustomerRoomTypes(data.room_type.split(',').map((s: string) => s.trim())) : [],
+        region: data.city && data.district ? { sido: data.city, sigungu: data.district, dong: data.dong ?? null } : null,
+        form: {
+          min_price: data.min_price?.toString() ?? '',
+          max_price: data.max_price?.toString() ?? '',
+          min_monthly: data.min_monthly?.toString() ?? '',
+          max_monthly: data.max_monthly?.toString() ?? '',
+          min_size: data.min_size?.toString() ?? '',
+          max_size: data.max_size?.toString() ?? '',
+          move_in_date: data.move_in_date ?? '',
+          description: data.description ?? '',
+        },
+      }
+      setDealTypes(loaded.dealTypes)
+      setPropertyTypes(loaded.propertyTypes)
+      setRegion(loaded.region)
+      setForm(loaded.form)
+      setSavedMoveIn(data.move_in_date ?? null)
+
+      // 새로고침해도 보던 단계로(history.state 는 남는다). 값은 DB 에서 다시 읽은 것이다.
+      const hist = readStepHistory(window.history.state)
+      const s = clampStep(hist.step ?? 0, loaded, todayKST(), { keepMoveInDate: data.move_in_date ?? null })
+      setStep(s)
+      window.history.replaceState(withStepHistory(window.history.state, s, Math.min(hist.base ?? s, s)), '')
       setInitialLoading(false)
     }
     load()
   }, [id])
 
-  const update = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+  // 브라우저 '뒤로' = 이전 단계 (등록 화면과 같은 방식)
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      if (savedRef.current) return
+      const { step: s } = readStepHistory(e.state)
+      if (s == null) return
+      const { draft: d, stepOpts: o } = latestDraft.current
+      const safe = clampStep(s, d, todayKST(), o)
+      setStep(safe)
+      setAttempted(false)
+      if (safe !== s) window.history.replaceState(withStepHistory(window.history.state, safe), '')
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  const update = (key: keyof RequestForm, value: string) => setForm(prev => ({ ...prev, [key]: value }))
   const toggleDealType = (type: string) => setDealTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type])
   const togglePropertyType = (type: string) => setPropertyTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type])
-  const handleCityChange = (city: string) => setForm(prev => ({ ...prev, city, district: '' }))
-  const currentDistricts = REGIONS[form.city] ?? []
 
-  const canNext = () => {
-    if (step === 0) return dealTypes.length > 0 && propertyTypes.length > 0
-    if (step === 1) return form.district !== ''
-    if (step === 2) return form.min_price !== '' && form.max_price !== ''
-    return true
+  const issues = stepIssues(step, draft, today, stepOpts)
+  const budgetErr = budgetErrors(form, dealTypes, { requireFilled: attempted })
+  const sizeErr = sizeErrors(form)
+  const dateErr = moveInDateError(form.move_in_date, today, savedMoveIn)
+  const pricePh = pricePlaceholders(dealTypes)
+
+  // 폰에서 고정한 버튼 바만큼 본문 아래를 비운다 — 이유 문구가 뜨면 바가 커져서 높이를 잰다
+  const [barHeight, setBarHeight] = useState(0)
+  const barRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setBarHeight(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const goNext = () => {
+    if (issues.length > 0) { setAttempted(true); return }
+    const next = step + 1
+    setAttempted(false)
+    setStep(next)
+    window.history.pushState(withStepHistory(window.history.state, next), '')
   }
 
+  const goPrev = () => {
+    if (step === 0) return
+    const hist = readStepHistory(window.history.state)
+    if (hist.step === step && hist.base != null && step > hist.base) { window.history.back(); return }
+    setAttempted(false)
+    setStep(step - 1)
+    window.history.replaceState(withStepHistory(window.history.state, step - 1, step - 1), '')
+  }
+
+  // 단계마다 쌓은 pushState 를 처음 들어온 자리까지 되감는다 (등록 화면과 같게) — 그대로 replace 하면
+  // 상세 화면에서 '뒤로'가 수정 화면 중간 단계에 떨어지고, 그다음 몇 번은 아무 일도 없이 먹혔다.
+  const collapseStepHistory = () =>
+    new Promise<void>((resolve) => {
+      const { step: s, base } = readStepHistory(window.history.state)
+      const n = s != null && base != null ? s - base : 0
+      if (n <= 0) { resolve(); return }
+      const done = () => { clearTimeout(timer); resolve() }
+      // popstate 가 안 오는 경우가 있어도 저장 뒤 이동은 막지 않는다
+      const timer = setTimeout(done, 1000)
+      window.addEventListener('popstate', done, { once: true })
+      window.history.go(-n)
+    })
+
   const handleSubmit = async () => {
-    const budgetCheck = validateBudgetRange(form.min_price, form.max_price)
-    if (!budgetCheck.valid) { setError(budgetCheck.error); return }
-    if (form.min_size) {
-      const sizeCheck = validateArea(form.min_size, '최소 평수')
-      if (!sizeCheck.valid) { setError(sizeCheck.error); return }
-    }
-    if (form.max_size) {
-      const sizeCheck = validateArea(form.max_size, '최대 평수')
-      if (!sizeCheck.valid) { setError(sizeCheck.error); return }
+    const bad = firstIssueStep(draft, today, stepOpts)
+    if (bad != null || !region) {
+      const s = bad ?? 1
+      setAttempted(true)
+      if (s !== step) {
+        setStep(s)
+        window.history.replaceState(withStepHistory(window.history.state, s, s), '')
+      }
+      return
     }
     setLoading(true)
     setError('')
 
+    // 동·월세도 함께 저장 — 예전엔 둘 다 빠져 수정 화면에서 고쳐도 저장되지 않았다
     const { error: updateError } = await supabase
       .from('request_posts')
-      .update({
-        deal_type: dealTypes.join(', '),
-        room_type: propertyTypes.join(', '),
-        city: form.city,
-        district: form.district,
-        min_price: Number(form.min_price),
-        max_price: Number(form.max_price),
-        min_size: form.min_size ? Number(form.min_size) : null,
-        max_size: form.max_size ? Number(form.max_size) : null,
-        move_in_date: form.move_in_date || null,
-        description: form.description || null,
-      })
+      .update(toRequestPayload({ dealTypes, propertyTypes, region, form }))
       .eq('id', id)
 
     if (updateError) {
-      setError('수정 중 오류가 발생했습니다.')
+      console.error('[request-edit] 수정 실패', updateError)
+      setError(describeSaveError(updateError, '수정'))
       setLoading(false)
       return
     }
 
-    router.push(`/request/${id}`)
+    try { window.sessionStorage.setItem(REQUEST_SAVED_FLASH_KEY, makeSavedFlash(id, 'edit')) } catch { /* 안내만 빠진다 */ }
+    savedRef.current = true
+    await collapseStepHistory()
+    router.replace(`/request/${id}`)
   }
 
   if (initialLoading) {
@@ -196,8 +247,8 @@ export default function RequestEditPage() {
                 </div>
                 <div className="flex gap-3">
                   {DEAL_TYPES.map((type) => (
-                    <button key={type} onClick={() => toggleDealType(type)}
-                      className={cn('flex-1 rounded-xl border-2 py-3 text-sm font-semibold transition-all',
+                    <button key={type} type="button" aria-pressed={dealTypes.includes(type)} onClick={() => toggleDealType(type)}
+                      className={cn('flex-1 rounded-xl border-2 py-3 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                         dealTypes.includes(type) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
                       {dealTypes.includes(type) && '✓ '}{type}
                     </button>
@@ -215,8 +266,8 @@ export default function RequestEditPage() {
                       <p className="mb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">{cat.label}</p>
                       <div className="flex flex-wrap gap-2">
                         {cat.types.map((type) => (
-                          <button key={type} onClick={() => togglePropertyType(type)}
-                            className={cn('rounded-xl border-2 px-3 py-2 text-sm font-medium transition-all',
+                          <button key={type} type="button" aria-pressed={propertyTypes.includes(type)} onClick={() => togglePropertyType(type)}
+                            className={cn('rounded-xl border-2 px-3 py-2 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2',
                               propertyTypes.includes(type) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
                             {propertyTypes.includes(type) && '✓ '}{type}
                           </button>
@@ -226,58 +277,66 @@ export default function RequestEditPage() {
                   ))}
                 </div>
               </div>
+              {/* 선택 요약 — 등록 화면과 같게 */}
+              {(dealTypes.length > 0 || propertyTypes.length > 0) && (
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-950 p-3 text-xs text-gray-600 dark:text-gray-500">
+                  {dealTypes.length > 0 && (
+                    <p>거래: <span className="font-semibold text-blue-600">{dealTypes.join(' · ')}</span></p>
+                  )}
+                  {propertyTypes.length > 0 && (
+                    <p className="mt-0.5">매물: <span className="font-semibold text-blue-600">{propertyTypes.join(' · ')}</span></p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Step 1 */}
+          {/* Step 1 — 등록 화면과 같은 지역 검색 */}
           {step === 1 && (
             <div className="space-y-4">
               <div>
-                <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">시 / 도</p>
-                <select value={form.city} onChange={(e) => handleCityChange(e.target.value)} aria-label="시/도 선택"
-                  className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20">
-                  {CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
-                </select>
-              </div>
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">구 / 군 / 시</p>
-                  {form.district && <span className="text-xs font-semibold text-blue-600">✓ {form.district} 선택됨</span>}
-                </div>
-                <div className="grid grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
-                  {currentDistricts.map((d) => (
-                    <button key={d} onClick={() => update('district', d)}
-                      className={cn('rounded-xl border-2 py-2 text-xs font-medium transition-all',
-                        form.district === d ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
-                      {d}
-                    </button>
-                  ))}
-                </div>
+                <p className="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">관심 지역</p>
+                <p className="mb-3 text-xs text-gray-500">
+                  동·읍·면 단위까지 검색할 수 있어요. 예: <span className="font-medium text-gray-700 dark:text-gray-300">불당동</span>, <span className="font-medium text-gray-700 dark:text-gray-300">강남</span>, <span className="font-medium text-gray-700 dark:text-gray-300">수원 영통</span>
+                </p>
+                <RegionPicker
+                  value={region}
+                  onPick={r => setRegion(r)}
+                  onClear={() => setRegion(null)}
+                  autoFocus
+                />
               </div>
             </div>
           )}
 
-          {/* Step 2 */}
+          {/* Step 2 — DB 에 금액 칸이 한 쌍뿐이라 유형을 여럿 골라도 한 범위로 받는다 */}
           {step === 2 && (
             <div className="space-y-5">
-              <p className="text-sm text-gray-500">희망 예산 범위를 입력해주세요 <span className="text-gray-500">(단위: 만원)</span></p>
-              {(dealTypes.includes('전세') || dealTypes.includes('매매')) && (
+              <p className="text-sm text-gray-500">희망 예산 범위를 입력해 주세요 <span className="text-gray-500">(단위: 만원)</span></p>
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{priceLabel(dealTypes)}</p>
+                {isMixedPrice(dealTypes) && (
+                  <p className="text-xs text-gray-500">
+                    거래 유형을 여러 개 고르셔서 금액은 한 범위로 받아요. 가장 낮은 금액부터 가장 높은 금액까지 넉넉히 적어 주세요.
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
-                  <Input label="최소값 (만원)" type="number" placeholder="20000" value={form.min_price} onChange={(e) => update('min_price', e.target.value)} />
-                  <Input label="최대값 (만원)" type="number" placeholder="50000" value={form.max_price} onChange={(e) => update('max_price', e.target.value)} />
+                  <Input label="최소값 (만원)" type="number" inputMode="numeric" min={0} step={1} placeholder={pricePh.min}
+                    value={form.min_price} onChange={(e) => update('min_price', e.target.value)} error={budgetErr.min_price} />
+                  <Input label="최대값 (만원)" type="number" inputMode="numeric" min={1} step={1} placeholder={pricePh.max}
+                    value={form.max_price} onChange={(e) => update('max_price', e.target.value)} error={budgetErr.max_price} />
                 </div>
-              )}
+              </div>
               {dealTypes.includes('월세') && (
                 <div className="space-y-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 p-4">
-                  <p className="text-xs font-semibold text-gray-500">월세 보증금</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    월세 금액 <span className="font-normal normal-case">(선택)</span>
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
-                    <Input label="보증금 최소 (만원)" type="number" placeholder="500" value={form.min_price} onChange={(e) => update('min_price', e.target.value)} />
-                    <Input label="보증금 최대 (만원)" type="number" placeholder="3000" value={form.max_price} onChange={(e) => update('max_price', e.target.value)} />
-                  </div>
-                  <p className="text-xs font-semibold text-gray-500 mt-2">월세 금액</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Input label="월세 최소 (만원)" type="number" placeholder="30" value={form.min_monthly} onChange={(e) => update('min_monthly', e.target.value)} />
-                    <Input label="월세 최대 (만원)" type="number" placeholder="80" value={form.max_monthly} onChange={(e) => update('max_monthly', e.target.value)} />
+                    <Input label="월세 최소값 (만원)" type="number" inputMode="numeric" min={0} step={1} placeholder="예: 30"
+                      value={form.min_monthly} onChange={(e) => update('min_monthly', e.target.value)} error={budgetErr.min_monthly} />
+                    <Input label="월세 최대값 (만원)" type="number" inputMode="numeric" min={1} step={1} placeholder="예: 80"
+                      value={form.max_monthly} onChange={(e) => update('max_monthly', e.target.value)} error={budgetErr.max_monthly} />
                   </div>
                 </div>
               )}
@@ -288,10 +347,13 @@ export default function RequestEditPage() {
           {step === 3 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Input label="최소 면적" type="number" placeholder="10" value={form.min_size} onChange={(e) => update('min_size', e.target.value)} hint="평 단위" />
-                <Input label="최대 면적" type="number" placeholder="30" value={form.max_size} onChange={(e) => update('max_size', e.target.value)} hint="평 단위" />
+                <Input label="최소 면적" type="number" inputMode="numeric" min={1} step={1} placeholder="예: 10" value={form.min_size}
+                  onChange={(e) => update('min_size', e.target.value)} hint="평 단위 · 정수" error={sizeErr.min_size} />
+                <Input label="최대 면적" type="number" inputMode="numeric" min={1} step={1} placeholder="예: 30" value={form.max_size}
+                  onChange={(e) => update('max_size', e.target.value)} hint="평 단위 · 정수" error={sizeErr.max_size} />
               </div>
-              <Input label="입주 희망일" type="date" value={form.move_in_date} onChange={(e) => update('move_in_date', e.target.value)} />
+              <Input label="입주 희망일" type="date" min={savedMoveIn && savedMoveIn < today ? savedMoveIn : today} value={form.move_in_date}
+                onChange={(e) => update('move_in_date', e.target.value)} error={dateErr ?? undefined} />
               <div>
                 <label htmlFor={descriptionId} className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">추가 요청사항 <span className="text-gray-500 font-normal">(선택)</span></label>
                 <textarea id={descriptionId} placeholder="예: 반려동물 가능, 주차 필수, 역세권 선호" value={form.description}
@@ -303,31 +365,70 @@ export default function RequestEditPage() {
                 <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">수정 요약</p>
                 <p className="text-gray-600 dark:text-gray-500">📋 거래: <span className="font-medium">{dealTypes.join(', ')}</span></p>
                 <p className="text-gray-600 dark:text-gray-500">🏠 매물: <span className="font-medium">{propertyTypes.join(', ')}</span></p>
-                <p className="text-gray-600 dark:text-gray-500">📍 위치: <span className="font-medium">{form.city} {form.district}</span></p>
-                <p className="text-gray-600 dark:text-gray-500">💰 예산: <span className="font-medium">{Number(form.min_price).toLocaleString()}만 ~ {Number(form.max_price).toLocaleString()}만원</span></p>
+                <p className="text-gray-600 dark:text-gray-500">📍 위치: <span className="font-medium">{region ? `${region.sido} ${region.sigungu}${region.dong ? ` ${region.dong}` : ''}` : '-'}</span></p>
+                <p className="text-gray-600 dark:text-gray-500">💰 예산:&nbsp;
+                  <span className="font-medium">
+                    {priceLabel(dealTypes)} {rangeText(form.min_price, form.max_price) ?? '-'}
+                    {dealTypes.includes('월세') && rangeText(form.min_monthly, form.max_monthly) && ` / 월세 ${rangeText(form.min_monthly, form.max_monthly)}`}
+                  </span>
+                </p>
               </div>
             </div>
           )}
 
-          {error && <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+          {/* 폰에선 카드가 접힌 화면 아래로 길어 여기 적힌 에러가 고정 바 뒤에 숨는다 — 폰은 바 안에만 띄운다 */}
+          {error && (
+            <div role="alert" aria-live="polite" className="mt-4 hidden rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300 md:block">
+              {error}
+            </div>
+          )}
         </div>
 
-        <div className="mt-6 flex gap-3">
-          {step > 0 && (
-            <Button variant="secondary" size="lg" className="flex-1" onClick={() => setStep(step - 1)}>
-              <ChevronLeft className="mr-1 h-4 w-4" /> 이전
-            </Button>
-          )}
-          {step < STEPS.length - 1 ? (
-            <Button variant="primary" size="lg" className="flex-1" disabled={!canNext()} onClick={() => setStep(step + 1)}>
-              다음 <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button variant="primary" size="lg" className="flex-1" loading={loading} disabled={!canNext()} onClick={handleSubmit}>
-              <Home className="mr-2 h-4 w-4" /> 수정 완료
-            </Button>
-          )}
+        {/* 네비게이션 버튼 — 폰에선 하단 탭바 바로 위에 고정하고, 못 넘어가는 이유를 버튼 위에 (등록 화면과 같게) */}
+        <div
+          ref={barRef}
+          className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-950 md:static md:mt-6 md:border-0 md:bg-transparent md:p-0 md:dark:bg-transparent"
+        >
+          <div className="mx-auto max-w-2xl">
+            {/* ul 자체에 role=alert 를 주면 목록 역할이 사라져 li 가 고아가 된다 — 감싸는 div 에 둔다 */}
+            {attempted && issues.length > 0 && (
+              <div role="alert" className="mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300">
+                <ul className="space-y-1">
+                  {issues.map((m) => (
+                    <li key={m} className="flex items-start gap-1.5">
+                      <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                      {m}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* 저장 에러 — 폰에선 버튼 바로 위(위 이유 문구와 같은 자리). md 이상은 카드 안 것이 보인다 */}
+            {error && (
+              <div role="alert" aria-live="polite" className="mb-3 flex items-start gap-1.5 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-500/10 dark:text-red-300 md:hidden">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+            <div className="flex gap-3">
+              {step > 0 && (
+                <Button variant="secondary" size="lg" className="flex-1" onClick={goPrev}>
+                  <ChevronLeft className="mr-1 h-4 w-4" /> 이전
+                </Button>
+              )}
+              {step < STEPS.length - 1 ? (
+                <Button variant="primary" size="lg" className="flex-1" onClick={goNext}>
+                  다음 <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button variant="primary" size="lg" className="flex-1" loading={loading} onClick={handleSubmit}>
+                  <Home className="mr-2 h-4 w-4" /> 수정 완료
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
+        <div aria-hidden className="md:hidden" style={{ height: barHeight }} />
       </div>
     </div>
   )

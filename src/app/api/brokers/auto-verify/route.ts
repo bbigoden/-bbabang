@@ -27,17 +27,21 @@ const VWORLD_DOMAIN = 'bbabang.vercel.app'
 const normName = (s: string | null | undefined) => (s ?? '').replace(/\s/g, '')
 
 export async function POST() {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  // 키가 하나라도 없으면 자동 인증만 못 할 뿐, 신청은 관리자 수동 인증으로 넘어가는 정상 흐름이다.
+  // 예전엔 500 을 돌려줘 등록 직후마다 콘솔에 서버 오류가 찍혔다(운영도 국세청 키 미등록).
+  // 등록 화면은 verified=false 를 보고 '관리자가 확인해요'로 안내한다.
   const ntsKey = process.env.PUBLICDATA_API_KEY
   const vworldKey = process.env.VWORLD_API_KEY
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!ntsKey || !vworldKey || !serviceKey || !supabaseUrl) {
-    return NextResponse.json({ error: 'config_missing' }, { status: 500 })
+    console.warn('[auto-verify] 키 미설정 — 관리자 수동 인증으로 넘김')
+    return NextResponse.json({ verified: false, manual: true, reasons: ['config_missing'] })
   }
-
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const allowed = await checkRateLimit(`user:${user.id}:auto-verify`, 5, 3600)
   if (!allowed) return NextResponse.json({ error: 'rate_limited' }, { status: 429 })

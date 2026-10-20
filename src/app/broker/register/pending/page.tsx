@@ -2,15 +2,23 @@
 
 import { Header } from '@/components/layout/header'
 import { Clock, CheckCircle } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 
 export default function PendingPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { refresh } = useAuth()
   const [checking, setChecking] = useState(false)
   const [approved, setApproved] = useState(false)
+
+  // 승인되면 화면에 든 사무소 정보(승인 전 값)를 새로 받은 뒤 대시보드로 보낸다.
+  // 그냥 넘어가면 옛 값으로 판정하는 화면이 생겨, 다시 로그인해야 메뉴가 열렸다.
+  const goDashboard = useCallback(() => {
+    setTimeout(() => { refresh().catch(() => {}).finally(() => router.push('/dashboard/broker')) }, 1500)
+  }, [refresh, router])
 
   // 승인 여부 폴링: 5초마다 체크 + Supabase Realtime 구독
   useEffect(() => {
@@ -39,7 +47,7 @@ export default function PendingPage() {
         if (broker.is_owner || broker.is_approved) {
           if (cancelled) return
           setApproved(true)
-          setTimeout(() => router.push('/dashboard/broker'), 1500)
+          goDashboard()
         }
       } catch {}
     }
@@ -65,7 +73,7 @@ export default function PendingPage() {
             const row = payload.new as { is_approved?: boolean }
             if (row.is_approved && !cancelled) {
               setApproved(true)
-              setTimeout(() => router.push('/dashboard/broker'), 1500)
+              goDashboard()
             }
           },
         )
@@ -77,7 +85,7 @@ export default function PendingPage() {
       clearInterval(interval)
       if (channelRef) supabase.removeChannel(channelRef)
     }
-  }, [router, supabase])
+  }, [router, supabase, goDashboard])
 
   const manualCheck = async () => {
     setChecking(true)
@@ -90,7 +98,7 @@ export default function PendingPage() {
       .single()
     if (broker?.is_owner || broker?.is_approved) {
       setApproved(true)
-      setTimeout(() => router.push('/dashboard/broker'), 1500)
+      goDashboard()
     }
     setChecking(false)
   }

@@ -7,7 +7,7 @@ import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
   Home, Search, Bell, Heart, User, Building2, Briefcase,
-  MoreHorizontal, X, ChevronDown, LogOut,
+  MoreHorizontal, X, ChevronDown, LogOut, Lock,
   LayoutDashboard, Flag, Users, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,7 +25,7 @@ const HIDDEN_PATHS = [
   '/broker/properties/', // 매물 편집 등 풀스크린
 ]
 
-type NavItem = { label: string; icon: any; badge?: number } & (
+type NavItem = { label: string; icon: any; badge?: number; needsOffice?: boolean } & (
   | { href: string; action?: never }
   | { href?: never; action: 'more' }
 )
@@ -59,9 +59,10 @@ export function BottomNav() {
   } else if (role === 'broker') {
     items = [
       { href: '/dashboard/broker', label: '홈', icon: Home },
-      { href: '/broker/customers', label: '고객', icon: Users },
-      { href: '/broker/properties', label: '매물', icon: Building2 },
-      { href: '/broker/diary', label: '일지', icon: ClipboardList },
+      // 사무소 메뉴는 menu-items 의 needsOffice 와 같은 뜻 — 등록 전엔 탭에도 자물쇠를 단다
+      { href: '/broker/customers', label: '고객', icon: Users, needsOffice: true },
+      { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
+      { href: '/broker/diary', label: '일지', icon: ClipboardList, needsOffice: true },
       // 일정·대화를 탭에서 뺐으므로 안 읽은 대화도 여기로 모아 센다.
       // 아니면 안 읽은 대화가 있다는 표시가 폰 어디에도 남지 않는다.
       { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread + chatUnread },
@@ -93,6 +94,10 @@ export function BottomNav() {
   const drawerItems: ItemDef[] = role === 'admin'
     ? ADMIN_ITEMS as ItemDef[]
     : BROKER_ITEMS.filter(i => !i.ownerOnly || isOwner)
+  // 사무소 등록 전 중개사에게 사무소 메뉴는 자물쇠를 달아 보여 준다(사이드바와 같은 규칙).
+  // 숨기지 않는다 — 무엇이 있는지 보여야 등록할 이유가 된다. 눌러도 잠김 안내만 뜬다(BrokerGlobalLayout).
+  const isLocked = (m: { needsOffice?: boolean }) => role === 'broker' && !broker && !!m.needsOffice
+  const lockedTitle = (label: string) => `${label} · 사무소 등록 후 쓸 수 있어요`
   const toggleExpand = (id: string) => setOpenIds(prev => {
     const next = new Set(prev)
     if (next.has(id)) next.delete(id); else next.add(id)
@@ -114,6 +119,7 @@ export function BottomNav() {
             const Icon = it.icon
             const isMore = it.action === 'more'
             const active = !isMore && isActive(it.href!)
+            const locked = isLocked(it)
 
             const inner = (
               <span className="relative">
@@ -122,6 +128,9 @@ export function BottomNav() {
                   <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
                     {it.badge > 9 ? '9+' : it.badge}
                   </span>
+                )}
+                {locked && (
+                  <Lock className="absolute -bottom-0.5 -right-2 h-3 w-3 text-gray-400" aria-hidden />
                 )}
               </span>
             )
@@ -143,7 +152,7 @@ export function BottomNav() {
                     {it.label}
                   </button>
                 ) : (
-                  <Link href={it.href!} className={labelClass}>
+                  <Link href={it.href!} className={labelClass} title={locked ? lockedTitle(it.label) : undefined}>
                     {inner}
                     {it.label}
                   </Link>
@@ -203,10 +212,12 @@ export function BottomNav() {
                             {subItems.map(sub => {
                               const SubIcon = sub.icon
                               const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/')
+                              const subLocked = isLocked(sub)
                               return (
                                 <li key={sub.href}>
                                   <Link
                                     href={sub.href}
+                                    title={subLocked ? lockedTitle(sub.label) : undefined}
                                     className={cn(
                                       'flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium',
                                       subActive
@@ -215,7 +226,8 @@ export function BottomNav() {
                                     )}
                                   >
                                     <SubIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                                    {sub.label}
+                                    <span className="flex-1">{sub.label}</span>
+                                    {subLocked && <Lock className="h-3 w-3 flex-shrink-0 text-gray-400" aria-hidden />}
                                   </Link>
                                 </li>
                               )
@@ -226,10 +238,12 @@ export function BottomNav() {
                     )
                   }
                   const itemActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'))
+                  const itemLocked = isLocked(item)
                   return (
                     <li key={item.id}>
                       <Link
                         href={item.href!}
+                        title={itemLocked ? lockedTitle(item.label) : undefined}
                         className={cn(
                           'flex items-center gap-2.5 rounded-xl px-3 py-3 text-sm font-semibold',
                           itemActive
@@ -238,7 +252,8 @@ export function BottomNav() {
                         )}
                       >
                         <Icon className="h-4 w-4 flex-shrink-0" />
-                        {item.label}
+                        <span className="flex-1">{item.label}</span>
+                        {itemLocked && <Lock className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" aria-hidden />}
                       </Link>
                     </li>
                   )

@@ -70,9 +70,10 @@ export default async function UserDashboardPage() {
       {activeRequests.length === 0 && <OnboardingModal />}
 
       <div className="mx-auto max-w-5xl px-4 py-8">
-        {/* 상단 인사 */}
+        {/* 상단 인사 — 인라인 span 의 truncate 는 말줄임 없이 nowrap 만 먹어, 긴 이름이 화면 밖으로 뻗어
+            '요청 등록' 버튼을 덮었다(375px 에선 보통 이름도 넘쳤다). line-clamp(블록)로 두 줄까지 감싸고 그 뒤는 … 로 자른다. */}
         <PageHeader
-          title={<span className="truncate">안녕하세요, {profile?.name ?? '회원'}님 👋</span>}
+          title={<span className="line-clamp-2 break-words">안녕하세요, {profile?.name || '회원'}님 👋</span>}
           description="내 방 찾기 현황을 확인하세요"
           actions={
             <Link href="/request/new" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">

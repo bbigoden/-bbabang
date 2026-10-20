@@ -14,14 +14,17 @@ import { checkRateLimit } from '@/lib/rate-limit'
  * env: PUBLICDATA_API_KEY (공공데이터포털 발급, decoding 인증키)
  */
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.PUBLICDATA_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: 'config_missing_publicdata_key' }, { status: 500 })
-  }
-
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+
+  // 키가 없으면 '고장'(500)이 아니라 '지금은 못 하는 기능'(503)이다. 운영도 아직 키 미등록이라 늘 여기로 온다.
+  // 화면(broker/register)은 코드를 그대로 보여 주지 않고 '관리자가 확인해요'로 바꿔 안내한다.
+  // 로그인 확인 뒤에 둬서, 로그인 안 한 사람에게 서버 설정 상태를 알려 주지 않는다.
+  const apiKey = process.env.PUBLICDATA_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: 'config_missing_publicdata_key' }, { status: 503 })
+  }
 
   // Rate limit: 사용자당 시간당 5회 (사업자번호 검증 quota 보호)
   const allowed = await checkRateLimit(`user:${user.id}:verify-business`, 5, 3600)

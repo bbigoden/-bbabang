@@ -34,7 +34,14 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   // broker는 BrokerGlobalLayout이 모든 viewport에서 사이드바를 표시하므로 헤더 항상 숨김
   // (사이드바가 홈/대시보드/공동요청/알림/로그아웃 모두 처리)
   const isBrokerSidebarArea = role === 'broker'
-  if (isBrokerSidebarArea) return null
+  // 단, 사무소 등록 전 중개사가 보는 등록 화면은 예외 — 모바일엔 사이드바가 없어 나갈 길(로고·뒤로·
+  // 로그아웃)이 하단 탭바뿐이었다. 데스크탑은 사이드바가 맡으니 다른 화면처럼 모바일에서만 보인다.
+  // '등록 전'의 기준은 등록 화면의 existing 과 같다 — 사무소를 탈퇴한 직원은 broker 행이 남아 있어도
+  // (대표 아님·parent 없음) 양식을 다시 보므로, 그들에게도 헤더가 있어야 한다.
+  const noOffice = !auth.broker || (auth.broker.is_owner === false && !auth.broker.parent_broker_id)
+  const preOfficeRegister = isBrokerSidebarArea && !auth.loading && noOffice
+    && (pathname === '/broker/register' || !!pathname?.startsWith('/broker/register/'))
+  if (isBrokerSidebarArea && !preOfficeRegister) return null
 
   // 고객(로그인 user)은 데스크탑에 사이드바가 있으므로 데스크탑에선 헤더 숨김.
   // 모바일(< md)에선 헤더 그대로 보임 (사이드바는 hidden md:flex).
@@ -74,7 +81,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   }
 
   return (
-    <header className={`sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 ${isCustomerSidebarArea ? 'md:hidden' : ''}`}>
+    <header className={`sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 ${isCustomerSidebarArea || preOfficeRegister ? 'md:hidden' : ''}`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* 좌측: 모바일 서브 페이지엔 ← 뒤로 (PWA에서 브라우저 뒤로가 없음). 그 외엔 로고. */}
         {showBack ? (

@@ -13,6 +13,7 @@ import { OnboardingChecklist, type OnboardingItems } from '@/components/broker/o
 import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
 import { EmptyState } from '@/components/empty-state'
 import { todayKST, ymdKST } from '@/lib/date-kst'
+import { verificationState, verificationCopy } from '@/lib/broker-office'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -33,7 +34,7 @@ export default async function BrokerDashboardPage() {
     supabase.from('profiles').select('name, role').eq('id', user.id).single(),
     supabase
       .from('broker_profiles')
-      .select('id, district, is_verified, office_name, rating, review_count, deal_count, is_owner, is_approved, parent_broker_id, onboarding_dismissed_at')
+      .select('id, district, is_verified, verification_info, office_name, rating, review_count, deal_count, is_owner, is_approved, parent_broker_id, onboarding_dismissed_at')
       .eq('user_id', user.id)
       .single(),
   ])
@@ -46,6 +47,10 @@ export default async function BrokerDashboardPage() {
   const brokerDistricts: string[] = broker.district
     ? broker.district.split(',').map((s: string) => s.trim()).filter(Boolean)
     : []
+
+  // 대표의 인증이 아직이면(처음 등록·반려·취소) 위쪽에 상태를 띄운다. 인증됐으면 이름 옆 체크로 충분하다.
+  const verifyState = broker.is_owner !== false ? verificationState(broker) : null
+  const ownerVerify = verifyState && verifyState.kind !== 'verified' ? verificationCopy(verifyState) : null
 
   // ── 부가 데이터 조회 (실패해도 빈 상태로 처리) ────────────
   let proposals: any[] = []
@@ -160,7 +165,8 @@ export default async function BrokerDashboardPage() {
                     <CheckCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
                   )}
                 </div>
-                <p className="text-gray-500 dark:text-gray-500 truncate">{broker.office_name} · {brokerDistricts.join(' · ')}</p>
+                {/* 등록 때 district 를 '' 로 넣어, 지역이 없으면 상호 뒤에 가운뎃점만 남았다 → 있는 것만 잇는다 */}
+                <p className="text-gray-500 dark:text-gray-500 truncate">{[broker.office_name, ...brokerDistricts].filter(Boolean).join(' · ')}</p>
                 <div className="mt-2 flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1 text-yellow-700 dark:text-yellow-400">
                     <Star className="h-4 w-4 fill-yellow-400" />
@@ -173,6 +179,20 @@ export default async function BrokerDashboardPage() {
             </div>
           </CardBody>
         </Card>
+
+        {/* 사무소 인증 상태 — 대표 전용. 예전엔 설정 > 사무소까지 들어가야 승인 대기인지 알 수 있었다 */}
+        {ownerVerify && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl bg-yellow-50 border border-yellow-200 px-5 py-4">
+            <Clock className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-yellow-800">{ownerVerify.title}</p>
+              <p className="text-xs text-yellow-700 mt-0.5">{ownerVerify.body}</p>
+            </div>
+            <Link href="/settings/office" className="flex-shrink-0 text-xs font-semibold text-yellow-800 hover:underline">
+              사무소 정보 →
+            </Link>
+          </div>
+        )}
 
         {/* 신규 사무소 시작 가이드 — 대표 전용, 완료·숨김 시 서버에서 미렌더 */}
         {onboarding && <OnboardingChecklist brokerId={broker.id} items={onboarding} />}

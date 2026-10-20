@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useId } from 'react'
+import { useState, useRef, useId, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
 import { Badge } from '@/components/ui/badge'
@@ -17,8 +17,11 @@ import { ShareButton } from '@/components/share-button'
 import { ChatPanel } from '@/components/chat-panel'
 import { ReportButton } from '@/components/report-button'
 import { ViewTracker } from '@/components/view-tracker'
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 import { Spinner } from '@/components/ui/spinner'
+import {
+  splitTypes, priceLabel, rangeText, readSavedFlash, REQUEST_SAVED_FLASH_KEY, type SavedKind,
+} from '@/lib/request-validation'
 
 // ── 메인 클라이언트 컴포넌트 ────────────────────────
 interface Props {
@@ -52,6 +55,23 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
   // 요청 행의 proposal_count(트리거가 동기화)로 보여 줘야 '제안 0' 으로 거짓말하지 않는다.
   // 로그인 사용자는 실제로 읽어 온 목록 길이 그대로(RLS 로 볼 수 있는 것만 센다).
   const proposalCount = user ? proposals.length : (request.proposal_count ?? 0)
+  // 고른 동·유형·금액 이름을 빠짐없이 — 예전엔 제목에 시·구만, 유형은 2개만, 큰 금액엔 이름이 없어
+  // 불당동·토지를 고른 사람이 저장이 안 된 줄 알았다(저장은 돼 있었다)
+  const regionText = [request.city, request.district, request.dong].filter(Boolean).join(' ')
+  const dealTypes = splitTypes(request.deal_type)
+  const roomTypes = splitTypes(request.room_type)
+  const monthlyText = rangeText(request.min_monthly, request.max_monthly)
+
+  // 등록·수정 직후 한 번만 뜨는 안내. 등록 화면이 남긴 표식을 읽고 바로 지운다(새로고침엔 안 뜬다).
+  const [savedNotice, setSavedNotice] = useState<SavedKind | null>(null)
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(REQUEST_SAVED_FLASH_KEY)
+      if (raw == null) return
+      window.sessionStorage.removeItem(REQUEST_SAVED_FLASH_KEY)
+      setSavedNotice(readSavedFlash(raw, request.id))
+    } catch { /* 저장소가 막힌 브라우저 — 안내만 빠진다 */ }
+  }, [request.id])
 
   const toggleCompare = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -163,6 +183,23 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
         )}>
           {/* 요청 요약 */}
           <div className="px-4 py-4 border-b border-gray-100">
+            {savedNotice && (
+              <div role="status" className="mb-3 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <CheckCircle className="mt-0.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-emerald-800">
+                    {savedNotice === 'new' ? '조건이 등록됐어요' : '수정한 조건을 저장했어요'}
+                  </p>
+                  {savedNotice === 'new' && (
+                    <p className="text-[10px] text-emerald-700">중개사 제안이 오면 알림으로 알려 드려요</p>
+                  )}
+                </div>
+                <button type="button" onClick={() => setSavedNotice(null)} aria-label="안내 닫기"
+                  className="flex h-6 w-6 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -170,18 +207,22 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                   <Badge variant={request.status === 'active' ? 'success' : 'default'}>
                     {request.status === 'active' ? '모집 중' : '마감'}
                   </Badge>
-                  {(request.deal_type?.split(',') ?? []).map((t: string) => <Badge key={t} variant="info">{t.trim()}</Badge>)}
-                  {(request.room_type?.split(',') ?? []).slice(0, 2).map((t: string) => <Badge key={t} variant="default">{t.trim()}</Badge>)}
+                  {dealTypes.map((t) => <Badge key={t} variant="info">{t}</Badge>)}
+                  {roomTypes.map((t) => <Badge key={t} variant="default">{t}</Badge>)}
                 </div>
-                <h1 className="text-lg font-bold text-gray-900">{request.city} {request.district}</h1>
-                <div className="text-xl font-black text-blue-600 mt-0.5">{formatPrice(request.min_price)}~{formatPrice(request.max_price)}</div>
-                {request.min_monthly && (
-                  <div className="text-xs text-gray-500 mt-0.5">월세 {formatPrice(request.min_monthly)}~{formatPrice(request.max_monthly)}</div>
+                <h1 className="text-lg font-bold text-gray-900">{regionText}</h1>
+                {/* min/max_price 는 고른 거래 유형에 따라 매매가·전세금·보증금 — 이름을 붙여야 읽힌다 */}
+                <div className="text-xl font-black text-blue-600 mt-0.5">
+                  <span className="mr-1.5 text-xs font-semibold text-gray-500">{priceLabel(dealTypes)}</span>
+                  {formatPrice(request.min_price)}~{formatPrice(request.max_price)}
+                </div>
+                {dealTypes.includes('월세') && monthlyText && (
+                  <div className="text-xs text-gray-500 mt-0.5">월세 {monthlyText}</div>
                 )}
               </div>
               <ShareButton
-                title={`${request.city} ${request.district} 구합니다`}
-                text={`부소장에서 ${request.city} ${request.district} 매물을 찾고 있어요!`}
+                title={`${regionText} 구합니다`}
+                text={`부소장에서 ${regionText} 매물을 찾고 있어요!`}
                 url={`https://bbabang.vercel.app/request/${request.id}`}
               />
             </div>
@@ -189,8 +230,8 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3">{request.description}</p>
             )}
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
-              {request.min_size && <span>최소 {request.min_size}평</span>}
-              {request.max_size && <span>최대 {request.max_size}평</span>}
+              {request.min_size != null && <span>최소 {request.min_size}평</span>}
+              {request.max_size != null && <span>최대 {request.max_size}평</span>}
               {request.move_in_date && <span>입주 희망: {String(request.move_in_date)}</span>}
             </div>
 
@@ -210,9 +251,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               <div className="mt-3 flex gap-2">
                 <CloseRequestButton requestId={request.id} />
                 <Link href={`/request/${request.id}/edit`}>
-                  <Button variant="outline" size="sm">
-                    <Pencil className="mr-1 h-3.5 w-3.5" />수정
-                  </Button>
+                  <EditButton />
                 </Link>
               </div>
             )}
@@ -466,6 +505,19 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
         />
       )}
     </div>
+  )
+}
+
+/** 수정 화면을 받는 동안(느린 망에서 3~4초) 아무 반응이 없어 두 번 누르게 됐다 → 누르자마자 도는 표시 */
+function EditButton() {
+  const { pending } = useLinkStatus()
+  return (
+    <Button variant="outline" size="sm" aria-busy={pending || undefined}>
+      {pending
+        ? <Spinner size="xs" tone="current" label={null} className="mr-1" />
+        : <Pencil className="mr-1 h-3.5 w-3.5" />}
+      수정
+    </Button>
   )
 }
 

@@ -41,13 +41,15 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-3">
           {/* 회사·사업자 정보 */}
           <div className="md:col-span-2">
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/icon.svg" alt="부소장 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
               <span className="text-base font-bold text-gray-900 dark:text-white">
                 부소<span className="text-blue-600">장</span>
               </span>
-              <span className="text-xs text-gray-500">부동산 역경매 매칭 플랫폼</span>
+              {/* 모든 화면에 붙는 한 줄 소개 — 홈(고객 요청 매칭)과 /office-intro(사무소 업무 도구)가
+                  서로 다른 서비스처럼 읽히지 않게 둘 다 담는다 */}
+              <span className="text-xs text-gray-500">매물 요청 매칭 · 중개사무소 업무 도구</span>
             </div>
             <dl className="space-y-1 text-xs leading-relaxed">
               <div className="flex flex-wrap gap-x-2">

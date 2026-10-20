@@ -3,6 +3,7 @@ import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { RequestDetailClient } from './request-detail-client'
+import { priceLabel, splitTypes } from '@/lib/request-validation'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
@@ -16,7 +17,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const region = [data.city, data.district, data.dong].filter(Boolean).join(' ')
   // 루트 layout의 '%s | 부소장' 템플릿이 접미사를 붙이므로 여기선 안 붙임
   const title = `${region} ${data.deal_type ?? ''} ${data.room_type ?? ''} 요청`.replace(/\s+/g, ' ').trim()
-  const priceRange = data.min_price && data.max_price ? ` (${data.min_price}~${data.max_price}만원)` : ''
+  // 금액 한 쌍이 유형에 따라 매매가·전세금·보증금이라 이름을 붙인다(상세 화면과 같게)
+  const priceRange = data.min_price && data.max_price
+    ? ` (${priceLabel(splitTypes(data.deal_type))} ${data.min_price}~${data.max_price}만원)`
+    : ''
   const description = `${region} ${data.room_type ?? ''} ${data.deal_type ?? ''}${priceRange} — 공인중개사 제안을 받아보세요.`
   return {
     title,

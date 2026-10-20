@@ -7,6 +7,7 @@ import { User, Mail, Calendar, Check, AlertCircle, Lock, Trash2, Shield, ShieldC
 import { transferBrokerData } from '@/lib/leave-office'
 import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
+import { validatePhoneKR, formatPhoneKR, validateName, NAME_MAX } from '@/lib/validation'
 import { Spinner } from '@/components/ui/spinner'
 
 export default function SettingsAccountPage() {
@@ -69,13 +70,27 @@ export default function SettingsAccountPage() {
   }, [])
 
   const save = async () => {
-    if (!name.trim()) { setMsg({ type: 'err', text: '이름을 입력해주세요.' }); return }
+    const nextName = name.trim()
+    const nextPhone = phone.trim()
+    // 이름은 가입 화면과 같은 검사(validateName) — 빈 값·30자(NAME_MAX) 초과를 한 곳에서 거른다.
+    // 예전엔 여기만 길이를 봐서 가입 때 들어간 긴 이름은 못 막았다.
+    const nameCheck = validateName(nextName)
+    if (!nameCheck.valid) { setMsg({ type: 'err', text: `${nameCheck.error}.` }); return }
+    // 전화번호는 가입 때처럼 선택 입력 — 적었다면 가입 화면과 같은 검사(validatePhoneKR)를 거친다.
+    // 예전엔 'abc'도 '저장됐습니다'로 들어갔다.
+    if (nextPhone) {
+      const phoneCheck = validatePhoneKR(nextPhone)
+      if (!phoneCheck.valid) { setMsg({ type: 'err', text: phoneCheck.error }); return }
+    }
     if (!user) return
+    // '01012345678'·'010 1234 5678' 도 받아 주되, 저장은 010-1234-5678 한 모양으로 맞춘다
+    const savedPhone = nextPhone ? formatPhoneKR(nextPhone) : ''
     setSaving(true); setMsg(null)
-    const { error } = await supabase.from('profiles').update({ name: name.trim(), phone: phone.trim() }).eq('id', user.id)
+    const { error } = await supabase.from('profiles').update({ name: nextName, phone: savedPhone }).eq('id', user.id)
     setSaving(false)
     if (error) setMsg({ type: 'err', text: '저장 중 오류가 발생했습니다.' })
     else {
+      setName(nextName); setPhone(savedPhone)
       setMsg({ type: 'ok', text: '저장됐습니다.' })
       setTimeout(() => setMsg(null), 3000)
     }
@@ -226,8 +241,9 @@ export default function SettingsAccountPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-blue-600 text-xl font-bold flex-shrink-0">
             {(name || user?.email || '?')[0].toUpperCase()}
           </div>
-          <div>
-            <p className="font-bold text-gray-900 dark:text-white text-lg">{name || '이름 없음'}</p>
+          {/* 예전에 길이 제한 없이 저장된 긴 이름도 줄 밖으로 뻗지 않게 min-w-0 + truncate */}
+          <div className="min-w-0">
+            <p className="truncate font-bold text-gray-900 dark:text-white text-lg">{name || '이름 없음'}</p>
             <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleLabel.color}`}>{roleLabel.text}</span>
           </div>
         </div>
@@ -251,7 +267,7 @@ export default function SettingsAccountPage() {
         <div className="space-y-3">
           <div>
             <label htmlFor="account-name" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">이름</label>
-            <input id="account-name" value={name} onChange={e => setName(e.target.value)} placeholder="이름"
+            <input id="account-name" value={name} onChange={e => setName(e.target.value)} placeholder="이름" maxLength={NAME_MAX}
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
           </div>
           <div>
