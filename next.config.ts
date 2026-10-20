@@ -67,14 +67,34 @@ const nextConfig: NextConfig = {
     // 예외 목록을 손으로 관리하다 두 번(jobs 01dace0, cafe-post edd9114) 새 페이지가
     // 홈으로 튕기는 사고가 나서, src/app/broker 폴더를 읽어 자동 생성한다.
     // 새 /broker/xxx 페이지를 만들면 별도 등록 없이 자동으로 예외에 포함됨.
-    const BROKER_ROUTES = readdirSync(join(process.cwd(), 'src', 'app', 'broker'), { withFileTypes: true })
-      .filter(e => e.isDirectory())
+    //
+    // 폴더 이름은 이스케이프 없이 정규식에 들어간다. 그래서 평범한 이름(영숫자·'-')만 받고
+    // 나머지는 빌드를 멈춘다 — 조용히 넘어가면 뜻이 바뀐다.
+    // - '(group)' 은 path-to-regexp 가 그룹으로 읽어 빌드가 깨지거나, 안의 페이지
+    //   (/broker/<안쪽 폴더>)가 예외에 안 들어가 홈으로 튕긴다.
+    // - '[id]' 는 /broker/<아무거나> 가 진짜 페이지라는 뜻이라 이 리다이렉트 자체가 틀린다.
+    // - 'a.b' 의 '.' 은 아무 글자에 걸린다.
+    // '_folder'(private 폴더)는 라우팅에서 통째로 빠지는 Next 규칙이라 겹칠 일이 없어 건너뛴다.
+    const brokerDirs = readdirSync(join(process.cwd(), 'src', 'app', 'broker'), { withFileTypes: true })
+      .filter(e => e.isDirectory() && !e.name.startsWith('_'))
       .map(e => e.name)
-      .join('|')
+    const oddDirs = brokerDirs.filter(name => !/^[a-z0-9-]+$/i.test(name))
+    if (oddDirs.length > 0) {
+      throw new Error(
+        `next.config.ts redirects(): src/app/broker 아래 폴더 ${oddDirs.map(n => `'${n}'`).join(', ')} 는 ` +
+        `/broker/:id 예외 정규식에 그대로 넣을 수 없습니다(영숫자·'-' 만). ` +
+        `route group·동적 세그먼트를 만들었다면 이 리다이렉트 규칙부터 고치세요.`,
+      )
+    }
+    const BROKER_ROUTES = brokerDirs.join('|')
     return [
       { source: '/brokers', destination: '/', permanent: true },
       {
-        source: `/broker/:id((?!${BROKER_ROUTES}$)[^/]+)`,
+        // 목록을 (?:…) 로 묶어야 끝($)이 모든 이름에 걸린다. 묶지 않으면 'ads|…|trash$' 의
+        // $ 가 마지막 trash 에만 붙어 '앞부분이 폴더명으로 시작'만 해도 예외가 됐다 —
+        // /broker/adsX 가 홈으로 가지 않고 404. path-to-regexp 는 패턴 안 그룹 중
+        // '(?' 로 시작하는 것만 허용하므로 비캡처 그룹으로 쓴다.
+        source: `/broker/:id((?!(?:${BROKER_ROUTES})$)[^/]+)`,
         destination: '/',
         permanent: true,
       },

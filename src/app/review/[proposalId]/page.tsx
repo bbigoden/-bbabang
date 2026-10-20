@@ -58,11 +58,14 @@ export default function ReviewPage() {
   useEffect(() => {
     const load = async () => {
       let user: User | null = null
+      // 로그인하고 나면 이 리뷰 화면으로 돌아오게. 비로그인은 proxy 가 먼저 redirect 를 담아
+      // 보내지만, 그 뒤 세션이 끊겨 여기서 튕기면 대시보드에 떨어져 어느 거래였는지 잃었다.
+      const loginHref = `/auth/login?redirect=${encodeURIComponent(`/review/${proposalId}`)}`
       try {
         const { data } = await supabase.auth.getUser()
         user = data.user
-      } catch { router.push('/auth/login'); return }
-      if (!user) { router.push('/auth/login'); return }
+      } catch { router.push(loginHref); return }
+      if (!user) { router.push(loginHref); return }
 
       const { data: proposal } = await supabase
         .from('proposals')

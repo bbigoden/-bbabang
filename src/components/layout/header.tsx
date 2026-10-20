@@ -46,11 +46,24 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   // 뒤로가기 버튼 노출 조건 — 모바일·PWA에서 서브 페이지에 있을 때.
   // 루트 페이지(홈/대시보드 등)는 "뒤로 갈 곳"이 없으므로 제외.
   const ROOT_PATHS = new Set(['/', '/dashboard/user', '/dashboard/broker', '/admin'])
+  const NO_RETURN_PATHS = new Set(['/office-intro', '/support', '/terms', '/privacy'])
   const isRootPage = ROOT_PATHS.has(pathname ?? '/')
   const showBack = mounted && !isRootPage
   const homeHref = user
     ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user')
     : '/'
+  // 손님의 [로그인]엔 보던 화면을 redirect 로 싣는다 — 새 제안 메일을 로그아웃된 기기에서 연
+  // 요청자가 헤더 [로그인]을 누르면 대시보드에 떨어져 요청을 다시 찾아 들어와야 했다.
+  // - 경로만 싣는다. 쿼리까지 보려고 useSearchParams 를 헤더에 쓰면 이 헤더를 그리는 정적
+  //   페이지가 Suspense 경계 없이는 클라이언트 렌더로 빠진다.
+  // - 뒤로가기 버튼처럼 mount 뒤에만 붙인다(위 hydration 함정). 서버가 어긋난 경로로 그린
+  //   href 가 hydration 에선 고쳐지지 않고 남는다.
+  // - 홈('/')·/auth/* 는 돌아올 곳이 아니다(로그인 화면이 로그인 화면으로 돌아오는 고리).
+  //   소개·고객지원·약관도 다시 볼 화면이 아니라, 역할별 첫 화면(대시보드)으로 가게 둔다.
+  const loginHref = mounted && pathname && pathname !== '/' && !pathname.startsWith('/auth')
+    && !NO_RETURN_PATHS.has(pathname)
+    ? `/auth/login?redirect=${encodeURIComponent(pathname)}`
+    : '/auth/login'
   const handleBack = () => {
     // 히스토리가 있으면 한 단계 뒤로, 없으면(직접 URL 진입·PWA 첫 화면) 역할별 홈으로
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -122,14 +135,16 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
                 </Link>
               )}
               {!isBrokerSidebarArea && <NotificationBell userId={user.id} />}
-              <Link href="/settings" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="설정">
+              {/* /settings 는 /settings/account 로 넘기기만 하는 페이지다. 그 주소를 미리 불러오면(prefetch)
+                  넘겨진 요청이 끝나지 않고 매달려, 데스크톱 화면마다 요청 하나가 계속 열려 있었다 */}
+              <Link href="/settings/account" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="설정">
                 <Settings className="h-5 w-5 text-gray-600 dark:text-gray-500" />
               </Link>
               <Button variant="outline" size="sm" onClick={handleLogout}>로그아웃</Button>
             </>
           ) : (
             <>
-              <Link href="/auth/login">
+              <Link href={loginHref}>
                 <Button variant="ghost" size="sm">로그인</Button>
               </Link>
               <Link href="/auth/signup">
@@ -187,14 +202,14 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
                     </Link>
                   </>
                 )}
-                <Link href="/settings" onClick={() => setMobileOpen(false)}>
+                <Link href="/settings/account" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">설정</Button>
                 </Link>
                 <Button variant="outline" size="md" className="w-full" onClick={handleLogout}>로그아웃</Button>
               </>
             ) : (
               <>
-                <Link href="/auth/login" onClick={() => setMobileOpen(false)}>
+                <Link href={loginHref} onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full">로그인</Button>
                 </Link>
                 <Link href="/auth/signup" onClick={() => setMobileOpen(false)}>

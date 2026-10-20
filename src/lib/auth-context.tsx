@@ -21,6 +21,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { claimPushSubscription, releasePushSubscription } from '@/lib/push'
+import { isProtectedPath } from '@/lib/protected-paths'
 
 export interface Profile {
   id: string
@@ -289,21 +290,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 사용자가 누른 로그아웃이면 이동은 signOutAndLeave 가 한다. 여기서 보내면 느린 망에서
       // '/' 로 가던 길이 '세션이 만료됐어요' 로그인 화면으로 덮어써졌다.
       if (leaving) return
-      // refresh token 만료로 인한 자동 로그아웃이면 사용자에게 알림 + 로그인 페이지 이동
-      // 단, 이미 /auth/* 페이지거나 공개 페이지면 그냥 둠
+      // refresh token 만료로 인한 자동 로그아웃이면 사용자에게 알림 + 로그인 페이지 이동.
+      // 로그인 전용 화면(proxy 와 같은 목록)에서만 보낸다. 예전엔 여기만 따로 든 짧은 '공개'
+      // 목록 밖이면 다 보내서, /explore·/jobs·공유 링크(/request/<id>, /r/<id>, /e/<token>)를
+      // 보던 사람도 로그인 화면으로 튕겼다.
+      // 공개 화면은 그 자리에서 다시 불러 손님 화면으로 그린다. 위에서 비운 상태만으론 부족하다 —
+      // /request/<id> 처럼 서버가 그릴 때 받은 user 를 그대로 쓰는 화면은 로그인된 모양(로그아웃
+      // 버튼·수락/거절·채팅창)으로 남고, 누르는 것마다 손님 권한으로 조용히 실패했다. 세션 쿠키는
+      // 이미 없어서(getSession 이 null) 다시 불러도 hadUser 가 false 라 되풀이되지 않는다.
       if (hadUser && typeof window !== 'undefined') {
         const path = window.location.pathname
-        // 중개사 공개 프로필(/broker/[id])·둘러보기(/brokers) 페이지 제거됨
-        // → /broker/* 는 모두 보호 경로(중개사 전용)이므로 공개 목록에서 제외
-        const isPublic = (
-          path.startsWith('/auth/') || path === '/' ||
-          path.startsWith('/property/') ||
-          path.startsWith('/regions') || path.startsWith('/terms') || path.startsWith('/privacy') ||
-          path.startsWith('/support')
-        )
-        if (!isPublic) {
+        if (isProtectedPath(path)) {
           const redirect = encodeURIComponent(path + window.location.search)
           window.location.href = `/auth/login?expired=1&redirect=${redirect}`
+        } else {
+          window.location.reload()
         }
       }
     }

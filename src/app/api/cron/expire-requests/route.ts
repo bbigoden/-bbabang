@@ -154,20 +154,23 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 링크는 매물장(목록)의 ?focus= 로 보낸다. /broker/properties/<id> 라는 상세 페이지는
+  // 없어 404 였고, 수정 화면(/[id]/edit)에는 매물상태 칸이 없다. 이 알림이 바라는 건
+  // '계약완료로 바꾸기'인데 그 토글은 목록 행에 있고, 다른 매물 알림도 같은 ?focus= 를 쓴다.
+  const staleLink = (id: string) => `/broker/properties?focus=${id}`
   const propertyInserts: Array<Record<string, unknown>> = []
   const propertyPushTargets: Array<{ userId: string; address: string; propertyId: string }> = []
   for (const p of oldProperties ?? []) {
     const brokerUserId = (p.broker_profiles as any)?.user_id
     if (!brokerUserId) continue
-    const key = `${brokerUserId}|/broker/properties/${p.id}`
-    if (alreadyStaleNotified.has(key)) continue
+    if (alreadyStaleNotified.has(`${brokerUserId}|${staleLink(p.id)}`)) continue
 
     propertyInserts.push({
       user_id: brokerUserId,
       type: 'property_stale_reminder',
       title: '오래된 매물 확인 필요 🏚️',
       body: `'${p.address ?? '주소 없음'}' 매물이 180일 넘게 활성 상태예요. 계약 완료됐다면 상태를 변경해주세요.`,
-      link: `/broker/properties/${p.id}`,
+      link: staleLink(p.id),
     })
     propertyPushTargets.push({ userId: brokerUserId, address: p.address ?? '', propertyId: p.id })
   }
@@ -181,7 +184,7 @@ export async function GET(req: NextRequest) {
       await sendPushToUser(t.userId, {
         title: '오래된 매물 확인',
         body: `'${t.address.slice(0, 30)}' 매물 상태를 확인해주세요`,
-        url: `/broker/properties/${t.propertyId}`,
+        url: staleLink(t.propertyId),
         tag: `stale-prop-${t.propertyId}`,
       })
     } catch {}

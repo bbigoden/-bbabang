@@ -1,17 +1,24 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { isProtectedPath } from '@/lib/protected-paths'
 
-// /broker/[id]는 공개 중개사 프로필이라 제외. 나머지 broker 하위는 모두 보호.
-const PROTECTED = [
-  '/dashboard', '/request/new',
-  '/broker/register', '/broker/properties', '/broker/customers', '/broker/diary',
-  '/broker/team', '/broker/settings', '/broker/resources',
-  '/broker/chats', '/broker/trash',
-  // 아래 4개는 목록에서 빠져 있어 미들웨어 방어층 없이 각 페이지의 클라이언트
-  // 훅에만 의존했다 — 미인증 상태로 화면이 한 번 그려졌다 튕기는 깜빡임이 생긴다
-  '/broker/messenger', '/broker/schedule', '/broker/settlement', '/broker/jobs',
-  '/chat', '/admin', '/profile', '/settings',
-]
+// 로그인 전용 경로는 protected-paths.ts 한 곳에서 정한다 — auth-context 도 같은 목록을 본다.
+// /broker/ 하위는 전부 보호(구 공개 프로필 /broker/[id]는 없어졌고 next.config 가 먼저 '/' 로 돌린다).
+
+/**
+ * 로그인 화면으로 보내며 원래 가려던 주소를 redirect 에 담는다.
+ * 쿼리까지 담아야 한다 — 알림·푸시가 여는 /broker/properties?focus=…, /broker/diary?date=… 가
+ * 로그인 뒤 쿼리 없이 열려 엉뚱한 매물·날짜를 보여 줬다. clone 이 들고 온 원래 쿼리는
+ * 지운다(로그인 주소에 섞여 남으면 redirect 와 겹쳐 헷갈린다).
+ */
+function toLogin(request: NextRequest) {
+  const { pathname, search } = request.nextUrl
+  const url = request.nextUrl.clone()
+  url.pathname = '/auth/login'
+  url.search = ''
+  url.searchParams.set('redirect', pathname + search)
+  return NextResponse.redirect(url)
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -21,7 +28,7 @@ export async function proxy(request: NextRequest) {
   if (!supabaseUrl || !supabaseKey) return NextResponse.next()
 
   // 비로그인 + 비보호 경로면 auth 호출 없이 통과 (홈 등 공개 페이지 CDN 캐시 가능)
-  const isProtected = PROTECTED.some(p => pathname.startsWith(p))
+  const isProtected = isProtectedPath(pathname)
   const isRoot = pathname === '/'
   // 세션 쿠키 감지 — 세션이 크면 @supabase/ssr이 'sb-...-auth-token.0/.1'로 쪼개므로 둘 다 인식
   const hasSessionCookie = request.cookies.getAll().some(
@@ -42,12 +49,7 @@ export async function proxy(request: NextRequest) {
     request.headers.get('purpose') === 'prefetch' ||
     (request.headers.get('sec-purpose')?.includes('prefetch') ?? false)
   if (isPrefetch) {
-    if (isProtected && !hasSessionCookie) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      url.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(url)
-    }
+    if (isProtected && !hasSessionCookie) return toLogin(request)
     return NextResponse.next({ request })
   }
 
@@ -82,12 +84,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // 보호된 경로: 로그인 필요
-  if (isProtected && !userId) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    url.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(url)
-  }
+  if (isProtected && !userId) return toLogin(request)
 
   // 홈(/): 로그인된 사용자는 적절한 대시보드로 redirect (page.tsx가 정적 캐시 가능하도록)
   // ?as_visitor=1 — 어드민이 일반 사용자 화면 미리보기 시 redirect 우회

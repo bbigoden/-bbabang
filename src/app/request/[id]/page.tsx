@@ -64,6 +64,8 @@ export default async function RequestDetailPage({ params, searchParams }: { para
 
     // 제안 목록도 broker_profiles가 anon GRANT 대상이 아니라 비로그인에선 조회되지 않는다.
     // 비로그인에게 제안 상세를 노출할 이유도 없으므로 로그인 사용자에게만 읽는다.
+    // 대신 개수는 위 '*' 에 실려 오는 request.proposal_count 로 보여 준다(클라이언트에서
+    // 비로그인 + 제안 있음이면 '아직 없음' 대신 로그인 안내).
     if (user) {
       const { data: pr } = await supabase
         .from('proposals')
@@ -80,6 +82,10 @@ export default async function RequestDetailPage({ params, searchParams }: { para
 
   // ?p=<proposalId> 로 들어오면 해당 제안의 대화를 바로 열어줌 (받은 제안·알림에서 진입)
   const initialSelectedId = p && proposals.some((pr: any) => pr.id === p) ? p : null
+  // 비로그인은 제안 목록을 못 읽어 위 대조가 늘 실패한다 — 그래도 로그인 버튼이 ?p= 를 실어
+  // 보내야 로그인 뒤 그 대화가 바로 열린다(중개사 /my/proposals 가 /request/<id>?p=<pid> 로 건다).
+  // 주소에 그대로 다시 실을 값이라 id 모양(영숫자·'-')일 때만 넘긴다. ?p=a&p=b 면 배열로 온다.
+  const returnProposalId = typeof p === 'string' && /^[\w-]{1,64}$/.test(p) ? p : null
 
   return (
     <RequestDetailClient
@@ -88,6 +94,7 @@ export default async function RequestDetailPage({ params, searchParams }: { para
       user={user}
       userRole={userRole}
       initialSelectedId={initialSelectedId}
+      returnProposalId={returnProposalId}
     />
   )
 }

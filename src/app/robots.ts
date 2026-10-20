@@ -7,8 +7,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        // /request/new는 따로 열지 않는다 — 로그인 보호 경로(proxy PROTECTED)라 크롤러는
-        // 로그인 화면으로 307만 받는다. 색인시키려면 비로그인 안내 랜딩부터 만들어야 한다.
+        // /request/new는 따로 열지 않는다 — 로그인 보호 경로(src/lib/protected-paths.ts 의
+        // isProtectedPath, proxy 가 본다)라 크롤러는 로그인 화면으로 307만 받는다.
+        // 색인시키려면 비로그인 안내 랜딩부터 만들어야 한다.
         allow: ['/'],
         // 로그인·중개사 영역·API·사용자별 상세 페이지는 색인 제외
         disallow: [

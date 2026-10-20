@@ -10,13 +10,15 @@ import Link from 'next/link'
  * next 는 같은 사이트 경로만 받는다. 예전엔 검증 없이 router.replace(next) 라
  * /auth/mfa?next=https://evil.example 로 2단계 인증 직후 외부로 보낼 수 있었다.
  * '//', '/\' 로 시작하는 것도 브라우저가 외부 주소로 읽으므로, 실제로 풀어 본
- * 출처가 지금 사이트와 같을 때만 그 경로를 쓴다.
+ * 출처가 지금 사이트와 같을 때만 그 경로를 쓴다. 풀어 본 경로가 '//' 로 시작해도
+ * 거절한다('/.//evil.example' 은 점 구간이 정리되며 '//evil.example' 이 된다).
  */
 function safeNext(raw: string | null): string | null {
   if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return null
   try {
     const u = new URL(raw, window.location.origin)
-    return u.origin === window.location.origin ? u.pathname + u.search + u.hash : null
+    const path = u.pathname + u.search + u.hash
+    return u.origin === window.location.origin && !path.startsWith('//') ? path : null
   } catch {
     return null
   }

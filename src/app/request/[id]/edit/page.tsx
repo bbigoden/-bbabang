@@ -60,11 +60,14 @@ export default function RequestEditPage() {
   useEffect(() => {
     const load = async () => {
       let user: User | null = null
+      // 로그인하고 나면 이 수정 화면으로 돌아오게. 비로그인은 proxy 가 먼저 redirect 를 담아
+      // 보내지만, 그 뒤 세션이 끊겨 여기서 튕기면 어느 요청을 고치던 중이었는지 잃었다.
+      const loginHref = `/auth/login?redirect=${encodeURIComponent(`/request/${id}/edit`)}`
       try {
         const { data } = await supabase.auth.getUser()
         user = data.user
-      } catch { router.push('/auth/login'); return }
-      if (!user) { router.push('/auth/login'); return }
+      } catch { router.push(loginHref); return }
+      if (!user) { router.push(loginHref); return }
 
       const { data, error } = await supabase
         .from('request_posts')

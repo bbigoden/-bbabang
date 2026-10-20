@@ -27,9 +27,11 @@ interface Props {
   user: any
   userRole: string | null
   initialSelectedId?: string | null
+  /** 들어온 주소의 ?p=(검사 거친 원래 값) — 비로그인 로그인 버튼이 돌아올 주소에 다시 싣는다 */
+  returnProposalId?: string | null
 }
 
-export function RequestDetailClient({ request, proposals: initialProposals, user, userRole, initialSelectedId = null }: Props) {
+export function RequestDetailClient({ request, proposals: initialProposals, user, userRole, initialSelectedId = null, returnProposalId = null }: Props) {
   const supabaseRef = useRef(createClient())
   const supabase = supabaseRef.current
   const [proposals, setProposals] = useState(initialProposals)
@@ -40,6 +42,16 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [showCompare, setShowCompare] = useState(false)
   const isOwner = user?.id === request.user_id
+  // 로그인하고 나면 이 요청으로 돌아오게 — 새 제안 메일을 로그아웃된 기기에서 연 요청자가
+  // 로그인 후 대시보드에 떨어져 요청을 다시 찾아 들어와야 했다.
+  // ?p=<제안id> 로 들어왔으면 그것도 싣는다 — 빠지면 로그인 뒤 그 제안 대화가 아니라 목록이 뜬다.
+  // 돌아올 주소를 통째로 한 번 더 인코딩해야 그 안의 ?p= 가 login 주소의 파라미터로 새지 않는다.
+  const returnPath = `/request/${request.id}` + (returnProposalId ? `?p=${encodeURIComponent(returnProposalId)}` : '')
+  const loginHref = `/auth/login?redirect=${encodeURIComponent(returnPath)}`
+  // 비로그인에겐 제안 목록을 읽지 않는다(page.tsx) → proposals 는 늘 비어 있다. 개수는
+  // 요청 행의 proposal_count(트리거가 동기화)로 보여 줘야 '제안 0' 으로 거짓말하지 않는다.
+  // 로그인 사용자는 실제로 읽어 온 목록 길이 그대로(RLS 로 볼 수 있는 것만 센다).
+  const proposalCount = user ? proposals.length : (request.proposal_count ?? 0)
 
   const toggleCompare = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -117,18 +129,17 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
       }).select().single()
       if (!proposal) return
 
-      // proposal_count 업데이트 + 고객 알림
-      const { data: reqData } = await supabase.from('request_posts').select('proposal_count, user_id').eq('id', request.id).single()
-      if (reqData) {
-        await supabase.from('request_posts').update({ proposal_count: (reqData.proposal_count ?? 0) + 1 }).eq('id', request.id)
-        if (reqData.user_id) {
-          await supabase.from('notifications').insert({
-            user_id: reqData.user_id, type: 'new_proposal',
-            title: '새 제안이 도착했어요! 📨',
-            body: '중개사가 새로운 매물을 제안했습니다.',
-            link: `/request/${request.id}`,
-          })
-        }
+      // 고객 알림. proposal_count 는 DB 트리거(trg_sync_proposal_count)가 원자적으로 맞춘다 —
+      // 여기서 +1 하던 건 요청자 본인만 고칠 수 있는 RLS 에 막혀 중개사에겐 늘 헛돌았고,
+      // 막히지 않는 경우(본인 요청에 본인이 제안)엔 트리거 위에 한 번 더 세게 된다.
+      const { data: reqData } = await supabase.from('request_posts').select('user_id').eq('id', request.id).single()
+      if (reqData?.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: reqData.user_id, type: 'new_proposal',
+          title: '새 제안이 도착했어요! 📨',
+          body: '중개사가 새로운 매물을 제안했습니다.',
+          link: `/request/${request.id}`,
+        })
       }
 
       setSelectedId(proposal.id)
@@ -239,10 +250,21 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
           <div className="px-4 py-3 flex-1">
             <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
               중개사 제안
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{proposals.length}</span>
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">{proposalCount}</span>
             </h2>
 
-            {proposals.length === 0 ? (
+            {/* 비로그인인데 제안이 와 있으면 '아직 없음' 대신 로그인으로 안내 — 전형적으로
+                새 제안 메일을 로그아웃된 기기에서 연 요청자다. 제안 내용은 당사자만 볼 수 있다. */}
+            {!user && proposalCount > 0 ? (
+              <div className="py-12 text-center">
+                <MessageCircle className="mx-auto mb-2 h-8 w-8 text-blue-200" />
+                <p className="text-sm font-semibold text-gray-700">중개사 제안 {proposalCount}건이 도착했어요</p>
+                <p className="mt-1 text-xs text-gray-500">요청하신 분이라면 로그인 후 확인하세요</p>
+                <Link href={loginHref} className="mt-4 inline-block rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+                  로그인하기
+                </Link>
+              </div>
+            ) : proposals.length === 0 ? (
               <div className="py-12 text-center">
                 <Home className="mx-auto mb-2 h-8 w-8 text-gray-200" />
                 <p className="text-sm text-gray-500">아직 제안이 없습니다</p>
@@ -254,10 +276,19 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                   const broker = proposal.broker_profiles
                   const isSelected = selectedId === proposal.id
                   const isCompared = compareIds.has(proposal.id)
+                  // 카드 전체를 <button> 으로 두면 안에 든 비교·수락·거절 버튼이 '버튼 안의 버튼'이 된다.
+                  // HTML 에서 허용되지 않아 브라우저가 바깥 버튼을 일찍 닫고, 서버가 그린 모양과 어긋나
+                  // 제안이 있는 요청을 고객이 열 때마다 hydration 오류가 났다 → div 로 바꾸고 키보드는 직접 받는다.
                   return (
-                    <button key={proposal.id} onClick={() => handleSelect(proposal.id)}
+                    <div key={proposal.id} role="button" tabIndex={0} aria-pressed={isSelected}
+                      onClick={() => handleSelect(proposal.id)}
+                      onKeyDown={e => {
+                        // 안쪽 버튼에서 누른 Enter·Space 는 그 버튼 몫이다
+                        if (e.target !== e.currentTarget) return
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(proposal.id) }
+                      }}
                       className={cn(
-                        'w-full text-left rounded-xl border p-3 transition-all relative',
+                        'w-full cursor-pointer text-left rounded-xl border p-3 transition-all relative focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
                         isSelected ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200 bg-white hover:border-blue-200 hover:bg-blue-50/40'
                       )}
                     >
@@ -323,12 +354,14 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                       {isOwner && proposal.status === 'pending' && (
                         <div className="mt-2 flex gap-1.5" onClick={e => e.stopPropagation()}>
                           <button
+                            type="button"
                             onClick={e => handleAccept(e, proposal.id)}
                             className="flex-1 rounded-lg bg-blue-600 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
                           >
                             수락
                           </button>
                           <button
+                            type="button"
                             onClick={e => handleReject(e, proposal.id)}
                             className="flex-1 rounded-lg border border-gray-200 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
                           >
@@ -337,7 +370,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
                         </div>
                       )}
 
-                    </button>
+                    </div>
                   )
                 })}
               </div>
@@ -366,7 +399,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
               {!user ? (
                 <>
                   <h3 className="text-base font-bold text-gray-800">로그인 후 대화할 수 있어요</h3>
-                  <Link href="/auth/login" className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+                  <Link href={loginHref} className="mt-4 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
                     로그인하기
                   </Link>
                 </>
@@ -388,7 +421,7 @@ export function RequestDetailClient({ request, proposals: initialProposals, user
           className={cn('flex-1 py-3 text-sm font-semibold transition-colors',
             mobileTab === 'proposals' ? 'text-blue-600 border-t-2 border-blue-600 -mt-px' : 'text-gray-500')}
         >
-          제안 목록 ({proposals.length})
+          제안 목록 ({proposalCount})
         </button>
         <button
           onClick={() => selectedId && setMobileTab('chat')}
