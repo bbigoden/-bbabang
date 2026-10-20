@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense, memo } from 'react'
 import { createPortal } from 'react-dom'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -1084,9 +1085,81 @@ function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
   )
 }
 
+// ── 광고 배지 ──────────────────────────────────────────
+// 이 매물이 지금 어디에 광고되고 있는지. 광고 대장(ad_listings)이 매물을 가리킬 때만 안다 —
+// PC 가 [가져오기] 로 대장 줄을 적을 때 DB 가 잇는다(재등록 앞 줄의 연결을 물려받거나,
+// 주소(지번·동·층·지하·호)·거래 종류·가격이 맞는 매물이 하나뿐일 때). 여기서 매물을 등록하는
+// 것만으로는 안 이어진다 — 광고관리의 칩에서 사람이 바로 이을 수도 있다.
+type AdRow = {
+  id: string
+  property_id: string | null
+  bank_no: string
+  naver_no: string | null
+  bank_tab: string | null
+  contracted_at: string | null
+  ad_posts: Array<{ channel: string; status: string }> | null
+}
+type AdBadge = {
+  label: '광고중' | '뱅크만'
+  title: string
+  /** 살아 있는 곳 — '뱅크/카페' */
+  어디: string
+  /** 광고관리에서 찾을 번호. 화면이 쓰는 번호(네이버, 없으면 뱅크)다. 살아 있는 광고 줄마다 하나. */
+  번호: string[]
+  /** 살아 있는 광고 줄이 전부 이미 [광고종료] 를 누른 것 — 내리는 중이다. */
+  종료누름: boolean
+}
+const AD_CHANNEL_LABEL: Record<string, string> = { cafe: '카페', blog: '블로그', daangn: '당근' }
+
+/**
+ * 광고 대장 줄들 → 매물별 배지.
+ *
+ * **광고관리 화면(ads/page.tsx 의 게시중)과 같은 잣대를 쓴다** — 뱅크는 등록매물 탭에 있으면
+ * 살아 있고, 카페·블로그·당근은 status 'posted' 인 글만 센다(블로그 임시저장은 아직 안 올라간
+ * 글이다). 채널 'bank' 줄은 글이 아니라 안 센다 — 뱅크가 살아 있는지는 bank_tab 이 말한다.
+ * 두 화면이 갈리면 한쪽은 '광고 남음' 인데 다른 쪽은 아무 표시가 없다.
+ * `in` 대신 Object.hasOwn — `in` 은 'constructor' 같은 내장 이름에도 참이 된다.
+ * 끝난 광고만 남은 매물은 배지를 달지 않는다.
+ */
+function buildAdBadges(rows: AdRow[]): Record<string, AdBadge> {
+  const 모음: Record<string, { 뱅크: boolean; 채널: Set<string>; 번호: string[]; 안누름: boolean }> = {}
+  for (const a of rows) {
+    if (!a.property_id) continue
+    const m = (모음[a.property_id] ??= { 뱅크: false, 채널: new Set(), 번호: [], 안누름: false })
+    const 게시중 = (a.ad_posts ?? []).filter(p => p.status === 'posted' && Object.hasOwn(AD_CHANNEL_LABEL, p.channel))
+    const 뱅크 = a.bank_tab === '등록매물'
+    if (뱅크) m.뱅크 = true
+    for (const p of 게시중) m.채널.add(p.channel)
+    if (뱅크 || 게시중.length) {
+      // 아직 [광고종료] 를 안 누른 줄을 앞에 — 배지는 첫 번호로 광고관리를 여는데, 조회에 순서가
+      // 없어 이미 내리는 중인 줄이 먼저 오면 사람이 눌러야 할 줄이 아닌 데로 데려간다.
+      if (a.contracted_at) m.번호.push(a.naver_no ?? a.bank_no)
+      else { m.번호.unshift(a.naver_no ?? a.bank_no); m.안누름 = true }
+    }
+  }
+  const out: Record<string, AdBadge> = {}
+  for (const [id, m] of Object.entries(모음)) {
+    if (!m.뱅크 && !m.채널.size) continue
+    const 채널 = Object.keys(AD_CHANNEL_LABEL).filter(c => m.채널.has(c)).map(c => AD_CHANNEL_LABEL[c])
+    const 어디 = [...(m.뱅크 ? ['뱅크'] : []), ...채널].join('/')
+    // 배지를 누르면 광고관리에서 첫 번호로 찾은 채로 열린다(?q=). 재등록 등으로 살아 있는
+    // 광고 줄이 둘 이상이면 나머지 번호는 여기 적어 둔다.
+    const 찾기 = ` — 광고 ${m.번호.join(', ')} · 누르면 광고관리에서 찾아 엽니다`
+    out[id] = {
+      ...(채널.length
+        ? { label: '광고중' as const, title: `광고중 · ${어디}${찾기}` }
+        : { label: '뱅크만' as const, title: `뱅크만 — 카페·블로그·당근에는 광고가 없습니다${찾기}` }),
+      어디, 번호: m.번호, 종료누름: !m.안누름,
+    }
+  }
+  return out
+}
+
 // ── 매물 행 (React.memo로 셀 편집 시 다른 행 re-render 차단) ──────────
 interface PropertyRowProps {
   p: Property
+  /** 지금 살아 있는 광고. 없으면 배지를 달지 않는다. */
+  adBadge?: AdBadge
   syncedOrder: readonly string[]
   customColumns: CustomColumn[]
   settings: ColSettings
@@ -1107,7 +1180,7 @@ interface PropertyRowProps {
 }
 
 const PropertyRow = memo(function PropertyRow({
-  p, syncedOrder, customColumns, settings,
+  p, adBadge, syncedOrder, customColumns, settings,
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, ownerName,
   saveField, autoFillRow, saveCustomField, setLightbox,
@@ -1119,12 +1192,36 @@ const PropertyRow = memo(function PropertyRow({
   // assignee는 "김용유, 김가주"처럼 콤마로 다중 저장됨(select-cell.tsx와 동일 파싱).
   const memoVisible = isMine ||
     (!!ownerName && (p.assignee ?? '').split(',').map(s => s.trim()).includes(ownerName))
+  // 계약완료인데 광고가 살아 있다 — 표시광고법상 바로 내려야 해서 빨갛게 바꾼다.
+  // 상태는 그릴 때 읽는다 — 이 화면에서 '완료' 로 바꾸는 순간 배지도 같이 바뀐다.
+  const 광고남음 = !!adBadge && p.status === 'contracted'
+  const 광고배지글 = !adBadge ? '' : !광고남음 ? adBadge.title
+    : adBadge.종료누름
+      ? `계약완료한 매물인데 광고가 아직 남아 있습니다(${adBadge.어디}). [광고종료] 는 눌러 두어 내리는 중입니다`
+        + ' — 안 내려가면 광고관리의 [못 내림] 탭에 뜹니다.'
+      : `계약완료한 매물인데 광고가 아직 살아 있습니다(${adBadge.어디}).`
+        + ' 광고관리에서 그 줄의 ↓ [광고종료] 를 눌러 뱅크·카페·당근에서 내려 주세요 — 누르면 광고관리로 갑니다.'
   return (
     <tr data-row-id={p.id}
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
-      <td className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-500 tabular-nums select-all" style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
-        {p.seq_no ?? ''}
+      {/* 광고 배지는 번호 밑에 작게 붙인다 — 칸을 새로 내면 표가 넓어진다.
+          배지가 있으면 고르기(select-all)를 번호에만 걸어, 번호를 복사할 때 '광고중' 이 딸려 오지 않게 한다.
+          배지는 칸 여백까지 조금 쓴다(-mx-1) — 칸 안쪽이 40px 라 '광고 남음' 넉 자가 넘친다. */}
+      <td className={`px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-500 tabular-nums ${adBadge ? '' : 'select-all'}`} style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
+        {adBadge ? (
+          <>
+            <span className="block select-all leading-none">{p.seq_no ?? ''}</span>
+            {/* 줄마다 다른 주소라 prefetch 를 끈다 — 켜 두면 화면에 들어온 줄 수만큼 미리 받는다. */}
+            <Link href={`/broker/ads?q=${encodeURIComponent(adBadge.번호[0])}`} prefetch={false} title={광고배지글}
+              className={`-mx-1 block select-none whitespace-nowrap rounded text-[10px] font-medium leading-3 ${광고남음
+                ? 'bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400'
+                : adBadge.label === '광고중'
+                  ? 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/40 dark:text-green-400'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'}`}
+            >{광고남음 ? '광고 남음' : adBadge.label}</Link>
+          </>
+        ) : (p.seq_no ?? '')}
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1175,7 +1272,8 @@ const PropertyRow = memo(function PropertyRow({
             )
           }
           return (
-            <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
+            // data-col — 새 행을 넣을 때 소재지 칸을 찾아 연다(아래 addingId 효과). 순서로 찾으면 안 된다.
+            <td key={key} data-col={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
               {key === 'status'          && <StatusToggleCell value={p.status} onSave={v => saveField(p.id, 'status', v)} />}
               {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={isAutoFilling} placeholder="소재지 입력" />}
               {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
@@ -1567,12 +1665,16 @@ function BrokerPropertiesContent() {
   }), [filterParams])
   // 목록 행이 받아 온 배열 그대로인지 — 아니면 목록에서 고친 것 (아래 지도 데이터 무효화용)
   const fetchedPageRef = useRef<Property[] | null>(null)
+  // 지금 properties 가 어느 검색어의 결과인지. ?focus= 가 검색을 걸어 두고 "결과가 왔는데도 없다" 를
+  // 가려낼 때 쓴다 — 상태(loading)만 보면 검색어가 바뀐 렌더에서 옛 결과를 새 결과로 착각한다.
+  const fetchedQueryRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!scopeState) return
     let cancelled = false
     ;(async () => {
-      const { data, error } = await supabase.rpc('search_office_properties', rpcParams(pageSize, (page - 1) * pageSize))
+      const 조건 = rpcParams(pageSize, (page - 1) * pageSize)
+      const { data, error } = await supabase.rpc('search_office_properties', 조건)
       if (cancelled) return
       if (error) {
         console.error('[properties] page fetch failed', error)
@@ -1582,6 +1684,7 @@ function BrokerPropertiesContent() {
       }
       const rows = (data ?? []).map((r: any) => r.data as Property)
       fetchedPageRef.current = rows
+      fetchedQueryRef.current = 조건.p_q ?? ''
       setProperties(rows)
       setTotalCount(Number(data?.[0]?.total_count ?? 0))
       setLoading(false)
@@ -1590,6 +1693,33 @@ function BrokerPropertiesContent() {
     })()
     return () => { cancelled = true }
   }, [scopeState, page, pageSize, rpcParams])
+
+  // ── 광고 배지 — 지금 쪽에 뜬 매물의 광고만 한 번에 받는다 ──
+  // 쪽이 바뀔 때만 다시 묻는다(칸을 고쳐도 id 묶음은 그대로라 안 나간다). 줄마다 묻지 않는다.
+  // 못 받으면 배지만 빠진다 — 매물목록은 광고와 상관없이 써야 한다.
+  const [adRows, setAdRows] = useState<AdRow[]>([])
+  const visibleIdsKey = properties.map(p => p.id).join(',')
+  // 매물 잇기(ad_listings_property_link.sql)가 DB 에 아직 없으면 property_id 칸이 없어 42703 이 난다.
+  // 쪽을 넘길 때마다 콘솔에 빨간 줄을 쌓을 일이 아니다 — 한 번 겪으면 이 화면에서는 더 묻지 않는다.
+  const adBadgeUnavailableRef = useRef(false)
+  useEffect(() => {
+    if (!visibleIdsKey || adBadgeUnavailableRef.current) { setAdRows([]); return }
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase.from('ad_listings')
+        .select('id, property_id, bank_no, naver_no, bank_tab, contracted_at, ad_posts(channel, status)')
+        .in('property_id', visibleIdsKey.split(','))
+      if (cancelled) return
+      if (error) {
+        if (error.code === '42703') { adBadgeUnavailableRef.current = true; return }
+        console.error('[properties] 광고 배지를 못 읽었습니다', error.message)
+        return
+      }
+      setAdRows((data ?? []) as AdRow[])
+    })()
+    return () => { cancelled = true }
+  }, [visibleIdsKey, supabase])
+  const adBadges = useMemo(() => buildAdBadges(adRows), [adRows])
 
   // ── 지도 뷰 데이터 — 지도를 열 때만 현재 필터의 전체 매물 로드 ──
   // 목록 RPC(행 집합)로 받으면 PostgREST max-rows(1000)에 조용히 잘려 최신 1,000건만 핀이 찍혔다.
@@ -2281,20 +2411,66 @@ function BrokerPropertiesContent() {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
   const paginated = properties
 
-  // 알림에서 ?focus=ID 로 진입 시 해당 매물 강조 (한 번만 처리)
+  // 알림·광고관리에서 ?focus=ID 로 진입 시 해당 매물 강조 (한 번만 처리)
+  //
+  // **강조만 한다 — 셀을 누르지 않는다.** 예전에는 새 행 추가와 같은 길(addingId)을 타서
+  // 첫 칸을 눌렀는데, 첫 칸이 매물상태 토글이라 들어오기만 해도 가능↔완료가 뒤집혔다.
+  // 광고관리의 '계약완료 매물인데 광고중' 칩을 따라오면 계약완료가 가능으로 풀리는 셈이다.
+  //
+  // 목록은 서버에서 쪽 단위로 받아, 지금 쪽에 없는 매물은 강조할 행이 없었다.
+  // 그럴 때는 그 매물을 검색해 데려온다. **매물번호 하나로는 안 된다** — 검색은 줄 전체(가격·주소·
+  // 메모)에서 글자를 찾아, '262' 는 스물한 건이 걸리고 #262 는 둘째 쪽에 있었다. 검색 글은
+  // `매물번호 주소` 로 시작하고 띄어쓰기를 무시하므로(search_office_properties) `번호 주소` 로 치면
+  // 그 매물 하나만 걸린다. 그래도 안 오면(상태·거래유형·담당자 필터에 가려짐, 또는 지워짐) 결과가
+  // 온 뒤 한 번 알린다 — 조용히 넘기면 검색창만 제멋대로 바뀌고 엉뚱한 목록이 뜬 것으로 보인다.
   const focusedRef = useRef<string | null>(null)
+  // 걸어 둔 검색. q 는 검색창에 넣은 글(아직이면 null), 알림은 "못 찾았다" 를 이미 말했는가.
+  const focusSearchedRef = useRef<{ id: string; q: string | null; 번호: string; 알림: boolean } | null>(null)
   useEffect(() => {
     const focus = searchParams.get('focus')
     if (!focus || loading) return
     if (focusedRef.current === focus) return
     if (properties.some(p => p.id === focus)) {
       focusedRef.current = focus
-      setAddingId(focus)
-      setTimeout(() => setAddingId(null), 2500)
+      setJumpId(focus)
+      return
     }
-  }, [searchParams, loading, properties])
+    const 찾는중 = focusSearchedRef.current
+    if (찾는중?.id === focus) {
+      // 검색을 걸어 뒀다. **그 검색의 결과가 온 뒤에도** 없을 때만 알린다 — loading 만 보면 검색어가
+      // 바뀐 렌더에서 옛 결과를 보고 없다고 말한다. 어느 검색어의 결과인지는 fetchedQueryRef 가 안다.
+      if (찾는중.q !== null && !찾는중.알림 && fetchedQueryRef.current === 찾는중.q) {
+        찾는중.알림 = true
+        toast.info(`매물 ${찾는중.번호} 이(가) 목록에 안 보여요 — 상태·거래유형·담당자 필터에 가려졌을 수 있어요.`)
+      }
+      return
+    }
+    const 기록 = { id: focus, q: null as string | null, 번호: '', 알림: false }
+    focusSearchedRef.current = 기록
+    const 그때검색 = searchQuery
+    void supabase.from('broker_properties').select('seq_no, address')
+      .eq('id', focus).is('deleted_at', null).maybeSingle()
+      .then(({ data, error }) => {
+        if (error) { console.error('[properties] 강조할 매물을 못 찾았습니다', error.message); return }
+        const seq = data?.seq_no as number | null | undefined
+        if (seq == null) {
+          // 휴지통에 갔거나 없는 매물 — 검색을 걸어 봐야 안 나온다. 바로 말한다.
+          기록.알림 = true
+          toast.info('강조할 매물을 찾지 못했어요 — 휴지통에 있거나 지워진 매물일 수 있어요.')
+          return
+        }
+        const 검색어 = [String(seq), (data?.address as string | null | undefined)?.trim()].filter(Boolean).join(' ')
+        // 그사이 검색창을 고쳤으면 덮지 않는다 — 친 것이 사라지면 화면이 제멋대로 바뀐 것처럼 보인다.
+        setSearchQuery(prev => {
+          if (prev !== 그때검색) return prev
+          기록.q = 검색어
+          기록.번호 = `#${seq}`
+          return 검색어
+        })
+      })
+  }, [searchParams, loading, properties, supabase, searchQuery, toast])
 
-  // 새 행 추가 시: 페이지 이동 + 스크롤 + 첫 셀 클릭 (편집모드)
+  // 새 행 추가 시: 페이지 이동 + 스크롤 + 소재지 셀 클릭 (편집모드)
   useEffect(() => {
     if (!addingId) return
     // 새 행은 등록순 최신 — up(최신부터)이면 1페이지, down(오래된 것부터)이면 마지막 페이지
@@ -2305,11 +2481,12 @@ function BrokerPropertiesContent() {
       if (row) {
         row.scrollIntoView({ block: 'center', behavior: 'smooth' })
         setTimeout(() => {
-          const cells = row.querySelectorAll('td')
-          for (let i = 1; i < cells.length - 1; i++) {
-            const clickable = cells[i].querySelector('div[class*="cursor"], button:not([disabled])') as HTMLElement | null
-            if (clickable) { clickable.click(); break }
-          }
+          // 소재지 칸을 연다 — 새 행에서 제일 먼저 채우는 칸이다.
+          // **앞에서부터 누를 수 있는 것을 찾아 누르면 안 된다.** 맨 앞 칸이 매물상태 토글
+          // (ALL_COLUMNS[0])이라, 새 행·복사한 행이 들어오자마자 가능→완료로 뒤집혀 저장됐다.
+          // 소재지 칸을 숨겨 두었으면 아무것도 누르지 않는다.
+          const addr = row.querySelector('td[data-col="address"] [class*="cursor-pointer"]') as HTMLElement | null
+          addr?.click()
         }, 400)
       }
     }, 80)
@@ -2798,6 +2975,7 @@ function BrokerPropertiesContent() {
                 <PropertyRow
                   key={p.id}
                   p={p}
+                  adBadge={adBadges[p.id]}
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
                   settings={settings}

@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -73,8 +75,40 @@ type Listing = {
   anomalies_at: string | null
   /** 사장님이 보고 접어 둔 문구. 화면에서만 뺀다 — 보고 자체는 그대로 둔다. */
   dismissed_notes: string[] | null
+  /**
+   * 이 광고가 가리키는 부소장 매물. 뱅크는 재등록할 때마다 번호를 새로 매겨 대장만으로는
+   * 같은 물건인지 모른다. 그래서 PC 가 이 줄을 받아 적을 때([가져오기]) DB 가 잇는다 —
+   * 재등록 앞 줄의 연결을 먼저 물려받고, 없으면 주소(지번·동·층·지하·호)·거래 종류·가격이
+   * 맞는 매물이 딱 하나일 때만 잇는다. 부소장에 매물을 등록하는 것만으로는 안 이어진다.
+   * undefined 는 칸 자체가 없는 것(매물 잇기가 DB 에 아직 안 들어감), null 은 안 이어진 것.
+   */
+  property_id?: string | null
+  /** 'auto' 자동 / 'manual' 사람이 이음·끊음. property_id 와 같이 읽는다 — 매물이 지워지면 이것만 남는다. */
+  property_link?: 'auto' | 'manual' | null
+  /**
+   * property_id 가 가리키는 매물 — 목록과 같은 요청에 묶어 받는다(LISTING_SELECT).
+   * 이어져 있는데 null 이면 볼 수 없는 매물이다(휴지통이거나 볼 권한 밖 — RLS 가 감춘다).
+   */
+  property?: LinkedProperty | null
   ad_posts: Post[]
 }
+
+/** 광고가 가리키는 부소장 매물 — 칩에 쓰는 칸만 받는다. */
+type LinkedProperty = {
+  id: string
+  seq_no: number | null
+  status: 'available' | 'contracted' | 'hidden'
+  address: string | null
+}
+
+/**
+ * 대장 한 줄을 받는 모양. 목록 전체(load)와 고친 줄 다시 받기가 같이 쓴다 — 따로 적으면 한쪽만 고쳐진다.
+ *
+ * 이어진 매물은 같은 요청에 묶어 받는다. 따로 물으면 쪽마다 요청이 하나 더 나가고, 위 배너가
+ * 세는 '계약완료인데 광고중' 은 화면에 뜬 쪽만이 아니라 대장 전체를 봐야 맞는다.
+ */
+const POSTS_SELECT = '*, ad_posts(id, channel, external_id, url, status, error, posted_at, title)'
+const LISTING_SELECT = `${POSTS_SELECT}, property:broker_properties(id, seq_no, status, address)` as const
 
 /**
  * 표에 칸을 내주는 채널.
@@ -101,6 +135,22 @@ const FIXED_COLS = 9
 
 const CHANNEL_LABEL: Record<string, string> = {
   cafe: '카페', blog: '블로그', daangn: '당근', bank: '뱅크',
+}
+
+/** 글이 살아 있는지 세는 채널 — 표에 칸이 있는 카페·블로그·당근뿐이다. */
+const 글채널: Record<string, string> = Object.fromEntries(CHANNELS.map(c => [c.key, c.label]))
+
+/**
+ * 이 글이 지금 걸려 있는가 — 게시중(posted)인 카페·블로그·당근 글만 센다.
+ *
+ * **뱅크 줄(channel 'bank')은 세지 않는다.** 뱅크는 글이 아니라 대장 줄 자체라, 살아
+ * 있는지는 bank_tab(등록매물)으로만 본다 — 두 잣대를 섞으면 같은 광고를 두 번 센다.
+ * 매물목록의 광고 배지(properties/page.tsx 의 게시중)도 똑같이 센다. 둘이 갈리면 한쪽은
+ * '광고 남음' 인데 다른 쪽은 아무 표시가 없어, 어느 화면을 믿어야 할지 모른다.
+ * `in` 대신 Object.hasOwn — `in` 은 'constructor' 같은 내장 이름에도 참이 된다.
+ */
+function 게시중(p: { channel: string; status: string }) {
+  return p.status === 'posted' && Object.hasOwn(글채널, p.channel)
 }
 
 /**
@@ -252,9 +302,10 @@ function 끝났는데광고남음(l: Listing) {
  *
  * 채널을 주지 않으면 카페든 당근이든 하나라도 살아 있으면 참이다. 광고를
  * 내려야 하는지 따질 때는 이쪽이 맞다 — 한 곳만 봐서는 다른 곳에 남은 것을 놓친다.
+ * 뱅크는 여기서 안 본다(게시중) — 뱅크가 살아 있는지는 bank_tab 이 말한다.
  */
 function isLive(l: Listing, channel?: Post['channel']) {
-  return l.ad_posts.some(p => p.status === 'posted' && (!channel || p.channel === channel))
+  return l.ad_posts.some(p => 게시중(p) && (!channel || p.channel === channel))
 }
 
 /**
@@ -477,6 +528,212 @@ ${post.title}` : ''}`}
   )
 }
 
+/**
+ * 이 광고가 부소장의 어느 매물인지 — 매물번호 밑에 작게 붙는 칩.
+ *
+ * 소재지 칸 끝에 붙였더니 거의 모든 줄이 두 줄로 늘었다(41px → 57px). 매물번호 칸은
+ * 번호가 칩보다 넓고 줄 높이는 [전체] 단추(24px)가 정하므로, 번호 밑에 두면 줄이 안 늘어난다 —
+ * 단, 번호 12px(leading-none) + 칩 10px(leading-[10px]) = 22px 로 24px 안에 들 때만이다.
+ * 사이 여백(mt-0.5)이나 칩 테두리를 더하면 넘쳐 모든 줄이 2px 씩 자란다.
+ * 매물목록의 번호 칸에도 같은 자리에 광고 배지가 붙는다 — 서로 찾아가는 짝이다.
+ *
+ * 잇는 것은 DB 다 — PC 가 [가져오기] 로 줄을 받아 적을 때, 재등록 앞 줄의 연결을 먼저
+ * 물려받고, 없으면 주소(지번·동·층·지하·호)·거래 종류·가격이 맞는 매물이 딱 하나일 때만.
+ * 애매하면 잇지 않는다. 틀리게 잇는 것보다 '미연결' 로 두는 편이 낫다 — 틀린 이음은
+ * 엉뚱한 매물의 계약을 이 광고에 덮어씌운다.
+ *
+ * 그래도 틀리면 사람이 고친다 — 칩을 누르면 작은 창이 뜬다. 이어진 칩은 [연결 끊기],
+ * 미연결 칩은 부소장 매물번호로 [잇기]. 사람이 정한 것(manual)은 자동 연결이 다시 덮지
+ * 않는다. 잘못 끊거나 잘못 이었으면 [자동 연결로 되돌리기] 로 DB 에 다시 맡긴다 —
+ * 이게 없으면 한 번 끊은 광고는 재등록을 거듭해도 영영 자동으로 안 이어진다.
+ * 광고를 다룰 수 없는 사람에게는 창 없이 예전처럼 매물로 가는 칩만 보인다.
+ */
+function PropertyLinkChip({ listing: l, canManage, onSetLink }: {
+  listing: Listing
+  /** 광고를 다룰 수 있는 사람만 잇고 끊는다. 아니면 칩은 보기만 한다. */
+  canManage: boolean
+  /** 부소장 매물번호로 잇는다 — null 이면 끊는다. 'auto' 면 사람 손을 떼고 DB 에 다시 맡긴다. 고쳤으면 true. */
+  onSetLink: (l: Listing, seqNo: number | null, mode?: 'set' | 'auto') => Promise<boolean>
+}) {
+  const [open, setOpen] = useState(false)
+  const [번호, set번호] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [pos, setPos] = useState<CSSProperties>({})
+  const chipRef = useRef<HTMLButtonElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
+
+  // 바깥을 누르거나 Esc 로 닫는다 (매물목록의 칸 메뉴와 같은 방식).
+  useEffect(() => {
+    if (!open) return
+    const 바깥 = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (!chipRef.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false)
+    }
+    const 키 = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', 바깥)
+    document.addEventListener('keydown', 키)
+    return () => {
+      document.removeEventListener('mousedown', 바깥)
+      document.removeEventListener('keydown', 키)
+    }
+  }, [open])
+
+  // 칸 자체가 없다 — 매물 잇기가 DB 에 아직 안 들어갔다. 모든 줄에 '미연결' 을 띄우면 거짓말이다.
+  if (l.property_id === undefined) return null
+
+  const p = l.property
+  // 자동 이음은 앞 등록에서 물려받았을 수도, 주소·거래 종류·가격이 맞아 이었을 수도 있다 —
+  // 어느 쪽인지는 DB 가 안 남기므로 둘 다 덮는 말로 적는다.
+  const 어떻게 = l.property_link === 'manual' ? '직접 이은 매물' : '앞 등록·주소·가격으로 자동으로 이은 매물'
+  const 매물글 = p ? [p.seq_no != null ? `#${p.seq_no}` : null, p.address].filter(Boolean).join(' ') : ''
+  // 위아래 여백 없이 번호 바로 밑 — 줄 높이 셈은 위 설명 참고.
+  const 칩 = 'block w-fit whitespace-nowrap rounded px-1 font-sans text-[10px] leading-[10px]'
+  const [글, 모양, 설명] = !l.property_id
+    ? ['미연결',
+        // 테두리 대신 outline — 테두리는 칩 높이를 2px 늘려 줄이 같이 늘어난다.
+        'text-gray-300 outline-1 -outline-offset-1 outline-dashed outline-gray-200 dark:text-gray-600 dark:outline-gray-700',
+        l.property_link === 'manual'
+          ? '연결을 끊어 둔 광고입니다. 자동으로 다시 잇지 않습니다.'
+          : '부소장 매물과 아직 이어지지 않았습니다. 다음 [가져오기] 때 앞 등록의 연결을 물려받거나,'
+            + ' 주소(지번·동·층·지하·호)·거래 종류·가격이 맞는 매물이 하나뿐이면 자동으로 잇습니다.']
+    // 휴지통에 든 매물은 RLS 가 아예 안 보여 준다(deleted_at IS NULL 만 읽힌다) — 여기로 온다.
+    : !p
+      ? ['매물 ?', 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+          '이어진 매물을 볼 수 없습니다 — 휴지통에 있거나 볼 권한이 없는 매물입니다']
+      : [p.seq_no != null ? `매물 #${p.seq_no}` : '매물',
+          'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-blue-950',
+          `${어떻게} — ${매물글}`]
+
+  if (!canManage) {
+    return p
+      // 줄마다 다른 주소라 prefetch 를 끈다 — 켜 두면 화면에 들어온 줄 수만큼 미리 받는다.
+      ? <Link href={`/broker/properties?focus=${p.id}`} prefetch={false} className={`${칩} ${모양}`} title={설명}>{글}</Link>
+      : <span className={`${칩} ${모양}`} title={설명}>{글}</span>
+  }
+
+  const 열기 = () => {
+    if (!open && chipRef.current) {
+      // 표는 가로 스크롤 상자 안이라 칩 옆에 그냥 띄우면 잘린다 — 화면에 고정해 띄운다.
+      // 아래 자리가 모자라면(맨 아래 줄) 칩 위로 띄운다. 200px 는 [되돌리기] 줄까지 든 창 높이다.
+      const r = chipRef.current.getBoundingClientRect()
+      const 아래로 = window.innerHeight - r.bottom > 200
+      setPos({
+        position: 'fixed', zIndex: 9999,
+        left: Math.max(8, Math.min(r.left, window.innerWidth - 248)),
+        ...(아래로 ? { top: r.bottom + 4 } : { bottom: window.innerHeight - r.top + 4 }),
+      })
+    }
+    setOpen(v => !v)
+  }
+  const 바꾸기 = async (seqNo: number | null, mode: 'set' | 'auto' = 'set') => {
+    setBusy(true)
+    const ok = await onSetLink(l, seqNo, mode)
+    setBusy(false)
+    if (ok) { setOpen(false); set번호('') }
+  }
+  // 사람이 정한 줄(이었든 끊었든)에만 — 자동 줄은 이미 DB 가 보고 있다.
+  const 되돌리기 = l.property_link === 'manual' && (
+    <button type="button" onClick={() => 바꾸기(null, 'auto')} disabled={busy}
+      title="직접 정한 것을 지우고 DB 가 다시 찾게 합니다 — 앞 등록의 연결, 또는 주소·거래 종류·가격이 맞는 매물 하나. 못 찾으면 미연결로 남습니다."
+      className="mt-1.5 text-[11px] text-gray-400 underline underline-offset-2 hover:text-blue-600 disabled:opacity-50 dark:hover:text-blue-400"
+    >자동 연결로 되돌리기</button>
+  )
+
+  return (
+    <>
+      <button ref={chipRef} type="button" onClick={열기} aria-expanded={open}
+        className={`${칩} ${모양}`}
+        title={`${설명} · 눌러서 ${l.property_id ? '확인하거나 끊습니다' : '지금 매물번호로 잇습니다'}`}
+      >{글}</button>
+      {open && createPortal(
+        <div ref={popRef} style={pos} role="dialog" aria-label="광고와 매물 잇기"
+          className="w-60 rounded-lg border border-gray-200 bg-white p-2.5 text-xs shadow-xl dark:border-gray-800 dark:bg-gray-900"
+        >
+          {l.property_id ? (
+            <>
+              <p className="font-medium text-gray-700 dark:text-gray-200">{p ? 어떻게 : '볼 수 없는 매물'}</p>
+              <p className="mt-0.5 break-keep text-gray-500 dark:text-gray-400">
+                {p ? 매물글 : '휴지통에 있거나 볼 권한이 없는 매물입니다'}
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                {p && (
+                  <Link href={`/broker/properties?focus=${p.id}`} prefetch={false}
+                    className="text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400"
+                  >매물목록에서 보기</Link>
+                )}
+                <button type="button" onClick={() => 바꾸기(null)} disabled={busy}
+                  className="ml-auto rounded border border-gray-200 px-2 py-1 text-gray-600 hover:border-red-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-red-950"
+                >연결 끊기</button>
+              </div>
+              {되돌리기}
+              <p className="mt-1.5 text-[11px] leading-snug text-gray-400">
+                끊으면 자동으로 다시 잇지 않습니다. 맞는 매물이 따로 있으면 끊은 뒤 매물번호로 이어 주세요.
+              </p>
+            </>
+          ) : (
+            <form onSubmit={e => { e.preventDefault(); if (번호) 바꾸기(Number(번호)) }}>
+              <p className="font-medium text-gray-700 dark:text-gray-200">부소장 매물번호로 잇기</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
+                매물목록 맨 앞 칸의 번호입니다 — 네이버 번호가 아닙니다.
+                {l.property_link === 'manual'
+                  ? ' 지금은 끊어 둔 광고라 자동으로 잇지 않습니다.'
+                  : ' 안 이어도 다음 [가져오기] 때 DB 가 다시 찾습니다.'}
+              </p>
+              <div className="mt-2 flex gap-1.5">
+                <input autoFocus inputMode="numeric" aria-label="부소장 매물번호" placeholder="예: 123"
+                  value={번호} onChange={e => set번호(e.target.value.replace(/\D/g, ''))}
+                  className="min-w-0 flex-1 rounded border border-gray-200 bg-white px-2 py-1 focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-950"
+                />
+                <button type="submit" disabled={busy || !번호}
+                  className="shrink-0 rounded bg-blue-600 px-2.5 py-1 text-white hover:bg-blue-700 disabled:opacity-50"
+                >잇기</button>
+              </div>
+              {되돌리기}
+            </form>
+          )}
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
+/**
+ * 부소장에서 계약완료로 바꾼 매물인데 광고가 아직 살아 있는가.
+ *
+ * 줄마다 붙는 칩과 위 배너(대장 전체 건수)가 이 하나를 같이 본다 — 따로 세면 숫자가 갈린다.
+ * 뱅크는 등록매물 탭에 있으면 살아 있고, 카페·블로그·당근은 게시중인 글만 센다(isLive).
+ * 블로그 임시저장(pending)은 아직 안 올라간 글이라 살아 있는 광고가 아니다.
+ * 이미 [광고종료] 를 눌렀으면 뺀다 — 내리는 중이고, 안 내려가면 [못 내림] 탭이 잡는다.
+ */
+function 계약인데광고중(l: Listing) {
+  return l.property?.status === 'contracted' && !l.contracted_at
+    && (l.bank_tab === '등록매물' || isLive(l))
+}
+
+/**
+ * 계약완료 매물인데 광고가 살아 있다 — 소재지 칸 끝의 빨간 칩.
+ *
+ * 표시광고법상 바로 내려야 하는 것이라 눈에 띄는 자리에 둔다(드물어서 줄이 늘어도 괜찮다).
+ * **알리기만 하고 내리지는 않는다** — 자동 이음은 앞 등록·주소·가격으로 한 것이라 틀릴 수 있어서,
+ * 내리는 것은 사장님이 보고 [광고종료] 로 한다. 그래서 툴팁에 이어진 매물(번호·주소)을
+ * 적는다 — 누르기 전에 같은 매물인지 볼 수 있어야 한다.
+ */
+function ContractedLiveChip({ listing: l }: { listing: Listing }) {
+  const p = l.property
+  if (!p || !계약인데광고중(l)) return null
+  const 매물 = [p.seq_no != null ? `#${p.seq_no}` : null, p.address].filter(Boolean).join(' ')
+  return (
+    <span
+      className="ml-1.5 inline-block whitespace-nowrap rounded bg-red-50 px-1.5 align-middle text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400"
+      title={`부소장에서 계약완료로 바꾼 매물입니다 — ${매물}.`
+        + ' 그런데 이 광고가 아직 살아 있습니다.'
+        + ' 같은 매물이 맞으면 오른쪽 ↓ [광고종료] 로 뱅크·카페·당근에서 내려 주세요.'
+        + ' 자동으로 내리지는 않습니다.'}
+    >계약완료 매물인데 광고중</span>
+  )
+}
+
 export default function AdsPage() {
   const router = useRouter()
   const auth = useAuth()
@@ -491,7 +748,8 @@ export default function AdsPage() {
   // 보다가 그중 문제 있는 것만 보는 식이지, 따로 떨어져 있는 목록이 아니다.
   // 좁혀 보기 — 점검 칸에 뜼는 두 가지를 각각 걸러 볼 수 있게 한다.
   // 한 개로 두면 집게 숫자와 칸의 숫자가 안 맞아 화면을 못 믿게 된다.
-  const [좁혀보기, set좁혀보기] = useState<'' | '점검' | '특이'>('')
+  // '계약' 은 위 빨간 배너의 [이 n건만 보기] — 계약완료 매물인데 광고가 살아 있는 줄만 본다.
+  const [좁혀보기, set좁혀보기] = useState<'' | '점검' | '특이' | '계약'>('')
   // [광고 중] 안에서 채널별로 좁혀 본다. 탭으로 두지 않는 이유 — 위 탭은 일의
   // 순서(가진 것 → 광고 중 → 광고만 남음 …)라 채널까지 탭으로 넣으면 순서와
   // 채널이 섞이고, 블로그가 생길 때마다 탭이 늘어난다.
@@ -519,6 +777,20 @@ export default function AdsPage() {
    * 영영 못 본다 — 실제로 [올리기] 를 눌러도 아무 일이 없었다.
    */
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
+
+  /**
+   * 광고를 다룰 수 있는가 — DB 의 can_manage_office_ads(→ can_edit_broker_property)와 같은
+   * 잣대다. **대표도 승인(is_approved)이 돼 있어야 한다** — SQL 이 그렇다. 직원은 거기에
+   * 매물 편집 권한이 꺼지지 않았을 것까지(permissions 가 빈 옛 행은 허용).
+   *
+   * 이 화면의 다른 버튼은 가리지 않고 RLS 오류로만 막는다. 매물 잇기·끊기는 줄마다 칩에
+   * 붙어 있어, 못 하는 사람에게 창을 열어 주고 누를 때마다 42501 을 내면 시끄럽기만 하다.
+   */
+  const canManageAds = auth.broker?.is_approved === true && (
+    !auth.broker.parent_broker_id
+    || String((auth.broker.permissions as { properties?: { edit?: unknown } } | null)?.properties?.edit) !== 'false')
+  // 매물 연결을 못 받은 채 목록만 띄웠다(아래 load 의 PGRST200). 칩·배너가 빠진 이유를 화면에 적는다.
+  const [매물연결없음, set매물연결없음] = useState(false)
 
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < AGENT_ALIVE_MS
   const lastSynced = useMemo(
@@ -561,18 +833,49 @@ export default function AdsPage() {
     load()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
 
+  // 매물목록의 광고 배지에서 ?q=번호 로 넘어온다 — 그 번호로 찾은 채로 연다.
+  // useSearchParams 를 쓰면 화면 전체를 Suspense 로 감싸야 해서, 처음 한 번 주소창을 직접 읽는다.
+  // 읽은 뒤에는 주소에서 뺀다 — 남겨 두면 검색을 지운 뒤 새로고침·뒤로가기에 그 번호가 되살아난다.
+  useEffect(() => {
+    const 주소 = new URLSearchParams(location.search)
+    const 찾을것 = 주소.get('q')?.trim()
+    if (!찾을것) return
+    setQ(찾을것)
+    주소.delete('q')
+    const 나머지 = 주소.toString()
+    history.replaceState(history.state, '', `${location.pathname}${나머지 ? `?${나머지}` : ''}${location.hash}`)
+  }, [])
+
   async function load() {
     setLoading(true)
     // 등록종료가 매달 쌓여(월 약 300행) 서버 한도 1,000행을 곧 넘는다. 잘린 채로 세면 '내려야 함' 이
     // 실제보다 적게 나온다 — 틀리면 안 되는 숫자라 끝까지 나눠 받는다. id 로 순서를 못박아야
     // 나눠 받는 사이에 겹치거나 빠지지 않는다.
+    const 받기 = (select: string) => fetchAllPaged<Listing>((from, to) => supabase
+      .from('ad_listings')
+      .select(select)
+      .order('bank_no', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to)
+      .overrideTypes<Listing[], { merge: false }>())
     try {
-      const data = await fetchAllPaged<Listing>((from, to) => supabase
-        .from('ad_listings')
-        .select('*, ad_posts(id, channel, external_id, url, status, error, posted_at, title)')
-        .order('bank_no', { ascending: false })
-        .order('id', { ascending: false })
-        .range(from, to))
+      const data = await 받기(LISTING_SELECT).then(d => { set매물연결없음(false); return d }).catch(async (e: unknown) => {
+        // 매물 잇기(ad_listings_property_link.sql)가 DB 에 들어가기 전에는 이을 관계가 없어
+        // 요청이 통째로 실패한다(PGRST200). 내려야 할 광고를 보는 화면이라 목록은 떠야 한다 —
+        // 매물 칩·배너만 빼고 받고, 그랬다는 것을 화면에 적는다(아니면 배너가 사라져도 아무도 모른다).
+        // 이 길은 마이그레이션이 들어가면 걷어낸다.
+        if ((e as { code?: string } | null)?.code !== 'PGRST200') throw e
+        console.error('[ads] 이어진 매물 없이 받습니다 — 매물 잇기가 DB 에 아직 없습니다', (e as { message?: string }).message)
+        set매물연결없음(true)
+        // 칸은 있는데(`*` 에 property_id 가 섞여 옴) 관계만 못 읽은 경우가 있다(PostgREST 가 옛 스키마를
+        // 들고 있을 때). 그대로 두면 이어진 줄마다 '매물 ?'(볼 수 없는 매물) 이라는 거짓말이 뜬다 — 칸을 뗀다.
+        return (await 받기(POSTS_SELECT)).map(r => {
+          const x = { ...r }
+          delete x.property_id
+          delete x.property_link
+          return x
+        })
+      })
       setListings(data)
     } catch (e) {
       toast.error(`목록을 불러오지 못했습니다: ${e instanceof Error ? e.message : (e as { message?: string })?.message ?? '알 수 없는 오류'}`)
@@ -860,6 +1163,55 @@ export default function AdsPage() {
   }
   const 접어두기 = (l: Listing, 문구: string) => 접기토글(l, 문구, true)
   const 되살리기 = (l: Listing, 문구: string) => 접기토글(l, 문구, false)
+
+  /**
+   * 광고 ↔ 매물 고리를 사람이 고친다 — 매물번호 밑 칩의 [잇기]·[연결 끊기].
+   *
+   * 사람이 정한 것은 DB 가 'manual' 로 적어 두고 자동 연결이 다시 덮지 않는다(끊은 것도).
+   * 고친 줄만 다시 받는다 — 대장 전체를 다시 받으면 수백 줄을 또 받고 표가 '불러오는 중' 으로
+   * 깜빡인다. 그 줄의 '계약완료인데 광고중' 칩과 위 배너 숫자도 이걸로 같이 바뀐다.
+   */
+  async function 매물잇기(l: Listing, seqNo: number | null, mode: 'set' | 'auto' = 'set'): Promise<boolean> {
+    // 'auto' 는 사람 손(manual)을 지우고 DB 가 그 자리에서 다시 찾게 한다(p_mode). 잇기·끊기는 p_mode 를
+    // 안 보낸다 — 함수의 기본값(set)이라 안 보내도 같고, p_mode 가 아직 없는 옛 함수에도 그대로 맞는다.
+    const 되돌림 = mode === 'auto'
+    const { error } = await supabase.rpc('set_ad_listing_property',
+      되돌림 ? { p_listing: l.id, p_seq_no: null, p_mode: 'auto' } : { p_listing: l.id, p_seq_no: seqNo })
+    const 무엇 = 되돌림 ? '자동 연결로 되돌리지' : seqNo == null ? '연결을 끊지' : '잇지'
+    if (error) {
+      console.error('[ads] 매물 연결을 바꾸지 못했습니다', error.message)
+      toast.error(`${무엇} 못했습니다: ${error.message}`)
+      return false
+    }
+    const { data, error: 다시 } = await supabase.from('ad_listings')
+      .select(LISTING_SELECT).eq('id', l.id).maybeSingle()
+    const 고친줄 = (data ?? null) as Listing | null
+    if (다시 || !고친줄) {
+      // 고친 것은 저장됐다. 그 줄만 못 받았으니 전체를 다시 받는다.
+      console.error('[ads] 고친 줄을 다시 받지 못했습니다', 다시?.message)
+      load()
+    } else {
+      setListings(prev => prev.map(x => (x.id === l.id ? 고친줄 : x)))
+    }
+    if (되돌림) {
+      // 되돌리면 DB 가 바로 다시 찾는다 — 찾았는지는 다시 받은 줄이 말해 준다.
+      const 찾은 = 고친줄?.property?.seq_no
+      if (고친줄?.property_link === 'manual') {
+        // 같은 소재지·가격의 다른 광고에 **다른** 사람 답(다른 매물로 이어 둔 것)이 있어 그걸
+        // 물려받았다. 되돌린 게 아니니 성공이라고 말하면 안 된다.
+        toast.info(`${보이는번호(l)} 광고는 같은 소재지·가격의 다른 광고가 손수 이어 둔 매물 ${찾은 != null ? `#${찾은}` : ''}을(를) 따릅니다. 바꾸려면 그 광고의 연결부터 고쳐 주세요.`)
+      } else {
+        toast.success(고친줄?.property_id
+          ? `${보이는번호(l)} 광고를 자동 연결로 되돌렸습니다 — 매물 ${찾은 != null ? `#${찾은}` : ''}에 이어졌습니다.`
+          : `${보이는번호(l)} 광고를 자동 연결로 되돌렸습니다. 지금은 맞는 매물을 못 찾아 미연결입니다 — 다음 [가져오기] 때 다시 찾습니다.`)
+      }
+    } else {
+      toast.success(seqNo == null
+        ? `${보이는번호(l)} 광고와 매물의 연결을 끊었습니다.`
+        : `${보이는번호(l)} 광고를 매물 #${seqNo} 에 이었습니다.`)
+    }
+    return true
+  }
 
   /**
    * 줄 서 있는 발행 작업.
@@ -1160,6 +1512,11 @@ export default function AdsPage() {
       // 전송실패·뱅크에서 지워진 매물은 어느 탭에도 안 들어간다. 매물번호를
       // 알고 쳤는데 "조건에 맞는 매물이 없습니다" 가 뜨면, 있는 매물을 없다고
       // 말하는 셈이다. 찾을 때만은 대장 전체를 본다.
+      // 배너의 '계약완료인데 광고중' 만 볼 때는 **탭도 담당자도 검색어도 안 가린다** — 배너가
+      // 대장 전체를 세므로, 무엇으로든 거르면 배너는 3건인데 목록은 1건인 식으로 어긋난다.
+      // 담당자를 골라 두고 보는 일이 잦아(아래 담당자 고르기 — '내 것만 보고 올리는 일이 잦다')
+      // 담당자만 남겨도 같은 어긋남이 난다.
+      if (좁혀보기 === '계약') return 계약인데광고중(l)
       if (!key && !inTab(l)) return false
       if (좁혀보기 === '특이' && !남은특이(l).length) return false
       if (좁혀보기 === '점검' && !손볼것(l)) return false
@@ -1186,6 +1543,12 @@ export default function AdsPage() {
 
   // 표시광고법상 즉시 내려야 하는 건들 — 화면 최상단에 경고로 띄운다
   const takedownCount = listings.filter(l => needsTakedown(l)).length
+  // 부소장에서 계약완료로 바꿨는데 광고가 살아 있는 것 — 쪽이 아니라 대장 전체를 센다.
+  const 계약광고중수 = listings.filter(계약인데광고중).length
+  // 다 내려 배너가 사라지면 좁혀 보기도 푼다 — 안 풀면 빈 목록만 남고 풀 단추가 없다.
+  useEffect(() => {
+    if (좁혀보기 === '계약' && !계약광고중수) set좁혀보기('')
+  }, [좁혀보기, 계약광고중수])
   // [광고 중] 탭과 그 안 칩의 건수. inTab 과 같은 잣대 — 뱅크 상태는 안 본다.
   const liveCount = listings.filter(l => isLive(l)).length
   const 채널건수 = {
@@ -1232,6 +1595,36 @@ export default function AdsPage() {
           icon={Megaphone}
           title="광고관리"
         />
+
+        {/* 매물 연결을 못 받은 채 띄운 목록이다(load 의 PGRST200). 조용히 빼면 아래 빨간 배너가
+            사라져도 '내릴 것이 없다' 로 읽힌다 — 흐리게라도 적어 둔다. */}
+        {매물연결없음 && (
+          <p className="-mt-3 mb-4 text-xs text-gray-400" role="status">
+            매물 연결 정보를 불러오지 못했어요 — 매물번호 밑 칩과 &lsquo;계약완료 매물인데 광고중&rsquo; 표시가 빠진 채 보입니다.
+          </p>
+        )}
+
+        {/* 부소장에서 계약완료로 바꿨는데 광고가 살아 있는 것. **아래 배너들과 달리 탭을
+            가리지 않고 띄운다** — 이건 건수를 말해 주는 탭이 없어서, 탭 안에 넣으면 아무도
+            모른다. 계약할 때만 생겨 드물고, 표시광고법상 바로 내려야 하는 것이다.
+            내리지는 않는다 — 자동 이음은 앞 등록·주소·가격으로 한 것이라 틀릴 수 있어 사장님이 보고 누른다. */}
+        {계약광고중수 > 0 && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+            <div>
+              <p className="text-red-700 dark:text-red-400">
+                부소장에서 계약완료로 바꾼 매물인데 광고가 아직 살아 있는 것이 {계약광고중수}건 있습니다.
+                같은 매물이 맞는지 매물번호 밑 칩으로 확인하고, 줄마다 ↓ 로 내려 주세요.
+              </p>
+              <button
+                onClick={() => set좁혀보기(v => (v === '계약' ? '' : '계약'))}
+                className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white hover:bg-red-700"
+              >
+                {좁혀보기 === '계약' ? '전부 보기' : `이 ${계약광고중수}건만 보기`}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 못 내린 광고도 배너로 띄우지 않는다. **PC 프로그램이 20분마다
             알아서 다시 내리기 때문이다** — 사람이 눌러 주기를 기다리는 일이
@@ -1334,7 +1727,9 @@ export default function AdsPage() {
             ] as [string, string, string?][]).map(([key, label, hint]) => (
               <button
                 key={key}
-                onClick={() => setTab(key as typeof tab)}
+                // '계약' 좁혀 보기는 탭을 가리지 않는다. 탭을 누른 것은 그 탭을 보려는 것이라 푼다 —
+                // 안 풀면 탭을 눌러도 목록이 그대로라 고장 난 것처럼 보인다.
+                onClick={() => { setTab(key as typeof tab); if (좁혀보기 === '계약') set좁혀보기('') }}
                 title={hint}
                 className={`px-3 py-1.5 text-sm first:rounded-l-lg last:rounded-r-lg ${
                   tab === key
@@ -1494,7 +1889,7 @@ export default function AdsPage() {
                       {/* 고객이 부르는 번호만 보여준다. 뱅크 번호는 사장님도 쓸 일이
                           없고 두 개가 나란히 있으면 어느 것을 말하는지 헷갈린다.
                           링크는 그대로 뱅크 원본으로 간다. */}
-                      <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
+                      <td className="px-3 py-2 font-mono text-xs leading-none whitespace-nowrap">
                         {bankDetailUrl(l)
                           ? <a
                               href={bankDetailUrl(l)!}
@@ -1503,6 +1898,7 @@ export default function AdsPage() {
                               className="underline underline-offset-2 hover:text-blue-600"
                             >{보이는번호(l)}</a>
                           : 보이는번호(l)}
+                        <PropertyLinkChip listing={l} canManage={canManageAds} onSetLink={매물잇기} />
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-xs">
                         {l.manager ?? <span className="text-gray-300 dark:text-gray-600">–</span>}
@@ -1514,6 +1910,7 @@ export default function AdsPage() {
                       <td className="px-3 py-2">
                         {l.region}
                         {l.address_detail && <span className="ml-1 text-xs text-gray-400">{l.address_detail}</span>}
+                        <ContractedLiveChip listing={l} />
                       </td>
                       {/* 뱅크처럼 두 면적을 함께 보여 준다.
                           구분상가면 `공급 / 전용`, 통건물이면 `대지 / 연면적` 이다.
