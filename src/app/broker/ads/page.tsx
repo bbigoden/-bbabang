@@ -874,9 +874,14 @@ export default function AdsPage() {
       .select('params').eq('kind', 'publish').in('status', ['queued', 'running'])
     const 줄 = (data ?? []) as Array<{ params: { bankNos?: string[]; channels?: string[] } | null }>
     const 번호들 = new Set(줄.flatMap(j => j.params?.bankNos ?? []).map(String))
+    // **같은 매물이라도 채널이 다르면 막지 않는다.** 카페는 글 사이를 30~90분 띄워
+    // 한 시간 넘게 줄에 서 있는데, 매물 번호만 보고 막으면 그동안 그 매물의 블로그·당근
+    // [올리기] 가 "이미 줄 서 있는 매물" 로 통째로 막혔다.
+    const 줄선것 = new Set(줄.flatMap(j => (j.params?.bankNos ?? []).flatMap(no =>
+      (j.params?.channels ?? []).map(ch => `${no}:${ch}`))))
     const 카페줄 = 줄.filter(j => (j.params?.channels ?? []).includes('cafe'))
       .reduce((n, j) => n + (j.params?.bankNos?.length ?? 0), 0)
-    return { 번호들, 카페줄 }
+    return { 번호들, 줄선것, 카페줄 }
   }
 
   /**
@@ -899,15 +904,16 @@ export default function AdsPage() {
    */
   async function publishAll(l: Listing) {
     if (!auth.broker) return
-    const { 번호들, 카페줄 } = await 발행줄()
-    if (번호들.has(String(l.bank_no))) { toast.error('이미 올리려고 줄 서 있는 매물입니다.'); return }
+    const { 번호들, 줄선것, 카페줄 } = await 발행줄()
     // 줄 서 있는 카페 건도 오늘 몫으로 센다. 안 그러면 여러 건을 눌러 두었을 때
     // 상한을 넘겨 줄을 세우고, 뒤쪽이 PC 에서 "오늘 이미 n건" 으로 실패한다.
     const 카페남음 = 오늘올림 + 카페줄 < DAILY_CAP
-    const 갈곳 = 올릴곳(l).filter(c => c !== 'cafe' || 카페남음)
+    const 줄에있음 = (c: string) => 줄선것.has(`${l.bank_no}:${c}`)
+    const 갈곳 = 올릴곳(l).filter(c => !줄에있음(c) && (c !== 'cafe' || 카페남음))
     const 카페빠짐 = !갈곳.includes('cafe') && !isLive(l, 'cafe') && canPublish(l) && !카페남음
     if (!갈곳.length) {
-      if (카페빠짐) toast.error(`오늘 카페 ${DAILY_CAP}건을 다 썼습니다 (줄 서 있는 것 포함).`)
+      if (올릴곳(l).some(줄에있음)) toast.error('이미 올리려고 줄 서 있는 매물입니다.')
+      else if (카페빠짐) toast.error(`오늘 카페 ${DAILY_CAP}건을 다 썼습니다 (줄 서 있는 것 포함).`)
       return
     }
     const 이름 = 갈곳.map(c => CHANNEL_LABEL[c]).join('·')
@@ -936,8 +942,8 @@ export default function AdsPage() {
     const 이름 = CHANNEL_LABEL[channel] ?? channel
     // 하루 상한은 카페만의 것이다 — 한 카페에 하루 열 건 넘게 올리면 광고로
     // 보이고, 네이버가 막으면 그날 글쓰기가 통째로 잠긴다.
-    const { 번호들, 카페줄 } = await 발행줄()
-    if (번호들.has(String(l.bank_no))) { toast.error('이미 올리려고 줄 서 있는 매물입니다.'); return }
+    const { 번호들, 줄선것, 카페줄 } = await 발행줄()
+    if (줄선것.has(`${l.bank_no}:${channel}`)) { toast.error(`이미 ${이름}에 올리려고 줄 서 있는 매물입니다.`); return }
     if (channel === 'cafe' && 오늘올림 + 카페줄 >= DAILY_CAP) {
       toast.error(`오늘 카페 ${DAILY_CAP}건을 다 썼습니다 (올린 것 ${오늘올림} · 줄 서 있는 것 ${카페줄}).`)
       return

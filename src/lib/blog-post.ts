@@ -148,7 +148,8 @@ function buildTitles(p: ParsedListing, kw: BlogKeywords, no: string): BlogTitle[
   const limit = isIndustrial(p.category)
     ? (p.power ? `전력 ${p.power}입니다` : p.ceilingHeight ? `층고 ${p.ceilingHeight} 기준입니다` : '전력·층고는 확인이 필요합니다')
     : (!hasParkingLot(p) ? '건물 주차는 없습니다'
-      : p.maintenanceFee ? `관리비 ${p.maintenanceFee} 별도입니다` : '관리비는 실비 부과입니다')
+      : p.maintenanceFee && /^월/.test(p.maintenanceFee) ? `관리비 ${p.maintenanceFee} 별도입니다`
+        : '관리비는 관리규약대로 따로 붙습니다')
 
   const target = isIndustrial(p.category)
     ? pick(no, ['보관·소분 작업만 하시는 분께', '소규모 제조 하시는 분께', '물류 거점 찾으시는 분께'])
