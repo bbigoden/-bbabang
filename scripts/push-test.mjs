@@ -52,4 +52,5 @@ for (const s of subs) {
 }
 console.log(`[push-test] ${email}: 발송 성공 ${ok} / 실패 ${fail} (총 구독 ${subs.length})`)
 console.log('  → 기기에서 "부소장 점검 테스트" 알림 수신을 직접 확인하세요.')
-await sb.auth.signOut()
+// 기본값(global)은 이 계정의 모든 기기 세션을 끊는다 — t2는 사장님 실계정이라 폰·PC가 로그아웃된다
+await sb.auth.signOut({ scope: 'local' })

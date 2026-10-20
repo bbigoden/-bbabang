@@ -13,7 +13,7 @@ try { process.loadEnvFile('.env.local') } catch { /* env 파일 없으면 shell 
  * 결과:
  *   test-results/visual/screenshots/   — PNG 파일 (역할/페이지/뷰포트/테마별)
  *   test-results/visual/report.json    — 콘솔 에러, a11y 위반, 텍스트 잘림 등
- *   test-results/visual-report/        — HTML 리포트 (npx playwright show-report)
+ *   playwright-report/visual/          — HTML 리포트 (npx playwright show-report)
  */
 export default defineConfig({
   testDir: './tests/visual',
@@ -24,7 +24,8 @@ export default defineConfig({
   retries: 0,
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'test-results/visual-report', open: 'never' }],
+    // test-results 안에 두면 Playwright 가 'output folder clashes' 설정 오류를 낸다(실행마다 비우는 폴더라)
+    ['html', { outputFolder: 'playwright-report/visual', open: 'never' }],
   ],
   use: {
     baseURL: process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app',

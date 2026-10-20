@@ -1,4 +1,4 @@
-import { test, type Page } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
@@ -37,7 +37,6 @@ const PAGES: Record<'public' | 'user' | 'broker' | 'admin', string[]> = {
     '/explore',
     '/explore/requests',
     '/regions',
-    '/reviews',
     '/terms',
     '/privacy',
     '/support',
@@ -52,6 +51,7 @@ const PAGES: Record<'public' | 'user' | 'broker' | 'admin', string[]> = {
     '/notifications',
     '/recommendations',
     '/saved-searches',
+    '/reviews',  // 내 리뷰 — 로그인 전용(protected-paths)이라 public 에 두면 로그인 화면만 찍힌다
     '/request/new',
     '/settings',
     '/settings/account',
@@ -136,13 +136,20 @@ async function setTheme(page: Page, theme: 'light' | 'dark') {
 async function loginAs(page: Page, role: 'user' | 'broker' | 'admin') {
   const { email, password } = ACCOUNTS[role]
   await page.goto(`${BASE_URL}/auth/login`, { waitUntil: 'domcontentloaded' })
+  // 화면이 살아나기(hydration) 전에 채우면 React 가 칸을 빈 값으로 다시 그려, 이메일 없이
+  // 제출됐다(2026-10-20 인증 로그 'missing email or phone' 2건 → 그 화면들이 로그인 화면으로 찍힘).
+  await page.waitForLoadState('load')
 
   // 비번 보이기 토글 등이 있을 수 있으니 input[type] 대신 name/placeholder fallback
   const emailInput = page.locator('input[type="email"], input[name="email"]').first()
-  await emailInput.fill(email)
-
   const pwInput = page.locator('input[type="password"], input[name="password"]').first()
-  await pwInput.fill(password)
+  // 채운 뒤 값이 남아 있는지 확인하고, 지워졌으면 다시 채운다
+  await expect(async () => {
+    await emailInput.fill(email)
+    await pwInput.fill(password)
+    await expect(emailInput).toHaveValue(email, { timeout: 1_000 })
+    await expect(pwInput).toHaveValue(password, { timeout: 1_000 })
+  }).toPass({ timeout: 15_000 })
 
   await page.locator('button[type="submit"]').first().click()
 
@@ -240,7 +247,11 @@ async function capturePage(
 
   const t0 = Date.now()
   const fullUrl = `${BASE_URL}${pagePath}`
-  await page.goto(fullUrl, { waitUntil: 'networkidle', timeout: 30_000 }).catch(() => {})
+  // networkidle 만 기다리면 30초를 통째로 허비한다 — 미리 불러오기(prefetch)가 넘겨지는 주소
+  // (비로그인의 '매물 요청하기' → 로그인 화면)를 만나면 그 요청이 끝나지 않고 매달린다(Next 동작).
+  // 그래서 load 까지는 꼭 기다리고, 그 뒤 조용해지는 건 5초만 본다.
+  await page.goto(fullUrl, { waitUntil: 'load', timeout: 30_000 }).catch(() => {})
+  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {})
   await setTheme(page, theme)
   // 테마 변경 후 짧은 안정화
   await page.waitForTimeout(500)

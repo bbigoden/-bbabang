@@ -23,7 +23,12 @@ async function openLoggedIn(browser: import('@playwright/test').Browser): Promis
     const ctx = await browser.newContext({ storageState: STATE })
     const page = await ctx.newPage()
     await page.goto(`${BASE_URL}/broker/estimates`, { waitUntil: 'domcontentloaded' })
-    if (!page.url().includes('/auth/login')) return { ctx, page }
+    // 주소만 보면 안 된다 — 풀린 세션으로 견적서 화면이 그대로 열려(로그아웃 머리글 + '사무소 정보를
+    // 찾을 수 없습니다') 다음 단계가 15초 헛돌았다(2026-10-20). 로그인 확인이 끝난 뒤 버튼이 남는지로 본다
+    await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
+    const alive = !page.url().includes('/auth/login')
+      && await page.getByRole('button', { name: '새 견적', exact: true }).isVisible()
+    if (alive) return { ctx, page }
     await ctx.close()
   }
 
