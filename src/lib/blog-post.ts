@@ -355,7 +355,7 @@ function buildTags(p: ParsedListing, kw: BlogKeywords): string[] {
     ind ? `#${city}제조업소` : '#음식점자리',
     ind ? `#${city}창고부지` : '#학원자리',
     `#${city}${ind ? '공장창고' : '상가'}전문`,
-    '#플러스불당공인중개사',
+    '#드래곤부동산중개',
   ]
   return [...new Set(tags)].slice(0, 10)
 }
@@ -509,7 +509,7 @@ export function buildBlogThumbConfig(source: string, listingNoInput: string, out
     region_badge: region || '천안',
     headline: [head1, head2].filter(Boolean),
     price_lines: priceLines,
-    office: '플러스불당 공인중개사사무소',
+    office: '드래곤부동산중개',
     phone: '010-5585-8943',
     info_title: '매물 기본 정보',
     info_rows: infoRows,

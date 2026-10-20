@@ -2,7 +2,7 @@
  * 네이버 카페 매물 포스팅 변환 — 규칙 기반 (API 연결 없음).
  *
  * 부동산뱅크·네이버부동산에서 복사한 매물 원문을 파싱해서
- * 플러스불당공인중개사사무소의 네이버 카페 게시용 글로 변환한다.
+ * 드래곤부동산중개의 네이버 카페 게시용 글로 변환한다.
  * 인터넷 표시광고 필수 명시사항(13행 표, 법정 순서)을 준수한다.
  *
  * 준수 규칙:
@@ -178,7 +178,7 @@ function parseAddress(raw: string | undefined) {
 
 /** 업종 카테고리 추정 (템플릿 선택용) */
 function detectCategory(source: string, exclusiveArea?: number): Category {
-  // 중개사무소 소개 문구("플러스불당공인중개사사무소")가 업종 판단에 섞이면
+  // 중개사무소 소개 문구("○○공인중개사사무소")가 업종 판단에 섞이면
   // 1층 상가가 '사무실'로 잡힌다. 판단 전에 걷어낸다.
   const src = source
     .replace(/[가-힣]*공인중개사\s*사무소/g, '')
@@ -856,7 +856,7 @@ function ownWords(src: string): string {
   // 그대로 두면 `천안·아산 상가/사무실 임대 전문` 때문에 208평 1층 상가가
   // '사무실 자리' 로, `대표전화 / 핸드폰 번호` 때문에 공장이 '휴대폰 매장' 으로
   // 잡힌다. 걷어내고 남는 것이 그 매물을 두고 쓴 말이다.
-  const 홍보 = /공인중개사|플러스불당|중개를\s*더하는|실매물|실사진|허위|낚시|미끼|비공개\s*매물|로컬\s*원주민|임대\s*전문|상가전문|모든\s*조건\s*적극|010-|매물번호\s*알려/
+  const 홍보 = /공인중개사|플러스불당|드래곤부동산|중개를\s*더하는|실매물|실사진|허위|낚시|미끼|비공개\s*매물|로컬\s*원주민|임대\s*전문|상가전문|모든\s*조건\s*적극|010-|매물번호\s*알려/
   return handwrittenBody(src)
     .split(String.fromCharCode(10))
     .filter(l => l.trim() && !홍보.test(l))
@@ -1120,12 +1120,12 @@ function buildIntro(p: ParsedListing, src: string): string {
   // 인사말도 몇 가지로 돌려 쓴다. 같은 동·같은 종류가 89건이라 한 문장이
   // 그대로 89번 반복됐다. 사무소 이름은 그대로 두고 앞뒤만 바꾼다.
   const 인사 = [
-    `안녕하세요. ${소개지역} ${kindLabel} 전문 플러스불당공인중개사사무소입니다.`,
-    `${소개지역} ${kindLabel} 자리를 찾고 계신 분들께 인사드리는 플러스불당공인중개사사무소입니다.`,
-    `${소개지역} ${kindLabel} 매물을 소개해 드리는 플러스불당공인중개사사무소입니다.`,
-    `${소개지역}에서 ${kindLabel} 중개하는 플러스불당공인중개사사무소입니다.`,
-    `${소개지역} ${kindLabel} 자리를 함께 찾아 드리는 플러스불당공인중개사사무소입니다.`,
-    `안녕하세요. ${소개지역}에서 ${kindLabel} 매물을 다루는 플러스불당공인중개사사무소입니다.`,
+    `안녕하세요. ${소개지역} ${kindLabel} 전문 드래곤부동산중개입니다.`,
+    `${소개지역} ${kindLabel} 자리를 찾고 계신 분들께 인사드리는 드래곤부동산중개입니다.`,
+    `${소개지역} ${kindLabel} 매물을 소개해 드리는 드래곤부동산중개입니다.`,
+    `${소개지역}에서 ${kindLabel} 중개하는 드래곤부동산중개입니다.`,
+    `${소개지역} ${kindLabel} 자리를 함께 찾아 드리는 드래곤부동산중개입니다.`,
+    `안녕하세요. ${소개지역}에서 ${kindLabel} 매물을 다루는 드래곤부동산중개입니다.`,
   ]
   const seed = `${src}|${p.floor ?? ''}|${Math.round(mainAreaM2(p) ?? 0)}`
   return `${인사[hashPick(seed, 인사.length)]}\n\n${concern}\n\n${answer}`
@@ -1495,7 +1495,7 @@ function buildBrokerInfo(p: ParsedListing): string {
   return [
     first,
     '',
-    '**■ 명칭** : 플러스불당공인중개사사무소',
+    '**■ 명칭** : 드래곤부동산중개',
     '**■ 소재지** : 충청남도 천안시 서북구 불당23로 73-27 502호 (불당동 1491)',
     '**■ 연락처** : 010-5585-8943',
     '**■ 등록번호** : 제44133-2024-00142호',
@@ -1638,7 +1638,7 @@ function buildTags(p: ParsedListing, keywords?: Record<string, string[]>): strin
   // 브랜드 고정 — 사무소 이름 하나만 못으로 박고 나머지는 매물에 맞춘다.
   // 예전에는 아산 공장 매물에도 `#천안상가전문부동산`, `#천안시상가매물` 이
   // 붙었다. 지역도 종류도 어긋난 태그다.
-  tags.add('#플러스불당공인중개사')
+  tags.add('#드래곤부동산중개')
   tags.add(`#${region}${noun}전문`)
   if (p.dong) tags.add(`#${p.dong}${noun}전문`)
   tags.add(`#${region}${noun}매물`)
@@ -1882,7 +1882,7 @@ export function buildCafeThumbConfig(
     region_badge: region,
     headline: [head1, head2].filter(Boolean),
     price_lines: priceLines,
-    office: '플러스불당 공인중개사사무소',
+    office: '드래곤부동산중개',
     phone: '010-5585-8943',
   }
 }
