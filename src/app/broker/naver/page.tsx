@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/layout/header'
@@ -480,6 +481,14 @@ export default function CollectPage() {
   const supabase = useMemo(() => createClient(), [])
   const auth = useAuth()
   const toast = useToast()
+  const router = useRouter()
+
+  // 로그인이 풀린 채 열면 아무것도 안 그려 빈 화면만 남았다 — 광고관리처럼 보낸다.
+  useEffect(() => {
+    if (auth.loading) return
+    if (!auth.user) router.push('/auth/login?redirect=/broker/naver')
+    else if (!auth.broker) router.push('/broker/register')
+  }, [auth.loading, auth.user, auth.broker, router])
 
   const [source, setSource] = useState<SourceId>('naver')
   const src = SOURCES[source]
