@@ -6,7 +6,11 @@ import { join } from "path";
 // - 'unsafe-inline' script는 Next.js 인라인 부트스트랩과 layout의 JSON-LD/테마 스크립트 때문에 불가피
 // - 카카오 지도 SDK 본체는 t1.kakaocdn.net(예전 daumcdn) — 막으면 지도가 영원히 '불러오는 중'
 // - Supabase·카카오 지도·HaveIBeenPwned 등 외부 도메인 화이트리스트
-const SUPABASE_HOST = 'https://wovxcdfxxnsljdhrgonh.supabase.co'
+// 주소는 환경값에서 읽는다(운영 값과 같음). 로컬 사본·다른 환경에서도 같은 설정이 맞게 돈다 —
+// 고정해 두면 다른 Supabase 로 띄운 앱은 로그인 요청부터 CSP 에 막힌다.
+const SUPABASE_HOST = (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wovxcdfxxnsljdhrgonh.supabase.co').replace(/\/$/, '')
+const SUPABASE_WS = SUPABASE_HOST.replace(/^http/, 'ws')
+const SUPABASE = new URL(SUPABASE_HOST)
 
 const CSP = [
   `default-src 'self'`,
@@ -16,7 +20,7 @@ const CSP = [
   `img-src 'self' data: blob: ${SUPABASE_HOST} https://*.daumcdn.net https://*.kakaocdn.net https://*.daum.net https://*.kakao.com https://images.pexels.com https://cdn.creatomate.com`,
   `font-src 'self' data: https://fonts.gstatic.com`,
   // Pexels API (자료화면 검색) + Creatomate API (영상 합성 polling) + blob: (음성 MP3 blob fetch)
-  `connect-src 'self' blob: ${SUPABASE_HOST} wss://wovxcdfxxnsljdhrgonh.supabase.co https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com https://api.pexels.com https://api.creatomate.com https://cdn.creatomate.com`,
+  `connect-src 'self' blob: ${SUPABASE_HOST} ${SUPABASE_WS} https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com https://api.pexels.com https://api.creatomate.com https://cdn.creatomate.com`,
   // Creatomate CDN: 완성된 mp4 video element src
   `media-src 'self' blob: ${SUPABASE_HOST} https://cdn.creatomate.com`,
   // blob: 은 견적서 미리보기 — 저장하지 않고 받은 PDF 를 iframe 에 바로 건다
@@ -42,8 +46,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'wovxcdfxxnsljdhrgonh.supabase.co',
+        protocol: SUPABASE.protocol === 'http:' ? 'http' : 'https',
+        hostname: SUPABASE.hostname,
+        ...(SUPABASE.port ? { port: SUPABASE.port } : {}),
         pathname: '/storage/v1/object/public/**',
       },
     ],
