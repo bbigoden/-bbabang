@@ -345,9 +345,14 @@ function normalize(a: any): DaangnArticle | null {
  */
 export async function fetchDaangnArticles(
   regions: readonly (typeof DAANGN_REGIONS)[number][],
-  { 이전, onStep }: {
+  { 이전, onStep, onMap }: {
     이전?: DaangnState | null
     onStep?: (done: number, total: number) => boolean | Promise<boolean>
+    /**
+     * 지도 조각 하나를 셀 때마다. 세는 데만 3분쯤 걸려, 이걸 안 알리면 화면의 진행이
+     * '시작' 에서 3분 동안 멈춰 있어 고장 난 줄 안다. 여기서는 멈출 수 없다.
+     */
+    onMap?: (done: number, total: number) => unknown
   } = {},
 ): Promise<{
   rows: DaangnArticle[]
@@ -362,7 +367,8 @@ export async function fetchDaangnArticles(
   const 칸: Record<string, Cell> = {}
   const 조각 = 조각내기(regions)
   let 못받음 = 0
-  for (const box of 조각) {
+  for (const [i, box] of 조각.entries()) {
+    await onMap?.(i, 조각.length)
     try {
       Object.assign(칸, await 칸받기(box))
     } catch (e) {
