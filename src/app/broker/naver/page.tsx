@@ -46,10 +46,8 @@ import { pollWhileVisible } from '@/lib/poll-visible'
  * 화면을 열자마자 훑을 수 있어야지 눌러 놓고 6분을 기다릴 일이 아니기 때문이다.
  * 거는 쪽은 PC 프로그램이다(`부소장광고/src/cli/agent-worker.js`).
  *
- * **기간은 달력에서 고른다.** 한 번에 최대 7일 — 여기서 할 일은 훑는 것이지 뒤지는
- * 것이 아니고, 길게 잡으면 하루 천 건씩이라 화면이 만 건을 넘는다. 다만 그 천 건은
- * 거의 네이버 상가다. 상가를 빼고 종류를 고르면 30일까지 본다 — 공장은 7일이면
- * 몇 건 안 된다.
+ * **기간은 달력에서 고른다.** 종류를 하나라도 고르면 30일까지, 네이버 전체를 볼 때만
+ * 7일까지. 종류는 서버에서 걸러 받으므로 상가만 30일이어도 전체 30일의 절반이다.
  *
  * **[가져오기] 는 보고 있는 탭의 것만 받는다.** 버튼에 곳 이름을 붙이지 않는 이유는
  * 탭이 이미 말하고 있어서다. 다만 안에서는 곳마다 따로 돌아, 네이버를 걸어 두고
@@ -145,10 +143,11 @@ const SOURCES = {
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
     /**
-     * 이게 끼면 기간을 7일로 막는 종류. 네이버 상가는 하루 500건 가까이 올라온다 —
-     * 다음이 토지 130건, 공장/창고 90건이고 나머지는 30건이 안 된다.
+     * 종류를 안 고르고 전체를 볼 때는 7일까지. 30일 전체는 3만 건·7MB 라 한 번 받는 데
+     * 1초쯤 든다(10/20 실측). 종류를 고르면 그 종류만 받으므로 30일까지 연다 — 가장 많은
+     * 상가도 30일 1만 7천 건·3.9MB, 공장은 4천 건·1.1MB.
      */
-    붐비는종류: ['상가'] as readonly string[],
+    전체는7일: true,
     trades: TRADE_TYPES as Record<string, string>,
     /**
      * 기간은 **우리가 처음 받은 날**(first_seen_at)로 자른다 — 당근과 같다.
@@ -195,7 +194,7 @@ const SOURCES = {
     kinds: Object.fromEntries(Object.entries(DAANGN_KINDS).map(([k, v]) => [k, [v]])) as Record<string, readonly string[]>,
     kindOf: daangnKindOf,
     /** 당근은 종류를 다 합쳐도 하루 수십 건이라 늘 30일까지 본다. */
-    붐비는종류: [] as readonly string[],
+    전체는7일: false,
     trades: DAANGN_TRADES as Record<string, string>,
     /**
      * **당근은 날짜를 안 준다.** 응답에 등록일·수정일이 아예 없다. 그래서 우리가
@@ -244,19 +243,12 @@ type SourceId = keyof typeof SOURCES
  */
 const MAX_DAYS = 7
 
-/** 붐비는 종류(네이버 상가)를 빼고 보면 여기까지. 공장·토지는 7일이면 몇 건 안 된다. */
+/** 종류를 고르고 보면 여기까지. 종류는 서버에서 걸러 받는다. */
 const LONG_DAYS = 30
 
-/**
- * 지금 고른 종류로 한 번에 볼 수 있는 날수.
- *
- * 종류를 안 고르면 전부 보는 것이라 붐비는 종류도 끼어 있다.
- */
+/** 지금 고른 종류로 한 번에 볼 수 있는 날수. */
 function 기간한도(s: (typeof SOURCES)[SourceId], kinds: readonly string[]): number {
-  const 붐빔 = kinds.length
-    ? kinds.some(k => s.붐비는종류.includes(k))
-    : s.붐비는종류.length > 0
-  return 붐빔 ? MAX_DAYS : LONG_DAYS
+  return !kinds.length && s.전체는7일 ? MAX_DAYS : LONG_DAYS
 }
 
 /** 얼마나 지난 날까지 고를 수 있나. 프로그램이 90일 지난 매물을 지운다. */
@@ -540,8 +532,8 @@ export default function CollectPage() {
   /**
    * 지금 종류로 볼 수 있는 날수와, 그에 맞춰 당긴 첫날.
    *
-   * 공장만 30일을 보다가 상가를 더 누르면 7일로 줄여 보인다. 고른 날은 그대로 쥐고
-   * 있어서 상가를 다시 빼면 30일로 돌아온다 — 칩 하나 눌렀다고 달력을 다시 고르게
+   * 공장만 30일을 보다가 종류를 다 끄면 7일로 줄여 보인다. 고른 날은 그대로 쥐고
+   * 있어서 종류를 다시 고르면 30일로 돌아온다 — 칩 하나 눌렀다고 달력을 다시 고르게
    * 하지 않는다.
    */
   const 한도 = 기간한도(src, kinds)
@@ -626,8 +618,8 @@ export default function CollectPage() {
     const 차례 = ++받기차례.current
     setLoading(true)
     const s = SOURCES[source]
-    // 종류는 받을 때 거른다. 상가를 빼면 30일까지 보는데, 거르지 않고 받으면 그
-    // 30일치 상가(만 건 넘게)까지 다 받아 놓고 화면에서 버리게 된다. 다른 곳의
+    // 종류는 받을 때 거른다. 종류를 고르면 30일까지 보는데, 거르지 않고 받으면 그
+    // 30일치 전체(3만 건)를 다 받아 놓고 화면에서 버리게 된다. 다른 곳의
     // 종류 이름이 남아 있으면(탭을 막 바꾼 때) 코드가 안 나오니 거르지 않는다.
     const 종류코드 = 종류열쇠 ? 종류열쇠.split(',').flatMap(k => s.kinds[k] ?? []) : []
     try {
@@ -1139,7 +1131,7 @@ export default function CollectPage() {
             />
             <span className="text-xs text-gray-400 dark:text-gray-600">{날수(보는첫날, 끝날)}일
               {/* 7일에 막힌 까닭을 말해 둔다. 모르면 공장을 볼 때도 7일만 보게 된다. */}
-              {한도 === MAX_DAYS && src.붐비는종류.length > 0 && ` · ${src.붐비는종류.join('·')}를 빼고 종류를 고르면 ${LONG_DAYS}일까지`}
+              {한도 === MAX_DAYS && ` · 종류를 고르면 ${LONG_DAYS}일까지`}
             </span>
             {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
                 되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
