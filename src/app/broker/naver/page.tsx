@@ -150,11 +150,15 @@ const SOURCES = {
     붐비는종류: ['상가'] as readonly string[],
     trades: TRADE_TYPES as Record<string, string>,
     /**
-     * 기간은 광고 노출 시작일(exposure_start_date)로 자른다. 그 날짜는 재등록하면
-     * 갱신되지만, 그래도 '언제부터 걸려 있는 광고인가' 는 그 값이 맞다.
-     * 날짜만 담는 칸이라 '2026-09-05' 를 그대로 견줘도 된다.
+     * 기간은 **우리가 처음 받은 날**(first_seen_at)로 자른다 — 당근과 같다.
+     *
+     * 광고 노출일로 잘랐더니 [오늘] 이 오늘 들어온 매물을 거의 못 보여줬다. 주말에
+     * 등록한 광고는 월요일에야 네이버에 뜨는데 노출일은 주말로 찍힌다 — 10/20 아침
+     * 새로 받은 1,501건 중 노출일이 그날인 것은 26건뿐이었다. 이 화면은 '오늘 뭐
+     * 새로 나왔나' 를 보는 곳이라 받은 날이 맞다.
+     * 시각 칸이라 그 날 한국 0시를 가리키는 순간으로 견준다.
      */
-    dateIsTimestamp: false,
+    dateIsTimestamp: true,
     link: (no: string) => `https://fin.land.naver.com/articles/${no}`,
     toRow: (a: any): Row => ({
       article_no: a.article_no,
@@ -163,7 +167,7 @@ const SOURCES = {
       division: a.division,
       sector: a.sector,
       owner: a.brokerage_name,
-      shown_date: a.exposure_start_date,
+      shown_date: ymdKST(a.first_seen_at),
       floor_info: a.floor_info,
       jibun: 지번글(a.li, a.pnu),
       pnu: a.pnu,
@@ -1334,8 +1338,11 @@ export default function CollectPage() {
           </p>
         ) : filtered.length === 0 ? (
           <p className="py-20 text-center text-gray-500 dark:text-gray-500">
-            {rows.length === 0
+            {/* 받아온 줄이 0이어도 한 번도 안 받은 것은 아니다 — 종류는 받을 때 거르므로
+                '오늘 공장' 처럼 고른 종류가 없어도 0이 된다. 받은 적이 있는지는 작업 기록으로 본다. */}
+            {rows.length === 0 && !최근작업
               ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.`
+              : rows.length === 0 && !kinds.length ? '이 기간에 받아온 매물이 없습니다.'
               /* 사라짐은 **받아올 때** 가려낸다. 켠 직후에는 판정한 적이 없어 늘 0건인데,
                  그냥 '없습니다' 라고만 하면 고장 난 줄 안다. */
               : goneOnly ? '아직 사라진 매물이 없습니다. 사라졌는지는 받아올 때 가려내므로, 다음 [가져오기] 부터 표시됩니다.'
