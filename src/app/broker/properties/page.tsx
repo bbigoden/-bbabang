@@ -686,33 +686,79 @@ function ImageCell({ images, onSave, onView }: {
   useEffect(() => { setLocalImgs(images) }, [images])
   useClickOutside(ref, () => { if (open) { saveAndClose() } })
 
-  const handleAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    if (localImgs.length + newFiles.length + files.length > 5) return
+  const [dragOver, setDragOver] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const MAX_IMAGES = 5
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
+  /** 고른 파일 중 사진만, 5장까지. 넘치는 것은 잘라 낸다. */
+  const pickImages = (list: Iterable<File>, room: number) =>
+    Array.from(list).filter(f => ALLOWED_TYPES.includes(f.type) && f.size <= 10 * 1024 * 1024).slice(0, Math.max(0, room))
+
+  const addFiles = (incoming: File[]) => {
+    const files = pickImages(incoming, MAX_IMAGES - localImgs.length - newFiles.length)
+    if (!files.length) return
     setNewFiles(p => [...p, ...files])
     files.forEach(f => { const r = new FileReader(); r.onload = ev => setNewPreviews(p => [...p, ev.target?.result as string]); r.readAsDataURL(f) })
   }
+  const handleAdd = (e: React.ChangeEvent<HTMLInputElement>) => addFiles(Array.from(e.target.files ?? []))
 
-  const saveAndClose = async () => {
+  const uploadFiles = async (files: File[]) => {
     const uploaded: string[] = []
-    if (newFiles.length > 0) {
-      const { data } = await supabase.auth.getUser()
-      const uid = data.user?.id ?? 'unknown'
-      const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-      for (const file of newFiles) {
-        if (!ALLOWED_TYPES.includes(file.type) || file.size > 10 * 1024 * 1024) continue
-        const ext = file.name.split('.').pop()
-        const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
-        if (!error) {
-          const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
-          uploaded.push(publicUrl)
-        }
+    if (!files.length) return uploaded
+    const { data } = await supabase.auth.getUser()
+    const uid = data.user?.id ?? 'unknown'
+    for (const file of files) {
+      const ext = file.name.split('.').pop()
+      const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
+      if (!error) {
+        const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
+        uploaded.push(publicUrl)
       }
     }
+    return uploaded
+  }
+
+  const saveAndClose = async () => {
+    const uploaded = await uploadFiles(newFiles)
     const all = [...localImgs, ...uploaded]
     setNewFiles([]); setNewPreviews([]); setOpen(false)
     onSave(all)
+  }
+
+  // 파일을 끌어다 놓으면 바로 올린다 — 칸을 열고 고르고 저장까지 세 번 누를 일을 한 번으로.
+  // 창이 열려 있으면 미리보기에만 더하고(저장은 [저장]으로), 닫혀 있으면 올려서 바로 저장한다.
+  const isFileDrag = (e: React.DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files')
+  const onDragOver = (e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    e.preventDefault(); e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    if (!dragOver) setDragOver(true)
+  }
+  const onDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return
+    setDragOver(false)
+  }
+  const onDrop = async (e: React.DragEvent) => {
+    if (!isFileDrag(e)) return
+    e.preventDefault(); e.stopPropagation()
+    setDragOver(false)
+    const dropped = Array.from(e.dataTransfer.files)
+    if (open) { addFiles(dropped); return }
+    const files = pickImages(dropped, MAX_IMAGES - localImgs.length)
+    if (!files.length) return
+    setUploading(true)
+    try {
+      const uploaded = await uploadFiles(files)
+      if (uploaded.length) {
+        const all = [...localImgs, ...uploaded]
+        setLocalImgs(all)
+        onSave(all)
+      }
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleOpen = () => {
@@ -728,9 +774,15 @@ function ImageCell({ images, onSave, onView }: {
   }
 
   return (
-    <div ref={ref} className="relative">
-      <div ref={btnRef} onClick={handleOpen} className="cursor-pointer flex gap-1 items-center hover:bg-blue-50 rounded px-1 py-0.5 min-h-[22px]">
-        {localImgs.length === 0
+    <div ref={ref} className="relative" onDragOver={onDragOver} onDragEnter={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+      <div ref={btnRef} onClick={handleOpen}
+        title="누르면 사진을 고르고, 사진 파일을 여기로 끌어다 놓으면 바로 올라갑니다 (5장까지)"
+        className={`cursor-pointer flex gap-1 items-center rounded px-1 py-0.5 min-h-[22px] transition-colors ${dragOver ? 'bg-blue-100 ring-2 ring-blue-400 dark:bg-blue-900/40' : 'hover:bg-blue-50'}`}>
+        {uploading
+          ? <span className="flex items-center gap-1 text-xs text-blue-600"><Loader2 className="h-3 w-3 animate-spin" />올리는 중</span>
+          : dragOver && !open
+          ? <span className="text-xs font-semibold text-blue-600">{localImgs.length >= MAX_IMAGES ? '5장까지입니다' : '놓으면 올라갑니다'}</span>
+          : localImgs.length === 0
           ? <span className="text-xs text-gray-500">사진</span>
           : <>
               <div className="h-6 w-6 overflow-hidden rounded border border-gray-200 dark:border-gray-800 flex-shrink-0">
@@ -741,7 +793,8 @@ function ImageCell({ images, onSave, onView }: {
         }
       </div>
       {open && (
-        <div className="w-64 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-lg p-3" style={popupStyle}>
+        <div className={`w-64 rounded-xl border bg-white dark:bg-gray-900 shadow-lg p-3 ${dragOver ? 'border-blue-400 ring-2 ring-blue-200' : 'border-gray-200 dark:border-gray-800'}`} style={popupStyle}>
+          <p className="mb-2 text-[11px] text-gray-500">사진 파일을 여기로 끌어다 놓아도 됩니다 (5장까지)</p>
           <div className="flex flex-wrap gap-1.5 mb-2">
             {localImgs.map((src, i) => (
               <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800 group">
