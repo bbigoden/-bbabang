@@ -39,6 +39,19 @@ export function LongTextCell({
     if (draft !== (value ?? '')) onSave(draft)
   }
 
+  // 쓰다가 다른 화면으로 가 버리면(주소창 이동·탭 닫기) blur 가 안 와서 글이 소리 없이 사라졌다.
+  // 편집 중에 칸이 사라지거나 창이 닫히면 그때까지 쓴 것을 저장한다.
+  const latest = useRef({ editing, draft, value, onSave })
+  latest.current = { editing, draft, value, onSave }
+  useEffect(() => {
+    const flush = () => {
+      const { editing, draft, value, onSave } = latest.current
+      if (editing && draft !== (value ?? '')) onSave(draft)
+    }
+    window.addEventListener('beforeunload', flush)
+    return () => { window.removeEventListener('beforeunload', flush); flush() }
+  }, [])
+
   if (readOnly) return (
     <>
       <div

@@ -21,6 +21,7 @@ import {
   Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, LocateFixed, Upload, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { planBankDraft } from '@/lib/bank-draft-plan'
+import { checkPropertyField } from '@/lib/property-field-check'
 import { ymdKST } from '@/lib/date-kst'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { EmptyRow } from '@/components/sheet/empty-row'
@@ -414,7 +415,9 @@ function NumberCell({ value, onSave, suffix = '만', placeholder }: {
   value: number | null, onSave: (v: number | null) => void, suffix?: string, placeholder?: string
 }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value != null ? String(value) : '')
+  // 0 은 '아직 안 적음' 이다(새 줄의 기본값). 편집을 열 때 0 을 남겨 두면 3000 을 쳐서 30,000 이 된다 —
+  // 점검에서 두 사람이 그렇게 10배를 저장했다(휴대폰은 글자 선택이 안 먹는다).
+  const [draft, setDraft] = useState(value ? String(value) : '')
   const [hovered, setHovered] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const cellRef = useRef<HTMLDivElement>(null)
@@ -436,10 +439,10 @@ function NumberCell({ value, onSave, suffix = '만', placeholder }: {
       />
     )
   }
-  const displayText = value != null ? `${value.toLocaleString()}${suffix}` : (placeholder ?? '—')
+  const displayText = value ? `${value.toLocaleString()}${suffix}` : (placeholder ?? '—')
   return (
     <>
-      <div ref={cellRef} onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true); setHovered(false) }}
+      <div ref={cellRef} onClick={() => { setDraft(value ? String(value) : ''); setEditing(true); setHovered(false) }}
         onMouseEnter={() => { if (!!value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
         className={`w-full cursor-pointer rounded px-1 py-0.5 text-xs text-right hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap ${value ? 'text-gray-800 dark:text-gray-100 font-semibold' : 'text-gray-500 dark:text-gray-400'}`}
@@ -505,8 +508,8 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
   onSavePrice: (v: number | null) => void; onSaveRent: (v: number | null) => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [draftPrice, setDraftPrice] = useState(price != null ? String(price) : '')
-  const [draftRent, setDraftRent] = useState(rent != null ? String(rent) : '')
+  const [draftPrice, setDraftPrice] = useState(price ? String(price) : '')
+  const [draftRent, setDraftRent] = useState(rent ? String(rent) : '')
   const rentInputRef = useRef<HTMLInputElement>(null)
 
   const commitPrice = (moveNext = false) => {
@@ -545,11 +548,11 @@ function RentPriceCell({ price, rent, onSavePrice, onSaveRent }: {
       </div>
     )
   }
-  const dep = price != null ? `${price.toLocaleString()}만` : '—'
-  const mo = rent != null ? `${rent.toLocaleString()}만` : '—'
+  const dep = price ? `${price.toLocaleString()}만` : '보증금'
+  const mo = rent ? `${rent.toLocaleString()}만` : '월세'
   return (
     <div className="w-full cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 min-h-[22px] text-xs text-right overflow-hidden whitespace-nowrap text-ellipsis"
-      onClick={() => { setDraftPrice(price != null ? String(price) : ''); setDraftRent(rent != null ? String(rent) : ''); setEditing(true) }}>
+      onClick={() => { setDraftPrice(price ? String(price) : ''); setDraftRent(rent ? String(rent) : ''); setEditing(true) }}>
       <span className={`font-semibold ${price ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{dep}</span>
       <span className="text-gray-500 mx-0.5">/</span>
       <span className={`font-semibold ${rent ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>{mo}</span>
@@ -1197,7 +1200,7 @@ function BankDraftButton({ job, onClick }: { job?: BankDraftJob; onClick: () => 
     : job?.status === 'failed' ? `뱅크 임시저장 실패: ${job.error ?? ''} — 다시 누르면 다시 시도합니다.`
     : '뱅크에 임시 저장 — PC 프로그램이 등록 화면을 채워 둡니다. 최종 등록은 뱅크에서 직접.'
   return (
-    <button type="button" onClick={onClick} title={끝} aria-label="뱅크 임시저장"
+    <button type="button" onClick={onClick} title={끝} aria-label="뱅크 임시저장" tabIndex={-1}
       className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${job?.status === 'done' ? 'text-green-500 hover:bg-green-50' : job?.status === 'failed' ? 'text-red-400 hover:bg-red-50' : 'text-gray-300 hover:bg-blue-50 hover:text-blue-400'}`}>
       {job?.status === 'done' ? <CheckCircle2 className="h-3.5 w-3.5" /> : job?.status === 'failed' ? <AlertCircle className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
     </button>
@@ -1377,7 +1380,7 @@ const PropertyRow = memo(function PropertyRow({
               {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
               {key === 'price'           && (p.deal_type === '월세'
                 ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
-                : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} />)}
+                : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} placeholder="가격" />)}
               {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
               {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
               {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
@@ -1552,12 +1555,23 @@ function BrokerPropertiesContent() {
   const [autoFillingId, setAutoFillingId] = useState<string | null>(null)
   const [autoFillToast, setAutoFillToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'property' | 'column'; id: string; label?: string } | null>(null)
+  // 삭제 확인창에 어느 매물인지 적는다(네 사람이 "복구할 수 없어요" 라는 반대 문구와 함께 헷갈려 했다)
+  const deleteTarget = deleteConfirm?.type === 'property' ? propertiesRef.current.find(p => p.id === deleteConfirm.id) ?? null : null
   // 매물상태 확인창. 첫 사용자 점검에서 상태 칸을 한 번 눌렀을 뿐인데 확인 없이 '완료' 가 됐다 —
   // 계약완료는 광고를 내려야 하는 상태라 묻고 바꾼다. 살아 있는 광고가 있으면 그것도 같이 보인다.
   const [statusConfirm, setStatusConfirm] = useState<{ p: Property; next: 'available' | 'contracted' } | null>(null)
   // 뱅크 임시저장 확인창 — 넣을 수 있는지(planBankDraft)를 먼저 보여 주고 넣는다.
   const [bankDraftConfirm, setBankDraftConfirm] = useState<{ p: Property; plan: ReturnType<typeof planBankDraft> } | null>(null)
   const [bankDraftSaving, setBankDraftSaving] = useState(false)
+  // Esc 로 확인창 닫기 — 점검에서 Esc 가 안 먹어 뒤가 막힌 줄 알았다
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setDeleteConfirm(null); setStatusConfirm(null); setBankDraftConfirm(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [settingsBrokerId, setSettingsBrokerId] = useState<string | null>(null)
   const [dragCol, setDragCol] = useState<string | null>(null)
@@ -1752,7 +1766,8 @@ function BrokerPropertiesContent() {
   const filterParams = useMemo(() => ({
     p_office: scopeState && 'office' in scopeState ? scopeState.office : null,
     p_broker_ids: scopeState && 'brokerIds' in scopeState ? scopeState.brokerIds : null,
-    p_q: debouncedQuery || null,
+    // % _ 는 ILIKE 와일드카드라 그대로 보내면 '%' 하나에 전부가 나온다. 전각 숫자(２０２２)는 반각으로.
+    p_q: debouncedQuery ? debouncedQuery.normalize('NFKC').replace(/[\\%_]/g, '\\$&') : null,
     p_deal_type: filterDealType || null,
     p_room_types: filterRoomTypes.length > 0 ? filterRoomTypes : null,
     p_status: filterStatus || null,
@@ -1796,6 +1811,12 @@ function BrokerPropertiesContent() {
       setProperties(rows)
       setTotalCount(Number(data?.[0]?.total_count ?? 0))
       setLoading(false)
+      // '전체' 도 같은 시점에 다시 센다 — 다른 사람이 줄을 넣거나 지우면 전체가 멈춰 있어 검색이 전체보다 커 보였다
+      if (조건.p_office) {
+        void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
+          .eq('office_broker_id', 조건.p_office).is('deleted_at', null)
+          .then(({ count }) => { if (!cancelled && count != null) setAllCount(count) })
+      }
       // 필터 변경 등으로 현재 페이지가 범위를 벗어나면 1페이지로
       if (rows.length === 0 && page > 1) setPage(1)
     })()
@@ -1932,6 +1953,9 @@ function BrokerPropertiesContent() {
     const row = propertiesRef.current.find(p => p.id === id) as any
     const prevValue = row?.[field]
     const rowDealType: string | null = row?.deal_type || null
+    // 말이 안 되는 값은 저장하지 않는다 — 음수 가격·10조·0.5층·글자 날짜가 그대로 들어갔었다
+    const 거절 = checkPropertyField(field, value)
+    if (거절) { toast.error(거절); return }
     setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
     const { error } = await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
     if (error) {
@@ -2156,8 +2180,13 @@ function BrokerPropertiesContent() {
     setDeleteConfirm({ type: 'column', id, label: col?.name })
   }
 
+  const addingRef = useRef(false)
   const addNewRow = async () => {
     if (!broker) return
+    // 두 번 눌러도 한 줄만 — 점검에서 연속 클릭에 번호 없는 빈 줄이 2개 생겼다
+    if (addingRef.current) return
+    addingRef.current = true
+    setTimeout(() => { addingRef.current = false }, 1500)
     const { data, error } = await supabase.from('broker_properties').insert({
       broker_id: broker.id,
       deal_type: '',
@@ -2623,8 +2652,12 @@ function BrokerPropertiesContent() {
     const 기록 = { id: focus, q: null as string | null, 번호: '', 알림: false }
     focusSearchedRef.current = 기록
     const 그때검색 = searchQuery
-    void supabase.from('broker_properties').select('seq_no, address')
-      .eq('id', focus).is('deleted_at', null).maybeSingle()
+    // uuid 가 아니면 조회하지 않는다(400 + 영어 오류가 콘솔에 남았다). 숫자면 사무소 매물번호로 본다.
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(focus)
+    if (!isUuid && !/^\d{1,7}$/.test(focus)) { 기록.알림 = true; return }
+    void (isUuid
+      ? supabase.from('broker_properties').select('seq_no, address').eq('id', focus).is('deleted_at', null).maybeSingle()
+      : supabase.from('broker_properties').select('seq_no, address').eq('office_broker_id', officeIdRef.current).eq('seq_no', Number(focus)).is('deleted_at', null).limit(1).maybeSingle())
       .then(({ data, error }) => {
         if (error) { console.error('[properties] 강조할 매물을 못 찾았습니다', error.message); return }
         const seq = data?.seq_no as number | null | undefined
@@ -3320,16 +3353,21 @@ function BrokerPropertiesContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              {deleteConfirm.type === 'property' ? '매물을 삭제할까요?' : `'${deleteConfirm.label}' 칼럼을 삭제할까요?`}
+              {deleteConfirm.type === 'property' ? '이 매물을 휴지통으로 옮길까요?' : `'${deleteConfirm.label}' 칼럼을 삭제할까요?`}
             </h3>
+            {deleteTarget && (
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 break-all">
+                {[deleteTarget.seq_no != null ? `#${deleteTarget.seq_no}` : null, deleteTarget.address || '소재지 없음'].filter(Boolean).join(' ')}
+              </p>
+            )}
             <p className="text-sm text-gray-500 mb-6">
-              {deleteConfirm.type === 'column' ? '해당 칼럼의 모든 데이터가 삭제됩니다.' : '삭제하면 복구할 수 없어요.'}
+              {deleteConfirm.type === 'column' ? '해당 칼럼의 모든 데이터가 삭제됩니다.' : '휴지통에서 30일 안에 되살릴 수 있어요. 30일이 지나면 저절로 지워집니다.'}
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
                 className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={confirmDelete}
-                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>
+                className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">{deleteConfirm.type === 'property' ? '휴지통으로' : '삭제'}</button>
             </div>
           </div>
         </div>
