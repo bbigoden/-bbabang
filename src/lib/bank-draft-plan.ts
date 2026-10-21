@@ -43,6 +43,8 @@ export type BankDraftProperty = {
   description: string | null
   memo: string | null
   images: string[] | null
+  /** 담당자 이름('김용유, 박혜성') */
+  assignee?: string | null
 }
 
 export type BankKind = {
@@ -276,6 +278,8 @@ export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
   if (problems.length || !kind || !address || !offer) return { ok: false, problems, warnings }
 
   const seq = p.seq_no != null ? `부소장 #${p.seq_no}` : '부소장'
+  // 중개사 메모(비공개) 맨 위에 담당자 — 뱅크에서 누구 매물인지 바로 보이게(2026-10-21 사장님 요청)
+  const 담당 = (p.assignee ?? '').trim()
   return {
     ok: true,
     warnings,
@@ -292,7 +296,7 @@ export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
       moveInNow: /즉시/.test(p.move_in_date ?? ''),
       memo: (p.description ?? '').trim(),
       // 비공개 메모 맨 앞에 부소장 번호 — 재등록해도 어느 매물인지 남는다
-      hiddenMemo: [seq, (p.memo ?? '').trim()].filter(Boolean).join('\n'),
+      hiddenMemo: [담당 ? `담당 ${담당}` : '', seq, (p.memo ?? '').trim()].filter(Boolean).join('\n'),
       images,
     },
   }

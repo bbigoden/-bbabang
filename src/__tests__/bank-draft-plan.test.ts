@@ -68,6 +68,7 @@ describe('planBankDraft', () => {
     expect(plan.form.parking).toBe('Y')
     expect(plan.form.approvalDate).toBe('2005-01-07')
     expect(plan.form.hiddenMemo).toBe('부소장 #1607\n사장님 010-0000-0000')
+    expect(planBankDraft({ ...base, assignee: '박혜성' })).toMatchObject({ form: { hiddenMemo: '담당 박혜성\n부소장 #1607\n사장님 010-0000-0000' } })
     expect(plan.warnings.join(' ')).toMatch(/욕실/)
     expect(plan.warnings.join(' ')).toMatch(/방향/)
   })

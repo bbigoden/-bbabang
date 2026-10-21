@@ -1862,6 +1862,21 @@ function BrokerPropertiesContent() {
     const id = setInterval(() => setBankDraftTick(t => t + 1), 20_000)
     return () => clearInterval(id)
   }, [bankDraftActive])
+  // 뱅크 임시저장 일꾼이 켜져 있나 — PC 가 20초마다 ad_agents.bank_draft_seen_at 을 찍는다.
+  // 대기 중인 요청이 있는데 일꾼이 꺼져 있으면 위에 알린다. 직원이 눌렀는데 돌기만 하던 일이 있었다.
+  const [bankWorkerSeenAt, setBankWorkerSeenAt] = useState<string | null>(null)
+  useEffect(() => {
+    if (!bankDraftActive) return
+    let alive = true
+    const tick = async () => {
+      const { data } = await supabase.from('ad_agents').select('bank_draft_seen_at').maybeSingle()
+      if (alive) setBankWorkerSeenAt((data as { bank_draft_seen_at?: string | null } | null)?.bank_draft_seen_at ?? null)
+    }
+    tick()
+    const id = setInterval(tick, 15_000)
+    return () => { alive = false; clearInterval(id) }
+  }, [bankDraftActive, supabase, bankDraftTick])
+  const bankWorkerOffline = bankDraftActive && !(bankWorkerSeenAt && Date.now() - new Date(bankWorkerSeenAt).getTime() < 60_000)
 
   async function requestBankDraft(p: Property) {
     const office = officeIdRef.current
@@ -2700,6 +2715,17 @@ function BrokerPropertiesContent() {
               <ArrowLeft className="h-3.5 w-3.5" />
               어드민으로
             </button>
+          </div>
+        )}
+
+        {/* 뱅크 임시저장을 눌렀는데 PC 의 일꾼이 꺼져 있다 — 돌아가는 표시만 보고 기다리지 않게 */}
+        {bankWorkerOffline && (
+          <div role="status" className="mb-4 flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-900/40 dark:bg-yellow-900/20 dark:text-yellow-300">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-semibold">뱅크 임시저장 일꾼이 꺼져 있습니다 — 요청이 대기 중입니다.</p>
+              <p className="mt-0.5 text-xs">사무소 PC 에서 부소장광고 폴더의 <b>&ldquo;뱅크 임시저장 일꾼.bat&rdquo;</b>을 켜면 바로 처리합니다. PC 를 켜면 저절로 켜지도록 되어 있으니, 꺼져 있으면 PC 가 꺼졌거나 프로그램 창이 닫힌 것입니다.</p>
+            </div>
           </div>
         )}
 
