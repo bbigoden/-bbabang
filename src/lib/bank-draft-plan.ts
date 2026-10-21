@@ -81,7 +81,7 @@ export const BANK_KIND_UNSUPPORTED: Record<string, string> = {
   '토지': '토지는 뱅크 화면이 달라 아직 자동으로 넣지 못합니다.',
   '숙박': '숙박은 뱅크 화면이 달라 아직 자동으로 넣지 못합니다.',
   '농업/축사': '농업·축사는 뱅크에 맞는 종류가 없습니다.',
-  '기타': "'기타' 는 뱅크 종류를 정할 수 없습니다. 매물종류를 골라 주세요.",
+  '기타': "'기타' 는 뱅크 종류를 정할 수 없습니다. 중개대상물종류를 골라 주세요.",
 }
 
 /**
@@ -118,6 +118,9 @@ const METRO: Record<string, string> = {
  */
 export function parseBankAddress(address: string | null | undefined): BankAddress | null {
   if (!address) return null
+  // 앞에 붙은 표시('(급)', '★', '점검용-')는 건너뛰고 도·시·읍면동이 처음 나오는 곳부터 읽는다
+  const start = address.search(/(충청남도|충남|충청북도|충북|세종|대전|경기|서울|[가-힣]{1,4}시(?=\s)|[가-힣]{1,5}[0-9]?(읍|면|동)(?=\s))/)
+  if (start > 0) address = address.slice(start)
   // '충남천안시' 처럼 붙은 것을 띄우고, '번지' 는 뗀다
   const text = address
     .replace(/,/g, ' ')
@@ -227,8 +230,8 @@ export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
   let kind = BANK_KIND[roomType] ?? null
   if (!kind) {
     problems.push(roomType
-      ? (BANK_KIND_UNSUPPORTED[roomType] ?? `매물종류 '${roomType}' 는 뱅크 종류를 정할 수 없습니다.`)
-      : '매물종류가 비어 있습니다.')
+      ? (BANK_KIND_UNSUPPORTED[roomType] ?? `중개대상물종류 '${roomType}' 는 뱅크 종류를 정할 수 없습니다.`)
+      : '중개대상물종류가 비어 있습니다.')
   } else if (kind.gbn === 'WH' && /공장/.test(`${p.description ?? ''} ${p.memo ?? ''} ${p.address ?? ''}`) && !/창고/.test(`${p.description ?? ''} ${p.memo ?? ''}`)) {
     // '공장/창고' 한 칸이라 글에 공장이라고 적혀 있으면 공장으로 넣는다
     kind = { gbn: 'FA', label: '공장', sub: 'A', usage: 'USG17' }

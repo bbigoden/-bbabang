@@ -606,7 +606,8 @@ function AreaCell({ size, supplied, globalUnit, onSave }: {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
       const openUp = window.innerHeight - rect.bottom < 180
-      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
+      // 화면 오른쪽 끝 칸에서 열면 잘렸다(휴대폰) — 화면 안으로 당긴다
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: Math.max(8, Math.min(rect.left, Math.min(window.innerWidth, document.documentElement.clientWidth) - 176 - 8)) }
       if (openUp) s.bottom = window.innerHeight - rect.top + 4
       else s.top = rect.bottom + 4
       setPopupStyle(s)
@@ -768,7 +769,8 @@ function ImageCell({ images, onSave, onView }: {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
       const openUp = window.innerHeight - rect.bottom < 260
-      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: rect.left }
+      // 사진 창(256px)이 오른쪽으로 잘려 [저장] 이 안 보였다(휴대폰·가로로 민 표) — 화면 안으로 당긴다
+      const s: React.CSSProperties = { position: 'fixed', zIndex: 9999, left: Math.max(8, Math.min(rect.left, Math.min(window.innerWidth, document.documentElement.clientWidth) - 256 - 8)) }
       if (openUp) s.bottom = window.innerHeight - rect.top + 4
       else s.top = rect.bottom + 4
       setPopupStyle(s)
@@ -1320,7 +1322,7 @@ const PropertyRow = memo(function PropertyRow({
                 : adBadge.label === '광고중'
                   ? 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/40 dark:text-green-400'
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'}`}
-            >{광고남음 ? '광고 남음' : adBadge.label}</Link>
+            >{광고남음 ? '광고 남음' : adBadge.label === '광고중' ? '광고 중' : adBadge.label}</Link>
           </>
         ) : (p.seq_no ?? '')}
       </td>
@@ -1463,6 +1465,9 @@ function BrokerPropertiesContent() {
   const [totalCount, setTotalCount] = useState(0)   // 필터·검색 반영 총 건수
   const [allCount, setAllCount] = useState(0)       // 필터 무관 전체 건수 (헤더 표시)
   const [mapRows, setMapRows] = useState<MapRow[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
+  // 지도에 몇 건이 찍혔나 — 전체는 1,995건인데 핀이 ~975건이라 빠진 줄 몰랐다
+  const [mapStat, setMapStat] = useState<{ placed: number; total: number; pending: number; failed: number } | null>(null)
+  const tableScrollRef = useRef<HTMLDivElement>(null)
   const [mapLoading, setMapLoading] = useState(false)    // 지도 행 받는 중 (안 받았을 때 '매물 없음'이 먼저 뜨지 않게)
   const [canEdit] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
@@ -1783,6 +1788,7 @@ function BrokerPropertiesContent() {
     p_sort_key: sortKey ?? 'created_at',
     p_sort_dir: sortKey ? sortDir : (direction === 'up' ? 'desc' : 'asc'),
   }), [scopeState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, sortKey, sortDir, direction])
+  useEffect(() => { tableScrollRef.current?.scrollTo({ left: 0 }) }, [filterParams])
   const rpcParams = useCallback((limit: number, offset: number) => ({
     ...filterParams, p_limit: limit, p_offset: offset,
   }), [filterParams])
@@ -2322,7 +2328,10 @@ function BrokerPropertiesContent() {
       markersRef.current = []
 
       const targets = mapRows.filter(p => p.address)
-      if (targets.length === 0) return
+      if (targets.length === 0) { setMapStat(null); return }
+      // 주소에 천안·아산이 있는데 좌표가 그 바깥이면 주소 변환이 틀린 것이다(지번만 적힌 '아산시 680-125' 등)
+      const inRegion = (addr: string, lat: number, lng: number) =>
+        !/천안|아산/.test(addr) || (lat > 36.55 && lat < 37.1 && lng > 126.75 && lng < 127.4)
 
       // 거래형태가 "매매, 월세" 같은 멀티면 첫 번째 값 기준 색
       const pickPrimaryDeal = (d: string) => (d ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
@@ -2470,23 +2479,29 @@ function BrokerPropertiesContent() {
         if (!groups[key]) groups[key] = { list: [], marker: null }
         groups[key].list.push(g)
       }
+      let placed = 0
+      let failed = 0
       for (const prop of targets) {
         if (prop.lat != null && prop.lng != null) {
-          addToGroup({ prop, lat: prop.lat, lng: prop.lng })
+          if (inRegion(prop.address, prop.lat, prop.lng)) { addToGroup({ prop, lat: prop.lat, lng: prop.lng }); placed++ }
+          else failed++
           continue
         }
         const key = normalizeAddr(prop.address)
         if (key in cache) {
           const coords = cache[key]
-          if (coords) {
+          if (coords && inRegion(prop.address, coords.lat, coords.lng)) {
+            placed++
             addToGroup({ prop, lat: coords.lat, lng: coords.lng })
             saveCoords(prop, coords)
-          }
+          } else failed++
         } else if (!(key in fails)) {
           if (!needsGeocode[key]) needsGeocode[key] = []
           needsGeocode[key].push(prop)
-        }
+        } else failed++
       }
+      let pending = Object.values(needsGeocode).reduce((a, l) => a + l.length, 0)
+      setMapStat({ placed, total: mapRows.length, pending, failed: failed + (mapRows.length - targets.length) })
 
       const clusterer = clustererRef.current
       for (const grp of Object.values(groups)) {
@@ -2538,11 +2553,15 @@ function BrokerPropertiesContent() {
             if (!coords) { fails[key] = Date.now(); saveGeocodeFails(fails) }
           }
           if (cancelled) return  // 지도를 닫았거나 다른 조건으로 다시 그리는 중 — 옛 클러스터를 건드리지 않는다
-          if (coords && coords !== 'error') {
+          const 몇 = needsGeocode[key].length
+          pending -= 몇
+          if (coords && coords !== 'error' && inRegion(needsGeocode[key][0].address, coords.lat, coords.lng)) {
             const found = needsGeocode[key].map(prop => ({ prop, lat: coords.lat, lng: coords.lng }))
             found.forEach(g => saveCoords(g.prop, coords))
             addLate(found)
-          }
+            placed += 몇
+          } else failed += 몇
+          setMapStat({ placed, total: mapRows.length, pending, failed: failed + (mapRows.length - targets.length) })
           if (cursor >= queue.length && inFlight === 0) {
             // 처음에 꽂을 핀이 하나도 없었으면 다 찾은 뒤 한 번만 맞춘다 — 도중에 화면이 튀지 않게
             if (!fittedInitially) fitToMarkers()
@@ -2702,8 +2721,10 @@ function BrokerPropertiesContent() {
   }, [addingId, direction, totalCount, pageSize])
 
   if (loading) return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 dark:bg-gray-950" role="status">
       <Spinner size="lg" />
+      <p className="text-sm text-gray-500">매물목록을 불러오는 중이에요…</p>
+      <p className="text-xs text-gray-400">휴대폰 데이터가 느리면 20초쯤 걸릴 수 있어요.</p>
     </div>
   )
 
@@ -2762,12 +2783,12 @@ function BrokerPropertiesContent() {
           </div>
         )}
 
-        {/* 상단 */}
-        <div className="mb-4 flex items-center justify-between">
+        {/* 상단 — 휴대폰에선 제목 줄과 버튼 줄이 나뉜다(한 줄에 넣으면 '보고/서' 로 쪼개지고 '지도' 가 잘렸다) */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {allCount}건 · 검색 {totalCount}건</p>
-            <p className="mt-0.5 text-xs text-gray-500 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>
+            {!isMapView && <p className="mt-0.5 text-xs text-gray-500 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>}
           </div>
           <div className="flex items-center gap-2">
             {/* 추천 매물 보고서 (고객 공유 링크) — 어드민 열람 모드에선 숨김 */}
@@ -2776,13 +2797,13 @@ function BrokerPropertiesContent() {
             <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
               <button
                 onClick={() => setIsMapView(false)}
-                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${!isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                className={`flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-sm font-medium transition-colors ${!isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >
                 <List className="h-4 w-4" />목록
               </button>
               <button
                 onClick={() => setIsMapView(true)}
-                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium transition-colors ${isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                className={`flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-sm font-medium transition-colors ${isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >
                 <Map className="h-4 w-4" />지도
               </button>
@@ -2949,6 +2970,14 @@ function BrokerPropertiesContent() {
                 <LocateFixed className="h-5 w-5" />
               </button>
             )}
+            {/* 몇 건이 찍혔나 — 빠진 매물이 있다는 걸 알게 */}
+            {mapReady && !mapLoading && mapStat && (
+              <div className="absolute left-3 top-3 z-10 rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 shadow border border-gray-200 dark:border-gray-700">
+                지도에 {mapStat.placed.toLocaleString()} / {mapStat.total.toLocaleString()}건
+                {mapStat.pending > 0 && <span className="text-blue-600"> · 위치 찾는 중 {mapStat.pending.toLocaleString()}</span>}
+                {mapStat.failed > 0 && <span className="text-gray-500" title="소재지가 비었거나 지번이 없어 위치를 못 찾은 매물입니다. 목록에서 소재지를 고치면 다음에 찍힙니다."> · 위치 못 찾음 {mapStat.failed.toLocaleString()}</span>}
+              </div>
+            )}
             {/* 검색 결과 없음 */}
             {mapReady && !mapLoading && mapRows.filter(p => p.address).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
@@ -3084,7 +3113,7 @@ function BrokerPropertiesContent() {
         )}
 
         {/* 테이블 */}
-        <div className={`overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm ${isMapView ? 'hidden' : ''}`}>
+        <div ref={tableScrollRef} className={`overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm ${isMapView ? 'hidden' : ''}`}>
           <table className="border-collapse table-fixed" style={{ width: 'max-content', minWidth: '100%' }}>
             <thead>
               <tr className="border-b-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 text-xs font-semibold text-gray-500 uppercase tracking-wide select-none">
@@ -3277,6 +3306,11 @@ function BrokerPropertiesContent() {
                 {plan.ok ? '뱅크에 임시 저장할까요?' : '아직 뱅크에 넣을 수 없어요'}
               </h3>
               <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 break-all">{어디}</p>
+              {plan.ok && bankDrafts[p.id]?.status === 'done' && (
+                <p className="mb-3 rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-2 text-xs text-green-800 dark:text-green-300">
+                  이미 {ymdKST(bankDrafts[p.id].finished_at ?? bankDrafts[p.id].requested_at)}에 뱅크에 임시 저장했어요{bankDrafts[p.id].result?.bankNo ? ` (임시매물 ${bankDrafts[p.id].result?.bankNo})` : ''}. 다시 요청하면 뱅크 임시 저장목록에 하나 더 생깁니다.
+                </p>
+              )}
               {plan.ok ? (
                 <div className="text-sm text-gray-500 mb-4 space-y-2">
                   <p>PC 프로그램이 뱅크 등록 화면을 채우고 <b>[임시 저장]</b>까지만 누릅니다. 돈이 나가는 <b>[등록]</b>은 뱅크 &lsquo;임시 저장목록&rsquo;에서 직접 누르세요(7일 보관).</p>

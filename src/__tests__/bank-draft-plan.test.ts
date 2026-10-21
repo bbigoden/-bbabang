@@ -24,6 +24,11 @@ describe('parseBankAddress', () => {
   it('행정동 숫자는 뗀다', () => {
     expect(parseBankAddress('천안시 동남구 성정1동 100')).toMatchObject({ dong: '성정동', gu: '천안시 동남구' })
   })
+  it('앞에 붙은 표시는 건너뛴다', () => {
+    expect(parseBankAddress('점검용-천안시 서북구 불당동 100 101호')).toMatchObject({ gu: '천안시 서북구', dong: '불당동', jibun1: '100', detail: '101호' })
+    expect(parseBankAddress('(급) 충남 천안시 서북구 성정동 1286 1층')).toMatchObject({ dong: '성정동', jibun1: '1286' })
+    expect(parseBankAddress('★불당동 1530 115호')).toMatchObject({ gu: '천안시 서북구', dong: '불당동', jibun1: '1530' })
+  })
   it('지번이 없으면 null', () => {
     expect(parseBankAddress('천안 힐스테이트 퍼스트 (2)')).toBeNull()
     expect(parseBankAddress('아리스타 1343호')).toBeNull()

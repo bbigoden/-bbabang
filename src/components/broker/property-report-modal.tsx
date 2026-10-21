@@ -46,7 +46,7 @@ export function PropertyReportButton({ officeId, brokerId }: { officeId: string 
   return (
     <>
       <button onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3.5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+        className="whitespace-nowrap flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3.5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
         <FileText className="h-4 w-4" />보고서
       </button>
       {open && <ReportModal officeId={officeId} brokerId={brokerId} onClose={() => setOpen(false)} />}
