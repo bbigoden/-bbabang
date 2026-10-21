@@ -3247,10 +3247,17 @@ function BrokerPropertiesContent() {
               {plan.ok ? (
                 <div className="text-sm text-gray-500 mb-4 space-y-2">
                   <p>PC 프로그램이 뱅크 등록 화면을 채우고 <b>[임시 저장]</b>까지만 누릅니다. 돈이 나가는 <b>[등록]</b>은 뱅크 &lsquo;임시 저장목록&rsquo;에서 직접 누르세요(7일 보관).</p>
-                  <p>뱅크 종류 <b>{plan.form.kind.label}</b> · {plan.form.address.gu} {plan.form.address.dong}{plan.form.address.ri ? ` ${plan.form.address.ri}` : ''} {plan.form.address.jibun1}{plan.form.address.jibun2 ? `-${plan.form.address.jibun2}` : ''} · 사진 {plan.form.images.length}장</p>
+                  <p>뱅크 종류 <b>{plan.form.kind.label}</b> · {plan.form.address.gu} {plan.form.address.dong}{plan.form.address.ri ? ` ${plan.form.address.ri}` : ''} {plan.form.address.jibun1}{plan.form.address.jibun2 ? `-${plan.form.address.jibun2}` : ''} · 사진 {plan.form.images.length}장{plan.form.images.length ? ' 그대로 올림' : ''}</p>
+                  <p className="text-xs">면적·사용승인일·주차·총층은 뱅크의 <b>건축물대장 조회</b>로 채웁니다. 중개사 메모(비공개)는 그대로 넣고 맨 위에 담당자를 적습니다.</p>
+                  {plan.fromRegister.length > 0 && (
+                    <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-800 dark:text-blue-300">
+                      <p className="font-semibold mb-1">매물에 비어 있어 건축물대장에서 가져오는 칸</p>
+                      <p>{plan.fromRegister.join(' · ')} — 대장에서 호실을 못 찾으면 뱅크에서 직접 적어야 합니다.</p>
+                    </div>
+                  )}
                   {plan.warnings.length > 0 && (
                     <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 px-3 py-2 text-xs text-yellow-800 dark:text-yellow-300">
-                      <p className="font-semibold mb-1">뱅크에서 직접 채워야 하는 칸</p>
+                      <p className="font-semibold mb-1">뱅크에서 직접 채워야 하는 칸 (대장에도 없는 것)</p>
                       <ul className="list-disc pl-4 space-y-0.5">{plan.warnings.map(w => <li key={w}>{w}</li>)}</ul>
                     </div>
                   )}

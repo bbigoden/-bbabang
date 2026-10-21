@@ -71,6 +71,9 @@ describe('planBankDraft', () => {
     expect(planBankDraft({ ...base, assignee: '박혜성' })).toMatchObject({ form: { hiddenMemo: '담당 박혜성\n부소장 #1607\n사장님 010-0000-0000' } })
     expect(plan.warnings.join(' ')).toMatch(/욕실/)
     expect(plan.warnings.join(' ')).toMatch(/방향/)
+    expect(plan.fromRegister).toEqual([])
+    const empty = planBankDraft({ ...base, size_pyeong: null, floor: null, total_floors: null, parking: null, approval_date: null })
+    expect(empty.ok && empty.fromRegister).toEqual(['면적', '해당 층', '총층', '주차', '사용승인일'])
   })
   it('글에 공장이라고 적혀 있으면 공장(FA)으로', () => {
     const plan = planBankDraft({ ...base, description: '공장 임대' })

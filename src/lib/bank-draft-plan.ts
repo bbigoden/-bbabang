@@ -204,7 +204,8 @@ export type BankDraftForm = {
 }
 
 export type BankDraftPlan =
-  | { ok: true; form: BankDraftForm; warnings: string[] }
+  /** warnings: 사람이 뱅크에서 직접 채울 칸. fromRegister: 비어 있지만 건축물대장에서 가져올 칸(못 찾으면 사람이). */
+  | { ok: true; form: BankDraftForm; warnings: string[]; fromRegister: string[] }
   | { ok: false; problems: string[]; warnings: string[] }
 
 const num = (v: unknown): number | null => {
@@ -220,6 +221,7 @@ const num = (v: unknown): number | null => {
 export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
   const problems: string[] = []
   const warnings: string[] = []
+  const fromRegister: string[] = []
 
   const roomType = (p.room_type ?? '').trim()
   let kind = BANK_KIND[roomType] ?? null
@@ -249,13 +251,13 @@ export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
   const isSup = (p.area_type ?? '전용').trim() === '공급'
   const excPyeong = isSup ? null : toPyeong(sizeP)
   const supPyeong = isSup ? toPyeong(sizeP) : toPyeong(num(p.area_supplied))
-  if (excPyeong == null && supPyeong == null) warnings.push('면적이 비어 있어 뱅크에서 직접 적어야 합니다.')
+  if (excPyeong == null && supPyeong == null) fromRegister.push('면적')
 
   const floor = num(p.floor)
   const tf = String(p.total_floors ?? '')
   const totalFloors = num(tf.includes('/') ? tf.split('/').pop() : tf)
-  if (floor == null) warnings.push('층이 비어 있습니다.')
-  if (totalFloors == null) warnings.push('총층이 비어 있습니다.')
+  if (floor == null) fromRegister.push('해당 층')
+  if (totalFloors == null) fromRegister.push('총층')
 
   const rb = /(\d+)\s*\/\s*(\d+)/.exec(p.rooms_bathrooms ?? '')
   const bathrooms = rb ? parseInt(rb[2], 10) : null
@@ -264,13 +266,13 @@ export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
   const parkingText = (p.parking ?? '').trim()
   const parkCount = num(parkingText)
   const parking: 'Y' | 'N' | null = /불가|없음/.test(parkingText) ? 'N' : (parkCount != null && parkCount > 0) || /가능/.test(parkingText) ? 'Y' : null
-  if (parking == null) warnings.push('주차가 비어 있습니다(필수).')
+  if (parking == null) fromRegister.push('주차')
 
   const direction = DIRECTION[(p.direction ?? '').trim()] ?? null
   if (!direction) warnings.push('방향이 비어 있습니다(필수).')
 
   const approvalDate = /^\d{4}-\d{2}-\d{2}$/.test(p.approval_date ?? '') ? p.approval_date! : null
-  if (!approvalDate) warnings.push('사용승인일이 비어 있습니다(필수).')
+  if (!approvalDate) fromRegister.push('사용승인일')
 
   const images = (p.images ?? []).filter(u => /^https?:\/\//.test(u)).slice(0, 20)
   if (!images.length) warnings.push('사진이 없습니다.')
@@ -283,6 +285,7 @@ export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
   return {
     ok: true,
     warnings,
+    fromRegister,
     form: {
       kind, address, offer,
       sell: /[ADEF]/.test(offer) ? price : null,
