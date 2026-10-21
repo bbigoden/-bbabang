@@ -272,6 +272,9 @@ function needsTakedown(l: Listing) {
 /** 확인창 줄바꿈. 소스에 직접 쓰면 편집 중에 자주 깨진다. */
 const NL = String.fromCharCode(10)
 
+/** 이 창에서 마지막으로 보던 검색어·탭을 담아 두는 곳 (sessionStorage) */
+const 보던것키 = 'ads:보던것'
+
 /**
  * 화면 탭 ↔ 뱅크 탭 대응. **뱅크가 나눠 둔 그대로 보여주는 것이 원칙이다.**
  * 우리가 따로 분류하면 건수가 뱅크 화면과 어긋나 어느 쪽이 맞는지 알 수 없게 된다.
@@ -492,7 +495,7 @@ function ChannelCell({ label, post, onPublish, queued }: {
   }
   // 내리는 중이어도 글은 아직 카페에 있다. 지워진 것을 확인한 뒤에야 '내림' 이 된다.
   if (post?.status === 'posted' || post?.status === 'removing') {
-    const body = <span className="text-green-600 dark:text-green-400">게시중</span>
+    const body = <span className="text-green-600 dark:text-green-400" title="지금 올라가 있습니다. 누르면 그 광고를 엽니다">광고 중</span>
     return post.url
       ? <a href={post.url} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-green-700">{body}</a>
       : body
@@ -856,18 +859,39 @@ export default function AdsPage() {
     load()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
 
+  const 보던것읽음 = useRef(false)
   // 매물목록의 광고 배지에서 ?q=번호 로 넘어온다 — 그 번호로 찾은 채로 연다.
   // useSearchParams 를 쓰면 화면 전체를 Suspense 로 감싸야 해서, 처음 한 번 주소창을 직접 읽는다.
   // 읽은 뒤에는 주소에서 뺀다 — 남겨 두면 검색을 지운 뒤 새로고침·뒤로가기에 그 번호가 되살아난다.
+  //
+  // 주소로 넘어온 것이 없으면 **이 창에서 마지막으로 보던 검색어·탭**으로 연다. 올리기
+  // 결과를 기다리며 새로고침하거나 뒤로 갔다 오면 검색어가 지워지고 탭이 처음으로
+  // 돌아가, 매번 다시 쳐야 했다(2026-10-21 점검). 창을 닫으면 잊는다(sessionStorage).
+  // 검색어를 지우면 기억도 지워지므로 지운 번호가 되살아나지 않는다.
   useEffect(() => {
     const 주소 = new URLSearchParams(location.search)
     const 찾을것 = 주소.get('q')?.trim()
-    if (!찾을것) return
+    if (!찾을것) {
+      try {
+        const 기억 = JSON.parse(sessionStorage.getItem(보던것키) ?? 'null') as { q?: string; tab?: typeof tab } | null
+        if (기억?.q) setQ(기억.q)
+        if (기억?.tab) setTab(기억.tab)
+      } catch { /* 못 읽으면 처음 화면 */ }
+      보던것읽음.current = true
+      return
+    }
+    보던것읽음.current = true
     setQ(찾을것)
     주소.delete('q')
     const 나머지 = 주소.toString()
     history.replaceState(history.state, '', `${location.pathname}${나머지 ? `?${나머지}` : ''}${location.hash}`)
   }, [])
+
+  useEffect(() => {
+    // 읽기 전에 쓰면 처음 값('', 'all')이 기억을 덮어쓴다.
+    if (!보던것읽음.current) return
+    try { sessionStorage.setItem(보던것키, JSON.stringify({ q, tab })) } catch { /* 못 쓰면 그만 */ }
+  }, [q, tab])
 
   async function load() {
     setLoading(true)
@@ -1018,8 +1042,8 @@ export default function AdsPage() {
         // **대장과 안 이어진 당근 광고.** 이게 제일 위험하다 — 대장이 '광고 없음'
         // 으로 아니까, 그 매물의 뱅크 등록이 끝나도 내릴 대상에 안 들어간다.
         if (r?.당근미연결) {
-          toast.error(`당근에 대장과 안 이어진 광고가 ${r.당근미연결}건 있습니다. `
-            + '이어 두지 않으면 뱅크 등록이 끝나도 안 내려갑니다.')
+          toast.error(`부소장 매물과 이어지지 않은 당근 광고가 ${r.당근미연결}건 있습니다. `
+            + '이어 두지 않으면 [광고종료] 를 눌러도 당근에서는 안 내려갑니다.')
         }
         load()
       } else if (data.status === 'failed' || data.status === 'canceled') {
@@ -1302,7 +1326,7 @@ export default function AdsPage() {
       + (갈곳.includes('cafe') ? `${카페간격안내}${NL}${NL}` : '')
       + (갈곳.includes('blog') ? `블로그는 임시저장까지만 합니다. 글을 읽어 보고 직접 발행해 주세요.${NL}${NL}` : '')
       + (카페빠짐 ? `오늘 카페 ${DAILY_CAP}건을 다 써서 카페는 빼고 올립니다.${NL}${NL}` : '')
-      + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
+      + '뱅크에 적힌 내용에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
     )) return
 
@@ -1352,7 +1376,7 @@ export default function AdsPage() {
       `${보이는번호(l)} 매물을 ${이름}에 올립니다.${NL}${NL}`
       + (channel === 'cafe' ? `${카페간격안내}${NL}${NL}` : '')
       + (channel === 'blog' ? `블로그는 임시저장까지만 합니다. 글을 읽어 보고 직접 발행해 주세요.${NL}${NL}` : '')
-      + '원문에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
+      + '뱅크에 적힌 내용에 문제가 있으면 올리지 않고 점검 칸에 이유를 남깁니다.'
       + (agentOnline ? '' : `${NL}${NL}PC 프로그램이 꺼져 있어 켤 때 올라갑니다.`)
     )) return
 
@@ -1399,7 +1423,7 @@ export default function AdsPage() {
       }
       if (올린곳.length) toast.success(`${올린곳.join(' · ')} 올렸습니다.`)
       if (이은곳.length) toast.success(`${이은곳.join(' · ')} — 이미 올라가 있어 장부에 연결만 했습니다.`)
-      if (!올린곳.length && !이은곳.length) toast.success('발행을 마쳤습니다.')
+      if (!올린곳.length && !이은곳.length) toast.success('올리기를 마쳤습니다.')
 
       // 한 곳은 올라갔는데 다른 곳은 안 된 경우. 작업 자체는 성공이라
       // 여기서 말하지 않으면 안 올라간 것을 아무도 모른다.
@@ -1565,7 +1589,11 @@ export default function AdsPage() {
   }, [tab, 채널])
 
   const filtered = useMemo(() => {
-    const key = q.trim().toLowerCase()
+    // 전각 숫자(１４４…)·전각 공백을 보통 글자로 바꾼다. 휴대폰 키보드에서 섞여 들어온다.
+    const key = q.normalize('NFKC').trim().toLowerCase()
+    // `1443 33238` 처럼 번호 사이에 빈칸이 끼면 낱말로 나뉘어 0건이 됐다. 숫자만 쳤으면
+    // 빈칸을 뺀 번호로도 찾아 본다(낱말로 나눈 것도 그대로 본다 — `1489 109` 는 지번·호수다).
+    const 붙인번호 = /^[\d\s-]+$/.test(key) && /\s/.test(key) ? key.replace(/[\s-]/g, '') : null
     return listings.filter(l => {
       // **찾을 때는 탭을 가리지 않는다.**
       //
@@ -1590,6 +1618,7 @@ export default function AdsPage() {
       const 한줄 = [l.naver_no, l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
         .filter(Boolean).join(' ').toLowerCase()
       return key.split(/\s+/).every(말 => 한줄.includes(말))
+        || (!!붙인번호 && 붙인번호.length >= 6 && 한줄.includes(붙인번호))
     })
   }, [listings, q, manager, 좁혀보기, inTab])
 
@@ -1872,7 +1901,7 @@ export default function AdsPage() {
               등록종료 매물이 보이는지 알 수 없다. */}
           {q.trim() && (
             <span className="text-blue-600 dark:text-blue-400">
-              찾는 중 — 탭을 가리지 않고 전부에서 {filtered.length}건
+              모든 탭에서 찾은 매물 {filtered.length}건
             </span>
           )}
           {/* 매물을 나란히 놓고 봐야 보이는 것 — 뱅크에 같은 매물이 두 번
@@ -1883,7 +1912,7 @@ export default function AdsPage() {
               className={`rounded px-1.5 py-0.5 underline underline-offset-2 ${
                 좁혀보기 === '점검' ? 'bg-amber-600 text-white no-underline' : 'text-amber-600 dark:text-amber-400'
               }`}
-              title="원문에서 손봐야 할 것이 있는 매물 — 고칠 곳은 뱅크입니다"
+              title="뱅크에 적힌 내용 중 손봐야 할 것이 있는 매물 — 고칠 곳은 뱅크입니다"
             >
               점검 {점검건수}건{좁혀보기 === '점검' && ' — 이것만 보는 중'}
             </button>
@@ -1910,7 +1939,10 @@ export default function AdsPage() {
           {syncError && <span className="text-red-600 dark:text-red-400">마지막 시도 실패: {syncError}</span>}
         </div>
 
-        {loading ? (
+        {/* **처음 한 번만** '불러오는 중' 으로 바꾼다. 올리기가 끝날 때마다 새로 받는데,
+            그때마다 표를 걷어 내면 옆으로 밀어 둔 스크롤이 맨 왼쪽으로 돌아가 방금 바뀐
+            당근 칸이 화면 밖으로 사라졌다(2026-10-21 점검). */}
+        {loading && !listings.length ? (
           <p className="py-16 text-center text-sm text-gray-500">불러오는 중…</p>
         ) : !listings.length ? (
           <div className="rounded-lg border border-dashed border-gray-300 py-16 text-center dark:border-gray-700">
@@ -1934,7 +1966,7 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">가격</th>
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
-                  <th className="px-3 py-2 font-medium" title="올릴 때 원문에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
+                  <th className="px-3 py-2 font-medium" title="올릴 때 뱅크 내용에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
                   <th className="px-3 py-2 font-medium" title="↑ 카페·당근에 한 번에 올립니다   ↓ 뱅크·카페·당근에서 한 번에 내립니다">전체</th>
                 </tr>
               </thead>
@@ -2131,7 +2163,7 @@ export default function AdsPage() {
                             <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
                               {고칠줄.every(r => r.startsWith('[대상 아님]'))
                                 ? `${보이는번호(l)} — 이 종류는 프로그램이 글로 만들지 않습니다`
-                                : `${보이는번호(l)} 원문에서 발견한 것 — 뱅크에서 고치면 다음 발행부터 반영됩니다`}
+                                : `${보이는번호(l)} 뱅크 내용에서 발견한 것 — 뱅크에서 고치면 다음에 올릴 때부터 반영됩니다`}
                             </p>
                             <ul className="space-y-1.5">
                               {고칠줄.map((r, i) => (
@@ -2175,7 +2207,7 @@ export default function AdsPage() {
           </div>
         )}
 
-        {!loading && listings.length > 0 && (
+        {listings.length > 0 && (
           <Pagination
             page={page}
             totalPages={totalPages}
