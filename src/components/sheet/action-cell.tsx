@@ -27,14 +27,17 @@ export function SheetActionHeader({ children, width = DEFAULT_WIDTH }: {
   )
 }
 
-export function SheetActionCell({ canEdit = true, onCopy, onDelete }: {
+export function SheetActionCell({ canEdit = true, onCopy, onDelete, extra }: {
   canEdit?: boolean
   onCopy?: () => void
   onDelete?: () => void
+  /** 복사·삭제 앞에 붙는 페이지별 버튼(매물목록의 [뱅크 임시저장] 등) */
+  extra?: React.ReactNode
 }) {
   return (
     <td className={CELL_CLASS}>
       <div className="flex items-center justify-center gap-1.5">
+        {extra}
         {canEdit && onCopy && (
           <button onClick={onCopy} title="복사" aria-label="복사"
             className="flex h-6 w-6 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-400 transition-colors">

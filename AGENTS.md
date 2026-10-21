@@ -95,9 +95,9 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 과거 손으로 목록을 관리하다 두 번 사고 남(jobs 01dace0, cafe-post edd9114) → 자동화(현재 방식)로 전환.
 새 페이지 배포 전 `curl -I localhost:3000/broker/xxx`가 308이 아닌지 한 번 확인하면 더 안전.
 
-# 다섯 파일은 삭제 금지 — 옆 레포가 파일 경로로 직접 읽는다
+# 여섯 파일은 삭제 금지 — 옆 레포가 파일 경로로 직접 읽는다
 
-`cafe-post.ts` · `blog-post.ts` · `naver-land.ts` · `daangn-land.ts` · `date-kst.ts` 다섯이다.
+`cafe-post.ts` · `blog-post.ts` · `naver-land.ts` · `daangn-land.ts` · `date-kst.ts` · `bank-draft-plan.ts` 여섯이다.
 광고 자동화 PC 프로그램(`코드/부소장광고`)이 **상대 경로로 직접 import** 하므로
 이 레포 안에서 아무도 안 쓰는 것처럼 보여도 지우면 안 된다.
 
@@ -108,6 +108,7 @@ iOS Safari는 manifest의 icons를 **무시**하고 `<link rel="apple-touch-icon
 | `naver-land.ts` | `REGIONS` · `fetchRecentArticles` · `fetchArticleJibun` · `fetchArticleHidden` | `naver.js` |
 | `daangn-land.ts` | `DAANGN_REGIONS` · `fetchDaangnArticles` · `DaangnQueryStale` | `daangn-watch.js` |
 | `date-kst.ts` | `todayKST` · `addDays` | `naver.js` |
+| `bank-draft-plan.ts` | `planBankDraft` · `parseBankAddress` · `bankOfferCode` | `bank-draft.js` (뱅크 임시저장 일꾼) |
 
 **여기 적힌 심볼은 `export` 를 떼지도 말 것.** 이 레포만 훑는 미사용 검사는
 전부 "죽은 코드"로 잡는다. 파일 위치·이름을 바꿀 때는 옆 레포 경로도 같이 고친다.

@@ -18,8 +18,10 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, LocateFixed,
+  Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, LocateFixed, Upload, CheckCircle2, AlertCircle,
 } from 'lucide-react'
+import { planBankDraft } from '@/lib/bank-draft-plan'
+import { ymdKST } from '@/lib/date-kst'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { EmptyRow } from '@/components/sheet/empty-row'
 import { ImageLightbox } from '@/components/image-lightbox'
@@ -1111,6 +1113,44 @@ type AdBadge = {
 }
 const AD_CHANNEL_LABEL: Record<string, string> = { cafe: '카페', blog: '블로그', daangn: '당근' }
 
+/** 뱅크 임시저장 작업(bank_draft_jobs) — 매물마다 가장 최근 것만 본다. */
+type BankDraftJob = {
+  id: string
+  property_id: string
+  status: 'queued' | 'running' | 'done' | 'failed' | 'canceled'
+  progress: string | null
+  error: string | null
+  result: { bankNo?: string | null; photos?: number; photoFails?: string[]; warnings?: string[] } | null
+  requested_at: string
+  finished_at: string | null
+}
+const BANK_DRAFT_ACTIVE = new Set(['queued', 'running'])
+
+/**
+ * [뱅크 임시저장] 버튼 — 복사·삭제 옆. 상태에 따라 모양이 바뀐다.
+ * 돌아가는 중에는 누를 수 없고, 끝난 것은 다시 누르면 한 번 더 넣는다(뱅크 임시저장은 7일 뒤 지워진다).
+ */
+function BankDraftButton({ job, onClick }: { job?: BankDraftJob; onClick: () => void }) {
+  const 진행중 = !!job && BANK_DRAFT_ACTIVE.has(job.status)
+  if (진행중) {
+    return (
+      <span title={`뱅크 임시저장 ${job.status === 'queued' ? '대기 중 — PC 프로그램(뱅크 임시저장 일꾼)이 켜져 있어야 합니다' : `진행 중: ${job.progress ?? ''}`}`}
+        className="flex h-6 w-6 items-center justify-center text-blue-400">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      </span>
+    )
+  }
+  const 끝 = job?.status === 'done' ? `뱅크에 임시 저장했습니다 (${ymdKST(job.finished_at ?? job.requested_at)}${job.result?.bankNo ? `, 임시매물 ${job.result.bankNo}` : ''}). 뱅크 '임시 저장목록' 에서 [등록] 을 누르세요. 다시 누르면 한 번 더 넣습니다.`
+    : job?.status === 'failed' ? `뱅크 임시저장 실패: ${job.error ?? ''} — 다시 누르면 다시 시도합니다.`
+    : '뱅크에 임시 저장 — PC 프로그램이 등록 화면을 채워 둡니다. 최종 등록은 뱅크에서 직접.'
+  return (
+    <button type="button" onClick={onClick} title={끝} aria-label="뱅크 임시저장"
+      className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${job?.status === 'done' ? 'text-green-500 hover:bg-green-50' : job?.status === 'failed' ? 'text-red-400 hover:bg-red-50' : 'text-gray-300 hover:bg-blue-50 hover:text-blue-400'}`}>
+      {job?.status === 'done' ? <CheckCircle2 className="h-3.5 w-3.5" /> : job?.status === 'failed' ? <AlertCircle className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+    </button>
+  )
+}
+
 /**
  * 광고 대장 줄들 → 매물별 배지.
  *
@@ -1160,6 +1200,9 @@ interface PropertyRowProps {
   p: Property
   /** 지금 살아 있는 광고. 없으면 배지를 달지 않는다. */
   adBadge?: AdBadge
+  /** 이 매물의 가장 최근 뱅크 임시저장 작업 */
+  bankDraft?: BankDraftJob
+  onBankDraft: (p: Property) => void
   syncedOrder: readonly string[]
   customColumns: CustomColumn[]
   settings: ColSettings
@@ -1182,7 +1225,7 @@ interface PropertyRowProps {
 }
 
 const PropertyRow = memo(function PropertyRow({
-  p, adBadge, syncedOrder, customColumns, settings,
+  p, adBadge, bankDraft, onBankDraft, syncedOrder, customColumns, settings,
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, ownerName,
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
@@ -1317,7 +1360,11 @@ const PropertyRow = memo(function PropertyRow({
         }
         return null
       })}
-      {!isAdminView && <SheetActionCell canEdit={canEdit && isMine} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)} />}
+      {!isAdminView && (
+        <SheetActionCell canEdit={canEdit && isMine} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)}
+          // 대표는 사무소 매물 전부, 직원은 자기 매물만 뱅크에 넣는다(2026-10-21 결정). DB(RLS)도 같은 규칙.
+          extra={canEdit && isMine && p.status !== 'contracted' ? <BankDraftButton job={bankDraft} onClick={() => onBankDraft(p)} /> : null} />
+      )}
     </tr>
   )
 })
@@ -1455,6 +1502,9 @@ function BrokerPropertiesContent() {
   // 매물상태 확인창. 첫 사용자 점검에서 상태 칸을 한 번 눌렀을 뿐인데 확인 없이 '완료' 가 됐다 —
   // 계약완료는 광고를 내려야 하는 상태라 묻고 바꾼다. 살아 있는 광고가 있으면 그것도 같이 보인다.
   const [statusConfirm, setStatusConfirm] = useState<{ p: Property; next: 'available' | 'contracted' } | null>(null)
+  // 뱅크 임시저장 확인창 — 넣을 수 있는지(planBankDraft)를 먼저 보여 주고 넣는다.
+  const [bankDraftConfirm, setBankDraftConfirm] = useState<{ p: Property; plan: ReturnType<typeof planBankDraft> } | null>(null)
+  const [bankDraftSaving, setBankDraftSaving] = useState(false)
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [settingsBrokerId, setSettingsBrokerId] = useState<string | null>(null)
   const [dragCol, setDragCol] = useState<string | null>(null)
@@ -1725,6 +1775,58 @@ function BrokerPropertiesContent() {
     return () => { cancelled = true }
   }, [visibleIdsKey, supabase])
   const adBadges = useMemo(() => buildAdBadges(adRows), [adRows])
+
+  // ── 뱅크 임시저장 작업 — 지금 쪽 매물의 가장 최근 작업. 돌아가는 것이 있으면 20초마다 다시 본다 ──
+  const [bankDraftRows, setBankDraftRows] = useState<BankDraftJob[]>([])
+  const bankDraftUnavailableRef = useRef(false)   // 표가 아직 없으면(42P01) 조용히 접는다
+  const [bankDraftTick, setBankDraftTick] = useState(0)
+  useEffect(() => {
+    if (!visibleIdsKey || bankDraftUnavailableRef.current) { setBankDraftRows([]); return }
+    let cancelled = false
+    ;(async () => {
+      const { data, error } = await supabase.from('bank_draft_jobs')
+        .select('id, property_id, status, progress, error, result, requested_at, finished_at')
+        .in('property_id', visibleIdsKey.split(','))
+        .order('requested_at', { ascending: false })
+      if (cancelled) return
+      if (error) {
+        if (error.code === '42P01') { bankDraftUnavailableRef.current = true; return }
+        console.error('[properties] 뱅크 임시저장 작업을 못 읽었습니다', error.message)
+        return
+      }
+      setBankDraftRows((data ?? []) as BankDraftJob[])
+    })()
+    return () => { cancelled = true }
+  }, [visibleIdsKey, supabase, bankDraftTick])
+  const bankDrafts = useMemo(() => {
+    const m: Record<string, BankDraftJob> = {}
+    for (const j of bankDraftRows) if (!m[j.property_id]) m[j.property_id] = j   // 최근 순이라 첫 것이 최신
+    return m
+  }, [bankDraftRows])
+  const bankDraftActive = bankDraftRows.some(j => BANK_DRAFT_ACTIVE.has(j.status))
+  useEffect(() => {
+    if (!bankDraftActive) return
+    const id = setInterval(() => setBankDraftTick(t => t + 1), 20_000)
+    return () => clearInterval(id)
+  }, [bankDraftActive])
+
+  async function requestBankDraft(p: Property) {
+    const office = officeIdRef.current
+    if (!office || !auth.user) return
+    setBankDraftSaving(true)
+    const { error } = await supabase.from('bank_draft_jobs')
+      .insert({ office_broker_id: office, property_id: p.id, requested_by: auth.user.id })
+    setBankDraftSaving(false)
+    if (error) {
+      toast.error(error.code === '42501'
+        ? '이 매물은 내가 뱅크에 넣을 수 없습니다 — 담당자나 대표만 넣을 수 있습니다.'
+        : `뱅크 임시저장을 요청하지 못했습니다: ${error.message}`)
+      return
+    }
+    setBankDraftConfirm(null)
+    setBankDraftTick(t => t + 1)
+    toast.success('뱅크 임시저장에 줄 섰습니다. PC 의 [뱅크 임시저장 일꾼] 이 켜져 있으면 곧 채웁니다.')
+  }
 
   // ── 지도 뷰 데이터 — 지도를 열 때만 현재 필터의 전체 매물 로드 ──
   // 목록 RPC(행 집합)로 받으면 PostgREST max-rows(1000)에 조용히 잘려 최신 1,000건만 핀이 찍혔다.
@@ -2011,7 +2113,7 @@ function BrokerPropertiesContent() {
 
   const deleteProperty = useCallback((id: string) => {
     setDeleteConfirm({ type: 'property', id })
-  }, [])
+  }, [setDeleteConfirm])
 
   const confirmDelete = async () => {
     if (!deleteConfirm) return
@@ -2958,7 +3060,7 @@ function BrokerPropertiesContent() {
                   return null
                 })}
                 {!isAdminView && (
-                  <SheetActionHeader>
+                  <SheetActionHeader width={88}>
                     <AddColBtn onAdd={addCustomColumn} />
                     <PropColVisibility
                       allFixed={ALL_COLUMNS}
@@ -2999,6 +3101,8 @@ function BrokerPropertiesContent() {
                   onDelete={deleteProperty}
                   onCopy={duplicateProperty}
                   onStatusChange={(row, next) => setStatusConfirm({ p: row, next })}
+                  bankDraft={bankDrafts[p.id]}
+                  onBankDraft={row => setBankDraftConfirm({ p: row, plan: planBankDraft(row) })}
                 />
               ))}
               {!isAdminView && canEdit && (
@@ -3049,6 +3153,48 @@ function BrokerPropertiesContent() {
           </div>
         </div>
       )}
+
+      {/* 뱅크 임시저장 확인 모달 — 못 넣는 이유(problems)가 있으면 넣기 버튼이 없다 */}
+      {bankDraftConfirm && (() => {
+        const { p, plan } = bankDraftConfirm
+        const 어디 = [p.seq_no != null ? `#${p.seq_no}` : null, p.address || '소재지 없음'].filter(Boolean).join(' ')
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" role="dialog" aria-modal="true">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                {plan.ok ? '뱅크에 임시 저장할까요?' : '아직 뱅크에 넣을 수 없어요'}
+              </h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 break-all">{어디}</p>
+              {plan.ok ? (
+                <div className="text-sm text-gray-500 mb-4 space-y-2">
+                  <p>PC 프로그램이 뱅크 등록 화면을 채우고 <b>[임시 저장]</b>까지만 누릅니다. 돈이 나가는 <b>[등록]</b>은 뱅크 &lsquo;임시 저장목록&rsquo;에서 직접 누르세요(7일 보관).</p>
+                  <p>뱅크 종류 <b>{plan.form.kind.label}</b> · {plan.form.address.gu} {plan.form.address.dong}{plan.form.address.ri ? ` ${plan.form.address.ri}` : ''} {plan.form.address.jibun1}{plan.form.address.jibun2 ? `-${plan.form.address.jibun2}` : ''} · 사진 {plan.form.images.length}장</p>
+                  {plan.warnings.length > 0 && (
+                    <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 px-3 py-2 text-xs text-yellow-800 dark:text-yellow-300">
+                      <p className="font-semibold mb-1">뱅크에서 직접 채워야 하는 칸</p>
+                      <ul className="list-disc pl-4 space-y-0.5">{plan.warnings.map(w => <li key={w}>{w}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <ul className="mb-4 list-disc pl-5 text-sm text-red-600 dark:text-red-400 space-y-1">
+                  {plan.problems.map(w => <li key={w}>{w}</li>)}
+                </ul>
+              )}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setBankDraftConfirm(null)}
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">{plan.ok ? '취소' : '닫기'}</button>
+                {plan.ok && (
+                  <button type="button" disabled={bankDraftSaving} onClick={() => requestBankDraft(p)}
+                    className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+                    {bankDraftSaving ? '넣는 중…' : '임시 저장 요청'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 매물상태 확인 모달 — 삭제 확인과 같은 모양 */}
       {statusConfirm && (() => {
