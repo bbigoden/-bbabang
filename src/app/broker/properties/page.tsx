@@ -798,7 +798,7 @@ function StatusToggleCell({ value, onSave, readOnly }: {
     <button
       type="button"
       onClick={() => onSave?.(isCompleted ? 'available' : 'contracted')}
-      title="클릭하여 전환"
+      title={isCompleted ? '누르면 다시 가능으로 되돌릴지 묻습니다' : '누르면 계약완료로 바꿀지 묻습니다'}
       className={cn(
         'w-full rounded-md px-2 py-1 text-xs font-semibold transition-colors min-h-[22px]',
         colorCls,
@@ -1172,6 +1172,8 @@ interface PropertyRowProps {
   teamMembers: string[]
   ownerName: string
   saveField: (id: string, field: string, value: any) => void
+  /** 매물상태(가능↔완료)는 바로 저장하지 않고 확인창을 거친다 — 한 번 잘못 눌러 계약완료가 되면 광고까지 내려야 한다. */
+  onStatusChange: (p: Property, next: 'available' | 'contracted') => void
   autoFillRow: (id: string, addr: string, bcode?: string) => void
   saveCustomField: (propertyId: string, colId: string, value: string) => void
   setLightbox: React.Dispatch<React.SetStateAction<{ images: string[]; index: number } | null>>
@@ -1183,7 +1185,7 @@ const PropertyRow = memo(function PropertyRow({
   p, adBadge, syncedOrder, customColumns, settings,
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, ownerName,
-  saveField, autoFillRow, saveCustomField, setLightbox,
+  saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
   onDelete, onCopy,
 }: PropertyRowProps) {
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
@@ -1274,7 +1276,7 @@ const PropertyRow = memo(function PropertyRow({
           return (
             // data-col — 새 행을 넣을 때 소재지 칸을 찾아 연다(아래 addingId 효과). 순서로 찾으면 안 된다.
             <td key={key} data-col={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
-              {key === 'status'          && <StatusToggleCell value={p.status} onSave={v => saveField(p.id, 'status', v)} />}
+              {key === 'status'          && <StatusToggleCell value={p.status} onSave={v => onStatusChange(p, v)} />}
               {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={isAutoFilling} placeholder="소재지 입력" />}
               {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
               {key === 'price'           && (p.deal_type === '월세'
@@ -1450,6 +1452,9 @@ function BrokerPropertiesContent() {
   const [autoFillingId, setAutoFillingId] = useState<string | null>(null)
   const [autoFillToast, setAutoFillToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'property' | 'column'; id: string; label?: string } | null>(null)
+  // 매물상태 확인창. 첫 사용자 점검에서 상태 칸을 한 번 눌렀을 뿐인데 확인 없이 '완료' 가 됐다 —
+  // 계약완료는 광고를 내려야 하는 상태라 묻고 바꾼다. 살아 있는 광고가 있으면 그것도 같이 보인다.
+  const [statusConfirm, setStatusConfirm] = useState<{ p: Property; next: 'available' | 'contracted' } | null>(null)
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>([])
   const [settingsBrokerId, setSettingsBrokerId] = useState<string | null>(null)
   const [dragCol, setDragCol] = useState<string | null>(null)
@@ -2993,6 +2998,7 @@ function BrokerPropertiesContent() {
                   setLightbox={setLightbox}
                   onDelete={deleteProperty}
                   onCopy={duplicateProperty}
+                  onStatusChange={(row, next) => setStatusConfirm({ p: row, next })}
                 />
               ))}
               {!isAdminView && canEdit && (
@@ -3043,6 +3049,39 @@ function BrokerPropertiesContent() {
           </div>
         </div>
       )}
+
+      {/* 매물상태 확인 모달 — 삭제 확인과 같은 모양 */}
+      {statusConfirm && (() => {
+        const { p, next } = statusConfirm
+        const 완료로 = next === 'contracted'
+        const 광고 = adBadges[p.id]
+        const 어디 = [p.seq_no != null ? `#${p.seq_no}` : null, p.address || '소재지 없음'].filter(Boolean).join(' ')
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" role="dialog" aria-modal="true">
+            <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                {완료로 ? '이 매물을 계약완료로 바꿀까요?' : '이 매물을 다시 가능으로 되돌릴까요?'}
+              </h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 break-all">{어디}</p>
+              <p className="text-sm text-gray-500 mb-6">
+                {완료로
+                  ? (광고
+                    ? `광고가 아직 살아 있습니다(${광고.어디}). 바꾼 뒤 광고관리에서 내려 주세요 — 매물번호 밑 배지가 빨갛게 바뀝니다.`
+                    : '목록·지도에서 회색으로 보이고, 고객 화면에서는 빠집니다.')
+                  : '다시 거래 가능한 매물로 보입니다. 광고는 저절로 올라가지 않습니다.'}
+              </p>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setStatusConfirm(null)}
+                  className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
+                <button type="button" onClick={() => { saveField(p.id, 'status', next); setStatusConfirm(null) }}
+                  className={`flex-1 rounded-xl py-2.5 text-sm font-semibold text-white ${완료로 ? 'bg-gray-700 hover:bg-gray-800' : 'bg-green-600 hover:bg-green-700'}`}>
+                  {완료로 ? '계약완료로 바꾸기' : '가능으로 되돌리기'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 삭제 확인 모달 */}
       {deleteConfirm && (
