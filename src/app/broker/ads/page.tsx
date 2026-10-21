@@ -466,14 +466,30 @@ function CheckCell({ listing, open, onToggle }: {
  * 내림·실패를 따로 적어 봤자 할 일이 달라지지 않는다. 올렸는데도 [올리기] 가
  * 그대로면 그게 곧 실패다. 무엇이 잘못됐는지는 점검 칸이 말한다.
  */
-function ChannelCell({ label, post, onPublish, busy }: {
+function ChannelCell({ label, post, onPublish, queued }: {
   /** 확인 문구에 쓸 채널 이름 — '카페' / '당근' */
   label: string
   post: Post | undefined
   /** 올릴 수 있는 매물이면 이 자리에서 바로 올린다. 없으면 '–' 만 보인다. */
   onPublish?: () => void
-  busy?: boolean
+  /**
+   * 이 매물·채널이 올리기 줄에 서 있으면 그 상태. 버튼 대신 이걸 보인다.
+   *
+   * 예전에는 **어느 매물이든** 올리는 중이면 모든 줄의 [올리기] 를 잠갔다.
+   * 이유도 안 적혀 고장처럼 보였고, 줄을 세워 두는 설계인데 정작 줄에 넣을 수가
+   * 없었다(2026-10-21 점검: 다섯 명 중 셋이 4~5분 회색 버튼 앞에서 기다림).
+   * 이제 잠그는 것은 **줄에 선 그 칸 하나**다.
+   */
+  queued?: { 상태: 'queued' | 'running'; 앞: number }
 }) {
+  if (queued) {
+    return (
+      <span className="text-amber-600 dark:text-amber-400"
+        title="PC 프로그램이 차례로 올립니다. 화면을 닫아도 계속됩니다.">
+        {queued.상태 === 'running' ? '올리는 중…' : queued.앞 ? `대기 (앞에 ${queued.앞}건)` : '대기'}
+      </span>
+    )
+  }
   // 내리는 중이어도 글은 아직 카페에 있다. 지워진 것을 확인한 뒤에야 '내림' 이 된다.
   if (post?.status === 'posted' || post?.status === 'removing') {
     const body = <span className="text-green-600 dark:text-green-400">게시중</span>
@@ -493,7 +509,7 @@ function ChannelCell({ label, post, onPublish, busy }: {
 ${post.title}` : ''}`}
         >임시저장</span>
         {onPublish && (
-          <button onClick={onPublish} disabled={busy}
+          <button onClick={onPublish}
             title="임시저장 글을 새로 만들어 다시 저장합니다"
             className="underline underline-offset-2 text-gray-400 hover:text-green-600 disabled:opacity-50"
           >다시</button>
@@ -521,7 +537,6 @@ ${post.title}` : ''}`}
   return (
     <button
       onClick={onPublish}
-      disabled={busy}
       title={post?.error ? `지난번 실패: ${post.error}` : `이 매물만 ${label}에 올립니다`}
       className="underline underline-offset-2 text-gray-500 hover:text-green-600 disabled:opacity-50 dark:text-gray-400"
     >올리기</button>
@@ -767,6 +782,14 @@ export default function AdsPage() {
   const [renewWatch, setRenewWatch] = useState(false)
   const [publishWatch, setPublishWatch] = useState(false)
   const [publishProgress, setPublishProgress] = useState<string | null>(null)
+  /** 올리기 줄에 선 칸 — `뱅크번호:채널` → 상태·앞에 선 건수 */
+  const [줄선칸, set줄선칸] = useState<Map<string, { 상태: 'queued' | 'running'; 앞: number }>>(new Map())
+  /**
+   * 지금 누르고 있는 칸. 확인창·줄 확인·요청이 다 끝나기 전에 같은 칸을 또 누르면
+   * 막는다. 빠르게 두 번 누르면 줄 확인이 둘 다 '없음' 을 보고 요청이 두 건
+   * 들어갔다(2026-10-21 점검).
+   */
+  const 누르는중 = useRef(new Set<string>())
   const [openReport, setOpenReport] = useState<string | null>(null)
 
   /**
@@ -1254,7 +1277,11 @@ export default function AdsPage() {
    * **올릴 수 있는 곳만 올린다.** 카페가 하루 상한에 걸린 날 통째로 막으면
    * 상한과 상관없는 당근까지 못 올린다. 무엇을 올리는지는 확인창에 적는다.
    */
-  async function publishAll(l: Listing) {
+  function publishAll(l: Listing) {
+    return 한번만(올릴곳(l).map(c => `${l.bank_no}:${c}`), () => publishAll_(l))
+  }
+
+  async function publishAll_(l: Listing) {
     if (!auth.broker) return
     const { 번호들, 줄선것, 카페줄 } = await 발행줄()
     // 줄 서 있는 카페 건도 오늘 몫으로 센다. 안 그러면 여러 건을 눌러 두었을 때
@@ -1284,12 +1311,33 @@ export default function AdsPage() {
       params: { bankNos: [l.bank_no], channels: 갈곳 }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    줄에넣음(갈곳.map(c => `${l.bank_no}:${c}`))
     toast.success(!agentOnline ? '올리기를 예약했습니다. PC 프로그램을 켜 주세요.'
       : 번호들.size ? '줄을 세웠습니다. 앞의 것이 끝나면 차례로 올라갑니다.' : `${이름}에 올리는 중입니다.`)
     setPublishWatch(true)
   }
 
-  async function publishOne(l: Listing, channel: 'cafe' | 'blog' | 'daangn') {
+  /** 같은 칸을 누르는 동안 또 누르면 무시한다. 끝나면 풀어 준다. */
+  async function 한번만(키들: string[], 일: () => Promise<void>) {
+    if (키들.some(k => 누르는중.current.has(k))) return
+    키들.forEach(k => 누르는중.current.add(k))
+    try { await 일() } finally { 키들.forEach(k => 누르는중.current.delete(k)) }
+  }
+
+  /** 요청을 넣은 칸은 다음 확인을 기다리지 않고 바로 '대기' 로 보인다. */
+  function 줄에넣음(키들: string[]) {
+    set줄선칸(m => {
+      const n = new Map(m)
+      for (const k of 키들) if (!n.has(k)) n.set(k, { 상태: 'queued', 앞: m.size })
+      return n
+    })
+  }
+
+  function publishOne(l: Listing, channel: 'cafe' | 'blog' | 'daangn') {
+    return 한번만([`${l.bank_no}:${channel}`], () => publishOne_(l, channel))
+  }
+
+  async function publishOne_(l: Listing, channel: 'cafe' | 'blog' | 'daangn') {
     if (!auth.broker) return
     const 이름 = CHANNEL_LABEL[channel] ?? channel
     // 하루 상한은 카페만의 것이다 — 한 카페에 하루 열 건 넘게 올리면 광고로
@@ -1313,6 +1361,7 @@ export default function AdsPage() {
       params: { bankNos: [l.bank_no], channels: [channel] }, requested_by: auth.user?.id,
     })
     if (error) { toast.error(`요청하지 못했습니다: ${error.message}`); return }
+    줄에넣음([`${l.bank_no}:${channel}`])
     toast.success(!agentOnline ? '올리기를 예약했습니다. PC 프로그램을 켜 주세요.'
       : 번호들.size ? '줄을 세웠습니다. 앞의 것이 끝나면 차례로 올라갑니다.' : `${이름}에 올리는 중입니다.`)
     setPublishWatch(true)
@@ -1380,9 +1429,20 @@ export default function AdsPage() {
     let 전건수 = -1
     const stop = pollWhileVisible(async () => {
       const { data } = await supabase.from('ad_jobs')
-        .select('status, progress').eq('kind', 'publish').in('status', ['queued', 'running'])
+        .select('status, progress, params').eq('kind', 'publish').in('status', ['queued', 'running'])
         .order('requested_at', { ascending: true })
-      const 줄 = data ?? []
+      const 줄 = (data ?? []) as Array<{ status: 'queued' | 'running'; progress: string | null
+        params: { bankNos?: string[]; channels?: string[] } | null }>
+      // 칸마다 몇 번째인지. 돌고 있는 것을 맨 앞으로 친다.
+      const 차례 = [...줄].sort((a, b) => (a.status === 'running' ? -1 : 0) - (b.status === 'running' ? -1 : 0))
+      const 칸 = new Map<string, { 상태: 'queued' | 'running'; 앞: number }>()
+      차례.forEach((j, i) => {
+        for (const no of j.params?.bankNos ?? []) for (const ch of j.params?.channels ?? []) {
+          const k = `${no}:${ch}`
+          if (!칸.has(k)) 칸.set(k, { 상태: j.status, 앞: i })
+        }
+      })
+      set줄선칸(칸)
       if (줄.length < 전건수 || (전건수 < 0 && !줄.length)) { await 발행결과알림(); load() }
       전건수 = 줄.length
       if (줄.length) {
@@ -1945,7 +2005,7 @@ export default function AdsPage() {
                             // 올릴 수 있는지는 [전체] 와 같은 잣대로 본다.
                             onPublish={올릴곳(l).includes(c.key)
                               ? () => publishOne(l, c.key) : undefined}
-                            busy={publishWatch}
+                            queued={줄선칸.get(`${l.bank_no}:${c.key}`)}
                           />
                         </td>
                       ))}
@@ -1972,7 +2032,7 @@ export default function AdsPage() {
                             {올릴곳(l).length > 0 && (
                               <button
                                 onClick={() => publishAll(l)}
-                                disabled={publishWatch}
+                                disabled={올릴곳(l).every(c => 줄선칸.has(`${l.bank_no}:${c}`))}
                                 aria-label="올리기"
                                 title={`${올릴곳(l).map(c => CHANNEL_LABEL[c]).join('·')}에 올립니다`}
                                 className="rounded border border-gray-200 p-1 text-gray-500 hover:border-green-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-green-950"
