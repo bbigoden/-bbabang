@@ -646,7 +646,9 @@ function ClaudeSection({ officeId, sessions, orders, workerOn, onChange }: {
   }
 
   // 퇴근한 지 한 시간 넘은 세션은 접는다 — 하루치가 다 남으면 지금 일하는 Claude 가 묻힌다.
-  const shown = sessions.filter(s => s.status !== 'ended' || Date.now() - new Date(s.updated_at).getTime() < 3600_000)
+  // 지시 한 번 없이 켜졌다 꺼진 세션(앱이 뒤에서 잠깐 띄우는 것)도 뺀다. 한 일이 없다.
+  const shown = sessions.filter(s => s.status !== 'ended'
+    || (!!s.title && Date.now() - new Date(s.updated_at).getTime() < 3600_000))
 
   return (
     <Section icon={Bot} title="Claude" hint="이 PC 에서 돌고 있는 Claude 세션과, 여기서 보낸 지시">

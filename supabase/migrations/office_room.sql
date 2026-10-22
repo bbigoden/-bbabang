@@ -197,5 +197,11 @@ create trigger office_tasks_guard before update on public.office_tasks
 
 grant select, insert, update, delete on public.office_tasks to authenticated;
 
+-- 로그인 안 한 사람이 /rpc 로 부를 일이 없다. 정책이 쓰는 두 판별 함수는 로그인한 사람에게만 열고,
+-- 방아쇠 함수는 아무도 직접 부르지 못하게 한다.
+revoke execute on function public.is_office_owner(uuid) from public, anon;
+revoke execute on function public.is_task_assignee(uuid, uuid) from public, anon;
+revoke execute on function public.office_tasks_guard() from public, anon, authenticated;
+
 reset lock_timeout;
 notify pgrst, 'reload schema';
