@@ -23,13 +23,21 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { pollWhileVisible } from '@/lib/poll-visible'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
-import { PixelOffice, type OfficeLayout, type Seat, type SeatState } from '@/components/broker/pixel-office'
+import { PixelOffice, type OfficeLayout, type RoomKey, type Seat } from '@/components/broker/pixel-office'
 
 /**
  * 이사실에 앉는 사람(권세현 이사)의 broker_profiles.id.
  * 직급 칸이 따로 없어 여기서 정한다 — 다른 사무소에 팔 때는 사무소 설정으로 옮겨야 한다.
  */
 const DIRECTOR_ID = '6581efd5-6ec9-46ea-a391-7e6537cc6345'
+
+/** 직원이 앉는 부서 (broker_profiles.id → 방). 여기 없는 직원은 영업부. 2026-10-22 사장님이 정함. */
+const STAFF_DEPT: Record<string, RoomKey> = {
+  'ee4e2c98-6fd1-43db-8cbf-2acb25aae02d': 'consult',   // 김불당
+  'c7e58900-e6bb-4f88-b3bf-d1879f8a6050': 'sales',     // 이예리
+  'e21e1f46-6492-4f1d-964c-ba7da59a5372': 'sales',     // 박혜성
+  '2afe278a-d326-4996-83df-6d26bb98a91d': 'sales',     // 문지혜
+}
 
 /** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */
 const ALIVE_MS = 60_000
@@ -163,7 +171,8 @@ export default function OfficePage() {
   const [agents, setAgents] = useState<Agents | null>(null)
   const [adJobs, setAdJobs] = useState<AdJob[]>([])
   const [bankJobs, setBankJobs] = useState<BankJob[]>([])
-  const [today, setToday] = useState({ cafe: 0, naver: 0, daangn: 0 })
+  const [today, setToday] = useState({ cafe: 0, blog: 0, daangnPost: 0, naver: 0, daangn: 0, consult: 0 })
+  const [partners, setPartners] = useState<{ id: string; name: string; month: number }[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [memberStats, setMemberStats] = useState<Record<string, { today: number; total: number }>>({})
   const [tasks, setTasks] = useState<Task[] | null>(null)
@@ -177,7 +186,7 @@ export default function OfficePage() {
     const since = todayStartIso()
     const day = new Date(Date.now() - 24 * 3600_000).toISOString()
 
-    const [ag, aj, bj, cafe, nv, dg, ts] = await Promise.all([
+    const [ag, aj, bj, posts, nv, dg, ts, consult] = await Promise.all([
       supabase.from('ad_agents').select('*').eq('broker_id', officeId).maybeSingle(),
       supabase.from('ad_jobs')
         .select('id, kind, status, params, progress, error, requested_at, finished_at')
@@ -189,8 +198,8 @@ export default function OfficePage() {
         .eq('office_broker_id', officeId)
         .or(`status.in.(queued,running),requested_at.gte.${day}`)
         .order('requested_at', { ascending: false }).limit(20),
-      supabase.from('ad_posts').select('id', { count: 'exact', head: true })
-        .eq('channel', 'cafe').gte('posted_at', since),
+      // 채널마다 오늘 올린 수 — 홍보부 로봇마다 따로 적는다. 하루치라 줄이 많지 않다.
+      supabase.from('ad_posts').select('channel').gte('posted_at', since).limit(1000),
       supabase.from('naver_articles').select('article_no', { count: 'exact', head: true }).gte('first_seen_at', since),
       supabase.from('daangn_articles').select('article_no', { count: 'exact', head: true }).gte('first_seen_at', since),
       supabase.from('office_tasks')
@@ -198,16 +207,22 @@ export default function OfficePage() {
         .eq('office_broker_id', officeId)
         .or(`status.eq.open,done_at.gte.${day}`)
         .order('created_at', { ascending: false }).limit(100),
+      // 상담실 손님 — 오늘 업무일지에 적힌 고객
+      supabase.from('broker_diary_customers').select('id', { count: 'exact', head: true }).eq('diary_date', todayKST()),
     ])
 
     setAgents((ag.data as Agents | null) ?? null)
     setAdJobs(dropSuperseded((aj.data as AdJob[] | null) ?? [], j => `${j.kind}|${JSON.stringify(j.params?.bankNos ?? null)}|${JSON.stringify(j.params?.channels ?? null)}`))
     setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
-    setToday({ cafe: cafe.count ?? 0, naver: nv.count ?? 0, daangn: dg.count ?? 0 })
+    const 채널 = (ch: string) => ((posts.data ?? []) as { channel: string }[]).filter(p => p.channel === ch).length
+    setToday({
+      cafe: 채널('cafe'), blog: 채널('blog'), daangnPost: 채널('daangn'),
+      naver: nv.count ?? 0, daangn: dg.count ?? 0, consult: consult.count ?? 0,
+    })
     setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
 
     if (isOwner) {
-      const [ms, props, ss, os] = await Promise.all([
+      const [ms, props, ss, os, cos, ests] = await Promise.all([
         supabase.from('broker_profiles')
           .select('id, is_owner, is_approved, profiles:profiles_visible(name)')
           .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
@@ -221,7 +236,14 @@ export default function OfficePage() {
           .select('id, prompt, status, progress, result, branch, error, requested_at, finished_at')
           .eq('office_broker_id', officeId)
           .order('requested_at', { ascending: false }).limit(15),
+        // 협력업체 — 견적서 명의 회사들과 이번 달 견적 수
+        supabase.from('estimate_companies').select('id, name').eq('owner_broker_id', officeId).order('sort_order'),
+        supabase.from('estimates').select('company_id').eq('owner_broker_id', officeId)
+          .gte('issue_date', `${todayKST().slice(0, 7)}-01`).limit(1000),
       ])
+      const 견적 = (ests.data ?? []) as { company_id: string | null }[]
+      setPartners(((cos.data ?? []) as { id: string; name: string }[])
+        .map(c => ({ ...c, month: 견적.filter(e => e.company_id === c.id).length })))
       const list = ((ms.data as unknown as Member[] | null) ?? [])
         .filter(m => m.id === officeId || m.is_approved)
         .sort((a, b) => (a.id === officeId ? -1 : b.id === officeId ? 1 : 0))
@@ -356,38 +378,79 @@ export default function OfficePage() {
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
-  const director = people.find(p => p.key === DIRECTOR_ID) ?? null
+
+  /**
+   * 광고 PC 프로그램 하나를 하는 일별 로봇으로 나눈다. 그 일의 작업이 돌고 있으면 일하는 중,
+   * 걸려 있으면 대기 건수(카페는 다음 글 시각), 없으면 쉬는 중. 프로그램이 꺼졌으면 다 빈자리.
+   *
+   * 한 작업이 여러 채널을 차례로 올리기도 해서(카페·당근), 채널 로봇은 일꾼이 지금 그 채널을
+   * 말하고 있을 때만 일하는 중으로 본다(agents.note = '카페에 올리는 중' 등).
+   */
+  const robot = (key: string, name: string, kinds: string[], channel: string | null, note: string, tint = 0): Seat => {
+    const matches = (j: AdJob) => kinds.includes(j.kind)
+      && (!channel || (Array.isArray(j.params?.channels) && (j.params!.channels as string[]).includes(channel)))
+    const running = adJobs.find(j => j.status === 'running' && matches(j))
+    const nowChannel = !channel || !running || (running.params?.channels as string[] | undefined)?.length === 1
+      || adNote.includes(CHANNEL_LABEL[channel] ?? channel)
+    const queued = adJobs.filter(j => j.status === 'queued' && matches(j))
+    const nextAt = queued.map(j => j.params?.notBefore as string | undefined).filter(Boolean).sort()[0]
+    const working = !!running && nowChannel
+    return {
+      key, kind: 'robot', name, tint, note,
+      state: !adOn ? 'off' : working ? 'working' : 'idle',
+      say: !adOn ? offSay(agents?.last_seen_at)
+        : working ? (running!.progress ?? adNote)
+          : nextAt ? `${hmKST(nextAt)} 에 다음 글` : queued.length ? `대기 ${queued.length}건` : '대기 중',
+    }
+  }
+
+  const deptOf = (id: string) => (id === officeId ? 'boss' : id === DIRECTOR_ID ? 'director' : STAFF_DEPT[id] ?? 'sales')
+  const inDept = (d: string) => people.filter(p => deptOf(p.key) === d)
+    .map(p => (d === 'director' ? { ...p, role: '이사' } : d === 'consult' ? { ...p, role: '상담 담당' } : p))
+
   const layout: OfficeLayout = {
-    boss: people.find(p => p.key === officeId) ?? null,
-    director: director ? { ...director, role: '이사' } : null,
-    staff: people.filter(p => p.key !== officeId && p.key !== DIRECTOR_ID),
     clock: hmKST(now),
+    guests: today.consult,
     board: [
-      `카페 ${today.cafe}건 올림`,
+      `카페 ${today.cafe} · 블로그 ${today.blog} · 당근 ${today.daangnPost}`,
       `오늘 받은 매물 ${today.naver + today.daangn}건`,
       isOwner ? `남은 할 일 ${openTasks}건` : `내 할 일 ${myTasks.filter(t => t.status === 'open').length}건`,
     ],
-    robots: [
-      {
-        key: 'ad', kind: 'robot', name: '광고 일꾼',
-        state: !adOn ? 'off' : /대기/.test(adNote) ? 'idle' : 'working',
-        say: adOn ? adNote : offSay(agents?.last_seen_at),
-        note: `카페 ${today.cafe} · 수집 ${today.naver + today.daangn}`,
-      },
-      {
-        key: 'bank', kind: 'robot', name: '뱅크 일꾼', tint: 1,
-        state: !bankOn ? 'off' : bankRunning ? 'working' : 'idle',
-        say: bankOn ? (bankRunning ? (bankRunning.progress ?? '임시저장 중') : '대기 중') : offSay(agents?.bank_draft_seen_at),
-        note: `대기 ${bankJobs.filter(j => j.status === 'queued').length}`,
-      },
-      ...(isOwner ? [{
-        key: 'office', kind: 'robot' as const, name: '사무실 일꾼',
-        state: (!officeOn ? 'off' : orderRunning ? 'working' : 'idle') as SeatState,
+    seats: {
+      boss: inDept('boss'),
+      director: inDept('director'),
+      sales: inDept('sales'),
+      consult: inDept('consult'),
+      promo: [
+        robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
+        robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
+        robot('daangn-post', '당근 담당', ['publish'], 'daangn', `오늘 당근 ${today.daangnPost}건 올림`, 2),
+        robot('takedown', '광고 회수', ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
+      ],
+      research: [
+        robot('naver', '네이버 수집', ['naver'], null, `오늘 받은 네이버 매물 ${today.naver}건`),
+        robot('daangn', '당근 수집', ['daangn'], null, `오늘 받은 당근 매물 ${today.daangn}건`, 1),
+      ],
+      register: [
+        {
+          key: 'bank', kind: 'robot', name: '뱅크 등록',
+          state: !bankOn ? 'off' : bankRunning ? 'working' : 'idle',
+          say: bankOn ? (bankRunning ? (bankRunning.progress ?? '임시저장 중') : '대기 중') : offSay(agents?.bank_draft_seen_at),
+          note: `뱅크 임시저장 대기 ${bankJobs.filter(j => j.status === 'queued').length}건`,
+        },
+        robot('sync', '뱅크 동기화', ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
+      ],
+      server: isOwner ? [{
+        key: 'office', kind: 'robot', name: '사무실 일꾼',
+        state: !officeOn ? 'off' : orderRunning ? 'working' : 'idle',
         say: officeOn ? (orderRunning ? 'Claude 에게 지시 전달 중' : '대기 중') : offSay(agents?.office_seen_at),
         note: 'Claude 활동을 옮기고, 화면의 지시를 Claude 에게 전합니다',
-      }] : []),
-    ],
-    claudes: visibleSessions(sessions ?? []).map(s => ({
+      }] : [],
+      partner: partners.map((c, i) => ({
+        key: `partner-${c.id}`, kind: 'person', tint: 5 + i, name: c.name.replace(/\s*주식회사\s*|\(주\)/g, ''),
+        role: '협력업체', state: 'idle', say: null, note: `이번 달 견적서 ${c.month}건`,
+      })),
+      lab: visibleSessions(sessions ?? []).map(s => ({
       key: s.session_id, kind: 'claude',
       name: s.title || '제목 없는 작업',
       state: s.status === 'ended' ? 'off' : s.status,
@@ -395,10 +458,11 @@ export default function OfficePage() {
       note: `${s.project ?? ''} · ${when(s.updated_at)}`,
       badge: s.order_id ? '지시' : undefined,
     })),
+    },
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="mx-auto max-w-7xl px-4 py-6">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">사무실</h1>
