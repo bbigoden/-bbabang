@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Bot, Cpu, Users, AlertTriangle, RotateCcw, X, Play, Send, CheckCircle2, Circle, Trash2,
+  Bot, Users, AlertTriangle, RotateCcw, X, Play, Send, CheckCircle2, Circle, Trash2,
   GitBranch, RefreshCw,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -23,6 +23,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { pollWhileVisible } from '@/lib/poll-visible'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
+import { PixelOffice, type Room, type SeatState } from '@/components/broker/pixel-office'
 
 /** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */
 const ALIVE_MS = 60_000
@@ -131,13 +132,6 @@ const RUN_NOW: { kind: string; label: string }[] = [
   { kind: 'daangn', label: '당근 수집' },
   { kind: 'takedown', label: '못 내린 광고 내리기' },
 ]
-
-const CLAUDE_STATUS: Record<ClaudeSession['status'], { label: string; dot: string }> = {
-  working: { label: '일하는 중', dot: 'bg-blue-500 animate-pulse' },
-  waiting: { label: '사장님 대답 기다림', dot: 'bg-amber-500' },
-  idle: { label: '쉬는 중', dot: 'bg-green-500' },
-  ended: { label: '퇴근', dot: 'bg-gray-300 dark:bg-gray-600' },
-}
 
 /** 표가 아직 없을 때(장부 변경 전) Supabase 가 주는 오류. 화면은 그 칸만 '준비 전' 으로 둔다. */
 const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'
@@ -338,6 +332,65 @@ export default function OfficePage() {
   ].sort((a, b) => rank(a.status) - rank(b.status) || b.at.localeCompare(a.at))
   const hiddenDone = Math.max(0, jobRows.filter(r => rank(r.status) === 2).length - DONE_SHOWN)
 
+  // ── 픽셀 사무실의 방과 자리 ──────────────────────────
+  const offSay = (at: string | null | undefined) => (at ? `꺼짐 · ${when(at)} 마지막` : '꺼짐')
+  const adNote = agents?.note ?? '대기 중'
+  const bankRunning = bankJobs.find(j => j.status === 'running')
+  const orderRunning = (orders ?? []).some(o => o.status === 'running')
+  const rooms: Room[] = [{
+    key: 'workers', title: 'PC 일꾼실',
+    seats: [
+      {
+        key: 'ad', kind: 'robot', name: '광고 일꾼',
+        state: !adOn ? 'off' : /대기/.test(adNote) ? 'idle' : 'working',
+        say: adOn ? adNote : offSay(agents?.last_seen_at),
+        note: `카페 ${today.cafe} · 수집 ${today.naver + today.daangn}`,
+      },
+      {
+        key: 'bank', kind: 'robot', name: '뱅크 일꾼', tint: 1,
+        state: !bankOn ? 'off' : bankRunning ? 'working' : 'idle',
+        say: bankOn ? (bankRunning ? (bankRunning.progress ?? '임시저장 중') : '대기 중') : offSay(agents?.bank_draft_seen_at),
+        note: `대기 ${bankJobs.filter(j => j.status === 'queued').length}`,
+      },
+      ...(isOwner ? [{
+        key: 'office', kind: 'robot' as const, name: '사무실 일꾼',
+        state: (!officeOn ? 'off' : orderRunning ? 'working' : 'idle') as SeatState,
+        say: officeOn ? (orderRunning ? 'Claude 에게 지시 전달 중' : '대기 중') : offSay(agents?.office_seen_at),
+        note: 'Claude 연결',
+      }] : []),
+    ],
+  }]
+  if (isOwner) {
+    rooms.push({
+      key: 'staff', title: '직원석', empty: '직원 정보를 불러오는 중입니다',
+      seats: members.map((m, i) => {
+        const s = memberStats[m.id] ?? { today: 0, total: 0 }
+        const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
+        return {
+          key: m.id, kind: 'person' as const, tint: i, name: m.profiles?.name ?? '이름 없음',
+          role: m.id === officeId ? '대표' : '직원',
+          // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
+          state: (s.today > 0 ? 'working' : 'idle') as SeatState,
+          say: open ? `할 일 ${open}건` : s.today ? `오늘 ${s.today}건 등록` : null,
+          note: `등록 ${s.total}`,
+        }
+      }),
+    })
+    if (sessions !== null) {
+      rooms.push({
+        key: 'claude', title: 'Claude 연구실', empty: '지금 일하는 Claude 가 없습니다',
+        seats: visibleSessions(sessions).map(s => ({
+          key: s.session_id, kind: 'claude' as const,
+          name: s.title || '제목 없는 작업',
+          state: (s.status === 'ended' ? 'off' : s.status) as SeatState,
+          say: s.status === 'ended' ? null : s.last_action,
+          note: `${s.project ?? ''} · ${when(s.updated_at)}`,
+          badge: s.order_id ? '지시' : undefined,
+        })),
+      })
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="mb-5 flex items-center justify-between gap-3">
@@ -364,21 +417,9 @@ export default function OfficePage() {
         </div>
       )}
 
-      {/* ── PC 일꾼 ─────────────────────────────────── */}
-      <Section icon={Cpu} title="PC 일꾼">
-        <div className="grid gap-3 md:grid-cols-3">
-          <Desk name="광고 일꾼" on={adOn} seenAt={agents?.last_seen_at}
-            doing={adOn ? (agents?.note ?? '대기 중') : null}
-            lines={[`카페 오늘 ${today.cafe}건 올림`, `오늘 받은 매물 네이버 ${today.naver} · 당근 ${today.daangn}`]} />
-          <Desk name="뱅크 임시저장 일꾼" on={bankOn} seenAt={agents?.bank_draft_seen_at}
-            doing={bankOn ? (bankJobs.find(j => j.status === 'running')?.progress ?? (bankJobs.some(j => j.status === 'running') ? '임시저장 중' : '대기 중')) : null}
-            lines={[`대기 ${bankJobs.filter(j => j.status === 'queued').length}건 · 오늘 끝남 ${bankJobs.filter(j => j.status === 'done' && j.finished_at && ymdKST(j.finished_at) === todayKST()).length}건`]} />
-          {isOwner && (
-            <Desk name="사무실 일꾼" on={officeOn} seenAt={agents?.office_seen_at}
-              doing={officeOn ? ((orders ?? []).some(o => o.status === 'running') ? 'Claude 지시 처리 중' : '대기 중') : null}
-              lines={['Claude 활동을 옮기고, 지시를 Claude 에게 전합니다']} />
-          )}
-        </div>
+      {/* ── 픽셀 사무실 ─────────────────────────────── */}
+      <div className="mb-7">
+        <PixelOffice rooms={rooms} />
 
         {isOwner && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -391,7 +432,7 @@ export default function OfficePage() {
             {!adOn && <span className="self-center text-[11px] text-gray-500">꺼져 있어도 걸어 두면 켤 때 실행됩니다</span>}
           </div>
         )}
-      </Section>
+      </div>
 
       {/* ── 일 목록 ─────────────────────────────────── */}
       <Section icon={RotateCcw} title="걸린 일" hint="대기·하는 중인 일과 최근 하루 기록">
@@ -413,7 +454,7 @@ export default function OfficePage() {
 
       {/* ── 직원 ─────────────────────────────────────── */}
       {isOwner ? (
-        <StaffSection officeId={officeId} members={members} stats={memberStats} tasks={tasks}
+        <StaffSection officeId={officeId} members={members} tasks={tasks}
           onChange={() => void load()} />
       ) : (
         <Section icon={Users} title="내 할 일">
@@ -430,6 +471,15 @@ export default function OfficePage() {
       )}
     </div>
   )
+}
+
+/**
+ * Claude 연구실에 앉힐 세션. 퇴근한 지 한 시간 넘은 세션은 접는다 — 하루치가 다 남으면 지금
+ * 일하는 Claude 가 묻힌다. 지시 한 번 없이 켜졌다 꺼진 세션(앱이 뒤에서 잠깐 띄우는 것)도 뺀다.
+ */
+function visibleSessions(sessions: ClaudeSession[]): ClaudeSession[] {
+  return sessions.filter(s => s.status !== 'ended'
+    || (!!s.title && Date.now() - new Date(s.updated_at).getTime() < 3600_000))
 }
 
 /**
@@ -462,10 +512,9 @@ function jobDetail(j: AdJob): string | null {
 
 // ── 직원 ───────────────────────────────────────────────
 
-function StaffSection({ officeId, members, stats, tasks, onChange }: {
+function StaffSection({ officeId, members, tasks, onChange }: {
   officeId: string
   members: Member[]
-  stats: Record<string, { today: number; total: number }>
   tasks: Task[] | null
   onChange: () => void
 }) {
@@ -492,34 +541,7 @@ function StaffSection({ officeId, members, stats, tasks, onChange }: {
   const inputCls = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-800 dark:bg-gray-950 dark:text-white'
 
   return (
-    <Section icon={Users} title="직원">
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-        {members.map(m => {
-          const s = stats[m.id] ?? { today: 0, total: 0 }
-          const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
-          return (
-            <div key={m.id} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-sm font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
-                  {m.profiles?.name?.[0] ?? '?'}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{m.profiles?.name ?? '이름 없음'}</p>
-                  <p className="text-[11px] text-gray-500">{m.id === officeId ? '대표' : '직원'}</p>
-                </div>
-              </div>
-              <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">
-                오늘 등록 <b className="text-gray-900 dark:text-white">{s.today}</b>건 · 등록한 매물 {s.total}건
-              </p>
-              <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
-                남은 할 일 <b className={open ? 'text-amber-600' : 'text-gray-900 dark:text-white'}>{open}</b>건
-              </p>
-            </div>
-          )
-        })}
-      </div>
-
-      <h3 className="mb-2 mt-5 text-sm font-bold text-gray-900 dark:text-white">할 일 배정</h3>
+    <Section icon={Users} title="할 일 배정">
       {tasks === null ? (
         <Empty text="할 일 칸이 아직 준비되지 않았습니다 (장부 변경 승인 전)" />
       ) : (
@@ -639,48 +661,14 @@ function ClaudeSection({ officeId, sessions, orders, workerOn, onChange }: {
 
   if (sessions === null || orders === null) {
     return (
-      <Section icon={Bot} title="Claude">
+      <Section icon={Bot} title="Claude 에게 지시">
         <Empty text="Claude 칸이 아직 준비되지 않았습니다 (장부 변경 승인 전)" />
       </Section>
     )
   }
 
-  // 퇴근한 지 한 시간 넘은 세션은 접는다 — 하루치가 다 남으면 지금 일하는 Claude 가 묻힌다.
-  // 지시 한 번 없이 켜졌다 꺼진 세션(앱이 뒤에서 잠깐 띄우는 것)도 뺀다. 한 일이 없다.
-  const shown = sessions.filter(s => s.status !== 'ended'
-    || (!!s.title && Date.now() - new Date(s.updated_at).getTime() < 3600_000))
-
   return (
-    <Section icon={Bot} title="Claude" hint="이 PC 에서 돌고 있는 Claude 세션과, 여기서 보낸 지시">
-      {shown.length === 0 ? (
-        <Empty text="지금 일하는 Claude 가 없습니다" />
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-          {shown.map(s => {
-            const st = CLAUDE_STATUS[s.status]
-            return (
-              <div key={s.session_id} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
-                    <Bot className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{s.title || '제목 없는 작업'}</p>
-                    <p className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                      <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />{st.label}
-                      {s.order_id && <span className="rounded bg-gray-100 px-1 dark:bg-gray-800">지시</span>}
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-3 truncate text-xs text-gray-600 dark:text-gray-400">{s.last_action ?? '—'}</p>
-                <p className="mt-0.5 text-[11px] text-gray-400">{s.project ?? ''} · {when(s.updated_at)}</p>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      <h3 className="mb-2 mt-5 text-sm font-bold text-gray-900 dark:text-white">Claude 에게 지시</h3>
+    <Section icon={Bot} title="Claude 에게 지시" hint="일하는 모습은 위 Claude 연구실에 보입니다">
       <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
         <textarea value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={4000} rows={3}
           placeholder="예: 매물수집 화면에 '오늘 새로 들어온 것만' 보기 버튼을 만들어 줘"
@@ -747,29 +735,6 @@ function Section({ icon: Icon, title, hint, children }: {
       </div>
       {children}
     </section>
-  )
-}
-
-function Desk({ name, on, seenAt, doing, lines }: {
-  name: string
-  on: boolean
-  seenAt: string | null | undefined
-  doing: string | null
-  lines: string[]
-}) {
-  return (
-    <div className={`rounded-2xl border bg-white p-4 dark:bg-gray-900 ${on ? 'border-gray-200 dark:border-gray-800' : 'border-red-200 dark:border-red-900'}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-gray-900 dark:text-white">{name}</p>
-        <span className={`flex items-center gap-1 text-[11px] font-semibold ${on ? 'text-green-600' : 'text-red-600'}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-green-500' : 'bg-red-500'}`} />{on ? '켜짐' : '꺼짐'}
-        </span>
-      </div>
-      <p className="mt-2 truncate text-xs font-semibold text-gray-700 dark:text-gray-300">
-        {on ? doing : seenAt ? `마지막 신호 ${when(seenAt)}` : '아직 신호가 없습니다'}
-      </p>
-      {lines.map(l => <p key={l} className="mt-0.5 text-[11px] text-gray-500">{l}</p>)}
-    </div>
   )
 }
 
