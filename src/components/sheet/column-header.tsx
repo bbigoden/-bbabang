@@ -114,6 +114,8 @@ export function ColumnHeader({
           <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
             {isFixed && <Lock className="h-3 w-3 text-gray-500" />}
             {label}
+            {/* 열 설정은 사람마다 따로 저장된다 — 직원이 숨겨도 다른 사람 화면은 그대로 */}
+            <span className="ml-auto font-normal text-[10px] text-gray-400">내 화면에만 적용</span>
           </div>
 
           {!isCustom && onHide && (
