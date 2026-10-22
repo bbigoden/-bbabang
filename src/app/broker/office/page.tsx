@@ -1,0 +1,810 @@
+'use client'
+
+/**
+ * 사무실 — 사람 직원·PC 일꾼·Claude 가 지금 무엇을 하는지 한 화면에서 보고 부린다.
+ *
+ * 화면은 장부를 읽기만 한다. 실제 일은 지금처럼 PC 가 한다:
+ *   광고 일꾼(agent-worker)      ad_jobs 를 집어 뱅크·카페·당근·수집을 돌린다
+ *   뱅크 임시저장 일꾼            bank_draft_jobs 를 집는다
+ *   사무실 일꾼(office-worker)    Claude 의 hooks 기록을 claude_sessions 로 옮기고,
+ *                                claude_orders(이 화면의 지시)를 집어 Claude 를 돌린다
+ * 버튼은 그 줄에 한 줄 넣거나(지금 실행·다시 시도) 상태를 바꾸는(취소) 것뿐이다.
+ *
+ * 대표는 전부 보고, 직원은 일꾼 상태와 자기 할 일만 본다(Claude 두 표는 RLS 가 대표만 연다).
+ */
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Bot, Cpu, Users, AlertTriangle, RotateCcw, X, Play, Send, CheckCircle2, Circle, Trash2,
+  GitBranch, RefreshCw,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/toast'
+import { pollWhileVisible } from '@/lib/poll-visible'
+import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
+
+/** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */
+const ALIVE_MS = 60_000
+const POLL_MS = 10_000
+
+interface Agents {
+  last_seen_at: string | null
+  note: string | null
+  bank_draft_seen_at: string | null
+  office_seen_at?: string | null
+}
+
+interface AdJob {
+  id: string
+  kind: string
+  status: 'queued' | 'running' | 'done' | 'failed' | 'canceled'
+  params: Record<string, unknown> | null
+  progress: string | null
+  error: string | null
+  requested_at: string
+  finished_at: string | null
+}
+
+interface BankJob {
+  id: string
+  property_id: string
+  status: AdJob['status']
+  progress: string | null
+  error: string | null
+  requested_at: string
+  finished_at: string | null
+  broker_properties: { address: string | null } | null
+}
+
+interface Member {
+  id: string
+  is_owner: boolean | null
+  is_approved: boolean | null
+  profiles: { name: string | null } | null
+}
+
+interface Task {
+  id: string
+  assignee_broker_id: string
+  title: string
+  note: string | null
+  due_date: string | null
+  status: 'open' | 'done'
+  created_at: string
+  done_at: string | null
+}
+
+interface ClaudeSession {
+  session_id: string
+  project: string | null
+  title: string | null
+  status: 'working' | 'waiting' | 'idle' | 'ended'
+  last_action: string | null
+  order_id: string | null
+  updated_at: string
+}
+
+interface ClaudeOrder {
+  id: string
+  prompt: string
+  status: AdJob['status']
+  progress: string | null
+  result: string | null
+  branch: string | null
+  error: string | null
+  requested_at: string
+  finished_at: string | null
+}
+
+const KIND_LABEL: Record<string, string> = {
+  sync: '뱅크 매물 가져오기',
+  publish: '광고 올리기',
+  takedown: '광고 내리기',
+  renew: '뱅크 재등록',
+  naver: '네이버 매물 수집',
+  daangn: '당근 매물 수집',
+  check: '점검',
+}
+
+const CHANNEL_LABEL: Record<string, string> = { cafe: '카페', blog: '블로그', daangn: '당근', bank: '뱅크' }
+
+/** 끝난 일은 이만큼만 먼저 보인다 — 하루치가 다 펼쳐지면 대기·실패가 아래로 밀린다. */
+const DONE_SHOWN = 5
+
+const STATUS_LABEL: Record<AdJob['status'], string> = {
+  queued: '대기', running: '하는 중', done: '끝남', failed: '실패', canceled: '취소',
+}
+
+const STATUS_CLS: Record<AdJob['status'], string> = {
+  queued: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+  running: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+  done: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
+  failed: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+  canceled: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
+}
+
+/** 화면의 [지금 실행] — 광고 일꾼이 이미 아는 일만 건다. */
+const RUN_NOW: { kind: string; label: string }[] = [
+  { kind: 'sync', label: '뱅크 가져오기' },
+  { kind: 'naver', label: '네이버 수집' },
+  { kind: 'daangn', label: '당근 수집' },
+  { kind: 'takedown', label: '못 내린 광고 내리기' },
+]
+
+const CLAUDE_STATUS: Record<ClaudeSession['status'], { label: string; dot: string }> = {
+  working: { label: '일하는 중', dot: 'bg-blue-500 animate-pulse' },
+  waiting: { label: '사장님 대답 기다림', dot: 'bg-amber-500' },
+  idle: { label: '쉬는 중', dot: 'bg-green-500' },
+  ended: { label: '퇴근', dot: 'bg-gray-300 dark:bg-gray-600' },
+}
+
+/** 표가 아직 없을 때(장부 변경 전) Supabase 가 주는 오류. 화면은 그 칸만 '준비 전' 으로 둔다. */
+const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'
+
+const alive = (at: string | null | undefined, now: number) =>
+  !!at && now - new Date(at).getTime() < ALIVE_MS
+
+/** 오늘(한국) 0시의 순간. 저장된 시각과 비교한다. */
+const todayStartIso = () => new Date(`${todayKST()}T00:00:00+09:00`).toISOString()
+
+const when = (at: string) => (ymdKST(at) === todayKST() ? hmKST(at) : `${ymdKST(at).slice(5)} ${hmKST(at)}`)
+
+export default function OfficePage() {
+  const auth = useAuth()
+  const { broker, loading } = auth
+  const toast = useToast()
+  const supabase = useMemo(() => createClient(), [])
+
+  const isOwner = broker?.is_owner !== false
+  const officeId = broker?.parent_broker_id ?? broker?.id ?? null
+
+  const [now, setNow] = useState(() => Date.now())
+  const [agents, setAgents] = useState<Agents | null>(null)
+  const [adJobs, setAdJobs] = useState<AdJob[]>([])
+  const [bankJobs, setBankJobs] = useState<BankJob[]>([])
+  const [today, setToday] = useState({ cafe: 0, naver: 0, daangn: 0 })
+  const [members, setMembers] = useState<Member[]>([])
+  const [memberStats, setMemberStats] = useState<Record<string, { today: number; total: number }>>({})
+  const [tasks, setTasks] = useState<Task[] | null>(null)
+  const [sessions, setSessions] = useState<ClaudeSession[] | null>(null)
+  const [orders, setOrders] = useState<ClaudeOrder[] | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [showAllDone, setShowAllDone] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!officeId) return
+    const since = todayStartIso()
+    const day = new Date(Date.now() - 24 * 3600_000).toISOString()
+
+    const [ag, aj, bj, cafe, nv, dg, ts] = await Promise.all([
+      supabase.from('ad_agents').select('*').eq('broker_id', officeId).maybeSingle(),
+      supabase.from('ad_jobs')
+        .select('id, kind, status, params, progress, error, requested_at, finished_at')
+        .eq('broker_id', officeId)
+        .or(`status.in.(queued,running),requested_at.gte.${day}`)
+        .order('requested_at', { ascending: false }).limit(40),
+      supabase.from('bank_draft_jobs')
+        .select('id, property_id, status, progress, error, requested_at, finished_at, broker_properties(address)')
+        .eq('office_broker_id', officeId)
+        .or(`status.in.(queued,running),requested_at.gte.${day}`)
+        .order('requested_at', { ascending: false }).limit(20),
+      supabase.from('ad_posts').select('id', { count: 'exact', head: true })
+        .eq('channel', 'cafe').gte('posted_at', since),
+      supabase.from('naver_articles').select('article_no', { count: 'exact', head: true }).gte('first_seen_at', since),
+      supabase.from('daangn_articles').select('article_no', { count: 'exact', head: true }).gte('first_seen_at', since),
+      supabase.from('office_tasks')
+        .select('id, assignee_broker_id, title, note, due_date, status, created_at, done_at')
+        .eq('office_broker_id', officeId)
+        .or(`status.eq.open,done_at.gte.${day}`)
+        .order('created_at', { ascending: false }).limit(100),
+    ])
+
+    setAgents((ag.data as Agents | null) ?? null)
+    setAdJobs(dropSuperseded((aj.data as AdJob[] | null) ?? [], j => `${j.kind}|${JSON.stringify(j.params?.bankNos ?? null)}|${JSON.stringify(j.params?.channels ?? null)}`))
+    setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
+    setToday({ cafe: cafe.count ?? 0, naver: nv.count ?? 0, daangn: dg.count ?? 0 })
+    setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
+
+    if (isOwner) {
+      const [ms, props, ss, os] = await Promise.all([
+        supabase.from('broker_profiles')
+          .select('id, is_owner, is_approved, profiles:profiles_visible(name)')
+          .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
+        supabase.from('broker_properties').select('broker_id, created_at')
+          .eq('office_broker_id', officeId).is('deleted_at', null).limit(5000),
+        supabase.from('claude_sessions')
+          .select('session_id, project, title, status, last_action, order_id, updated_at')
+          .eq('office_broker_id', officeId).gte('updated_at', day)
+          .order('updated_at', { ascending: false }).limit(20),
+        supabase.from('claude_orders')
+          .select('id, prompt, status, progress, result, branch, error, requested_at, finished_at')
+          .eq('office_broker_id', officeId)
+          .order('requested_at', { ascending: false }).limit(15),
+      ])
+      const list = ((ms.data as unknown as Member[] | null) ?? [])
+        .filter(m => m.id === officeId || m.is_approved)
+        .sort((a, b) => (a.id === officeId ? -1 : b.id === officeId ? 1 : 0))
+      setMembers(list)
+      const stats: Record<string, { today: number; total: number }> = {}
+      const todayYmd = todayKST()
+      for (const p of (props.data ?? []) as { broker_id: string; created_at: string }[]) {
+        const s = (stats[p.broker_id] ??= { today: 0, total: 0 })
+        s.total++
+        if (ymdKST(p.created_at) === todayYmd) s.today++
+      }
+      setMemberStats(stats)
+      setSessions(isMissingTable(ss.error) ? null : ((ss.data as ClaudeSession[] | null) ?? []))
+      setOrders(isMissingTable(os.error) ? null : ((os.data as ClaudeOrder[] | null) ?? []))
+    }
+
+    setNow(Date.now())
+    setLoaded(true)
+  }, [supabase, officeId, isOwner])
+
+  useEffect(() => {
+    void load()
+    return pollWhileVisible(() => { void load() }, POLL_MS)
+  }, [load])
+
+  // ── 일꾼 조작 ─────────────────────────────────────────
+  const runNow = async (kind: string, label: string) => {
+    if (!officeId) return
+    // 이미 걸려 있으면 또 걸지 않는다 — 같은 수집이 두 번 돌면 막힐 일만 는다.
+    if (adJobs.some(j => j.kind === kind && (j.status === 'queued' || j.status === 'running') && !j.params?.listingId)) {
+      return toast.error(`${label}은(는) 이미 대기 중이거나 하는 중입니다`)
+    }
+    const { error } = await supabase.from('ad_jobs').insert({ broker_id: officeId, kind, requested_by: auth.user?.id })
+    if (error) return toast.error(`요청하지 못했습니다: ${error.message}`)
+    toast.success(`${label}을(를) 걸었습니다`)
+    void load()
+  }
+
+  const cancelAdJob = async (j: AdJob) => {
+    // 대기 중인 것만 — 하는 중인 것은 PC 가 이미 브라우저를 띄웠다. 거기서 끊으면 올라갔는지 모른다.
+    const { error } = await supabase.from('ad_jobs')
+      .update({ status: 'canceled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', j.id).eq('status', 'queued')
+    if (error) return toast.error(`취소하지 못했습니다: ${error.message}`)
+    void load()
+  }
+
+  const retryAdJob = async (j: AdJob) => {
+    if (!officeId) return
+    // 카페 간격으로 미뤄졌던 시각은 버린다 — 다시 걸 때 일꾼이 간격을 새로 잰다.
+    const params = j.params ? { ...j.params } : null
+    if (params) delete params.notBefore
+    const { error } = await supabase.from('ad_jobs')
+      .insert({ broker_id: officeId, kind: j.kind, params, requested_by: auth.user?.id })
+    if (error) return toast.error(`다시 걸지 못했습니다: ${error.message}`)
+    toast.success('다시 걸었습니다')
+    void load()
+  }
+
+  const cancelBankJob = async (j: BankJob) => {
+    const { error } = await supabase.from('bank_draft_jobs')
+      .update({ status: 'canceled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', j.id).eq('status', 'queued')
+    if (error) return toast.error(`취소하지 못했습니다: ${error.message}`)
+    void load()
+  }
+
+  const retryBankJob = async (j: BankJob) => {
+    if (!officeId) return
+    const { error } = await supabase.from('bank_draft_jobs')
+      .insert({ office_broker_id: officeId, property_id: j.property_id, requested_by: auth.user?.id })
+    if (error) return toast.error(`다시 걸지 못했습니다: ${error.message}`)
+    toast.success('다시 걸었습니다')
+    void load()
+  }
+
+  if (loading) return null
+  if (!broker || !officeId) {
+    return <p className="px-4 py-12 text-center text-sm text-gray-500">사무소에 속한 계정으로 로그인해 주세요.</p>
+  }
+
+  const adOn = alive(agents?.last_seen_at, now)
+  const bankOn = alive(agents?.bank_draft_seen_at, now)
+  const officeOn = alive(agents?.office_seen_at, now)
+
+  const failedAd = adJobs.filter(j => j.status === 'failed')
+  const failedBank = bankJobs.filter(j => j.status === 'failed')
+  const waitingClaude = (sessions ?? []).filter(s => s.status === 'waiting')
+  const alerts: string[] = []
+  if (!adOn) alerts.push('광고 일꾼이 꺼져 있습니다 — PC 의 부소장 광고 프로그램을 켜 주세요')
+  if (!bankOn) alerts.push('뱅크 임시저장 일꾼이 꺼져 있습니다')
+  if (isOwner && orders !== null && !officeOn) alerts.push('사무실 일꾼이 꺼져 있습니다 — Claude 지시와 활동 표시가 멈춥니다')
+  if (failedAd.length + failedBank.length) alerts.push(`최근 하루 실패한 일 ${failedAd.length + failedBank.length}건 — 아래에서 다시 시도할 수 있습니다`)
+  if (waitingClaude.length) alerts.push(`Claude ${waitingClaude.length}명이 사장님 대답을 기다립니다`)
+
+  const myTasks = (tasks ?? []).filter(t => t.assignee_broker_id === broker.id)
+
+  // 걸린 일: 대기·하는 중 → 실패 → 끝난 것 순. 끝난 것은 앞 몇 건만 보인다.
+  const rank = (s: AdJob['status']) => (s === 'running' || s === 'queued' ? 0 : s === 'failed' ? 1 : 2)
+  const jobRows = [
+    ...adJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
+      <JobRow key={`a${j.id}`} status={j.status} at={j.requested_at}
+        title={KIND_LABEL[j.kind] ?? j.kind} detail={jobDetail(j)}
+        onCancel={isOwner && j.status === 'queued' ? () => void cancelAdJob(j) : undefined}
+        onRetry={isOwner && j.status === 'failed' ? () => void retryAdJob(j) : undefined} />
+    ) })),
+    ...bankJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
+      <JobRow key={`b${j.id}`} status={j.status} at={j.requested_at}
+        title={`뱅크 임시저장${j.broker_properties?.address ? ` — ${j.broker_properties.address}` : ''}`}
+        detail={j.status === 'failed' ? j.error : j.progress}
+        onCancel={isOwner && j.status === 'queued' ? () => void cancelBankJob(j) : undefined}
+        onRetry={isOwner && j.status === 'failed' ? () => void retryBankJob(j) : undefined} />
+    ) })),
+  ].sort((a, b) => rank(a.status) - rank(b.status) || b.at.localeCompare(a.at))
+  const hiddenDone = Math.max(0, jobRows.filter(r => rank(r.status) === 2).length - DONE_SHOWN)
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">사무실</h1>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : 'PC 일꾼 상태와 내 할 일'}
+            {loaded && <> · {hmKST(now)} 기준, 10초마다 새로 봅니다</>}
+          </p>
+        </div>
+        <button onClick={() => void load()} aria-label="지금 새로 보기"
+          className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
+          <RefreshCw className="h-4 w-4" />
+        </button>
+      </div>
+
+      {loaded && alerts.length > 0 && (
+        <div className="mb-5 space-y-1.5 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
+          {alerts.map(a => (
+            <p key={a} className="flex items-start gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />{a}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* ── PC 일꾼 ─────────────────────────────────── */}
+      <Section icon={Cpu} title="PC 일꾼">
+        <div className="grid gap-3 md:grid-cols-3">
+          <Desk name="광고 일꾼" on={adOn} seenAt={agents?.last_seen_at}
+            doing={adOn ? (agents?.note ?? '대기 중') : null}
+            lines={[`카페 오늘 ${today.cafe}건 올림`, `오늘 받은 매물 네이버 ${today.naver} · 당근 ${today.daangn}`]} />
+          <Desk name="뱅크 임시저장 일꾼" on={bankOn} seenAt={agents?.bank_draft_seen_at}
+            doing={bankOn ? (bankJobs.find(j => j.status === 'running')?.progress ?? (bankJobs.some(j => j.status === 'running') ? '임시저장 중' : '대기 중')) : null}
+            lines={[`대기 ${bankJobs.filter(j => j.status === 'queued').length}건 · 오늘 끝남 ${bankJobs.filter(j => j.status === 'done' && j.finished_at && ymdKST(j.finished_at) === todayKST()).length}건`]} />
+          {isOwner && (
+            <Desk name="사무실 일꾼" on={officeOn} seenAt={agents?.office_seen_at}
+              doing={officeOn ? ((orders ?? []).some(o => o.status === 'running') ? 'Claude 지시 처리 중' : '대기 중') : null}
+              lines={['Claude 활동을 옮기고, 지시를 Claude 에게 전합니다']} />
+          )}
+        </div>
+
+        {isOwner && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {RUN_NOW.map(r => (
+              <button key={r.kind} onClick={() => void runNow(r.kind, r.label)}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+                <Play className="h-3.5 w-3.5" /> {r.label}
+              </button>
+            ))}
+            {!adOn && <span className="self-center text-[11px] text-gray-500">꺼져 있어도 걸어 두면 켤 때 실행됩니다</span>}
+          </div>
+        )}
+      </Section>
+
+      {/* ── 일 목록 ─────────────────────────────────── */}
+      <Section icon={RotateCcw} title="걸린 일" hint="대기·하는 중인 일과 최근 하루 기록">
+        {adJobs.length + bankJobs.length === 0 ? (
+          <Empty text="최근 하루 동안 걸린 일이 없습니다" />
+        ) : (
+          <>
+            <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+              {jobRows.slice(0, showAllDone ? undefined : jobRows.length - hiddenDone).map(x => x.node)}
+            </ul>
+            {hiddenDone > 0 && (
+              <button onClick={() => setShowAllDone(true)} className="mt-2 text-xs font-semibold text-blue-600 hover:underline">
+                끝난 일 {hiddenDone}건 더 보기
+              </button>
+            )}
+          </>
+        )}
+      </Section>
+
+      {/* ── 직원 ─────────────────────────────────────── */}
+      {isOwner ? (
+        <StaffSection officeId={officeId} members={members} stats={memberStats} tasks={tasks}
+          onChange={() => void load()} />
+      ) : (
+        <Section icon={Users} title="내 할 일">
+          {tasks === null ? <Empty text="할 일 칸이 아직 준비되지 않았습니다" />
+            : myTasks.length === 0 ? <Empty text="배정된 할 일이 없습니다" />
+              : <TaskList tasks={myTasks} canDelete={false} onChange={() => void load()} />}
+        </Section>
+      )}
+
+      {/* ── Claude ───────────────────────────────────── */}
+      {isOwner && (
+        <ClaudeSection officeId={officeId} sessions={sessions} orders={orders} workerOn={officeOn}
+          onChange={() => void load()} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * 뒤에 같은 일이 다시 걸렸으면 앞의 실패는 뺀다. 이미 다시 해 본 것을 '실패' 로 남겨 두면
+ * 맨 위 경고가 늘 켜져 있어, 정말 손봐야 할 실패가 묻힌다.
+ */
+function dropSuperseded<T extends { status: AdJob['status']; requested_at: string }>(jobs: T[], key: (j: T) => string): T[] {
+  const 나중 = new Map<string, string>()
+  for (const j of jobs) {
+    const k = key(j)
+    if (!나중.has(k) || 나중.get(k)! < j.requested_at) 나중.set(k, j.requested_at)
+  }
+  return jobs.filter(j => j.status !== 'failed' || 나중.get(key(j)) === j.requested_at)
+}
+
+/**
+ * 일 한 줄의 덧말 — 실패면 이유, 아니면 진행.
+ * 매물은 건수만 적는다. params 의 번호는 뱅크 내부 번호라 사장님이 아는 번호가 아니다.
+ */
+function jobDetail(j: AdJob): string | null {
+  const nos = Array.isArray(j.params?.bankNos) ? (j.params!.bankNos as string[]) : []
+  const channels = Array.isArray(j.params?.channels) ? (j.params!.channels as string[]) : []
+  const head = [
+    channels.map(c => CHANNEL_LABEL[c] ?? c).join('·'),
+    nos.length ? `매물 ${nos.length}건` : '',
+  ].filter(Boolean).join(' ')
+  const body = j.status === 'failed' ? j.error : j.progress
+  return [head, body].filter(Boolean).join(' · ') || null
+}
+
+// ── 직원 ───────────────────────────────────────────────
+
+function StaffSection({ officeId, members, stats, tasks, onChange }: {
+  officeId: string
+  members: Member[]
+  stats: Record<string, { today: number; total: number }>
+  tasks: Task[] | null
+  onChange: () => void
+}) {
+  const supabase = useMemo(() => createClient(), [])
+  const toast = useToast()
+  const [form, setForm] = useState({ assignee: '', title: '', due: '' })
+  const [saving, setSaving] = useState(false)
+
+  const add = async () => {
+    if (!form.assignee) return toast.error('누구에게 맡길지 골라 주세요')
+    if (!form.title.trim()) return toast.error('할 일을 적어 주세요')
+    setSaving(true)
+    const { error } = await supabase.from('office_tasks').insert({
+      office_broker_id: officeId, assignee_broker_id: form.assignee,
+      title: form.title.trim(), due_date: form.due || null,
+    })
+    setSaving(false)
+    if (error) return toast.error(`배정하지 못했습니다: ${error.message}`)
+    setForm(f => ({ ...f, title: '', due: '' }))
+    onChange()
+  }
+
+  const nameOf = (id: string) => members.find(m => m.id === id)?.profiles?.name ?? '이름 없음'
+  const inputCls = 'rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-800 dark:bg-gray-950 dark:text-white'
+
+  return (
+    <Section icon={Users} title="직원">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+        {members.map(m => {
+          const s = stats[m.id] ?? { today: 0, total: 0 }
+          const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
+          return (
+            <div key={m.id} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-sm font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
+                  {m.profiles?.name?.[0] ?? '?'}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{m.profiles?.name ?? '이름 없음'}</p>
+                  <p className="text-[11px] text-gray-500">{m.id === officeId ? '대표' : '직원'}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                오늘 등록 <b className="text-gray-900 dark:text-white">{s.today}</b>건 · 등록한 매물 {s.total}건
+              </p>
+              <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
+                남은 할 일 <b className={open ? 'text-amber-600' : 'text-gray-900 dark:text-white'}>{open}</b>건
+              </p>
+            </div>
+          )
+        })}
+      </div>
+
+      <h3 className="mb-2 mt-5 text-sm font-bold text-gray-900 dark:text-white">할 일 배정</h3>
+      {tasks === null ? (
+        <Empty text="할 일 칸이 아직 준비되지 않았습니다 (장부 변경 승인 전)" />
+      ) : (
+        <>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select className={inputCls} value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))}>
+              <option value="">누구에게</option>
+              {members.map(m => <option key={m.id} value={m.id}>{m.profiles?.name ?? '이름 없음'}</option>)}
+            </select>
+            <input className={`${inputCls} flex-1`} placeholder="예: 쌍용동 상가 사진 찍어 오기" maxLength={200}
+              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void add() }} />
+            <input type="date" className={inputCls} value={form.due} onChange={e => setForm(f => ({ ...f, due: e.target.value }))} aria-label="기한" />
+            <button onClick={() => void add()} disabled={saving}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+              배정
+            </button>
+          </div>
+          {tasks.length > 0 && (
+            <div className="mt-3">
+              <TaskList tasks={tasks} nameOf={nameOf} canDelete onChange={onChange} />
+            </div>
+          )}
+        </>
+      )}
+    </Section>
+  )
+}
+
+function TaskList({ tasks, nameOf, canDelete, onChange }: {
+  tasks: Task[]
+  nameOf?: (id: string) => string
+  canDelete: boolean
+  onChange: () => void
+}) {
+  const supabase = useMemo(() => createClient(), [])
+  const toast = useToast()
+  const sorted = [...tasks].sort((a, b) => (a.status === b.status ? b.created_at.localeCompare(a.created_at) : a.status === 'open' ? -1 : 1))
+
+  const toggle = async (t: Task) => {
+    const done = t.status === 'open'
+    const { error } = await supabase.from('office_tasks')
+      .update({ status: done ? 'done' : 'open', done_at: done ? new Date().toISOString() : null }).eq('id', t.id)
+    if (error) return toast.error(`바꾸지 못했습니다: ${error.message}`)
+    onChange()
+  }
+
+  const remove = async (t: Task) => {
+    if (!confirm(`'${t.title}' 할 일을 지울까요?`)) return
+    const { error } = await supabase.from('office_tasks').delete().eq('id', t.id)
+    if (error) return toast.error(`지우지 못했습니다: ${error.message}`)
+    onChange()
+  }
+
+  const overdue = (t: Task) => t.status === 'open' && !!t.due_date && t.due_date < todayKST()
+
+  return (
+    <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+      {sorted.map(t => (
+        <li key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+          <button onClick={() => void toggle(t)} aria-label={t.status === 'open' ? '완료로 표시' : '다시 열기'}
+            className={t.status === 'done' ? 'text-green-600' : 'text-gray-300 hover:text-green-600 dark:text-gray-600'}>
+            {t.status === 'done' ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className={`truncate text-sm ${t.status === 'done' ? 'text-gray-400 line-through' : 'font-semibold text-gray-900 dark:text-white'}`}>{t.title}</p>
+            <p className="text-[11px] text-gray-500">
+              {nameOf ? `${nameOf(t.assignee_broker_id)} · ` : ''}
+              {t.due_date ? <span className={overdue(t) ? 'font-bold text-red-600' : ''}>기한 {t.due_date.slice(5)}{overdue(t) ? ' 지남' : ''}</span> : '기한 없음'}
+            </p>
+          </div>
+          {canDelete && (
+            <button onClick={() => void remove(t)} aria-label="지우기" className="text-gray-300 hover:text-red-600 dark:text-gray-600">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// ── Claude ─────────────────────────────────────────────
+
+function ClaudeSection({ officeId, sessions, orders, workerOn, onChange }: {
+  officeId: string
+  sessions: ClaudeSession[] | null
+  orders: ClaudeOrder[] | null
+  workerOn: boolean
+  onChange: () => void
+}) {
+  const supabase = useMemo(() => createClient(), [])
+  const toast = useToast()
+  const [prompt, setPrompt] = useState('')
+  const [sending, setSending] = useState(false)
+  const [open, setOpen] = useState<string | null>(null)
+
+  const send = async () => {
+    const p = prompt.trim()
+    if (p.length < 2) return toast.error('지시를 적어 주세요')
+    setSending(true)
+    const { error } = await supabase.from('claude_orders').insert({ office_broker_id: officeId, prompt: p })
+    setSending(false)
+    if (error) return toast.error(`보내지 못했습니다: ${error.message}`)
+    setPrompt('')
+    toast.success(workerOn ? 'Claude 에게 보냈습니다' : '보냈습니다 — 사무실 일꾼이 켜지면 시작합니다')
+    onChange()
+  }
+
+  const cancel = async (o: ClaudeOrder) => {
+    const { error } = await supabase.from('claude_orders')
+      .update({ status: 'canceled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', o.id).eq('status', 'queued')
+    if (error) return toast.error(`취소하지 못했습니다: ${error.message}`)
+    onChange()
+  }
+
+  if (sessions === null || orders === null) {
+    return (
+      <Section icon={Bot} title="Claude">
+        <Empty text="Claude 칸이 아직 준비되지 않았습니다 (장부 변경 승인 전)" />
+      </Section>
+    )
+  }
+
+  // 퇴근한 지 한 시간 넘은 세션은 접는다 — 하루치가 다 남으면 지금 일하는 Claude 가 묻힌다.
+  const shown = sessions.filter(s => s.status !== 'ended' || Date.now() - new Date(s.updated_at).getTime() < 3600_000)
+
+  return (
+    <Section icon={Bot} title="Claude" hint="이 PC 에서 돌고 있는 Claude 세션과, 여기서 보낸 지시">
+      {shown.length === 0 ? (
+        <Empty text="지금 일하는 Claude 가 없습니다" />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          {shown.map(s => {
+            const st = CLAUDE_STATUS[s.status]
+            return (
+              <div key={s.session_id} className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{s.title || '제목 없는 작업'}</p>
+                    <p className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                      <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />{st.label}
+                      {s.order_id && <span className="rounded bg-gray-100 px-1 dark:bg-gray-800">지시</span>}
+                    </p>
+                  </div>
+                </div>
+                <p className="mt-3 truncate text-xs text-gray-600 dark:text-gray-400">{s.last_action ?? '—'}</p>
+                <p className="mt-0.5 text-[11px] text-gray-400">{s.project ?? ''} · {when(s.updated_at)}</p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      <h3 className="mb-2 mt-5 text-sm font-bold text-gray-900 dark:text-white">Claude 에게 지시</h3>
+      <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+        <textarea value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={4000} rows={3}
+          placeholder="예: 매물수집 화면에 '오늘 새로 들어온 것만' 보기 버튼을 만들어 줘"
+          className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-800 dark:bg-gray-950 dark:text-white" />
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="text-[11px] leading-relaxed text-gray-500">
+            부소장 코드를 따로 갈래(branch)에서 고치고 결과만 적어 둡니다. 배포·DB 변경·커밋 올리기는 하지 않습니다 —
+            반영은 채팅에서 확인하고 합니다.
+          </p>
+          <button onClick={() => void send()} disabled={sending}
+            className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+            <Send className="h-3.5 w-3.5" /> 보내기
+          </button>
+        </div>
+      </div>
+
+      {orders.length > 0 && (
+        <ul className="mt-3 divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+          {orders.map(o => (
+            <li key={o.id} className="px-4 py-3">
+              <div className="flex items-start gap-2">
+                <span className={`mt-0.5 flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STATUS_CLS[o.status]}`}>{STATUS_LABEL[o.status]}</span>
+                <button onClick={() => setOpen(open === o.id ? null : o.id)} className="min-w-0 flex-1 text-left">
+                  <p className={`text-sm text-gray-900 dark:text-white ${open === o.id ? 'whitespace-pre-wrap' : 'truncate'}`}>{o.prompt}</p>
+                  <p className="text-[11px] text-gray-500">
+                    {when(o.requested_at)}
+                    {o.status === 'running' && o.progress ? ` · ${o.progress}` : ''}
+                    {o.status === 'failed' && o.error ? ` · ${o.error}` : ''}
+                  </p>
+                </button>
+                {o.status === 'queued' && (
+                  <button onClick={() => void cancel(o)} aria-label="취소" className="text-gray-400 hover:text-red-600"><X className="h-4 w-4" /></button>
+                )}
+              </div>
+              {open === o.id && (o.result || o.branch) && (
+                <div className="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-950 dark:text-gray-300">
+                  {o.branch && (
+                    <p className="mb-2 flex items-center gap-1 font-semibold"><GitBranch className="h-3.5 w-3.5" /> 고친 갈래: <code>{o.branch}</code></p>
+                  )}
+                  {o.result && <p className="whitespace-pre-wrap">{o.result}</p>}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  )
+}
+
+// ── 작은 조각 ──────────────────────────────────────────
+
+function Section({ icon: Icon, title, hint, children }: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="mb-7">
+      <div className="mb-3 flex items-baseline gap-2">
+        <h2 className="flex items-center gap-2 font-bold text-gray-900 dark:text-white"><Icon className="h-5 w-5 text-blue-600" />{title}</h2>
+        {hint && <span className="text-xs text-gray-500">{hint}</span>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Desk({ name, on, seenAt, doing, lines }: {
+  name: string
+  on: boolean
+  seenAt: string | null | undefined
+  doing: string | null
+  lines: string[]
+}) {
+  return (
+    <div className={`rounded-2xl border bg-white p-4 dark:bg-gray-900 ${on ? 'border-gray-200 dark:border-gray-800' : 'border-red-200 dark:border-red-900'}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-gray-900 dark:text-white">{name}</p>
+        <span className={`flex items-center gap-1 text-[11px] font-semibold ${on ? 'text-green-600' : 'text-red-600'}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-green-500' : 'bg-red-500'}`} />{on ? '켜짐' : '꺼짐'}
+        </span>
+      </div>
+      <p className="mt-2 truncate text-xs font-semibold text-gray-700 dark:text-gray-300">
+        {on ? doing : seenAt ? `마지막 신호 ${when(seenAt)}` : '아직 신호가 없습니다'}
+      </p>
+      {lines.map(l => <p key={l} className="mt-0.5 text-[11px] text-gray-500">{l}</p>)}
+    </div>
+  )
+}
+
+function JobRow({ status, at, title, detail, onCancel, onRetry }: {
+  status: AdJob['status']
+  at: string
+  title: string
+  detail: string | null
+  onCancel?: () => void
+  onRetry?: () => void
+}) {
+  return (
+    <li className="flex items-start gap-2 px-4 py-2.5">
+      <span className={`mt-0.5 flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STATUS_CLS[status]}`}>{STATUS_LABEL[status]}</span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm text-gray-900 dark:text-white">{title}</p>
+        {detail && <p className={`line-clamp-2 text-[11px] ${status === 'failed' ? 'text-red-600' : 'text-gray-500'}`}>{detail}</p>}
+      </div>
+      <span className="flex-shrink-0 text-[11px] text-gray-400">{when(at)}</span>
+      {onRetry && (
+        <button onClick={onRetry} className="flex-shrink-0 rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+          다시 시도
+        </button>
+      )}
+      {onCancel && (
+        <button onClick={onCancel} className="flex-shrink-0 rounded-md border border-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+          취소
+        </button>
+      )}
+    </li>
+  )
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-900">
+      {text}
+    </div>
+  )
+}
