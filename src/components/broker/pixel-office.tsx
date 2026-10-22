@@ -4,10 +4,10 @@
  * 사무실 화면의 픽셀 사무실 — 한 층짜리 진짜 사무실처럼 그린다.
  *
  *   ┌ 창문 ── 시계 ── 화이트보드 ───────────────── 서버랙 ┐
- *   │ 대표실(유리벽)  │ 직원 책상 (3열씩)        │ 일꾼실 │
- *   ├────── 문 ───────┤                          │ (로봇) │
- *   │ 라운지          │ 프린터 ───────┬── 문 ────┴────────┤
- *   │ 소파·커피·화분  │               │ Claude 연구실     │
+ *   │ 대표실(유리벽)  문 직원 책상 (3열씩)        │ 일꾼실 │
+ *   ├─────────────────┤                          │ (로봇) │
+ *   │ 이사실(유리벽)  │ 프린터 ───────┬── 문 ────┴────────┤
+ *   │ 책장·손님 의자  문 커피·정수기  │ Claude 연구실     │
  *   └─────────────────┴───────────────┴───────────────────┘
  *
  * 그림은 전부 이 파일 안의 사각형으로 그린다(그림 파일 없음). 좌표 단위는 픽셀 하나이고
@@ -44,6 +44,8 @@ export interface Seat {
 export interface OfficeLayout {
   /** 대표실에 앉을 사람 */
   boss: Seat | null
+  /** 이사실에 앉을 사람 */
+  director: Seat | null
   staff: Seat[]
   robots: Seat[]
   claudes: Seat[]
@@ -265,10 +267,11 @@ const STAFF_SLOTS = Array.from({ length: 9 }, (_, i) => ({ x: 132 + (i % 3) * 50
 const ROBOT_SLOTS = [{ x: 300, y: 54 }, { x: 340, y: 54 }, { x: 320, y: 88 }]
 const CLAUDE_SLOTS = Array.from({ length: 8 }, (_, i) => ({ x: 212 + (i % 4) * 43, y: 150 + Math.floor(i / 4) * 32 }))
 const BOSS_SLOT = { x: 44, y: 54 }
+const DIRECTOR_SLOT = { x: 44, y: 152 }
 
 export function PixelOffice({ layout }: { layout: OfficeLayout }) {
   const [picked, setPicked] = useState<string | null>(null)
-  const all = [layout.boss, ...layout.staff, ...layout.robots, ...layout.claudes].filter(Boolean) as Seat[]
+  const all = [layout.boss, layout.director, ...layout.staff, ...layout.robots, ...layout.claudes].filter(Boolean) as Seat[]
   const pickedSeat = all.find(s => s.key === picked) ?? null
   const pick = (s: Seat) => () => setPicked(p => (p === s.key ? null : s.key))
 
@@ -279,6 +282,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
 
   const placed: { seat: Seat; x: number; y: number; big?: boolean }[] = [
     ...(layout.boss ? [{ seat: layout.boss, ...BOSS_SLOT, big: true }] : []),
+    ...(layout.director ? [{ seat: layout.director, ...DIRECTOR_SLOT, big: true }] : []),
     ...staff.map((s, i) => ({ seat: s, ...STAFF_SLOTS[i] })),
     ...layout.robots.slice(0, ROBOT_SLOTS.length).map((s, i) => ({ seat: s, ...ROBOT_SLOTS[i] })),
     ...claudes.map((s, i) => ({ seat: s, ...CLAUDE_SLOTS[i] })),
@@ -315,10 +319,11 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
               <rect width="4" height="4" fill="#7b8fb8" />
               <rect width="1" height="1" fill="#8c9fc6" />
             </pattern>
-            <pattern id="pxo-tile" width="12" height="12" patternUnits="userSpaceOnUse">
-              <rect width="12" height="12" fill="#ece4d2" />
-              <rect width="6" height="6" fill="#e0d6bf" />
-              <rect x="6" y="6" width="6" height="6" fill="#e0d6bf" />
+            <pattern id="pxo-oak" width="16" height="8" patternUnits="userSpaceOnUse">
+              <rect width="16" height="8" fill="#a8744a" />
+              <rect y="7" width="16" height="1" fill="#93623b" />
+              <rect x="5" width="1" height="7" fill="#93623b" />
+              <rect x="13" y="0" width="3" height="7" fill="#b07c51" />
             </pattern>
             <pattern id="pxo-lab" width="10" height="10" patternUnits="userSpaceOnUse">
               <rect width="10" height="10" fill="#d6dde8" />
@@ -335,7 +340,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           {/* ── 바닥 ── */}
           <rect x={0} y={24} width={W} height={H - 24} fill="url(#pxo-wood)" />
           <rect x={0} y={24} width={118} height={88} fill="url(#pxo-carpet)" />
-          <rect x={0} y={112} width={118} height={H - 112} fill="url(#pxo-tile)" />
+          <rect x={0} y={112} width={118} height={H - 112} fill="url(#pxo-oak)" />
           <rect x={290} y={24} width={W - 290} height={98} fill="url(#pxo-server)" />
           <rect x={200} y={130} width={W - 200} height={H - 130} fill="url(#pxo-lab)" />
 
@@ -361,11 +366,11 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           <ServerRack x={308} y={26} />
           <ServerRack x={364} y={26} />
 
-          {/* ── 대표실: 유리벽 ── */}
-          <rect x={116} y={24} width={3} height={88} fill="#94a3b8" />
-          <rect x={116.8} y={30} width={1.4} height={76} fill="#dbeafe" opacity={0.9} />
-          <rect x={0} y={110} width={70} height={3} fill="#94a3b8" />
-          <rect x={96} y={110} width={23} height={3} fill="#94a3b8" />
+          {/* ── 대표실: 유리벽, 문은 직원 쪽으로 ── */}
+          <rect x={116} y={24} width={3} height={62} fill="#94a3b8" />
+          <rect x={116.8} y={30} width={1.4} height={52} fill="#dbeafe" opacity={0.9} />
+          <rect x={116} y={104} width={3} height={8} fill="#94a3b8" />
+          <rect x={0} y={110} width={119} height={3} fill="#94a3b8" />
           <Label x={58} y={32} text="대표실" size={4.6} color="#1e3a8a" />
           {/* 책장 */}
           <rect x={4} y={26} width={22} height={24} fill="#7c4a24" />
@@ -392,32 +397,45 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           <text x={373} y={136.4} fontSize={3.4} fontWeight={800} textAnchor="middle" fill="#fff">LAB</text>
           <Label x={300} y={136} text="Claude 연구실" size={4.4} color="#9a3412" />
 
-          {/* ── 라운지 ── */}
-          <Label x={58} y={122} text="라운지" size={4.4} color="#7c2d12" />
-          {/* 러그 */}
-          <rect x={18} y={150} width={70} height={40} fill="#c08457" opacity={0.55} />
-          <rect x={21} y={153} width={64} height={34} fill="none" stroke="#f5deb3" strokeWidth={0.8} />
-          {/* 소파 */}
-          <rect x={22} y={128} width={56} height={6} fill="#2f5d8c" />
-          <rect x={22} y={134} width={56} height={8} fill="#3b6ea5" />
-          <rect x={18} y={130} width={5} height={13} fill="#2f5d8c" />
-          <rect x={77} y={130} width={5} height={13} fill="#2f5d8c" />
-          {/* 탁자 */}
-          <rect x={38} y={160} width={26} height={12} fill="#8b5a2b" />
-          <rect x={39} y={161} width={24} height={2} fill="#a87443" />
-          <rect x={44} y={163} width={3} height={2} fill="#f8fafc" />
-          {/* 커피머신 */}
-          <rect x={4} y={196} width={30} height={4} fill="#9a6b3f" />
-          <rect x={8} y={184} width={10} height={12} fill="#374151" />
-          <rect x={10} y={186} width={6} height={3} fill="#111827" />
-          <rect x={12} y={192} width={2} height={3} fill="#f8fafc" />
-          <rect x={12} y={180} width={1} height={3} fill="#e5e7eb" className="pxo-steam" />
-          <rect x={14} y={181} width={1} height={2} fill="#e5e7eb" className="pxo-steam" style={{ animationDelay: '.9s' }} />
-          {/* 정수기 */}
-          <rect x={24} y={182} width={7} height={14} fill="#e5e7eb" />
-          <rect x={24} y={178} width={7} height={5} fill="#93c5fd" />
-          <Plant x={100} y={196} />
-          <Plant x={186} y={196} />
+          {/* ── 이사실: 대표실 아래, 유리벽·문 ── */}
+          <rect x={116} y={112} width={3} height={64} fill="#94a3b8" />
+          <rect x={116.8} y={118} width={1.4} height={52} fill="#dbeafe" opacity={0.9} />
+          <rect x={116} y={196} width={3} height={H - 196} fill="#94a3b8" />
+          <Label x={58} y={120} text="이사실" size={4.6} color="#14532d" />
+          {/* 책장 */}
+          <rect x={4} y={114} width={22} height={16} fill="#7c4a24" />
+          {[0, 1].map(r => (
+            <g key={r}>
+              <rect x={5} y={115 + r * 7} width={20} height={6} fill="#5c3416" />
+              {[0, 1, 2, 3, 4].map(b => <rect key={b} x={6 + b * 4} y={116 + r * 7} width={3} height={5} fill={['#4f8a4b', '#d08a2c', '#2f5d8c', '#8a5ab3', '#c0504d'][(b + r) % 5]} />)}
+            </g>
+          ))}
+          {/* 러그 — 책상 아래 */}
+          <rect x={22} y={140} width={78} height={58} fill="#9a3b3b" opacity={0.45} />
+          <rect x={25} y={143} width={72} height={52} fill="none" stroke="#f5deb3" strokeWidth={0.8} />
+          {/* 손님 의자 둘 — 책상 앞 */}
+          <rect x={44} y={186} width={9} height={7} fill="#3f3f46" />
+          <rect x={45} y={187} width={7} height={4} fill="#52525b" />
+          <rect x={64} y={186} width={9} height={7} fill="#3f3f46" />
+          <rect x={65} y={187} width={7} height={4} fill="#52525b" />
+          {/* 금고·트로피 장 */}
+          <rect x={94} y={114} width={18} height={14} fill="#6b7280" />
+          <rect x={95} y={115} width={16} height={12} fill="#9ca3af" />
+          <rect x={101} y={116} width={4} height={5} fill="#facc15" />
+          <rect x={102} y={121} width={2} height={2} fill="#ca8a04" />
+          <Plant x={4} y={196} />
+          <Plant x={104} y={196} />
+
+          {/* ── 탕비실 구석: 커피머신·정수기 ── */}
+          <rect x={166} y={200} width={30} height={4} fill="#9a6b3f" />
+          <rect x={170} y={188} width={10} height={12} fill="#374151" />
+          <rect x={172} y={190} width={6} height={3} fill="#111827" />
+          <rect x={174} y={196} width={2} height={3} fill="#f8fafc" />
+          <rect x={174} y={184} width={1} height={3} fill="#e5e7eb" className="pxo-steam" />
+          <rect x={176} y={185} width={1} height={2} fill="#e5e7eb" className="pxo-steam" style={{ animationDelay: '.9s' }} />
+          <rect x={186} y={186} width={7} height={14} fill="#e5e7eb" />
+          <rect x={186} y={182} width={7} height={5} fill="#93c5fd" />
+          <Plant x={124} y={196} />
 
           {/* ── 사무 공간 소품 ── */}
           <rect x={150} y={164} width={16} height={12} fill="#e5e7eb" />

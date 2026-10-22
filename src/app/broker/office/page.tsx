@@ -25,6 +25,12 @@ import { pollWhileVisible } from '@/lib/poll-visible'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
 import { PixelOffice, type OfficeLayout, type Seat, type SeatState } from '@/components/broker/pixel-office'
 
+/**
+ * 이사실에 앉는 사람(권세현 이사)의 broker_profiles.id.
+ * 직급 칸이 따로 없어 여기서 정한다 — 다른 사무소에 팔 때는 사무소 설정으로 옮겨야 한다.
+ */
+const DIRECTOR_ID = '6581efd5-6ec9-46ea-a391-7e6537cc6345'
+
 /** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */
 const ALIVE_MS = 60_000
 const POLL_MS = 10_000
@@ -350,9 +356,11 @@ export default function OfficePage() {
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
+  const director = people.find(p => p.key === DIRECTOR_ID) ?? null
   const layout: OfficeLayout = {
     boss: people.find(p => p.key === officeId) ?? null,
-    staff: people.filter(p => p.key !== officeId),
+    director: director ? { ...director, role: '이사' } : null,
+    staff: people.filter(p => p.key !== officeId && p.key !== DIRECTOR_ID),
     clock: hmKST(now),
     board: [
       `카페 ${today.cafe}건 올림`,
