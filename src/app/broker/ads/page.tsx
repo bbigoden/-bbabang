@@ -275,6 +275,30 @@ const NL = String.fromCharCode(10)
 /** 이 창에서 마지막으로 보던 검색어·탭을 담아 두는 곳 (sessionStorage) */
 const 보던것키 = 'ads:보던것'
 
+/** 담당자 고르기의 '담당자 없음' — 실제 이름과 겹치지 않는 값 */
+const 담당없음 = '__담당없음'
+
+/**
+ * 보던 것을 되살릴 들어옴인가 — **새로고침·뒤로/앞으로 가기만.**
+ *
+ * 사이드바 메뉴로 새로 들어왔는데 어제 검색어로 1건만 보이면 목록이 줄어든 줄 안다
+ * (2026-10-21 점검). 메뉴로 들어오는 것은 화면 안 이동이라 문서 단위 기록에 안 남고,
+ * 뒤로 가기는 popstate 가 먼저 울린다. 그 둘로 가른다.
+ */
+let 뒤로온때 = 0
+let 문서첫화면 = true
+if (typeof window !== 'undefined') window.addEventListener('popstate', () => { 뒤로온때 = Date.now() })
+function 되살릴까() {
+  const 첫 = 문서첫화면
+  문서첫화면 = false
+  if (Date.now() - 뒤로온때 < 3000) return true
+  if (!첫) return false
+  // 문서를 연 곳도 이 화면이어야 한다 — 대시보드를 새로고침한 뒤 메뉴로 넘어온 것은 '새로 들어옴'이다.
+  const 들어옴 = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+  return !!들어옴 && new URL(들어옴.name).pathname === location.pathname
+    && (들어옴.type === 'reload' || 들어옴.type === 'back_forward')
+}
+
 /**
  * 화면 탭 ↔ 뱅크 탭 대응. **뱅크가 나눠 둔 그대로 보여주는 것이 원칙이다.**
  * 우리가 따로 분류하면 건수가 뱅크 화면과 어긋나 어느 쪽이 맞는지 알 수 없게 된다.
@@ -428,10 +452,10 @@ function CheckCell({ listing, open, onToggle }: {
   // 것을 다시 볼 길도 없었다.
   const 접힘 = 가려진것(listing)
   if (!listing.checked_at && !특이 && !접힘.length) {
-    return <span className="text-gray-300 dark:text-gray-600" title="아직 올려 보지 않았습니다. 올리기를 누르면 함께 점검합니다">–</span>
+    return <span className="text-gray-300 dark:text-gray-600" title="아직 점검하지 않았습니다 — 한 번도 올려 보지 않은 매물입니다. 올리기를 누르면 함께 점검합니다">–</span>
   }
   if (!n && !특이) {
-    if (!접힘.length) return <span className="text-green-600 dark:text-green-400">이상 없음</span>
+    if (!접힘.length) return <span className="text-green-600 dark:text-green-400" title="올릴 때 점검했고 고칠 것이 없었습니다">이상 없음</span>
     return (
       <button
         onClick={onToggle}
@@ -456,7 +480,7 @@ function CheckCell({ listing, open, onToggle }: {
           : blocked || 중복 ? 'text-red-600 dark:text-red-400'
           : 'text-amber-600 dark:text-amber-400'
       }`}
-      title="눌러서 내용 보기"
+      title={`눌러서 내용 보기 — 뱅크에서 고칠 것, 못 올린 이유, 알림을 합쳐 ${n + 특이}건`}
     >
       {open ? '접기' : notTarget && !특이 ? '대상 아님' : `${n + 특이}건`}
     </button>
@@ -609,7 +633,8 @@ function PropertyLinkChip({ listing: l, canManage, onSetLink }: {
   const [글, 모양, 설명] = !l.property_id
     ? ['미연결',
         // 테두리 대신 outline — 테두리는 칩 높이를 2px 늘려 줄이 같이 늘어난다.
-        'text-gray-300 outline-1 -outline-offset-1 outline-dashed outline-gray-200 dark:text-gray-600 dark:outline-gray-700',
+        // 경고문이 "미연결 칩을 보라" 고 하는데 연한 회색 점선이라 거의 안 보였다(2026-10-21 점검 2명).
+        'text-amber-700 outline-1 -outline-offset-1 outline-dashed outline-amber-400 dark:text-amber-400 dark:outline-amber-600',
         l.property_link === 'manual'
           ? '연결을 끊어 둔 광고입니다. 자동으로 다시 잇지 않습니다.'
           : '부소장 매물과 아직 이어지지 않았습니다. 다음 [가져오기] 때 앞 등록의 연결을 물려받거나,'
@@ -741,14 +766,18 @@ function ContractedLiveChip({ listing: l }: { listing: Listing }) {
   const p = l.property
   if (!p || !계약인데광고중(l)) return null
   const 매물 = [p.seq_no != null ? `#${p.seq_no}` : null, p.address].filter(Boolean).join(' ')
+  // **어디에 살아 있는지 적는다.** 카페·블로그·당근 칸이 다 [올리기] 인데 '광고중' 이라고만
+  // 하면 어디를 내리라는 건지 모른다 — 대개 뱅크(네이버부동산)만 남아 있다(2026-10-21 점검).
+  const 뱅크 = l.bank_tab === '등록매물' ? `뱅크${parseBankPeriod(l.bank_period) ? ` ${parseBankPeriod(l.bank_period)!.label}` : ''}` : null
+  const 어디 = [뱅크, ...CHANNELS.filter(c => isLive(l, c.key)).map(c => c.label)].filter(Boolean).join('·')
   return (
     <span
       className="ml-1.5 inline-block whitespace-nowrap rounded bg-red-50 px-1.5 align-middle text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400"
       title={`부소장에서 계약완료로 바꾼 매물입니다 — ${매물}.`
-        + ' 그런데 이 광고가 아직 살아 있습니다.'
-        + ' 같은 매물이 맞으면 오른쪽 ↓ [광고종료] 로 뱅크·카페·당근에서 내려 주세요.'
+        + ` 그런데 광고가 아직 살아 있습니다: ${어디}.`
+        + ' 같은 매물이 맞으면 오른쪽 ↓ [광고종료] 로 한 번에 내려 주세요.'
         + ' 자동으로 내리지는 않습니다.'}
-    >계약완료 매물인데 광고중</span>
+    >계약완료인데 광고중 — {어디}</span>
   )
 }
 
@@ -871,7 +900,9 @@ export default function AdsPage() {
   useEffect(() => {
     const 주소 = new URLSearchParams(location.search)
     const 찾을것 = 주소.get('q')?.trim()
+    const 되살림 = 되살릴까()
     if (!찾을것) {
+      if (!되살림) { 보던것읽음.current = true; return }
       try {
         const 기억 = JSON.parse(sessionStorage.getItem(보던것키) ?? 'null') as { q?: string; tab?: typeof tab } | null
         if (기억?.q) setQ(기억.q)
@@ -1608,14 +1639,17 @@ export default function AdsPage() {
       if (!key && !inTab(l)) return false
       if (좁혀보기 === '특이' && !남은특이(l).length) return false
       if (좁혀보기 === '점검' && !손볼것(l)) return false
-      if (manager && (l.manager ?? '') !== manager) return false
+      if (manager && (manager === 담당없음 ? !!l.manager : (l.manager ?? '') !== manager)) return false
       if (!key) return true
       // **칸을 이어 붙여 한 줄로 보고, 친 말을 띄어쓰기로 나눠 전부 들어 있으면 맞다.**
       // 예전에는 칸마다 따로 찾아서 `불당동 1489` 가 0건이었다 — `불당동` 은
       // 소재지 칸에, `1489` 는 상세주소 칸에 나뉘어 있어 어느 한 칸에도 통째로
       // 없었다. 화면에는 `천안시 서북구 불당동 1489 109호` 로 한 줄로 보이니
       // 사람은 당연히 그렇게 친다. 순서도 안 가린다(`1489 불당동` 도 된다).
-      const 한줄 = [l.naver_no, l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager]
+      // 이어진 부소장 매물 번호도 `#2020` 꼴로 넣는다 — 칩에 '매물 #2020' 이라 보이는데
+      // 2020 을 치면 주소에 2020 이 든 줄만 나왔다(2026-10-21 점검). `#2020` 으로 치면 그 매물만.
+      const 매물번호 = l.property?.seq_no != null ? `#${l.property.seq_no} 매물#${l.property.seq_no}` : null
+      const 한줄 = [l.naver_no, l.bank_no, l.region, l.address_detail, l.property_kind, l.deal_type, l.manager, 매물번호]
         .filter(Boolean).join(' ').toLowerCase()
       return key.split(/\s+/).every(말 => 한줄.includes(말))
         || (!!붙인번호 && 붙인번호.length >= 6 && 한줄.includes(붙인번호))
@@ -1663,7 +1697,8 @@ export default function AdsPage() {
   // 탭을 바꾸면 숫자도 같이 바뀐다. 그 탭에 한 건도 없는 담당자는 (0)으로 남긴다 —
   // 선택지가 사라지면 골라 둔 담당자가 화면에서 통째로 없어져 버린다.
   const managerCounts = listings.reduce<Record<string, number>>((acc, l) => {
-    if (l.manager && inTab(l)) acc[l.manager] = (acc[l.manager] ?? 0) + 1
+    // 담당자가 비어 있는 줄도 센다 — 빼면 담당자별 합이 탭 건수보다 모자라 어디 갔는지 모른다.
+    if (inTab(l)) { const k = l.manager || 담당없음; acc[k] = (acc[k] ?? 0) + 1 }
     return acc
   }, {})
   const countOf = (t: string) => listings.filter(l => l.bank_tab === t).length
@@ -1836,7 +1871,7 @@ export default function AdsPage() {
               aria-label="광고 매물 검색"
               value={q}
               onChange={e => setQ(e.target.value)}
-              placeholder="전체 검색..."
+              placeholder="번호·주소·담당자·매물 #번호"
               className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
             {q && <SearchClear onClick={() => setQ('')} />}
@@ -1852,6 +1887,7 @@ export default function AdsPage() {
             >
               <option value="">담당자 전체</option>
               {managers.map(n => <option key={n} value={n}>{`${n} (${managerCounts[n] ?? 0})`}</option>)}
+              {!!managerCounts[담당없음] && <option value={담당없음}>{`담당자 없음 (${managerCounts[담당없음]})`}</option>}
             </select>
           )}
 
@@ -1987,8 +2023,11 @@ export default function AdsPage() {
                               href={bankDetailUrl(l)!}
                               target="_blank"
                               rel="noreferrer"
+                              // 새 탭으로 열려 이 화면엔 아무 변화가 없다 — 안 눌린 줄 알았다(2026-10-21 점검).
+                              // 어디로 가는지 글자와 툴팁으로 알린다. 뱅크 번호도 여기 적는다(사장님이 아는 번호).
+                              title={`부동산뱅크에서 이 매물 열기 (새 탭) · 뱅크 번호 ${l.bank_no}`}
                               className="underline underline-offset-2 hover:text-blue-600"
-                            >{보이는번호(l)}</a>
+                            >{보이는번호(l)}<span className="ml-0.5 text-[10px] text-gray-400 no-underline">↗</span></a>
                           : 보이는번호(l)}
                         <PropertyLinkChip listing={l} canManage={canManageAds} onSetLink={매물잇기} />
                       </td>
@@ -2104,7 +2143,11 @@ export default function AdsPage() {
                   const 펼침 = openReport === l.id && (점검줄.length || 특이줄.length || 접은줄.length)
                   const report = 펼침 ? (
                     <tr key={`${l.id}-report`} className="bg-amber-50/60 dark:bg-amber-950/30">
-                      <td colSpan={CHANNELS.length + FIXED_COLS} className="space-y-3 px-4 py-3">
+                      <td colSpan={CHANNELS.length + FIXED_COLS} className="px-4 py-3">
+                        {/* 표는 가로로 밀리는 상자 안이다. 당근 칸까지 밀어 둔 채 [n건] 을 누르면
+                            펼친 내용이 왼쪽 화면 밖에 그려져 '안 열린다' 로 보였다(2026-10-21 점검).
+                            보이는 자리에 붙여 둔다. */}
+                        <div className="sticky left-4 max-w-[min(56rem,calc(100vw-5rem))] space-y-3">
                         {!!특이줄.length && (
                           <div>
                             <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
@@ -2129,7 +2172,7 @@ export default function AdsPage() {
                             <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
                               {/* "다시 눌러 주세요" 는 뺐다 — 화면이 바뀌어 나는 오류는 몇 번을
                                   눌러도 같다(같은 매물을 네 번 누르게 만들었다). 할 일은 줄에 있다. */}
-                              {보이는번호(l)} 올리지 못했습니다 — 뱅크에서 고칠 것은 없습니다
+                              {보이는번호(l)} 올리지 못했습니다 — 뱅크 내용 문제는 아닙니다. 아래 줄의 할 일을 봐 주세요
                             </p>
                             <ul className="space-y-1.5">
                               {못올린줄.map((r, i) => (
@@ -2194,6 +2237,7 @@ export default function AdsPage() {
                             </ul>
                           </div>
                         )}
+                        </div>
                       </td>
                     </tr>
                   ) : null
