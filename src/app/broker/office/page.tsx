@@ -23,7 +23,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { pollWhileVisible } from '@/lib/poll-visible'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
-import { PixelOffice, type Room, type SeatState } from '@/components/broker/pixel-office'
+import { PixelOffice, type OfficeLayout, type Seat, type SeatState } from '@/components/broker/pixel-office'
 
 /** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */
 const ALIVE_MS = 60_000
@@ -337,9 +337,29 @@ export default function OfficePage() {
   const adNote = agents?.note ?? '대기 중'
   const bankRunning = bankJobs.find(j => j.status === 'running')
   const orderRunning = (orders ?? []).some(o => o.status === 'running')
-  const rooms: Room[] = [{
-    key: 'workers', title: 'PC 일꾼실',
-    seats: [
+  const people: Seat[] = members.map((m, i) => {
+    const s = memberStats[m.id] ?? { today: 0, total: 0 }
+    const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
+    return {
+      key: m.id, kind: 'person', tint: i, name: m.profiles?.name ?? '이름 없음',
+      role: m.id === officeId ? '대표' : '직원',
+      // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
+      state: s.today > 0 ? 'working' : 'idle',
+      say: open ? `할 일 ${open}건` : s.today ? `오늘 ${s.today}건 등록` : null,
+      note: `오늘 등록 ${s.today}건 · 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
+    }
+  })
+  const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
+  const layout: OfficeLayout = {
+    boss: people.find(p => p.key === officeId) ?? null,
+    staff: people.filter(p => p.key !== officeId),
+    clock: hmKST(now),
+    board: [
+      `카페 ${today.cafe}건 올림`,
+      `오늘 받은 매물 ${today.naver + today.daangn}건`,
+      isOwner ? `남은 할 일 ${openTasks}건` : `내 할 일 ${myTasks.filter(t => t.status === 'open').length}건`,
+    ],
+    robots: [
       {
         key: 'ad', kind: 'robot', name: '광고 일꾼',
         state: !adOn ? 'off' : /대기/.test(adNote) ? 'idle' : 'working',
@@ -356,39 +376,17 @@ export default function OfficePage() {
         key: 'office', kind: 'robot' as const, name: '사무실 일꾼',
         state: (!officeOn ? 'off' : orderRunning ? 'working' : 'idle') as SeatState,
         say: officeOn ? (orderRunning ? 'Claude 에게 지시 전달 중' : '대기 중') : offSay(agents?.office_seen_at),
-        note: 'Claude 연결',
+        note: 'Claude 활동을 옮기고, 화면의 지시를 Claude 에게 전합니다',
       }] : []),
     ],
-  }]
-  if (isOwner) {
-    rooms.push({
-      key: 'staff', title: '직원석', empty: '직원 정보를 불러오는 중입니다',
-      seats: members.map((m, i) => {
-        const s = memberStats[m.id] ?? { today: 0, total: 0 }
-        const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
-        return {
-          key: m.id, kind: 'person' as const, tint: i, name: m.profiles?.name ?? '이름 없음',
-          role: m.id === officeId ? '대표' : '직원',
-          // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
-          state: (s.today > 0 ? 'working' : 'idle') as SeatState,
-          say: open ? `할 일 ${open}건` : s.today ? `오늘 ${s.today}건 등록` : null,
-          note: `등록 ${s.total}`,
-        }
-      }),
-    })
-    if (sessions !== null) {
-      rooms.push({
-        key: 'claude', title: 'Claude 연구실', empty: '지금 일하는 Claude 가 없습니다',
-        seats: visibleSessions(sessions).map(s => ({
-          key: s.session_id, kind: 'claude' as const,
-          name: s.title || '제목 없는 작업',
-          state: (s.status === 'ended' ? 'off' : s.status) as SeatState,
-          say: s.status === 'ended' ? null : s.last_action,
-          note: `${s.project ?? ''} · ${when(s.updated_at)}`,
-          badge: s.order_id ? '지시' : undefined,
-        })),
-      })
-    }
+    claudes: visibleSessions(sessions ?? []).map(s => ({
+      key: s.session_id, kind: 'claude',
+      name: s.title || '제목 없는 작업',
+      state: s.status === 'ended' ? 'off' : s.status,
+      say: s.status === 'ended' ? '퇴근' : s.last_action,
+      note: `${s.project ?? ''} · ${when(s.updated_at)}`,
+      badge: s.order_id ? '지시' : undefined,
+    })),
   }
 
   return (
@@ -419,7 +417,7 @@ export default function OfficePage() {
 
       {/* ── 픽셀 사무실 ─────────────────────────────── */}
       <div className="mb-7">
-        <PixelOffice rooms={rooms} />
+        <PixelOffice layout={layout} />
 
         {isOwner && (
           <div className="mt-3 flex flex-wrap gap-2">
