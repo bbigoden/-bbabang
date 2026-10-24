@@ -1565,6 +1565,17 @@ function BrokerPropertiesContent() {
   // 매물상태 확인창. 첫 사용자 점검에서 상태 칸을 한 번 눌렀을 뿐인데 확인 없이 '완료' 가 됐다 —
   // 계약완료는 광고를 내려야 하는 상태라 묻고 바꾼다. 살아 있는 광고가 있으면 그것도 같이 보인다.
   const [statusConfirm, setStatusConfirm] = useState<{ p: Property; next: 'available' | 'contracted' } | null>(null)
+  // 폰에서 페이지가 화면보다 넓게 잡히면 fixed 확인창이 보이는 영역 밖(우하단)에 떠서 안 보였다.
+  // 확인창이 열려 있는 동안 '지금 눈에 보이는 영역'(visualViewport)에 맞춰 위치·크기를 잡는다.
+  const [vvBox, setVvBox] = useState<{ l: number; t: number; w: number; h: number } | null>(null)
+  useEffect(() => {
+    const v = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!statusConfirm || !v) return
+    const upd = () => setVvBox({ l: v.offsetLeft, t: v.offsetTop, w: v.width, h: v.height })
+    upd()
+    v.addEventListener('resize', upd); v.addEventListener('scroll', upd)
+    return () => { v.removeEventListener('resize', upd); v.removeEventListener('scroll', upd); setVvBox(null) }
+  }, [statusConfirm])
   // 뱅크 임시저장 확인창 — 넣을 수 있는지(planBankDraft)를 먼저 보여 주고 넣는다.
   const [bankDraftConfirm, setBankDraftConfirm] = useState<{ p: Property; plan: ReturnType<typeof planBankDraft> } | null>(null)
   const [bankDraftSaving, setBankDraftSaving] = useState(false)
@@ -3357,7 +3368,8 @@ function BrokerPropertiesContent() {
         const 어디 = [p.seq_no != null ? `#${p.seq_no}` : null, p.address || '소재지 없음'].filter(Boolean).join(' ')
         // body 로 직접 그린다 — 폰에서 표 스크롤 칸 안쪽 레이아웃의 영향을 받아 확인창이 안 보이던 것을 막는다
         return createPortal(
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" role="dialog" aria-modal="true"
+            style={vvBox ? { left: vvBox.l, top: vvBox.t, width: vvBox.w, height: vvBox.h } : undefined}>
             <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                 {완료로 ? '이 매물을 계약완료로 바꿀까요?' : '이 매물을 다시 가능으로 되돌릴까요?'}
