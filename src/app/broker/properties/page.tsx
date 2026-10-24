@@ -860,7 +860,7 @@ function StatusToggleCell({ value, onSave, readOnly }: {
       onClick={() => onSave?.(isCompleted ? 'available' : 'contracted')}
       title={isCompleted ? '누르면 다시 가능으로 되돌릴지 묻습니다' : '누르면 계약완료로 바꿀지 묻습니다'}
       className={cn(
-        'w-full rounded-md px-2 py-1 text-xs font-semibold transition-colors min-h-[22px]',
+        'w-full rounded-md px-2 py-1 text-xs font-semibold transition-colors min-h-[22px] max-md:min-h-[34px]',
         colorCls,
         isCompleted ? 'hover:bg-gray-200' : 'hover:bg-green-200'
       )}
@@ -3350,13 +3350,14 @@ function BrokerPropertiesContent() {
       })()}
 
       {/* 매물상태 확인 모달 — 삭제 확인과 같은 모양 */}
-      {statusConfirm && (() => {
+      {statusConfirm && typeof document !== 'undefined' && (() => {
         const { p, next } = statusConfirm
         const 완료로 = next === 'contracted'
         const 광고 = adBadges[p.id]
         const 어디 = [p.seq_no != null ? `#${p.seq_no}` : null, p.address || '소재지 없음'].filter(Boolean).join(' ')
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" role="dialog" aria-modal="true">
+        // body 로 직접 그린다 — 폰에서 표 스크롤 칸 안쪽 레이아웃의 영향을 받아 확인창이 안 보이던 것을 막는다
+        return createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" role="dialog" aria-modal="true">
             <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                 {완료로 ? '이 매물을 계약완료로 바꿀까요?' : '이 매물을 다시 가능으로 되돌릴까요?'}
@@ -3374,11 +3375,12 @@ function BrokerPropertiesContent() {
                   className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
                 <button type="button" onClick={() => { saveField(p.id, 'status', next); setStatusConfirm(null) }}
                   className={`flex-1 rounded-xl py-2.5 text-sm font-semibold text-white ${완료로 ? 'bg-gray-700 hover:bg-gray-800' : 'bg-green-600 hover:bg-green-700'}`}>
-                  {완료로 ? '계약완료로 바꾸기' : '가능으로 되돌리기'}
+                  변경
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )
       })()}
 
