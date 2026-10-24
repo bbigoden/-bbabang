@@ -33,8 +33,10 @@ export function BrokerGlobalLayout({ children }: { children: React.ReactNode }) 
     // 말없이 등록 양식(휴지통은 홈)으로 보내 '왜 여기로 왔지'가 됐다. loading 이 끝난 뒤라
     // broker 는 새로 받은 값이다(auth-context 가 '사무소 없음' 캐시로는 loading 을 풀지 않는다).
     const locked = broker ? null : officeLockedLabel(pathname)
+    // 바깥 칸에 relative — 없으면 표 안의 sr-only 같은 absolute 요소가 이 칸 밖(페이지 기준)으로 삐져나가
+    // 폰에서 페이지가 4배 넓게 잡히고 화면이 통째로 축소됐다.
     return (
-      <div className="flex h-screen overflow-hidden">
+      <div className="relative flex h-screen overflow-hidden">
         <BrokerSidebar />
         <div className="flex-1 min-w-0 flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950">
           {locked ? <OfficeLocked label={locked} /> : children}
