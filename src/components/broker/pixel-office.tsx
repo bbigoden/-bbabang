@@ -6,11 +6,11 @@
  *   ┌ 창문 ── 시계 ── 화이트보드 ─────────────────────────────────┐
  *   │ 대표실   │ 협력업체 ┊ Claude 연구실      │ 서버실(사무실 일꾼) │
  *   ├──문──────┴──────문─────────────문───────┴────문─────────────┤
- *   │ 이사실  │ 회의 ┊ 상담실 │ 홍보부(채널 로봇) │ 등록실       │
+ *   │ 이사실  │ 회의 ┊ 상담실 │ 홍보부(채널 로봇 ┊ 등록 로봇)     │
  *   ├──문─────┴──────문───────┴──────문──────────┴─────문─────────┤
  *   │ 영업부 (직원 책상)       │ 탕비실 │ 매물조사실(수집 로봇)    │
  *   └──────────────────────────┴────────┴──────────────────────────┘
- *   (┊ = 한 방 안의 유리 칸막이. 배치는 2026-10-25 사장님이 정함)
+ *   (┊ = 한 방을 둘이 나눠 씀. 배치·폭은 2026-10-25 사장님이 정함 — 이사실=대표실 폭, 영업부=이사실+회의·상담실 폭)
  *
  * 광고 PC 프로그램은 하나지만, 하는 일(카페·블로그·당근·회수·수집·뱅크)마다 로봇을 따로 앉혀
  * 지금 어느 일이 도는지 자리로 보이게 한다 — 그 나눔은 화면(page.tsx)이 걸린 일로 정한다.
@@ -190,13 +190,38 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       {/* 의자 */}
       <rect x={x + 3} y={y + 2} width={12} height={9} fill="#3f3f46" />
       <rect x={x + 4} y={y + 3} width={10} height={7} fill="#52525b" />
-      {on && (
-        <g className={seat.state === 'working' ? 'pxo-type' : undefined}>
-          <Sprite rows={SPRITES[seat.kind]} palette={paletteOf(seat.kind, seat.tint)} x={x + 2} y={y}
-            blink={seat.kind === 'person' ? '#f2c9a0' : seat.kind === 'claude' ? '#d97757' : '#d1d5db'}
-            delay={(seed(seat.key) % 50) / 10} />
-        </g>
-      )}
+      {/* 캐릭터 — 1.3배로 키우고 어두운 테를 둘러 바닥·의자 색에 묻히지 않게 한다(2026-10-25 '잘 보였으면').
+          몸짓: 일하면 들썩, 기다리면 손 흔들기, 쉬면 사람은 두리번·로봇은 둥실·Claude 는 가끔 깡충. */}
+      {on && (() => {
+        const pal = paletteOf(seat.kind, seat.tint)
+        const ink = Object.fromEntries(Object.keys(pal).map(k => [k, '#1f2937']))
+        const rows = SPRITES[seat.kind]
+        const cx = x + 9
+        const by = y + 11
+        const motion = seat.state === 'working' ? 'pxo-type'
+          : seat.state === 'waiting' ? 'pxo-bounce'
+            : seat.kind === 'robot' ? 'pxo-hover' : seat.kind === 'claude' ? 'pxo-hop' : 'pxo-look'
+        const delay = `${(seed(seat.key) % 70) / 10}s`
+        return (
+          <g transform={`translate(${cx} ${by}) scale(1.3) translate(${-cx} ${-by})`}>
+            <g className={motion} style={{ animationDelay: delay }}>
+              {[[-0.6, 0], [0.6, 0], [0, -0.6]].map(([ox, oy]) => (
+                <Sprite key={`${ox}${oy}`} rows={rows} palette={ink} x={x + 2 + ox} y={y + oy} />
+              ))}
+              <Sprite rows={rows} palette={pal} x={x + 2} y={y}
+                blink={seat.kind === 'person' ? '#f2c9a0' : seat.kind === 'claude' ? '#d97757' : '#d1d5db'}
+                delay={(seed(seat.key) % 50) / 10} />
+              {/* 기다림 — 오른손을 들어 흔든다 */}
+              {seat.state === 'waiting' && (
+                <g className="pxo-wave">
+                  <rect x={x + 13.4} y={y + 2} width={1.6} height={6} fill={pal.B ?? pal.O ?? pal.G} stroke="#1f2937" strokeWidth={0.3} />
+                  <rect x={x + 13.2} y={y + 0.4} width={2} height={2} fill={seat.kind === 'robot' ? '#9ca3af' : pal.S ?? pal.O} stroke="#1f2937" strokeWidth={0.3} />
+                </g>
+              )}
+            </g>
+          </g>
+        )
+      })()}
       {/* 책상 상판·앞판 */}
       <rect x={x} y={y + 11} width={w} height={3} fill="#c8955f" />
       <rect x={x} y={y + 14} width={w} height={7} fill="#9a6b3f" />
@@ -204,6 +229,16 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       {/* 키보드·머그 */}
       <rect x={x + 5} y={y + 11} width={7} height={1} fill="#e5e7eb" />
       {on && <rect x={x + 13} y={y + 9} width={2} height={2} fill={seat.kind === 'claude' ? '#f4a261' : '#f8fafc'} />}
+      {/* 일하는 중 — 키보드 위 두 손이 번갈아 누른다 */}
+      {seat.state === 'working' && (() => {
+        const hand = seat.kind === 'person' ? '#f2c9a0' : seat.kind === 'claude' ? '#d97757' : '#9ca3af'
+        return (
+          <>
+            <g className="pxo-step-a"><rect x={x + 5} y={y + 9.8} width={2.2} height={1.4} fill={hand} stroke="#1f2937" strokeWidth={0.25} /></g>
+            <g className="pxo-step-b"><rect x={x + 9.6} y={y + 9.8} width={2.2} height={1.4} fill={hand} stroke="#1f2937" strokeWidth={0.25} /></g>
+          </>
+        )
+      })()}
       {/* 모니터 */}
       <rect x={x + w - 10} y={y + 3} width={9} height={7} fill="#111827" />
       <rect x={x + w - 9} y={y + 4} width={7} height={5} fill={screen} className={seat.state === 'working' ? 'pxo-blink' : undefined} />
@@ -215,8 +250,9 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       <rect x={x + w - 7} y={y + 10} width={3} height={1} fill="#111827" />
       {big && <rect x={x + 15} y={y + 9} width={4} height={2} fill="#2f855a" />}
       {/* 이름판 */}
-      <rect x={x + w / 2 - 1} y={y + 23.2} width={2} height={2} fill={DOT[seat.state]} transform={`translate(${-Math.min(seat.name.length, 7) * 2.1 - 2} 0)`} />
-      <Label x={x + w / 2 + 1} y={y + 26} text={cut(seat.name, 7)} size={4} color={on ? '#111827' : '#6b7280'} />
+      <rect x={x + w / 2 - 1} y={y + 23} width={2.6} height={2.6} fill={DOT[seat.state]} stroke="#1f2937" strokeWidth={0.3}
+        transform={`translate(${-Math.min(seat.name.length, 7) * 2.3 - 2.5} 0)`} />
+      <Label x={x + w / 2 + 1} y={y + 26.2} text={cut(seat.name, 7)} size={4.4} color={on ? '#111827' : '#6b7280'} />
       {seat.badge && (
         <>
           <rect x={x + w - 6} y={y - 1} width={8} height={4.5} fill="#111827" />
@@ -241,9 +277,9 @@ function Bubble({ seat, x, y }: { seat: Seat; x: number; y: number }) {
   const cx = x + 9
   return (
     <g className={done ? 'pxo-pop' : waiting ? 'pxo-bounce' : undefined} style={{ pointerEvents: 'none' }}>
-      <rect x={cx - w / 2} y={y - 10} width={w} height={7} fill={tone.bg} stroke={tone.line} strokeWidth={0.6} />
-      <rect x={cx - 1} y={y - 3} width={2} height={1.5} fill={tone.line} />
-      <text x={cx} y={y - 5.2} fontSize={3.6} fontWeight={700} textAnchor="middle" fill={tone.ink}>
+      <rect x={cx - w / 2} y={y - 13} width={w} height={7} fill={tone.bg} stroke={tone.line} strokeWidth={0.6} />
+      <rect x={cx - 1} y={y - 6} width={2} height={1.5} fill={tone.line} />
+      <text x={cx} y={y - 8.2} fontSize={3.6} fontWeight={700} textAnchor="middle" fill={tone.ink}>
         {done ? `✓ ${text}` : waiting ? `! ${text}` : text}
       </text>
     </g>
@@ -350,9 +386,9 @@ type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'server' | 'lab' | 'tile' |
 
 /**
  * 방(벽으로 둘러싼 칸). 자리 무리(RoomKey)와 따로 둔다 — 한 방에 두 무리가 앉는 곳이 있다
- * (협력업체 + Claude 연구실, 회의실 + 상담실 — 2026-10-25 사장님이 합침).
+ * (협력업체 + Claude 연구실, 회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이).
  */
-type BoxKey = 'boss' | 'partnerLab' | 'server' | 'director' | 'meetConsult' | 'promo' | 'register' | 'sales' | 'pantry' | 'research'
+type BoxKey = 'boss' | 'partnerLab' | 'server' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
 
 interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number; h: number; floor: Floor; color: string }
 
@@ -361,13 +397,12 @@ const ROOMS: RoomBox[] = [
   { key: 'boss', label: '대표실', x: 0, y: 24, w: 120, h: 96, floor: 'carpet', color: '#1e3a8a' },
   { key: 'partnerLab', label: '협력업체 · Claude 연구실', x: 120, y: 24, w: 256, h: 96, floor: 'lab', color: '#6d28d9' },
   { key: 'server', label: '서버실', x: 376, y: 24, w: 136, h: 96, floor: 'server', color: '#0f172a' },
-  { key: 'director', label: '이사실', x: 0, y: 120, w: 116, h: 88, floor: 'oak', color: '#14532d' },
-  { key: 'meetConsult', label: '회의 · 상담실', x: 116, y: 120, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
-  { key: 'promo', label: '홍보부', x: 256, y: 120, w: 136, h: 88, floor: 'wood', color: '#be185d' },
-  { key: 'register', label: '등록실', x: 392, y: 120, w: 120, h: 88, floor: 'lab', color: '#4338ca' },
-  { key: 'sales', label: '영업부', x: 0, y: 208, w: 200, h: 80, floor: 'wood', color: '#1d4ed8' },
-  { key: 'pantry', label: '탕비실', x: 200, y: 208, w: 80, h: 80, floor: 'tile', color: '#78350f' },
-  { key: 'research', label: '매물조사실', x: 280, y: 208, w: 232, h: 80, floor: 'lab', color: '#0e7490' },
+  { key: 'director', label: '이사실', x: 0, y: 120, w: 120, h: 88, floor: 'oak', color: '#14532d' },
+  { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 120, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
+  { key: 'promo', label: '홍보부', x: 260, y: 120, w: 252, h: 88, floor: 'wood', color: '#be185d' },
+  { key: 'sales', label: '영업부', x: 0, y: 208, w: 260, h: 80, floor: 'wood', color: '#1d4ed8' },
+  { key: 'pantry', label: '탕비실', x: 260, y: 208, w: 80, h: 80, floor: 'tile', color: '#78350f' },
+  { key: 'research', label: '매물조사실', x: 340, y: 208, w: 172, h: 80, floor: 'lab', color: '#0e7490' },
 ]
 
 /** 문 — 벽 위에 문지방 색을 덧칠해 구멍을 낸다. */
@@ -377,11 +412,11 @@ const DOORS = [
   // 1줄 세로 벽
   { x: 118, y: 62, w: 4, h: 20 }, { x: 374, y: 70, w: 4, h: 20 },
   // 2줄 세로 벽
-  { x: 114, y: 150, w: 4, h: 22 }, { x: 254, y: 150, w: 4, h: 22 }, { x: 390, y: 150, w: 4, h: 22 },
+  { x: 118, y: 150, w: 4, h: 22 }, { x: 258, y: 150, w: 4, h: 22 },
   // 2·3줄 사이 벽
-  { x: 60, y: 206, w: 18, h: 4 }, { x: 226, y: 206, w: 18, h: 4 }, { x: 330, y: 206, w: 18, h: 4 }, { x: 440, y: 206, w: 18, h: 4 },
+  { x: 60, y: 206, w: 18, h: 4 }, { x: 190, y: 206, w: 18, h: 4 }, { x: 290, y: 206, w: 18, h: 4 }, { x: 440, y: 206, w: 18, h: 4 },
   // 3줄 세로 벽
-  { x: 198, y: 238, w: 4, h: 20 }, { x: 278, y: 238, w: 4, h: 20 },
+  { x: 258, y: 238, w: 4, h: 20 }, { x: 338, y: 238, w: 4, h: 20 },
 ]
 
 /** 자리 무리마다 어느 방 어디에 책상을 놓나: 첫 자리(dx, dy), 가로·세로 간격(sx, sy), 한 줄에 몇, 최대 몇. */
@@ -392,10 +427,11 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   server: { box: 'server', dx: 56, dy: 50, sx: 0, sy: 0, cols: 1, max: 1 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   consult: { box: 'meetConsult', dx: 90, dy: 20, sx: 0, sy: 0, cols: 1, max: 1 },
-  promo: { box: 'promo', dx: 14, dy: 20, sx: 60, sy: 34, cols: 2, max: 4 },
-  register: { box: 'register', dx: 10, dy: 20, sx: 52, sy: 34, cols: 2, max: 4 },
-  sales: { box: 'sales', dx: 12, dy: 20, sx: 46, sy: 30, cols: 4, max: 8 },
-  research: { box: 'research', dx: 12, dy: 20, sx: 48, sy: 30, cols: 4, max: 8 },
+  promo: { box: 'promo', dx: 14, dy: 25, sx: 60, sy: 32, cols: 2, max: 4 },
+  // 등록 로봇도 홍보부에 앉는다 — 2026-10-25 사장님이 등록실을 홍보부로 합침(칸막이 없이)
+  register: { box: 'promo', dx: 150, dy: 25, sx: 52, sy: 32, cols: 2, max: 4 },
+  sales: { box: 'sales', dx: 12, dy: 25, sx: 46, sy: 27, cols: 5, max: 10 },
+  research: { box: 'research', dx: 12, dy: 25, sx: 48, sy: 27, cols: 3, max: 6 },
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
@@ -461,9 +497,6 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
     case 'partnerLab':
       return (
         <g>
-          {/* 왼쪽 협력업체 자리와 오른쪽 연구실 사이 낮은 유리 칸막이 */}
-          <rect x={x + 86} y={y + 14} width={2} height={74} fill="#94a3b8" />
-          <rect x={x + 86.5} y={y + 18} width={1} height={66} fill="#dbeafe" />
           <Label x={x + 44} y={y + 88} text="협력업체" size={3.6} color="#6d28d9" />
           <Label x={x + 170} y={y + 88} text="Claude 연구실" size={3.6} color="#9a3412" />
           <rect x={x + w - 18} y={y + 3} width={14} height={6} fill="#d97757" />
@@ -471,17 +504,89 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
         </g>
       )
     case 'director':
+      // 풀소유 이사실 — 사장님 주문(2026-10-25): 모든 게 갖춰진 방.
       return (
         <g>
+          {/* 벽: 금테 그림 · 실적 TV · 트로피장 */}
+          <rect x={x + 34} y={y + 3} width={16} height={11} fill="#c9a227" />
+          <rect x={x + 35.5} y={y + 4.5} width={13} height={8} fill="#7dd3fc" />
+          <rect x={x + 35.5} y={y + 9} width={13} height={3.5} fill="#4ade80" />
+          <rect x={x + 40} y={y + 6} width={3} height={3} fill="#fde047" />
+          <rect x={x + 54} y={y + 3} width={30} height={13} fill="#111827" />
+          <rect x={x + 55.5} y={y + 4.5} width={27} height={10} fill="#0f172a" />
+          {[3, 5, 4, 7, 6, 8].map((hgt, i) => (
+            <rect key={i} x={x + 57 + i * 4.2} y={y + 13.5 - hgt} width={2.6} height={hgt} fill={i === 5 ? '#facc15' : '#38bdf8'}
+              className="pxo-code" style={{ animationDelay: `${i * 0.25}s`, animationDuration: '3s' }} />
+          ))}
+          <rect x={x + 88} y={y + 3} width={27} height={20} fill="#7c4a24" />
+          <rect x={x + 89} y={y + 4} width={25} height={18} fill="#e0f2fe" opacity={0.85} />
+          <rect x={x + 89} y={y + 12.5} width={25} height={1} fill="#7c4a24" />
+          {[0, 1, 2].map(i => (
+            <g key={i}>
+              <rect x={x + 91 + i * 8} y={y + 6} width={4} height={3} fill="#facc15" />
+              <rect x={x + 92 + i * 8} y={y + 9} width={2} height={2} fill="#ca8a04" />
+              <rect x={x + 91 + i * 8} y={y + 11} width={4} height={1} fill="#a16207" />
+            </g>
+          ))}
+          {[0, 1, 2].map(i => <rect key={`m${i}`} x={x + 92 + i * 8} y={y + 16} width={3} height={3} fill={['#fbbf24', '#d1d5db', '#d97706'][i]} />)}
+
+          {/* 왼쪽: 책장 · 어항 · 금고 */}
           <Bookshelf x={x + 4} y={y + 12} rows={2} />
-          <rect x={x + 92} y={y + 12} width={18} height={14} fill="#6b7280" />
-          <rect x={x + 93} y={y + 13} width={16} height={12} fill="#9ca3af" />
-          <rect x={x + 99} y={y + 14} width={4} height={5} fill="#facc15" />
-          <rect x={x + 30} y={y + 26} width={58} height={46} fill="#9a3b3b" opacity={0.4} />
-          <rect x={x + 46} y={y + 64} width={9} height={7} fill="#3f3f46" />
-          <rect x={x + 64} y={y + 64} width={9} height={7} fill="#3f3f46" />
-          <Plant x={x + 6} y={y + 70} />
-          <Plant x={x + 100} y={y + 70} />
+          <rect x={x + 4} y={y + 31} width={22} height={13} fill="#475569" />
+          <rect x={x + 5} y={y + 32} width={20} height={10} fill="#38bdf8" opacity={0.85} />
+          <rect x={x + 5} y={y + 40} width={20} height={2} fill="#fde68a" />
+          <rect x={x + 7} y={y + 37} width={1} height={3} fill="#22c55e" />
+          <rect x={x + 21} y={y + 36} width={1} height={4} fill="#16a34a" />
+          <g className="pxo-fish"><rect x={x + 6} y={y + 34} width={3} height={1.6} fill="#f97316" /><rect x={x + 5.2} y={y + 34.3} width={1} height={1} fill="#f97316" /></g>
+          <g className="pxo-fish" style={{ animationDelay: '-4s', animationDuration: '7s' }}><rect x={x + 7} y={y + 37.5} width={2.4} height={1.4} fill="#facc15" /></g>
+          <rect x={x + 16} y={y + 33} width={0.8} height={0.8} fill="#e0f2fe" className="pxo-steam" />
+          <rect x={x + 4} y={y + 46} width={11} height={11} fill="#b8860b" />
+          <rect x={x + 5} y={y + 47} width={9} height={9} fill="#d4a017" />
+          <rect x={x + 8.5} y={y + 50} width={2} height={2} fill="#78350f" />
+          <rect x={x + 12} y={y + 50} width={1} height={3} fill="#78350f" />
+
+          {/* 가운데: 페르시안 러그 · 손님 가죽 소파 둘 */}
+          <rect x={x + 28} y={y + 24} width={62} height={48} fill="#9a3b3b" opacity={0.5} />
+          <rect x={x + 30} y={y + 26} width={58} height={44} fill="none" stroke="#fbbf24" strokeWidth={0.8} />
+          <rect x={x + 33} y={y + 29} width={52} height={38} fill="none" stroke="#fbbf24" strokeWidth={0.4} strokeDasharray="1.5 1" />
+          {[46, 64].map(cx => (
+            <g key={cx}>
+              <rect x={x + cx - 1} y={y + 62} width={12} height={9} fill="#7f1d1d" />
+              <rect x={x + cx} y={y + 63} width={10} height={5} fill="#991b1b" />
+              <rect x={x + cx - 2} y={y + 63} width={2} height={7} fill="#7f1d1d" />
+              <rect x={x + cx + 10} y={y + 63} width={2} height={7} fill="#7f1d1d" />
+            </g>
+          ))}
+
+          {/* 오른쪽: 미니바(와인) · 안마의자 · 스탠드 */}
+          <rect x={x + 96} y={y + 27} width={18} height={18} fill="#1f2937" />
+          <rect x={x + 97} y={y + 28} width={16} height={7} fill="#374151" />
+          {[0, 1, 2, 3].map(i => <rect key={i} x={x + 98 + i * 4} y={y + 29} width={2} height={5} fill={['#7f1d1d', '#065f46', '#7f1d1d', '#f59e0b'][i]} />)}
+          <rect x={x + 97} y={y + 36} width={16} height={8} fill="#e5e7eb" />
+          <rect x={x + 110} y={y + 38} width={1} height={4} fill="#9ca3af" />
+          <rect x={x + 97} y={y + 48} width={16} height={6} fill="#111827" />
+          <rect x={x + 98} y={y + 54} width={14} height={8} fill="#1f2937" />
+          <rect x={x + 99} y={y + 49} width={12} height={4} fill="#b91c1c" />
+          <rect x={x + 100} y={y + 55} width={10} height={4} fill="#b91c1c" />
+          <rect x={x + 109} y={y + 62} width={4} height={2} fill="#111827" />
+          <rect x={x + 92} y={y + 64} width={1} height={18} fill="#78716c" />
+          <rect x={x + 89} y={y + 61} width={7} height={4} fill="#fef3c7" />
+          <rect x={x + 88} y={y + 65} width={9} height={6} fill="#fef9c3" opacity={0.25} />
+
+          {/* 바닥 앞쪽: 골프 퍼팅 매트 · 지구본 · 큰 화분 */}
+          <rect x={x + 4} y={y + 70} width={28} height={13} fill="#15803d" />
+          <rect x={x + 5} y={y + 71} width={26} height={11} fill="#22c55e" />
+          <rect x={x + 26} y={y + 75} width={2.4} height={2.4} fill="#14532d" />
+          <rect x={x + 27} y={y + 67} width={0.8} height={9} fill="#e5e7eb" />
+          <rect x={x + 27.8} y={y + 67} width={4} height={2.6} fill="#ef4444" />
+          <rect x={x + 9} y={y + 77} width={1.6} height={1.6} fill="#ffffff" />
+          <rect x={x + 76} y={y + 72} width={8} height={8} fill="#2563eb" />
+          <rect x={x + 77} y={y + 73} width={3} height={3} fill="#22c55e" />
+          <rect x={x + 80} y={y + 76} width={3} height={2} fill="#22c55e" />
+          <rect x={x + 79} y={y + 80} width={2} height={3} fill="#a16207" />
+          <rect x={x + 76} y={y + 83} width={8} height={1} fill="#a16207" />
+          <Plant x={x + 104} y={y + 70} />
+          <Plant x={x + 36} y={y + 72} />
         </g>
       )
     case 'meetConsult':
@@ -497,16 +602,14 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
           <rect x={x + 6} y={y + 44} width={56} height={18} fill="#8b5a2b" />
           <rect x={x + 7} y={y + 45} width={54} height={3} fill="#a87443" />
           {[0, 1, 2, 3].map(i => <rect key={`b${i}`} x={x + 10 + i * 13} y={y + 63} width={8} height={6} fill="#3f3f46" />)}
-          {/* 오른쪽 상담 — 칸막이 너머 상담 책상과 손님 의자 */}
-          <rect x={x + 76} y={y + 14} width={2} height={70} fill="#94a3b8" />
-          <rect x={x + 76.5} y={y + 18} width={1} height={62} fill="#dbeafe" />
+          {/* 오른쪽 상담 — 상담 책상과 손님 의자 */}
           {[0, 1].map(i => (
             <g key={i}>
-              <rect x={x + 88 + i * 16} y={y + 50} width={12} height={9} fill="#3f3f46" />
-              {i < guests && <Sprite rows={PERSON} palette={{ H: '#4b5563', S: '#f2c9a0', E: '#1f1f1f', B: '#9ca3af' }} x={x + 87 + i * 16} y={y + 44} />}
+              <rect x={x + 88 + i * 16} y={y + 60} width={12} height={9} fill="#3f3f46" />
+              {i < guests && <Sprite rows={PERSON} palette={{ H: '#4b5563', S: '#f2c9a0', E: '#1f1f1f', B: '#9ca3af' }} x={x + 87 + i * 16} y={y + 54} />}
             </g>
           ))}
-          <Label x={x + 108} y={y + 70} text={guests > 0 ? `오늘 상담 ${guests}명` : '상담'} size={3.6} color="#166534" />
+          <Label x={x + 108} y={y + 80} text={guests > 0 ? `오늘 상담 ${guests}명` : '상담'} size={3.6} color="#166534" />
           <Plant x={x + 124} y={y + 70} />
         </g>
       )
@@ -523,8 +626,8 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
         <g>
           <Plant x={x + w - 14} y={y + h - 16} />
           {/* 프린터 */}
-          <rect x={x + 150} y={y + h - 14} width={16} height={10} fill="#e5e7eb" />
-          <rect x={x + 151} y={y + h - 13} width={14} height={3} fill="#9ca3af" />
+          <rect x={x + 200} y={y + h - 14} width={16} height={10} fill="#e5e7eb" />
+          <rect x={x + 201} y={y + h - 13} width={14} height={3} fill="#9ca3af" />
         </g>
       )
     case 'promo':
@@ -533,6 +636,10 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
           {/* 게시판 — 붙인 광고 */}
           <rect x={x + 94} y={y + 3} width={36} height={13} fill="#c08457" />
           {[0, 1, 2].map(i => <rect key={i} x={x + 97 + i * 11} y={y + 5} width={8} height={9} fill={['#fde68a', '#bfdbfe', '#fbcfe8'][i]} />)}
+          {/* 서류함 — 등록 로봇 쪽 */}
+          <rect x={x + 226} y={y + 3} width={16} height={14} fill="#9ca3af" />
+          <rect x={x + 227} y={y + 5} width={14} height={4} fill="#d1d5db" />
+          <rect x={x + 227} y={y + 11} width={14} height={4} fill="#d1d5db" />
           <Plant x={x + w - 14} y={y + h - 16} />
         </g>
       )
@@ -540,20 +647,11 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
       return (
         <g>
           {/* 벽 지도 */}
-          <rect x={x + 150} y={y + 3} width={44} height={14} fill="#d1fae5" />
-          <rect x={x + 154} y={y + 6} width={12} height={7} fill="#86efac" />
-          <rect x={x + 168} y={y + 8} width={20} height={6} fill="#93c5fd" />
-          <rect x={x + 176} y={y + 5} width={2} height={2} fill="#ef4444" />
+          <rect x={x + 110} y={y + 3} width={44} height={14} fill="#d1fae5" />
+          <rect x={x + 114} y={y + 6} width={12} height={7} fill="#86efac" />
+          <rect x={x + 128} y={y + 8} width={20} height={6} fill="#93c5fd" />
+          <rect x={x + 136} y={y + 5} width={2} height={2} fill="#ef4444" />
           <Plant x={x + w - 14} y={y + h - 16} />
-        </g>
-      )
-    case 'register':
-      return (
-        <g>
-          {/* 서류함 */}
-          <rect x={x + 98} y={y + 3} width={16} height={14} fill="#9ca3af" />
-          <rect x={x + 99} y={y + 5} width={14} height={4} fill="#d1d5db" />
-          <rect x={x + 99} y={y + 11} width={14} height={4} fill="#d1d5db" />
         </g>
       )
     case 'pantry':
@@ -609,6 +707,16 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         .pxo-blink { animation: pxo-blink 1.2s steps(2) infinite; }
         @keyframes pxo-bounce { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-1px) } }
         .pxo-bounce { animation: pxo-bounce .6s steps(1) infinite; }
+        @keyframes pxo-look { 0%, 58% { transform: translateX(0) } 60%, 72% { transform: translateX(-.7px) } 74%, 86% { transform: translateX(.7px) } 88%, 100% { transform: translateX(0) } }
+        .pxo-look { animation: pxo-look 7s steps(1) infinite; }
+        @keyframes pxo-hover { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-.8px) } }
+        .pxo-hover { animation: pxo-hover 2.4s ease-in-out infinite; }
+        @keyframes pxo-hop { 0%, 82% { transform: translateY(0) } 86% { transform: translateY(-2px) } 90% { transform: translateY(0) } 93% { transform: translateY(-1px) } 96%, 100% { transform: translateY(0) } }
+        .pxo-hop { animation: pxo-hop 5s steps(1) infinite; }
+        @keyframes pxo-wave { 0%, 49% { transform: translateY(0) } 50%, 100% { transform: translateY(-1px) } }
+        .pxo-wave { animation: pxo-wave .35s steps(1) infinite; }
+        @keyframes pxo-fish { 0% { transform: translateX(0) scaleX(1) } 45% { transform: translateX(12px) scaleX(1) } 50% { transform: translateX(12px) scaleX(-1) } 95% { transform: translateX(0) scaleX(-1) } 100% { transform: translateX(0) scaleX(1) } }
+        .pxo-fish { transform-box: fill-box; transform-origin: center; animation: pxo-fish 9s linear infinite; }
         @keyframes pxo-led { 0%, 60% { opacity: 1 } 61%, 100% { opacity: .25 } }
         .pxo-led { animation: pxo-led 1.4s steps(1) infinite; }
         @keyframes pxo-steam { 0% { transform: translateY(0); opacity: .8 } 100% { transform: translateY(-5px); opacity: 0 } }
@@ -636,7 +744,8 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         .dark .pxo-scene { filter: brightness(.8) saturate(.9); }
         @media (prefers-reduced-motion: reduce) {
           .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam, .pxo-eye, .pxo-code, .pxo-pop, .pxo-colon,
-          .pxo-cloud, .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b { animation: none }
+          .pxo-cloud, .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b,
+          .pxo-look, .pxo-hover, .pxo-hop, .pxo-wave, .pxo-fish { animation: none }
         }
       `}</style>
 
@@ -720,11 +829,11 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           ))}
 
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
-          <rect x={151} y={270} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
+          <rect x={201} y={270} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
           {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
-          <Vacuum x={14} y={262} span={110} />
+          <Vacuum x={14} y={274} span={160} />
           <Cat x={122} y={198} span={56} />
-          <Cat x={300} y={280} span={170} />
+          <Cat x={346} y={280} span={120} />
 
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
           {overflow.map(o => <Label key={o.key} x={o.x} y={o.y} text={`+${o.n}`} size={4} anchor="start" />)}
