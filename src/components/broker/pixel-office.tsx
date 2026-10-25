@@ -43,6 +43,8 @@ export interface Seat {
   /** 사람마다 머리·옷 색을 달리한다 */
   tint?: number
   badge?: string
+  /** 방금 끝낸 일 — 머리 위에 초록 '✓' 풍선으로 잠깐 띄운다 */
+  flash?: string | null
 }
 
 export type RoomKey =
@@ -126,8 +128,13 @@ function paletteOf(kind: SeatKind, tint = 0): Record<string, string> {
   return { H: t.H, S: '#f2c9a0', E: '#1f1f1f', B: t.B }
 }
 
-/** 글자 지도를 사각형으로. 이웃한 같은 색은 한 줄로 묶어 사각형 수를 줄인다. */
-function Sprite({ rows, palette, x, y }: { rows: string[]; palette: Record<string, string>; x: number; y: number }) {
+/**
+ * 글자 지도를 사각형으로. 이웃한 같은 색은 한 줄로 묶어 사각형 수를 줄인다.
+ * blink 를 주면 눈(E·K·C)을 그 색(눈꺼풀=피부색)으로 잠깐 덮어 깜빡이게 한다. delay 로 사람마다 때를 어긋낸다.
+ */
+function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
+  rows: string[]; palette: Record<string, string>; x: number; y: number; blink?: string; delay?: number
+}) {
   const rects: React.ReactNode[] = []
   rows.forEach((row, r) => {
     let c = 0
@@ -135,12 +142,20 @@ function Sprite({ rows, palette, x, y }: { rows: string[]; palette: Record<strin
       const ch = row[c]
       let w = 1
       while (c + w < row.length && row[c + w] === ch) w++
-      if (ch !== '.' && palette[ch]) rects.push(<rect key={`${r}-${c}`} x={x + c} y={y + r} width={w} height={1} fill={palette[ch]} />)
+      if (ch !== '.' && palette[ch]) {
+        const eye = blink && (ch === 'E' || ch === 'K' || ch === 'C')
+        rects.push(<rect key={`${r}-${c}`} x={x + c} y={y + r} width={w} height={1} fill={palette[ch]}
+          className={eye ? 'pxo-eye' : undefined}
+          style={eye ? { ['--eye' as string]: palette[ch], ['--lid' as string]: blink, animationDelay: `${delay}s` } : undefined} />)
+      }
       c += w
     }
   })
   return <>{rects}</>
 }
+
+/** 자리마다 다른 수 — 깜빡임·움직임 때를 어긋내는 데 쓴다. */
+const seed = (s: string) => [...s].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 9973, 7)
 
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
@@ -176,7 +191,9 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       <rect x={x + 4} y={y + 3} width={10} height={7} fill="#52525b" />
       {on && (
         <g className={seat.state === 'working' ? 'pxo-type' : undefined}>
-          <Sprite rows={SPRITES[seat.kind]} palette={paletteOf(seat.kind, seat.tint)} x={x + 2} y={y} />
+          <Sprite rows={SPRITES[seat.kind]} palette={paletteOf(seat.kind, seat.tint)} x={x + 2} y={y}
+            blink={seat.kind === 'person' ? '#f2c9a0' : seat.kind === 'claude' ? '#d97757' : '#d1d5db'}
+            delay={(seed(seat.key) % 50) / 10} />
         </g>
       )}
       {/* 책상 상판·앞판 */}
@@ -189,6 +206,11 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       {/* 모니터 */}
       <rect x={x + w - 10} y={y + 3} width={9} height={7} fill="#111827" />
       <rect x={x + w - 9} y={y + 4} width={7} height={5} fill={screen} className={seat.state === 'working' ? 'pxo-blink' : undefined} />
+      {/* 일하는 중이면 화면에 글줄이 차례로 찍힌다 */}
+      {seat.state === 'working' && [0, 1, 2].map(i => (
+        <rect key={i} x={x + w - 8} y={y + 4.8 + i * 1.4} width={[5, 3, 4][i]} height={0.7} fill="#0c4a6e"
+          className="pxo-code" style={{ animationDelay: `${i * 0.4}s` }} />
+      ))}
       <rect x={x + w - 7} y={y + 10} width={3} height={1} fill="#111827" />
       {big && <rect x={x + 15} y={y + 9} width={4} height={2} fill="#2f855a" />}
       {/* 이름판 */}
@@ -206,20 +228,71 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
 
 /** 머리 위 말풍선. 일하거나 기다릴 때만 띄운다 — 다 띄우면 판이 말풍선으로 덮인다. */
 function Bubble({ seat, x, y }: { seat: Seat; x: number; y: number }) {
-  if (!seat.say || (seat.state !== 'working' && seat.state !== 'waiting')) return null
-  const text = cut(seat.say, 12)
-  const w = Math.max(14, text.length * 3.6 + 4)
+  // 방금 끝낸 일이 있으면 그것부터 — 일이 끝나는 순간이 사무실에서 가장 볼 만하다.
+  const done = !!seat.flash && seat.state !== 'working' && seat.state !== 'waiting'
+  if (!done && (!seat.say || (seat.state !== 'working' && seat.state !== 'waiting'))) return null
+  const text = cut(done ? seat.flash! : seat.say!, 12)
+  const w = Math.max(14, text.length * 3.6 + 6)
   const waiting = seat.state === 'waiting'
+  const tone = done ? { bg: '#dcfce7', line: '#15803d', ink: '#14532d' }
+    : waiting ? { bg: '#fef3c7', line: '#b45309', ink: '#78350f' }
+      : { bg: '#ffffff', line: '#1f2937', ink: '#111827' }
   const cx = x + 9
   return (
-    <g className={waiting ? 'pxo-bounce' : undefined} style={{ pointerEvents: 'none' }}>
-      <rect x={cx - w / 2} y={y - 10} width={w} height={7} fill={waiting ? '#fef3c7' : '#ffffff'} stroke={waiting ? '#b45309' : '#1f2937'} strokeWidth={0.6} />
-      <rect x={cx - 1} y={y - 3} width={2} height={1.5} fill={waiting ? '#b45309' : '#1f2937'} />
-      <text x={cx} y={y - 5.2} fontSize={3.6} fontWeight={700} textAnchor="middle" fill={waiting ? '#78350f' : '#111827'}>
-        {waiting ? `! ${text}` : text}
+    <g className={done ? 'pxo-pop' : waiting ? 'pxo-bounce' : undefined} style={{ pointerEvents: 'none' }}>
+      <rect x={cx - w / 2} y={y - 10} width={w} height={7} fill={tone.bg} stroke={tone.line} strokeWidth={0.6} />
+      <rect x={cx - 1} y={y - 3} width={2} height={1.5} fill={tone.line} />
+      <text x={cx} y={y - 5.2} fontSize={3.6} fontWeight={700} textAnchor="middle" fill={tone.ink}>
+        {done ? `✓ ${text}` : waiting ? `! ${text}` : text}
       </text>
     </g>
   )
+}
+
+// ── 돌아다니는 것들 — 사무실이 멈춘 그림처럼 보이지 않게 ─────────
+
+const CAT = [
+  '.........K.K',
+  'C.......CCCC',
+  '.C......CWCW',
+  '..CCCCCCCCC.',
+  '..CCCCCCCC..',
+]
+const CAT_LEGS = ['..C.C...C.C.', '...C.C..C.C.']
+
+/** 고양이 — 방 바닥을 오가다 멈춰 꼬리를 흔든다. */
+function Cat({ x, y, span }: { x: number; y: number; span: number }) {
+  const pal = { C: '#e8954a', K: '#c2410c', W: '#1f1f1f' }
+  return (
+    <g className="pxo-cat" style={{ ['--span' as string]: `${span}px` }}>
+      <g transform={`translate(${x} ${y})`}>
+        <Sprite rows={CAT} palette={pal} x={0} y={0} />
+        <g className="pxo-step-a"><Sprite rows={[CAT_LEGS[0]]} palette={pal} x={0} y={5} /></g>
+        <g className="pxo-step-b"><Sprite rows={[CAT_LEGS[1]]} palette={pal} x={0} y={5} /></g>
+      </g>
+    </g>
+  )
+}
+
+/** 청소 로봇 — 바닥을 천천히 왕복하며 불이 깜빡인다. */
+function Vacuum({ x, y, span }: { x: number; y: number; span: number }) {
+  return (
+    <g className="pxo-vacuum" style={{ ['--span' as string]: `${span}px` }}>
+      <rect x={x + 1} y={y} width={8} height={1} fill="#4b5563" />
+      <rect x={x} y={y + 1} width={10} height={3} fill="#6b7280" />
+      <rect x={x + 1} y={y + 4} width={8} height={1} fill="#374151" />
+      <rect x={x + 4} y={y + 1.5} width={2} height={1} fill="#22c55e" className="pxo-led" />
+    </g>
+  )
+}
+
+/** 시간대마다 창밖 하늘. 밤이면 별이 뜨고 사무실이 조금 어두워진다. */
+function skyOf(clock: string) {
+  const h = Number(clock.slice(0, 2))
+  if (h >= 7 && h < 17) return { sky: '#9fd3f5', night: false }
+  if (h >= 17 && h < 19) return { sky: '#f6a46b', night: false }
+  if (h >= 5 && h < 7) return { sky: '#fcd9a8', night: false }
+  return { sky: '#1e2a4a', night: true }
 }
 
 // ── 소품 ───────────────────────────────────────────────
@@ -236,12 +309,16 @@ function Plant({ x, y }: { x: number; y: number }) {
   )
 }
 
-function Window({ x }: { x: number }) {
+function Window({ x, sky = '#9fd3f5', night = false }: { x: number; sky?: string; night?: boolean }) {
   return (
     <g>
       <rect x={x} y={4} width={30} height={15} fill="#e2e8f0" />
-      <rect x={x + 1.5} y={5.5} width={27} height={12} fill="#9fd3f5" />
-      <rect x={x + 3} y={7} width={6} height={2} fill="#ffffff" opacity={0.85} />
+      <rect x={x + 1.5} y={5.5} width={27} height={12} fill={sky} />
+      {night
+        ? [[4, 8], [11, 12], [20, 7], [24, 13]].map(([sx, sy]) => (
+          <rect key={`${sx}-${sy}`} x={x + sx} y={sy} width={0.8} height={0.8} fill="#fef9c3" className="pxo-led" style={{ animationDelay: `${sx / 10}s` }} />
+        ))
+        : <rect x={x + 3} y={7} width={6} height={2} fill="#ffffff" opacity={0.85} className="pxo-cloud" />}
       <rect x={x + 14.25} y={5.5} width={1.5} height={12} fill="#e2e8f0" />
       <rect x={x} y={19} width={30} height={1.5} fill="#cbd5e1" />
     </g>
@@ -495,6 +572,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
   const all = Object.values(layout.seats).flat() as Seat[]
   const pickedSeat = all.find(s => s.key === picked) ?? null
   const pick = (s: Seat) => () => setPicked(p => (p === s.key ? null : s.key))
+  const { sky, night } = skyOf(layout.clock)
 
   // 방마다 자리를 놓는다. 넘치는 사람은 방 오른쪽 아래에 '+n'.
   const placed: { seat: Seat; x: number; y: number; big?: boolean }[] = []
@@ -523,8 +601,31 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         .pxo-led { animation: pxo-led 1.4s steps(1) infinite; }
         @keyframes pxo-steam { 0% { transform: translateY(0); opacity: .8 } 100% { transform: translateY(-5px); opacity: 0 } }
         .pxo-steam { animation: pxo-steam 2s linear infinite; }
+        @keyframes pxo-eye { 0%, 95% { fill: var(--eye) } 96%, 100% { fill: var(--lid) } }
+        .pxo-eye { animation: pxo-eye 4.5s steps(1) infinite; }
+        @keyframes pxo-code { 0% { opacity: 0 } 30%, 80% { opacity: 1 } 100% { opacity: 0 } }
+        .pxo-code { animation: pxo-code 1.2s steps(3) infinite; }
+        @keyframes pxo-pop { 0% { transform: translateY(2px); opacity: 0 } 15%, 85% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(-2px); opacity: 0 } }
+        .pxo-pop { animation: pxo-pop 4s ease-out infinite; }
+        @keyframes pxo-colon { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+        .pxo-colon { animation: pxo-colon 1s steps(1) infinite; }
+        @keyframes pxo-cloud { 0%, 100% { transform: translateX(0) } 50% { transform: translateX(14px) } }
+        .pxo-cloud { animation: pxo-cloud 40s ease-in-out infinite; }
+        @keyframes pxo-paper { 0%, 80% { transform: translateY(0); opacity: 0 } 85% { opacity: 1 } 100% { transform: translateY(4px); opacity: 1 } }
+        .pxo-paper { animation: pxo-paper 9s steps(6) infinite; }
+        @keyframes pxo-walk { 0% { transform: translateX(0) scaleX(1) } 40% { transform: translateX(var(--span)) scaleX(1) }
+          50% { transform: translateX(var(--span)) scaleX(-1) } 90% { transform: translateX(0) scaleX(-1) } 100% { transform: translateX(0) scaleX(1) } }
+        .pxo-cat, .pxo-vacuum { transform-box: fill-box; transform-origin: center; }
+        .pxo-cat { animation: pxo-walk 26s steps(90) infinite; }
+        .pxo-vacuum { animation: pxo-walk 34s linear infinite; }
+        @keyframes pxo-step { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+        .pxo-step-a { animation: pxo-step .4s steps(1) infinite; }
+        .pxo-step-b { animation: pxo-step .4s steps(1) infinite reverse; }
         .dark .pxo-scene { filter: brightness(.8) saturate(.9); }
-        @media (prefers-reduced-motion: reduce) { .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam { animation: none } }
+        @media (prefers-reduced-motion: reduce) {
+          .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam, .pxo-eye, .pxo-code, .pxo-pop, .pxo-colon,
+          .pxo-cloud, .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b { animation: none }
+        }
       `}</style>
 
       <p className="mb-1 text-[11px] text-gray-500 lg:hidden">← 사무실을 옆으로 밀어 다른 방도 보세요 →</p>
@@ -576,10 +677,12 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           {/* ── 뒷벽: 창문·시계·화이트보드 ── */}
           <rect x={0} y={0} width={W} height={24} fill="#e9dcc6" />
           <rect x={0} y={21} width={W} height={3} fill="#8a6f52" />
-          {[10, 64, 132, 186, 370, 424, 474].map(wx => <Window key={wx} x={wx} />)}
+          {[10, 64, 132, 186, 370, 424, 474].map(wx => <Window key={wx} x={wx} sky={sky} night={night} />)}
           <rect x={244} y={5} width={22} height={11} fill="#1f2937" />
           <rect x={245} y={6} width={20} height={9} fill="#0f172a" />
-          <text x={255} y={13} fontSize={6} fontWeight={800} textAnchor="middle" fill="#4ade80" style={{ fontFamily: 'monospace' }}>{layout.clock}</text>
+          <text x={255} y={13} fontSize={6} fontWeight={800} textAnchor="middle" fill="#4ade80" style={{ fontFamily: 'monospace' }}>
+            {layout.clock.slice(0, 2)}<tspan className="pxo-colon">:</tspan>{layout.clock.slice(3)}
+          </text>
           <rect x={274} y={3} width={86} height={17} fill="#9ca3af" />
           <rect x={275} y={4} width={84} height={15} fill="#f8fafc" />
           {layout.board.slice(0, 3).map((l, i) => (
@@ -604,6 +707,13 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
             </g>
           ))}
 
+          {/* 영업부 프린터 — 가끔 종이가 나온다 */}
+          <rect x={7} y={198} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
+          {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
+          <Vacuum x={30} y={198} span={130} />
+          <Cat x={8} y={276} span={60} />
+          <Cat x={302} y={280} span={150} />
+
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
           {overflow.map(o => <Label key={o.room.key} x={o.room.x + o.room.w - 5} y={o.room.y + o.room.h - 4} text={`+${o.n}`} size={4} anchor="end" />)}
 
@@ -612,6 +722,8 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
             <Desk key={p.seat.key} seat={p.seat} x={p.x} y={p.y} big={p.big}
               picked={picked === p.seat.key} onPick={pick(p.seat)} />
           ))}
+          {/* 밤 — 사무실 불빛만 남기고 어둡게. 모니터·말풍선은 이 위에 그려 밝게 둔다 */}
+          {night && <rect x={0} y={24} width={W} height={H - 24} fill="#0b1026" opacity={0.28} style={{ pointerEvents: 'none' }} />}
           {/* 말풍선은 맨 위에 — 책상 뒤에 가리지 않게 따로 한 번 더 그린다 */}
           {placed.map(p => <Bubble key={`b-${p.seat.key}`} seat={p.seat} x={p.x + 2} y={p.y} />)}
         </svg>

@@ -41,6 +41,15 @@ const STAFF_DEPT: Record<string, RoomKey> = {
 
 /** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */
 const ALIVE_MS = 60_000
+
+/** 일이 끝나고 이만큼은 머리 위에 '✓' 풍선을 띄운다 — 10초마다 새로 보니 서너 번은 눈에 띈다. */
+const FLASH_MS = 3 * 60_000
+
+/** 일꾼 로봇이 일을 마쳤을 때 하는 말 */
+const DONE_SAY: Record<string, string> = {
+  publish: '올렸어요', takedown: '내렸어요', naver: '다 받았어요', daangn: '다 받았어요',
+  sync: '가져왔어요', renew: '재등록 끝',
+}
 const POLL_MS = 10_000
 
 interface Agents {
@@ -393,10 +402,12 @@ export default function OfficePage() {
     const nowChannel = !channel || !running || (running.params?.channels as string[] | undefined)?.length === 1
       || adNote.includes(CHANNEL_LABEL[channel] ?? channel)
     const queued = adJobs.filter(j => j.status === 'queued' && matches(j))
+    const justDone = adJobs.find(j => j.status === 'done' && matches(j) && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
     const nextAt = queued.map(j => j.params?.notBefore as string | undefined).filter(Boolean).sort()[0]
     const working = !!running && nowChannel
     return {
       key, kind: 'robot', name, tint, note,
+      flash: justDone ? (DONE_SAY[justDone.kind] ?? '끝났어요') : null,
       state: !adOn ? 'off' : working ? 'working' : 'idle',
       say: !adOn ? offSay(agents?.last_seen_at)
         : working ? (running!.progress ?? adNote)
@@ -437,6 +448,8 @@ export default function OfficePage() {
           state: !bankOn ? 'off' : bankRunning ? 'working' : 'idle',
           say: bankOn ? (bankRunning ? (bankRunning.progress ?? '임시저장 중') : '대기 중') : offSay(agents?.bank_draft_seen_at),
           note: `뱅크 임시저장 대기 ${bankJobs.filter(j => j.status === 'queued').length}건`,
+          flash: bankJobs.some(j => j.status === 'done' && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
+            ? '임시저장 끝' : null,
         },
         robot('sync', '뱅크 동기화', ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
       ],
@@ -445,6 +458,8 @@ export default function OfficePage() {
         state: !officeOn ? 'off' : orderRunning ? 'working' : 'idle',
         say: officeOn ? (orderRunning ? 'Claude 에게 지시 전달 중' : '대기 중') : offSay(agents?.office_seen_at),
         note: 'Claude 활동을 옮기고, 화면의 지시를 Claude 에게 전합니다',
+        flash: (orders ?? []).some(o => o.status === 'done' && o.finished_at && now - new Date(o.finished_at).getTime() < FLASH_MS)
+          ? '지시 끝' : null,
       }] : [],
       partner: partners.map((c, i) => ({
         key: `partner-${c.id}`, kind: 'person', tint: 5 + i, name: c.name.replace(/\s*주식회사\s*|\(주\)/g, ''),
@@ -457,6 +472,8 @@ export default function OfficePage() {
       say: s.status === 'ended' ? '퇴근' : s.last_action,
       note: `${s.project ?? ''} · ${when(s.updated_at)}`,
       badge: s.order_id ? '지시' : undefined,
+      flash: s.status === 'idle' && s.last_action === '일을 마쳤습니다' && now - new Date(s.updated_at).getTime() < FLASH_MS
+        ? '끝냈어요' : null,
     })),
     },
   }
