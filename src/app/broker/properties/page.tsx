@@ -37,6 +37,7 @@ import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 import { PROPERTY_STATUS_META } from '@/lib/property-status'
 import { Spinner } from '@/components/ui/spinner'
 import { SearchClear } from '@/components/ui/search-clear'
+import { PropertyTextHistoryButton } from '@/components/sheet/property-text-history'
 import { chipClass } from '@/components/ui/chip'
 
 interface Property {
@@ -1394,10 +1395,10 @@ const PropertyRow = memo(function PropertyRow({
               {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} placeholder="관리비" />}
               {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} multi={settings.multi['direction']} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
               {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-              {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" />)}
+              {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <div className="flex items-start gap-1"><div className="min-w-0 flex-1"><LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" /></div><PropertyTextHistoryButton propertyId={p.id} field="brief_memo" label="매물설명" onRestore={v => saveField(p.id, 'brief_memo', v || null)} /></div>)}
               {key === 'memo'            && (settings.colTypes['memo'] === 'select'
                 ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} multi={settings.multi['memo']} />
-                : <LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" />)}
+                : <div className="flex items-start gap-1"><div className="min-w-0 flex-1"><LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" /></div><PropertyTextHistoryButton propertyId={p.id} field="memo" label="중개사 메모" onRestore={v => saveField(p.id, 'memo', v || null)} /></div>)}
               {key === 'assignee'        && <SelectCell value={p.assignee ?? ''} options={teamMembers} onSave={v => saveField(p.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />}
             </td>
           )
