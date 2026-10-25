@@ -113,8 +113,29 @@ export default async function ExploreRequestsPage({ searchParams }: { searchPara
         {error ? (
           <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">데이터 조회 실패</div>
         ) : total === 0 ? (
-          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center text-sm text-gray-500">
-            {filterActive ? '조건에 맞는 요청이 없어요' : '아직 등록된 요청이 없어요'}
+          // 첫 화면 [실시간 요청 둘러보기] 를 누른 사람이 빈 상자만 보고 돌아갔다(2026-10-25 점검) —
+          // 비어 있을 때 무엇을 하면 되는지 함께 적는다.
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center">
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              {filterActive ? '조건에 맞는 요청이 없어요' : '아직 올라온 요청이 없어요'}
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              {filterActive
+                ? '지역이나 거래형태를 넓혀 보거나, 이 조건을 저장해 두면 새 요청이 올라올 때 알려 드려요.'
+                : '찾는 집이 있다면 첫 요청을 올려 보세요. 조건만 적으면 중개사들이 맞는 매물을 먼저 제안해요.'}
+            </p>
+            {!filterActive && (
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <Link href="/request/new"
+                  className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+                  조건 올리기
+                </Link>
+                <Link href="/office-intro"
+                  className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                  중개사이신가요?
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
           <ul className="grid gap-3 md:grid-cols-2">

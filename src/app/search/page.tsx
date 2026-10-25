@@ -44,6 +44,7 @@ function SearchInner() {
   const [query, setQuery] = useState(initialQ)
   const [debounced, setDebounced] = useState(initialQ)
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
   const [properties, setProperties] = useState<PropertyHit[]>([])
   const [requests, setRequests] = useState<RequestHit[]>([])
 
@@ -61,33 +62,61 @@ function SearchInner() {
     window.history.replaceState(null, '', u.toString())
   }, [debounced])
 
-  const search = useCallback(async (q: string) => {
+  /**
+   * 검색어로 찾는다.
+   *
+   * 2026-10-25 점검에서 두 가지가 났다.
+   * - `' OR 1=1 --` 나 아주 긴 검색어는 Supabase 앞단이 요청을 막아 Promise 가 실패했는데, 로딩을 끄는
+   *   줄이 그 뒤에 있어 '불러오는 중' 이 영원히 돌았다 → finally 에서 끈다, 실패는 실패라고 말한다.
+   * - 검색어가 필터 문법에 그대로 들어가 `%` `_` 는 와일드카드로, `( ) ,` 는 400 으로 '결과 없음' 이 됐다
+   *   → 그런 글자는 빼고 50자까지만 쓴다. 지역·매물 이름을 찾는 데 필요 없는 글자들이다.
+   */
+  const seqRef = useRef(0)
+  const search = useCallback(async (raw: string) => {
+    const q = raw.replace(/[%_(),*\\'"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50)
+    const seq = ++seqRef.current
+    setFailed(false)
     if (!q || q.length < 2) {
-      setProperties([]); setRequests([])
+      setProperties([]); setRequests([]); setLoading(false)
       return
     }
     setLoading(true)
     const like = `%${q}%`
-    const [pRes, rRes] = await Promise.all([
-      supabase
-        .from('public_properties')
-        // 중개사 실명은 조회만 하고 화면엔 쓰지 않았다 — 공개 화면은 사무소명까지다
-        .select('id, seq_no, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name)')
-        .ilike('address', like)
-        .eq('status', 'available')
-        .order('created_at', { ascending: false })
-        .limit(10),
-      supabase
-        .from('request_posts')
-        .select('id, city, district, dong, deal_type, room_type, min_price, max_price, proposal_count, created_at')
-        .or(`city.ilike.${like},district.ilike.${like},dong.ilike.${like},deal_type.ilike.${like},room_type.ilike.${like}`)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(10),
-    ])
-    setProperties((pRes.data ?? []) as any)
-    setRequests((rRes.data ?? []) as any)
-    setLoading(false)
+    // 앞단이 막은 요청(403, CORS 없음)은 클라이언트가 네트워크 오류로 보고 몇 번 다시 시도해 오래 걸린다 —
+    // 8초가 넘으면 끊고 '검색하지 못했어요' 로 보낸다.
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(), 8000)
+    try {
+      const [pRes, rRes] = await Promise.all([
+        supabase
+          .from('public_properties')
+          // 중개사 실명은 조회만 하고 화면엔 쓰지 않았다 — 공개 화면은 사무소명까지다
+          .select('id, seq_no, broker_id, address, deal_type, room_type, price, monthly_rent, images, broker_profiles(office_name)')
+          .ilike('address', like)
+          .eq('status', 'available')
+          .order('created_at', { ascending: false })
+          .limit(10)
+          .abortSignal(ac.signal),
+        supabase
+          .from('request_posts')
+          .select('id, city, district, dong, deal_type, room_type, min_price, max_price, proposal_count, created_at')
+          .or(`city.ilike.${like},district.ilike.${like},dong.ilike.${like},deal_type.ilike.${like},room_type.ilike.${like}`)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(10)
+          .abortSignal(ac.signal),
+      ])
+      if (seq !== seqRef.current) return            // 그사이 검색어가 바뀌었다
+      if (pRes.error || rRes.error) throw pRes.error ?? rRes.error
+      setProperties((pRes.data ?? []) as any)
+      setRequests((rRes.data ?? []) as any)
+    } catch {
+      if (seq !== seqRef.current) return
+      setProperties([]); setRequests([]); setFailed(true)
+    } finally {
+      clearTimeout(timer)
+      if (seq === seqRef.current) setLoading(false)
+    }
   }, [supabase])
 
   useEffect(() => { search(debounced) }, [debounced, search])
@@ -108,6 +137,7 @@ function SearchInner() {
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
+            maxLength={50}
             placeholder="지역·매물 통합 검색 (예: 강남구, 원룸)"
             className="w-full rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-11 pr-11 py-3.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
@@ -128,6 +158,12 @@ function SearchInner() {
         ) : loading ? (
           <div className="flex items-center justify-center py-20">
             <Spinner size="md" />
+          </div>
+        ) : failed ? (
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">
+            <SearchIcon className="mx-auto mb-3 h-12 w-12 text-gray-200" />
+            <p className="font-semibold text-gray-700 dark:text-gray-300">검색하지 못했어요</p>
+            <p className="mt-1 text-sm text-gray-500">지역 이름이나 매물 종류처럼 짧은 낱말로 다시 찾아보세요</p>
           </div>
         ) : total === 0 ? (
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 py-16 text-center">

@@ -75,6 +75,10 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
+  // 느린 망에선 화면이 스크립트보다 4~5초 먼저 보인다. 그 사이 누르면 폼이 그냥 GET 으로 가 화면이 다시
+  // 열리고 적은 것이 날아간다(칸에 name 이 없어 비밀번호가 주소에 실리진 않는다) — 붙을 때까지 잠근다.
+  const [ready, setReady] = useState(false)
+  useEffect(() => { setReady(true) }, [])
   const [error, setError] = useState('')
   const [rememberEmail, setRememberEmail] = useState(false)
   // 인증 전 로그인 — 재발송 버튼을 띄운다
@@ -298,8 +302,8 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
               </div>
             )}
 
-            <Button type="submit" className="w-full" size="lg" loading={loading}>
-              로그인
+            <Button type="submit" className="w-full" size="lg" loading={loading} disabled={!ready}>
+              {ready ? '로그인' : '불러오는 중…'}
             </Button>
           </form>
 

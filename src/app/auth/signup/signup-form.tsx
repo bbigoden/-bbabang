@@ -78,6 +78,10 @@ export function SignupForm({
   const [agreeTerms, setAgreeTerms] = useState(false)
   const [agreeMarketing, setAgreeMarketing] = useState(false) // 신규 #3: 마케팅 분리 동의 (선택)
   const [loading, setLoading] = useState(false)
+  // 느린 망에선 화면이 스크립트보다 4~5초 먼저 보인다. 그 사이 누르면 브라우저가 폼을 그냥 보내 화면이
+  // 다시 열리고 적은 것이 날아간다 — 스크립트가 붙을 때까지 버튼을 잠근다(2026-10-25 모바일 3G 점검).
+  const [ready, setReady] = useState(false)
+  useEffect(() => { setReady(true) }, [])
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<SignupErrors>({})
   // 인증 메일을 보낸 주소 — 세션 없이 가입이 끝났을 때(이메일 인증을 켠 서버)만 채워진다
@@ -509,8 +513,9 @@ export function SignupForm({
             className="w-full"
             size="lg"
             loading={loading}
+            disabled={!ready}
           >
-            {role === 'broker' ? '중개사·직원으로 가입하기' : '회원가입'}
+            {!ready ? '불러오는 중…' : role === 'broker' ? '중개사·직원으로 가입하기' : '회원가입'}
           </Button>
         </form>
 

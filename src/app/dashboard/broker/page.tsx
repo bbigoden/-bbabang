@@ -3,7 +3,10 @@ import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, formatPrice } from '@/lib/utils'
-import { Star, MapPin, CheckCircle, Target, Clock, Calculator, MessageCircle, ThumbsUp, FileText } from 'lucide-react'
+import {
+  Star, MapPin, CheckCircle, Target, Clock, Calculator, MessageCircle, ThumbsUp, FileText,
+  Building2, Users, NotebookPen, LayoutDashboard,
+} from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { BrokerRequestsFilter } from '@/components/broker-requests-filter'
@@ -196,6 +199,33 @@ export default async function BrokerDashboardPage() {
 
         {/* 신규 사무소 시작 가이드 — 대표 전용, 완료·숨김 시 서버에서 미렌더 */}
         {onboarding && <OnboardingChecklist brokerId={broker.id} items={onboarding} />}
+
+        {/* 바로 하기 — 홈이 정산·통계만이라 처음 온 중개사가 다음에 무엇을 할지 몰랐다(2026-10-25 점검).
+            사무소 소속이 정해진 사람에게만 — 승인 전 직원은 이 화면들이 잠겨 있다. */}
+        {(broker.is_owner !== false || broker.is_approved === true) && (
+          <div className="mb-8">
+            <h2 className="mb-3 font-bold text-gray-900 dark:text-white">바로 하기</h2>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {[
+                { href: '/broker/properties?new=1', icon: Building2, title: '매물 등록', sub: '소재지만 적으면 끝' },
+                { href: '/broker/customers', icon: Users, title: '고객 등록', sub: '찾는 조건을 적어 두기' },
+                { href: '/broker/diary', icon: NotebookPen, title: '업무일지', sub: '오늘 한 일·상담' },
+                { href: '/broker/office', icon: LayoutDashboard, title: '사무실', sub: '직원·일꾼 한눈에' },
+              ].map(a => (
+                <Link key={a.href} href={a.href}
+                  className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 transition-all hover:border-blue-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+                    <a.icon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-gray-900 dark:text-white">{a.title}</span>
+                    <span className="block truncate text-xs text-gray-500">{a.sub}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 승인 대기 중 배너 — 미승인 직원에게만 표시 */}
         {broker.is_owner === false && broker.is_approved === false && (
