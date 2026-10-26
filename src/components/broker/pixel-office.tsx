@@ -56,7 +56,7 @@ export type RoomKey =
 export interface OfficeLayout {
   /** 방마다 앉을 자리. 없는 방은 빈 방으로 그린다. */
   seats: Partial<Record<RoomKey, Seat[]>>
-  /** 상담실 손님 수 — 오늘 업무일지에 적힌 상담 고객 */
+  /** 상담실 손님 수 — 오늘 고객목록에 새로 등록된 고객 */
   guests: number
   /** 화이트보드에 적을 줄 (서너 줄) */
   board: string[]
@@ -590,7 +590,7 @@ function Sofa({ x, y, w = 40, color = '#2f5d8c' }: { x: number; y: number; w?: n
 }
 
 /** 방마다 놓는 소품. 자리(책상)는 따로 그린다. */
-function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: string[] }) {
+function Decor({ room, guests }: { room: RoomBox; guests: number }) {
   const { x, y, w, h } = room
   switch (room.key) {
     case 'boss':
@@ -702,12 +702,7 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
     case 'meetConsult':
       return (
         <g>
-          {/* 왼쪽 회의 — 벽걸이 TV(오늘 숫자)와 긴 탁자 */}
-          <rect x={x + 6} y={y + 12} width={60} height={18} fill="#111827" />
-          <rect x={x + 8} y={y + 14} width={56} height={14} fill="#1e293b" />
-          {board.slice(0, 3).map((l, i) => (
-            <text key={l} x={x + 10} y={y + 18.5 + i * 4} fontSize={2.6} fontWeight={700} fill={['#93c5fd', '#fca5a5', '#86efac'][i]}>{cut(l, 32)}</text>
-          ))}
+          {/* 왼쪽 회의 — 긴 탁자(현황판은 2026-10-26 사장님이 뺌) */}
           {[0, 1, 2, 3].map(i => <rect key={`t${i}`} x={x + 10 + i * 13} y={y + 38} width={8} height={6} fill="#3f3f46" />)}
           <rect x={x + 6} y={y + 44} width={56} height={18} fill="#8b5a2b" />
           <rect x={x + 7} y={y + 45} width={54} height={3} fill="#a87443" />
@@ -719,7 +714,7 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
               {i < guests && <Sprite rows={PERSON} palette={{ H: '#4b5563', S: '#f2c9a0', E: '#1f1f1f', B: '#9ca3af' }} x={x + 87 + i * 16} y={y + 54} />}
             </g>
           ))}
-          <Label x={x + 108} y={y + 80} text={guests > 0 ? `오늘 상담 ${guests}명` : '상담'} size={3.6} color="#166534" />
+          <Label x={x + 108} y={y + 80} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
           <Plant x={x + 124} y={y + 70} />
         </g>
       )
@@ -929,7 +924,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
 
           {/* ── 방: 바닥 → 소품 → 벽 → 문 → 이름판 ── */}
           {ROOMS.map(r => <rect key={`f-${r.key}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={FLOOR_FILL[r.floor]} />)}
-          {ROOMS.map(r => <Decor key={`d-${r.key}`} room={r} guests={layout.guests} board={layout.board} />)}
+          {ROOMS.map(r => <Decor key={`d-${r.key}`} room={r} guests={layout.guests} />)}
           {ROOMS.map(r => (
             <g key={`w-${r.key}`} fill="#6b7280">
               <rect x={r.x} y={r.y + r.h - 1.5} width={r.w} height={3} />
