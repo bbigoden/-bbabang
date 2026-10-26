@@ -295,8 +295,10 @@ function 평(m2: number | null): string | null {
  * 토지는 전용/공급이 아예 없어서, 그걸 안 챙기면 면적 칸이 통째로 빈다.
  */
 function 면적(r: Row): { 앞: string; 뒤: string | null } | null {
+  // 당근은 토지 넓이도 '전용' 칸에 담아 준다. 토지에 '전용' 은 어색해 대지라 부른다.
+  const 땅 = r.kind_code === 'LAND'
   const 쌍 = r.area_exclusive
-    ? { 이름: '전용', 값: r.area_exclusive, 곁이름: '공급', 곁: r.area_supply }
+    ? { 이름: 땅 ? '대지' : '전용', 값: r.area_exclusive, 곁이름: '공급', 곁: r.area_supply }
     : r.area_land
       ? { 이름: '대지', 값: r.area_land, 곁이름: '연면적', 곁: r.area_floor }
       : r.area_supply
@@ -346,17 +348,39 @@ function 해당층(r: Row): number | null {
 }
 
 /**
- * 사람이 치는 대로 읽는다 — `50000` · `5억` · `1억5000` · `3,000`. 가격은 만원 단위.
+ * 사람이 치는 대로 읽는다 — `50000` · `5억` · `1억5000` · `5천` · `1억5천` · `3,000`.
+ * 가격은 만원 단위라 '5천' 은 5천만원(5000)이다. 끝에 '만' 이 붙어도 된다.
  *
  * 5억을 `50000` 으로 옮겨 치는 것은 번거롭고, 자릿수를 하나 틀리기 쉽다.
+ * '천' 을 못 읽던 때는 '5천' 을 치면 요약에는 걸린 것처럼 나오고 목록은 그대로였다.
  */
 function 수읽기(글: string): number | null {
   const t = 글.replace(/[\s,]/g, '')
   if (!t) return null
-  const m = t.match(/^(?:(\d+(?:\.\d+)?)억)?(\d+(?:\.\d+)?)?$/)
-  if (!m || (!m[1] && !m[2])) return null
-  const v = (m[1] ? Number(m[1]) * 10_000 : 0) + (m[2] ? Number(m[2]) : 0)
+  const m = t.match(/^(?:(\d+(?:\.\d+)?)억)?(?:(\d+(?:\.\d+)?)천)?(\d+(?:\.\d+)?)?만?$/)
+  if (!m || (!m[1] && !m[2] && !m[3])) return null
+  const v = (m[1] ? Number(m[1]) * 10_000 : 0) + (m[2] ? Number(m[2]) * 1_000 : 0) + (m[3] ? Number(m[3]) : 0)
   return v > 0 ? v : null
+}
+
+/** 최소·최대 한 쌍을 읽는다. 거꾸로 넣으면(100 ~ 10) 바로 세워 읽는다. */
+function 범위읽기(값: { 최소: string; 최대: string }): [number | null, number | null] {
+  const a = 수읽기(값.최소), b = 수읽기(값.최대)
+  return a !== null && b !== null && a > b ? [b, a] : [a, b]
+}
+
+/** 만원 → '1억' · '1억5,000만' · '5,000만'. 요약에 쓴다 — '1억~3억만원' 처럼 읽히지 않게. */
+function 만원글(v: number): string {
+  const 억 = Math.floor(v / 10_000), 나머지 = Math.round(v % 10_000)
+  if (!억) return `${나머지.toLocaleString()}만`
+  return `${억}억${나머지 ? `${나머지.toLocaleString()}만` : ''}`
+}
+
+/** 읽어 낸 범위를 한 줄로. 못 읽은 칸은 없는 셈 친다 — 요약에 'abc평 이상' 이 찍히지 않게. */
+function 범위글([a, b]: [number | null, number | null], 글: (v: number) => string, 단위: string): string | null {
+  if (a === null && b === null) return null
+  if (a !== null && b !== null) return `${글(a)}~${글(b)}${단위}`
+  return a !== null ? `${글(a)}${단위} 이상` : `${글(b!)}${단위} 이하`
 }
 
 /** 세우는 차례. 기본은 최신순 — 이 화면이 하는 일이 '오늘 뭐 나왔나' 라서다. */
@@ -412,16 +436,23 @@ function 범위칸({ 값, 바꾸기, 단위, 폭 }: {
   단위: string
   폭: string
 }) {
-  const 칸 = `${폭} rounded-xl border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 `
-    + 'placeholder:text-gray-400 focus:border-blue-500 focus:outline-none '
-    + 'dark:border-gray-800 dark:bg-gray-950 dark:text-white'
+  // 숫자로 못 읽은 칸은 빨갛게 둔다. 전에는 'abc' 를 받아 놓고 조용히 무시해, 걸린 줄 알았다.
+  const 못읽나 = (글: string) => !!글.trim() && 수읽기(글) === null
+  const 칸 = (글: string) => `${폭} rounded-xl border bg-white px-2 py-1.5 text-sm text-gray-900 `
+    + 'placeholder:text-gray-400 focus:outline-none dark:bg-gray-950 dark:text-white '
+    + (못읽나(글)
+      ? 'border-red-400 focus:border-red-500 dark:border-red-500'
+      : 'border-gray-200 focus:border-blue-500 dark:border-gray-800')
+  const 못읽음 = '숫자로 읽지 못했습니다 — 예: 30 · 5000 · 5천 · 1억5천'
   return (
     <span className="flex items-center gap-1">
       <input value={값.최소} onChange={e => 바꾸기({ ...값, 최소: e.target.value })}
-        placeholder="최소" inputMode="numeric" className={칸} />
+        placeholder="최소" inputMode="numeric" className={칸(값.최소)}
+        title={못읽나(값.최소) ? 못읽음 : undefined} />
       <span className="text-gray-400">~</span>
       <input value={값.최대} onChange={e => 바꾸기({ ...값, 최대: e.target.value })}
-        placeholder="최대" inputMode="numeric" className={칸} />
+        placeholder="최대" inputMode="numeric" className={칸(값.최대)}
+        title={못읽나(값.최대) ? 못읽음 : undefined} />
       <span className="mr-1 text-xs text-gray-400">{단위}</span>
     </span>
   )
@@ -498,7 +529,10 @@ export default function CollectPage() {
   const [savingSettings, setSavingSettings] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
+  /** undefined = 아직 안 물어봄. 그때 '꺼짐' 을 그리면 느린 망에서 몇 초 꺼진 걸로 보인다. */
+  /** 목록 머리. 쪽을 넘길 때 여기로 올린다. */
+  const 목록머리 = useRef<HTMLDivElement>(null)
+  const [agentSeenAt, setAgentSeenAt] = useState<string | null | undefined>(undefined)
 
   /**
    * 곳마다 따로 돈다 — 값이 있으면 그 곳을 받아오는 중이고, 그 값이 진행 표시다.
@@ -919,9 +953,9 @@ export default function CollectPage() {
   }, [rows, settings, auth.broker])
 
   // 입력칸의 글자를 숫자로 읽어 둔다. 빈 칸이나 못 읽는 글자는 '조건 없음'.
-  const 면적최소 = 수읽기(면적조건.최소), 면적최대 = 수읽기(면적조건.최대)
-  const 가격최소 = 수읽기(가격조건.최소), 가격최대 = 수읽기(가격조건.최대)
-  const 월세최소 = 수읽기(월세조건.최소), 월세최대 = 수읽기(월세조건.최대)
+  const [면적최소, 면적최대] = 범위읽기(면적조건)
+  const [가격최소, 가격최대] = 범위읽기(가격조건)
+  const [월세최소, 월세최대] = 범위읽기(월세조건)
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -987,7 +1021,12 @@ export default function CollectPage() {
       if (x === null && y === null) return 0
       if (x === null) return 1
       if (y === null) return -1
-      return 내림 ? y - x : x - y
+      if (x !== y) return 내림 ? y - x : x - y
+      // 월세는 보증금이 같으면 월세로 한 번 더 세운다. 안 그러면 10,000/900 → 10,000/600
+      // → 10,000/650 처럼 섞여 보였다.
+      if (!sort.startsWith('price')) return 0
+      const p = a.price_rent ?? 0, q = b.price_rent ?? 0
+      return 내림 ? q - p : p - q
     })
   }, [filtered, sort])
 
@@ -999,15 +1038,15 @@ export default function CollectPage() {
 
   /** 접힌 채로도 무엇을 걸어 두었는지 알 수 있게, 한 줄로 적는다. */
   const 조건요약 = useMemo(() => {
-    const 범위 = (a: string, b: string, 단위: string) =>
-      !a && !b ? null : a && b ? `${a}~${b}${단위}` : a ? `${a}${단위} 이상` : `${b}${단위} 이하`
+    const 수글 = (v: number) => v.toLocaleString()
+    const 월세글 = 범위글(범위읽기(월세조건), 수글, '만원')
     return [
       regions.length ? regions.map(id => REGIONS.find(r => r.id === id)?.name).join('·') : null,
       kinds.length ? kinds.join('·') : null,
       trades.length ? trades.map(c => src.trades[c]).join('·') : null,
-      범위(면적조건.최소, 면적조건.최대, '평'),
-      범위(가격조건.최소, 가격조건.최대, '만원'),
-      월세조건.최소 || 월세조건.최대 ? `월세 ${범위(월세조건.최소, 월세조건.최대, '만원')}` : null,
+      범위글(범위읽기(면적조건), 수글, '평'),
+      범위글(범위읽기(가격조건), 만원글, '원'),
+      월세글 ? `월세 ${월세글}` : null,
       층.length ? 층.join('·') : null,
       q.trim() ? `"${q.trim()}"` : null,
       settings.hide_own ? '우리 매물 뺌' : null,
@@ -1100,7 +1139,7 @@ export default function CollectPage() {
           {최근작업?.result?.warn && (
             <span className="text-amber-600 dark:text-amber-500">⚠ {최근작업.result.warn}</span>
           )}
-          <AgentStatus online={agentOnline} />
+          {agentSeenAt !== undefined && <AgentStatus online={agentOnline} />}
           {/* 자동으로 받는다는 걸 화면 어딘가에서 말해 주지 않으면, 아침에 이미 받아져
               있는 것을 보고 "어제 것이 남아 있나" 하게 된다. */}
           <span>매일 오전 9시 30분 자동</span>
@@ -1131,7 +1170,9 @@ export default function CollectPage() {
             />
             <span className="text-xs text-gray-400 dark:text-gray-600">{날수(보는첫날, 끝날)}일
               {/* 7일에 막힌 까닭을 말해 둔다. 모르면 공장을 볼 때도 7일만 보게 된다. */}
-              {한도 === MAX_DAYS && ` · 종류를 고르면 ${LONG_DAYS}일까지`}
+              {/* 종류를 고른 뒤에도 얼마까지 늘릴 수 있는지 남겨 둔다. 안내가 사라지면 30일로
+                  늘리는 방법을 다시 찾지 못했다(점검 10/26). */}
+              {한도 === MAX_DAYS ? ` · 종류를 고르면 ${LONG_DAYS}일까지` : src.전체는7일 ? ` · 최대 ${LONG_DAYS}일` : ''}
             </span>
             {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
                 되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
@@ -1237,7 +1278,8 @@ export default function CollectPage() {
             {[['~30', '', '30'], ['30~60', '30', '60'], ['60~150', '60', '150'], ['150~', '150', '']].map(([이름, a, b]) => (
               <Chip key={이름} size="xs"
                 on={면적조건.최소 === a && 면적조건.최대 === b}
-                onClick={() => { set면적조건({ 최소: a, 최대: b }); setPage(1) }}>{이름}평</Chip>
+                // 켜진 칩을 다시 누르면 끈다 — 지역·종류 칩과 같다.
+                onClick={() => { const 켜짐 = 면적조건.최소 === a && 면적조건.최대 === b; set면적조건(켜짐 ? { 최소: '', 최대: '' } : { 최소: a, 최대: b }); setPage(1) }}>{이름}평</Chip>
             ))}
           </div>
 
@@ -1255,7 +1297,8 @@ export default function CollectPage() {
                 ).map(([이름, a, b]) => (
                   <Chip key={이름} size="xs"
                     on={가격조건.최소 === a && 가격조건.최대 === b}
-                    onClick={() => { set가격조건({ 최소: a, 최대: b }); setPage(1) }}>{이름}</Chip>
+                    // 켜진 칩을 다시 누르면 끈다 — 지역·종류 칩과 같다.
+                    onClick={() => { const 켜짐 = 가격조건.최소 === a && 가격조건.최대 === b; set가격조건(켜짐 ? { 최소: '', 최대: '' } : { 최소: a, 최대: b }); setPage(1) }}>{이름}</Chip>
                 ))}
               </>
             ) : (
@@ -1272,7 +1315,8 @@ export default function CollectPage() {
               {[['~100', '', '100'], ['100~200', '100', '200'], ['200~400', '200', '400'], ['400~', '400', '']].map(([이름, a, b]) => (
                 <Chip key={이름} size="xs"
                   on={월세조건.최소 === a && 월세조건.최대 === b}
-                  onClick={() => { set월세조건({ 최소: a, 최대: b }); setPage(1) }}>{이름}만원</Chip>
+                  // 켜진 칩을 다시 누르면 끈다 — 지역·종류 칩과 같다.
+                  onClick={() => { const 켜짐 = 월세조건.최소 === a && 월세조건.최대 === b; set월세조건(켜짐 ? { 최소: '', 최대: '' } : { 최소: a, 최대: b }); setPage(1) }}>{이름}만원</Chip>
               ))}
             </div>
           )}
@@ -1354,7 +1398,7 @@ export default function CollectPage() {
           <>
             {/* 건수와 정렬은 목록 바로 위가 제자리다 — 무엇을 어떤 차례로 보고
                 있는지가 한 줄에 있어야 한다. */}
-            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div ref={목록머리} className="mb-2 flex scroll-mt-4 flex-wrap items-center gap-x-3 gap-y-1">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {sorted.length}건
                 {!unseenOnly && unseenCount < sorted.length && ` · 안 본 것 ${unseenCount}건`}
@@ -1409,9 +1453,11 @@ export default function CollectPage() {
                         </span>
                         {/* 하루 1,300건이 올라온다. 링크만으로는 무엇을 열어 볼지 고를 수
                             없어 면적과 가격을 같이 적는다 — 광고관리와 같은 모양이다. */}
-                        <span className="shrink-0 whitespace-nowrap text-xs text-gray-600 sm:order-4 sm:w-[150px] dark:text-gray-400">
+                        {/* 폰은 한 줄에 날짜·종류·면적·가격이 다 들어가야 한다. 공급·연면적까지 적으면
+                            가격 끝자리가 화면 밖으로 밀려났다(10,000/70…). 곁 면적은 넓은 화면에서만. */}
+                        <span className="min-w-0 truncate whitespace-nowrap text-xs text-gray-600 sm:order-4 sm:w-[150px] sm:shrink-0 dark:text-gray-400">
                           {면적(r)
-                            ? <>{면적(r)!.앞}{면적(r)!.뒤 && <span className="ml-1 text-gray-400">{면적(r)!.뒤}</span>}</>
+                            ? <>{면적(r)!.앞}{면적(r)!.뒤 && <span className="ml-1 hidden text-gray-400 sm:inline">{면적(r)!.뒤}</span>}</>
                             : <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
                         {/* 층은 **넓은 화면에서만** 적는다. 폰은 한 줄에 네 칸이 이미 꽉
@@ -1467,7 +1513,7 @@ export default function CollectPage() {
                             <span className={`${BADGE} bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}>사라짐</span>
                           ) : 본것.사무소 ? (
                             <span className="text-xs leading-5 tabular-nums text-gray-400 dark:text-gray-600">
-                              {본것.사무소}회
+                              {본것.사무소}회 봄
                             </span>
                           ) : isFresh(r) ? (
                             <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
@@ -1485,7 +1531,8 @@ export default function CollectPage() {
               totalPages={totalPages}
               pageSize={pageSize}
               totalCount={filtered.length}
-              onPageChange={setPage}
+              // 쪽을 넘겨도 화면이 아래에 머물러, 새 쪽의 첫 매물을 보려면 50줄을 올려야 했다.
+              onPageChange={p => { setPage(p); 목록머리.current?.scrollIntoView({ block: 'start' }) }}
               onPageSizeChange={setPageSize}
             />
           </>

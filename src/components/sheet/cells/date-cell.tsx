@@ -236,7 +236,7 @@ export function DateCell({
  * 일에 가깝다.
  *
  * **`maxDays` 를 넘기면 막지 않고 당긴다.** "안 됩니다" 하고 되돌리는 것보다
- * 방금 누른 날을 살리고 반대쪽을 당기는 편이 낫다.
+ * 먼저 누른 날을 살리고 반대쪽을 당기는 편이 낫다.
  */
 export function DateRangeCell({
   from, to, onSave, maxDays, min, max,
@@ -270,10 +270,12 @@ export function DateRangeCell({
     첫 = 자르기(첫); 끝 = 자르기(끝)
     if (maxDays) {
       const 날수 = Math.round((Date.parse(`${끝}T00:00:00Z`) - Date.parse(`${첫}T00:00:00Z`)) / 86_400_000) + 1
-      // 나중에 누른 쪽을 살린다 — 방금 고른 날이 사라지면 고른 것 같지가 않다.
+      // **먼저 누른 날을 살린다.** 나중 날을 살렸더니 10/26 을 누르고 8/1 을 누르면
+      // 8/1~8/30 이 됐다 — 기준으로 찍은 오늘이 사라지고, 받은 매물이 없는 기간이
+      // 잡혔다(점검 10/26). 먼저 찍은 날이 기준이고, 나중 것은 '얼마나 멀리' 다.
       if (날수 > maxDays) {
-        if (b >= a) 첫 = addDays(끝, -(maxDays - 1))
-        else 끝 = addDays(첫, maxDays - 1)
+        if (b >= a) 끝 = addDays(첫, maxDays - 1)
+        else 첫 = addDays(끝, -(maxDays - 1))
         첫 = 자르기(첫); 끝 = 자르기(끝)
       }
     }
