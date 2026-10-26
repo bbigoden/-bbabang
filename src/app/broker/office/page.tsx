@@ -583,7 +583,7 @@ export default function OfficePage() {
 }
 
 /**
- * Claude 연구실에 앉힐 세션. 퇴근한 지 한 시간 넘은 세션은 접는다 — 하루치가 다 남으면 지금
+ * Claude 에이전트실에 앉힐 세션. 퇴근한 지 한 시간 넘은 세션은 접는다 — 하루치가 다 남으면 지금
  * 일하는 Claude 가 묻힌다. 지시 한 번 없이 켜졌다 꺼진 세션(앱이 뒤에서 잠깐 띄우는 것)도 뺀다.
  */
 function visibleSessions(sessions: ClaudeSession[]): ClaudeSession[] {
@@ -777,7 +777,7 @@ function ClaudeSection({ officeId, sessions, orders, workerOn, onChange }: {
   }
 
   return (
-    <Section icon={Bot} title="Claude 에게 지시" hint="일하는 모습은 위 Claude 연구실에 보입니다">
+    <Section icon={Bot} title="Claude 에게 지시" hint="일하는 모습은 위 Claude 에이전트실에 보입니다">
       <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
         <textarea value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={4000} rows={3}
           placeholder="예: 매물수집 화면에 '오늘 새로 들어온 것만' 보기 버튼을 만들어 줘"

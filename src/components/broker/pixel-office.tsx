@@ -4,7 +4,7 @@
  * 사무실 화면의 픽셀 사무실 — 한 층짜리 진짜 사무실처럼 그린다.
  *
  *   ┌ 창문 ── 시계 ── 화이트보드 ───────────────────────────────────────┐
- *   │ 대표실   │ 협력업체 ┊ Claude 연구실          │ 서버실(사무실 일꾼)    │
+ *   │ 대표실   │ 협력업체 ┊ Claude 에이전트실          │ 서버실(사무실 일꾼)    │
  *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
  *   │ 복도 ════════════════════════════════════════════════│ 로비      │
  *   ├──문──────┬──────문───────┬──────문───────────────────┤ 안내 데스크│
@@ -595,7 +595,7 @@ type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'server' | 'lab' | 'tile' |
 
 /**
  * 방(벽으로 둘러싼 칸). 자리 무리(RoomKey)와 따로 둔다 — 한 방에 두 무리가 앉는 곳이 있다
- * (협력업체 + Claude 연구실, 회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이).
+ * (협력업체 + Claude 에이전트실, 회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이).
  */
 type BoxKey = 'boss' | 'partnerLab' | 'server' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
 
@@ -604,7 +604,7 @@ interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number;
 /** 방 배치(사장님이 정한 순서). 좌표는 판 픽셀. 위 벽(창문)이 0~24 를 쓴다. */
 const ROOMS: RoomBox[] = [
   { key: 'boss', label: '대표실', x: 0, y: 24, w: 120, h: 96, floor: 'carpet', color: '#1e3a8a' },
-  { key: 'partnerLab', label: '협력업체 · Claude 연구실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
+  { key: 'partnerLab', label: '협력업체 · Claude 에이전트실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
   { key: 'server', label: '서버실', x: 408, y: 24, w: 168, h: 96, floor: 'server', color: '#0f172a' },
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
   { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 142, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
@@ -618,17 +618,13 @@ const ROOMS: RoomBox[] = [
 const DOORS = [
   // 1줄 → 위 복도
   { x: 50, y: 118, w: 18, h: 4 }, { x: 160, y: 118, w: 18, h: 4 }, { x: 300, y: 118, w: 18, h: 4 }, { x: 430, y: 118, w: 18, h: 4 },
-  // 1줄 세로 벽
-  { x: 118, y: 62, w: 4, h: 20 }, { x: 406, y: 70, w: 4, h: 20 },
   // 위 복도 → 2줄
   { x: 60, y: 140, w: 18, h: 4 }, { x: 190, y: 140, w: 18, h: 4 }, { x: 300, y: 140, w: 18, h: 4 },
-  // 2줄 세로 벽, 홍보부 → 로비
-  { x: 118, y: 172, w: 4, h: 22 }, { x: 258, y: 172, w: 4, h: 22 }, { x: 494, y: 172, w: 4, h: 22 },
   // 2줄 → 아래 복도
   { x: 60, y: 228, w: 18, h: 4 }, { x: 190, y: 228, w: 18, h: 4 }, { x: 290, y: 228, w: 18, h: 4 }, { x: 440, y: 228, w: 18, h: 4 },
   // 아래 복도 → 3줄
   { x: 60, y: 250, w: 18, h: 4 }, { x: 190, y: 250, w: 18, h: 4 }, { x: 330, y: 250, w: 18, h: 4 }, { x: 440, y: 250, w: 18, h: 4 },
-  // 3줄 세로 벽
+  // 방끼리 통하는 문은 탕비실 양옆뿐 — 나머지는 복도로만 다닌다(2026-10-26 사장님이 막음)
   { x: 298, y: 282, w: 4, h: 20 }, { x: 378, y: 282, w: 4, h: 20 },
 ]
 
@@ -713,7 +709,7 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
       return (
         <g>
           <Label x={x + 44} y={y + 88} text="협력업체" size={3.6} color="#6d28d9" />
-          <Label x={x + 170} y={y + 88} text="Claude 연구실" size={3.6} color="#9a3412" />
+          <Label x={x + 170} y={y + 88} text="Claude 에이전트실" size={3.6} color="#9a3412" />
           <rect x={x + w - 18} y={y + 3} width={14} height={6} fill="#d97757" />
           <text x={x + w - 11} y={y + 7.4} fontSize={3.4} fontWeight={800} textAnchor="middle" fill="#fff">LAB</text>
         </g>
