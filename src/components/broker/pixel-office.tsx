@@ -160,6 +160,13 @@ const seed = (s: string) => [...s].reduce((n, ch) => (n * 31 + ch.charCodeAt(0))
 
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
+/**
+ * 판 위 글자의 대략 폭(판 픽셀). 글자 수로만 재면 한글이 많은 이름판은 좁고 "·"·숫자가 많은 것은
+ * 넓었다(2026-10-26). 한글은 글자 크기만큼, 영문·숫자는 그 0.6, 빈칸·가운뎃점은 0.3 으로 센다.
+ */
+const textW = (s: string, size: number) => [...s].reduce((w, ch) =>
+  w + (/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(ch) ? size : /[\s·.,:!?|()/-]/.test(ch) ? size * 0.32 : size * 0.6), 0)
+
 /** 판 위의 글자 — 바탕이 무엇이든 읽히게 흰 테를 두른다. */
 function Label({ x, y, text, size = 4.2, color = '#1f2937', anchor = 'middle', weight = 800 }: {
   x: number; y: number; text: string; size?: number; color?: string; anchor?: 'start' | 'middle' | 'end'; weight?: number
@@ -251,7 +258,7 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       {big && <rect x={x + 15} y={y + 9} width={4} height={2} fill="#2f855a" />}
       {/* 이름판 */}
       <rect x={x + w / 2 - 1} y={y + 23} width={2.6} height={2.6} fill={DOT[seat.state]} stroke="#1f2937" strokeWidth={0.3}
-        transform={`translate(${-Math.min(seat.name.length, 7) * 2.3 - 2.5} 0)`} />
+        transform={`translate(${-textW(cut(seat.name, 7), 4.4) / 2 - 3.5} 0)`} />
       <Label x={x + w / 2 + 1} y={y + 26.2} text={cut(seat.name, 7)} size={4.4} color={on ? '#111827' : '#6b7280'} />
       {seat.badge && (
         <>
@@ -269,8 +276,8 @@ function Bubble({ seat, x, y }: { seat: Seat; x: number; y: number }) {
   const done = !!seat.flash && seat.state !== 'working' && seat.state !== 'waiting'
   if (!done && (!seat.say || (seat.state !== 'working' && seat.state !== 'waiting'))) return null
   const text = cut(done ? seat.flash! : seat.say!, 12)
-  const w = Math.max(14, text.length * 3.6 + 6)
   const waiting = seat.state === 'waiting'
+  const w = Math.max(14, textW((done ? '✓ ' : waiting ? '! ' : '') + text, 3.6) + 5)
   const tone = done ? { bg: '#dcfce7', line: '#15803d', ink: '#14532d' }
     : waiting ? { bg: '#fef3c7', line: '#b45309', ink: '#78350f' }
       : { bg: '#ffffff', line: '#1f2937', ink: '#111827' }
@@ -427,9 +434,10 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   server: { box: 'server', dx: 56, dy: 50, sx: 0, sy: 0, cols: 1, max: 1 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   consult: { box: 'meetConsult', dx: 90, dy: 20, sx: 0, sy: 0, cols: 1, max: 1 },
-  promo: { box: 'promo', dx: 14, dy: 25, sx: 60, sy: 32, cols: 2, max: 4 },
+  // 홍보 넷 + 등록 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다
+  promo: { box: 'promo', dx: 10, dy: 34, sx: 40, sy: 0, cols: 4, max: 4 },
   // 등록 로봇도 홍보부에 앉는다 — 2026-10-25 사장님이 등록실을 홍보부로 합침(칸막이 없이)
-  register: { box: 'promo', dx: 150, dy: 25, sx: 52, sy: 32, cols: 2, max: 4 },
+  register: { box: 'promo', dx: 176, dy: 34, sx: 40, sy: 0, cols: 2, max: 2 },
   sales: { box: 'sales', dx: 12, dy: 25, sx: 46, sy: 27, cols: 5, max: 10 },
   research: { box: 'research', dx: 12, dy: 25, sx: 48, sy: 27, cols: 3, max: 6 },
 }
@@ -596,7 +604,7 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
           <rect x={x + 10} y={y + 12} width={46} height={18} fill="#111827" />
           <rect x={x + 12} y={y + 14} width={42} height={14} fill="#1e293b" />
           {board.slice(0, 3).map((l, i) => (
-            <text key={l} x={x + 14} y={y + 18.5 + i * 4} fontSize={3.1} fontWeight={700} fill={['#93c5fd', '#fca5a5', '#86efac'][i]}>{cut(l, 17)}</text>
+            <text key={l} x={x + 14} y={y + 18.5 + i * 4} fontSize={2.6} fontWeight={700} fill={['#93c5fd', '#fca5a5', '#86efac'][i]}>{cut(l, 32)}</text>
           ))}
           {[0, 1, 2, 3].map(i => <rect key={`t${i}`} x={x + 10 + i * 13} y={y + 38} width={8} height={6} fill="#3f3f46" />)}
           <rect x={x + 6} y={y + 44} width={56} height={18} fill="#8b5a2b" />
@@ -807,7 +815,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           <rect x={274} y={3} width={86} height={17} fill="#9ca3af" />
           <rect x={275} y={4} width={84} height={15} fill="#f8fafc" />
           {layout.board.slice(0, 3).map((l, i) => (
-            <text key={l} x={278} y={9 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 26)}</text>
+            <text key={l} x={278} y={9 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
           ))}
 
           {/* ── 방: 바닥 → 소품 → 벽 → 문 → 이름판 ── */}
@@ -823,7 +831,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           {DOORS.map((d, i) => <rect key={i} x={d.x} y={d.y} width={d.w} height={d.h} fill="#cbb79a" />)}
           {ROOMS.map(r => (
             <g key={`l-${r.key}`}>
-              <rect x={r.x + 4} y={r.y + 3} width={r.label.length * 4.6 + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
+              <rect x={r.x + 4} y={r.y + 3} width={textW(r.label, 4.6) + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
               <text x={r.x + 6.5} y={r.y + 8.8} fontSize={4.6} fontWeight={800} fill={r.color}>{r.label}</text>
             </g>
           ))}

@@ -385,8 +385,8 @@ export default function OfficePage() {
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
       state: s.today > 0 ? 'working' : 'idle',
-      say: open ? `할 일 ${open}건` : s.today ? `오늘 ${s.today}건 등록` : null,
-      note: `오늘 등록 ${s.today}건 · 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
+      say: open ? `할 일 ${open}건` : s.today ? `매물 ${s.today}건 등록` : null,
+      note: `오늘 매물목록에 등록한 매물 ${s.today}건 · 지금까지 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
@@ -426,8 +426,8 @@ export default function OfficePage() {
     clock: hmKST(now),
     guests: today.consult,
     board: [
-      `카페 ${today.cafe} · 블로그 ${today.blog} · 당근 ${today.daangnPost}`,
-      `오늘 받은 매물 ${today.naver + today.daangn}건`,
+      `광고 올림  카페 ${today.cafe} · 블로그 ${today.blog} · 당근 ${today.daangnPost}`,
+      `수집한 매물  네이버 ${today.naver} · 당근 ${today.daangn}`,
       isOwner ? `남은 할 일 ${openTasks}건` : `내 할 일 ${myTasks.filter(t => t.status === 'open').length}건`,
     ],
     seats: {
