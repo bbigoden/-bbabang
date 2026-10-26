@@ -4,7 +4,7 @@
  * 사무실 화면의 픽셀 사무실 — 한 층짜리 진짜 사무실처럼 그린다.
  *
  *   ┌ 창문 ── 시계 ── 화이트보드 ───────────────────────────────────────┐
- *   │ 대표실   │ 협력업체 ┊ Claude 에이전트실          │ 서버실(사무실 일꾼)    │
+ *   │ 대표실   │ 협력업체 ┊ 에이전트실                 │ 서버실(사무실 일꾼)    │
  *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
  *   │ 복도 ════════════════════════════════════════════════│ 로비      │
  *   ├──문──────┬──────문───────┬──────문───────────────────┤ 안내 데스크│
@@ -72,67 +72,237 @@ export interface OfficeLayout {
 
 // ── 스프라이트 (글자 하나 = 픽셀 하나, '.' 은 비움) ────────────
 
-const PERSON = [
-  '....HHHHHH....',
-  '...HHHHHHHH...',
-  '...HSSSSSSH...',
-  '...SSESSESS...',
-  '...SSSSSSSS...',
-  '....SSSSSS....',
-  '.....SSSS.....',
+/**
+ * 자리마다 포켓몬 한 마리(2026-10-26 사장님 주문). 직원은 고른 색(tint)마다, 일꾼·에이전트는
+ * 자리 이름으로 정해져 늘 같은 포켓몬이 앉는다. 눈은 'E' — 깜빡일 때 lid 색으로 덮는다.
+ * main 은 흔드는 손·타자 치는 손 색.
+ */
+interface Mon { rows: string[]; pal: Record<string, string>; lid: string; main: string }
+const mon = (rows: string[], pal: Record<string, string>, main: string, lid = main): Mon => ({ rows, pal, lid, main })
+
+const PIKACHU = mon([
+  '..N........N..',
+  '..YN......NY..',
+  '...YYYYYYYY...',
+  '..YYYYYYYYYY..',
+  '..YEYYYYYYEY..',
+  '..RYYYmmYYYR..',
+  '...YYYYYYYY...',
+  '....YYYYYY....',
+  '...YYYYYYYY...',
+  '..YYYYYYYYYY..',
+  '..YYYYYYYYYY..',
+], { N: '#1f1f1f', Y: '#f8d030', E: '#1f1f1f', R: '#e8504a', m: '#7a3b1f' }, '#f8d030')
+
+const SQUIRTLE = mon([
+  '..............',
+  '....BBBBBB....',
   '...BBBBBBBB...',
   '..BBBBBBBBBB..',
-  '..BBBBBBBBBB..',
-  '..SBBBBBBBBS..',
-]
+  '..BBEBBBBEBB..',
+  '..BBBBmmBBBB..',
+  '...BBBBBBBB...',
+  '...HHYYYYHH...',
+  '..BHYYYYYYHB..',
+  '..BHYYYYYYHB..',
+  '...HHYYYYHH...',
+], { B: '#6ab0e0', E: '#1f1f1f', m: '#2c5a7a', H: '#a0642c', Y: '#f4e4b0' }, '#6ab0e0')
 
-const ROBOT = [
-  '......AA......',
-  '......AA......',
+const CHARMANDER = mon([
+  '..............',
+  '....FFFFFF....',
+  '...FFFFFFFF...',
+  '..FFFFFFFFFF..',
+  '..FFEFFFFEFF..',
+  '..FFFFmmFFFF..',
+  '...FFFFFFFF...',
+  '...FFYYYYFF.R.',
+  '..FFYYYYYYFRrR',
+  '..FFYYYYYYFF..',
+  '...FFYYYYFF...',
+], { F: '#f08030', E: '#1f1f1f', m: '#8a3a10', Y: '#f8e090', R: '#e83a1a', r: '#fbd34d' }, '#f08030')
+
+const BULBASAUR = mon([
+  '.....PPPP.....',
+  '....PPpPPP....',
+  '...PPPPPPPP...',
+  '..GGGPPPPGGG..',
+  '.GGEGGGGGGEGG.',
+  '.GGGGGmmGGGGG.',
+  '..GGDGGGGDGG..',
   '...GGGGGGGG...',
-  '...GLLLLLLG...',
-  '...GLCLLCLG...',
-  '...GLLLLLLG...',
-  '...GGGGGGGG...',
-  '.....GGGG.....',
+  '..GGGGGGGGGG..',
+  '..GDGGGGGGDG..',
+  '..GG.GGGG.GG..',
+], { P: '#3f9a4a', p: '#86d08a', G: '#78c8a0', E: '#b91c1c', m: '#2f6b4f', D: '#3f8f6a' }, '#78c8a0')
+
+const JIGGLYPUFF = mon([
+  '......P.......',
+  '.....PP.......',
+  '...PPPPPPPP...',
+  '..PPPPPPPPPP..',
+  '.PPEEPPPPEEPP.',
+  '.PPEEPPPPEEPP.',
+  '.PPPPPmmPPPPP.',
+  '.PPPPPPPPPPPP.',
+  '..PPPPPPPPPP..',
+  '...PPPPPPPP...',
+  '...PP....PP...',
+], { P: '#f8b8d0', E: '#2a6fa0', m: '#b0507a' }, '#f8b8d0')
+
+const EEVEE = mon([
+  '.VV........VV.',
+  '.VVV......VVV.',
+  '..VVVVVVVVVV..',
+  '...VVVVVVVV...',
+  '..VVEVVVVEVV..',
+  '..VVVVmmVVVV..',
+  '...VVVVVVVV...',
+  '..YYYYYYYYYY..',
+  '.YYYYYYYYYYYY.',
+  '..VVYYYYYYVV..',
+  '..VVVVVVVVVV..',
+], { V: '#c08850', E: '#1f1f1f', m: '#6b4423', Y: '#f4e4c0' }, '#c08850')
+
+const PSYDUCK = mon([
+  '.....N.N......',
+  '......N.......',
+  '...QQQQQQQQ...',
+  '..QQQQQQQQQQ..',
+  '..QEQQQQQQEQ..',
+  '..QQQOOOOQQQ..',
+  '...QQOOOOQQ...',
+  '....QQQQQQ....',
+  '..QQQQQQQQQQ..',
+  '.QQQQQQQQQQQQ.',
+  '..QQQQQQQQQQ..',
+], { N: '#1f1f1f', Q: '#f0d058', E: '#1f1f1f', O: '#f4e4b0' }, '#f0d058')
+
+const MEOWTH = mon([
+  '..XX......XX..',
+  '..XTX....XTX..',
+  '..XXXXZZXXXX..',
+  '..XXXXXXXXXX..',
+  '..XEXXXXXXEX..',
+  '.XXXXXmmXXXXX.',
+  '..XXXXXXXXXX..',
+  '...XXXXXXXX...',
+  '..TXXXXXXXXT..',
+  '..XXXXXXXXXX..',
+  '..XX......XX..',
+], { X: '#f0e0b0', T: '#7a4a1e', Z: '#f8c030', E: '#1f1f1f', m: '#7a4a1e' }, '#f0e0b0')
+
+const MAGNEMITE = mon([
+  '......II......',
+  '......II......',
+  '....IIIIII....',
+  '...IIIIIIII...',
+  '..IIIIIIIIII..',
+  'RRIIIWWWWIIIRR',
+  'IIIIIWEEWIIIII',
+  'BBIIIWWWWIIIBB',
+  '..IIIIIIIIII..',
+  '...IIIIIIII...',
+  '....II..II....',
+], { I: '#b8c0c8', W: '#ffffff', E: '#1f1f1f', R: '#e8504a', B: '#3b82f6' }, '#b8c0c8', '#ffffff')
+
+const VOLTORB = mon([
+  '..............',
+  '....RRRRRR....',
+  '...RRRRRRRR...',
+  '..RRRRRRRRRR..',
+  '..RERRRRRRER..',
+  '..RREERREERR..',
+  '..NNNNNNNNNN..',
+  '..WWWWWWWWWW..',
+  '..WWWWWWWWWW..',
+  '...WWWWWWWW...',
+  '....WWWWWW....',
+], { R: '#e8504a', E: '#1f1f1f', N: '#7f1d1d', W: '#f8fafc' }, '#e8504a')
+
+const PORYGON = mon([
+  '..............',
+  '...PPPP.......',
+  '..PPPPPP......',
+  '..PPEPPPBBB...',
+  '..PPPPPPBBBB..',
+  '...PPPPBBBBB..',
+  '..BBBPPPPPP...',
+  '.BBBBPPPPPPP..',
+  '.BBBBPPPPPPP..',
+  '..BBB.PPPPP...',
+  '......PP.PP...',
+], { P: '#f08890', B: '#58a8d0', E: '#1f1f1f' }, '#f08890')
+
+const DITTO = mon([
+  '..............',
+  '..............',
+  '..............',
+  '....DDDDDD....',
   '...DDDDDDDD...',
-  '..GDDDDDDDDG..',
-  '..GDDDDDDDDG..',
-]
+  '..DDEDDDDEDD..',
+  '..DDDDDDDDDD..',
+  '.DDDDmmmmDDDD.',
+  '.DDDDDDDDDDDD.',
+  'DDDDDDDDDDDDDD',
+  'DDDDDDDDDDDDDD',
+], { D: '#b890d8', E: '#1f1f1f', m: '#6b4a8a' }, '#b890d8')
 
-const CLAUDE = [
-  '..............',
-  '..............',
-  '...OOOOOOOO...',
-  '...OOOOOOOO...',
-  '...OKOOOOKO...',
-  '...OOOOOOOO...',
-  '.OOOOOOOOOOOO.',
-  '.OOOOOOOOOOOO.',
-  '...OOOOOOOO...',
-  '...OOOOOOOO...',
-  '...O.O..O.O...',
-]
+const MEW = mon([
+  '..P......P....',
+  '..PP....PP....',
+  '..PPPPPPPP....',
+  '.PPPPPPPPPP...',
+  '.PPWEPPWEPP...',
+  '.PPWEPPWEPP...',
+  '..PPPPPPPP..P.',
+  '...PPPPPP...P.',
+  '..PPPPPPPP.P..',
+  '...PPPPPP.P...',
+  '...PP..PPP....',
+], { P: '#f8b8d8', W: '#ffffff', E: '#2a6fa0' }, '#f8b8d8', '#ffffff')
 
-const SPRITES: Record<SeatKind, string[]> = { person: PERSON, robot: ROBOT, claude: CLAUDE }
+const GENGAR = mon([
+  '.G..........G.',
+  '.GG..G..G..GG.',
+  '.GGGGGGGGGGGG.',
+  'GGGGGGGGGGGGGG',
+  'GGEEGGGGGGEEGG',
+  'GGGGGGGGGGGGGG',
+  'GGWWWWWWWWWWGG',
+  '.GGWWWWWWWWGG.',
+  '..GGGGGGGGGG..',
+  '..GGGGGGGGGG..',
+  '..GG......GG..',
+], { G: '#705898', E: '#ef4444', W: '#f8fafc' }, '#705898')
 
-/** 직원마다 다른 머리·옷 — 같은 색이 나란히 앉으면 누가 누군지 헷갈린다. */
-const PERSON_TINTS = [
-  { H: '#3b2a20', B: '#2f5d8c' },
-  { H: '#1f1f1f', B: '#c0504d' },
-  { H: '#7a4a1e', B: '#4f8a4b' },
-  { H: '#2b2b40', B: '#8a5ab3' },
-  { H: '#5a3a2a', B: '#d08a2c' },
-  { H: '#151515', B: '#2a8a8a' },
-  { H: '#6b4423', B: '#b8507a' },
-  { H: '#222233', B: '#5b6b7b' },
-]
+/** 상담실 손님 — 고라파덕·잠만보 */
+const SNORLAX = mon([
+  '..T........T..',
+  '..TTTTTTTTTT..',
+  '.TTTTTTTTTTTT.',
+  '.TTCCCCCCCCTT.',
+  '.TCNNCCCCNNCT.',
+  '.TCCCWWWWCCCT.',
+  'TTTCCCCCCCCTTT',
+  'TTCCCCCCCCCCTT',
+  'TTCCCCCCCCCCTT',
+  '.TTCCCCCCCCTT.',
+  '..CCC....CCC..',
+], { T: '#2f5d6b', C: '#f0e0c0', N: '#1f1f1f', W: '#ffffff' }, '#2f5d6b')
+const GUESTS = [PSYDUCK, SNORLAX]
 
-function paletteOf(kind: SeatKind, tint = 0): Record<string, string> {
-  if (kind === 'robot') return { A: '#ef4444', G: '#6b7280', L: '#d1d5db', C: '#06b6d4', D: '#475569' }
-  if (kind === 'claude') return { O: '#d97757', K: '#1f1f1f' }
-  const t = PERSON_TINTS[tint % PERSON_TINTS.length]
-  return { H: t.H, S: '#f2c9a0', E: '#1f1f1f', B: t.B }
+/** 직원 — 고른 색(tint)마다 한 마리. 같은 포켓몬이 나란히 앉지 않게 여덟. */
+const STAFF_MONS = [PIKACHU, SQUIRTLE, CHARMANDER, BULBASAUR, JIGGLYPUFF, EEVEE, PSYDUCK, MEOWTH]
+/** 사무실 일꾼(서버실·부서 로봇) — 기계 포켓몬 */
+const ROBOT_MONS = [MAGNEMITE, VOLTORB, PORYGON]
+/** 에이전트실 — 세션마다 */
+const AGENT_MONS = [DITTO, MEW, GENGAR]
+
+function monOf(seat: Seat): Mon {
+  if (seat.kind === 'robot') return ROBOT_MONS[seed(seat.key) % ROBOT_MONS.length]
+  if (seat.kind === 'claude') return AGENT_MONS[seed(seat.key) % AGENT_MONS.length]
+  return STAFF_MONS[(seat.tint ?? 0) % STAFF_MONS.length]
 }
 
 /**
@@ -162,7 +332,7 @@ function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
 }
 
 /** 자리마다 다른 수 — 깜빡임·움직임 때를 어긋내는 데 쓴다. */
-const seed = (s: string) => [...s].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 9973, 7)
+function seed(s: string) { return [...s].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 9973, 7) }
 
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 
@@ -204,11 +374,12 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       <rect x={x + 3} y={y + 2} width={12} height={9} fill="#3f3f46" />
       <rect x={x + 4} y={y + 3} width={10} height={7} fill="#52525b" />
       {/* 캐릭터 — 1.3배로 키우고 어두운 테를 둘러 바닥·의자 색에 묻히지 않게 한다(2026-10-25 '잘 보였으면').
-          몸짓: 일하면 들썩, 기다리면 손 흔들기, 쉬면 사람은 두리번·로봇은 둥실·Claude 는 가끔 깡충. */}
+          몸짓: 일하면 들썩, 기다리면 손 흔들기, 쉬면 직원은 두리번·일꾼은 둥실·에이전트는 가끔 깡충. */}
       {on && (() => {
-        const pal = paletteOf(seat.kind, seat.tint)
+        const m = monOf(seat)
+        const pal = m.pal
         const ink = Object.fromEntries(Object.keys(pal).map(k => [k, '#1f2937']))
-        const rows = SPRITES[seat.kind]
+        const rows = m.rows
         const cx = x + 9
         const by = y + 11
         const motion = seat.state === 'working' ? 'pxo-type'
@@ -222,13 +393,13 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
                 <Sprite key={`${ox}${oy}`} rows={rows} palette={ink} x={x + 2 + ox} y={y + oy} />
               ))}
               <Sprite rows={rows} palette={pal} x={x + 2} y={y}
-                blink={seat.kind === 'person' ? '#f2c9a0' : seat.kind === 'claude' ? '#d97757' : '#d1d5db'}
+                blink={m.lid}
                 delay={(seed(seat.key) % 50) / 10} />
               {/* 기다림 — 오른손을 들어 흔든다 */}
               {seat.state === 'waiting' && (
                 <g className="pxo-wave">
-                  <rect x={x + 13.4} y={y + 2} width={1.6} height={6} fill={pal.B ?? pal.O ?? pal.G} stroke="#1f2937" strokeWidth={0.3} />
-                  <rect x={x + 13.2} y={y + 0.4} width={2} height={2} fill={seat.kind === 'robot' ? '#9ca3af' : pal.S ?? pal.O} stroke="#1f2937" strokeWidth={0.3} />
+                  <rect x={x + 13.4} y={y + 2} width={1.6} height={6} fill={m.main} stroke="#1f2937" strokeWidth={0.3} />
+                  <rect x={x + 13.2} y={y + 0.4} width={2} height={2} fill={m.main} stroke="#1f2937" strokeWidth={0.3} />
                 </g>
               )}
             </g>
@@ -244,7 +415,7 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       {on && <rect x={x + 13} y={y + 9} width={2} height={2} fill={seat.kind === 'claude' ? '#f4a261' : '#f8fafc'} />}
       {/* 일하는 중 — 키보드 위 두 손이 번갈아 누른다 */}
       {seat.state === 'working' && (() => {
-        const hand = seat.kind === 'person' ? '#f2c9a0' : seat.kind === 'claude' ? '#d97757' : '#9ca3af'
+        const hand = monOf(seat).main
         return (
           <>
             <g className="pxo-step-a"><rect x={x + 5} y={y + 9.8} width={2.2} height={1.4} fill={hand} stroke="#1f2937" strokeWidth={0.25} /></g>
@@ -351,21 +522,39 @@ function Vacuum({ x, y, span }: { x: number; y: number; span: number }) {
 // 미리 만들어 둔다. 걸음 두 장 × 방향 두 장을 켰다 껐다만 한다 — 아무것도 뒤집지 않는다.
 
 /** 오른쪽을 보는 청소부. C 모자 c 챙 H 머리 S 살 E 눈 U 작업복 A 앞치마 P 바지 K 신발 W 자루 M 걸레·빗자루 */
-const JANITOR_BODY = [
-  '....CCCCC.......',
-  '...CCCCCCC......',
-  '...CCCCCCCcc....',
-  '...HSSSSSS......',
-  '...HSSESSE......',
-  '...SSSSSSS......',
-  '....SSSSS.......',
-  '...UUUUUUU...W..',
-  '..UUUAAAUUU..W..',
-  '..SUUAAAUUSSW...',
-  '...UUAAAUU..W...',
-  '...UUAAAUU.W....',
-  '...PPPPPPP.W....',
-]
+/** 청소부 윗몸 (16칸) — 오른쪽 W 가 자루. 꼬부기는 등껍질, 피카츄는 귀 끝이 까맣다. */
+const JANITOR_BODIES: Record<string, string[]> = {
+  squirtle: [
+    '................',
+    '....SSSSS.......',
+    '...SSSSSSS......',
+    '..SSSSSSSSS.....',
+    '..SSESSSESS.....',
+    '..SSSSmmSSS.....',
+    '...SSSSSSS......',
+    '..BBYYYYYBB..W..',
+    '.SBBYYYYYBBS.W..',
+    '.SSBYYYYYBSSW...',
+    '..BBYYYYYBB.W...',
+    '..BBBYYYBBBW....',
+    '...SSSSSSS.W....',
+  ],
+  pikachu: [
+    '...N.....N......',
+    '...SN...NS......',
+    '...SSSSSSS......',
+    '..SSSSSSSSS.....',
+    '..SESSSSSES.....',
+    '..RSSSmSSSR.....',
+    '...SSSSSSS......',
+    '...SSSSSSS...W..',
+    '..SSSSSSSSS..W..',
+    '..SSSSSSSSSSW...',
+    '...SSSSSSS..W...',
+    '...SSSSSSS.W....',
+    '...SSSSSSS.W....',
+  ],
+}
 /**
  * 아랫몸 — 걸을 땐 다리만 벌렸다 모으고 자루·걸레는 그대로 끌고 간다. 예전엔 두 장의 자루 끝이
  * 한 칸 어긋나 걸음마다 걸레가 좌우로 튀었다(2026-10-26 '모션이 이상해').
@@ -423,16 +612,16 @@ function walkKeyframes(name: string, pts: Pt[], speed: number) {
  * 청소부 둘이 도는 길(판 좌표, 그림 왼쪽 위). 방 안은 책상 아래 빈 바닥으로, 방과 방 사이는
  * 복도와 문(벽의 문지방 자리)으로만 다닌다. 세 번째 값은 그 자리에서 닦는 초.
  */
-const JANITOR_ROUTES: { id: string; tint: { C: string; c: string; U: string; A: string; M: string }; pts: Pt[] }[] = [
+const JANITOR_ROUTES: { id: string; body: string; pal: Record<string, string>; pts: Pt[] }[] = [
   {
     // 아래층: 영업부 바닥 → 아래 복도 → 탕비실 → 아래 복도 → 매물조사실 → 돌아온다 (대걸레)
-    id: 'j1', tint: { C: '#1d4ed8', c: '#1e3a8a', U: '#2563eb', A: '#e0f2fe', M: '#e5e7eb' },
+    id: 'j1', body: 'squirtle', pal: { S: '#6ab0e0', B: '#a0642c', Y: '#f4e4b0', m: '#2c5a7a', P: '#6ab0e0', K: '#3b7fae', M: '#e5e7eb' },
     pts: [[16, 309], [110, 309, 3], [186, 309], [186, 230], [330, 230], [330, 288], [340, 309, 2.5], [330, 288], [330, 230],
       [440, 230], [440, 288], [530, 309, 3], [440, 288], [440, 230], [186, 230], [186, 309]],
   },
   {
     // 가운데·위층: 홍보부 → 아래 복도 → 로비 → 위 복도 → 협력업체·연구실 → 되돌아 (빗자루)
-    id: 'j2', tint: { C: '#047857', c: '#064e3b', U: '#059669', A: '#fef3c7', M: '#f59e0b' },
+    id: 'j2', body: 'pikachu', pal: { S: '#f8d030', N: '#1f1f1f', R: '#e8504a', m: '#7a3b1f', P: '#f8d030', K: '#c8a020', M: '#f59e0b' },
     pts: [[272, 208], [400, 208, 2.5], [440, 208], [440, 230], [552, 230], [552, 180, 3], [552, 120], [302, 120],
       [302, 92], [140, 92, 2.5], [356, 92, 2.5], [302, 92], [302, 120], [552, 120], [552, 230], [440, 230], [440, 208]],
   },
@@ -440,11 +629,12 @@ const JANITOR_ROUTES: { id: string; tint: { C: string; c: string; U: string; A: 
 
 function Janitor({ route }: { route: (typeof JANITOR_ROUTES)[number] }) {
   const { css, duration } = walkKeyframes(`pxo-${route.id}`, route.pts, 12)
-  const pal = { ...route.tint, H: '#3b2a20', S: '#f2c9a0', E: '#1f1f1f', P: '#374151', K: '#111827', W: '#a16207' }
+  const pal = { E: '#1f1f1f', W: '#a16207', ...route.pal }
+  const body = JANITOR_BODIES[route.body]
   const ink = Object.fromEntries(Object.keys(pal).map(k => [k, '#1f2937']))
   const dur = `${duration.toFixed(1)}s`
   const frames = (left: boolean, lower: string[][], [a, b]: [string, string]) => lower.map((step, i) => {
-    const rows = left ? mirror([...JANITOR_BODY, ...step]) : [...JANITOR_BODY, ...step]
+    const rows = left ? mirror([...body, ...step]) : [...body, ...step]
     return (
       <g key={i} className={i === 0 ? a : b}>
         {[[-0.6, 0], [0.6, 0], [0, -0.6], [0, 0.6]].map(([ox, oy]) => (
@@ -595,7 +785,7 @@ type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'server' | 'lab' | 'tile' |
 
 /**
  * 방(벽으로 둘러싼 칸). 자리 무리(RoomKey)와 따로 둔다 — 한 방에 두 무리가 앉는 곳이 있다
- * (협력업체 + Claude 에이전트실, 회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이).
+ * (협력업체 + 에이전트실, 회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이).
  */
 type BoxKey = 'boss' | 'partnerLab' | 'server' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
 
@@ -604,7 +794,7 @@ interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number;
 /** 방 배치(사장님이 정한 순서). 좌표는 판 픽셀. 위 벽(창문)이 0~24 를 쓴다. */
 const ROOMS: RoomBox[] = [
   { key: 'boss', label: '대표실', x: 0, y: 24, w: 120, h: 96, floor: 'carpet', color: '#1e3a8a' },
-  { key: 'partnerLab', label: '협력업체 · Claude 에이전트실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
+  { key: 'partnerLab', label: '협력업체 · 에이전트실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
   { key: 'server', label: '서버실', x: 408, y: 24, w: 168, h: 96, floor: 'server', color: '#0f172a' },
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
   { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 142, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
@@ -709,7 +899,7 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
       return (
         <g>
           <Label x={x + 44} y={y + 88} text="협력업체" size={3.6} color="#6d28d9" />
-          <Label x={x + 170} y={y + 88} text="Claude 에이전트실" size={3.6} color="#9a3412" />
+          <Label x={x + 170} y={y + 88} text="에이전트실" size={3.6} color="#9a3412" />
           <rect x={x + w - 18} y={y + 3} width={14} height={6} fill="#d97757" />
           <text x={x + w - 11} y={y + 7.4} fontSize={3.4} fontWeight={800} textAnchor="middle" fill="#fff">LAB</text>
         </g>
@@ -812,7 +1002,7 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           {[0, 1].map(i => (
             <g key={i}>
               <rect x={x + 88 + i * 16} y={y + 60} width={12} height={9} fill="#3f3f46" />
-              {i < guests && <Sprite rows={PERSON} palette={{ H: '#4b5563', S: '#f2c9a0', E: '#1f1f1f', B: '#9ca3af' }} x={x + 87 + i * 16} y={y + 54} />}
+              {i < guests && <Sprite rows={GUESTS[i].rows} palette={GUESTS[i].pal} x={x + 87 + i * 16} y={y + 54} />}
             </g>
           ))}
           <Label x={x + 108} y={y + 80} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
@@ -1074,7 +1264,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
           {overflow.map(o => <Label key={o.key} x={o.x} y={o.y} text={`+${o.n}`} size={4} anchor="start" />)}
 
-          {/* ── 사람·일꾼·Claude ── */}
+          {/* ── 직원·일꾼·에이전트 ── */}
           {placed.map(p => (
             <Desk key={p.seat.key} seat={p.seat} x={p.x} y={p.y} big={p.big}
               picked={picked === p.seat.key} onPick={pick(p.seat)} />

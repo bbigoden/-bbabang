@@ -778,7 +778,7 @@ function ClaudeSection({ officeId, sessions, orders, workerOn, onChange }: {
   }
 
   return (
-    <Section icon={Bot} title="Claude 에게 지시" hint="일하는 모습은 위 Claude 에이전트실에 보입니다">
+    <Section icon={Bot} title="Claude 에게 지시" hint="일하는 모습은 위 에이전트실에 보입니다">
       <div className="rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
         <textarea value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={4000} rows={3}
           placeholder="예: 매물수집 화면에 '오늘 새로 들어온 것만' 보기 버튼을 만들어 줘"
