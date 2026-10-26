@@ -528,7 +528,8 @@ export default function OfficePage() {
         <PixelOffice layout={layout} />
 
         {isOwner && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          // 사무실 그림과 같은 폭·위치에(pxo-fit) — 따로 두면 그림은 가운데, 버튼은 왼쪽 끝이라 삐져나와 보였다
+          <div className="pxo-fit mt-3 flex flex-wrap gap-2">
             {RUN_NOW.map(r => (
               <button key={r.kind} onClick={() => void runNow(r.kind, r.label)}
                 className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
