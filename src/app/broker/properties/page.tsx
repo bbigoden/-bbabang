@@ -3373,9 +3373,27 @@ function BrokerPropertiesContent() {
                   )}
                 </div>
               ) : (
-                <ul className="mb-4 list-disc pl-5 text-sm text-red-600 dark:text-red-400 space-y-1">
-                  {plan.problems.map(w => <li key={w}>{w}</li>)}
-                </ul>
+                <>
+                  <ul className="mb-4 list-disc pl-5 text-sm text-red-600 dark:text-red-400 space-y-1">
+                    {plan.problems.map(w => <li key={w}>{w}</li>)}
+                  </ul>
+                  {/* 주택으로 들어온 가게 호실 — 여기서 바로 상가로 바꾸고 이어서 넣는다(매물목록까지 갔다 오지 않게) */}
+                  {plan.problems.some(w => w.includes('1종(상가)·2종(상가)로 바꾸면')) && (
+                    <div className="mb-4 flex gap-2">
+                      {(['1종(상가)', '2종(상가)'] as const).map(t => (
+                        <button key={t} type="button"
+                          onClick={() => {
+                            saveField(p.id, 'room_type', t)
+                            const next = { ...p, room_type: t }
+                            setBankDraftConfirm({ p: next, plan: planBankDraft(next) })
+                          }}
+                          className="flex-1 rounded-xl border border-blue-200 bg-blue-50 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
+                          {t}로 바꾸기
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
               <div className="flex gap-3">
                 <button type="button" onClick={() => setBankDraftConfirm(null)}
