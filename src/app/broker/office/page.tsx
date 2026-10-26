@@ -386,7 +386,7 @@ export default function OfficePage() {
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
       state: s.today > 0 ? 'working' : 'idle',
       say: open ? `할 일 ${open}건` : s.today ? `매물 ${s.today}건 등록` : null,
-      note: `오늘 매물목록에 등록한 매물 ${s.today}건 · 지금까지 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
+      note: `오늘 매물 ${s.today}건 등록 · 지금까지 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
@@ -427,7 +427,7 @@ export default function OfficePage() {
     guests: today.consult,
     board: [
       `광고 올림  카페 ${today.cafe} · 블로그 ${today.blog} · 당근 ${today.daangnPost}`,
-      `수집한 매물  네이버 ${today.naver} · 당근 ${today.daangn}`,
+      `오늘 수집한 매물  네이버 ${today.naver} · 당근 ${today.daangn}`,
       isOwner ? `남은 할 일 ${openTasks}건` : `내 할 일 ${myTasks.filter(t => t.status === 'open').length}건`,
     ],
     seats: {
@@ -442,8 +442,8 @@ export default function OfficePage() {
         robot('takedown', '광고 회수', ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
       ],
       research: [
-        robot('naver', '네이버 수집', ['naver'], null, `오늘 받은 네이버 매물 ${today.naver}건`),
-        robot('daangn', '당근 수집', ['daangn'], null, `오늘 받은 당근 매물 ${today.daangn}건`, 1),
+        robot('naver', '네이버 수집', ['naver'], null, `오늘 수집한 네이버 매물 ${today.naver}건`),
+        robot('daangn', '당근 수집', ['daangn'], null, `오늘 수집한 당근 매물 ${today.daangn}건`, 1),
       ],
       register: [
         {
