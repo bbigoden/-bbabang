@@ -101,3 +101,12 @@ describe('planBankDraft', () => {
     expect(plan.ok && plan.form.excPyeong).toBeNull()
   })
 })
+
+describe('주택으로 들어온 가게 호실', () => {
+  it('상가로 바꾸라고 알려 준다', () => {
+    const plan = planBankDraft({ ...base, room_type: '단독/다가구', address: '충청남도 천안시 동남구 신방동 1035 1층 101,102호' })
+    expect(plan.ok).toBe(false)
+    if (plan.ok) return
+    expect(plan.problems[0]).toMatch(/1종\(상가\)·2종\(상가\)로 바꾸면/)
+  })
+})

@@ -231,6 +231,9 @@ export function planBankDraft(p: BankDraftProperty): BankDraftPlan {
   if (!kind) {
     problems.push(roomType
       ? (BANK_KIND_UNSUPPORTED[roomType] ?? `중개대상물종류 '${roomType}' 는 뱅크 종류를 정할 수 없습니다.`)
+        // 다가구·상가주택 건물의 1층 가게는 대장 기준 '주택' 으로 들어오는 일이 많다(#2044 신방동 참다루)
+        + (/주택|단독|다가구|빌라|연립|원룸|투룸|쓰리룸/.test(roomType) && /호|층/.test(p.address ?? '')
+          ? ' 이 호실이 가게(근린생활시설)라면 중개대상물종류를 1종(상가)·2종(상가)로 바꾸면 넣을 수 있어요.' : '')
       : '중개대상물종류가 비어 있습니다.')
   } else if (kind.gbn === 'WH' && /공장/.test(`${p.description ?? ''} ${p.memo ?? ''} ${p.address ?? ''}`) && !/창고/.test(`${p.description ?? ''} ${p.memo ?? ''}`)) {
     // '공장/창고' 한 칸이라 글에 공장이라고 적혀 있으면 공장으로 넣는다
