@@ -182,6 +182,8 @@ export default function OfficePage() {
   const [bankJobs, setBankJobs] = useState<BankJob[]>([])
   const [today, setToday] = useState({ cafe: 0, blog: 0, daangnPost: 0, naver: 0, daangn: 0, consult: 0 })
   const [partners, setPartners] = useState<{ id: string; name: string; month: number }[]>([])
+  /** 오늘 업무일지를 쓴 사람 → 마지막으로 고친 시각 */
+  const [diaries, setDiaries] = useState<Record<string, string>>({})
   const [members, setMembers] = useState<Member[]>([])
   const [memberStats, setMemberStats] = useState<Record<string, { today: number; total: number }>>({})
   const [tasks, setTasks] = useState<Task[] | null>(null)
@@ -234,7 +236,7 @@ export default function OfficePage() {
     setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
 
     if (isOwner) {
-      const [ms, props, ss, os, cos, ests] = await Promise.all([
+      const [ms, props, ss, os, cos, ests, dys] = await Promise.all([
         supabase.from('broker_profiles')
           .select('id, is_owner, is_approved, profiles:profiles_visible(name)')
           .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
@@ -252,7 +254,16 @@ export default function OfficePage() {
         supabase.from('estimate_companies').select('id, name').eq('owner_broker_id', officeId).order('sort_order'),
         supabase.from('estimates').select('company_id').eq('owner_broker_id', officeId)
           .gte('issue_date', `${todayKST().slice(0, 7)}-01`).limit(1000),
+        // 오늘 업무일지 — 쓴 사람과 고친 시각만 본다. 내용엔 비밀번호 같은 것이 섞여 이 화면엔 옮기지 않는다
+        supabase.from('broker_diary').select('broker_id, sections_content, work_summary, content, updated_at').eq('date', todayKST()),
       ])
+      const 쓴일지: Record<string, string> = {}
+      for (const d of (dys.data ?? []) as { broker_id: string; sections_content: Record<string, unknown> | null; work_summary: string | null; content: string | null; updated_at: string }[]) {
+        // 날짜를 열기만 해도 빈 줄이 생긴다 — 무엇이라도 적었을 때만 '썼다'
+        const 글 = [...Object.values(d.sections_content ?? {}), d.work_summary, d.content].some(v => typeof v === 'string' && v.trim())
+        if (글) 쓴일지[d.broker_id] = d.updated_at
+      }
+      setDiaries(쓴일지)
       const 견적 = (ests.data ?? []) as { company_id: string | null }[]
       setPartners(((cos.data ?? []) as { id: string; name: string }[])
         .map(c => ({ ...c, month: 견적.filter(e => e.company_id === c.id).length })))
@@ -384,9 +395,12 @@ export default function OfficePage() {
       key: m.id, kind: 'person', tint: i, name: m.profiles?.name ?? '이름 없음',
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
-      state: s.today > 0 ? 'working' : 'idle',
-      say: open ? `할 일 ${open}건` : s.today ? `매물 ${s.today}건 등록` : null,
-      note: `오늘 매물 ${s.today}건 등록 · 지금까지 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
+      state: s.today > 0 || diaries[m.id] ? 'working' : 'idle',
+      // 매물처럼 업무일지도 — 오늘 쓴 사람은 '일지 ✓'
+      say: open ? `할 일 ${open}건`
+        : [s.today ? `매물 ${s.today}건` : '', diaries[m.id] ? '일지 ✓' : ''].filter(Boolean).join(' · ') || null,
+      note: `오늘 매물 ${s.today}건 등록 · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
+        + ` · 지금까지 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
@@ -482,7 +496,8 @@ export default function OfficePage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
+    // 사무실 그림은 화면 폭 끝까지(2026-10-26 '꽉 차게'), 그 아래 목록은 읽기 좋은 폭으로
+    <div className="w-full px-4 py-6">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">사무실</h1>
@@ -524,6 +539,8 @@ export default function OfficePage() {
         )}
       </div>
 
+      <div className="mx-auto max-w-7xl">
+
       {/* ── 일 목록 ─────────────────────────────────── */}
       <Section icon={RotateCcw} title="걸린 일" hint="대기·하는 중인 일과 최근 하루 기록">
         {adJobs.length + bankJobs.length === 0 ? (
@@ -559,6 +576,7 @@ export default function OfficePage() {
         <ClaudeSection officeId={officeId} sessions={sessions} orders={orders} workerOn={officeOn}
           onChange={() => void load()} />
       )}
+      </div>
     </div>
   )
 }

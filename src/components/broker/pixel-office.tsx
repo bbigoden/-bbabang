@@ -277,7 +277,7 @@ function Bubble({ seat, x, y }: { seat: Seat; x: number; y: number }) {
   // 방금 끝낸 일이 있으면 그것부터 — 일이 끝나는 순간이 사무실에서 가장 볼 만하다.
   const done = !!seat.flash && seat.state !== 'working' && seat.state !== 'waiting'
   if (!done && (!seat.say || (seat.state !== 'working' && seat.state !== 'waiting'))) return null
-  const text = cut(done ? seat.flash! : seat.say!, 12)
+  const text = cut(done ? seat.flash! : seat.say!, 14)
   const waiting = seat.state === 'waiting'
   const w = Math.max(14, textW((done ? '✓ ' : waiting ? '! ' : '') + text, 3.6) + 5)
   const tone = done ? { bg: '#dcfce7', line: '#15803d', ink: '#14532d' }
@@ -355,10 +355,18 @@ const JANITOR_BODY = [
   '...UUAAAUU.W....',
   '...PPPPPPP.W....',
 ]
-/** 걸음 두 장 — 다리를 벌렸다 모으고, 걸레 끝도 따라 쓱쓱 움직인다 */
-const JANITOR_STEP = [
+/**
+ * 아랫몸 — 걸을 땐 다리만 벌렸다 모으고 자루·걸레는 그대로 끌고 간다. 예전엔 두 장의 자루 끝이
+ * 한 칸 어긋나 걸음마다 걸레가 좌우로 튀었다(2026-10-26 '모션이 이상해').
+ * 멈춰 닦을 땐 두 발을 모으고 걸레만 좌우로 쓱쓱.
+ */
+const JANITOR_WALK = [
   ['...PPP.PPPW.....', '...PP...PPW.....', '..KKK...KKMMMM..', '..........MMMM..'],
-  ['....PPPPPW......', '....PP.PPW......', '....KKKKKMMMM...', '.........MMMM...'],
+  ['....PPPPP.W.....', '....PP.PP.W.....', '....KKKKK.MMMM..', '..........MMMM..'],
+]
+const JANITOR_CLEAN = [
+  ['....PPPPP.W.....', '....PP.PP.W.....', '....KK.KK.MMMM..', '..........MMMM..'],
+  ['....PPPPP..W....', '....PP.PP..W....', '....KK.KK..MMMM.', '...........MMMM.'],
 ]
 const mirror = (rows: string[]) => rows.map(r => [...r].reverse().join(''))
 
@@ -387,7 +395,17 @@ function walkKeyframes(name: string, pts: Pt[], speed: number) {
     const next = marks[i + 1] ?? marks[0]
     return `${pct(m.at)} { opacity: ${(next.left === wantLeft) ? 1 : 0} }`
   }).join(' ')
-  return { css: `@keyframes ${name} { ${move} } @keyframes ${name}-r { ${face(false)} } @keyframes ${name}-l { ${face(true)} }`, duration: t }
+  // 걷는 중인지 닦는 중인지 — 다음 자리가 같은 곳이면 머무는(닦는) 구간
+  const doing = (wantClean: boolean) => marks.map((m, i) => {
+    const next = marks[i + 1] ?? marks[0]
+    const cleaning = next.x === m.x && next.y === m.y && next.at > m.at
+    return `${pct(m.at)} { opacity: ${cleaning === wantClean ? 1 : 0} }`
+  }).join(' ')
+  return {
+    css: `@keyframes ${name} { ${move} } @keyframes ${name}-r { ${face(false)} } @keyframes ${name}-l { ${face(true)} }`
+      + ` @keyframes ${name}-w { ${doing(false)} } @keyframes ${name}-c { ${doing(true)} }`,
+    duration: t,
+  }
 }
 
 /**
@@ -410,14 +428,14 @@ const JANITOR_ROUTES: { id: string; tint: { C: string; c: string; U: string; A: 
 ]
 
 function Janitor({ route }: { route: (typeof JANITOR_ROUTES)[number] }) {
-  const { css, duration } = walkKeyframes(`pxo-${route.id}`, route.pts, 16)
+  const { css, duration } = walkKeyframes(`pxo-${route.id}`, route.pts, 12)
   const pal = { ...route.tint, H: '#3b2a20', S: '#f2c9a0', E: '#1f1f1f', P: '#374151', K: '#111827', W: '#a16207' }
   const ink = Object.fromEntries(Object.keys(pal).map(k => [k, '#1f2937']))
   const dur = `${duration.toFixed(1)}s`
-  const frames = (left: boolean) => JANITOR_STEP.map((step, i) => {
+  const frames = (left: boolean, lower: string[][], [a, b]: [string, string]) => lower.map((step, i) => {
     const rows = left ? mirror([...JANITOR_BODY, ...step]) : [...JANITOR_BODY, ...step]
     return (
-      <g key={i} className={i === 0 ? 'pxo-step-a' : 'pxo-step-b'}>
+      <g key={i} className={i === 0 ? a : b}>
         {[[-0.6, 0], [0.6, 0], [0, -0.6], [0, 0.6]].map(([ox, oy]) => (
           <Sprite key={`${ox}${oy}`} rows={rows} palette={ink} x={ox} y={oy} />
         ))}
@@ -441,12 +459,17 @@ function Janitor({ route }: { route: (typeof JANITOR_ROUTES)[number] }) {
       <g style={{ animation: `pxo-${route.id} ${dur} linear infinite` }}>
         {/* 1.25배 — 앉은 사람(1.3배)과 키가 엇비슷하게 */}
         <g transform="scale(1.25)">
-          <g style={{ animation: `pxo-${route.id}-r ${dur} steps(1, end) infinite` }}>
-            {sparkles(false)}<g className="pxo-walk">{frames(false)}</g>
-          </g>
-          <g style={{ animation: `pxo-${route.id}-l ${dur} steps(1, end) infinite` }}>
-            {sparkles(true)}<g className="pxo-walk">{frames(true)}</g>
-          </g>
+          {[false, true].map(left => (
+            <g key={String(left)} style={{ animation: `pxo-${route.id}-${left ? 'l' : 'r'} ${dur} steps(1, end) infinite` }}>
+              <g style={{ animation: `pxo-${route.id}-w ${dur} steps(1, end) infinite` }}>
+                {frames(left, JANITOR_WALK, ['pxo-step-a', 'pxo-step-b'])}
+              </g>
+              <g style={{ animation: `pxo-${route.id}-c ${dur} steps(1, end) infinite` }}>
+                {sparkles(left)}
+                {frames(left, JANITOR_CLEAN, ['pxo-sweep-a', 'pxo-sweep-b'])}
+              </g>
+            </g>
+          ))}
         </g>
       </g>
     </g>
@@ -847,10 +870,8 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         .pxo-wave { animation: pxo-wave .35s steps(1) infinite; }
         @keyframes pxo-fish { 0% { transform: translateX(0) scaleX(1) } 45% { transform: translateX(12px) scaleX(1) } 50% { transform: translateX(12px) scaleX(-1) } 95% { transform: translateX(0) scaleX(-1) } 100% { transform: translateX(0) scaleX(1) } }
         .pxo-fish { transform-box: fill-box; transform-origin: center; animation: pxo-fish 9s linear infinite; }
-        @keyframes pxo-walk { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-.6px) } }
-        .pxo-walk { animation: pxo-walk .4s steps(1) infinite; }
-        @keyframes pxo-mop { 0%, 100% { transform: translateX(0) } 50% { transform: translateX(1.4px) } }
-        .pxo-mop { animation: pxo-mop .3s steps(1) infinite; }
+        .pxo-sweep-a { animation: pxo-step .5s steps(1) infinite; }
+        .pxo-sweep-b { animation: pxo-step .5s steps(1) infinite reverse; }
         @keyframes pxo-sparkle { 0%, 100% { opacity: 0 } 30%, 60% { opacity: 1 } }
         .pxo-sparkle { animation: pxo-sparkle 1s steps(3) infinite; }
         @keyframes pxo-led { 0%, 60% { opacity: 1 } 61%, 100% { opacity: .25 } }
@@ -881,7 +902,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         @media (prefers-reduced-motion: reduce) {
           .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam, .pxo-eye, .pxo-code, .pxo-pop, .pxo-colon,
           .pxo-cloud, .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b,
-          .pxo-look, .pxo-hover, .pxo-hop, .pxo-wave, .pxo-fish, .pxo-walk, .pxo-mop, .pxo-sparkle { animation: none }
+          .pxo-look, .pxo-hover, .pxo-hop, .pxo-wave, .pxo-fish, .pxo-sparkle, .pxo-sweep-a, .pxo-sweep-b { animation: none }
           .pxo-jan, .pxo-jan * { animation: none !important }
         }
       `}</style>
@@ -952,11 +973,8 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
             <text key={l} x={278} y={9 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
           ))}
 
-          {/* ── 복도: 돌바닥에 긴 러너, 오른쪽 끝 출입구 ── */}
+          {/* ── 복도: 돌바닥, 오른쪽 끝 출입구 ── */}
           <rect x={0} y={HALL.y} width={W} height={HALL.h} fill="url(#pxo-hall)" />
-          <rect x={10} y={HALL.y + 8} width={W - 34} height={6} fill="#9f1239" opacity={0.55} />
-          <rect x={10} y={HALL.y + 8.6} width={W - 34} height={0.5} fill="#fbbf24" opacity={0.8} />
-          <rect x={10} y={HALL.y + 12.9} width={W - 34} height={0.5} fill="#fbbf24" opacity={0.8} />
           <Plant x={4} y={HALL.y + 6} />
           <Plant x={244} y={HALL.y + 6} />
           {/* 출입구 — 유리 양문, 바닥 매트, 비상구 같은 초록 안내판 */}
@@ -984,6 +1002,15 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           ))}
           <rect x={0} y={24} width={2} height={H - 24} fill="#6b7280" />
           {DOORS.map((d, i) => <rect key={i} x={d.x} y={d.y} width={d.w} height={d.h} fill="#cbb79a" />)}
+          {/* 대표 전용 출입구 — 밖에서 바로 대표실로(2026-10-26 사장님 주문). 바깥벽 유리문·매트·안내 */}
+          <rect x={0} y={78} width={4.5} height={22} fill="#475569" />
+          <rect x={0.6} y={79} width={3.2} height={9.5} fill="#bfdbfe" />
+          <rect x={0.6} y={89.5} width={3.2} height={9.5} fill="#bfdbfe" />
+          <rect x={2.6} y={86} width={0.8} height={6} fill="#1f2937" />
+          <rect x={5} y={80} width={6} height={18} fill="#4b5563" />
+          <rect x={5.6} y={80.6} width={4.8} height={16.8} fill="none" stroke="#9ca3af" strokeWidth={0.4} />
+          <rect x={12} y={73.5} width={textW('대표 전용 출입구', 3.4) + 4} height={5.5} fill="#1e3a8a" />
+          <text x={14} y={77.6} fontSize={3.4} fontWeight={800} fill="#fff">대표 전용 출입구</text>
           {ROOMS.map(r => (
             <g key={`l-${r.key}`}>
               <rect x={r.x + 4} y={r.y + 3} width={textW(r.label, 4.6) + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
