@@ -497,10 +497,6 @@ function Lobby() {
   return (
     <g>
       <rect x={x} y={y} width={w} height={h} fill="url(#pxo-marble)" />
-      {/* 간판 */}
-      <rect x={x + 10} y={y + 3} width={52} height={11} fill="#14274e" />
-      <rect x={x + 11} y={y + 4} width={50} height={9} fill="none" stroke="#c9a227" strokeWidth={0.5} />
-      <text x={x + 36} y={y + 10.6} fontSize={5} fontWeight={900} textAnchor="middle" fill="#fff">부소장</text>
       {/* 안내 데스크 — 둥근 카운터, 종, 모니터 */}
       <rect x={x + 10} y={y + 34} width={34} height={4} fill="#c8955f" />
       <rect x={x + 10} y={y + 38} width={34} height={9} fill="#7c4a24" />
@@ -509,8 +505,6 @@ function Lobby() {
       <rect x={x + 31} y={y + 29} width={7} height={4} fill="#334155" />
       <rect x={x + 16} y={y + 31.5} width={4} height={2.5} fill="#facc15" />
       <rect x={x + 17.5} y={y + 30.5} width={1} height={1} fill="#facc15" />
-      <rect x={x + 18} y={y + 49} width={textW('안내', 3.4) + 4} height={5} fill="#fff7e6" stroke="#7c4a24" strokeWidth={0.4} />
-      <text x={x + 20} y={y + 52.8} fontSize={3.4} fontWeight={800} fill="#7c4a24">안내</text>
       {/* 손님 소파와 탁자 */}
       <Sofa x={x + 10} y={y + 88} w={30} color="#14274e" />
       <rect x={x + 16} y={y + 102} width={18} height={6} fill="#8b5a2b" />
@@ -527,8 +521,6 @@ function Lobby() {
       <rect x={x + w - 19.4} y={doorY + 4.6} width={10.8} height={24.8} fill="none" stroke="#9ca3af" strokeWidth={0.4} />
       <rect x={x + w - 34} y={doorY - 8} width={textW('출입구', 3.8) + 5} height={6} fill="#15803d" />
       <text x={x + w - 31.5} y={doorY - 3.5} fontSize={3.8} fontWeight={800} fill="#fff">출입구</text>
-      <rect x={x + 4} y={y + 22} width={textW('로비', 4.6) + 5} height={7.5} fill="#fff7e6" stroke="#14274e" strokeWidth={0.6} />
-      <text x={x + 6.5} y={y + 27.8} fontSize={4.6} fontWeight={800} fill="#14274e">로비</text>
     </g>
   )
 }
@@ -917,7 +909,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
   }
 
   return (
-    <div>
+    <div className="pxo-fit">
       <style>{`
         @keyframes pxo-type { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(.6px) } }
         .pxo-type { animation: pxo-type .5s steps(1) infinite; }
@@ -964,6 +956,8 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         .pxo-step-a { animation: pxo-step .4s steps(1) infinite; }
         .pxo-step-b { animation: pxo-step .4s steps(1) infinite reverse; }
         .dark .pxo-scene { filter: brightness(.8) saturate(.9); }
+        /* PC 에선 스크롤 없이 한 화면에 — 화면 높이에 맞춰 폭을 정하고 가운데에(비율은 그대로). 휴대폰은 옆으로 민다 */
+        @media (min-width: 1024px) { .pxo-fit { width: min(100%, calc((100dvh - 240px) * ${W} / ${H})); margin: 0 auto; } }
         @media (prefers-reduced-motion: reduce) {
           .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam, .pxo-eye, .pxo-code, .pxo-pop, .pxo-colon,
           .pxo-cloud, .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b,
@@ -974,7 +968,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
 
       <p className="mb-1 text-[11px] text-gray-500 lg:hidden">← 사무실을 옆으로 밀어 다른 방도 보세요 →</p>
       <div className="overflow-x-auto border-4 border-gray-800 dark:border-gray-600">
-        <svg viewBox={`0 0 ${W} ${H}`} shapeRendering="crispEdges" className="pxo-scene block w-full min-w-[1080px]"
+        <svg viewBox={`0 0 ${W} ${H}`} shapeRendering="crispEdges" className="pxo-scene block w-full min-w-[1080px] lg:min-w-0"
           role="img" aria-label="사무실 배치도">
           <defs>
             <pattern id="pxo-wood" width="24" height="6" patternUnits="userSpaceOnUse">
@@ -1050,8 +1044,6 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
               <rect x={0} y={h.y} width={LOBBY.x} height={h.h} fill="url(#pxo-hall)" />
               <Plant x={4} y={h.y + 6} />
               <Plant x={244} y={h.y + 6} />
-              <rect x={16} y={h.y + 1.5} width={textW('복도', 4) + 5} height={6.5} fill="#fff7e6" stroke="#78716c" strokeWidth={0.6} />
-              <text x={18.5} y={h.y + 6.4} fontSize={4} fontWeight={800} fill="#57534e">복도</text>
             </g>
           ))}
           <Lobby />
