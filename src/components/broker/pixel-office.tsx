@@ -3,22 +3,24 @@
 /**
  * 사무실 화면의 픽셀 사무실 — 한 층짜리 진짜 사무실처럼 그린다.
  *
- *   ┌ 창문 ── 시계 ── 화이트보드 ─────────────────────────────────────┐
- *   │ 대표실   │ 협력업체 ┊ Claude 연구실          │ 서버실(사무실 일꾼)  │
- *   ├──문──────┴──────문─────────────문───────────┴────문──────────────┤
- *   │ 이사실  │ 회의 ┊ 상담실 │ 홍보부(채널 로봇 ┊ 등록 로봇)            │
- *   ├──문─────┴──────문───────┴──────문──────────────────문─────────────┤
- *   │ 복도 ═══════════════════════════════════════════════ 출입구 →  ▯│
- *   ├──문─────────────문───────┬──────문──┬─────────────문──────────────┤
- *   │ 영업부 (직원 책상)        │ 탕비실   │ 매물조사실(수집 로봇)        │
- *   └───────────────────────────┴──────────┴─────────────────────────────┘
- *   (┊ = 한 방을 둘이 나눠 씀. 배치·폭·복도·출입구는 2026-10-26 사장님이 정함)
+ *   ┌ 창문 ── 시계 ── 화이트보드 ───────────────────────────────────────┐
+ *   │ 대표실   │ 협력업체 ┊ Claude 연구실          │ 서버실(사무실 일꾼)    │
+ *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
+ *   │ 복도 ════════════════════════════════════════════════│ 로비      │
+ *   ├──문──────┬──────문───────┬──────문───────────────────┤ 안내 데스크│
+ *   │ 이사실   │ 회의 ┊ 상담실 │ 홍보부(채널 ┊ 등록 로봇)  문  소파     ▯ 출입구
+ *   ├──문──────┴──────문───────┴──────문───────────────문──┤           │
+ *   │ 복도 ════════════════════════════════════════════════│           │
+ *   ├──문─────────────문───────┬──────문──┬─────────────문─┴───────────┤
+ *   │ 영업부 (직원 책상)        │ 탕비실   │ 매물조사실(수집 로봇)          │
+ *   └───────────────────────────┴──────────┴───────────────────────────────┘
+ *   (┊ = 한 방을 둘이 나눠 씀. 배치·폭·복도 둘·로비는 2026-10-26 사장님이 정함)
  *
  * 광고 PC 프로그램은 하나지만, 하는 일(카페·블로그·당근·회수·수집·뱅크)마다 로봇을 따로 앉혀
  * 지금 어느 일이 도는지 자리로 보이게 한다 — 그 나눔은 화면(page.tsx)이 걸린 일로 정한다.
  *
  * 그림은 전부 이 파일 안의 사각형으로 그린다(그림 파일 없음). 좌표 단위는 픽셀 하나이고
- * 576×310 판을 화면 폭에 맞춰 키운다. 휴대폰에선 글자가 너무 작아지므로 판을 1080px 아래로
+ * 576×332 판을 화면 폭에 맞춰 키운다. 휴대폰에선 글자가 너무 작아지므로 판을 1080px 아래로
  * 줄이지 않고 옆으로 밀어 보게 하고, 누른 자리의 내용은 판 아래에 크게 다시 적는다.
  *
  * 상태는 몸짓으로 보인다:
@@ -48,6 +50,8 @@ export interface Seat {
   badge?: string
   /** 방금 끝낸 일 — 머리 위에 초록 '✓' 풍선으로 잠깐 띄운다 */
   flash?: string | null
+  /** 쉬는 중에도 말풍선을 늘 띄운다(직원 — 매물·업무일지) */
+  pin?: boolean
 }
 
 export type RoomKey =
@@ -272,25 +276,32 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
   )
 }
 
-/** 머리 위 말풍선. 일하거나 기다릴 때만 띄운다 — 다 띄우면 판이 말풍선으로 덮인다. */
+/**
+ * 머리 위 말풍선. 일하거나 기다릴 때만 띄운다 — 다 띄우면 판이 말풍선으로 덮인다.
+ * 단, pin 인 자리(직원)는 늘 띄운다. 줄바꿈(\n)으로 여러 줄을 쓸 수 있다.
+ */
 function Bubble({ seat, x, y }: { seat: Seat; x: number; y: number }) {
   // 방금 끝낸 일이 있으면 그것부터 — 일이 끝나는 순간이 사무실에서 가장 볼 만하다.
   const done = !!seat.flash && seat.state !== 'working' && seat.state !== 'waiting'
-  if (!done && (!seat.say || (seat.state !== 'working' && seat.state !== 'waiting'))) return null
-  const text = cut(done ? seat.flash! : seat.say!, 14)
+  const show = seat.pin || seat.state === 'working' || seat.state === 'waiting'
+  if (!done && (!seat.say || !show)) return null
   const waiting = seat.state === 'waiting'
-  const w = Math.max(14, textW((done ? '✓ ' : waiting ? '! ' : '') + text, 3.6) + 5)
+  const lines = (done ? seat.flash! : seat.say!).split('\n').map(l => cut(l, 14))
+  lines[0] = (done ? '✓ ' : waiting ? '! ' : '') + lines[0]
+  const w = Math.max(14, ...lines.map(l => textW(l, 3.6) + 5))
+  const h = 2.6 + lines.length * 4.4
   const tone = done ? { bg: '#dcfce7', line: '#15803d', ink: '#14532d' }
     : waiting ? { bg: '#fef3c7', line: '#b45309', ink: '#78350f' }
       : { bg: '#ffffff', line: '#1f2937', ink: '#111827' }
   const cx = x + 9
+  const top = y - 6 - h
   return (
     <g className={done ? 'pxo-pop' : waiting ? 'pxo-bounce' : undefined} style={{ pointerEvents: 'none' }}>
-      <rect x={cx - w / 2} y={y - 13} width={w} height={7} fill={tone.bg} stroke={tone.line} strokeWidth={0.6} />
+      <rect x={cx - w / 2} y={top} width={w} height={h} fill={tone.bg} stroke={tone.line} strokeWidth={0.6} />
       <rect x={cx - 1} y={y - 6} width={2} height={1.5} fill={tone.line} />
-      <text x={cx} y={y - 8.2} fontSize={3.6} fontWeight={700} textAnchor="middle" fill={tone.ink}>
-        {done ? `✓ ${text}` : waiting ? `! ${text}` : text}
-      </text>
+      {lines.map((l, i) => (
+        <text key={i} x={cx} y={top + 4.2 + i * 4.4} fontSize={3.6} fontWeight={700} textAnchor="middle" fill={tone.ink}>{l}</text>
+      ))}
     </g>
   )
 }
@@ -414,16 +425,16 @@ function walkKeyframes(name: string, pts: Pt[], speed: number) {
  */
 const JANITOR_ROUTES: { id: string; tint: { C: string; c: string; U: string; A: string; M: string }; pts: Pt[] }[] = [
   {
-    // 아래층: 영업부 바닥 → 복도 → 탕비실 → 복도 → 매물조사실 → 복도로 돌아온다 (대걸레)
+    // 아래층: 영업부 바닥 → 아래 복도 → 탕비실 → 아래 복도 → 매물조사실 → 돌아온다 (대걸레)
     id: 'j1', tint: { C: '#1d4ed8', c: '#1e3a8a', U: '#2563eb', A: '#e0f2fe', M: '#e5e7eb' },
-    pts: [[16, 287], [110, 287, 3], [186, 287], [186, 208], [290, 208], [290, 266], [300, 287, 2.5], [290, 266], [290, 208],
-      [440, 208], [440, 266], [530, 287, 3], [440, 266], [440, 208], [186, 208], [186, 287]],
+    pts: [[16, 309], [110, 309, 3], [186, 309], [186, 230], [290, 230], [290, 288], [300, 309, 2.5], [290, 288], [290, 230],
+      [440, 230], [440, 288], [530, 309, 3], [440, 288], [440, 230], [186, 230], [186, 309]],
   },
   {
-    // 가운데·위층: 홍보부 바닥 → 복도·출입구 → 홍보부 → 문 → 협력업체·연구실 (빗자루)
+    // 가운데·위층: 홍보부 → 아래 복도 → 로비 → 위 복도 → 협력업체·연구실 → 되돌아 (빗자루)
     id: 'j2', tint: { C: '#047857', c: '#064e3b', U: '#059669', A: '#fef3c7', M: '#f59e0b' },
-    pts: [[272, 186], [400, 186, 2.5], [540, 186, 2], [442, 186], [442, 208], [536, 208, 3], [302, 208], [302, 186],
-      [302, 92], [140, 92, 2.5], [250, 92], [356, 92, 2.5], [302, 92], [302, 186]],
+    pts: [[272, 208], [400, 208, 2.5], [440, 208], [440, 230], [552, 230], [552, 180, 3], [552, 120], [302, 120],
+      [302, 92], [140, 92, 2.5], [356, 92, 2.5], [302, 92], [302, 120], [552, 120], [552, 230], [440, 230], [440, 208]],
   },
 ]
 
@@ -472,6 +483,52 @@ function Janitor({ route }: { route: (typeof JANITOR_ROUTES)[number] }) {
           ))}
         </g>
       </g>
+    </g>
+  )
+}
+
+/**
+ * 로비 — 바깥 유리문으로 들어와 안내 데스크를 지나 두 복도로 갈라진다(2026-10-26 '로비 형식으로').
+ * 위·아래 복도가 왼쪽에서 그대로 이어 들어오고, 오른쪽 바깥벽에 출입구가 있다.
+ */
+function Lobby() {
+  const { x, y, w, h } = LOBBY
+  const doorY = y + 50
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} fill="url(#pxo-marble)" />
+      {/* 간판 */}
+      <rect x={x + 10} y={y + 3} width={52} height={11} fill="#14274e" />
+      <rect x={x + 11} y={y + 4} width={50} height={9} fill="none" stroke="#c9a227" strokeWidth={0.5} />
+      <text x={x + 36} y={y + 10.6} fontSize={5} fontWeight={900} textAnchor="middle" fill="#fff">부소장</text>
+      {/* 안내 데스크 — 둥근 카운터, 종, 모니터 */}
+      <rect x={x + 10} y={y + 34} width={34} height={4} fill="#c8955f" />
+      <rect x={x + 10} y={y + 38} width={34} height={9} fill="#7c4a24" />
+      <rect x={x + 11} y={y + 40} width={32} height={1} fill="#c9a227" />
+      <rect x={x + 30} y={y + 28} width={9} height={6} fill="#111827" />
+      <rect x={x + 31} y={y + 29} width={7} height={4} fill="#334155" />
+      <rect x={x + 16} y={y + 31.5} width={4} height={2.5} fill="#facc15" />
+      <rect x={x + 17.5} y={y + 30.5} width={1} height={1} fill="#facc15" />
+      <rect x={x + 18} y={y + 49} width={textW('안내', 3.4) + 4} height={5} fill="#fff7e6" stroke="#7c4a24" strokeWidth={0.4} />
+      <text x={x + 20} y={y + 52.8} fontSize={3.4} fontWeight={800} fill="#7c4a24">안내</text>
+      {/* 손님 소파와 탁자 */}
+      <Sofa x={x + 10} y={y + 88} w={30} color="#14274e" />
+      <rect x={x + 16} y={y + 102} width={18} height={6} fill="#8b5a2b" />
+      <Plant x={x + 4} y={y + 112} />
+      <Plant x={x + w - 12} y={y + 112} />
+      {/* 바깥벽과 유리 양문, 매트, 출입구 안내 */}
+      <rect x={x + w - 1.5} y={y} width={3} height={doorY - y} fill="#6b7280" />
+      <rect x={x + w - 1.5} y={doorY + 34} width={3} height={y + h - doorY - 34} fill="#6b7280" />
+      <rect x={x + w - 6} y={doorY} width={6} height={34} fill="#475569" />
+      <rect x={x + w - 5.4} y={doorY + 1} width={2.4} height={15.5} fill="#bfdbfe" />
+      <rect x={x + w - 5.4} y={doorY + 17.5} width={2.4} height={15.5} fill="#bfdbfe" />
+      <rect x={x + w - 2.8} y={doorY + 1} width={2.2} height={32} fill="#dbeafe" />
+      <rect x={x + w - 20} y={doorY + 4} width={12} height={26} fill="#4b5563" />
+      <rect x={x + w - 19.4} y={doorY + 4.6} width={10.8} height={24.8} fill="none" stroke="#9ca3af" strokeWidth={0.4} />
+      <rect x={x + w - 34} y={doorY - 8} width={textW('출입구', 3.8) + 5} height={6} fill="#15803d" />
+      <text x={x + w - 31.5} y={doorY - 3.5} fontSize={3.8} fontWeight={800} fill="#fff">출입구</text>
+      <rect x={x + 4} y={y + 22} width={textW('로비', 4.6) + 5} height={7.5} fill="#fff7e6" stroke="#14274e" strokeWidth={0.6} />
+      <text x={x + 6.5} y={y + 27.8} fontSize={4.6} fontWeight={800} fill="#14274e">로비</text>
     </g>
   )
 }
@@ -533,9 +590,14 @@ function ServerRack({ x, y }: { x: number; y: number }) {
 // ── 판 ─────────────────────────────────────────────────
 
 const W = 576
-/** 2·3줄 사이 복도 — 오른쪽 끝이 출입구다(2026-10-26 사장님 주문) */
-const HALL = { y: 208, h: 22 }
-const H = 310
+/**
+ * 복도 두 줄 — 1·2줄 사이, 2·3줄 사이. 어느 방이든 다른 방을 지나지 않고 복도에서 바로 들어간다
+ * (대표실에 가려고 이사실·회의실을 지나던 것을 2026-10-26 사장님이 바꿈).
+ */
+const HALLS = [{ y: 120, h: 22 }, { y: 230, h: 22 }]
+/** 로비 — 오른쪽, 두 복도가 만나는 곳. 바깥 유리문으로 들어온다 */
+const LOBBY = { x: 496, y: 120, w: 80, h: 132 }
+const H = 332
 
 type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'server' | 'lab' | 'tile' | 'green'
 
@@ -552,28 +614,30 @@ const ROOMS: RoomBox[] = [
   { key: 'boss', label: '대표실', x: 0, y: 24, w: 120, h: 96, floor: 'carpet', color: '#1e3a8a' },
   { key: 'partnerLab', label: '협력업체 · Claude 연구실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
   { key: 'server', label: '서버실', x: 408, y: 24, w: 168, h: 96, floor: 'server', color: '#0f172a' },
-  { key: 'director', label: '이사실', x: 0, y: 120, w: 120, h: 88, floor: 'oak', color: '#14532d' },
-  { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 120, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
-  { key: 'promo', label: '홍보부', x: 260, y: 120, w: 316, h: 88, floor: 'wood', color: '#be185d' },
-  { key: 'sales', label: '영업부', x: 0, y: 230, w: 260, h: 80, floor: 'wood', color: '#1d4ed8' },
-  { key: 'pantry', label: '탕비실', x: 260, y: 230, w: 80, h: 80, floor: 'tile', color: '#78350f' },
-  { key: 'research', label: '매물조사실', x: 340, y: 230, w: 236, h: 80, floor: 'lab', color: '#0e7490' },
+  { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
+  { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 142, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
+  { key: 'promo', label: '홍보부', x: 260, y: 142, w: 236, h: 88, floor: 'wood', color: '#be185d' },
+  { key: 'sales', label: '영업부', x: 0, y: 252, w: 260, h: 80, floor: 'wood', color: '#1d4ed8' },
+  { key: 'pantry', label: '탕비실', x: 260, y: 252, w: 80, h: 80, floor: 'tile', color: '#78350f' },
+  { key: 'research', label: '매물조사실', x: 340, y: 252, w: 236, h: 80, floor: 'lab', color: '#0e7490' },
 ]
 
 /** 문 — 벽 위에 문지방 색을 덧칠해 구멍을 낸다. */
 const DOORS = [
-  // 1·2줄 사이 벽
-  { x: 50, y: 118, w: 18, h: 4 }, { x: 160, y: 118, w: 18, h: 4 }, { x: 300, y: 118, w: 18, h: 4 }, { x: 470, y: 118, w: 18, h: 4 },
+  // 1줄 → 위 복도
+  { x: 50, y: 118, w: 18, h: 4 }, { x: 160, y: 118, w: 18, h: 4 }, { x: 300, y: 118, w: 18, h: 4 }, { x: 430, y: 118, w: 18, h: 4 },
   // 1줄 세로 벽
   { x: 118, y: 62, w: 4, h: 20 }, { x: 406, y: 70, w: 4, h: 20 },
-  // 2줄 세로 벽
-  { x: 118, y: 150, w: 4, h: 22 }, { x: 258, y: 150, w: 4, h: 22 },
-  // 2줄 → 복도
-  { x: 60, y: 206, w: 18, h: 4 }, { x: 190, y: 206, w: 18, h: 4 }, { x: 290, y: 206, w: 18, h: 4 }, { x: 440, y: 206, w: 18, h: 4 },
-  // 복도 → 3줄
+  // 위 복도 → 2줄
+  { x: 60, y: 140, w: 18, h: 4 }, { x: 190, y: 140, w: 18, h: 4 }, { x: 300, y: 140, w: 18, h: 4 },
+  // 2줄 세로 벽, 홍보부 → 로비
+  { x: 118, y: 172, w: 4, h: 22 }, { x: 258, y: 172, w: 4, h: 22 }, { x: 494, y: 172, w: 4, h: 22 },
+  // 2줄 → 아래 복도
   { x: 60, y: 228, w: 18, h: 4 }, { x: 190, y: 228, w: 18, h: 4 }, { x: 290, y: 228, w: 18, h: 4 }, { x: 440, y: 228, w: 18, h: 4 },
+  // 아래 복도 → 3줄
+  { x: 60, y: 250, w: 18, h: 4 }, { x: 190, y: 250, w: 18, h: 4 }, { x: 290, y: 250, w: 18, h: 4 }, { x: 440, y: 250, w: 18, h: 4 },
   // 3줄 세로 벽
-  { x: 258, y: 260, w: 4, h: 20 }, { x: 338, y: 260, w: 4, h: 20 },
+  { x: 258, y: 282, w: 4, h: 20 }, { x: 338, y: 282, w: 4, h: 20 },
 ]
 
 /** 자리 무리마다 어느 방 어디에 책상을 놓나: 첫 자리(dx, dy), 가로·세로 간격(sx, sy), 한 줄에 몇, 최대 몇. */
@@ -585,10 +649,10 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   consult: { box: 'meetConsult', dx: 90, dy: 20, sx: 0, sy: 0, cols: 1, max: 1 },
   // 홍보 넷 + 등록 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다
-  promo: { box: 'promo', dx: 14, dy: 34, sx: 48, sy: 0, cols: 4, max: 4 },
+  promo: { box: 'promo', dx: 10, dy: 34, sx: 38, sy: 0, cols: 4, max: 4 },
   // 등록 로봇도 홍보부에 앉는다 — 2026-10-25 사장님이 등록실을 홍보부로 합침(칸막이 없이)
-  register: { box: 'promo', dx: 216, dy: 34, sx: 48, sy: 0, cols: 2, max: 2 },
-  sales: { box: 'sales', dx: 12, dy: 25, sx: 46, sy: 27, cols: 5, max: 10 },
+  register: { box: 'promo', dx: 166, dy: 34, sx: 36, sy: 0, cols: 2, max: 2 },
+  sales: { box: 'sales', dx: 12, dy: 30, sx: 46, sy: 0, cols: 5, max: 5 },
   research: { box: 'research', dx: 12, dy: 25, sx: 48, sy: 27, cols: 3, max: 6 },
 }
 
@@ -946,6 +1010,12 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
               <rect width="10" height="0.6" fill="#c3ccda" />
               <rect width="0.6" height="10" fill="#c3ccda" />
             </pattern>
+            <pattern id="pxo-marble" width="16" height="16" patternUnits="userSpaceOnUse">
+              <rect width="16" height="16" fill="#f5f5f4" />
+              <rect width="8" height="8" fill="#e7e5e4" />
+              <rect x="8" y="8" width="8" height="8" fill="#e7e5e4" />
+              <rect x="3" y="5" width="4" height="0.5" fill="#d6d3d1" />
+            </pattern>
             <pattern id="pxo-hall" width="12" height="11" patternUnits="userSpaceOnUse">
               <rect width="12" height="11" fill="#d6d3d1" />
               <rect width="12" height="0.6" fill="#c4c0bb" />
@@ -973,22 +1043,17 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
             <text key={l} x={278} y={9 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
           ))}
 
-          {/* ── 복도: 돌바닥, 오른쪽 끝 출입구 ── */}
-          <rect x={0} y={HALL.y} width={W} height={HALL.h} fill="url(#pxo-hall)" />
-          <Plant x={4} y={HALL.y + 6} />
-          <Plant x={244} y={HALL.y + 6} />
-          {/* 출입구 — 유리 양문, 바닥 매트, 비상구 같은 초록 안내판 */}
-          <rect x={W - 9} y={HALL.y + 1} width={9} height={HALL.h - 2} fill="#475569" />
-          <rect x={W - 8} y={HALL.y + 2} width={3.5} height={HALL.h - 4} fill="#bfdbfe" />
-          <rect x={W - 4} y={HALL.y + 2} width={3.5} height={HALL.h - 4} fill="#bfdbfe" />
-          <rect x={W - 6} y={HALL.y + 9} width={0.8} height={4} fill="#1f2937" />
-          <rect x={W - 3.6} y={HALL.y + 9} width={0.8} height={4} fill="#1f2937" />
-          <rect x={W - 26} y={HALL.y + 6} width={16} height={11} fill="#374151" />
-          <rect x={W - 25} y={HALL.y + 7} width={14} height={9} fill="#4b5563" />
-          <rect x={W - 58} y={HALL.y + 1.5} width={28} height={6} fill="#15803d" />
-          <text x={W - 44} y={HALL.y + 6} fontSize={3.8} fontWeight={800} textAnchor="middle" fill="#fff">출입구 →</text>
-          <rect x={16} y={HALL.y + 1.5} width={textW('복도', 4) + 5} height={6.5} fill="#fff7e6" stroke="#78716c" strokeWidth={0.6} />
-          <text x={18.5} y={HALL.y + 6.4} fontSize={4} fontWeight={800} fill="#57534e">복도</text>
+          {/* ── 복도 둘: 돌바닥 ── */}
+          {HALLS.map((h, i) => (
+            <g key={`hall-${i}`}>
+              <rect x={0} y={h.y} width={LOBBY.x} height={h.h} fill="url(#pxo-hall)" />
+              <Plant x={4} y={h.y + 6} />
+              <Plant x={244} y={h.y + 6} />
+              <rect x={16} y={h.y + 1.5} width={textW('복도', 4) + 5} height={6.5} fill="#fff7e6" stroke="#78716c" strokeWidth={0.6} />
+              <text x={18.5} y={h.y + 6.4} fontSize={4} fontWeight={800} fill="#57534e">복도</text>
+            </g>
+          ))}
+          <Lobby />
 
           {/* ── 방: 바닥 → 소품 → 벽 → 문 → 이름판 ── */}
           {ROOMS.map(r => <rect key={`f-${r.key}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={FLOOR_FILL[r.floor]} />)}
@@ -997,20 +1062,11 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
             <g key={`w-${r.key}`} fill="#6b7280">
               <rect x={r.x} y={r.y + r.h - 1.5} width={r.w} height={3} />
               <rect x={r.x + r.w - 1.5} y={r.y} width={3} height={r.h} />
-              {r.y === HALL.y + HALL.h && <rect x={r.x} y={r.y - 1.5} width={r.w} height={3} />}
+              {HALLS.some(h => r.y === h.y + h.h) && <rect x={r.x} y={r.y - 1.5} width={r.w} height={3} />}
             </g>
           ))}
           <rect x={0} y={24} width={2} height={H - 24} fill="#6b7280" />
           {DOORS.map((d, i) => <rect key={i} x={d.x} y={d.y} width={d.w} height={d.h} fill="#cbb79a" />)}
-          {/* 대표 전용 출입구 — 밖에서 바로 대표실로(2026-10-26 사장님 주문). 바깥벽 유리문·매트·안내 */}
-          <rect x={0} y={78} width={4.5} height={22} fill="#475569" />
-          <rect x={0.6} y={79} width={3.2} height={9.5} fill="#bfdbfe" />
-          <rect x={0.6} y={89.5} width={3.2} height={9.5} fill="#bfdbfe" />
-          <rect x={2.6} y={86} width={0.8} height={6} fill="#1f2937" />
-          <rect x={5} y={80} width={6} height={18} fill="#4b5563" />
-          <rect x={5.6} y={80.6} width={4.8} height={16.8} fill="none" stroke="#9ca3af" strokeWidth={0.4} />
-          <rect x={12} y={73.5} width={textW('대표 전용 출입구', 3.4) + 4} height={5.5} fill="#1e3a8a" />
-          <text x={14} y={77.6} fontSize={3.4} fontWeight={800} fill="#fff">대표 전용 출입구</text>
           {ROOMS.map(r => (
             <g key={`l-${r.key}`}>
               <rect x={r.x + 4} y={r.y + 3} width={textW(r.label, 4.6) + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
@@ -1019,11 +1075,11 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           ))}
 
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
-          <rect x={201} y={292} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
+          <rect x={201} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
           {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
-          <Vacuum x={14} y={296} span={160} />
-          <Cat x={122} y={198} span={56} />
-          <Cat x={346} y={302} span={120} />
+          <Vacuum x={14} y={318} span={160} />
+          <Cat x={122} y={220} span={56} />
+          <Cat x={346} y={324} span={120} />
           {JANITOR_ROUTES.map(r => <Janitor key={r.id} route={r} />)}
 
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
