@@ -330,6 +330,108 @@ function Vacuum({ x, y, span }: { x: number; y: number; span: number }) {
   )
 }
 
+// ── 청소부 — 문을 지나 방을 옮겨 다니며 바닥을 닦는다 (2026-10-26 '역동적으로') ─────
+
+const JANITOR = [
+  '...CCCCC....',
+  '..CCCCCCC...',
+  '..SSSSSS....',
+  '..SESSES....',
+  '..SSSSSS....',
+  '...SSSS.....',
+  '..UUUUUU....',
+  '.SUUAAUUS...',
+  '.SUUAAUUS...',
+  '..UUAAUU....',
+]
+const JANITOR_LEGS = [
+  ['..PP..PP....', '..KK..KK....'],
+  ['...PPPP.....', '...KKKK.....'],
+]
+
+type Pt = [number, number, number?]   // x, y, 그 자리에서 머무는 초(청소)
+
+/** 지나갈 자리를 따라 걷는 keyframes 를 만든다 — 거리에 비례해 시간을 나누고, 머무는 곳은 그만큼 멈춘다. */
+function walkKeyframes(name: string, pts: Pt[], speed: number) {
+  const legs: { at: number; x: number; y: number; flip: boolean }[] = []
+  let t = 0
+  let flip = false
+  const loop = [...pts, pts[0]]
+  for (let i = 0; i < loop.length; i++) {
+    const [x, y, stay = 0] = loop[i]
+    if (i > 0) {
+      const [px, py] = loop[i - 1]
+      if (x !== px) flip = x < px
+      t += Math.hypot(x - px, y - py) / speed
+    }
+    legs.push({ at: t, x, y, flip })
+    if (stay && i < loop.length - 1) { t += stay; legs.push({ at: t, x, y, flip }) }
+  }
+  const pct = (a: number) => `${((a / t) * 100).toFixed(2)}%`
+  const move = legs.map(l => `${pct(l.at)} { transform: translate(${l.x}px, ${l.y}px) }`).join(' ')
+  const face = legs.map(l => `${pct(l.at)} { transform: scaleX(${l.flip ? -1 : 1}) }`).join(' ')
+  return { css: `@keyframes ${name} { ${move} } @keyframes ${name}-f { ${face} }`, duration: t }
+}
+
+/** 청소부 둘이 도는 길. 책상 사이 빈 바닥과 문(벽의 문지방 자리)만 지난다. */
+const JANITOR_ROUTES: { id: string; tint: { C: string; U: string; A: string }; tool: 'mop' | 'broom'; pts: Pt[] }[] = [
+  {
+    // 아래층: 영업부 → 탕비실 → 매물조사실 갔다가 돌아온다
+    id: 'j1', tool: 'mop', tint: { C: '#1d4ed8', U: '#2563eb', A: '#e5e7eb' },
+    pts: [[16, 266], [120, 266, 3], [236, 266], [236, 236], [292, 236], [300, 262, 2.5], [320, 236], [362, 236], [362, 266], [470, 266, 3],
+      [362, 266], [362, 236], [320, 236], [292, 236], [236, 236], [236, 266], [60, 266, 2]],
+  },
+  {
+    // 가운데·위층: 홍보부 바닥 → 문 → 협력업체·연구실 바닥을 돌고 내려온다
+    id: 'j2', tool: 'broom', tint: { C: '#047857', U: '#059669', A: '#fde68a' },
+    pts: [[272, 188], [380, 188, 2.5], [480, 188, 2], [304, 188], [304, 92], [140, 92, 2.5], [250, 92], [356, 92, 2.5], [304, 92], [304, 188]],
+  },
+]
+
+function Janitor({ route }: { route: (typeof JANITOR_ROUTES)[number] }) {
+  const { css, duration } = walkKeyframes(`pxo-${route.id}`, route.pts, 16)
+  const pal = { C: route.tint.C, U: route.tint.U, A: route.tint.A, S: '#f2c9a0', E: '#1f1f1f', P: '#374151', K: '#111827' }
+  const ink = Object.fromEntries(Object.keys(pal).map(k => [k, '#1f2937']))
+  const anim = (n: string) => ({ animation: `${n} ${duration.toFixed(1)}s linear infinite` })
+  return (
+    <g className="pxo-jan" style={{ pointerEvents: 'none' }}>
+      <style>{css}</style>
+      <g style={anim(`pxo-${route.id}`)}>
+        {/* 몸을 1.3배, 가는 쪽을 보게 뒤집는다(가운데 6 을 축으로) */}
+        <g transform="translate(6 0) scale(1.3) translate(-6 0)">
+          <g style={{ ...anim(`pxo-${route.id}-f`), animationTimingFunction: 'steps(1, end)', transformBox: 'fill-box', transformOrigin: 'center' }}>
+            {/* 지나간 바닥이 반짝인다 — 뒤쪽 발치에 */}
+            {[[-4, 12], [-7, 10], [-2, 9]].map(([sx, sy], i) => (
+              <g key={i} className="pxo-sparkle" style={{ animationDelay: `${i * 0.33}s` }}>
+                <rect x={sx} y={sy + 0.6} width={2.2} height={0.8} fill="#fef9c3" />
+                <rect x={sx + 0.7} y={sy} width={0.8} height={2} fill="#fef9c3" />
+              </g>
+            ))}
+            <g className="pxo-walk">
+              {[[-0.6, 0], [0.6, 0], [0, -0.6]].map(([ox, oy]) => (
+                <Sprite key={`${ox}${oy}`} rows={JANITOR} palette={ink} x={ox} y={oy} />
+              ))}
+              <Sprite rows={JANITOR} palette={pal} x={0} y={0} blink="#f2c9a0" delay={route.id === 'j1' ? 1.3 : 3.1} />
+              <g className="pxo-step-a"><Sprite rows={JANITOR_LEGS[0]} palette={pal} x={0} y={10} /></g>
+              <g className="pxo-step-b"><Sprite rows={JANITOR_LEGS[1]} palette={pal} x={0} y={10} /></g>
+            </g>
+            {/* 대걸레·빗자루 — 손에서 앞쪽 바닥으로, 끝이 좌우로 쓱쓱 */}
+            <rect x={8.2} y={7} width={0.9} height={0.9} fill="#a16207" />
+            <rect x={9} y={8} width={0.9} height={0.9} fill="#a16207" />
+            <rect x={9.8} y={9} width={0.9} height={0.9} fill="#a16207" />
+            <rect x={10.6} y={10} width={0.9} height={0.9} fill="#a16207" />
+            <g className="pxo-mop">
+              {route.tool === 'mop'
+                ? <><rect x={10} y={11} width={4.5} height={1.6} fill="#e5e7eb" stroke="#1f2937" strokeWidth={0.25} /><rect x={10.4} y={12.6} width={0.6} height={0.8} fill="#d1d5db" /><rect x={12} y={12.6} width={0.6} height={0.8} fill="#d1d5db" /><rect x={13.6} y={12.6} width={0.6} height={0.8} fill="#d1d5db" /></>
+                : <><rect x={10} y={11} width={4.5} height={1} fill="#92400e" /><rect x={10} y={12} width={4.5} height={1.4} fill="#fbbf24" stroke="#1f2937" strokeWidth={0.25} /></>}
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  )
+}
+
 /** 시간대마다 창밖 하늘. 밤이면 별이 뜨고 사무실이 조금 어두워진다. */
 function skyOf(clock: string) {
   const h = Number(clock.slice(0, 2))
@@ -601,10 +703,10 @@ function Decor({ room, guests, board }: { room: RoomBox; guests: number; board: 
       return (
         <g>
           {/* 왼쪽 회의 — 벽걸이 TV(오늘 숫자)와 긴 탁자 */}
-          <rect x={x + 10} y={y + 12} width={46} height={18} fill="#111827" />
-          <rect x={x + 12} y={y + 14} width={42} height={14} fill="#1e293b" />
+          <rect x={x + 6} y={y + 12} width={60} height={18} fill="#111827" />
+          <rect x={x + 8} y={y + 14} width={56} height={14} fill="#1e293b" />
           {board.slice(0, 3).map((l, i) => (
-            <text key={l} x={x + 14} y={y + 18.5 + i * 4} fontSize={2.6} fontWeight={700} fill={['#93c5fd', '#fca5a5', '#86efac'][i]}>{cut(l, 32)}</text>
+            <text key={l} x={x + 10} y={y + 18.5 + i * 4} fontSize={2.6} fontWeight={700} fill={['#93c5fd', '#fca5a5', '#86efac'][i]}>{cut(l, 32)}</text>
           ))}
           {[0, 1, 2, 3].map(i => <rect key={`t${i}`} x={x + 10 + i * 13} y={y + 38} width={8} height={6} fill="#3f3f46" />)}
           <rect x={x + 6} y={y + 44} width={56} height={18} fill="#8b5a2b" />
@@ -725,6 +827,12 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         .pxo-wave { animation: pxo-wave .35s steps(1) infinite; }
         @keyframes pxo-fish { 0% { transform: translateX(0) scaleX(1) } 45% { transform: translateX(12px) scaleX(1) } 50% { transform: translateX(12px) scaleX(-1) } 95% { transform: translateX(0) scaleX(-1) } 100% { transform: translateX(0) scaleX(1) } }
         .pxo-fish { transform-box: fill-box; transform-origin: center; animation: pxo-fish 9s linear infinite; }
+        @keyframes pxo-walk { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-.6px) } }
+        .pxo-walk { animation: pxo-walk .4s steps(1) infinite; }
+        @keyframes pxo-mop { 0%, 100% { transform: translateX(0) } 50% { transform: translateX(1.4px) } }
+        .pxo-mop { animation: pxo-mop .3s steps(1) infinite; }
+        @keyframes pxo-sparkle { 0%, 100% { opacity: 0 } 30%, 60% { opacity: 1 } }
+        .pxo-sparkle { animation: pxo-sparkle 1s steps(3) infinite; }
         @keyframes pxo-led { 0%, 60% { opacity: 1 } 61%, 100% { opacity: .25 } }
         .pxo-led { animation: pxo-led 1.4s steps(1) infinite; }
         @keyframes pxo-steam { 0% { transform: translateY(0); opacity: .8 } 100% { transform: translateY(-5px); opacity: 0 } }
@@ -753,7 +861,8 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
         @media (prefers-reduced-motion: reduce) {
           .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam, .pxo-eye, .pxo-code, .pxo-pop, .pxo-colon,
           .pxo-cloud, .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b,
-          .pxo-look, .pxo-hover, .pxo-hop, .pxo-wave, .pxo-fish { animation: none }
+          .pxo-look, .pxo-hover, .pxo-hop, .pxo-wave, .pxo-fish, .pxo-walk, .pxo-mop, .pxo-sparkle { animation: none }
+          .pxo-jan, .pxo-jan * { animation: none !important }
         }
       `}</style>
 
@@ -842,6 +951,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
           <Vacuum x={14} y={274} span={160} />
           <Cat x={122} y={198} span={56} />
           <Cat x={346} y={280} span={120} />
+          {JANITOR_ROUTES.map(r => <Janitor key={r.id} route={r} />)}
 
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
           {overflow.map(o => <Label key={o.key} x={o.x} y={o.y} text={`+${o.n}`} size={4} anchor="start" />)}
