@@ -22,7 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { pollWhileVisible } from '@/lib/poll-visible'
-import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
+import { todayKST, hmKST, ymdKST, addDays } from '@/lib/date-kst'
 import { PixelOffice, type OfficeLayout, type RoomKey, type Seat } from '@/components/broker/pixel-office'
 
 /**
@@ -217,7 +217,9 @@ export default function OfficePage() {
         .or(`status.eq.open,done_at.gte.${day}`)
         .order('created_at', { ascending: false }).limit(100),
       // 상담실 손님 — 오늘 업무일지에 적힌 고객
-      supabase.from('broker_diary_customers').select('id', { count: 'exact', head: true }).eq('diary_date', todayKST()),
+      // 2주치 일지 고객 — 오늘 새로 적힌 사람만 세려면 사람마다 바로 전 일지와 견줘야 한다
+      supabase.from('broker_diary_customers').select('broker_id, customer_id, diary_date')
+        .gte('diary_date', addDays(todayKST(), -14)).limit(5000),
     ])
 
     setAgents((ag.data as Agents | null) ?? null)
@@ -226,7 +228,8 @@ export default function OfficePage() {
     const 채널 = (ch: string) => ((posts.data ?? []) as { channel: string }[]).filter(p => p.channel === ch).length
     setToday({
       cafe: 채널('cafe'), blog: 채널('blog'), daangnPost: 채널('daangn'),
-      naver: nv.count ?? 0, daangn: dg.count ?? 0, consult: consult.count ?? 0,
+      naver: nv.count ?? 0, daangn: dg.count ?? 0,
+      consult: newConsults((consult.data ?? []) as { broker_id: string; customer_id: string; diary_date: string }[]),
     })
     setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
 
@@ -558,6 +561,34 @@ export default function OfficePage() {
       )}
     </div>
   )
+}
+
+/**
+ * 오늘 상담 수 — 오늘 일지에 **새로** 적힌 고객만 센다.
+ *
+ * 업무일지는 [불러오기]로 지난 일지의 고객 목록을 통째로 옮겨 오는 일이 많다. 오늘 일지에 있는
+ * 고객을 다 세면 관리 중인 고객 수가 된다(2026-10-26: 22명이라 떴는데 19명은 23일 일지에서 넘어온
+ * 사람이었다). 사람마다 바로 전 일지에 없던 고객만 오늘 상담으로 본다. 전 일지가 없으면 다 새로 본다.
+ */
+function newConsults(rows: { broker_id: string; customer_id: string; diary_date: string }[]): number {
+  const today = todayKST()
+  const byBroker = new Map<string, Map<string, Set<string>>>()
+  for (const r of rows) {
+    const dates = byBroker.get(r.broker_id) ?? new Map<string, Set<string>>()
+    const ids = dates.get(r.diary_date) ?? new Set<string>()
+    ids.add(r.customer_id)
+    dates.set(r.diary_date, ids)
+    byBroker.set(r.broker_id, dates)
+  }
+  let n = 0
+  for (const dates of byBroker.values()) {
+    const todays = dates.get(today)
+    if (!todays) continue
+    const prevDate = [...dates.keys()].filter(d => d < today).sort().pop()
+    const prev = prevDate ? dates.get(prevDate)! : new Set<string>()
+    for (const id of todays) if (!prev.has(id)) n++
+  }
+  return n
 }
 
 /**
