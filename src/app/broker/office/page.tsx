@@ -68,6 +68,7 @@ interface AdJob {
   error: string | null
   requested_at: string
   finished_at: string | null
+  requested_by?: string | null
 }
 
 interface BankJob {
@@ -83,6 +84,7 @@ interface BankJob {
 
 interface Member {
   id: string
+  user_id?: string | null
   is_owner: boolean | null
   is_approved: boolean | null
   profiles: { name: string | null } | null
@@ -179,6 +181,8 @@ export default function OfficePage() {
   const [now, setNow] = useState(() => Date.now())
   const [agents, setAgents] = useState<Agents | null>(null)
   const [adJobs, setAdJobs] = useState<AdJob[]>([])
+  /** 뱅크 번호 → '성월리 상가' — 홍보부 말풍선에 지금 올리는 매물을 적는다 */
+  const [listingNames, setListingNames] = useState<Record<string, string>>({})
   const [bankJobs, setBankJobs] = useState<BankJob[]>([])
   const [today, setToday] = useState({ cafe: 0, blog: 0, daangnPost: 0, naver: 0, daangn: 0, consult: 0 })
   const [partners, setPartners] = useState<{ id: string; name: string; month: number }[]>([])
@@ -200,7 +204,7 @@ export default function OfficePage() {
     const [ag, aj, bj, posts, nv, dg, ts, consult] = await Promise.all([
       supabase.from('ad_agents').select('*').eq('broker_id', officeId).maybeSingle(),
       supabase.from('ad_jobs')
-        .select('id, kind, status, params, progress, error, requested_at, finished_at')
+        .select('id, kind, status, params, progress, error, requested_at, finished_at, requested_by')
         .eq('broker_id', officeId)
         .or(`status.in.(queued,running),requested_at.gte.${day}`)
         .order('requested_at', { ascending: false }).limit(40),
@@ -225,7 +229,16 @@ export default function OfficePage() {
     ])
 
     setAgents((ag.data as Agents | null) ?? null)
-    setAdJobs(dropSuperseded((aj.data as AdJob[] | null) ?? [], j => `${j.kind}|${JSON.stringify(j.params?.bankNos ?? null)}|${JSON.stringify(j.params?.channels ?? null)}`))
+    const jobs = dropSuperseded((aj.data as AdJob[] | null) ?? [], j => `${j.kind}|${JSON.stringify(j.params?.bankNos ?? null)}|${JSON.stringify(j.params?.channels ?? null)}`)
+    setAdJobs(jobs)
+    // 돌거나 줄 선 광고 작업의 매물 이름 — '성월리 상가'(동네 + 종류). 번지·호수는 말풍선에 안 적는다(번지로 시작하면 읍면동)
+    const 번호들 = [...new Set(jobs.filter(j => j.status === 'running' || j.status === 'queued')
+      .flatMap(j => (j.params?.bankNos as string[] | undefined) ?? []).map(String))].slice(0, 100)
+    if (번호들.length) {
+      const { data: ls } = await supabase.from('ad_listings').select('bank_no, region, address_detail, property_kind').in('bank_no', 번호들)
+      setListingNames(Object.fromEntries(((ls ?? []) as { bank_no: string; region: string | null; address_detail: string | null; property_kind: string | null }[])
+        .map(l => [l.bank_no, [(/[가-힣]/.test(l.address_detail?.split(' ')[0] ?? '') ? l.address_detail!.split(' ')[0] : null) || l.region?.split(' ').pop(), l.property_kind?.replace(/점포$/, '')].filter(Boolean).join(' ')])))
+    }
     setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
     const 채널 = (ch: string) => ((posts.data ?? []) as { channel: string }[]).filter(p => p.channel === ch).length
     setToday({
@@ -238,7 +251,7 @@ export default function OfficePage() {
     if (isOwner) {
       const [ms, props, ss, os, cos, ests, dys] = await Promise.all([
         supabase.from('broker_profiles')
-          .select('id, is_owner, is_approved, profiles:profiles_visible(name)')
+          .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
           .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
         supabase.from('broker_properties').select('broker_id, created_at')
           .eq('office_broker_id', officeId).is('deleted_at', null).limit(5000),
@@ -405,6 +418,8 @@ export default function OfficePage() {
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
+  const requesterName: Record<string, string> = Object.fromEntries(members
+    .filter(m => m.user_id && m.profiles?.name).map(m => [m.user_id!, m.profiles!.name!]))
 
   /**
    * 광고 PC 프로그램 하나를 하는 일별 로봇으로 나눈다. 그 일의 작업이 돌고 있으면 일하는 중,
@@ -423,13 +438,27 @@ export default function OfficePage() {
     const justDone = adJobs.find(j => j.status === 'done' && matches(j) && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
     const nextAt = queued.map(j => j.params?.notBefore as string | undefined).filter(Boolean).sort()[0]
     const working = !!running && nowChannel
+    // 누가 무엇을 — 올리는 매물(동네 + 종류)과 그 작업을 건 직원. 사장님이 '홍보부는 누가 무슨 조작을 하는지' 물어(2026-10-27)
+    const 무엇 = (j: AdJob) => ((j.params?.bankNos as string[] | undefined) ?? []).map(n => listingNames[String(n)]).filter(Boolean)
+    const 누가 = (j: AdJob) => (j.requested_by && requesterName[j.requested_by]) || null
+    const 지금 = working ? 무엇(running!) : []
+    const 다음 = queued[queued.length - 1]
+    const doing = working
+      ? [지금.length ? `${지금[0]}${지금.length > 1 ? ` 외 ${지금.length - 1}` : ''} 올리는 중` : (running!.progress ?? adNote),
+        누가(running!) ? `요청 ${누가(running!)}` : ''].filter(Boolean).join('\n')
+      : null
+    const waitLine = nextAt ? `${hmKST(nextAt)} 에 다음 글` : queued.length ? `대기 ${queued.length}건` : '대기 중'
+    const nextLine = !working && 다음 && 무엇(다음).length ? `다음 ${무엇(다음)[0]}${누가(다음) ? ` · ${누가(다음)}` : ''}` : ''
     return {
-      key, kind: 'robot', name, tint, note,
+      key, kind: 'robot', name, tint,
+      note: [note, working && running!.progress ? `지금: ${running!.progress}` : '',
+        queued.length ? `줄 선 것 ${queued.length}건 — ${queued.slice().reverse().slice(0, 5).map(j => [무엇(j)[0], 누가(j)].filter(Boolean).join(' · ') || '매물').join(', ')}` : '']
+        .filter(Boolean).join(' · '),
       flash: justDone ? (DONE_SAY[justDone.kind] ?? '끝났어요') : null,
       state: !adOn ? 'off' : working ? 'working' : 'idle',
       say: !adOn ? offSay(agents?.last_seen_at)
-        : working ? (running!.progress ?? adNote)
-          : nextAt ? `${hmKST(nextAt)} 에 다음 글` : queued.length ? `대기 ${queued.length}건` : '대기 중',
+        : working ? doing
+          : [waitLine, nextLine].filter(Boolean).join('\n'),
     }
   }
 
