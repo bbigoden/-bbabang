@@ -38,6 +38,10 @@ const STAFF_DEPT: Record<string, RoomKey> = {
   'e21e1f46-6492-4f1d-964c-ba7da59a5372': 'sales',     // 박혜성
   '2afe278a-d326-4996-83df-6d26bb98a91d': 'sales',     // 문지혜
 }
+/** 따로 고른 포켓몬 — 이예리는 님피아(2026-10-27 사장님) */
+const STAFF_MON: Record<string, string> = {
+  'c7e58900-e6bb-4f88-b3bf-d1879f8a6050': 'sylveon',   // 이예리
+}
 
 /** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */
 const ALIVE_MS = 60_000
@@ -405,7 +409,7 @@ export default function OfficePage() {
     const s = memberStats[m.id] ?? { today: 0, total: 0 }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
     return {
-      key: m.id, kind: 'person', tint: i, name: m.profiles?.name ?? '이름 없음',
+      key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id], name: m.profiles?.name ?? '이름 없음',
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
       state: s.today > 0 || diaries[m.id] ? 'working' : 'idle',

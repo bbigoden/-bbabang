@@ -52,6 +52,8 @@ export interface Seat {
   flash?: string | null
   /** 쉬는 중에도 말풍선을 늘 띄운다(직원 — 매물·업무일지) */
   pin?: boolean
+  /** 이 사람만 따로 고른 포켓몬(NAMED_MONS 의 이름) — 없으면 tint 로 정한다 */
+  mon?: string
 }
 
 export type RoomKey =
@@ -292,6 +294,22 @@ const SNORLAX = mon([
 ], { T: '#2f5d6b', C: '#f0e0c0', N: '#1f1f1f', W: '#ffffff' }, '#2f5d6b')
 const GUESTS = [PSYDUCK, SNORLAX]
 
+/** 님피아 — 2026-10-27 사장님이 이예리 자리에 '이쁜 애로' 골라 줌. 리본 더듬이가 양옆으로 흐른다. */
+const SYLVEON = mon([
+  '.CC........CC.',
+  '.CPC......CPC.',
+  '..CCCCCRBRC...',
+  '..CCCCCCRRCC..',
+  '..CCECCCCECC..',
+  '..CPCCmmCCPC..',
+  '...CCCCCCCC...',
+  '..RRCCCCCCRR..',
+  '.RR.CCCCCC.RR.',
+  '...CCCCCCCC...',
+  '...PP....PP...',
+], { C: '#fdf2f8', P: '#f9a8d4', R: '#f472b6', B: '#60a5fa', E: '#1e3a8a', m: '#be185d' }, '#fdf2f8')
+const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON }
+
 /** 직원 — 고른 색(tint)마다 한 마리. 같은 포켓몬이 나란히 앉지 않게 여덟. */
 const STAFF_MONS = [PIKACHU, SQUIRTLE, CHARMANDER, BULBASAUR, JIGGLYPUFF, EEVEE, PSYDUCK, MEOWTH]
 /** 사무실 일꾼(서버실·부서 로봇) — 기계 포켓몬 */
@@ -302,7 +320,7 @@ const AGENT_MONS = [DITTO, MEW, GENGAR]
 function monOf(seat: Seat): Mon {
   if (seat.kind === 'robot') return ROBOT_MONS[seed(seat.key) % ROBOT_MONS.length]
   if (seat.kind === 'claude') return AGENT_MONS[seed(seat.key) % AGENT_MONS.length]
-  return STAFF_MONS[(seat.tint ?? 0) % STAFF_MONS.length]
+  return (seat.mon && NAMED_MONS[seat.mon]) || STAFF_MONS[(seat.tint ?? 0) % STAFF_MONS.length]
 }
 
 /**
@@ -991,7 +1009,6 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
             <rect key={`v${i}`} x={x + 116.4} y={y + 46 + i * 4} width={1.4} height={0.6} fill="#f59e0b"
               className="pxo-steam" style={{ animationDelay: `${i * 0.5}s` }} />
           ))}
-          <Label x={x + 104} y={y + 67.5} text="안마의자" size={2.8} color="#78350f" />
           <rect x={x + 92} y={y + 64} width={1} height={18} fill="#78716c" />
           <rect x={x + 89} y={y + 61} width={7} height={4} fill="#fef3c7" />
           <rect x={x + 88} y={y + 65} width={9} height={6} fill="#fef9c3" opacity={0.25} />
