@@ -2320,8 +2320,13 @@ function BrokerPropertiesContent() {
     setDeleteConfirm(null)
   }
 
+  const copyingRef = useRef(false)
   const duplicateProperty = useCallback(async (prop: Property) => {
     if (!broker) return
+    // 두 번 눌러도 한 줄만 복사한다(고객목록·매물 등록과 같게)
+    if (copyingRef.current) return
+    copyingRef.current = true
+    setTimeout(() => { copyingRef.current = false }, 1500)
     const { id: _id, created_at: _created_at, seq_no: _seq_no, ...rest } = prop
     const { data, error } = await supabase.from('broker_properties').insert({ ...rest, broker_id: broker.id }).select().single()
     if (error || !data) return
@@ -2875,11 +2880,11 @@ function BrokerPropertiesContent() {
             <p className="mt-0.5 text-sm text-gray-500">전체 {allCount}건 · 검색 {totalCount}건</p>
             {!isMapView && <p className="mt-0.5 text-xs text-gray-500 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {/* 첫 화면에서 바로 보이는 등록 버튼 — 표 맨 아래에만 있어 2천 건을 내려야 찾았다(2026-10-25 점검) */}
             {!isAdminView && canEdit && (
               <button onClick={() => setNewProp({ address: '', deal_type: '' })}
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-2.5 sm:px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 <Plus className="h-4 w-4" />매물 등록
               </button>
             )}
@@ -2889,13 +2894,13 @@ function BrokerPropertiesContent() {
             <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
               <button
                 onClick={() => setIsMapView(false)}
-                className={`flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-sm font-medium transition-colors ${!isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                className={`flex items-center gap-1.5 whitespace-nowrap px-2.5 sm:px-3.5 py-2.5 text-sm font-medium transition-colors ${!isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >
                 <List className="h-4 w-4" />목록
               </button>
               <button
                 onClick={() => setIsMapView(true)}
-                className={`flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2.5 text-sm font-medium transition-colors ${isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
+                className={`flex items-center gap-1.5 whitespace-nowrap px-2.5 sm:px-3.5 py-2.5 text-sm font-medium transition-colors ${isMapView ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}
               >
                 <Map className="h-4 w-4" />지도
               </button>
