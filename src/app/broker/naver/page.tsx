@@ -594,8 +594,10 @@ export default function CollectPage() {
    * 걸어 둔 조건을 기억한다.
    *
    * 매일 같은 조건으로 훑는 일이라, 새로 열 때마다 다시 고르게 하면 결국 안 쓰게
-   * 된다. 다만 **기간과 [안 본 것만]·[사라진 것]은 기억하지 않는다** — 그건 그때그때
-   * 달라지는 것이고, 어제 켜 둔 줄 모르고 빈 화면을 보면 고장으로 오해한다.
+   * 된다. **기간도 기억한다** — 새로고침하면 30일이 3일로 돌아가 건수가 확 줄어, 매물이
+   * 사라진 줄 알았다(점검 10/26). 끝날이 오늘이면 '오늘까지 며칠' 로 담아 내일 열어도
+   * 내일까지로 따라온다. [안 본 것만]·[사라진 것]은 기억하지 않는다 — 어제 켜 둔 줄
+   * 모르고 빈 화면을 보면 고장으로 오해한다.
    *
    * 곳마다 따로 담는다. 종류·거래 코드가 네이버와 당근이 서로 다르다.
    */
@@ -614,6 +616,15 @@ export default function CollectPage() {
       // 이름을 바꾼 정렬(지번순 → 지번 오름차순)이 담겨 있으면 최신순으로 돌린다.
       setSort(Object.values(SORTS).includes(담긴것?.sort) ? 담긴것!.sort : 'date')
       set조건열림(담긴것?.열림 ?? false)
+      const 기간 = 담긴것?.기간
+      const 날 = /^d{4}-d{2}-d{2}$/
+      if (기간?.오늘까지 && Number.isInteger(기간.날수) && 기간.날수 >= 1 && 기간.날수 <= LONG_DAYS) {
+        set첫날(addDays(todayKST(), -(기간.날수 - 1))); set끝날(todayKST())
+      } else if (날.test(기간?.첫날 ?? '') && 날.test(기간?.끝날 ?? '')
+        && 기간.첫날 <= 기간.끝날 && 기간.끝날 <= todayKST()
+        && 기간.첫날 >= addDays(todayKST(), -(KEEP_DAYS - 1))) {
+        set첫날(기간.첫날); set끝날(기간.끝날)
+      }
     } catch { /* 시크릿 모드 등 저장이 막힌 환경 */ }
   }, [source, 저장열쇠])
 
@@ -622,9 +633,10 @@ export default function CollectPage() {
     try {
       localStorage.setItem(저장열쇠, JSON.stringify({
         regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림,
+        기간: 끝날 === todayKST() ? { 오늘까지: true, 날수: 날수(첫날, 끝날) } : { 첫날, 끝날 },
       }))
     } catch { /* 위와 같음 */ }
-  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림])
+  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림, 첫날, 끝날])
 
   /** 사무소 기준 id — 직원이면 대표의 id 다. 설정은 사무소 단위로 하나뿐이다. */
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
@@ -789,7 +801,7 @@ export default function CollectPage() {
       // 작업이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이 지켜보기가
       // 영영 안 끝나고, 버튼도 계속 잠긴 채로 남는다.
       if (!data) {
-        if (Date.now() > 시한) { 끝(); toast.error(`${s.label} 가져오기 상태를 알 수 없습니다. 다시 눌러 주세요.`) }
+        if (Date.now() > 시한) { 끝(); toast.error(`${s.label} 매물수집 상태를 알 수 없습니다. 다시 눌러 주세요.`) }
         return
       }
       if (data.status === 'done') {
@@ -801,7 +813,7 @@ export default function CollectPage() {
         // 못 본 곳이 있으면 그것부터 말한다 — '새 매물 0건' 과 '못 받았다' 는 다르다.
         if (r?.missed) toast.error(`${s.label} — ${r.missed}곳을 못 받았습니다. 잠시 뒤 다시 눌러 주세요.`)
         // 당근은 처음 한 번은 기준만 잡는다. '새 매물 없음' 으로 말하면 거짓말이 된다.
-        else if (r?.first) toast.success(`${s.label} — 기준을 잡았습니다. 다음 가져오기부터 새 매물이 들어옵니다.`)
+        else if (r?.first) toast.success(`${s.label} — 기준을 잡았습니다. 다음 매물수집부터 새 매물이 들어옵니다.`)
         else if (r?.warn) toast.error(`${s.label} — ${r.warn}`)
         // 한 자리에 매물이 너무 많아 다 못 받은 경우. 조용히 넘어가면 멀쩡히 다
         // 받은 줄 안다 — 프로그램이 창 없이 도니 로그의 경고도 아무도 못 본다.
@@ -818,14 +830,14 @@ export default function CollectPage() {
         시한 = Date.now() + 30 * 60_000
         if (Date.now() > 놓아줄때) {
           끝()
-          toast.error(`${s.label} 가져오기가 아직 차례를 못 받았습니다. PC 프로그램이 켜져 있는지 봐 주세요.`)
+          toast.error(`${s.label} 매물수집이 아직 차례를 못 받았습니다. PC 프로그램이 켜져 있는지 봐 주세요.`)
         } else {
           // 진행 표시가 없으니 멈춘 것처럼 보이지 않게 적어 준다.
           진행('차례 기다리는 중')
         }
       } else if (Date.now() > 시한) {
         끝()
-        toast.error(`${s.label} 가져오기가 너무 오래 걸립니다. PC 프로그램 창을 확인해 주세요.`)
+        toast.error(`${s.label} 매물수집이 너무 오래 걸립니다. PC 프로그램 창을 확인해 주세요.`)
       } else {
         진행(data.progress ?? '가져오는 중…')
       }
@@ -866,7 +878,7 @@ export default function CollectPage() {
         .select('id').single()
     if (error || !job) {
       setJobs(prev => ({ ...prev, [id]: null }))
-      toast.error(`${s.label} 가져오기를 요청하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`)
+      toast.error(`${s.label} 매물수집을 요청하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`)
       return
     }
     watchJob(id, job.id)
@@ -1128,13 +1140,13 @@ export default function CollectPage() {
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
           {최근작업?.status === 'failed' ? (
             <span className="font-medium text-red-600 dark:text-red-400">
-              {최근작업.finished_at && `${언제(최근작업.finished_at)} `}가져오기 실패 — {최근작업.error ?? '알 수 없는 오류'}
+              {최근작업.finished_at && `${언제(최근작업.finished_at)} `}매물수집 실패 — {최근작업.error ?? '알 수 없는 오류'}
             </span>
           ) : 최근작업?.finished_at && (
             <span>{언제(최근작업.finished_at)} 받아옴</span>
           )}
           {최근작업?.result?.first && (
-            <span>처음이라 기준만 잡았습니다 — 다음 가져오기부터 새 매물이 들어옵니다</span>
+            <span>처음이라 기준만 잡았습니다 — 다음 매물수집부터 새 매물이 들어옵니다</span>
           )}
           {최근작업?.result?.warn && (
             <span className="text-amber-600 dark:text-amber-500">⚠ {최근작업.result.warn}</span>
@@ -1206,7 +1218,7 @@ export default function CollectPage() {
                          disabled:opacity-60"
             >
               <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
-              {jobs[source] ?? '가져오기'}
+              {jobs[source] ?? '매물수집'}
             </button>
           </div>
           {/* **조건은 접어 둔다.** 줄이 일곱이면 폰에서 목록이 두 화면 뒤로 밀린다.
@@ -1371,6 +1383,20 @@ export default function CollectPage() {
               </button>
             ))}
           </div>
+
+          {/* 폰에서는 조건이 한 화면을 다 차지해, 고르고 나서 결과를 보려면 한 화면 반을
+              내려야 했다(점검 10/26). 쇼핑몰 필터처럼 맨 아래에서 접고 목록으로 보낸다.
+              칩마다 저절로 접으면 여러 개를 고를 때 매번 다시 펼쳐야 해서 버튼으로 둔다. */}
+          <button
+            type="button"
+            onClick={() => {
+              set조건열림(false)
+              requestAnimationFrame(() => 목록머리.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+            }}
+            className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white sm:hidden"
+          >
+            {loading ? '불러오는 중…' : `${sorted.length.toLocaleString()}건 보기`}
+          </button>
           </>}
         </div>
 
@@ -1386,11 +1412,11 @@ export default function CollectPage() {
             {/* 받아온 줄이 0이어도 한 번도 안 받은 것은 아니다 — 종류는 받을 때 거르므로
                 '오늘 공장' 처럼 고른 종류가 없어도 0이 된다. 받은 적이 있는지는 작업 기록으로 본다. */}
             {rows.length === 0 && !최근작업
-              ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [가져오기]를 눌러 주세요.`
+              ? `아직 받아온 ${src.label} 매물이 없습니다. 위의 [매물수집]을 눌러 주세요.`
               : rows.length === 0 && !kinds.length ? '이 기간에 받아온 매물이 없습니다.'
               /* 사라짐은 **받아올 때** 가려낸다. 켠 직후에는 판정한 적이 없어 늘 0건인데,
                  그냥 '없습니다' 라고만 하면 고장 난 줄 안다. */
-              : goneOnly ? '아직 사라진 매물이 없습니다. 사라졌는지는 받아올 때 가려내므로, 다음 [가져오기] 부터 표시됩니다.'
+              : goneOnly ? '아직 사라진 매물이 없습니다. 사라졌는지는 받아올 때 가려내므로, 다음 매물수집(매일 오전 9시 30분 자동, 또는 [매물수집])부터 표시됩니다.'
               : unseenOnly ? '안 본 매물이 없습니다. 다 훑으셨습니다.'
               : '고른 조건에 맞는 매물이 없습니다.'}
           </p>
