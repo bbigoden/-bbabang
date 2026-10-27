@@ -55,7 +55,11 @@ export function LongTextCell({
   useEffect(() => {
     const flush = () => {
       const { editing, draft, value, onSave } = latest.current
-      if (editing && draft !== (value ?? '')) onSave(draft)
+      if (!editing || draft === (value ?? '')) return
+      // 내용이 있던 칸을 전부 지운 채 떠나는 경우는 저장하지 않는다 — 여기서는 확인창을 띄울 수 없어
+      // 그대로 저장하면 삭제 확인을 건너뛰고 메모가 지워진다. 원래 글이 남는다.
+      if (draft.trim() === '' && (value ?? '').trim() !== '') return
+      onSave(draft)
     }
     window.addEventListener('beforeunload', flush)
     return () => { window.removeEventListener('beforeunload', flush); flush() }
