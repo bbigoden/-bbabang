@@ -31,13 +31,6 @@ import { PixelOffice, type OfficeLayout, type RoomKey, type Seat } from '@/compo
  */
 const DIRECTOR_ID = '6581efd5-6ec9-46ea-a391-7e6537cc6345'
 
-/** 직원이 앉는 부서 (broker_profiles.id → 방). 여기 없는 직원은 영업부. 2026-10-22 사장님이 정함. */
-const STAFF_DEPT: Record<string, RoomKey> = {
-  'ee4e2c98-6fd1-43db-8cbf-2acb25aae02d': 'consult',   // 김불당
-  'c7e58900-e6bb-4f88-b3bf-d1879f8a6050': 'sales',     // 이예리
-  'e21e1f46-6492-4f1d-964c-ba7da59a5372': 'sales',     // 박혜성
-  '2afe278a-d326-4996-83df-6d26bb98a91d': 'sales',     // 문지혜
-}
 /** 따로 고른 포켓몬 — 이예리는 님피아(2026-10-27 사장님) */
 const STAFF_MON: Record<string, string> = {
   'c7e58900-e6bb-4f88-b3bf-d1879f8a6050': 'sylveon',   // 이예리
@@ -83,6 +76,7 @@ interface BankJob {
   error: string | null
   requested_at: string
   finished_at: string | null
+  requested_by: string | null
   broker_properties: { address: string | null } | null
 }
 
@@ -213,7 +207,7 @@ export default function OfficePage() {
         .or(`status.in.(queued,running),requested_at.gte.${day}`)
         .order('requested_at', { ascending: false }).limit(40),
       supabase.from('bank_draft_jobs')
-        .select('id, property_id, status, progress, error, requested_at, finished_at, broker_properties(address)')
+        .select('id, property_id, status, progress, error, requested_at, finished_at, requested_by, broker_properties(address)')
         .eq('office_broker_id', officeId)
         .or(`status.in.(queued,running),requested_at.gte.${day}`)
         .order('requested_at', { ascending: false }).limit(20),
@@ -432,6 +426,8 @@ export default function OfficePage() {
    * 한 작업이 여러 채널을 차례로 올리기도 해서(카페·당근), 채널 로봇은 일꾼이 지금 그 채널을
    * 말하고 있을 때만 일하는 중으로 본다(agents.note = '카페에 올리는 중' 등).
    */
+  const visitBy: Record<string, string> = {}
+  if (bankRunning?.requested_by) visitBy[bankRunning.requested_by] = 'bank'
   const robot = (key: string, name: string, kinds: string[], channel: string | null, note: string, tint = 0): Seat => {
     const matches = (j: AdJob) => kinds.includes(j.kind)
       && (!channel || (Array.isArray(j.params?.channels) && (j.params!.channels as string[]).includes(channel)))
@@ -442,6 +438,7 @@ export default function OfficePage() {
     const justDone = adJobs.find(j => j.status === 'done' && matches(j) && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
     const nextAt = queued.map(j => j.params?.notBefore as string | undefined).filter(Boolean).sort()[0]
     const working = !!running && nowChannel
+    if (working && running!.requested_by) visitBy[running!.requested_by] ??= key
     // 누가 무엇을 — 올리는 매물(동네 + 종류)과 그 작업을 건 직원. 사장님이 '홍보부는 누가 무슨 조작을 하는지' 물어(2026-10-27)
     const 무엇 = (j: AdJob) => ((j.params?.bankNos as string[] | undefined) ?? []).map(n => listingNames[String(n)]).filter(Boolean)
     const 누가 = (j: AdJob) => (j.requested_by && requesterName[j.requested_by]) || null
@@ -466,9 +463,12 @@ export default function OfficePage() {
     }
   }
 
-  const deptOf = (id: string) => (id === officeId ? 'boss' : id === DIRECTOR_ID ? 'director' : STAFF_DEPT[id] ?? 'sales')
+  // 직원은 다 영업부 — 김불당도 2026-10-27 상담실에서 영업부로 옮김
+  const deptOf = (id: string) => (id === officeId ? 'boss' : id === DIRECTOR_ID ? 'director' : 'sales')
+  // 자기가 건 일이 돌고 있으면 그 일꾼 옆으로 걸어가 서 있는다(2026-10-27 '직접 이동하게')
+  const userOf = Object.fromEntries(members.map(m => [m.id, m.user_id]))
   const inDept = (d: string) => people.filter(p => deptOf(p.key) === d)
-    .map(p => (d === 'director' ? { ...p, role: '이사' } : d === 'consult' ? { ...p, role: '상담 담당' } : p))
+    .map(p => (d === 'director' ? { ...p, role: '이사' } : p))
 
   const layout: OfficeLayout = {
     clock: hmKST(now),
@@ -482,7 +482,6 @@ export default function OfficePage() {
       boss: inDept('boss'),
       director: inDept('director'),
       sales: inDept('sales'),
-      consult: inDept('consult'),
       promo: [
         robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
         robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
@@ -527,6 +526,10 @@ export default function OfficePage() {
         ? '끝냈어요' : null,
     })),
     },
+  }
+
+  for (const k of ['boss', 'director', 'sales'] as const) {
+    layout.seats[k] = layout.seats[k]?.map(p => ({ ...p, visit: visitBy[userOf[p.key] ?? ''] }))
   }
 
   return (

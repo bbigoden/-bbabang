@@ -54,12 +54,14 @@ export interface Seat {
   pin?: boolean
   /** 이 사람만 따로 고른 포켓몬(NAMED_MONS 의 이름) — 없으면 tint 로 정한다 */
   mon?: string
+  /** 자기가 건 일을 하는 자리(일꾼 key) — 책상을 비우고 그 옆으로 걸어가 서 있는다 */
+  visit?: string
 }
 
 export type RoomKey =
   | 'boss' | 'director' | 'meeting' | 'server'
   | 'sales' | 'promo' | 'research' | 'register'
-  | 'consult' | 'partner' | 'pantry' | 'lab'
+  | 'partner' | 'pantry' | 'lab'
 
 export interface OfficeLayout {
   /** 방마다 앉을 자리. 없는 방은 빈 방으로 그린다. */
@@ -377,10 +379,10 @@ function Label({ x, y, text, size = 4.2, color = '#1f2937', anchor = 'middle', w
 
 const DOT: Record<SeatState, string> = { working: '#0ea5e9', waiting: '#f59e0b', idle: '#22c55e', off: '#9ca3af' }
 
-function Desk({ seat, x, y, big = false, picked, onPick }: {
-  seat: Seat; x: number; y: number; big?: boolean; picked: boolean; onPick: () => void
+function Desk({ seat, x, y, big = false, away = false, picked, onPick }: {
+  seat: Seat; x: number; y: number; big?: boolean; away?: boolean; picked: boolean; onPick: () => void
 }) {
-  const on = seat.state !== 'off'
+  const on = seat.state !== 'off' && !away
   const screen = seat.state === 'working' ? '#7dd3fc' : seat.state === 'waiting' ? '#fcd34d' : on ? '#334155' : '#1f2937'
   const w = big ? 34 : 26
   return (
@@ -454,7 +456,7 @@ function Desk({ seat, x, y, big = false, picked, onPick }: {
       {/* 이름판 */}
       <rect x={x + w / 2 - 1} y={y + 23} width={2.6} height={2.6} fill={DOT[seat.state]} stroke="#1f2937" strokeWidth={0.3}
         transform={`translate(${-textW(cut(seat.name, 7), 4.4) / 2 - 3.5} 0)`} />
-      <Label x={x + w / 2 + 1} y={y + 26.2} text={cut(seat.name, 7)} size={4.4} color={on ? '#111827' : '#6b7280'} />
+      <Label x={x + w / 2 + 1} y={y + 26.2} text={cut(seat.name, 7)} size={4.4} color={on || away ? '#111827' : '#6b7280'} />
       {seat.badge && (
         <>
           <rect x={x + w - 6} y={y - 1} width={8} height={4.5} fill="#111827" />
@@ -695,6 +697,74 @@ function Janitor({ route }: { route: (typeof JANITOR_ROUTES)[number] }) {
   )
 }
 
+/** 방이 몇째 줄인가 — 0 위, 1 가운데, 2 아래. 줄 사이가 복도다. */
+const rowOf = (r: RoomBox) => (r.y < HALLS[0].y ? 0 : r.y < HALLS[1].y ? 1 : 2)
+
+/**
+ * 책상(from) → 일꾼 앞(to) 길. 방을 나설 땐 문으로, 줄을 바꿀 땐 복도·로비로만 다닌다.
+ * 가운데 줄 방은 서 있을 자리가 책상 아래라 아래 복도 쪽 문으로 드나든다.
+ */
+function walkPath(from: Pt, to: Pt): Pt[] {
+  const roomAt = ([x, y]: Pt) => ROOMS.find(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)!
+  const HALL_Y = [HALLS[0].y + 3, HALLS[1].y + 3]   // 복도 한가운데(걷는 사람 왼쪽 위)
+  const LOBBY_X = LOBBY.x + 44                       // 두 복도를 잇는 로비
+  const a = roomAt(from)
+  const b = roomAt(to)
+  if (a === b) return [from, [from[0], to[1]], to]
+  const ra = rowOf(a)
+  const rb = rowOf(b)
+  const hallOut = ra === 0 ? 0 : ra === 2 ? 1 : rb === 0 ? 0 : 1
+  const hallIn = rb === 0 ? 0 : rb === 2 ? 1 : ra === 0 ? 0 : 1
+  // 방에서 그 복도로 난 문 중 갈 곳에 가까운 것
+  const door = (r: RoomBox, hall: number, toward: number) => {
+    const wallY = hall === rowOf(r) ? r.y + r.h - 2 : r.y - 2
+    return DOORS.filter(d => d.w > d.h && d.y === wallY && d.x >= r.x && d.x < r.x + r.w)
+      .sort((p, q) => Math.abs(p.x - toward) - Math.abs(q.x - toward))[0].x
+  }
+  const outX = door(a, hallOut, to[0])
+  const inX = door(b, hallIn, from[0])
+  // 문 앞 — 문이 위 벽이면 방 위쪽 빈 바닥, 아래 벽이면 아래쪽
+  const inside = (r: RoomBox, hall: number) => (hall === rowOf(r) ? r.y + r.h - 18 : r.y + 10)
+  const pts: Pt[] = [from, [from[0], inside(a, hallOut)], [outX, inside(a, hallOut)], [outX, HALL_Y[hallOut]]]
+  if (hallOut !== hallIn) pts.push([LOBBY_X, HALL_Y[hallOut]], [LOBBY_X, HALL_Y[hallIn]])
+  pts.push([inX, HALL_Y[hallIn]], [inX, inside(b, hallIn)], [to[0], inside(b, hallIn)], to)
+  return pts
+}
+
+/**
+ * 자기가 건 일을 보러 간 직원 — 책상에서 일어나 복도로 일꾼 앞까지 한 번 걸어가 선다.
+ * 키가 그대로면 10초마다 새로 그려도 다시 걷지 않는다.
+ */
+function Walker({ seat, from, to, onPick }: { seat: Seat; from: Pt; to: Pt; onPick: () => void }) {
+  const pts = walkPath(from, to)
+  let t = 0
+  const at = pts.map((p, i) => (t += i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) / 28 : 0))
+  const name = `pxo-go-${seed(seat.key)}`
+  const css = `@keyframes ${name} { ${pts.map((p, i) => `${((at[i] / t) * 100).toFixed(2)}% { transform: translate(${p[0]}px, ${p[1]}px) }`).join(' ')} }`
+  const m = monOf(seat)
+  const ink = Object.fromEntries(Object.keys(m.pal).map(k => [k, '#1f2937']))
+  return (
+    <g onClick={onPick} style={{ cursor: 'pointer' }}>
+      <style>{css}</style>
+      <g style={{ animation: `${name} ${t.toFixed(1)}s linear forwards` }}>
+        <g transform="scale(1.3)">
+          {/* 걷는 동안만 콩콩 — 도착하면 멈춰 선다 */}
+          <g className="pxo-bounce" style={{ animationIterationCount: Math.ceil(t / 0.6) }}>
+            {[[-0.6, 0], [0.6, 0], [0, -0.6], [0, 0.6]].map(([ox, oy]) => (
+              <Sprite key={`${ox}${oy}`} rows={m.rows} palette={ink} x={ox} y={oy} />
+            ))}
+            <Sprite rows={m.rows} palette={m.pal} x={0} y={0} blink={m.lid} />
+            {/* 발 */}
+            <rect x={4} y={11} width={2} height={1.4} fill="#1f2937" />
+            <rect x={8} y={11} width={2} height={1.4} fill="#1f2937" />
+          </g>
+        </g>
+        <Label x={9} y={21} text={cut(seat.name, 5)} size={3.6} />
+      </g>
+    </g>
+  )
+}
+
 /**
  * 로비 — 바깥 유리문으로 들어와 안내 데스크를 지나 두 복도로 갈라진다(2026-10-26 '로비 형식으로').
  * 위·아래 복도가 왼쪽에서 그대로 이어 들어오고, 오른쪽 바깥벽에 출입구가 있다.
@@ -843,7 +913,6 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   lab: { box: 'partnerLab', dx: 94, dy: 22, sx: 40, sy: 34, cols: 4, max: 8 },
   server: { box: 'server', dx: 70, dy: 50, sx: 0, sy: 0, cols: 1, max: 1 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
-  consult: { box: 'meetConsult', dx: 90, dy: 20, sx: 0, sy: 0, cols: 1, max: 1 },
   // 홍보 넷 + 등록 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다
   promo: { box: 'promo', dx: 10, dy: 34, sx: 38, sy: 0, cols: 4, max: 4 },
   // 등록 로봇도 홍보부에 앉는다 — 2026-10-25 사장님이 등록실을 홍보부로 합침(칸막이 없이)
@@ -1133,6 +1202,16 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
     }
   }
 
+  // 일하러 간 사람 — 일꾼 책상 앞(아래)에 선다. 한 일꾼에 여럿이면 옆으로 비켜 선다.
+  const crowd: Record<string, number> = {}
+  const walkers = placed.flatMap(p => {
+    const target = p.seat.visit && placed.find(q => q.seat.key === p.seat.visit)
+    if (!target) return []
+    const n = (crowd[target.seat.key] = (crowd[target.seat.key] ?? -1) + 1)
+    return [{ seat: p.seat, from: [p.x + 2, p.y] as Pt, to: [target.x + 2 + n * 14, target.y + 29] as Pt }]
+  })
+  const away = new Set(walkers.map(w => w.seat.key))
+
   return (
     <div className="pxo-fit">
       <style>{`
@@ -1305,13 +1384,14 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
 
           {/* ── 직원·일꾼·에이전트 ── */}
           {placed.map(p => (
-            <Desk key={p.seat.key} seat={p.seat} x={p.x} y={p.y} big={p.big}
+            <Desk key={p.seat.key} seat={p.seat} x={p.x} y={p.y} big={p.big} away={away.has(p.seat.key)}
               picked={picked === p.seat.key} onPick={pick(p.seat)} />
           ))}
+          {walkers.map(w => <Walker key={`${w.seat.key}-${w.seat.visit}`} seat={w.seat} from={w.from} to={w.to} onPick={pick(w.seat)} />)}
           {/* 밤 — 사무실 불빛만 남기고 어둡게. 모니터·말풍선은 이 위에 그려 밝게 둔다 */}
           {night && <rect x={0} y={24} width={W} height={H - 24} fill="#0b1026" opacity={0.28} style={{ pointerEvents: 'none' }} />}
           {/* 말풍선은 맨 위에 — 책상 뒤에 가리지 않게 따로 한 번 더 그린다 */}
-          {placed.map(p => <Bubble key={`b-${p.seat.key}`} seat={p.seat} x={p.x + 2} y={p.y} />)}
+          {placed.filter(p => !away.has(p.seat.key)).map(p => <Bubble key={`b-${p.seat.key}`} seat={p.seat} x={p.x + 2} y={p.y} />)}
         </svg>
       </div>
 
