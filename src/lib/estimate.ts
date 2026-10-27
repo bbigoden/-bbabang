@@ -295,8 +295,13 @@ export function calcTotals(
   opts: { overhead_rate?: number; discount?: number; vat_mode?: VatMode }
 ): EstimateTotals {
   const subtotal = items.reduce((s, it) => (it.is_header ? s : s + (Number(it.amount) || 0)), 0)
-  const overhead_amount = Math.round(subtotal * (Number(opts.overhead_rate) || 0))
-  const discount = Number(opts.discount) || 0
+  // 경비율·할인액은 음수를 받지 않는다. 할인에 음수가 들어가면 빼는 대신 더해져,
+  // 품목이 하나도 없는 빈 견적서가 합계 1,099억이 됐다(2026-10-26 첫 사용자 점검).
+  // 게다가 화면은 할인 행을 `discount > 0` 일 때만 그려서 늘어난 이유가 어디에도
+  // 보이지 않았다. 칸에서도 막지만, 견적서는 PDF 로 거래처에 나가므로 셈하는
+  // 쪽에도 선을 둔다 — 깎는 게 아니라 더해야 한다면 품목이나 경비로 적는 자리다.
+  const overhead_amount = Math.round(subtotal * Math.max(0, Number(opts.overhead_rate) || 0))
+  const discount = Math.max(0, Number(opts.discount) || 0)
   const supply_amount = subtotal + overhead_amount - discount
   const vat = opts.vat_mode === 'none' ? 0 : Math.round(supply_amount * 0.1)
   return { subtotal, overhead_amount, supply_amount, vat, total: supply_amount + vat }

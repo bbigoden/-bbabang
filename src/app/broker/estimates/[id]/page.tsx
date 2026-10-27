@@ -829,18 +829,20 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
                 <div className="space-y-3">
                   <div>
                     <label className={LABEL} htmlFor="f-oh">경비(공과잡비) 비율 %</label>
-                    <input id="f-oh" type="number" step="0.1"
+                    <input id="f-oh" type="number" step="0.1" min={0}
                       value={overheadText ?? (est.overhead_rate * 100).toFixed(1)}
                       onChange={e => {
                         setOverheadText(e.target.value)
-                        set('overhead_rate', (Number(e.target.value) || 0) / 100)
+                        set('overhead_rate', Math.max(0, Number(e.target.value) || 0) / 100)
                       }}
                       onBlur={() => setOverheadText(null)}
                       className={FIELD} />
                   </div>
                   <div>
                     <label className={LABEL} htmlFor="f-disc">할인액</label>
-                    <input id="f-disc" type="number" value={est.discount || ''} onChange={e => set('discount', Number(e.target.value))} className={FIELD} />
+                    {/* 음수를 받으면 깎이는 게 아니라 더해진다 — estimate.ts calcTotals 주석 참고 */}
+                    <input id="f-disc" type="number" min={0} value={est.discount || ''}
+                      onChange={e => set('discount', Math.max(0, Number(e.target.value) || 0))} className={FIELD} />
                   </div>
                   <div>
                     <label className={LABEL} htmlFor="f-vat">부가세</label>

@@ -402,7 +402,12 @@ export function SignupForm({
               required
               className="pr-11"
               error={fieldErrors.password}
-              hint={password && !pwStrong ? `${SIGNUP_PASSWORD_MIN}자 이상 입력해주세요` : undefined}
+              // 유출 검사를 한다는 걸 미리 적어 둔다. '8자 이상' 만 보고 그대로 지킨
+              // 사람이 '데이터 유출로 22,278회 노출됐어요' 로 거절당했다(2026-10-26
+              // 첫 사용자 점검) — 화면이 약속한 규칙을 지켰는데 막히는 자리였다.
+              hint={password && !pwStrong
+                ? `${SIGNUP_PASSWORD_MIN}자 이상 입력해주세요`
+                : `${SIGNUP_PASSWORD_MIN}자 이상. 흔하거나 유출된 적 있는 비밀번호는 쓸 수 없어요`}
             />
             <button
               type="button"

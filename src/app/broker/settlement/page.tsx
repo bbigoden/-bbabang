@@ -460,6 +460,16 @@ export default function SettlementPage() {
     if (error) { toast.error('저장 실패: ' + error.message); loadRows() }
   }
 
+  // 같은 버튼을 빠르게 두 번 누르면 행이 둘 생겼다(2026-10-26 첫 사용자 점검 —
+  // 빈 회계 행 두 개). 회계 장부라 유령 행이 조용히 쌓이는 게 특히 나쁘다.
+  // 고객목록(06cd01c)과 같은 방식으로 막는다 — 누르는 쪽만 감싸서 본문은 그대로 둔다.
+  const rowBusyRef = useRef(false)
+  const once = async (fn: () => Promise<void>) => {
+    if (rowBusyRef.current) return
+    rowBusyRef.current = true
+    try { await fn() } finally { rowBusyRef.current = false }
+  }
+
   // 새 빈 행 추가 — 보고 있는 월(전체면 오늘)로 record_month 자동
   // 대표가 특정 직원 필터를 걸어둔 상태면 그 직원 기준으로 행 생성 (필터된 화면에 즉시 보이도록)
   const addNewRow = async () => {
@@ -875,12 +885,12 @@ export default function SettlementPage() {
                 <tr>
                   <td colSpan={16} className="border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-stretch">
-                      <button onClick={addNewRow}
+                      <button onClick={() => once(addNewRow)}
                         className="flex shrink-0 items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50/80 hover:text-gray-600 dark:text-gray-500 transition-colors">
                         <Plus className="h-3.5 w-3.5" />정산 등록
                       </button>
                       {isOwner && !allMode && expenseSettings && (
-                        <button onClick={addDistributionRow}
+                        <button onClick={() => once(addDistributionRow)}
                           title="이 달 순손익의 동업자 몫을 정산 행으로 등록 (3.3% 공제 적용)"
                           className="flex shrink-0 items-center gap-2 border-l border-gray-100 px-4 py-2 text-sm text-blue-600/80 hover:bg-blue-50/80 hover:text-blue-700 dark:border-gray-800 dark:text-blue-400 dark:hover:bg-blue-500/10 transition-colors">
                           <Plus className="h-3.5 w-3.5" />분배 등록

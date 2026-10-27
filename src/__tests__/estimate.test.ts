@@ -34,6 +34,20 @@ describe('견적 금액 계산', () => {
     expect(t.total).toBe(1_100_000)
   })
 
+  it('할인액에 음수를 넣어도 합계가 늘지 않는다', () => {
+    // 품목 없는 빈 견적에 할인 -999억을 넣었더니 합계 1,099억이 됐다(2026-10-26 점검).
+    // 화면은 할인 행을 discount > 0 일 때만 그려서 늘어난 이유도 안 보였다.
+    const t = calcTotals([], { discount: -99_999_999_99, vat_mode: 'add' })
+    expect(t.supply_amount).toBe(0)
+    expect(t.total).toBe(0)
+  })
+
+  it('경비 비율에 음수를 넣어도 공급가액이 깎이지 않는다', () => {
+    const t = calcTotals([item(1_000_000)], { overhead_rate: -5, vat_mode: 'none' })
+    expect(t.overhead_amount).toBe(0)
+    expect(t.supply_amount).toBe(1_000_000)
+  })
+
   it('부가세 없음이면 공급가액이 곧 합계다', () => {
     const t = calcTotals([item(500_000)], { vat_mode: 'none' })
     expect(t.vat).toBe(0)
