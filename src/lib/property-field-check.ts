@@ -22,6 +22,15 @@ const TEXT_LIMITS: Record<string, [number, string]> = {
 }
 const MONEY_LABEL: Record<string, string> = { price: '가격', monthly_rent: '월세', management_fee: '관리비', premium: '권리금' }
 
+/** 받침에 맞춘 조사 — '가격은', '월세는', '가격이', '관리비가' ('가격이(가)' 처럼 둘 다 쓰지 않는다) */
+const josa = (w: string, 받침있음: string, 받침없음: string) => {
+  const c = w.charCodeAt(w.length - 1)
+  const has = c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0
+  return w + (has ? 받침있음 : 받침없음)
+}
+const 은 = (w: string) => josa(w, '은', '는')
+const 이 = (w: string) => josa(w, '이', '가')
+
 const isYmd = (v: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
   const d = new Date(`${v}T00:00:00Z`)
@@ -32,7 +41,7 @@ const isYmd = (v: string) => {
 
 /** 날짜 칸 검사 — 맞으면 null, 아니면 화면에 띄울 한국어 문구. (고객목록 접수일자 등에서 공용) */
 export function checkYmdField(label: string, value: string): string | null {
-  return isYmd(value.trim()) ? null : `${label}은(는) 2024-03-15 처럼 날짜로 적어 주세요.`
+  return isYmd(value.trim()) ? null : `${은(label)} 2024-03-15 처럼 날짜로 적어 주세요.`
 }
 
 export function checkPropertyField(field: string, value: unknown): string | null {
@@ -40,10 +49,10 @@ export function checkPropertyField(field: string, value: unknown): string | null
 
   if (field in MONEY_LABEL) {
     const n = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(n)) return `${MONEY_LABEL[field]}은(는) 숫자로 적어 주세요.`
-    if (n < 0) return `${MONEY_LABEL[field]}은(는) 0보다 작을 수 없어요.`
-    if (!Number.isInteger(n)) return `${MONEY_LABEL[field]}은(는) 만원 단위 정수로 적어 주세요 (예: 3000).`
-    if (n > MONEY_MAX) return `${MONEY_LABEL[field]}이(가) 너무 커요 — 만원 단위입니다 (3,000 = 3천만 원).`
+    if (!Number.isFinite(n)) return `${은(MONEY_LABEL[field])} 숫자로 적어 주세요.`
+    if (n < 0) return `${은(MONEY_LABEL[field])} 0보다 작을 수 없어요.`
+    if (!Number.isInteger(n)) return `${은(MONEY_LABEL[field])} 만원 단위 정수로 적어 주세요 (예: 3000).`
+    if (n > MONEY_MAX) return `${이(MONEY_LABEL[field])} 너무 커요 — 만원 단위입니다 (3,000 = 3천만 원).`
     return null
   }
 
@@ -66,15 +75,15 @@ export function checkPropertyField(field: string, value: unknown): string | null
   if (field === 'size_pyeong' || field === 'area_supplied') {
     const n = typeof value === 'number' ? value : Number(String(value).replace(/,/g, ''))
     const label = field === 'size_pyeong' ? '면적' : '공급면적'
-    if (!Number.isFinite(n)) return `${label}은(는) 숫자로 적어 주세요.`
-    if (n <= 0) return `${label}은(는) 0보다 커야 해요.`
-    if (n > 1_000_000) return `${label}이(가) 너무 커요.`
+    if (!Number.isFinite(n)) return `${은(label)} 숫자로 적어 주세요.`
+    if (n <= 0) return `${은(label)} 0보다 커야 해요.`
+    if (n > 1_000_000) return `${이(label)} 너무 커요.`
     return null
   }
 
   if (field === 'approval_date' || field === 'received_date') {
     const label = field === 'approval_date' ? '사용승인일' : '접수일자'
-    if (!isYmd(String(value))) return `${label}은(는) 2024-03-15 처럼 날짜로 적어 주세요.`
+    if (!isYmd(String(value))) return `${은(label)} 2024-03-15 처럼 날짜로 적어 주세요.`
     return null
   }
   if (field === 'move_in_date') {
@@ -86,7 +95,7 @@ export function checkPropertyField(field: string, value: unknown): string | null
 
   const lim = TEXT_LIMITS[field]
   if (lim && typeof value === 'string') {
-    if (value.length > lim[0]) return `${lim[1]}이(가) 너무 길어요 (${lim[0]}자까지, 지금 ${value.length}자).`
+    if (value.length > lim[0]) return `${이(lim[1])} 너무 길어요 (${lim[0]}자까지, 지금 ${value.length}자).`
     if (field === 'address' && !value.trim()) return '소재지가 비어 있어요.'
   }
   return null

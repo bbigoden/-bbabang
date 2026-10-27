@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { planBankDraft } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
-import { ymdKST } from '@/lib/date-kst'
+import { ymdKST, todayKST } from '@/lib/date-kst'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { EmptyRow } from '@/components/sheet/empty-row'
 import { ImageLightbox } from '@/components/image-lightbox'
@@ -412,9 +412,22 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
 }
 
 // ── 인라인 숫자 셀 ──────────────────────────────────────────
-function NumberCell({ value, onSave, suffix = '만', placeholder }: {
+/**
+ * 만원 단위 숫자 글 → 숫자. '3,000', '3000만', ' 3000 ' 을 읽고, 못 읽으면 NaN.
+ * '삼천만' 같은 한글 숫자·'-' 는 NaN/음수로 돌려 위에서 알린다(말없이 버리지 않는다).
+ */
+function parseManwon(text: string): number {
+  const t = text.normalize('NFKC').replace(/[,\s원]/g, '').replace(/만$/, '')
+  if (t === '') return NaN
+  return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : NaN
+}
+
+function NumberCell({ value, onSave, suffix = '만', placeholder, onSplit }: {
   value: number | null, onSave: (v: number | null) => void, suffix?: string, placeholder?: string
+  /** '보증금/월세' 처럼 / 로 두 값을 적으면 부른다(가격 칸). 없으면 / 는 잘못된 입력이다. */
+  onSplit?: (deposit: number, rent: number) => void
 }) {
+  const toast = useToast()
   const [editing, setEditing] = useState(false)
   // 0 은 '아직 안 적음' 이다(새 줄의 기본값). 편집을 열 때 0 을 남겨 두면 3000 을 쳐서 30,000 이 된다 —
   // 점검에서 두 사람이 그렇게 10배를 저장했다(휴대폰은 글자 선택이 안 먹는다).
@@ -427,13 +440,24 @@ function NumberCell({ value, onSave, suffix = '만', placeholder }: {
 
   const commit = () => {
     setEditing(false)
-    const num = draft.trim() === '' ? null : Number(draft)
-    if (num !== value) onSave(isNaN(num as number) ? null : num)
+    const raw = draft.trim()
+    if (raw === '') { if (value) onSave(null); return }
+    // "3000/200" — 옆 줄들처럼 보증금/월세로 적었다
+    if (raw.includes('/')) {
+      const [a, b] = raw.split('/')
+      const dep = parseManwon(a ?? ''), rent = parseManwon(b ?? '')
+      if (onSplit && Number.isFinite(dep) && Number.isFinite(rent)) { onSplit(dep, rent); return }
+      toast.error(onSplit ? "'3000/200' 처럼 숫자로 적어 주세요 (만원 단위)." : '이 칸에는 숫자 하나만 적어 주세요 (만원 단위).')
+      return
+    }
+    const num = parseManwon(raw)
+    if (!Number.isFinite(num)) { toast.error(`'${raw}' 는 숫자로 읽을 수 없어요 — 만원 단위 숫자로 적어 주세요 (예: 3000).`); return }
+    if (num !== value) onSave(num)
   }
 
   if (editing) {
     return (
-      <input ref={inputRef} type="number" value={draft} onChange={e => setDraft(e.target.value)}
+      <input ref={inputRef} type="text" inputMode="decimal" value={draft} onChange={e => setDraft(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value != null ? String(value) : ''); setEditing(false) } }}
         className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-2 py-1 text-xs text-right outline-none focus:ring-2 focus:ring-blue-300"
@@ -1291,6 +1315,7 @@ const PropertyRow = memo(function PropertyRow({
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
   onDelete, onCopy,
 }: PropertyRowProps) {
+  const toast = useToast()
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
   const isMine = isOwner || p.broker_id === brokerSelfId
   // 중개사메모 열람 권한: 본인 매물 + 담당자에 대표가 포함된 매물(사무소 공용 성격)은 전체 직원 공개.
@@ -1384,7 +1409,14 @@ const PropertyRow = memo(function PropertyRow({
               {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
               {key === 'price'           && (p.deal_type === '월세'
                 ? <RentPriceCell price={p.price} rent={p.monthly_rent} onSavePrice={v => saveField(p.id, 'price', v ?? 0)} onSaveRent={v => saveField(p.id, 'monthly_rent', v)} />
-                : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} placeholder="가격" />)}
+                : <NumberCell value={p.price} onSave={v => saveField(p.id, 'price', v ?? 0)} placeholder="가격"
+                    onSplit={(dep, rent) => {
+                      // 거래형태가 비었거나 월세가 들어 있으면 월세로 본다. 매매·전세만이면 / 는 틀린 입력이다.
+                      if (p.deal_type && !p.deal_type.includes('월세')) { toast.error('매매·전세 매물은 가격 하나만 적어 주세요. 월세라면 거래형태를 먼저 월세로 바꿔 주세요.'); return }
+                      if (!p.deal_type) saveField(p.id, 'deal_type', '월세')
+                      saveField(p.id, 'price', dep)
+                      saveField(p.id, 'monthly_rent', rent)
+                    }} />)}
               {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
               {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
               {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
@@ -1477,6 +1509,7 @@ function BrokerPropertiesContent() {
   const [isOwner, setIsOwner] = useState(true)
   const [teamMembers, setTeamMembers] = useState<string[]>([])
   const [ownerName, setOwnerName] = useState('')  // 사무소 대표 이름 (중개사메모 공개 판정용)
+  const [selfName, setSelfName] = useState('')    // 내 이름 — 새 매물 담당자 기본값
   const [adminViewBrokerName, setAdminViewBrokerName] = useState('')
   const [loading, setLoading] = useState(true)
   const [filterDealType, setFilterDealType] = useState('')
@@ -1737,6 +1770,7 @@ function BrokerPropertiesContent() {
     // ── 팀원 이름 목록 (담당자 드롭다운용) ──────────────
     const { data: prof } = await supabase.from('profiles').select('name').eq('id', u.id).single()
     const myName = prof?.name as string | undefined
+    setSelfName(myName ?? '')
     if (owner) {
       setOwnerName(myName ?? '')  // 대표 본인 → 내 이름이 곧 대표 이름
       const { data: emps } = await supabase
@@ -2221,6 +2255,9 @@ function BrokerPropertiesContent() {
       room_type: '',
       address,
       price: 0,
+      // 고객 줄처럼 접수일자는 오늘, 담당자는 등록한 사람 — 빈칸으로 남아 네 사람이 헷갈려 했다
+      received_date: todayKST(),
+      ...(selfName ? { assignee: selfName } : {}),
       status: 'available',
       options: [],
       images: [],
@@ -2246,14 +2283,23 @@ function BrokerPropertiesContent() {
     setDeleteConfirm({ type: 'property', id })
   }, [setDeleteConfirm])
 
+  const deletingRef = useRef(false)
   const confirmDelete = async () => {
+    if (!deleteConfirm) return
+    if (deletingRef.current) return
+    deletingRef.current = true
+    try { await confirmDeleteOnce() } finally { deletingRef.current = false }
+  }
+  const confirmDeleteOnce = async () => {
     if (!deleteConfirm) return
     if (deleteConfirm.type === 'property') {
       // 휴지통 이동(soft delete) — SECURITY DEFINER RPC (본인·대표만 가능)
       const { error } = await supabase.rpc('soft_delete_property', { prop_id: deleteConfirm.id })
       if (error) {
         console.error('[deleteProperty] failed', error)
-        toast.error(`삭제 실패: ${error.message}`)
+        toast.error(/unauthorized|not found/i.test(error.message)
+          ? '이미 휴지통에 있거나 내가 지울 수 없는 매물이에요. 목록을 새로고침해 주세요.'
+          : `휴지통으로 옮기지 못했어요: ${error.message}`)
         setDeleteConfirm(null)
         return
       }
@@ -2668,6 +2714,9 @@ function BrokerPropertiesContent() {
     if (newOpenedRef.current || !broker || isAdminView || searchParams.get('new') !== '1') return
     newOpenedRef.current = true
     setNewProp({ address: '', deal_type: '' })
+    // 주소에서 new=1 을 지운다 — 남아 있으면 새로고침할 때마다 등록 창이 다시 뜬다
+    const u = new URL(window.location.href); u.searchParams.delete('new')
+    window.history.replaceState(window.history.state, '', u.pathname + (u.search ? u.search : ''))
   }, [broker, isAdminView, searchParams])
 
   // 알림·광고관리에서 ?focus=ID 로 진입 시 해당 매물 강조 (한 번만 처리)
