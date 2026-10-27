@@ -25,6 +25,7 @@ import { DateCell } from '@/components/sheet/cells/date-cell'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import { todayKST, ymdKST } from '@/lib/date-kst'
 import { formatPhoneKR } from '@/lib/validation'
+import { checkYmdField } from '@/lib/property-field-check'
 
 // ── 컬럼 정의 ──────────────────────────────────────────
 interface ColDef {
@@ -467,6 +468,11 @@ export default function BrokerCustomersPage() {
 
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
+    // 날짜가 아닌 값·말이 안 되는 날짜는 서버(영문 DB 오류)까지 보내지 않고 여기서 알려 준다
+    if (field === 'received_date' && value) {
+      const bad = checkYmdField('접수일자', String(value))
+      if (bad) { toast.error(bad); return }
+    }
     // 연락처는 01073320252 · 010 7332 0252 로 넣어도 010-7332-0252 로 저장
     if (field === 'contact' && typeof value === 'string') value = formatPhoneKR(value)
     // 되돌릴 값·중복 검사 기준은 updater 밖에서 읽는다 (updater 는 언제 돌지 모른다)
@@ -516,8 +522,12 @@ export default function BrokerCustomersPage() {
     }
   }, [])
 
+  // 등록·복사 버튼을 두 번 빠르게 누르면 행이 둘씩 생겼다 — 요청이 끝날 때까지 다시 못 누르게 잠근다
+  const rowBusyRef = useRef(false)
   const addRow = async () => {
-    if (!broker) return
+    if (!broker || rowBusyRef.current) return
+    rowBusyRef.current = true
+    try {
     const today = todayKST()
     const { data, error } = await supabase.from('broker_customers').insert({
       broker_id: broker.id, client_name: '', received_date: today,
@@ -529,17 +539,21 @@ export default function BrokerCustomersPage() {
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
     notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
+    } finally { rowBusyRef.current = false }
   }
 
   // 고객 row 복사 — id/created_at 제외하고 모든 필드 동일하게 새 row 생성
   const duplicateCustomer = async (c: Customer) => {
-    if (!broker) return
-    const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = c as Customer & { updated_at?: string }
-    const { data, error } = await supabase.from('broker_customers').insert(rest).select().single()
-    if (error || !data) return
-    setCustomers(prev => [data, ...prev])
-    setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
+    if (!broker || rowBusyRef.current) return
+    rowBusyRef.current = true
+    try {
+      const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = c as Customer & { updated_at?: string }
+      const { data, error } = await supabase.from('broker_customers').insert(rest).select().single()
+      if (error || !data) return
+      setCustomers(prev => [data, ...prev])
+      setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
+      notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
+    } finally { rowBusyRef.current = false }
   }
 
   const openImport = async () => {
@@ -901,6 +915,13 @@ export default function BrokerCustomersPage() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">고객목록</h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">전체 {customers.length}명 · 검색 {filtered.length}명</p>
           </div>
+          {/* 표 맨 아래까지 내려가야 보이던 '고객 등록'을 제목 줄에도 둔다 (매물목록의 '+ 매물 등록' 과 같은 자리) */}
+          {canEdit && (
+            <button type="button" onClick={addRow}
+              className="flex items-center gap-1.5 rounded-xl bg-[#14274e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#0f1d3a]">
+              <Plus className="h-4 w-4" />고객 등록
+            </button>
+          )}
         </div>
 
         {/* 통계 */}

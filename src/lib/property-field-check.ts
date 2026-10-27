@@ -25,7 +25,14 @@ const MONEY_LABEL: Record<string, string> = { price: '가격', monthly_rent: '�
 const isYmd = (v: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false
   const d = new Date(`${v}T00:00:00Z`)
-  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v
+  // 99999-01-01 같은 연도는 형식은 맞아도 말이 안 된다 — 1900~2100 만 받는다
+  const y = d.getUTCFullYear()
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v && y >= 1900 && y <= 2100
+}
+
+/** 날짜 칸 검사 — 맞으면 null, 아니면 화면에 띄울 한국어 문구. (고객목록 접수일자 등에서 공용) */
+export function checkYmdField(label: string, value: string): string | null {
+  return isYmd(value.trim()) ? null : `${label}은(는) 2024-03-15 처럼 날짜로 적어 주세요.`
 }
 
 export function checkPropertyField(field: string, value: unknown): string | null {
