@@ -965,11 +965,33 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           {[0, 1, 2, 3].map(i => <rect key={i} x={x + 98 + i * 4} y={y + 29} width={2} height={5} fill={['#7f1d1d', '#065f46', '#7f1d1d', '#f59e0b'][i]} />)}
           <rect x={x + 97} y={y + 36} width={16} height={8} fill="#e5e7eb" />
           <rect x={x + 110} y={y + 38} width={1} height={4} fill="#9ca3af" />
-          <rect x={x + 97} y={y + 48} width={16} height={6} fill="#111827" />
-          <rect x={x + 98} y={y + 54} width={14} height={8} fill="#1f2937" />
-          <rect x={x + 99} y={y + 49} width={12} height={4} fill="#b91c1c" />
-          <rect x={x + 100} y={y + 55} width={10} height={4} fill="#b91c1c" />
-          <rect x={x + 109} y={y + 62} width={4} height={2} fill="#111827" />
+          {/* 안마의자 — 옆에서 본 모양, 뒤로 젖힌 등판·머리 덮개·발 받침. 밝은 몸통에 갈색 가죽, 금테 — 짙은 마루에 묻히지 않게.
+              예전 것은 빨간 네모 둘이라 안마의자로 안 읽혔다(2026-10-27 사장님 '안마의자 하나'). */}
+          <rect x={x + 109} y={y + 42} width={6} height={2} fill="#e7e5e4" />
+          <rect x={x + 107} y={y + 44} width={9} height={5} fill="#e7e5e4" />
+          <rect x={x + 108} y={y + 45} width={5} height={3} fill="#7c2d12" />
+          <rect x={x + 112} y={y + 49} width={3} height={4} fill="#e7e5e4" />
+          <rect x={x + 106} y={y + 48} width={6} height={4} fill="#92400e" />
+          <rect x={x + 110} y={y + 52} width={3} height={3} fill="#e7e5e4" />
+          <rect x={x + 104} y={y + 52} width={6} height={3} fill="#92400e" />
+          <rect x={x + 98} y={y + 55} width={12} height={3} fill="#92400e" />
+          <rect x={x + 98} y={y + 55} width={12} height={0.8} fill="#b45309" />
+          <rect x={x + 103} y={y + 52} width={5} height={4} fill="#e7e5e4" />
+          <rect x={x + 103} y={y + 52} width={5} height={0.7} fill="#d4a017" />
+          <rect x={x + 104} y={y + 53.5} width={1} height={1} fill="#22c55e" className="pxo-blink" />
+          <rect x={x + 106} y={y + 53.5} width={1} height={1} fill="#38bdf8" />
+          <rect x={x + 95} y={y + 57} width={4} height={3} fill="#92400e" />
+          <rect x={x + 94} y={y + 60} width={5} height={3} fill="#e7e5e4" />
+          <rect x={x + 99} y={y + 58} width={12} height={3} fill="#e7e5e4" />
+          <rect x={x + 99} y={y + 61} width={12} height={1.2} fill="#d4a017" />
+          <rect x={x + 100} y={y + 62.2} width={2} height={1.2} fill="#57534e" />
+          <rect x={x + 108} y={y + 62.2} width={2} height={1.2} fill="#57534e" />
+          {/* 돌아가는 중 — 등판 뒤로 진동 줄 */}
+          {[0, 1].map(i => (
+            <rect key={`v${i}`} x={x + 116.4} y={y + 46 + i * 4} width={1.4} height={0.6} fill="#f59e0b"
+              className="pxo-steam" style={{ animationDelay: `${i * 0.5}s` }} />
+          ))}
+          <Label x={x + 104} y={y + 67.5} text="안마의자" size={2.8} color="#78350f" />
           <rect x={x + 92} y={y + 64} width={1} height={18} fill="#78716c" />
           <rect x={x + 89} y={y + 61} width={7} height={4} fill="#fef3c7" />
           <rect x={x + 88} y={y + 65} width={9} height={6} fill="#fef9c3" opacity={0.25} />
