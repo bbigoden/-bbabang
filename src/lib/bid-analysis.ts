@@ -103,6 +103,21 @@ export function amountFor(y: number, bssamt: number, lwltRate: number, a: number
   return Math.ceil(A + y * (bssamt - A) * (lwltRate / 100))
 }
 
+/**
+ * 투찰금액(원) → y. amountFor 의 거꾸로다.
+ * y 는 곧 '이 금액이 하한선을 넘는 가장 높은 사정률'이다 — 사정률이 y 이하로 나와야 통과.
+ * 같은 식이라 사정률 r 일 때의 하한선은 amountFor(r, …) 로 구한다.
+ */
+export function yOf(amount: number, bssamt: number, lwltRate: number, a: number | null): number {
+  const A = a ?? 0
+  return (amount - A) / ((bssamt - A) * (lwltRate / 100))
+}
+
+/** 과거 공고 중 사정률이 y 이하로 나와 이 자리가 하한선을 넘었을 비율 */
+export function passShare(hist: NormalizedHistory[], y: number): number {
+  return hist.length ? hist.filter(h => h.r <= y).length / hist.length : 0
+}
+
 /** 사정률 분포 요약 (백분율 r×100) */
 export function rateStats(hist: NormalizedHistory[]) {
   const rs = hist.map(h => h.r * 100).sort((a, b) => a - b)

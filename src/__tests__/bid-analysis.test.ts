@@ -4,7 +4,7 @@
  * 1순위 (주)다음건설 67,314,900원.
  */
 import { describe, it, expect } from 'vitest'
-import { normalize, winCurve, bestPoint, amountFor, rateStats, rangeOf } from '@/lib/bid-analysis'
+import { normalize, winCurve, bestPoint, amountFor, rateStats, rangeOf, yOf, passShare } from '@/lib/bid-analysis'
 import { kstToIso, toBsisPatch, toPrepar } from '@/lib/g2b'
 
 const AMOUNTS = [
@@ -118,5 +118,32 @@ describe('g2b 변환', () => {
     expect(drawn).toHaveLength(4)
     expect(drawn.reduce((s, p) => s + p.price, 0) / 4).toBe(r.plnprc)
     expect(rangeOf(r.bssamt!, r.prices)).toBe(3)
+  })
+})
+
+/**
+ * 온양문화원 방수 공사(R26BK01787197) — 기초 28,160,000 · A 540,907 · 하한율 89.745%.
+ * 예정가격이 28,340,200(사정률 100.652%)으로 높게 나와 하한선이 25,489,383원이었다.
+ * 추천가 25,072,359원도, 기초×하한율 25,272,192원도 하한 미달이었다.
+ */
+describe('통과 조건', () => {
+  const B = 28160000, A = 540907, L = 89.745
+  const r = (28340200 - A) / (B - A)
+
+  it('사정률 r 일 때 하한선은 amountFor(r)', () => {
+    expect(amountFor(r, B, L, A)).toBe(25489383)
+  })
+
+  it('yOf 는 amountFor 의 거꾸로 — 이 금액이 통과하는 사정률 상한', () => {
+    expect(yOf(25072359, B, L, A) * 100).toBeCloseTo(98.970, 3)
+    expect(yOf(25072359, B, L, A)).toBeLessThan(r)   // 하한 미달
+    expect(yOf(25514040, B, L, A)).toBeGreaterThan(r) // 1순위는 통과
+    expect(amountFor(yOf(25072359, B, L, A), B, L, A)).toBe(25072359)
+  })
+
+  it('passShare — 사정률이 y 이하였던 과거 비율', () => {
+    const hist = [0.98, 0.99, 1.0, 1.01].map(r => ({ r, minAbove: Infinity, n: 0 }))
+    expect(passShare(hist, 0.995)).toBe(0.5)
+    expect(passShare([], 1)).toBe(0)
   })
 })

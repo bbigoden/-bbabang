@@ -2,7 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { Chip } from '@/components/ui/chip'
-import { amountFor, bestPoint, rateHistogram, rateStats, winCurve, type NormalizedHistory } from '@/lib/bid-analysis'
+import {
+  GRID_MIN, GRID_STEP, amountFor, bestPoint, passShare, rateHistogram, rateStats, winCurve, yOf,
+  type CurvePoint, type NormalizedHistory,
+} from '@/lib/bid-analysis'
 
 /**
  * 공고 한 건의 추천 투찰가.
@@ -131,6 +134,13 @@ export function AnalysisPanel({ notice, history }: { notice: NoticeForAnalysis; 
             </div>
           </div>
 
+          {bssamt && (
+            <PassCheck
+              bssamt={bssamt} lwlt={lwlt} a={notice.a_amount} rng={rng ?? 3}
+              stats={stats} norm={norm} curve={curve} recommended={amount}
+            />
+          )}
+
           <WinChart curve={curve} best={best?.y ?? null} />
 
           <div>
@@ -152,6 +162,83 @@ export function AnalysisPanel({ notice, history }: { notice: NoticeForAnalysis; 
           </p>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * 하한선은 미리 정해져 있지 않다 — 개찰 때 뽑힌 예정가격(사정률)에 따라 움직인다.
+ * 그래서 금액마다 '사정률이 몇 % 이하로 나와야 통과하는지'와 과거에 그런 경우가 얼마였는지를 적는다.
+ * 기초금액×하한율은 사장님이 계산기로 먼저 재 보는 값이라 기준선으로 같이 둔다.
+ */
+function PassCheck({ bssamt, lwlt, a, rng, stats, norm, curve, recommended }: {
+  bssamt: number; lwlt: number; a: number | null; rng: number
+  stats: ReturnType<typeof rateStats>; norm: NormalizedHistory[]; curve: CurvePoint[]; recommended: number | null
+}) {
+  const [typed, setTyped] = useState('')
+  const mine = Number(typed.replace(/\D/g, '')) || null
+  const floors = [
+    { label: `최저 ${100 - rng}%`, r: 1 - rng / 100 },
+    stats.p10 != null && { label: `낮은 쪽 ${stats.p10.toFixed(2)}%`, r: stats.p10 / 100 },
+    { label: '100% (예정가격 = 기초금액)', r: 1 },
+    stats.p90 != null && { label: `높은 쪽 ${stats.p90.toFixed(2)}%`, r: stats.p90 / 100 },
+    { label: `최고 ${100 + rng}%`, r: 1 + rng / 100 },
+  ].filter((f): f is { label: string; r: number } => !!f)
+  const simple = Math.round(bssamt * lwlt / 100)
+
+  const check = (amt: number) => {
+    const y = yOf(amt, bssamt, lwlt, a)
+    const i = Math.round((y - GRID_MIN) / GRID_STEP)
+    const wins = curve[i]?.wins ?? 0
+    const pass = passShare(norm, y)
+    return { y, wins, pass }
+  }
+  const lines = [
+    recommended && { name: '추천', amt: recommended },
+    { name: '기초×하한율', amt: simple },
+    mine && { name: '내 금액', amt: mine },
+  ].filter((l): l is { name: string; amt: number } => !!l)
+
+  return (
+    <div className="rounded-lg bg-white p-3 dark:bg-gray-900">
+      <div className="text-xs text-gray-500">하한선은 개찰 때 뽑힌 예정가격(사정률)에 따라 움직입니다</div>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {floors.map(f => (
+          <div key={f.label} className={f.r === 1 ? 'rounded-md bg-gray-50 p-2 dark:bg-gray-950' : 'p-2'}>
+            <div className="text-[11px] text-gray-500">사정률 {f.label}</div>
+            <div className="font-semibold tabular-nums text-gray-900 dark:text-white">{won(amountFor(f.r, bssamt, lwlt, a))}원</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-gray-500">이 금액이면 통과할까</span>
+          <input
+            inputMode="numeric"
+            value={typed}
+            onChange={e => setTyped(e.target.value.replace(/[^\d,]/g, ''))}
+            placeholder="내 금액 넣어 보기"
+            className="h-8 w-44 rounded-lg border border-gray-200 bg-white px-2 text-sm tabular-nums dark:border-gray-800 dark:bg-gray-950"
+          />
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+          {lines.map(l => {
+            const c = check(l.amt)
+            return (
+              <div key={l.name} className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 py-1.5">
+                <span className="w-20 text-xs text-gray-500">{l.name}</span>
+                <span className="w-32 font-semibold tabular-nums">{won(l.amt)}원</span>
+                <span className="text-gray-700 dark:text-gray-300">사정률 <b>{(c.y * 100).toFixed(3)}%</b> 이하로 나와야 통과</span>
+                <span className="text-xs text-gray-500">과거 {norm.length}건 중 통과 {(c.pass * 100).toFixed(0)}% · 낙찰 {c.wins}건</span>
+              </div>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-xs text-gray-400">
+          낮게 쓸수록 통과할 확률은 줄고, 통과하면 1순위가 되기 쉽습니다. 높게 쓰면 거의 통과하지만 더 낮게 쓴 업체에 밀립니다.
+        </p>
+      </div>
     </div>
   )
 }
