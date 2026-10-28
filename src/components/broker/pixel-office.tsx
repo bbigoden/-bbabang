@@ -1309,12 +1309,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
         .dark .pxo-scene { filter: brightness(.8) saturate(.9); }
         /* PC 에선 스크롤 없이 한 화면에 — 화면 높이에 맞춰 폭을 정하고 가운데에(비율은 그대로). 휴대폰은 옆으로 민다 */
         @media (min-width: 1024px) { .pxo-fit { width: min(100%, calc((100dvh - 240px) * ${W} / ${H - TOP})); margin: 0 auto; } }
-        @media (prefers-reduced-motion: reduce) {
-          .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam, .pxo-eye, .pxo-code, .pxo-pop, .pxo-colon,
-          .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b,
-          .pxo-look, .pxo-hover, .pxo-hop, .pxo-wave, .pxo-fish, .pxo-sparkle, .pxo-sweep-a, .pxo-sweep-b { animation: none }
-          .pxo-jan, .pxo-jan * { animation: none !important }
-        }
+        /* 움직임 줄이기(prefers-reduced-motion)는 따르지 않는다 — 삼성 절전 모드가 이걸 켜서 폰에서 사무실이 통째로 멈췄다(2026-10-29) */
       `}</style>
 
       <p className="mb-1 text-[11px] text-gray-500 lg:hidden">← 사무실을 옆으로 밀어 다른 방도 보세요 →</p>
