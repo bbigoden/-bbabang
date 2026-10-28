@@ -12,7 +12,7 @@ import { useToast } from '@/components/toast'
 import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
-import { latestOrd } from '@/lib/bid-notices'
+import { canEnter, latestOrd, shortRegion } from '@/lib/bid-notices'
 import { AnalysisPanel, type HistoryRow } from './analysis-panel'
 
 /**
@@ -47,6 +47,7 @@ type Notice = {
   bssamt: number | null
   rng_end: number | null
   a_amount: number | null
+  prtcpt_rgns: string[] | null
 }
 
 type Result = {
@@ -93,8 +94,12 @@ const REGION_KEY = 'bid_regions_v1'
 export default function BidPage() {
   const supabase = useMemo(() => createClient(), [])
   const toast = useToast()
-  const { broker, loading: authLoading } = useAuth()
+  const { broker, loading: authLoading, refresh } = useAuth()
   const enabled = !!broker?.bid_enabled && broker?.is_owner !== false
+  // 우리 업체 소재지 — 지역제한 공고 중 들어갈 수 있는 것만 거르는 데 쓴다
+  const ourRegion = typeof broker?.bid_region === 'string' && broker.bid_region.trim() ? broker.bid_region.trim() : null
+  const [enterableOnly, setEnterableOnly] = useState(true)
+  const [editingRegion, setEditingRegion] = useState<string | null>(null)
 
   const [tab, setTab] = useState<Tab>('notice')
   const [notices, setNotices] = useState<Notice[]>([])
@@ -123,7 +128,7 @@ export default function BidPage() {
       const since = new Date(Date.now() - 60 * 86400000).toISOString()
       const [n, r, h, s] = await Promise.all([
         fetchAllPaged<Notice>((from, to) => supabase.from('bid_notices')
-          .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount')
+          .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns')
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
         supabase.from('bid_results')
           .select('bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong')
@@ -150,6 +155,15 @@ export default function BidPage() {
 
   useEffect(() => { if (enabled) load() }, [enabled, load])
 
+  const saveRegion = async () => {
+    if (editingRegion == null || !broker) return
+    const v = editingRegion.trim().replace(/\s+/g, ' ') || null
+    const { error } = await supabase.from('broker_profiles').update({ bid_region: v }).eq('id', broker.id)
+    if (error) { toast.error('소재지를 저장하지 못했습니다'); return }
+    setEditingRegion(null)
+    await refresh()
+  }
+
   const collect = async () => {
     setCollecting(true)
     try {
@@ -175,8 +189,9 @@ export default function BidPage() {
     const words = q.trim().split(/\s+/).filter(Boolean)
     return notices.filter(n =>
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
+      (!enterableOnly || canEnter(n.prtcpt_rgns, ourRegion) !== false) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''}`.includes(w)))
-  }, [notices, openOnly, q])
+  }, [notices, openOnly, enterableOnly, ourRegion, q])
 
   const regionCounts = useMemo(() => {
     const m = new Map<string, number>()
@@ -236,6 +251,25 @@ export default function BidPage() {
             </span>
           ) : lastRun?.finishedAt && <span>{언제(lastRun.finishedAt)} 받아옴</span>}
           <span>매일 6·12·18시 자동</span>
+          {editingRegion != null ? (
+            <span className="flex items-center gap-1">
+              우리 업체 소재지
+              <input
+                autoFocus
+                value={editingRegion}
+                onChange={e => setEditingRegion(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') void saveRegion(); if (e.key === 'Escape') setEditingRegion(null) }}
+                placeholder="충청남도 아산시"
+                className="h-7 w-36 rounded-md border border-gray-200 bg-white px-2 text-base sm:text-xs dark:border-gray-800 dark:bg-gray-950"
+              />
+              <button type="button" onClick={() => void saveRegion()} className="font-medium text-blue-600 dark:text-blue-400">저장</button>
+              <button type="button" onClick={() => setEditingRegion(null)}>취소</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setEditingRegion(ourRegion ?? '')} className="hover:underline">
+              우리 업체 소재지 <b className="font-medium text-gray-700 dark:text-gray-300">{ourRegion ?? '정하기'}</b>
+            </button>
+          )}
           {/* 분석이 얼마나 믿을 만한지는 쌓인 과거 낙찰 수에 달렸다. 숫자를 늘 보이게 둔다 */}
           {!loading && <span>분석에 쓰는 과거 낙찰 {history.length.toLocaleString('ko-KR')}건</span>}
           {tab === 'notice' && !loading && <span>공고 {shownNotices.length.toLocaleString('ko-KR')}건</span>}
@@ -248,6 +282,12 @@ export default function BidPage() {
         <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           {tab === 'notice' && <>
             <Chip on={openOnly} onClick={() => setOpenOnly(v => !v)}>마감 전만</Chip>
+            {ourRegion && (
+              <Chip on={enterableOnly} onClick={() => setEnterableOnly(v => !v)}
+                title={`참가가능지역이 전국이거나 ${ourRegion}을 품는 공고만`}>
+                들어갈 수 있는 것만
+              </Chip>
+            )}
             <span className="mx-1 hidden h-4 w-px bg-gray-200 sm:block dark:bg-gray-800" />
             {/* 폰에선 시도 17개가 아홉 줄이 돼 첫 화면에 공고가 하나도 안 보였다 — 한 줄로 옆으로 민다 */}
             <div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 pb-1 sm:contents">
@@ -316,6 +356,7 @@ export default function BidPage() {
                           {n.bid_close_at && ` · 마감 ${언제(n.bid_close_at)}`}
                           {n.cntrct_mthd && ` · ${n.cntrct_mthd}`}
                         </span>
+                        <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} />
                         {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
                         <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
                           {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}
@@ -408,5 +449,19 @@ export default function BidPage() {
         )}
       </main>
     </>
+  )
+}
+
+/** 참가가능지역 한 줄. 우리가 못 들어가는 곳이면 빨갛게 */
+function RegionBadge({ rgns, ours }: { rgns: string[] | null; ours: string | null }) {
+  if (rgns == null) return null
+  const ok = canEnter(rgns, ours)
+  const text = rgns.length === 0 ? '전국' : rgns.length > 3
+    ? `${rgns.slice(0, 3).map(shortRegion).join('·')} 외 ${rgns.length - 3}곳`
+    : rgns.map(shortRegion).join('·')
+  return (
+    <span className={`mt-0.5 block text-xs ${ok === false ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
+      참가 {text}{ok === false && ' — 우리 업체는 못 들어갑니다'}
+    </span>
   )
 }

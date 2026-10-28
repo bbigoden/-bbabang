@@ -8,6 +8,7 @@ type OrdRow = {
   bssamt: number | null
   a_amount: number | null
   rng_end: number | null
+  prtcpt_rgns?: string[] | null
 }
 
 /**
@@ -24,9 +25,14 @@ export function latestOrd<T extends OrdRow>(rows: T[]): T[] {
     const last = sorted[0]
     if (/취소공고/.test(last.name)) continue
     const withBase = sorted.find(r => r.bssamt != null)
-    out.push(last.bssamt == null && withBase
-      ? { ...last, bssamt: withBase.bssamt, a_amount: last.a_amount ?? withBase.a_amount, rng_end: last.rng_end ?? withBase.rng_end }
-      : last)
+    const withRgn = sorted.find(r => r.prtcpt_rgns != null)
+    out.push({
+      ...last,
+      ...(last.bssamt == null && withBase
+        ? { bssamt: withBase.bssamt, a_amount: last.a_amount ?? withBase.a_amount, rng_end: last.rng_end ?? withBase.rng_end }
+        : {}),
+      ...(last.prtcpt_rgns == null && withRgn ? { prtcpt_rgns: withRgn.prtcpt_rgns } : {}),
+    })
   }
   return out.sort((a, b) => (a.bid_close_at ?? '').localeCompare(b.bid_close_at ?? ''))
 }
@@ -47,4 +53,24 @@ export function parseWon(text: string): number | null {
   if (!m || (!m[1] && !m[2])) return null
   const v = Number(m[1] ?? 0) * 1e8 + Number(m[2] ?? 0) * 1e4 + Number(m[3] ?? 0)
   return v > 0 && v <= MAX_WON ? Math.round(v) : null
+}
+
+/**
+ * 우리 업체가 이 공고에 들어갈 수 있나.
+ * 참가가능지역이 '충청남도' 면 도 안 어디든, '충청남도 아산시' 면 아산만 된다.
+ * 목록이 비면(전국) 된다. 아직 안 받았으면(null) 모른다 — 빼지 않고 보여 준다.
+ */
+export function canEnter(rgns: string[] | null | undefined, ours: string | null | undefined): boolean | null {
+  if (!ours) return true
+  if (rgns == null) return null
+  if (rgns.length === 0) return true
+  return rgns.some(r => ours === r || ours.startsWith(r + ' '))
+}
+
+/** "충청남도 아산시" → "충남 아산시". 목록 줄에 짧게 */
+export function shortRegion(r: string): string {
+  return r
+    .replace(/^(충청|전라|경상)([남북])도/, (_, a: string, b: string) => a[0] + b)
+    .replace(/^전북특별자치도/, '전북').replace(/^강원특별자치도/, '강원').replace(/^제주특별자치도/, '제주')
+    .replace(/^세종특별자치시/, '세종').replace(/특별시|광역시/, '')
 }

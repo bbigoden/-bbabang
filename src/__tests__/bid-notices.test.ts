@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { latestOrd, parseWon } from '@/lib/bid-notices'
+import { canEnter, latestOrd, parseWon, shortRegion } from '@/lib/bid-notices'
 
 const row = (no: string, ord: string, name: string, bssamt: number | null = null) =>
   ({ bid_ntce_no: no, bid_ntce_ord: ord, name, bid_close_at: '2026-10-30T01:00:00Z', bssamt, a_amount: null, rng_end: null })
@@ -37,4 +37,30 @@ describe('parseWon', () => {
     expect(parseWon('0')).toBeNull()
     expect(parseWon('9'.repeat(5000))).toBeNull()
   })
+})
+
+describe('canEnter — 아산 업체', () => {
+  const ours = '충청남도 아산시'
+  it.each([
+    [[], true],
+    [['충청남도'], true],
+    [['충청남도 아산시'], true],
+    [['충청남도 천안시'], false],
+    [['경상남도 합천군'], false],
+    [['부산광역시', '충청남도'], true],
+  ] as [string[], boolean][])('%j → %s', (r, v) => expect(canEnter(r, ours)).toBe(v))
+
+  it('아직 안 받았으면 모른다(null), 소재지를 안 정했으면 다 된다', () => {
+    expect(canEnter(null, ours)).toBeNull()
+    expect(canEnter(['경상남도'], null)).toBe(true)
+  })
+
+  it('충청남도 아산시 를 충청남도 아산 으로 시작하는 다른 곳과 헷갈리지 않는다', () => {
+    expect(canEnter(['충청남도 아산'], '충청남도 아산시')).toBe(false)
+  })
+})
+
+describe('shortRegion', () => {
+  it.each([['충청남도 아산시', '충남 아산시'], ['충청남도', '충남'], ['부산광역시', '부산'], ['서울특별시 강동구', '서울 강동구']])(
+    '%s → %s', (a, b) => expect(shortRegion(a)).toBe(b))
 })

@@ -33,6 +33,7 @@ type Backfill = { until: string; done: boolean }
 export type CollectReport = {
   notices: number
   bsis: number
+  rgns?: number
   results: number
   details: number
   backfillUntil: string | null
@@ -88,6 +89,11 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     const nrows = dedupe(notices.map(toNoticeRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`)
     await upsert(supa, 'bid_notices', nrows, 'bid_ntce_no,bid_ntce_ord')
     report.notices += nrows.length
+
+    // 참가가능지역도 업종으로 못 거른다 — 모든 업무 하루 ~2,300줄을 받아 우리 공고에 붙인다.
+    // 한 줄도 없으면 지역제한이 없는 공고(전국)라, 이 기간에 공고된 것은 모두 '받음'으로 적는다
+    const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
+    report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
 
     // 기초금액은 업종으로 못 거른다 — 공사 전체(1주 ~2,400건)를 받아 우리 공고만 남긴다
     const bsis = await listAll('notice', 'getBidPblancListInfoCnstwkBsisAmount', from, to)
@@ -241,6 +247,28 @@ async function applyBsis(supa: SupabaseClient, patches: ReturnType<typeof toBsis
       if (p) rows.push({ ...p, name: n.name, updated_at: now })
     }
   }
+  await upsert(supa, 'bid_notices', rows, 'bid_ntce_no,bid_ntce_ord')
+  return rows.length
+}
+
+/** 참가가능지역을 그 기간(공고일 기준, 한국시간)에 공고된 우리 공고에 붙인다. 붙인 건수를 돌려준다 */
+async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string): Promise<number> {
+  const byKey = new Map<string, { sno: number; nm: string }[]>()
+  for (const x of items) {
+    const k = `${x.bidNtceNo}/${x.bidNtceOrd || '000'}`
+    const nm = (x.prtcptPsblRgnNm ?? '').trim()
+    if (nm) byKey.set(k, [...(byKey.get(k) ?? []), { sno: Number(x.lmtSno) || 0, nm }])
+  }
+  const { data, error } = await supa.from('bid_notices')
+    .select('bid_ntce_no, bid_ntce_ord, name')
+    .gte('ntce_at', `${from}T00:00:00+09:00`).lte('ntce_at', `${to}T23:59:59+09:00`)
+  if (error) throw error
+  const now = new Date().toISOString()
+  const rows = (data ?? []).map(n => ({
+    ...n,
+    prtcpt_rgns: [...new Set((byKey.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`) ?? []).sort((a, b) => a.sno - b.sno).map(r => r.nm))],
+    updated_at: now,
+  }))
   await upsert(supa, 'bid_notices', rows, 'bid_ntce_no,bid_ntce_ord')
   return rows.length
 }
