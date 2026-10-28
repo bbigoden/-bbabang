@@ -807,10 +807,10 @@ function Walker({ seat, from, to, onPick }: { seat: Seat; from: Pt; to: Pt; onPi
 function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }) {
   const room = ROOMS.find(r => r.key === 'status')!
   const x = room.x + 6
-  const y = room.y + 12
+  const y = room.y + 5
   const w = room.w - 12
-  const lines = [...status.rows.slice(0, 7), status.total]
-  const lh = Math.min(8, 62 / lines.length)
+  const lines = [...status.rows.slice(0, 8), status.total]
+  const lh = Math.min(9, 66 / lines.length)
   const col = { name: x + 5, props: x + 66, bank: x + 98, daangn: x + 126 }
   const n = (v: number) => v.toLocaleString()
   return (
@@ -886,14 +886,8 @@ function Lobby() {
   )
 }
 
-/** 시간대마다 창밖 하늘. 밤이면 별이 뜨고 사무실이 조금 어두워진다. */
-function skyOf(clock: string) {
-  const h = Number(clock.slice(0, 2))
-  if (h >= 7 && h < 17) return { sky: '#9fd3f5', night: false }
-  if (h >= 17 && h < 19) return { sky: '#f6a46b', night: false }
-  if (h >= 5 && h < 7) return { sky: '#fcd9a8', night: false }
-  return { sky: '#1e2a4a', night: true }
-}
+/** 밤(19~5시)이면 사무실이 조금 어두워진다 */
+const isNight = (clock: string) => { const h = Number(clock.slice(0, 2)); return h >= 19 || h < 5 }
 
 // ── 소품 ───────────────────────────────────────────────
 
@@ -909,25 +903,15 @@ function Plant({ x, y }: { x: number; y: number }) {
   )
 }
 
-function Window({ x, sky = '#9fd3f5', night = false }: { x: number; sky?: string; night?: boolean }) {
-  return (
-    <g>
-      <rect x={x} y={4} width={30} height={15} fill="#e2e8f0" />
-      <rect x={x + 1.5} y={5.5} width={27} height={12} fill={sky} />
-      {night
-        ? [[4, 8], [11, 12], [20, 7], [24, 13]].map(([sx, sy]) => (
-          <rect key={`${sx}-${sy}`} x={x + sx} y={sy} width={0.8} height={0.8} fill="#fef9c3" className="pxo-led" style={{ animationDelay: `${sx / 10}s` }} />
-        ))
-        : <rect x={x + 3} y={7} width={6} height={2} fill="#ffffff" opacity={0.85} className="pxo-cloud" />}
-      <rect x={x + 14.25} y={5.5} width={1.5} height={12} fill="#e2e8f0" />
-      <rect x={x} y={19} width={30} height={1.5} fill="#cbd5e1" />
-    </g>
-  )
-}
-
 // ── 판 ─────────────────────────────────────────────────
 
 const W = 576
+/**
+ * 판 위쪽 0~24 는 예전 뒷벽(창문·시계·화이트보드) 자리 — 2026-10-28 사장님이 '창문 필요 없다' 해서 떼고
+ * 그만큼 안을 넓혀 보인다. 좌표는 그대로 두고 보는 창(viewBox)만 TOP 부터 자른다.
+ * 시계는 대표실 벽으로, 화이트보드는 매물조사실 벽으로 옮겼다.
+ */
+const TOP = 24
 /**
  * 복도 두 줄 — 1·2줄 사이, 2·3줄 사이. 어느 방이든 다른 방을 지나지 않고 복도에서 바로 들어간다
  * (대표실에 가려고 이사실·회의실을 지나던 것을 2026-10-26 사장님이 바꿈).
@@ -952,7 +936,7 @@ const ROOMS: RoomBox[] = [
   { key: 'boss', label: '대표실', x: 0, y: 24, w: 120, h: 96, floor: 'carpet', color: '#1e3a8a' },
   { key: 'partnerLab', label: '협력업체 · 에이전트실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
   // 서버실이던 곳 — 2026-10-28 현황판을 사무실 안에 걸며 상황실로. 일꾼은 에이전트실로 옮김
-  { key: 'status', label: '상황실', x: 408, y: 24, w: 168, h: 96, floor: 'carpet', color: '#14532d' },
+  { key: 'status', label: '', x: 408, y: 24, w: 168, h: 96, floor: 'carpet', color: '#14532d' },
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
   { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 142, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
   { key: 'promo', label: '홍보부', x: 260, y: 142, w: 236, h: 88, floor: 'wood', color: '#be185d' },
@@ -1249,7 +1233,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
   const all = Object.values(layout.seats).flat() as Seat[]
   const pickedSeat = all.find(s => s.key === picked) ?? null
   const pick = (s: Seat) => () => setPicked(p => (p === s.key ? null : s.key))
-  const { sky, night } = skyOf(layout.clock)
+  const night = isNight(layout.clock)
 
   // 방마다 자리를 놓는다. 넘치는 사람은 방 오른쪽 아래에 '+n'.
   const placed: { seat: Seat; x: number; y: number; big?: boolean }[] = []
@@ -1312,8 +1296,6 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
         .pxo-pop { animation: pxo-pop 4s ease-out infinite; }
         @keyframes pxo-colon { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
         .pxo-colon { animation: pxo-colon 1s steps(1) infinite; }
-        @keyframes pxo-cloud { 0%, 100% { transform: translateX(0) } 50% { transform: translateX(14px) } }
-        .pxo-cloud { animation: pxo-cloud 40s ease-in-out infinite; }
         @keyframes pxo-paper { 0%, 80% { transform: translateY(0); opacity: 0 } 85% { opacity: 1 } 100% { transform: translateY(4px); opacity: 1 } }
         .pxo-paper { animation: pxo-paper 9s steps(6) infinite; }
         @keyframes pxo-walk { 0% { transform: translateX(0) scaleX(1) } 40% { transform: translateX(var(--span)) scaleX(1) }
@@ -1326,10 +1308,10 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
         .pxo-step-b { animation: pxo-step .4s steps(1) infinite reverse; }
         .dark .pxo-scene { filter: brightness(.8) saturate(.9); }
         /* PC 에선 스크롤 없이 한 화면에 — 화면 높이에 맞춰 폭을 정하고 가운데에(비율은 그대로). 휴대폰은 옆으로 민다 */
-        @media (min-width: 1024px) { .pxo-fit { width: min(100%, calc((100dvh - 240px) * ${W} / ${H})); margin: 0 auto; } }
+        @media (min-width: 1024px) { .pxo-fit { width: min(100%, calc((100dvh - 240px) * ${W} / ${H - TOP})); margin: 0 auto; } }
         @media (prefers-reduced-motion: reduce) {
           .pxo-type, .pxo-blink, .pxo-bounce, .pxo-led, .pxo-steam, .pxo-eye, .pxo-code, .pxo-pop, .pxo-colon,
-          .pxo-cloud, .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b,
+          .pxo-paper, .pxo-cat, .pxo-vacuum, .pxo-step-a, .pxo-step-b,
           .pxo-look, .pxo-hover, .pxo-hop, .pxo-wave, .pxo-fish, .pxo-sparkle, .pxo-sweep-a, .pxo-sweep-b { animation: none }
           .pxo-jan, .pxo-jan * { animation: none !important }
         }
@@ -1342,7 +1324,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             <span className="border-2 border-gray-800 bg-[#fff7e6] px-3 py-1.5 text-sm font-bold text-gray-800">사무실을 불러오는 중…</span>
           </div>
         )}
-        <svg viewBox={`0 0 ${W} ${H}`} shapeRendering="crispEdges" className="pxo-scene block w-full min-w-[1080px] lg:min-w-0"
+        <svg viewBox={`0 ${TOP} ${W} ${H - TOP}`} shapeRendering="crispEdges" className="pxo-scene block w-full min-w-[1080px] lg:min-w-0"
           role="img" aria-label="사무실 배치도">
           <defs>
             <pattern id="pxo-wood" width="24" height="6" patternUnits="userSpaceOnUse">
@@ -1392,21 +1374,6 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             </pattern>
           </defs>
 
-          {/* ── 뒷벽: 창문·시계·화이트보드 ── */}
-          <rect x={0} y={0} width={W} height={24} fill="#e9dcc6" />
-          <rect x={0} y={21} width={W} height={3} fill="#8a6f52" />
-          {[10, 64, 132, 186, 392, 440, 488, 536].map(wx => <Window key={wx} x={wx} sky={sky} night={night} />)}
-          <rect x={244} y={5} width={22} height={11} fill="#1f2937" />
-          <rect x={245} y={6} width={20} height={9} fill="#0f172a" />
-          <text x={255} y={13} fontSize={6} fontWeight={800} textAnchor="middle" fill="#4ade80" style={{ fontFamily: 'monospace' }}>
-            {layout.clock.slice(0, 2)}<tspan className="pxo-colon">:</tspan>{layout.clock.slice(3)}
-          </text>
-          <rect x={274} y={3} width={86} height={17} fill="#9ca3af" />
-          <rect x={275} y={4} width={84} height={15} fill="#f8fafc" />
-          {layout.board.slice(0, 3).map((l, i) => (
-            <text key={l} x={278} y={9 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
-          ))}
-
           {/* ── 복도 둘: 돌바닥 ── */}
           {HALLS.map((h, i) => (
             <g key={`hall-${i}`}>
@@ -1427,9 +1394,9 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
               {HALLS.some(h => r.y === h.y + h.h) && <rect x={r.x} y={r.y - 1.5} width={r.w} height={3} />}
             </g>
           ))}
-          <rect x={0} y={24} width={2} height={H - 24} fill="#6b7280" />
+          <rect x={0} y={TOP} width={2} height={H - TOP} fill="#6b7280" />
           {DOORS.map((d, i) => <rect key={i} x={d.x} y={d.y} width={d.w} height={d.h} fill="#cbb79a" />)}
-          {ROOMS.map(r => (
+          {ROOMS.filter(r => r.key !== 'status').map(r => (
             <g key={`l-${r.key}`}>
               <rect x={r.x + 4} y={r.y + 3} width={textW(r.label, 4.6) + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
               <text x={r.x + 6.5} y={r.y + 8.8} fontSize={4.6} fontWeight={800} fill={r.color}>{r.label}</text>
@@ -1437,6 +1404,18 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
           ))}
 
           {layout.status && <StatusBoard status={layout.status} />}
+          {/* 대표실 벽시계 */}
+          <rect x={74} y={27} width={22} height={11} fill="#1f2937" />
+          <rect x={75} y={28} width={20} height={9} fill="#0f172a" />
+          <text x={85} y={35} fontSize={6} fontWeight={800} textAnchor="middle" fill="#4ade80" style={{ fontFamily: 'monospace' }}>
+            {layout.clock.slice(0, 2)}<tspan className="pxo-colon">:</tspan>{layout.clock.slice(3)}
+          </text>
+          {/* 매물조사실 화이트보드 — 오늘 광고·수집·할 일 */}
+          <rect x={424} y={255} width={86} height={17} fill="#9ca3af" />
+          <rect x={425} y={256} width={84} height={15} fill="#f8fafc" />
+          {layout.board.slice(0, 3).map((l, i) => (
+            <text key={l} x={428} y={261 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
+          ))}
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
           <rect x={241} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
           {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
@@ -1455,7 +1434,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
           ))}
           {walkers.map(w => <Walker key={`${w.seat.key}-${w.seat.visit}`} seat={w.seat} from={w.from} to={w.to} onPick={pick(w.seat)} />)}
           {/* 밤 — 사무실 불빛만 남기고 어둡게. 모니터·말풍선은 이 위에 그려 밝게 둔다 */}
-          {night && <rect x={0} y={24} width={W} height={H - 24} fill="#0b1026" opacity={0.28} style={{ pointerEvents: 'none' }} />}
+          {night && <rect x={0} y={TOP} width={W} height={H - TOP} fill="#0b1026" opacity={0.28} style={{ pointerEvents: 'none' }} />}
           {/* 말풍선은 맨 위에 — 책상 뒤에 가리지 않게 따로 한 번 더 그린다 */}
           {placed.filter(p => !away.has(p.seat.key)).map(p => <Bubble key={`b-${p.seat.key}`} seat={p.seat} x={p.x + 2} y={p.y} />)}
         </svg>
