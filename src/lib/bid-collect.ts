@@ -220,28 +220,29 @@ async function upsert(supa: SupabaseClient, table: string, rows: object[], onCon
   }
 }
 
-/** 기초금액을 우리가 가진 공고에만 덧붙인다. 붙인 건수를 돌려준다 */
+/**
+ * 기초금액을 우리가 가진 공고에만 덧붙인다. 붙인 건수를 돌려준다.
+ *
+ * 한 줄씩 update 하면 최근 3일치(~100건)만으로 50초 예산을 거의 다 먹어 상세가 8건밖에
+ * 못 채워졌다. 그래서 한 번에 upsert 한다 — name 은 not null 이라 같이 실어 보낸다.
+ */
 async function applyBsis(supa: SupabaseClient, patches: ReturnType<typeof toBsisPatch>[]): Promise<number> {
   if (!patches.length) return 0
   const byNo = new Map(patches.map(p => [`${p.bid_ntce_no}/${p.bid_ntce_ord}`, p]))
   const nos = [...new Set(patches.map(p => p.bid_ntce_no))]
-  let applied = 0
+  const now = new Date().toISOString()
+  const rows: object[] = []
   for (let i = 0; i < nos.length; i += 200) {
     const { data, error } = await supa.from('bid_notices')
-      .select('bid_ntce_no, bid_ntce_ord').in('bid_ntce_no', nos.slice(i, i + 200))
+      .select('bid_ntce_no, bid_ntce_ord, name').in('bid_ntce_no', nos.slice(i, i + 200))
     if (error) throw error
     for (const n of data ?? []) {
       const p = byNo.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`)
-      if (!p) continue
-      const { bid_ntce_no, bid_ntce_ord, ...patch } = p
-      const { error: e2 } = await supa.from('bid_notices')
-        .update({ ...patch, updated_at: new Date().toISOString() })
-        .eq('bid_ntce_no', bid_ntce_no).eq('bid_ntce_ord', bid_ntce_ord)
-      if (e2) throw e2
-      applied++
+      if (p) rows.push({ ...p, name: n.name, updated_at: now })
     }
   }
-  return applied
+  await upsert(supa, 'bid_notices', rows, 'bid_ntce_no,bid_ntce_ord')
+  return rows.length
 }
 
 /** 같은 열쇠가 두 번 오면 upsert 가 'cannot affect row a second time' 으로 통째로 실패한다 */
