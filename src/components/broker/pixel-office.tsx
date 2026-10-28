@@ -4,7 +4,7 @@
  * 사무실 화면의 픽셀 사무실 — 한 층짜리 진짜 사무실처럼 그린다.
  *
  *   ┌ 창문 ── 시계 ── 화이트보드 ───────────────────────────────────────┐
- *   │ 대표실   │ 협력업체 ┊ 에이전트실                 │ 서버실(사무실 일꾼)    │
+ *   │ 대표실   │ 협력업체 ┊ 에이전트실(+사무실 일꾼)   │ 상황실(현황판 칠판)    │
  *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
  *   │ 복도 ════════════════════════════════════════════════│ 로비      │
  *   ├──문──────┬──────문───────┬──────문───────────────────┤ 안내 데스크│
@@ -59,9 +59,19 @@ export interface Seat {
 }
 
 export type RoomKey =
-  | 'boss' | 'director' | 'meeting' | 'server'
+  | 'boss' | 'director' | 'meeting'
   | 'sales' | 'promo' | 'research' | 'register'
   | 'partner' | 'pantry' | 'lab'
+
+/** 상황실 칠판 한 줄 — 사장님이 매일 손으로 적던 '매물장 259(거래가능 238) / 부동산뱅크 202 / 당근 178' */
+export interface BoardRow {
+  name: string
+  props: number
+  avail: number
+  bank: number
+  daangn: number
+  daangnToday: number
+}
 
 export interface OfficeLayout {
   /** 방마다 앉을 자리. 없는 방은 빈 방으로 그린다. */
@@ -72,6 +82,8 @@ export interface OfficeLayout {
   board: string[]
   /** 벽시계 HH:MM */
   clock: string
+  /** 상황실 칠판 — 사람마다 + 사무실 전체. 아직 못 셌으면 없음 */
+  status?: { rows: BoardRow[]; total: BoardRow; at: string }
 }
 
 // ── 스프라이트 (글자 하나 = 픽셀 하나, '.' 은 비움) ────────────
@@ -337,7 +349,7 @@ const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON, charizard: CHARIZARD
 
 /** 직원 — 고른 색(tint)마다 한 마리. 같은 포켓몬이 나란히 앉지 않게 여덟. */
 const STAFF_MONS = [PIKACHU, SQUIRTLE, CHARMANDER, BULBASAUR, JIGGLYPUFF, EEVEE, PSYDUCK, MEOWTH]
-/** 사무실 일꾼(서버실·부서 로봇) — 기계 포켓몬 */
+/** 사무실 일꾼(에이전트실·부서 로봇) — 기계 포켓몬 */
 const ROBOT_MONS = [MAGNEMITE, VOLTORB, PORYGON]
 /** 에이전트실 — 세션마다 */
 const AGENT_MONS = [DITTO, MEW, GENGAR]
@@ -789,6 +801,54 @@ function Walker({ seat, from, to, onPick }: { seat: Seat; from: Pt; to: Pt; onPi
 }
 
 /**
+ * 상황실 칠판 — 사장님이 매일 손으로 적던 현황을 벽에(2026-10-28). 사람마다 매물장(거래가능)·부동산뱅크·당근,
+ * 당근 옆 초록 '+n' 은 오늘 올린 것. 맨 아래 노란 줄이 사무실 전체.
+ */
+function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }) {
+  const room = ROOMS.find(r => r.key === 'status')!
+  const x = room.x + 6
+  const y = room.y + 12
+  const w = room.w - 12
+  const lines = [...status.rows.slice(0, 7), status.total]
+  const lh = Math.min(8, 62 / lines.length)
+  const col = { name: x + 5, props: x + 66, bank: x + 98, daangn: x + 126 }
+  const n = (v: number) => v.toLocaleString()
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {/* 나무 테·칠판·분필 받침 */}
+      <rect x={x - 2} y={y - 2} width={w + 4} height={82} fill="#7c4a24" />
+      <rect x={x} y={y} width={w} height={78} fill="#2f4a3a" />
+      <rect x={x + 1} y={y + 1} width={w - 2} height={0.6} fill="#3d5e4a" />
+      <rect x={x + 10} y={y + 78.5} width={40} height={1.5} fill="#a16207" />
+      <rect x={x + 14} y={y + 77.5} width={6} height={1.2} fill="#f8fafc" />
+      <rect x={x + 24} y={y + 77.5} width={4} height={1.2} fill="#fde68a" />
+      <text x={col.name} y={y + 7} fontSize={4.4} fontWeight={800} fill="#fef3c7">현황판</text>
+      <text x={x + w - 4} y={y + 7} fontSize={2.8} textAnchor="end" fill="#a7c4ad">{status.at} 기준</text>
+      {[['매물장(거래가능)', col.props], ['뱅크', col.bank], ['당근', col.daangn]].map(([t, cx]) => (
+        <text key={t} x={cx} y={y + 13} fontSize={2.9} fontWeight={700} textAnchor="end" fill="#a7c4ad">{t}</text>
+      ))}
+      {lines.map((r, i) => {
+        const total = r === status.total
+        const ty = y + 20 + i * lh + (total ? 2 : 0)
+        const fill = total ? '#fde68a' : '#f1f5f0'
+        return (
+          <g key={r.name} fontWeight={total ? 800 : 700}>
+            {total && <rect x={x + 3} y={ty - lh + 1.6} width={w - 6} height={0.5} fill="#8fb99a" />}
+            <text x={col.name} y={ty} fontSize={3.8} fill={fill}>{cut(r.name, 6)}</text>
+            <text x={col.props} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>
+              {n(r.props)}<tspan fontSize={2.9} fill="#a7c4ad">({n(r.avail)})</tspan>
+            </text>
+            <text x={col.bank} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>{n(r.bank)}</text>
+            <text x={col.daangn} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>{n(r.daangn)}</text>
+            {r.daangnToday > 0 && <text x={col.daangn + 1.5} y={ty} fontSize={3} fill="#86efac">+{r.daangnToday}</text>}
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
+/**
  * 로비 — 바깥 유리문으로 들어와 안내 데스크를 지나 두 복도로 갈라진다(2026-10-26 '로비 형식으로').
  * 위·아래 복도가 왼쪽에서 그대로 이어 들어오고, 오른쪽 바깥벽에 출입구가 있다.
  */
@@ -865,21 +925,6 @@ function Window({ x, sky = '#9fd3f5', night = false }: { x: number; sky?: string
   )
 }
 
-function ServerRack({ x, y }: { x: number; y: number }) {
-  return (
-    <g>
-      <rect x={x} y={y} width={10} height={22} fill="#1f2937" />
-      {[0, 1, 2, 3, 4].map(i => (
-        <g key={i}>
-          <rect x={x + 1} y={y + 1 + i * 4} width={8} height={3} fill="#374151" />
-          <rect x={x + 2} y={y + 2 + i * 4} width={1} height={1} fill={i % 2 ? '#22c55e' : '#38bdf8'} className="pxo-led" style={{ animationDelay: `${i * 0.37}s` }} />
-          <rect x={x + 4} y={y + 2 + i * 4} width={4} height={1} fill="#4b5563" />
-        </g>
-      ))}
-    </g>
-  )
-}
-
 // ── 판 ─────────────────────────────────────────────────
 
 const W = 576
@@ -892,13 +937,13 @@ const HALLS = [{ y: 120, h: 22 }, { y: 230, h: 22 }]
 const LOBBY = { x: 496, y: 120, w: 80, h: 132 }
 const H = 332
 
-type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'server' | 'lab' | 'tile' | 'green'
+type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'lab' | 'tile' | 'green'
 
 /**
  * 방(벽으로 둘러싼 칸). 자리 무리(RoomKey)와 따로 둔다 — 한 방에 두 무리가 앉는 곳이 있다
  * (협력업체 + 에이전트실, 회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이).
  */
-type BoxKey = 'boss' | 'partnerLab' | 'server' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
+type BoxKey = 'boss' | 'partnerLab' | 'status' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
 
 interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number; h: number; floor: Floor; color: string }
 
@@ -906,7 +951,8 @@ interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number;
 const ROOMS: RoomBox[] = [
   { key: 'boss', label: '대표실', x: 0, y: 24, w: 120, h: 96, floor: 'carpet', color: '#1e3a8a' },
   { key: 'partnerLab', label: '협력업체 · 에이전트실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
-  { key: 'server', label: '서버실', x: 408, y: 24, w: 168, h: 96, floor: 'server', color: '#0f172a' },
+  // 서버실이던 곳 — 2026-10-28 현황판을 사무실 안에 걸며 상황실로. 일꾼은 에이전트실로 옮김
+  { key: 'status', label: '상황실', x: 408, y: 24, w: 168, h: 96, floor: 'carpet', color: '#14532d' },
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
   { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 142, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
   { key: 'promo', label: '홍보부', x: 260, y: 142, w: 236, h: 88, floor: 'wood', color: '#be185d' },
@@ -934,7 +980,6 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   boss: { box: 'boss', dx: 44, dy: 40, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   partner: { box: 'partnerLab', dx: 8, dy: 20, sx: 38, sy: 34, cols: 2, max: 4 },
   lab: { box: 'partnerLab', dx: 94, dy: 22, sx: 40, sy: 34, cols: 4, max: 8 },
-  server: { box: 'server', dx: 70, dy: 50, sx: 0, sy: 0, cols: 1, max: 1 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다
   promo: { box: 'promo', dx: 10, dy: 34, sx: 38, sy: 0, cols: 4, max: 4 },
@@ -950,7 +995,7 @@ const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 4, rese
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
-  server: 'url(#pxo-server)', lab: 'url(#pxo-lab)', tile: 'url(#pxo-tile)', green: 'url(#pxo-green)',
+  lab: 'url(#pxo-lab)', tile: 'url(#pxo-tile)', green: 'url(#pxo-green)',
 }
 
 function EmptyDesk({ x, y }: { x: number; y: number }) {
@@ -1138,14 +1183,6 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           ))}
           <Label x={x + 108} y={y + 80} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
           <Plant x={x + 124} y={y + 70} />
-        </g>
-      )
-    case 'server':
-      return (
-        <g>
-          {[4, 16, 28, w - 40, w - 28, w - 16].map(dx => <ServerRack key={dx} x={x + dx} y={y + 14} />)}
-          <rect x={x + 60} y={y + 16} width={22} height={10} fill="#e5e7eb" />
-          <text x={x + 71} y={y + 23} fontSize={3.4} fontWeight={800} textAnchor="middle" fill="#0f172a">UPS</text>
         </g>
       )
     case 'sales':
@@ -1353,11 +1390,6 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
               <rect width="12" height="0.6" fill="#c4c0bb" />
               <rect width="0.6" height="11" fill="#c4c0bb" />
             </pattern>
-            <pattern id="pxo-server" width="8" height="8" patternUnits="userSpaceOnUse">
-              <rect width="8" height="8" fill="#aeb8c4" />
-              <rect width="8" height="0.6" fill="#9aa5b2" />
-              <rect width="0.6" height="8" fill="#9aa5b2" />
-            </pattern>
           </defs>
 
           {/* ── 뒷벽: 창문·시계·화이트보드 ── */}
@@ -1404,6 +1436,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             </g>
           ))}
 
+          {layout.status && <StatusBoard status={layout.status} />}
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
           <rect x={241} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
           {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}

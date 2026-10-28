@@ -23,7 +23,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { pollWhileVisible } from '@/lib/poll-visible'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
-import { PixelOffice, type OfficeLayout, type Seat } from '@/components/broker/pixel-office'
+import { PixelOffice, type BoardRow, type OfficeLayout, type Seat } from '@/components/broker/pixel-office'
 
 /**
  * 이사실에 앉는 사람(권세현 이사)의 broker_profiles.id.
@@ -87,18 +87,6 @@ interface Member {
   is_owner: boolean | null
   is_approved: boolean | null
   profiles: { name: string | null } | null
-}
-
-/** 현황판 한 줄 — 사장님이 매일 손으로 적던 '매물장 259(거래가능 238) / 부동산뱅크 202 / 당근 178 …' */
-interface BoardRow {
-  name: string
-  props: number
-  avail: number
-  bank: number
-  daangn: number
-  daangnToday: number
-  blog: number
-  cafe: number
 }
 
 interface Task {
@@ -209,7 +197,7 @@ export default function OfficePage() {
   const [sessions, setSessions] = useState<ClaudeSession[] | null>(null)
   const [orders, setOrders] = useState<ClaudeOrder[] | null>(null)
   const [loaded, setLoaded] = useState(false)
-  const [board, setBoard] = useState<{ rows: BoardRow[]; total: BoardRow; at: number } | null>(null)
+  const [board, setBoard] = useState<OfficeLayout['status'] | null>(null)
   const [showAllDone, setShowAllDone] = useState(false)
 
   const load = useCallback(async () => {
@@ -332,8 +320,8 @@ export default function OfficePage() {
   }, [load])
 
   /**
-   * 현황판 — 사람마다 매물장(등록한 매물, 거래가능)·뱅크(서비스중·확인중)·당근·블로그(올림+임시저장)·카페.
-   * 뱅크·광고는 뱅크의 '담당자' 이름(ad_listings.manager)으로 사람을 가른다. 매물장은 등록한 사람(broker_id).
+   * 현황판 — 사람마다 매물장(등록한 매물, 거래가능)·뱅크(서비스중·확인중)·당근. 블로그·카페는 뺐다(2026-10-28 사장님).
+   * 뱅크·당근은 뱅크의 '담당자' 이름(ad_listings.manager)으로 사람을 가른다. 매물장은 등록한 사람(broker_id).
    * 천천히 바뀌는 숫자라 5분마다만 본다. 매물장은 1000줄 넘게 읽지 않도록 건수만 센다.
    */
   const loadBoard = useCallback(async () => {
@@ -352,11 +340,11 @@ export default function OfficePage() {
       매물(null, true),
       supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
         .or('bank_status.like.서비스중*,bank_status.like.확인중*'),
-      supabase.from('ad_posts').select('channel, status, posted_at, ad_listings!inner(manager, broker_id)')
-        .eq('ad_listings.broker_id', officeId).in('status', ['posted', 'pending']).in('channel', ['daangn', 'blog', 'cafe']),
+      supabase.from('ad_posts').select('posted_at, ad_listings!inner(manager, broker_id)')
+        .eq('ad_listings.broker_id', officeId).eq('status', 'posted').eq('channel', 'daangn'),
     ])
     const todayYmd = todayKST()
-    const empty = (name: string): BoardRow => ({ name, props: 0, avail: 0, bank: 0, daangn: 0, daangnToday: 0, blog: 0, cafe: 0 })
+    const empty = (name: string): BoardRow => ({ name, props: 0, avail: 0, bank: 0, daangn: 0, daangnToday: 0 })
     const byName: Record<string, BoardRow> = {}
     const rows = members.map(m => {
       const c = counts.find(x => x[0] === m.id)!
@@ -368,20 +356,15 @@ export default function OfficePage() {
       const r = l.manager && byName[l.manager]
       if (r) r.bank++
     }
-    for (const p of (ps.data ?? []) as unknown as { channel: string; status: string; posted_at: string | null; ad_listings: { manager: string | null } }[]) {
-      // 블로그는 임시저장(pending)까지 — 사람이 마지막 발행만 누른다. 당근·카페는 올라간 것만
-      if (p.status === 'pending' && p.channel !== 'blog') continue
+    for (const p of (ps.data ?? []) as unknown as { posted_at: string | null; ad_listings: { manager: string | null } }[]) {
       const r = p.ad_listings.manager ? byName[p.ad_listings.manager] : undefined
       for (const t of [sum, r]) {
         if (!t) continue
-        if (p.channel === 'daangn') {
-          t.daangn++
-          if (p.posted_at && ymdKST(p.posted_at) === todayYmd) t.daangnToday++
-        } else if (p.channel === 'blog') t.blog++
-        else t.cafe++
+        t.daangn++
+        if (p.posted_at && ymdKST(p.posted_at) === todayYmd) t.daangnToday++
       }
     }
-    setBoard({ rows: rows.filter(r => r.props + r.bank + r.daangn + r.blog + r.cafe > 0), total: sum, at: Date.now() })
+    setBoard({ rows: rows.filter(r => r.props + r.bank + r.daangn > 0), total: sum, at: hmKST(new Date().toISOString()) })
   }, [supabase, officeId, members])
 
   // 사람 목록이 처음 들어오면 한 번, 그 뒤엔 5분마다(사람이 바뀌어도 다시 안 센다 — 10초마다 새 배열이 온다)
@@ -578,6 +561,7 @@ export default function OfficePage() {
   const layout: OfficeLayout = {
     clock: hmKST(now),
     guests: today.consult,
+    status: board ?? undefined,
     board: [
       `광고 올림  카페 ${today.cafe} · 블로그 ${today.blog} · 당근 ${today.daangnPost}`,
       `오늘 수집한 매물  네이버 ${today.naver} · 당근 ${today.daangn}`,
@@ -608,28 +592,27 @@ export default function OfficePage() {
         },
         robot('sync', KIND_LABEL.sync, ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
       ],
-      server: isOwner ? [{
+      lab: [...(isOwner ? [{
         key: 'office', kind: 'robot', name: '사무실 일꾼',
         state: !officeOn ? 'off' : orderRunning ? 'working' : 'idle',
         say: officeOn ? (orderRunning ? 'Claude 에게 지시 전달 중' : '대기 중') : offSay(agents?.office_seen_at),
         note: 'Claude 활동을 옮기고, 화면의 지시를 Claude 에게 전합니다',
         flash: (orders ?? []).some(o => o.status === 'done' && o.finished_at && now - new Date(o.finished_at).getTime() < FLASH_MS)
           ? '지시 끝' : null,
-      }] : [],
+      } satisfies Seat] : []), ...visibleSessions(sessions ?? []).map((s): Seat => ({
+        key: s.session_id, kind: 'claude',
+        name: s.title || '제목 없는 작업',
+        state: s.status === 'ended' ? 'off' : s.status,
+        say: s.status === 'ended' ? '퇴근' : s.last_action,
+        note: `${s.project ?? ''} · ${when(s.updated_at)}`,
+        badge: s.order_id ? '지시' : undefined,
+        flash: s.status === 'idle' && s.last_action === '일을 마쳤습니다' && now - new Date(s.updated_at).getTime() < FLASH_MS
+          ? '끝냈어요' : null,
+      }))],
       partner: partners.map((c, i) => ({
         key: `partner-${c.id}`, kind: 'person', tint: 5 + i, name: c.name.replace(/\s*주식회사\s*|\(주\)/g, ''),
         role: '협력업체', state: 'idle', say: null, note: `이번 달 견적서 ${c.month}건`,
       })),
-      lab: visibleSessions(sessions ?? []).map(s => ({
-      key: s.session_id, kind: 'claude',
-      name: s.title || '제목 없는 작업',
-      state: s.status === 'ended' ? 'off' : s.status,
-      say: s.status === 'ended' ? '퇴근' : s.last_action,
-      note: `${s.project ?? ''} · ${when(s.updated_at)}`,
-      badge: s.order_id ? '지시' : undefined,
-      flash: s.status === 'idle' && s.last_action === '일을 마쳤습니다' && now - new Date(s.updated_at).getTime() < FLASH_MS
-        ? '끝냈어요' : null,
-    })),
     },
   }
 
@@ -667,7 +650,6 @@ export default function OfficePage() {
       {/* ── 픽셀 사무실 ─────────────────────────────── */}
       <div className="mb-7">
         <PixelOffice layout={layout} loading={!loaded} />
-        {board && <StatusBoard rows={board.rows} total={board.total} at={board.at} />}
 
         {isOwner && (
           // 사무실 그림과 같은 폭·위치에(pxo-fit) — 따로 두면 그림은 가운데, 버튼은 왼쪽 끝이라 삐져나와 보였다
@@ -1019,50 +1001,6 @@ function JobRow({ status, at, title, detail, onCancel, onRetry }: {
         </button>
       )}
     </li>
-  )
-}
-
-/**
- * 현황판 — 칠판처럼. 사장님이 매일 손으로 적던 숫자를 사람마다 한 줄로(2026-10-28).
- * 매물장 '274 (거래가능 253)', 당근 옆 '+8' 은 오늘 올린 것.
- */
-function StatusBoard({ rows, total, at }: { rows: BoardRow[]; total: BoardRow; at: number }) {
-  const cell = 'px-2.5 py-1.5 text-right tabular-nums'
-  const line = (r: BoardRow, strong = false) => (
-    <tr key={r.name} className={strong ? 'border-t-2 border-dashed border-[#8fb99a] font-extrabold text-[#fde68a]' : 'text-[#f1f5f0]'}>
-      <td className="whitespace-nowrap px-2.5 py-1.5 text-left font-bold">{r.name}</td>
-      <td className={cell}>{r.props.toLocaleString()} <span className="text-[11px] text-[#a7c4ad]">(거래가능 {r.avail.toLocaleString()})</span></td>
-      <td className={cell}>{r.bank.toLocaleString()}</td>
-      <td className={cell}>{r.daangn.toLocaleString()}{r.daangnToday > 0 && <span className="ml-1 text-[11px] text-[#86efac]">+{r.daangnToday}</span>}</td>
-      <td className={cell}>{r.blog.toLocaleString()}</td>
-      <td className={cell}>{r.cafe.toLocaleString()}</td>
-    </tr>
-  )
-  return (
-    <div className="pxo-fit mt-3 border-4 border-[#5b3a1e] bg-[#2f4a3a] shadow-[inset_0_0_0_2px_#3d5e4a]">
-      <div className="flex items-baseline justify-between px-3 pt-2">
-        <h2 className="text-sm font-extrabold tracking-wide text-[#fef3c7]">현황판</h2>
-        <span className="text-[11px] text-[#a7c4ad]">{hmKST(new Date(at).toISOString())} 기준 · 5분마다</span>
-      </div>
-      <div className="overflow-x-auto px-1 pb-2">
-        <table className="w-full min-w-[560px] text-sm">
-          <thead>
-            <tr className="text-[11px] text-[#a7c4ad]">
-              <th className="px-2.5 py-1 text-left font-semibold">이름</th>
-              <th className="px-2.5 py-1 text-right font-semibold">매물장</th>
-              <th className="px-2.5 py-1 text-right font-semibold">부동산뱅크</th>
-              <th className="px-2.5 py-1 text-right font-semibold">당근 <span className="text-[#86efac]">+오늘</span></th>
-              <th className="px-2.5 py-1 text-right font-semibold">블로그</th>
-              <th className="px-2.5 py-1 text-right font-semibold">카페</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => line(r))}
-            {line(total, true)}
-          </tbody>
-        </table>
-      </div>
-    </div>
   )
 }
 
