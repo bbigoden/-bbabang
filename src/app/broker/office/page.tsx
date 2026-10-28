@@ -34,6 +34,7 @@ const DIRECTOR_ID = '6581efd5-6ec9-46ea-a391-7e6537cc6345'
 /** 따로 고른 포켓몬 — 이예리는 님피아(2026-10-27 사장님) */
 const STAFF_MON: Record<string, string> = {
   'c7e58900-e6bb-4f88-b3bf-d1879f8a6050': 'sylveon',   // 이예리
+  'e21e1f46-6492-4f1d-964c-ba7da59a5372': 'charizard', // 박혜성 — 리자몽(2026-10-28)
 }
 
 /** 일꾼이 20초마다 찍는다 — 한 번쯤 늦어도 꺼짐으로 보이지 않게 60초를 잡는다. */

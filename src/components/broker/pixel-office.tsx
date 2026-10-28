@@ -310,7 +310,21 @@ const SYLVEON = mon([
   '...CCCCCCCC...',
   '...PP....PP...',
 ], { C: '#fdf2f8', P: '#f9a8d4', R: '#f472b6', B: '#60a5fa', E: '#1e3a8a', m: '#be185d' }, '#fdf2f8')
-const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON }
+/** 리자몽 — 2026-10-28 사장님이 박혜성 자리에. 머리 양옆으로 솟은 날개(청록 막), 꼬리 끝 불꽃. */
+const CHARIZARD = mon([
+  'WW.F......F.WW',
+  'WGWFFFFFFFFWGW',
+  'WGGFFFFFFFFGGW',
+  'WGGFEFFFFEFGGW',
+  'WGWFFFmmFFFWGW',
+  '.W.FFFFFFFF.W.',
+  '..FFYYYYYYFF..',
+  '..FFYYYYYYFF..',
+  '..FFYYYYYYFF.R',
+  '..FFYYYYYYFFRr',
+  '...FF....FF...',
+], { F: '#f08030', W: '#c2551f', G: '#2a9d8f', E: '#1f1f1f', m: '#8a3a10', Y: '#f8e090', R: '#e83a1a', r: '#fbd34d' }, '#f08030')
+const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON, charizard: CHARIZARD }
 
 /** 직원 — 고른 색(tint)마다 한 마리. 같은 포켓몬이 나란히 앉지 않게 여덟. */
 const STAFF_MONS = [PIKACHU, SQUIRTLE, CHARMANDER, BULBASAUR, JIGGLYPUFF, EEVEE, PSYDUCK, MEOWTH]
