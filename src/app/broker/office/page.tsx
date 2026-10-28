@@ -89,6 +89,18 @@ interface Member {
   profiles: { name: string | null } | null
 }
 
+/** 현황판 한 줄 — 사장님이 매일 손으로 적던 '매물장 259(거래가능 238) / 부동산뱅크 202 / 당근 178 …' */
+interface BoardRow {
+  name: string
+  props: number
+  avail: number
+  bank: number
+  daangn: number
+  daangnToday: number
+  blog: number
+  cafe: number
+}
+
 interface Task {
   id: string
   assignee_broker_id: string
@@ -197,6 +209,7 @@ export default function OfficePage() {
   const [sessions, setSessions] = useState<ClaudeSession[] | null>(null)
   const [orders, setOrders] = useState<ClaudeOrder[] | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [board, setBoard] = useState<{ rows: BoardRow[]; total: BoardRow; at: number } | null>(null)
   const [showAllDone, setShowAllDone] = useState(false)
 
   const load = useCallback(async () => {
@@ -317,6 +330,70 @@ export default function OfficePage() {
     void load()
     return pollWhileVisible(() => { void load() }, POLL_MS)
   }, [load])
+
+  /**
+   * 현황판 — 사람마다 매물장(등록한 매물, 거래가능)·뱅크(서비스중·확인중)·당근·블로그(올림+임시저장)·카페.
+   * 뱅크·광고는 뱅크의 '담당자' 이름(ad_listings.manager)으로 사람을 가른다. 매물장은 등록한 사람(broker_id).
+   * 천천히 바뀌는 숫자라 5분마다만 본다. 매물장은 1000줄 넘게 읽지 않도록 건수만 센다.
+   */
+  const loadBoard = useCallback(async () => {
+    if (!officeId || !members.length) return
+    const 건수 = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0
+    const 매물 = (id: string | null, avail: boolean) => {
+      let q = supabase.from('broker_properties').select('id', { count: 'exact', head: true })
+        .eq('office_broker_id', officeId).is('deleted_at', null)
+      if (id) q = q.eq('broker_id', id)
+      if (avail) q = q.eq('status', 'available')
+      return 건수(q)
+    }
+    const [counts, total, totalAvail, ls, ps] = await Promise.all([
+      Promise.all(members.map(async m => [m.id, await 매물(m.id, false), await 매물(m.id, true)] as const)),
+      매물(null, false),
+      매물(null, true),
+      supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
+        .or('bank_status.like.서비스중*,bank_status.like.확인중*'),
+      supabase.from('ad_posts').select('channel, status, posted_at, ad_listings!inner(manager, broker_id)')
+        .eq('ad_listings.broker_id', officeId).in('status', ['posted', 'pending']).in('channel', ['daangn', 'blog', 'cafe']),
+    ])
+    const todayYmd = todayKST()
+    const empty = (name: string): BoardRow => ({ name, props: 0, avail: 0, bank: 0, daangn: 0, daangnToday: 0, blog: 0, cafe: 0 })
+    const byName: Record<string, BoardRow> = {}
+    const rows = members.map(m => {
+      const c = counts.find(x => x[0] === m.id)!
+      return (byName[m.profiles?.name ?? m.id] = { ...empty(m.profiles?.name ?? '이름 없음'), props: c[1], avail: c[2] })
+    })
+    const sum = { ...empty('사무실 전체'), props: total, avail: totalAvail }
+    for (const l of (ls.data ?? []) as { manager: string | null }[]) {
+      sum.bank++
+      const r = l.manager && byName[l.manager]
+      if (r) r.bank++
+    }
+    for (const p of (ps.data ?? []) as unknown as { channel: string; status: string; posted_at: string | null; ad_listings: { manager: string | null } }[]) {
+      // 블로그는 임시저장(pending)까지 — 사람이 마지막 발행만 누른다. 당근·카페는 올라간 것만
+      if (p.status === 'pending' && p.channel !== 'blog') continue
+      const r = p.ad_listings.manager ? byName[p.ad_listings.manager] : undefined
+      for (const t of [sum, r]) {
+        if (!t) continue
+        if (p.channel === 'daangn') {
+          t.daangn++
+          if (p.posted_at && ymdKST(p.posted_at) === todayYmd) t.daangnToday++
+        } else if (p.channel === 'blog') t.blog++
+        else t.cafe++
+      }
+    }
+    setBoard({ rows: rows.filter(r => r.props + r.bank + r.daangn + r.blog + r.cafe > 0), total: sum, at: Date.now() })
+  }, [supabase, officeId, members])
+
+  // 사람 목록이 처음 들어오면 한 번, 그 뒤엔 5분마다(사람이 바뀌어도 다시 안 센다 — 10초마다 새 배열이 온다)
+  const boardLoaded = useRef(false)
+  useEffect(() => {
+    if (!members.length || boardLoaded.current) return
+    boardLoaded.current = true
+    void loadBoard()
+  }, [members, loadBoard])
+  const loadBoardRef = useRef(loadBoard)
+  useEffect(() => { loadBoardRef.current = loadBoard }, [loadBoard])
+  useEffect(() => pollWhileVisible(() => { void loadBoardRef.current() }, 5 * 60_000), [])
 
   // ── 일꾼 조작 ─────────────────────────────────────────
   // 누르는 중인 일 — 요청이 오가고 목록을 다시 불러올 때까지 같은 버튼을 또 받지 않는다
@@ -590,6 +667,7 @@ export default function OfficePage() {
       {/* ── 픽셀 사무실 ─────────────────────────────── */}
       <div className="mb-7">
         <PixelOffice layout={layout} loading={!loaded} />
+        {board && <StatusBoard rows={board.rows} total={board.total} at={board.at} />}
 
         {isOwner && (
           // 사무실 그림과 같은 폭·위치에(pxo-fit) — 따로 두면 그림은 가운데, 버튼은 왼쪽 끝이라 삐져나와 보였다
@@ -941,6 +1019,50 @@ function JobRow({ status, at, title, detail, onCancel, onRetry }: {
         </button>
       )}
     </li>
+  )
+}
+
+/**
+ * 현황판 — 칠판처럼. 사장님이 매일 손으로 적던 숫자를 사람마다 한 줄로(2026-10-28).
+ * 매물장 '274 (거래가능 253)', 당근 옆 '+8' 은 오늘 올린 것.
+ */
+function StatusBoard({ rows, total, at }: { rows: BoardRow[]; total: BoardRow; at: number }) {
+  const cell = 'px-2.5 py-1.5 text-right tabular-nums'
+  const line = (r: BoardRow, strong = false) => (
+    <tr key={r.name} className={strong ? 'border-t-2 border-dashed border-[#8fb99a] font-extrabold text-[#fde68a]' : 'text-[#f1f5f0]'}>
+      <td className="whitespace-nowrap px-2.5 py-1.5 text-left font-bold">{r.name}</td>
+      <td className={cell}>{r.props.toLocaleString()} <span className="text-[11px] text-[#a7c4ad]">(거래가능 {r.avail.toLocaleString()})</span></td>
+      <td className={cell}>{r.bank.toLocaleString()}</td>
+      <td className={cell}>{r.daangn.toLocaleString()}{r.daangnToday > 0 && <span className="ml-1 text-[11px] text-[#86efac]">+{r.daangnToday}</span>}</td>
+      <td className={cell}>{r.blog.toLocaleString()}</td>
+      <td className={cell}>{r.cafe.toLocaleString()}</td>
+    </tr>
+  )
+  return (
+    <div className="pxo-fit mt-3 border-4 border-[#5b3a1e] bg-[#2f4a3a] shadow-[inset_0_0_0_2px_#3d5e4a]">
+      <div className="flex items-baseline justify-between px-3 pt-2">
+        <h2 className="text-sm font-extrabold tracking-wide text-[#fef3c7]">현황판</h2>
+        <span className="text-[11px] text-[#a7c4ad]">{hmKST(new Date(at).toISOString())} 기준 · 5분마다</span>
+      </div>
+      <div className="overflow-x-auto px-1 pb-2">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="text-[11px] text-[#a7c4ad]">
+              <th className="px-2.5 py-1 text-left font-semibold">이름</th>
+              <th className="px-2.5 py-1 text-right font-semibold">매물장</th>
+              <th className="px-2.5 py-1 text-right font-semibold">부동산뱅크</th>
+              <th className="px-2.5 py-1 text-right font-semibold">당근 <span className="text-[#86efac]">+오늘</span></th>
+              <th className="px-2.5 py-1 text-right font-semibold">블로그</th>
+              <th className="px-2.5 py-1 text-right font-semibold">카페</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => line(r))}
+            {line(total, true)}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 
