@@ -30,7 +30,7 @@
  *   off      의자만 있는 빈자리 (일꾼 꺼짐·퇴근)
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export type SeatState = 'working' | 'waiting' | 'idle' | 'off'
 export type SeatKind = 'robot' | 'person' | 'claude'
@@ -1179,8 +1179,13 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
   return null
 }
 
-export function PixelOffice({ layout }: { layout: OfficeLayout }) {
+export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout; loading?: boolean }) {
   const [picked, setPicked] = useState<string | null>(null)
+  // 누르면 자세히 칸이 보이게 — 휴대폰에선 그 칸이 아래 메뉴줄에 가려 눌러도 바뀐 게 없어 보였다(2026-10-28 점검)
+  const detailRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (picked) detailRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [picked])
   const all = Object.values(layout.seats).flat() as Seat[]
   const pickedSeat = all.find(s => s.key === picked) ?? null
   const pick = (s: Seat) => () => setPicked(p => (p === s.key ? null : s.key))
@@ -1271,7 +1276,12 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
       `}</style>
 
       <p className="mb-1 text-[11px] text-gray-500 lg:hidden">← 사무실을 옆으로 밀어 다른 방도 보세요 →</p>
-      <div className="overflow-x-auto border-4 border-gray-800 dark:border-gray-600">
+      <div className="relative overflow-x-auto border-4 border-gray-800 dark:border-gray-600">
+        {loading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-gray-950/60">
+            <span className="border-2 border-gray-800 bg-[#fff7e6] px-3 py-1.5 text-sm font-bold text-gray-800">사무실을 불러오는 중…</span>
+          </div>
+        )}
         <svg viewBox={`0 0 ${W} ${H}`} shapeRendering="crispEdges" className="pxo-scene block w-full min-w-[1080px] lg:min-w-0"
           role="img" aria-label="사무실 배치도">
           <defs>
@@ -1396,7 +1406,7 @@ export function PixelOffice({ layout }: { layout: OfficeLayout }) {
       </div>
 
       {/* 누른 자리 — 판 위 글자가 작은 휴대폰에서도 읽히게 크게 다시 적는다 */}
-      <div className="mt-2 min-h-[44px] border-2 border-gray-800 bg-[#fff7e6] px-3 py-2 text-sm dark:border-gray-500 dark:bg-gray-900">
+      <div ref={detailRef} className="mt-2 min-h-[44px] scroll-mb-24 border-2 border-gray-800 bg-[#fff7e6] px-3 py-2 text-sm dark:border-gray-500 dark:bg-gray-900">
         {pickedSeat ? (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="inline-block h-2 w-2" style={{ background: DOT[pickedSeat.state] }} />

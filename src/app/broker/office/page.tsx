@@ -13,7 +13,7 @@
  * 대표는 전부 보고, 직원은 일꾼 상태와 자기 할 일만 본다(Claude 두 표는 RLS 가 대표만 연다).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bot, Users, AlertTriangle, RotateCcw, X, Play, Send, CheckCircle2, Circle, Trash2,
   GitBranch, RefreshCw,
@@ -23,7 +23,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
 import { pollWhileVisible } from '@/lib/poll-visible'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
-import { PixelOffice, type OfficeLayout, type RoomKey, type Seat } from '@/components/broker/pixel-office'
+import { PixelOffice, type OfficeLayout, type Seat } from '@/components/broker/pixel-office'
 
 /**
  * 이사실에 앉는 사람(권세현 이사)의 broker_profiles.id.
@@ -122,12 +122,12 @@ interface ClaudeOrder {
 }
 
 const KIND_LABEL: Record<string, string> = {
-  sync: '뱅크 매물 가져오기',
+  sync: '뱅크 가져오기',
   publish: '광고 올리기',
   takedown: '광고 내리기',
   renew: '뱅크 재등록',
-  naver: '네이버 매물 수집',
-  daangn: '당근 매물 수집',
+  naver: '네이버 수집',
+  daangn: '당근 수집',
   check: '점검',
 }
 
@@ -148,13 +148,14 @@ const STATUS_CLS: Record<AdJob['status'], string> = {
   canceled: 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500',
 }
 
-/** 화면의 [지금 실행] — 광고 일꾼이 이미 아는 일만 건다. */
-const RUN_NOW: { kind: string; label: string }[] = [
-  { kind: 'sync', label: '뱅크 가져오기' },
-  { kind: 'naver', label: '네이버 수집' },
-  { kind: 'daangn', label: '당근 수집' },
-  { kind: 'takedown', label: '못 내린 광고 내리기' },
-]
+/** 화면의 [지금 실행] — 광고 일꾼이 이미 아는 일만 건다. 이름은 걸린 일·책상과 같게(KIND_LABEL). */
+const RUN_NOW = ['sync', 'naver', 'daangn', 'takedown'].map(kind => ({ kind, label: KIND_LABEL[kind] }))
+
+/** 받침 따라 조사 — '네이버 수집을', '뱅크 가져오기를' */
+const josa = (word: string, [withFinal, without]: [string, string]) => {
+  const c = word.charCodeAt(word.length - 1)
+  return word + (c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 ? withFinal : without)
+}
 
 /** 표가 아직 없을 때(장부 변경 전) Supabase 가 주는 오류. 화면은 그 칸만 '준비 전' 으로 둔다. */
 const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'
@@ -179,8 +180,11 @@ export default function OfficePage() {
   const [now, setNow] = useState(() => Date.now())
   const [agents, setAgents] = useState<Agents | null>(null)
   const [adJobs, setAdJobs] = useState<AdJob[]>([])
-  /** 뱅크 번호 → '성월리 상가' — 홍보부 말풍선에 지금 올리는 매물을 적는다 */
-  const [listingNames, setListingNames] = useState<Record<string, string>>({})
+  /**
+   * 뱅크 번호 → 매물 이름. short '성월리 상가' 는 말풍선에(번지·호수 없이),
+   * full '성정동 1465 세림프라자 108호' 는 걸린 일 줄에 — 같은 동네 상가가 여럿 줄 서면 short 로는 못 가른다.
+   */
+  const [listingNames, setListingNames] = useState<Record<string, { short: string; full: string }>>({})
   const [bankJobs, setBankJobs] = useState<BankJob[]>([])
   const [today, setToday] = useState({ cafe: 0, blog: 0, daangnPost: 0, naver: 0, daangn: 0, consult: 0 })
   const [partners, setPartners] = useState<{ id: string; name: string; month: number }[]>([])
@@ -230,12 +234,17 @@ export default function OfficePage() {
     const jobs = dropSuperseded((aj.data as AdJob[] | null) ?? [], j => `${j.kind}|${JSON.stringify(j.params?.bankNos ?? null)}|${JSON.stringify(j.params?.channels ?? null)}`)
     setAdJobs(jobs)
     // 돌거나 줄 선 광고 작업의 매물 이름 — '성월리 상가'(동네 + 종류). 번지·호수는 말풍선에 안 적는다(번지로 시작하면 읍면동)
-    const 번호들 = [...new Set(jobs.filter(j => j.status === 'running' || j.status === 'queued')
+    const 번호들 = [...new Set(jobs
       .flatMap(j => (j.params?.bankNos as string[] | undefined) ?? []).map(String))].slice(0, 100)
     if (번호들.length) {
       const { data: ls } = await supabase.from('ad_listings').select('bank_no, region, address_detail, property_kind').in('bank_no', 번호들)
       setListingNames(Object.fromEntries(((ls ?? []) as { bank_no: string; region: string | null; address_detail: string | null; property_kind: string | null }[])
-        .map(l => [l.bank_no, [(/[가-힣]/.test(l.address_detail?.split(' ')[0] ?? '') ? l.address_detail!.split(' ')[0] : null) || l.region?.split(' ').pop(), l.property_kind?.replace(/점포$/, '')].filter(Boolean).join(' ')])))
+        .map(l => {
+          const 동 = l.region?.split(' ').pop()
+          const short = [(/[가-힣]/.test(l.address_detail?.split(' ')[0] ?? '') ? l.address_detail!.split(' ')[0] : null) || 동, l.property_kind?.replace(/점포$/, '')].filter(Boolean).join(' ')
+          const full = [/[가-힣]/.test(l.address_detail?.split(' ')[0] ?? '') ? null : 동, l.address_detail].filter(Boolean).join(' ') || short
+          return [l.bank_no, { short, full }]
+        })))
     }
     setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
     const 채널 = (ch: string) => ((posts.data ?? []) as { channel: string }[]).filter(p => p.channel === ch).length
@@ -304,28 +313,41 @@ export default function OfficePage() {
   }, [load])
 
   // ── 일꾼 조작 ─────────────────────────────────────────
-  const runNow = async (kind: string, label: string) => {
+  // 누르는 중인 일 — 요청이 오가고 목록을 다시 불러올 때까지 같은 버튼을 또 받지 않는다
+  const 누르는중 = useRef(new Set<string>())
+  const [busy, setBusy] = useState<string[]>([])
+  const once = async (key: string, fn: () => Promise<unknown>) => {
+    if (누르는중.current.has(key)) return
+    누르는중.current.add(key)
+    setBusy([...누르는중.current])
+    try { await fn() } finally {
+      누르는중.current.delete(key)
+      setBusy([...누르는중.current])
+    }
+  }
+
+  const runNow = (kind: string, label: string) => once(`run-${kind}`, async () => {
     if (!officeId) return
     // 이미 걸려 있으면 또 걸지 않는다 — 같은 수집이 두 번 돌면 막힐 일만 는다.
     if (adJobs.some(j => j.kind === kind && (j.status === 'queued' || j.status === 'running') && !j.params?.listingId)) {
-      return toast.error(`${label}은(는) 이미 대기 중이거나 하는 중입니다`)
+      return toast.error(`${josa(label, ['은', '는'])} 이미 대기 중이거나 하는 중입니다`)
     }
     const { error } = await supabase.from('ad_jobs').insert({ broker_id: officeId, kind, requested_by: auth.user?.id })
     if (error) return toast.error(`요청하지 못했습니다: ${error.message}`)
-    toast.success(`${label}을(를) 걸었습니다`)
-    void load()
-  }
+    toast.success(`${josa(label, ['을', '를'])} 걸었습니다`)
+    await load()
+  })
 
-  const cancelAdJob = async (j: AdJob) => {
+  const cancelAdJob = (j: AdJob) => once(j.id, async () => {
     // 대기 중인 것만 — 하는 중인 것은 PC 가 이미 브라우저를 띄웠다. 거기서 끊으면 올라갔는지 모른다.
     const { error } = await supabase.from('ad_jobs')
       .update({ status: 'canceled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', j.id).eq('status', 'queued')
     if (error) return toast.error(`취소하지 못했습니다: ${error.message}`)
-    void load()
-  }
+    await load()
+  })
 
-  const retryAdJob = async (j: AdJob) => {
+  const retryAdJob = (j: AdJob) => once(j.id, async () => {
     if (!officeId) return
     // 카페 간격으로 미뤄졌던 시각은 버린다 — 다시 걸 때 일꾼이 간격을 새로 잰다.
     const params = j.params ? { ...j.params } : null
@@ -334,25 +356,25 @@ export default function OfficePage() {
       .insert({ broker_id: officeId, kind: j.kind, params, requested_by: auth.user?.id })
     if (error) return toast.error(`다시 걸지 못했습니다: ${error.message}`)
     toast.success('다시 걸었습니다')
-    void load()
-  }
+    await load()
+  })
 
-  const cancelBankJob = async (j: BankJob) => {
+  const cancelBankJob = (j: BankJob) => once(j.id, async () => {
     const { error } = await supabase.from('bank_draft_jobs')
       .update({ status: 'canceled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', j.id).eq('status', 'queued')
     if (error) return toast.error(`취소하지 못했습니다: ${error.message}`)
-    void load()
-  }
+    await load()
+  })
 
-  const retryBankJob = async (j: BankJob) => {
+  const retryBankJob = (j: BankJob) => once(j.id, async () => {
     if (!officeId) return
     const { error } = await supabase.from('bank_draft_jobs')
       .insert({ office_broker_id: officeId, property_id: j.property_id, requested_by: auth.user?.id })
     if (error) return toast.error(`다시 걸지 못했습니다: ${error.message}`)
     toast.success('다시 걸었습니다')
-    void load()
-  }
+    await load()
+  })
 
   if (loading) return null
   if (!broker || !officeId) {
@@ -380,7 +402,7 @@ export default function OfficePage() {
   const jobRows = [
     ...adJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
       <JobRow key={`a${j.id}`} status={j.status} at={j.requested_at}
-        title={KIND_LABEL[j.kind] ?? j.kind} detail={jobDetail(j)}
+        title={KIND_LABEL[j.kind] ?? j.kind} detail={jobDetail(j, listingNames)}
         onCancel={isOwner && j.status === 'queued' ? () => void cancelAdJob(j) : undefined}
         onRetry={isOwner && j.status === 'failed' ? () => void retryAdJob(j) : undefined} />
     ) })),
@@ -440,12 +462,12 @@ export default function OfficePage() {
     const working = !!running && nowChannel
     if (working && running!.requested_by) visitBy[running!.requested_by] ??= key
     // 누가 무엇을 — 올리는 매물(동네 + 종류)과 그 작업을 건 직원. 사장님이 '홍보부는 누가 무슨 조작을 하는지' 물어(2026-10-27)
-    const 무엇 = (j: AdJob) => ((j.params?.bankNos as string[] | undefined) ?? []).map(n => listingNames[String(n)]).filter(Boolean)
+    const 무엇 = (j: AdJob) => ((j.params?.bankNos as string[] | undefined) ?? []).map(n => listingNames[String(n)]?.short).filter(Boolean)
     const 누가 = (j: AdJob) => (j.requested_by && requesterName[j.requested_by]) || null
     const 지금 = working ? 무엇(running!) : []
     const 다음 = queued[queued.length - 1]
     const doing = working
-      ? [지금.length ? `${지금[0]}${지금.length > 1 ? ` 외 ${지금.length - 1}` : ''} 올리는 중` : (running!.progress ?? adNote),
+      ? [지금.length ? `${지금[0]}${지금.length > 1 ? ` 외 ${지금.length - 1}` : ''} 올리는 중` : (running!.progress?.replace(/^d{6,}s*/, '') ?? adNote),
         누가(running!) ? `요청 ${누가(running!)}` : ''].filter(Boolean).join('\n')
       : null
     const waitLine = nextAt ? `${hmKST(nextAt)} 에 다음 글` : queued.length ? `대기 ${queued.length}건` : '대기 중'
@@ -486,11 +508,11 @@ export default function OfficePage() {
         robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
         robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
         robot('daangn-post', '당근 담당', ['publish'], 'daangn', `오늘 당근 ${today.daangnPost}건 올림`, 2),
-        robot('takedown', '광고 회수', ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
+        robot('takedown', KIND_LABEL.takedown, ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
       ],
       research: [
-        robot('naver', '네이버 수집', ['naver'], null, `오늘 수집한 네이버 매물 ${today.naver}건`),
-        robot('daangn', '당근 수집', ['daangn'], null, `오늘 수집한 당근 매물 ${today.daangn}건`, 1),
+        robot('naver', KIND_LABEL.naver, ['naver'], null, `오늘 수집한 네이버 매물 ${today.naver}건`),
+        robot('daangn', KIND_LABEL.daangn, ['daangn'], null, `오늘 수집한 당근 매물 ${today.daangn}건`, 1),
       ],
       register: [
         {
@@ -501,7 +523,7 @@ export default function OfficePage() {
           flash: bankJobs.some(j => j.status === 'done' && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
             ? '임시저장 끝' : null,
         },
-        robot('sync', '뱅크 동기화', ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
+        robot('sync', KIND_LABEL.sync, ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
       ],
       server: isOwner ? [{
         key: 'office', kind: 'robot', name: '사무실 일꾼',
@@ -540,7 +562,7 @@ export default function OfficePage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">사무실</h1>
           <p className="mt-0.5 text-xs text-gray-500">
             {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : 'PC 일꾼 상태와 내 할 일'}
-            {loaded && <> · {hmKST(now)} 기준, 10초마다 새로 봅니다</>}
+            {' · '}{loaded ? `${hmKST(now)} 기준, 10초마다 새로 봅니다` : '불러오는 중…'}
           </p>
         </div>
         <button onClick={() => void load()} aria-label="지금 새로 보기"
@@ -561,14 +583,14 @@ export default function OfficePage() {
 
       {/* ── 픽셀 사무실 ─────────────────────────────── */}
       <div className="mb-7">
-        <PixelOffice layout={layout} />
+        <PixelOffice layout={layout} loading={!loaded} />
 
         {isOwner && (
           // 사무실 그림과 같은 폭·위치에(pxo-fit) — 따로 두면 그림은 가운데, 버튼은 왼쪽 끝이라 삐져나와 보였다
           <div className="pxo-fit mt-3 flex flex-wrap gap-2">
             {RUN_NOW.map(r => (
-              <button key={r.kind} onClick={() => void runNow(r.kind, r.label)}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+              <button key={r.kind} onClick={() => void runNow(r.kind, r.label)} disabled={busy.includes(`run-${r.kind}`)}
+                className="inline-flex items-center gap-1 rounded-lg disabled:opacity-50 border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
                 <Play className="h-3.5 w-3.5" /> {r.label}
               </button>
             ))}
@@ -643,16 +665,18 @@ function dropSuperseded<T extends { status: AdJob['status']; requested_at: strin
 
 /**
  * 일 한 줄의 덧말 — 실패면 이유, 아니면 진행.
- * 매물은 건수만 적는다. params 의 번호는 뱅크 내부 번호라 사장님이 아는 번호가 아니다.
+ * 매물은 '두정동 상가 외 2' 처럼 이름으로 — params 의 번호는 뱅크 내부 번호라 사장님이 아는 번호가 아니다.
+ * 이름을 못 찾으면 건수만. 같은 줄이 여러 개 서도 어느 매물인지 골라 취소할 수 있게(2026-10-28 점검).
  */
-function jobDetail(j: AdJob): string | null {
+function jobDetail(j: AdJob, names: Record<string, { full: string }>): string | null {
   const nos = Array.isArray(j.params?.bankNos) ? (j.params!.bankNos as string[]) : []
   const channels = Array.isArray(j.params?.channels) ? (j.params!.channels as string[]) : []
   const head = [
     channels.map(c => CHANNEL_LABEL[c] ?? c).join('·'),
-    nos.length ? `매물 ${nos.length}건` : '',
+    nos.length ? (names[String(nos[0])] ? `${names[String(nos[0])].full}${nos.length > 1 ? ` 외 ${nos.length - 1}` : ''}` : `매물 ${nos.length}건`) : '',
   ].filter(Boolean).join(' ')
-  const body = j.status === 'failed' ? j.error : j.progress
+  // 일꾼 진행 글 맨 앞의 매물번호는 뺀다 — 이름을 위에 적었다
+  const body = j.status === 'failed' ? j.error : j.progress?.replace(/^\d{6,}\s*/, '')
   return [head, body].filter(Boolean).join(' · ') || null
 }
 

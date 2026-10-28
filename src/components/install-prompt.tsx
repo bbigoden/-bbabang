@@ -121,7 +121,7 @@ export function InstallPrompt() {
             </div>
           )}
         </div>
-        <button onClick={dismiss} className="text-gray-300 hover:text-gray-500 -mr-1 -mt-1" aria-label="닫기">
+        <button onClick={dismiss} className="-mr-3.5 -mt-3.5 flex h-11 w-11 flex-shrink-0 items-center justify-center text-gray-300 hover:text-gray-500" aria-label="닫기">
           <X className="h-4 w-4" />
         </button>
       </div>
