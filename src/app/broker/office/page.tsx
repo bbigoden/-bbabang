@@ -255,25 +255,28 @@ export default function OfficePage() {
     })
     setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
 
-    if (isOwner) {
+    // 직원도 사무실 사람들은 본다(2026-10-28 '직원 계정으론 안 보인다') — Claude·협력업체만 사장님 것.
+    // 업무일지는 RLS(can_access_diary)가 직원에겐 자기 것만 준다.
+    {
+      const 사장님만 = <T,>(q: PromiseLike<T>) => (isOwner ? q : Promise.resolve({ data: null, error: null }))
       const [ms, props, ss, os, cos, ests, dys] = await Promise.all([
         supabase.from('broker_profiles')
           .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
           .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
         supabase.from('broker_properties').select('broker_id, created_at')
           .eq('office_broker_id', officeId).is('deleted_at', null).limit(5000),
-        supabase.from('claude_sessions')
+        사장님만(supabase.from('claude_sessions')
           .select('session_id, project, title, status, last_action, order_id, updated_at')
           .eq('office_broker_id', officeId).gte('updated_at', day)
-          .order('updated_at', { ascending: false }).limit(20),
-        supabase.from('claude_orders')
+          .order('updated_at', { ascending: false }).limit(20)),
+        사장님만(supabase.from('claude_orders')
           .select('id, prompt, status, progress, result, branch, error, requested_at, finished_at')
           .eq('office_broker_id', officeId)
-          .order('requested_at', { ascending: false }).limit(15),
+          .order('requested_at', { ascending: false }).limit(15)),
         // 협력업체 — 견적서 명의 회사들과 이번 달 견적 수
-        supabase.from('estimate_companies').select('id, name').eq('owner_broker_id', officeId).order('sort_order'),
-        supabase.from('estimates').select('company_id').eq('owner_broker_id', officeId)
-          .gte('issue_date', `${todayKST().slice(0, 7)}-01`).limit(1000),
+        사장님만(supabase.from('estimate_companies').select('id, name').eq('owner_broker_id', officeId).order('sort_order')),
+        사장님만(supabase.from('estimates').select('company_id').eq('owner_broker_id', officeId)
+          .gte('issue_date', `${todayKST().slice(0, 7)}-01`).limit(1000)),
         // 오늘 업무일지 — 쓴 사람과 고친 시각만 본다. 내용엔 비밀번호 같은 것이 섞여 이 화면엔 옮기지 않는다
         supabase.from('broker_diary').select('broker_id, sections_content, work_summary, content, updated_at').eq('date', todayKST()),
       ])
@@ -299,8 +302,10 @@ export default function OfficePage() {
         if (ymdKST(p.created_at) === todayYmd) s.today++
       }
       setMemberStats(stats)
-      setSessions(isMissingTable(ss.error) ? null : ((ss.data as ClaudeSession[] | null) ?? []))
-      setOrders(isMissingTable(os.error) ? null : ((os.data as ClaudeOrder[] | null) ?? []))
+      if (isOwner) {
+        setSessions(isMissingTable(ss.error) ? null : ((ss.data as ClaudeSession[] | null) ?? []))
+        setOrders(isMissingTable(os.error) ? null : ((os.data as ClaudeOrder[] | null) ?? []))
+      }
     }
 
     setNow(Date.now())
@@ -561,7 +566,7 @@ export default function OfficePage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">사무실</h1>
           <p className="mt-0.5 text-xs text-gray-500">
-            {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : 'PC 일꾼 상태와 내 할 일'}
+            {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : '직원·PC 일꾼이 지금 하는 일과 내 할 일'}
             {' · '}{loaded ? `${hmKST(now)} 기준, 10초마다 새로 봅니다` : '불러오는 중…'}
           </p>
         </div>
