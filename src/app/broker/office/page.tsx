@@ -492,7 +492,6 @@ export default function OfficePage() {
   const offSay = (at: string | null | undefined) => (at ? `꺼짐 · ${when(at)} 마지막` : '꺼짐')
   const adNote = agents?.note ?? '대기 중'
   const bankRunning = bankJobs.find(j => j.status === 'running')
-  const orderRunning = (orders ?? []).some(o => o.status === 'running')
   const people: Seat[] = members.map((m, i) => {
     const s = memberStats[m.id] ?? { today: 0, total: 0 }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
@@ -598,14 +597,8 @@ export default function OfficePage() {
         },
         robot('sync', KIND_LABEL.sync, ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
       ],
-      lab: [...(isOwner ? [{
-        key: 'office', kind: 'robot', name: '사무실 일꾼',
-        state: !officeOn ? 'off' : orderRunning ? 'working' : 'idle',
-        say: officeOn ? (orderRunning ? 'Claude 에게 지시 전달 중' : '대기 중') : offSay(agents?.office_seen_at),
-        note: 'Claude 활동을 옮기고, 화면의 지시를 Claude 에게 전합니다',
-        flash: (orders ?? []).some(o => o.status === 'done' && o.finished_at && now - new Date(o.finished_at).getTime() < FLASH_MS)
-          ? '지시 끝' : null,
-      } satisfies Seat] : []), ...visibleSessions(sessions ?? []).map((s): Seat => ({
+      // 사무실 일꾼(PC 프로그램)은 그림에 앉히지 않는다 — 방이 없어 헷갈렸다(2026-10-28). 꺼지면 맨 위 경고로 알린다
+      lab: [...visibleSessions(sessions ?? []).map((s): Seat => ({
         key: s.session_id, kind: 'claude',
         name: s.title || '제목 없는 작업',
         state: s.status === 'ended' ? 'off' : s.status,
