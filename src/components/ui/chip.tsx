@@ -41,7 +41,7 @@ export function Chip({
   children: React.ReactNode
 }) {
   return (
-    <button type="button" onClick={onClick} title={title} className={chipClass(on, size, className)}>
+    <button type="button" onClick={onClick} title={title} aria-pressed={on} className={chipClass(on, size, className)}>
       {children}
     </button>
   )

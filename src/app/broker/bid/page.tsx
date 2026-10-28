@@ -12,6 +12,7 @@ import { useToast } from '@/components/toast'
 import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
+import { latestOrd } from '@/lib/bid-notices'
 import { AnalysisPanel, type HistoryRow } from './analysis-panel'
 
 /**
@@ -59,6 +60,7 @@ type Result = {
   winner_nm: string | null
   sucsf_amt: number | null
   sucsf_rate: number | null
+  plnprc: number | null
   sajeong: number | null
 }
 
@@ -67,7 +69,9 @@ type Tab = 'notice' | 'result'
 const won = (n: number | null) => (n == null ? '-' : n.toLocaleString('ko-KR'))
 const 억 = (n: number | null) => {
   if (n == null) return '-'
-  return n >= 1e8 ? `${(n / 1e8).toFixed(2)}억` : `${Math.round(n / 1e4).toLocaleString('ko-KR')}만`
+  // 99,995,000 같은 값이 '10,000만' 으로 찍히지 않게 만 단위로 반올림한 뒤 가른다
+  const man = Math.round(n / 1e4)
+  return man >= 1e4 ? `${(n / 1e8).toFixed(2)}억` : `${man.toLocaleString('ko-KR')}만`
 }
 const sido = (s: string | null) => (s ?? '').split(' ')[0] || '기타'
 const 언제 = (iso: string) => `${ymdKST(iso).slice(5).replace('-', '/')} ${hmKST(iso)}`
@@ -75,6 +79,8 @@ const 언제 = (iso: string) => `${ymdKST(iso).slice(5).replace('-', '/')} ${hmK
 /** 마감까지 남은 날. 오늘이면 '오늘' */
 function dday(iso: string | null): { text: string; urgent: boolean } | null {
   if (!iso) return null
+  // 오늘 10시 마감이 오후에도 '오늘'로 보였다 — 시각이 지났으면 마감
+  if (Date.parse(iso) <= Date.now()) return { text: '마감', urgent: false }
   const d = ymdKST(iso)
   const days = Math.round((Date.parse(d) - Date.parse(todayKST())) / 86400000)
   if (days < 0) return { text: '마감', urgent: false }
@@ -82,6 +88,7 @@ function dday(iso: string | null): { text: string; urgent: boolean } | null {
 }
 
 const REGION_KEY = 'bid_regions_v1'
+
 
 export default function BidPage() {
   const supabase = useMemo(() => createClient(), [])
@@ -119,7 +126,7 @@ export default function BidPage() {
           .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount')
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
         supabase.from('bid_results')
-          .select('bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, sajeong')
+          .select('bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong')
           .order('openg_at', { ascending: false, nullsFirst: false }).limit(300),
         // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개라 수천 건도 가볍다
         fetchAllPaged<HistoryRow>((from, to) => supabase.from('bid_results')
@@ -127,7 +134,7 @@ export default function BidPage() {
           .not('sajeong', 'is', null).range(from, to)),
         supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
       ])
-      setNotices(n)
+      setNotices(latestOrd(n))
       setResults((r.data as Result[]) ?? [])
       setHistory(h)
       const st = Object.fromEntries((s.data ?? []).map(x => [x.key, x.value]))
@@ -152,7 +159,8 @@ export default function BidPage() {
       else if (!res.ok) toast.error(`가져오지 못했습니다${body.error ? ` — ${body.error}` : ''}`)
       else {
         const r = body as CollectReport
-        toast.success(`공고 ${r.notices}건 · 낙찰 ${r.results}건 · 상세 ${r.details}건 받음`)
+        toast.success(`나라장터에서 다시 확인했습니다 — 공고 ${r.notices}건 · 낙찰 ${r.results}건 · 낙찰 상세 ${r.details}건`
+          + (r.stoppedBy === 'limit' ? ' · 오늘 조회 한도를 다 써서 나머지는 내일 이어 받습니다' : ''))
         await load()
       }
     } catch {
@@ -161,20 +169,25 @@ export default function BidPage() {
     setCollecting(false)
   }
 
-  const regionCounts = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const n of notices) m.set(sido(n.site_region), (m.get(sido(n.site_region)) ?? 0) + 1)
-    return [...m.entries()].sort((a, b) => b[1] - a[1])
-  }, [notices])
-
-  const shownNotices = useMemo(() => {
+  // 지역 칩 숫자는 '마감 전만'·검색까지 건 뒤에 센다 — 칩을 눌렀을 때 나오는 줄 수와 같아야 한다
+  const baseNotices = useMemo(() => {
     const now = Date.now()
     const words = q.trim().split(/\s+/).filter(Boolean)
     return notices.filter(n =>
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
-      (!regions.length || regions.includes(sido(n.site_region))) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''}`.includes(w)))
-  }, [notices, openOnly, regions, q])
+  }, [notices, openOnly, q])
+
+  const regionCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const n of baseNotices) m.set(sido(n.site_region), (m.get(sido(n.site_region)) ?? 0) + 1)
+    return [...m.entries()].sort((a, b) => b[1] - a[1])
+  }, [baseNotices])
+
+  const shownNotices = useMemo(
+    () => baseNotices.filter(n => !regions.length || regions.includes(sido(n.site_region))),
+    [baseNotices, regions],
+  )
 
   const shownResults = useMemo(() => {
     const words = q.trim().split(/\s+/).filter(Boolean)
@@ -224,7 +237,9 @@ export default function BidPage() {
           ) : lastRun?.finishedAt && <span>{언제(lastRun.finishedAt)} 받아옴</span>}
           <span>매일 6·12·18시 자동</span>
           {/* 분석이 얼마나 믿을 만한지는 쌓인 과거 낙찰 수에 달렸다. 숫자를 늘 보이게 둔다 */}
-          <span>분석에 쓰는 과거 낙찰 {history.length.toLocaleString('ko-KR')}건</span>
+          {!loading && <span>분석에 쓰는 과거 낙찰 {history.length.toLocaleString('ko-KR')}건</span>}
+          {tab === 'notice' && !loading && <span>공고 {shownNotices.length.toLocaleString('ko-KR')}건</span>}
+          {tab === 'result' && <span>아래 표는 최근 {results.length.toLocaleString('ko-KR')}건</span>}
           {backfillUntil && backfillUntil > BACKFILL_FLOOR && (
             <span>과거 데이터 {backfillUntil}까지 채움 · {BACKFILL_FLOOR}까지 매일 조금씩</span>
           )}
@@ -233,13 +248,16 @@ export default function BidPage() {
         <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           {tab === 'notice' && <>
             <Chip on={openOnly} onClick={() => setOpenOnly(v => !v)}>마감 전만</Chip>
-            <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
-            {regionCounts.map(([r, c]) => (
-              <Chip key={r} size="xs" on={regions.includes(r)}
-                onClick={() => setRegions(v => v.includes(r) ? v.filter(x => x !== r) : [...v, r])}>
-                {r} {c}
-              </Chip>
-            ))}
+            <span className="mx-1 hidden h-4 w-px bg-gray-200 sm:block dark:bg-gray-800" />
+            {/* 폰에선 시도 17개가 아홉 줄이 돼 첫 화면에 공고가 하나도 안 보였다 — 한 줄로 옆으로 민다 */}
+            <div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 pb-1 sm:contents">
+              {regionCounts.map(([r, c]) => (
+                <Chip key={r} size="xs" on={regions.includes(r)} className="shrink-0 whitespace-nowrap"
+                  onClick={() => setRegions(v => v.includes(r) ? v.filter(x => x !== r) : [...v, r])}>
+                  {r} {c}
+                </Chip>
+              ))}
+            </div>
           </>}
           <div className="relative ml-auto flex items-center gap-2">
             <div className="relative">
@@ -247,7 +265,7 @@ export default function BidPage() {
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 placeholder={tab === 'notice' ? '공고명·발주기관' : '공고명·발주기관·낙찰업체'}
-                className="h-9 w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-sm
+                className="h-9 w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-base sm:text-sm
                            text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none
                            dark:border-gray-800 dark:bg-gray-950 dark:text-white"
               />
@@ -285,6 +303,7 @@ export default function BidPage() {
                     <button
                       type="button"
                       onClick={() => setOpened(isOpen ? null : key)}
+                      aria-expanded={isOpen}
                       className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50"
                     >
                       <span className={`mt-0.5 w-12 shrink-0 text-xs font-semibold ${d?.urgent ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
@@ -297,8 +316,13 @@ export default function BidPage() {
                           {n.bid_close_at && ` · 마감 ${언제(n.bid_close_at)}`}
                           {n.cntrct_mthd && ` · ${n.cntrct_mthd}`}
                         </span>
+                        {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
+                        <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
+                          {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}
+                          {n.lwlt_rate ? <span className="font-normal text-gray-500"> · 하한 {n.lwlt_rate}%</span> : null}
+                        </span>
                       </span>
-                      <span className="shrink-0 text-right text-xs">
+                      <span className="hidden shrink-0 text-right text-xs sm:block">
                         <span className="block font-semibold text-gray-900 dark:text-white">
                           {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}
                         </span>
@@ -330,8 +354,26 @@ export default function BidPage() {
         ) : shownResults.length === 0 ? (
           <p className="py-10 text-center text-sm text-gray-400">아직 받은 낙찰결과가 없습니다</p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <table className="w-full min-w-[720px] text-sm">
+          <>
+          {/* 폰에선 표가 820px 라 1순위·금액이 화면 밖이었다 — 줄마다 카드로 */}
+          <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white md:hidden dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+            {shownResults.map(r => (
+              <li key={`${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`} className="px-4 py-3 text-sm">
+                <div className="font-medium text-gray-900 dark:text-white">{r.name}</div>
+                <div className="mt-0.5 text-xs text-gray-500">
+                  {r.openg_at ? ymdKST(r.openg_at).slice(2) : '-'} 개찰 · {r.dminstt_nm} · {r.prtcpt_cnum ?? '-'}곳 참여
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
+                  <span className="text-gray-700 dark:text-gray-300">1순위 {r.winner_nm ?? '-'}</span>
+                  <span className="font-semibold tabular-nums">{won(r.sucsf_amt)}원</span>
+                  <span className="text-gray-500">낙찰률 {r.sucsf_rate ?? '-'}%</span>
+                  <span className="text-gray-500">사정률 {r.sajeong != null ? `${(r.sajeong * 100).toFixed(3)}%` : '-'}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-2xl border border-gray-200 bg-white md:block dark:border-gray-800 dark:bg-gray-900">
+            <table className="w-full min-w-[820px] text-sm">
               <thead className="border-b border-gray-200 text-left text-xs text-gray-500 dark:border-gray-800">
                 <tr>
                   <th className="px-3 py-2 font-medium">개찰</th>
@@ -339,6 +381,7 @@ export default function BidPage() {
                   <th className="px-3 py-2 font-medium">발주기관</th>
                   <th className="px-3 py-2 text-right font-medium">참여</th>
                   <th className="px-3 py-2 font-medium">1순위</th>
+                  <th className="px-3 py-2 text-right font-medium">예정가격</th>
                   <th className="px-3 py-2 text-right font-medium">낙찰금액</th>
                   <th className="px-3 py-2 text-right font-medium">낙찰률</th>
                   <th className="px-3 py-2 text-right font-medium">사정률</th>
@@ -350,16 +393,18 @@ export default function BidPage() {
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{r.openg_at ? ymdKST(r.openg_at).slice(2) : '-'}</td>
                     <td className="px-3 py-2 text-gray-900 dark:text-white">{r.name}</td>
                     <td className="px-3 py-2 text-xs text-gray-500">{r.dminstt_nm}</td>
-                    <td className="px-3 py-2 text-right text-gray-500">{r.prtcpt_cnum ?? '-'}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{r.prtcpt_cnum ?? '-'}</td>
                     <td className="px-3 py-2 text-xs">{r.winner_nm ?? '-'}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{won(r.plnprc)}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-right">{won(r.sucsf_amt)}</td>
-                    <td className="px-3 py-2 text-right text-gray-500">{r.sucsf_rate ?? '-'}%</td>
-                    <td className="px-3 py-2 text-right text-gray-500">{r.sajeong != null ? `${(r.sajeong * 100).toFixed(3)}%` : '-'}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{r.sucsf_rate ?? '-'}%</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{r.sajeong != null ? `${(r.sajeong * 100).toFixed(3)}%` : '-'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          </>
         )}
       </main>
     </>
