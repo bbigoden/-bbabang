@@ -6,7 +6,7 @@ import {
   Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
   User, Bell, Palette, Handshake, Compass, CalendarDays, MessagesSquare, Briefcase,
-  Megaphone, Construction, Radar, FileText, LayoutDashboard,
+  Megaphone, Construction, Radar, FileText, LayoutDashboard, Gavel,
 } from 'lucide-react'
 
 export interface SubItemDef {
@@ -25,7 +25,17 @@ export interface ItemDef {
   icon: React.ComponentType<{ className?: string }>
   ownerOnly?: boolean
   needsOffice?: boolean
+  /** 입찰을 켠 사무소(broker_profiles.bid_enabled)에만 보인다. 사장님의 건설업 일이라 다른 사무소엔 숨긴다 */
+  bidOnly?: boolean
   children?: SubItemDef[]
+}
+
+/** 이 사무소에 보일 메뉴인가 — 사이드바·모바일 드로어가 같이 쓴다 */
+export function showItem(i: ItemDef, broker: { is_owner?: boolean | null; bid_enabled?: unknown } | null): boolean {
+  const isOwner = broker?.is_owner !== false
+  if (i.ownerOnly && !isOwner) return false
+  if (i.bidOnly && !broker?.bid_enabled) return false
+  return true
 }
 
 export const BROKER_ITEMS: ItemDef[] = [
@@ -37,6 +47,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone, needsOffice: true },
   { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar, needsOffice: true },
   { id: 'estimates',  href: '/broker/estimates', label: '견적서', icon: FileText, ownerOnly: true, needsOffice: true },
+  { id: 'bid',        href: '/broker/bid', label: '입찰', icon: Gavel, ownerOnly: true, needsOffice: true, bidOnly: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen, needsOffice: true },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator, needsOffice: true },
   {

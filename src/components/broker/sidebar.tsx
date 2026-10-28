@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
-import { BROKER_ITEMS as ITEMS, type ItemDef } from './menu-items'
+import { BROKER_ITEMS as ITEMS, showItem, type ItemDef } from './menu-items'
 import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
 const COLLAPSED_KEY = 'bbabang_broker_sidebar_collapsed'
@@ -49,7 +49,7 @@ export function BrokerSidebar() {
   if (profile?.role !== 'broker') return null
 
   const isOwner = broker?.is_owner !== false
-  const items = ITEMS.filter(i => !i.ownerOnly || isOwner)
+  const items = ITEMS.filter(i => showItem(i, broker))
   // 사무소 등록 전엔 사무소 메뉴에 자물쇠를 단다 — 눌러야 잠김 안내가 뜨는 것보다 먼저 보이는 게 낫다.
   // 메뉴는 숨기지 않는다(무엇이 있는지는 보여야 등록할 이유가 된다).
   const isLocked = (m: { needsOffice?: boolean }) => !broker && !!m.needsOffice

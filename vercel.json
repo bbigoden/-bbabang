@@ -18,6 +18,18 @@
     {
       "path": "/api/cron/estimate-expiry",
       "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/bid-collect",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/bid-collect",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/bid-collect",
+      "schedule": "0 9 * * *"
     }
   ]
 }

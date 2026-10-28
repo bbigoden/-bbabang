@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Flag, Users, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BROKER_ITEMS, type ItemDef } from '@/components/broker/menu-items'
+import { BROKER_ITEMS, showItem, type ItemDef } from '@/components/broker/menu-items'
 import { ADMIN_ITEMS } from '@/components/admin/menu-items'
 import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
@@ -93,7 +93,7 @@ export function BottomNav() {
   const isOwner = broker?.is_owner !== false
   const drawerItems: ItemDef[] = role === 'admin'
     ? ADMIN_ITEMS as ItemDef[]
-    : BROKER_ITEMS.filter(i => !i.ownerOnly || isOwner)
+    : BROKER_ITEMS.filter(i => showItem(i, broker))
   // 사무소 등록 전 중개사에게 사무소 메뉴는 자물쇠를 달아 보여 준다(사이드바와 같은 규칙).
   // 숨기지 않는다 — 무엇이 있는지 보여야 등록할 이유가 된다. 눌러도 잠김 안내만 뜬다(BrokerGlobalLayout).
   const isLocked = (m: { needsOffice?: boolean }) => role === 'broker' && !broker && !!m.needsOffice

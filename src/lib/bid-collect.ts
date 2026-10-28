@@ -1,0 +1,252 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { addDays, todayKST } from '@/lib/date-kst'
+import { normalize, rangeOf } from '@/lib/bid-analysis'
+import {
+  BID_INDUSTRY_CD, G2bError, g2bDt, g2bGet, toBidRow, toBsisPatch, toNoticeRow, toPrepar, toResultRow,
+  type G2bService,
+} from '@/lib/g2b'
+
+/**
+ * 나라장터에서 도장·방수 공고와 낙찰결과를 받아 bid_* 표에 쌓는다.
+ *
+ * 한 번 돌 때 하는 일 (시간·한도가 남는 만큼):
+ *  1. 최근 3일 공고·기초금액·낙찰결과 — 목록은 한 번에 999건씩이라 몇 번이면 끝난다
+ *  2. 낙찰결과마다 예가 15개(1번) + 업체별 투찰(1번) — **여기가 한도를 다 먹는다**
+ *  3. 상세가 다 채워졌으면 과거로 1주씩 거슬러 올라가며 목록을 더 받는다
+ *
+ * 한도는 서비스마다 하루 1,000건(공고 1,000 / 낙찰 1,000). 넘기면 그날은 막히므로
+ * 950 에서 멈춘다. 낙찰 1건 상세에 낙찰 API 2번이라, 하루 과거 낙찰 ~470건씩 채워진다.
+ * 도장·방수 낙찰이 1주 ~100건이니 하루에 1달치쯤 거슬러 올라간다.
+ */
+
+const DAILY_LIMIT = 950
+/** 과거 데이터는 여기까지만 거슬러 올라간다 */
+export const BACKFILL_FLOOR = '2023-01-01'
+const RECENT_DAYS = 3
+const WINDOW_DAYS = 7
+const DETAIL_BATCH = 8
+const DETAIL_CONCURRENCY = 4
+
+type Calls = { date: string; notice: number; result: number }
+type Backfill = { until: string; done: boolean }
+
+export type CollectReport = {
+  notices: number
+  bsis: number
+  results: number
+  details: number
+  backfillUntil: string | null
+  calls: Calls
+  stoppedBy: 'done' | 'time' | 'limit' | 'error'
+  error?: string
+  finishedAt: string
+}
+
+class StopError extends Error {
+  constructor(readonly reason: 'time' | 'limit') { super(reason) }
+}
+
+export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: number } = {}): Promise<CollectReport> {
+  const deadline = Date.now() + (opts.timeBudgetMs ?? 50_000)
+  const today = todayKST()
+
+  const state = await readState(supa)
+  const calls: Calls = state.calls?.date === today ? state.calls : { date: today, notice: 0, result: 0 }
+  const backfill: Backfill = state.backfill ?? { until: addDays(today, -RECENT_DAYS), done: false }
+
+  const report: CollectReport = {
+    notices: 0, bsis: 0, results: 0, details: 0, backfillUntil: backfill.until,
+    calls, stoppedBy: 'done', finishedAt: '',
+  }
+
+  // 한도·시간을 부르기 전에 확인한다. 넘으면 StopError 로 빠져나가 지금까지 한 것만 남긴다
+  const guard = (svc: G2bService) => {
+    if (Date.now() > deadline) throw new StopError('time')
+    if (calls[svc] >= DAILY_LIMIT) throw new StopError('limit')
+  }
+  const call = async (svc: G2bService, op: string, params: Record<string, string | number>) => {
+    guard(svc)
+    return g2bGet(svc, op, params, s => { calls[s]++ })
+  }
+  /** 날짜 범위 목록을 999건씩 끝까지 */
+  const listAll = async (svc: G2bService, op: string, from: string, to: string, extra: Record<string, string> = {}) => {
+    const out: Record<string, string>[] = []
+    for (let page = 1; ; page++) {
+      const { items, total } = await call(svc, op, {
+        numOfRows: 999, pageNo: page, inqryDiv: 1,
+        inqryBgnDt: g2bDt(from, '0000'), inqryEndDt: g2bDt(to, '2359'), ...extra,
+      })
+      out.push(...items)
+      if (out.length >= total || items.length === 0) break
+    }
+    return out
+  }
+
+  /** 기간 하나의 공고·기초금액·낙찰 목록을 받아 넣는다 */
+  const syncWindow = async (from: string, to: string) => {
+    const notices = await listAll('notice', 'getBidPblancListInfoCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
+    const nrows = dedupe(notices.map(toNoticeRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`)
+    await upsert(supa, 'bid_notices', nrows, 'bid_ntce_no,bid_ntce_ord')
+    report.notices += nrows.length
+
+    // 기초금액은 업종으로 못 거른다 — 공사 전체(1주 ~2,400건)를 받아 우리 공고만 남긴다
+    const bsis = await listAll('notice', 'getBidPblancListInfoCnstwkBsisAmount', from, to)
+    report.bsis += await applyBsis(supa, bsis.map(toBsisPatch))
+
+    const results = await listAll('result', 'getScsbidListSttusCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
+    const rrows = dedupe(results.map(toResultRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`)
+    await upsert(supa, 'bid_results', rrows, 'bid_ntce_no,bid_ntce_ord,rbid_no')
+    report.results += rrows.length
+  }
+
+  /** 낙찰 한 건의 예가·투찰·하한율·A값을 채운다 */
+  const fillDetail = async (r: { bid_ntce_no: string; bid_ntce_ord: string; rbid_no: string }) => {
+    const key = { bidNtceNo: r.bid_ntce_no, bidNtceOrd: r.bid_ntce_ord }
+    const prepar = await call('result', 'getOpengResultListInfoCnstwkPreparPcDetail', { numOfRows: 30, pageNo: 1, inqryDiv: 2, ...key })
+    const compt = await call('result', 'getOpengResultListInfoOpengCompt', { numOfRows: 999, pageNo: 1, ...key })
+    const p = toPrepar(prepar.items.filter(x => (x.rbidNo || '000') === r.rbid_no))
+    const bids = dedupe(
+      compt.items.filter(x => (x.rbidNo || '000') === r.rbid_no).map(x => toBidRow(x, r.rbid_no)).filter(b => b.bizno),
+      b => `${b.rank}/${b.bizno}`,
+    )
+
+    // 하한율·A값은 공고 쪽에 있다. 과거 공고가 아직 안 들어와 있으면 번호로 찾는다
+    let { data: n } = await supa.from('bid_notices')
+      .select('lwlt_rate, a_amount, bssamt').eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).maybeSingle()
+    if (!n || n.lwlt_rate == null) {
+      const { items } = await call('notice', 'getBidPblancListInfoCnstwk', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no })
+      const row = items.map(toNoticeRow).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
+      if (row) { await upsert(supa, 'bid_notices', [row], 'bid_ntce_no,bid_ntce_ord'); report.notices++ }
+      n = { lwlt_rate: row?.lwlt_rate ?? null, a_amount: n?.a_amount ?? null, bssamt: n?.bssamt ?? null }
+    }
+    if (n.a_amount == null && n.lwlt_rate != null) {
+      const { items } = await call('notice', 'getBidPblancListInfoCnstwkBsisAmount', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no })
+      const b = items.map(toBsisPatch).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
+      if (b) { report.bsis += await applyBsis(supa, [b]); n.a_amount = b.a_amount }
+    }
+
+    if (bids.length) await upsert(supa, 'bid_result_bids', bids, 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno')
+    const bssamt = p?.bssamt ?? n.bssamt ?? null
+    const plnprc = p?.plnprc ?? null
+    const norm = bssamt && plnprc && n.lwlt_rate
+      ? normalize({ bssamt, plnprc, lwlt_rate: Number(n.lwlt_rate), a_amount: n.a_amount, amounts: bids.map(b => b.amount ?? 0).filter(a => a > 0) })
+      : null
+    const now = new Date().toISOString()
+    const { error } = await supa.from('bid_results').update({
+      bssamt,
+      plnprc,
+      prices: p?.prices ?? null,
+      lwlt_rate: n.lwlt_rate,
+      a_amount: n.a_amount,
+      sajeong: norm?.r ?? null,
+      win_y: norm && Number.isFinite(norm.minAbove) ? norm.minAbove : null,
+      rng: bssamt ? rangeOf(bssamt, p?.prices) : null,
+      detail_at: now,
+      bids_at: now,
+    }).eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).eq('rbid_no', r.rbid_no)
+    if (error) throw error
+    report.details++
+  }
+
+  try {
+    // 1. 최근
+    await syncWindow(addDays(today, -RECENT_DAYS), today)
+
+    // 2·3. 상세를 먼저 채우고, 밀린 상세가 없으면 과거로 한 주 더
+    while (true) {
+      const { data: todo, error } = await supa.from('bid_results')
+        .select('bid_ntce_no, bid_ntce_ord, rbid_no')
+        .is('detail_at', null).order('openg_at', { ascending: false, nullsFirst: false }).limit(DETAIL_BATCH)
+      if (error) throw error
+      if (todo?.length) {
+        for (let i = 0; i < todo.length; i += DETAIL_CONCURRENCY) {
+          await Promise.all(todo.slice(i, i + DETAIL_CONCURRENCY).map(r => fillDetail(r).catch(async e => {
+            // 한 건이 계속 오류를 내면 매번 그 건에서 멈춰 뒤가 영영 안 채워진다.
+            // 한도·시간 초과가 아니면 빈 채로 넘기고 다음 건으로 간다
+            if (e instanceof StopError || (e instanceof G2bError && e.code === '22')) throw e
+            console.warn('[bid-collect] 상세 건너뜀', r.bid_ntce_no, e instanceof Error ? e.message : e)
+            await supa.from('bid_results').update({ detail_at: new Date().toISOString() })
+              .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).eq('rbid_no', r.rbid_no)
+          })))
+        }
+        continue
+      }
+      if (backfill.done) break
+      const to = addDays(backfill.until, -1)
+      const from = addDays(backfill.until, -WINDOW_DAYS)
+      await syncWindow(from, to)
+      backfill.until = from
+      if (from <= BACKFILL_FLOOR) backfill.done = true
+      report.backfillUntil = backfill.until
+    }
+  } catch (e) {
+    if (e instanceof StopError) report.stoppedBy = e.reason
+    else if (e instanceof G2bError && e.code === '22') report.stoppedBy = 'limit'  // 포털 쪽 한도 초과
+    else {
+      report.stoppedBy = 'error'
+      report.error = e instanceof Error ? e.message : String(e)
+      console.error('[bid-collect]', e)
+    }
+  }
+
+  report.finishedAt = new Date().toISOString()
+  await writeState(supa, { calls, backfill, last_run: report })
+  return report
+}
+
+// ── 상태 ──────────────────────────────────────────────────
+
+type State = { calls?: Calls; backfill?: Backfill; last_run?: CollectReport }
+
+async function readState(supa: SupabaseClient): Promise<State> {
+  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill'])
+  return Object.fromEntries((data ?? []).map(r => [r.key, r.value])) as State
+}
+
+async function writeState(supa: SupabaseClient, s: Required<State>) {
+  const now = new Date().toISOString()
+  const { error } = await supa.from('bid_sync').upsert(
+    Object.entries(s).map(([key, value]) => ({ key, value, updated_at: now })),
+  )
+  if (error) console.error('[bid-collect] 상태 저장 실패', error)
+}
+
+// ── DB 도우미 ─────────────────────────────────────────────
+
+async function upsert(supa: SupabaseClient, table: string, rows: object[], onConflict: string) {
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await supa.from(table).upsert(rows.slice(i, i + 500), { onConflict })
+    if (error) throw error
+  }
+}
+
+/** 기초금액을 우리가 가진 공고에만 덧붙인다. 붙인 건수를 돌려준다 */
+async function applyBsis(supa: SupabaseClient, patches: ReturnType<typeof toBsisPatch>[]): Promise<number> {
+  if (!patches.length) return 0
+  const byNo = new Map(patches.map(p => [`${p.bid_ntce_no}/${p.bid_ntce_ord}`, p]))
+  const nos = [...new Set(patches.map(p => p.bid_ntce_no))]
+  let applied = 0
+  for (let i = 0; i < nos.length; i += 200) {
+    const { data, error } = await supa.from('bid_notices')
+      .select('bid_ntce_no, bid_ntce_ord').in('bid_ntce_no', nos.slice(i, i + 200))
+    if (error) throw error
+    for (const n of data ?? []) {
+      const p = byNo.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`)
+      if (!p) continue
+      const { bid_ntce_no, bid_ntce_ord, ...patch } = p
+      const { error: e2 } = await supa.from('bid_notices')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('bid_ntce_no', bid_ntce_no).eq('bid_ntce_ord', bid_ntce_ord)
+      if (e2) throw e2
+      applied++
+    }
+  }
+  return applied
+}
+
+/** 같은 열쇠가 두 번 오면 upsert 가 'cannot affect row a second time' 으로 통째로 실패한다 */
+function dedupe<T>(rows: T[], key: (r: T) => string): T[] {
+  const m = new Map<string, T>()
+  for (const r of rows) m.set(key(r), r)
+  return [...m.values()]
+}
