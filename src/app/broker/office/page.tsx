@@ -467,7 +467,7 @@ export default function OfficePage() {
     const 지금 = working ? 무엇(running!) : []
     const 다음 = queued[queued.length - 1]
     const doing = working
-      ? [지금.length ? `${지금[0]}${지금.length > 1 ? ` 외 ${지금.length - 1}` : ''} 올리는 중` : (running!.progress?.replace(/^d{6,}s*/, '') ?? adNote),
+      ? [지금.length ? `${지금[0]}${지금.length > 1 ? ` 외 ${지금.length - 1}` : ''} 올리는 중` : (running!.progress?.replace(/^\d{6,}\s*/, '') ?? adNote),
         누가(running!) ? `요청 ${누가(running!)}` : ''].filter(Boolean).join('\n')
       : null
     const waitLine = nextAt ? `${hmKST(nextAt)} 에 다음 글` : queued.length ? `대기 ${queued.length}건` : '대기 중'
