@@ -8,7 +8,7 @@ import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
   Home, Search, Bell, Heart, User, Building2, Briefcase,
   MoreHorizontal, X, ChevronDown, LogOut, Lock,
-  LayoutDashboard, Flag, Users, ClipboardList,
+  LayoutDashboard, Flag, Users, ClipboardList, Gavel,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BROKER_ITEMS, showItem, type ItemDef } from '@/components/broker/menu-items'
@@ -63,6 +63,11 @@ export function BottomNav() {
       { href: '/broker/customers', label: '고객', icon: Users, needsOffice: true },
       { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
       { href: '/broker/diary', label: '일지', icon: ClipboardList, needsOffice: true },
+      // 입찰을 켠 사무소의 대표에게만(사이드바 메뉴와 같은 조건). 더보기 9번째에 묻혀 있어
+      // 폰으로 처음 쓰는 사람은 이 기능이 있는 줄도 몰랐다
+      ...(broker?.bid_enabled && broker.is_owner !== false
+        ? [{ href: '/broker/bid', label: '입찰', icon: Gavel }]
+        : []),
       // 일정·대화를 탭에서 뺐으므로 안 읽은 대화도 여기로 모아 센다.
       // 아니면 안 읽은 대화가 있다는 표시가 폰 어디에도 남지 않는다.
       { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread + chatUnread },
