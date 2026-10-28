@@ -339,7 +339,9 @@ export default function OfficePage() {
       매물(null, false),
       매물(null, true),
       supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
-        .or('bank_status.like.서비스중*,bank_status.like.확인중*'),
+        .or('bank_status.like.서비스중*,bank_status.like.확인중*')
+        // 동기화 때 뱅크 목록에서 사라진 매물은 상태가 '서비스중' 으로 굳어 남는다 — 세지 않는다(2026-10-28 대조에서 3건)
+        .neq('bank_tab', '뱅크에 없음'),
       supabase.from('ad_posts').select('posted_at, ad_listings!inner(manager, broker_id)')
         .eq('ad_listings.broker_id', officeId).eq('status', 'posted').eq('channel', 'daangn'),
     ])
