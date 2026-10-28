@@ -81,8 +81,10 @@ export interface OfficeLayout {
  * 자리 이름으로 정해져 늘 같은 포켓몬이 앉는다. 눈은 'E' — 깜빡일 때 lid 색으로 덮는다.
  * main 은 흔드는 손·타자 치는 손 색.
  */
-interface Mon { rows: string[]; pal: Record<string, string>; lid: string; main: string }
-const mon = (rows: string[], pal: Record<string, string>, main: string, lid = main): Mon => ({ rows, pal, lid, main })
+interface Mon { rows: string[]; pal: Record<string, string>; lid: string; main: string; dx: number; dy: number }
+/** 기본 칸(14×11)보다 큰 포켓몬은 가운데 맞추고 발밑을 같게 — 넘치는 만큼 위·양옆으로 삐져나온다 */
+const mon = (rows: string[], pal: Record<string, string>, main: string, lid = main): Mon =>
+  ({ rows, pal, lid, main, dx: Math.round((14 - rows[0].length) / 2), dy: 11 - rows.length })
 
 const PIKACHU = mon([
   '..N........N..',
@@ -310,20 +312,27 @@ const SYLVEON = mon([
   '...CCCCCCCC...',
   '...PP....PP...',
 ], { C: '#fdf2f8', P: '#f9a8d4', R: '#f472b6', B: '#60a5fa', E: '#1e3a8a', m: '#be185d' }, '#fdf2f8')
-/** 리자몽 — 2026-10-28 사장님이 박혜성 자리에. 머리 양옆으로 솟은 날개(청록 막), 꼬리 끝 불꽃. */
+/**
+ * 리자몽 — 2026-10-28 사장님이 박혜성 자리에. 14×11 로는 날개가 안 보여 '전혀 리자몽인지 모르겠다' 해서
+ * 큰 칸(20×15)으로 — 어깨 뒤로 활짝 편 날개(진주황 뼈대·청록 막), 뒤로 뻗은 뿔 둘, 꼬리 끝 불꽃(모니터에 안 가리게 왼쪽).
+ */
 const CHARIZARD = mon([
-  'WW.F......F.WW',
-  'WGWFFFFFFFFWGW',
-  'WGGFFFFFFFFGGW',
-  'WGGFEFFFFEFGGW',
-  'WGWFFFmmFFFWGW',
-  '.W.FFFFFFFF.W.',
-  '..FFYYYYYYFF..',
-  '..FFYYYYYYFF..',
-  '..FFYYYYYYFF.R',
-  '..FFYYYYYYFFRr',
-  '...FF....FF...',
-], { F: '#f08030', W: '#c2551f', G: '#2a9d8f', E: '#1f1f1f', m: '#8a3a10', Y: '#f8e090', R: '#e83a1a', r: '#fbd34d' }, '#f08030')
+  'O..................O',
+  'OO......F..F......OO',
+  'OGO.....FFFF.....OGO',
+  'OGGO...FFFFFF...OGGO',
+  'OGGGO..FEFFEF..OGGGO',
+  'OGGGGO.FFFFFF.OGGGGO',
+  'OGGGGGOFFmmFFOGGGGGO',
+  '.OGGGGGOFFFFOGGGGGO.',
+  '..OGGGFFFFFFFFGGGO..',
+  '...OOFFYYYYYYFFOO...',
+  '.....FFYYYYYYFF.....',
+  '.R..FFYYYYYYYYFF....',
+  'RrR.FFYYYYYYYYFF....',
+  '.RFFFFFYYYYYYFF.....',
+  '......FFF..FFF......',
+], { F: '#f08030', O: '#b4501c', G: '#2a8c86', E: '#1f1f1f', m: '#8a3a10', Y: '#f8e090', R: '#e83a1a', r: '#fbd34d' }, '#f08030')
 const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON, charizard: CHARIZARD }
 
 /** 직원 — 고른 색(tint)마다 한 마리. 같은 포켓몬이 나란히 앉지 않게 여덟. */
@@ -424,9 +433,9 @@ function Desk({ seat, x, y, big = false, away = false, picked, onPick }: {
           <g transform={`translate(${cx} ${by}) scale(1.3) translate(${-cx} ${-by})`}>
             <g className={motion} style={{ animationDelay: delay }}>
               {[[-0.6, 0], [0.6, 0], [0, -0.6]].map(([ox, oy]) => (
-                <Sprite key={`${ox}${oy}`} rows={rows} palette={ink} x={x + 2 + ox} y={y + oy} />
+                <Sprite key={`${ox}${oy}`} rows={rows} palette={ink} x={x + 2 + m.dx + ox} y={y + m.dy + oy} />
               ))}
-              <Sprite rows={rows} palette={pal} x={x + 2} y={y}
+              <Sprite rows={rows} palette={pal} x={x + 2 + m.dx} y={y + m.dy}
                 blink={m.lid}
                 delay={(seed(seat.key) % 50) / 10} />
               {/* 기다림 — 오른손을 들어 흔든다 */}
@@ -765,9 +774,9 @@ function Walker({ seat, from, to, onPick }: { seat: Seat; from: Pt; to: Pt; onPi
           {/* 걷는 동안만 콩콩 — 도착하면 멈춰 선다 */}
           <g className="pxo-bounce" style={{ animationIterationCount: Math.ceil(t / 0.6) }}>
             {[[-0.6, 0], [0.6, 0], [0, -0.6], [0, 0.6]].map(([ox, oy]) => (
-              <Sprite key={`${ox}${oy}`} rows={m.rows} palette={ink} x={ox} y={oy} />
+              <Sprite key={`${ox}${oy}`} rows={m.rows} palette={ink} x={m.dx + ox} y={m.dy + oy} />
             ))}
-            <Sprite rows={m.rows} palette={m.pal} x={0} y={0} blink={m.lid} />
+            <Sprite rows={m.rows} palette={m.pal} x={m.dx} y={m.dy} blink={m.lid} />
             {/* 발 */}
             <rect x={4} y={11} width={2} height={1.4} fill="#1f2937" />
             <rect x={8} y={11} width={2} height={1.4} fill="#1f2937" />
