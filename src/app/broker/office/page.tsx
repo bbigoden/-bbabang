@@ -346,10 +346,16 @@ export default function OfficePage() {
     const todayYmd = todayKST()
     const empty = (name: string): BoardRow => ({ name, props: 0, avail: 0, bank: 0, daangn: 0, daangnToday: 0 })
     const byName: Record<string, BoardRow> = {}
-    const rows = members.map(m => {
+    // 대표·이사는 한 줄 '드래곤'으로 합친다(2026-10-28 사장님) — 같은 줄을 두 이름이 가리킨다
+    const 줄이름 = (m: Member) => (m.id === officeId || m.id === DIRECTOR_ID ? '드래곤' : m.profiles?.name ?? '이름 없음')
+    const rows: BoardRow[] = []
+    for (const m of members) {
       const c = counts.find(x => x[0] === m.id)!
-      return (byName[m.profiles?.name ?? m.id] = { ...empty(m.profiles?.name ?? '이름 없음'), props: c[1], avail: c[2] })
-    })
+      const r = rows.find(x => x.name === 줄이름(m)) ?? rows[rows.push(empty(줄이름(m))) - 1]
+      r.props += c[1]
+      r.avail += c[2]
+      byName[m.profiles?.name ?? m.id] = r
+    }
     const sum = { ...empty('사무실 전체'), props: total, avail: totalAvail }
     for (const l of (ls.data ?? []) as { manager: string | null }[]) {
       sum.bank++
