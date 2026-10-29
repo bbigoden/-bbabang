@@ -407,7 +407,7 @@ export default function OfficePage() {
   if (!adOn) alerts.push('광고 일꾼이 꺼져 있습니다 — PC 의 부소장 광고 프로그램을 켜 주세요')
   if (!bankOn) alerts.push('뱅크 임시저장 일꾼이 꺼져 있습니다')
   if (isOwner && orders !== null && !officeOn) alerts.push('사무실 일꾼이 꺼져 있습니다 — Claude 지시와 활동 표시가 멈춥니다')
-  if (failedAd.length + failedBank.length) alerts.push(`최근 하루 실패한 일 ${failedAd.length + failedBank.length}건 — 아래에서 다시 시도할 수 있습니다`)
+  if (failedAd.length + failedBank.length) alerts.push(`최근 하루 실패한 일 ${failedAd.length + failedBank.length}건 — 아래 빨간 글의 까닭을 먼저 풀고 [다시 시도] 하세요`)
   if (waitingClaude.length) alerts.push(`Claude ${waitingClaude.length}명이 사장님 대답을 기다립니다`)
 
   const myTasks = (tasks ?? []).filter(t => t.assignee_broker_id === broker.id)
@@ -596,7 +596,7 @@ export default function OfficePage() {
           <div className="pxo-fit mt-3 flex flex-wrap gap-2">
             {RUN_NOW.map(r => (
               <button key={r.kind} onClick={() => void runNow(r.kind, r.label)} disabled={busy.includes(`run-${r.kind}`)}
-                className="inline-flex items-center gap-1 rounded-lg disabled:opacity-50 border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+                className="inline-flex min-h-11 items-center gap-1 rounded-lg disabled:opacity-50 border border-gray-200 bg-white px-3 py-1.5 text-xs sm:min-h-0 font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
                 <Play className="h-3.5 w-3.5" /> {r.label}
               </button>
             ))}
@@ -714,6 +714,7 @@ function StaffSection({ officeId, members, tasks, onChange }: {
     setSaving(false)
     if (error) return toast.error(`배정하지 못했습니다: ${error.message}`)
     setForm(f => ({ ...f, title: '', due: '' }))
+    toast.success(`${nameOf(form.assignee)}에게 배정했습니다`)
     onChange()
   }
 
@@ -734,7 +735,7 @@ function StaffSection({ officeId, members, tasks, onChange }: {
             <input className={`${inputCls} flex-1`} placeholder="예: 쌍용동 상가 사진 찍어 오기" maxLength={200}
               value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void add() }} />
-            <input type="date" className={inputCls} value={form.due} onChange={e => setForm(f => ({ ...f, due: e.target.value }))} aria-label="기한" />
+            <input type="date" min={todayKST()} className={inputCls} value={form.due} onChange={e => setForm(f => ({ ...f, due: e.target.value }))} aria-label="기한" />
             <button onClick={() => void add()} disabled={saving}
               className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
               배정
