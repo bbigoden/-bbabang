@@ -483,11 +483,11 @@ export default function OfficePage() {
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
       state: s.today > 0 || s.customers > 0 || diaries[m.id] ? 'working' : 'idle',
       // 한 일만 줄로 적는다 — 매물·고객은 1건부터, 업무일지는 썼을 때만(2026-10-26 사장님이 정함, 고객은 10-29 더함)
-      say: [s.today ? `매물 ${s.today}건 등록` : '', s.customers ? `새 고객 ${s.customers}명` : '',
+      say: [s.today ? `매물 ${s.today}건 등록` : '', s.customers ? `고객 ${s.customers}명 등록` : '',
         diaries[m.id] ? '업무일지 등록' : '', open ? `할 일 ${open}건` : '']
         .filter(Boolean).join('\n') || null,
       pin: true,
-      note: `오늘 매물 ${s.today}건 등록 · 새로 맡은 고객 ${s.customers}명 · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
+      note: `오늘 매물 ${s.today}건 등록 · 고객 ${s.customers}명 등록(담당 기준) · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
         + (s.total == null ? '' : ` · 지금까지 등록한 매물 ${s.total.toLocaleString()}건`) + ` · 남은 할 일 ${open}건`,
     }
   })
