@@ -1258,7 +1258,7 @@ export default function BrokerCustomersPage() {
         <div role="dialog" aria-modal="true" aria-labelledby={deleteTitleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
             <h3 id={deleteTitleId} className="text-lg font-bold text-gray-900 dark:text-white mb-2">고객을 삭제할까요?</h3>
-            <p className="text-sm text-gray-500 mb-6">삭제하면 복구할 수 없어요.</p>
+            <p className="text-sm text-gray-500 mb-6">휴지통에 30일 동안 보관돼요. 그 안에는 휴지통에서 되살릴 수 있어요.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={() => deleteRow(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">삭제</button>

@@ -1767,34 +1767,38 @@ function BrokerPropertiesContent() {
       if (b.is_approved === false) { setAccessDenied(true); setLoading(false); return }
     }
 
-    // ── 팀원 이름 목록 (담당자 드롭다운용) ──────────────
-    const { data: prof } = await supabase.from('profiles').select('name').eq('id', u.id).single()
-    const myName = prof?.name as string | undefined
-    setSelfName(myName ?? '')
-    if (owner) {
-      setOwnerName(myName ?? '')  // 대표 본인 → 내 이름이 곧 대표 이름
-      const { data: emps } = await supabase
-        .from('broker_profiles')
-        .select('profiles(name)')
-        .eq('parent_broker_id', b.id)
-        .eq('is_approved', true)
-      const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
-      setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
-    } else {
-      setTeamMembers(myName ? [myName] : [])
-      // 직원 → 대표(parent_broker_id) 이름 조회. 담당자에 대표 이름이 잡힌 매물의 메모를 열람하기 위함.
-      if (b.parent_broker_id) {
-        const { data: ownerBroker } = await supabase
-          .from('broker_profiles').select('address, profiles(name)').eq('id', b.parent_broker_id).single()
-        setOwnerName((ownerBroker?.profiles as any)?.name ?? '')
-        setOfficeAddress((ownerBroker as any)?.address ?? null)
-      }
-    }
-
     // ── 커스텀 칼럼 로드 ───────────────────────────────
     const cc = b.custom_columns as CustomColumn[] | undefined
     const cols: CustomColumn[] = cc && cc.length > 0 ? cc : DEFAULT_CUSTOM_COLS
     setCustomColumns(cols)
+
+    // ── 팀원 이름 목록 (담당자 드롭다운용) ──────────────
+    // 매물 조회를 기다리게 하지 않는다 — 느린 폰 회선에서 왕복 하나가 2초라,
+    // 이름 → 직원 목록 → 매물 순으로 줄 세우면 매물이 4초 늦게 떴다(2026-10-29 점검).
+    void (async () => {
+      const { data: prof } = await supabase.from('profiles').select('name').eq('id', u.id).single()
+      const myName = prof?.name as string | undefined
+      setSelfName(myName ?? '')
+      if (owner) {
+        setOwnerName(myName ?? '')  // 대표 본인 → 내 이름이 곧 대표 이름
+        const { data: emps } = await supabase
+          .from('broker_profiles')
+          .select('profiles(name)')
+          .eq('parent_broker_id', b.id)
+          .eq('is_approved', true)
+        const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
+        setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
+      } else {
+        setTeamMembers(myName ? [myName] : [])
+        // 직원 → 대표(parent_broker_id) 이름 조회. 담당자에 대표 이름이 잡힌 매물의 메모를 열람하기 위함.
+        if (b.parent_broker_id) {
+          const { data: ownerBroker } = await supabase
+            .from('broker_profiles').select('address, profiles(name)').eq('id', b.parent_broker_id).single()
+          setOwnerName((ownerBroker?.profiles as any)?.name ?? '')
+          setOfficeAddress((ownerBroker as any)?.address ?? null)
+        }
+      }
+    })()
 
     // ── 데이터 범위 결정 ───────────────────────────────
     // 룰: 대표·직원 모두 사무소 전체 매물을 봄. 다른 직원 매물은 셀 단위로 읽기 전용 렌더링되고
