@@ -9,7 +9,7 @@
  *
  * 보이는 범위는 '보고 있는 일지의 주인' 기준이다:
  *   · 대표(김용유)·이사(권세현)의 일지 — 표 전체, 모두의 메모
- *   · 그 밖의 직원 일지 — 표는 '드래곤' 줄과 그 직원 줄, 메모는 대표·이사와 그 직원 것
+ *   · 그 밖의 직원 일지 — 표는 '드래곤'·그 직원·사무실 전체 줄(다른 직원 줄만 뺀다), 메모는 대표·이사와 그 직원 것
  * 대표가 직원 일지를 열어도 그 직원 눈높이로 보인다. 맨 아래 칸은 그 일지 주인의 메모.
  * 고치기는 자기 메모, 대표는 모두의 메모(DB 도 같은 규칙). 메모는 DB 도 같은 규칙으로 막는다(can_see_ad_memo).
  * 숫자를 찍어 두는 건 대표·이사가 열 때만 — 직원 계정은 권한에 따라 덜 셀 수 있어 전체 숫자를 덮으면 안 된다.
@@ -94,10 +94,10 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
     return !error
   }
 
-  // 표 — 대표·이사 일지면 전체, 아니면 드래곤 줄과 그 직원 줄
+  // 표 — 대표·이사 일지면 전체, 아니면 다른 직원 줄만 빼고 드래곤·그 직원·사무실 전체(2026-10-29 사장님)
   const lines = !board ? []
     : fullView ? [...board.rows, board.total]
-    : board.rows.filter(r => r.name === '드래곤' || (!!viewedBrokerId && r.ids?.includes(viewedBrokerId)))
+    : [...board.rows.filter(r => r.name === '드래곤' || (!!viewedBrokerId && r.ids?.includes(viewedBrokerId))), board.total]
   // 메모 — 대표·이사 일지면 모두, 아니면 대표·이사 것. 일지 주인 메모는 아래 칸으로 따로
   const others = memos
     .filter(m => m.author_id !== viewedBrokerId && (fullView || isLead(m.author_id)))
