@@ -547,20 +547,20 @@ export default function OfficePage() {
       boss: inDept('boss'),
       director: inDept('director'),
       sales: 영업부,
-      // 홍보부 한 줄, 왼쪽부터 — 직원 → 당근·블로그·카페 → 뱅크 등록 → 광고 내리기 → 뱅크 가져오기 → 수집 둘(2026-10-29 사장님)
+      // 홍보부 한 줄, 왼쪽부터 — 직원 → 뱅크 담당 → 당근·블로그·카페 → 광고 내리기 → 뱅크 가져오기 → 수집 둘(2026-10-29 사장님)
       promo: [
         ...자리채움([...inDept('promo')], 'promo'),
-        robot('daangn-post', '당근 담당', ['publish'], 'daangn', `오늘 당근 ${today.daangnPost}건 올림`, 2),
-        robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
-        robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
         {
-          key: 'bank', kind: 'robot', name: '뱅크 등록',
+          key: 'bank', kind: 'robot', name: '뱅크 담당',
           state: !bankOn ? 'off' : bankRunning ? 'working' : 'idle',
           say: bankOn ? (bankRunning ? (bankRunning.progress ?? '임시저장 중') : '대기 중') : offSay(agents?.bank_draft_seen_at),
           note: `뱅크 임시저장 대기 ${bankJobs.filter(j => j.status === 'queued').length}건`,
           flash: bankJobs.some(j => j.status === 'done' && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
             ? '임시저장 끝' : null,
         },
+        robot('daangn-post', '당근 담당', ['publish'], 'daangn', `오늘 당근 ${today.daangnPost}건 올림`, 2),
+        robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
+        robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
         robot('takedown', KIND_LABEL.takedown, ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
         robot('sync', KIND_LABEL.sync, ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
         robot('naver', KIND_LABEL.naver, ['naver'], null, `오늘 수집한 네이버 매물 ${today.naver}건`),

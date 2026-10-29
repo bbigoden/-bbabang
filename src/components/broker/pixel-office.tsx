@@ -12,7 +12,7 @@
  *   ├──문──────┴──────문──────────────────────────────문──┤           │
  *   │ 복도 ════════════════════════════════════════════════│           │
  *   ├──문─────────────문──────────────┬───────문───────┬──문─┴───────┤
- *   │ 영업부 (직원 책상 여덟)              │ 회의 ┊ 상담실  문 탕비실     │
+ *   │ 영업부 (직원 책상 여섯)     │ 회의실   │ 상담실  문 탕비실     │
  *   └─────────────────────────────────┴────────────────┴─────────────┘
  *   (┊ = 한 방을 둘이 나눠 씀. 복도 둘·로비는 2026-10-26, 지금 줄 배치는 2026-10-29 사장님이 정함 —
  *    매물조사실을 홍보부에 합치고, 회의·상담실을 아래로 내려 영업부를 넓혔다)
@@ -692,9 +692,9 @@ function walkKeyframes(name: string, pts: Pt[], speed: number) {
  */
 const JANITOR_ROUTES: { id: string; body: string; pal: Record<string, string>; pts: Pt[] }[] = [
   {
-    // 아래층: 영업부 바닥 → 아래 복도 → 회의·상담실 → 아래 복도 → 탕비실 → 돌아온다 (대걸레)
+    // 아래층: 영업부 바닥 → 아래 복도 → 상담실 → 아래 복도 → 탕비실 → 돌아온다 (대걸레)
     id: 'j1', body: 'squirtle', pal: { S: '#6ab0e0', B: '#a0642c', Y: '#f4e4b0', m: '#2c5a7a', P: '#6ab0e0', K: '#3b7fae', M: '#e5e7eb' },
-    pts: [[16, 309], [120, 309, 3], [260, 309, 2.5], [186, 309], [186, 230], [410, 230], [410, 288], [440, 309, 2.5], [410, 288], [410, 230],
+    pts: [[16, 309], [120, 309, 3], [200, 309, 2.5], [186, 309], [186, 230], [420, 230], [420, 288], [450, 309, 2.5], [420, 288], [420, 230],
       [520, 230], [520, 288], [530, 309, 3], [520, 288], [520, 230], [186, 230], [186, 309]],
   },
   {
@@ -951,7 +951,7 @@ type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'lab' | 'tile' | 'green'
  * 방(벽으로 둘러싼 칸). 자리 무리(RoomKey)와 따로 둔다 — 한 방에 두 무리가 앉는 곳이 있다
  * (회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이. 협력업체는 2026-10-29 빼고 에이전트실만).
  */
-type BoxKey = 'boss' | 'agentLab' | 'status' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry'
+type BoxKey = 'boss' | 'agentLab' | 'status' | 'director' | 'meeting' | 'consult' | 'promo' | 'sales' | 'pantry'
 
 interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number; h: number; floor: Floor; color: string }
 
@@ -965,9 +965,10 @@ const ROOMS: RoomBox[] = [
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
   // 매물조사실은 홍보부에 합쳤다 — 수집 로봇도 홍보부 줄 끝에 앉는다(2026-10-29)
   { key: 'promo', label: '홍보부', x: 120, y: 142, w: 376, h: 88, floor: 'wood', color: '#be185d' },
-  // 아래 줄: 영업부(넓게) · 회의·상담실 · 탕비실
-  { key: 'sales', label: '영업부', x: 0, y: 252, w: 356, h: 80, floor: 'wood', color: '#1d4ed8' },
-  { key: 'meetConsult', label: '회의 · 상담실', x: 356, y: 252, w: 140, h: 80, floor: 'parquet', color: '#7c2d12' },
+  // 아래 줄: 영업부 · 회의실 · 상담실 · 탕비실 — 회의실과 상담실은 2026-10-29 벽으로 나눔
+  { key: 'sales', label: '영업부', x: 0, y: 252, w: 260, h: 80, floor: 'wood', color: '#1d4ed8' },
+  { key: 'meeting', label: '회의실', x: 260, y: 252, w: 120, h: 80, floor: 'parquet', color: '#7c2d12' },
+  { key: 'consult', label: '상담실', x: 380, y: 252, w: 116, h: 80, floor: 'parquet', color: '#166534' },
   { key: 'pantry', label: '탕비실', x: 496, y: 252, w: 80, h: 80, floor: 'tile', color: '#78350f' },
 ]
 
@@ -980,8 +981,8 @@ const DOORS = [
   // 2줄 → 아래 복도
   { x: 60, y: 228, w: 18, h: 4 }, { x: 190, y: 228, w: 18, h: 4 }, { x: 440, y: 228, w: 18, h: 4 },
   // 아래 복도 → 3줄
-  { x: 60, y: 250, w: 18, h: 4 }, { x: 190, y: 250, w: 18, h: 4 }, { x: 410, y: 250, w: 18, h: 4 }, { x: 520, y: 250, w: 18, h: 4 },
-  // 방끼리 통하는 문은 회의·상담실 ↔ 탕비실 하나뿐 — 나머지는 복도로만 다닌다(2026-10-26 사장님이 막음)
+  { x: 60, y: 250, w: 18, h: 4 }, { x: 190, y: 250, w: 18, h: 4 }, { x: 300, y: 250, w: 18, h: 4 }, { x: 420, y: 250, w: 18, h: 4 }, { x: 520, y: 250, w: 18, h: 4 },
+  // 방끼리 통하는 문은 상담실 ↔ 탕비실 하나뿐 — 나머지는 복도로만 다닌다(2026-10-26 사장님이 막음)
   { x: 494, y: 282, w: 4, h: 20 },
 ]
 
@@ -994,12 +995,12 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   // 등록실(2026-10-25)·매물조사실(2026-10-29)을 홍보부로 합침(칸막이 없이)
   // 직원 한 명 + 로봇 여덟을 한 줄로(순서는 page.tsx 가 정한다)
   promo: { box: 'promo', dx: 10, dy: 34, sx: 40, sy: 0, cols: 9, max: 9 },
-  // 책상 여덟 — 2026-10-29 사장님이 영업부를 넓힘
-  sales: { box: 'sales', dx: 12, dy: 30, sx: 42, sy: 0, cols: 8, max: 8 },
+  // 책상 여섯 — 2026-10-29 사장님(여덟에서 줄이고 남은 폭은 회의실·상담실로)
+  sales: { box: 'sales', dx: 12, dy: 30, sx: 42, sy: 0, cols: 6, max: 6 },
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 8, promo: 9, lab: 16 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 9, lab: 16 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
@@ -1172,23 +1173,38 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           <Plant x={x + 36} y={y + 72} />
         </g>
       )
-    case 'meetConsult':
+    case 'meeting':
       return (
         <g>
-          {/* 왼쪽 회의 — 긴 탁자(현황판은 2026-10-26 사장님이 뺌) */}
-          {[0, 1, 2, 3].map(i => <rect key={`t${i}`} x={x + 10 + i * 13} y={y + 38} width={8} height={6} fill="#3f3f46" />)}
-          <rect x={x + 6} y={y + 44} width={56} height={18} fill="#8b5a2b" />
-          <rect x={x + 7} y={y + 45} width={54} height={3} fill="#a87443" />
-          {[0, 1, 2, 3].map(i => <rect key={`b${i}`} x={x + 10 + i * 13} y={y + 63} width={8} height={6} fill="#3f3f46" />)}
-          {/* 오른쪽 상담 — 상담 책상과 손님 의자 */}
+          {/* 벽 TV · 가운데 긴 탁자와 의자 넷씩 */}
+          <rect x={x + 44} y={y + 4} width={32} height={14} fill="#111827" />
+          <rect x={x + 45.5} y={y + 5.5} width={29} height={11} fill="#1e3a5f" />
+          <rect x={x + 48} y={y + 8} width={14} height={1.4} fill="#93c5fd" />
+          <rect x={x + 48} y={y + 11} width={20} height={1.4} fill="#93c5fd" opacity={0.6} />
+          {[0, 1, 2, 3].map(i => <rect key={`t${i}`} x={x + 36 + i * 13} y={y + 30} width={8} height={6} fill="#3f3f46" />)}
+          <rect x={x + 32} y={y + 36} width={56} height={18} fill="#8b5a2b" />
+          <rect x={x + 33} y={y + 37} width={54} height={3} fill="#a87443" />
+          {[0, 1, 2, 3].map(i => <rect key={`b${i}`} x={x + 36 + i * 13} y={y + 55} width={8} height={6} fill="#3f3f46" />)}
+          <Plant x={x + 6} y={y + 62} />
+          <Plant x={x + w - 14} y={y + 62} />
+        </g>
+      )
+    case 'consult':
+      return (
+        <g>
+          {/* 상담 책상(중개사 쪽 의자) · 손님 의자 둘 — 오늘 등록 고객만큼 앉는다 */}
+          <rect x={x + 46} y={y + 22} width={12} height={9} fill="#3f3f46" />
+          <rect x={x + 28} y={y + 32} width={48} height={4} fill="#c8955f" />
+          <rect x={x + 28} y={y + 36} width={48} height={10} fill="#9a6b3f" />
+          <rect x={x + 34} y={y + 33} width={10} height={2} fill="#f8fafc" />
           {[0, 1].map(i => (
             <g key={i}>
-              <rect x={x + 88 + i * 16} y={y + 60} width={12} height={9} fill="#3f3f46" />
-              {i < guests && <Sprite rows={GUESTS[i].rows} palette={GUESTS[i].pal} x={x + 87 + i * 16} y={y + 54} />}
+              <rect x={x + 34 + i * 22} y={y + 54} width={12} height={9} fill="#3f3f46" />
+              {i < guests && <Sprite rows={GUESTS[i].rows} palette={GUESTS[i].pal} x={x + 33 + i * 22} y={y + 48} />}
             </g>
           ))}
-          <Label x={x + 108} y={y + 75} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
-          <Plant x={x + 124} y={y + 62} />
+          <Label x={x + 52} y={y + 75} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
+          <Plant x={x + w - 14} y={y + 62} />
         </g>
       )
     case 'sales':
@@ -1428,9 +1444,9 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             <text key={l} x={260} y={151 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
           ))}
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
-          <rect x={317} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
+          <rect x={221} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
           {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
-          <Vacuum x={14} y={318} span={220} />
+          <Vacuum x={14} y={318} span={180} />
           <Cat x={122} y={220} span={56} />
           <Cat x={504} y={322} span={44} />
           {JANITOR_ROUTES.map(r => <Janitor key={r.id} route={r} />)}
