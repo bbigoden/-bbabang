@@ -547,7 +547,7 @@ export default function OfficePage() {
       boss: inDept('boss'),
       director: inDept('director'),
       sales: 영업부,
-      // 홍보부 한 줄, 왼쪽부터 — 직원 → 뱅크 담당 → 당근·블로그·카페 → 광고 내리기 → 뱅크 가져오기 → 수집 둘(2026-10-29 사장님)
+      // 홍보부 한 줄, 왼쪽부터 — 직원 → 뱅크 담당 → 당근·블로그·카페 → 광고 내리기 → 뱅크 가져오기 → 매물수집(2026-10-29 사장님)
       promo: [
         ...자리채움([...inDept('promo')], 'promo'),
         {
@@ -563,8 +563,8 @@ export default function OfficePage() {
         robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
         robot('takedown', KIND_LABEL.takedown, ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
         robot('sync', KIND_LABEL.sync, ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
-        robot('naver', KIND_LABEL.naver, ['naver'], null, `오늘 수집한 네이버 매물 ${today.naver}건`),
-        robot('daangn', KIND_LABEL.daangn, ['daangn'], null, `오늘 수집한 당근 매물 ${today.daangn}건`, 1),
+        // 네이버·당근 수집은 한 자리 '매물수집'(2026-10-29 사장님) — 둘 중 하나라도 돌면 일하는 중
+        robot('collect', '매물수집', ['naver', 'daangn'], null, `오늘 수집한 매물 네이버 ${today.naver}건 · 당근 ${today.daangn}건`),
       ],
       // 사무실 일꾼(PC 프로그램)은 그림에 앉히지 않는다 — 방이 없어 헷갈렸다(2026-10-28). 꺼지면 맨 위 경고로 알린다
       lab: [...visibleSessions(sessions ?? []).map((s): Seat => ({

@@ -700,8 +700,8 @@ const JANITOR_ROUTES: { id: string; body: string; pal: Record<string, string>; p
   {
     // 가운데·위층: 홍보부 → 아래 복도 → 로비 → 위 복도 → 에이전트실 → 되돌아 (빗자루)
     id: 'j2', body: 'pikachu', pal: { S: '#f8d030', N: '#1f1f1f', R: '#e8504a', m: '#7a3b1f', P: '#f8d030', K: '#c8a020', M: '#f59e0b' },
-    pts: [[272, 208], [400, 208, 2.5], [440, 208], [440, 230], [552, 230], [552, 180, 3], [552, 120], [302, 120],
-      [302, 92], [140, 92, 2.5], [356, 92, 2.5], [302, 92], [302, 120], [552, 120], [552, 230], [440, 230], [440, 208]],
+    pts: [[272, 208], [380, 208, 2.5], [400, 208], [400, 230], [552, 230], [552, 180, 3], [552, 120], [302, 120],
+      [302, 92], [140, 92, 2.5], [356, 92, 2.5], [302, 92], [302, 120], [552, 120], [552, 230], [400, 230], [400, 208]],
   },
 ]
 
@@ -765,7 +765,7 @@ const rowOf = (r: RoomBox) => (r.y < HALLS[0].y ? 0 : r.y < HALLS[1].y ? 1 : 2)
 function walkPath(from: Pt, to: Pt): Pt[] {
   const roomAt = ([x, y]: Pt) => ROOMS.find(r => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)!
   const HALL_Y = [HALLS[0].y + 3, HALLS[1].y + 3]   // 복도 한가운데(걷는 사람 왼쪽 위)
-  const LOBBY_X = LOBBY.x + 44                       // 두 복도를 잇는 로비
+  const LOBBY_X = LOBBY.x + 60                       // 두 복도를 잇는 로비(안내 데스크 오른쪽)
   const a = roomAt(from)
   const b = roomAt(to)
   if (a === b) return [from, [from[0], to[1]], to]
@@ -893,6 +893,15 @@ function Lobby() {
       {/* 손님 소파와 탁자 */}
       <Sofa x={x + 10} y={y + 88} w={30} color="#14274e" />
       <rect x={x + 16} y={y + 102} width={18} height={6} fill="#8b5a2b" />
+      <Sofa x={x + 70} y={y + 88} w={30} color="#14274e" />
+      <rect x={x + 76} y={y + 102} width={18} height={6} fill="#8b5a2b" />
+      {/* 매물 안내판 */}
+      <rect x={x + 76} y={y + 26} width={22} height={16} fill="#7c4a24" />
+      <rect x={x + 77.5} y={y + 27.5} width={19} height={13} fill="#fff7e6" />
+      {[0, 1, 2].map(i => <rect key={i} x={x + 79.5 + i * 6} y={y + 29.5} width={4} height={4} fill={['#93c5fd', '#86efac', '#fca5a5'][i]} />)}
+      <rect x={x + 79.5} y={y + 35.5} width={15} height={1} fill="#9ca3af" />
+      <rect x={x + 79.5} y={y + 37.5} width={11} height={1} fill="#9ca3af" />
+      <rect x={x + 86} y={y + 42} width={2} height={8} fill="#7c4a24" />
       <Plant x={x + 4} y={y + 112} />
       <Plant x={x + w - 12} y={y + 112} />
       {/* 바깥벽과 유리 양문, 매트, 출입구 안내 */}
@@ -942,7 +951,8 @@ const TOP = 24
  */
 const HALLS = [{ y: 120, h: 22 }, { y: 230, h: 22 }]
 /** 로비 — 오른쪽, 두 복도가 만나는 곳. 바깥 유리문으로 들어온다 */
-const LOBBY = { x: 496, y: 120, w: 80, h: 132 }
+// 홍보부 폭을 에이전트실에 맞추고 남은 폭만큼 넓혔다(2026-10-29) — 위 상황실과 같은 폭
+const LOBBY = { x: 438, y: 120, w: 138, h: 132 }
 const H = 332
 
 type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'lab' | 'tile' | 'green'
@@ -964,7 +974,7 @@ const ROOMS: RoomBox[] = [
   { key: 'status', label: '', x: 438, y: 24, w: 138, h: 96, floor: 'carpet', color: '#14532d' },
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
   // 매물조사실은 홍보부에 합쳤다 — 수집 로봇도 홍보부 줄 끝에 앉는다(2026-10-29)
-  { key: 'promo', label: '홍보부', x: 120, y: 142, w: 376, h: 88, floor: 'wood', color: '#be185d' },
+  { key: 'promo', label: '홍보부', x: 120, y: 142, w: 318, h: 88, floor: 'wood', color: '#be185d' },
   // 아래 줄: 영업부 · 회의실 · 상담실 · 탕비실 — 회의실과 상담실은 2026-10-29 벽으로 나눔
   { key: 'sales', label: '영업부', x: 0, y: 252, w: 260, h: 80, floor: 'wood', color: '#1d4ed8' },
   { key: 'meeting', label: '회의실', x: 260, y: 252, w: 120, h: 80, floor: 'parquet', color: '#7c2d12' },
@@ -979,7 +989,7 @@ const DOORS = [
   // 위 복도 → 2줄
   { x: 60, y: 140, w: 18, h: 4 }, { x: 190, y: 140, w: 18, h: 4 }, { x: 360, y: 140, w: 18, h: 4 },
   // 2줄 → 아래 복도
-  { x: 60, y: 228, w: 18, h: 4 }, { x: 190, y: 228, w: 18, h: 4 }, { x: 440, y: 228, w: 18, h: 4 },
+  { x: 60, y: 228, w: 18, h: 4 }, { x: 190, y: 228, w: 18, h: 4 }, { x: 400, y: 228, w: 18, h: 4 },
   // 아래 복도 → 3줄
   { x: 60, y: 250, w: 18, h: 4 }, { x: 190, y: 250, w: 18, h: 4 }, { x: 300, y: 250, w: 18, h: 4 }, { x: 420, y: 250, w: 18, h: 4 }, { x: 520, y: 250, w: 18, h: 4 },
   // 방끼리 통하는 문은 상담실 ↔ 탕비실 하나뿐 — 나머지는 복도로만 다닌다(2026-10-26 사장님이 막음)
@@ -993,14 +1003,14 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘 + 수집 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다.
   // 등록실(2026-10-25)·매물조사실(2026-10-29)을 홍보부로 합침(칸막이 없이)
-  // 직원 한 명 + 로봇 여덟을 한 줄로(순서는 page.tsx 가 정한다)
-  promo: { box: 'promo', dx: 10, dy: 34, sx: 40, sy: 0, cols: 9, max: 9 },
+  // 직원 한 명 + 로봇 일곱을 한 줄로(순서는 page.tsx 가 정한다)
+  promo: { box: 'promo', dx: 8, dy: 34, sx: 38, sy: 0, cols: 8, max: 8 },
   // 책상 여섯 — 2026-10-29 사장님(여덟에서 줄이고 남은 폭은 회의실·상담실로)
   sales: { box: 'sales', dx: 12, dy: 30, sx: 42, sy: 0, cols: 6, max: 6 },
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 9, lab: 16 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 8, lab: 16 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
@@ -1445,11 +1455,10 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
           ))}
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
           <rect x={221} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
-          {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
+          {/* 고양이·청소 로봇 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
           <Vacuum x={14} y={318} span={180} />
           <Cat x={122} y={220} span={56} />
           <Cat x={504} y={322} span={44} />
-          {JANITOR_ROUTES.map(r => <Janitor key={r.id} route={r} />)}
 
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
           {overflow.map(o => <Label key={o.key} x={o.x} y={o.y} text={`+${o.n}`} size={4} anchor="start" />)}
@@ -1459,6 +1468,8 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             <Desk key={p.seat.key} seat={p.seat} x={p.x} y={p.y} big={p.big} away={away.has(p.seat.key)}
               picked={picked === p.seat.key} onPick={pick(p.seat)} />
           ))}
+          {/* 청소부는 책상 앞으로 지나간다 — 뒤로 그리면 모니터 뒤로 숨어 다녔다(2026-10-29 사장님) */}
+          {JANITOR_ROUTES.map(r => <Janitor key={r.id} route={r} />)}
           {walkers.map(w => <Walker key={`${w.seat.key}-${w.seat.visit}`} seat={w.seat} from={w.from} to={w.to} onPick={pick(w.seat)} />)}
           {/* 밤 — 사무실 불빛만 남기고 어둡게. 모니터·말풍선은 이 위에 그려 밝게 둔다 */}
           {night && <rect x={0} y={TOP} width={W} height={H - TOP} fill="#0b1026" opacity={0.28} style={{ pointerEvents: 'none' }} />}
