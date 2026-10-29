@@ -187,12 +187,16 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
               </div>
             )
           ) : (
-            <textarea ref={taRef} value={draft} rows={1}
-              onChange={e => setDraft(e.target.value)}
-              onFocus={() => { focusedRef.current = true }}
-              onBlur={() => void save()}
-              placeholder="내 광고현황 메모"
-              className="w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
+            // 남의 메모와 헷갈리지 않게 '내 메모' 머리를 단다 — 머리 없는 칸을 남의 글로 읽었다(2026-10-29)
+            <div className="pt-2">
+              <p className="px-4 text-[11px] text-blue-500">내 메모{mine ? ` · ${hmKST(mine.updated_at)}` : ''}</p>
+              <textarea ref={taRef} value={draft} rows={1}
+                onChange={e => setDraft(e.target.value)}
+                onFocus={() => { focusedRef.current = true }}
+                onBlur={() => void save()}
+                placeholder="광고현황 메모 입력..."
+                className="w-full px-4 pt-0.5 pb-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[40px]" />
+            </div>
           ))}
         </div>
       )}
