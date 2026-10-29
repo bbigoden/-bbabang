@@ -1510,24 +1510,40 @@ export default function BrokerDiaryPage() {
           )}
         </div>
 
-        {/* Sections 2-5 — 2열 그리드 */}
-        {!diaryLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sections.map((def, idx) => def.id === 's_ad' && diaryDate >= AD_COMMON_FROM ? (
-              // 광고현황은 사람마다가 아니라 사무실 공통 — 현황판 숫자 + 공통 메모
-              <DiaryAdCommon key={def.id} num={idx + 2} title={def.title} officeId={pickerOfficeId} date={diaryDate}
-                myBrokerId={broker?.id ?? null} viewedBrokerId={viewingBrokerId ?? broker?.id ?? null} readOnly={!broker} />
-            ) : (
-              <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
-                onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={(id) => setSectionDeleteConfirm({ id, title: def.title })} readOnly={!canEditSections} />
-            ))}
-            {effectiveCanEdit && (
-              <button onClick={addSection} className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-colors">
-                <Plus className="h-4 w-4" />섹션 추가
-              </button>
-            )}
-          </div>
-        )}
+        {/* Sections 2~ — 넓은 화면은 두 줄기로 쌓는다(왼쪽 2·4·…, 오른쪽 3·5·…).
+            예전 2열 그리드는 한 행의 키를 맞춰, 업무요약이 길면 옆 칸이 같이 늘고 4·5번이 그 아래로 밀려
+            빈 공간이 생겼다(2026-10-29 사장님). 좁은 화면은 한 줄로 2·3·4·5 순서 그대로(contents + order). */}
+        {!diaryLoading && (() => {
+          const items = sections.map((def, idx) => (
+            <div key={def.id} style={{ order: idx }}>
+              {def.id === 's_ad' && diaryDate >= AD_COMMON_FROM ? (
+                // 광고현황은 사람마다가 아니라 사무실 공통 — 현황판 숫자 + 메모
+                <DiaryAdCommon num={idx + 2} title={def.title} officeId={pickerOfficeId} date={diaryDate}
+                  myBrokerId={broker?.id ?? null} viewedBrokerId={viewingBrokerId ?? broker?.id ?? null} readOnly={!broker} />
+              ) : (
+                <DiarySection def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
+                  onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={(id) => setSectionDeleteConfirm({ id, title: def.title })} readOnly={!canEditSections} />
+              )}
+            </div>
+          ))
+          const addBtn = effectiveCanEdit && (
+            <button key="add" onClick={addSection} style={{ order: sections.length }} className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-colors">
+              <Plus className="h-4 w-4" />섹션 추가
+            </button>
+          )
+          const column = (side: 0 | 1) => (
+            <div className="contents md:flex md:flex-col md:gap-4 md:flex-1 md:min-w-0">
+              {items.filter((_, i) => i % 2 === side)}
+              {sections.length % 2 === side && addBtn}
+            </div>
+          )
+          return (
+            <div className="flex flex-col gap-4 md:flex-row md:items-start">
+              {column(0)}
+              {column(1)}
+            </div>
+          )
+        })()}
 
       </div>
 
