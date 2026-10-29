@@ -8,7 +8,7 @@
  *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
  *   │ 복도 ════════════════════════════════════════════════│ 로비      │
  *   ├──문──────┬──────문──────────────문───────────────────┤ 안내 데스크│
- *   │ 이사실   │ 홍보부(채널+빈자리 ┊ 등록 ┊ 수집 로봇)     문  소파     ▯ 출입구
+ *   │ 이사실   │ 홍보부(직원 ┊ 채널·뱅크·수집 로봇)          문  소파     ▯ 출입구
  *   ├──문──────┴──────문──────────────────────────────문──┤           │
  *   │ 복도 ════════════════════════════════════════════════│           │
  *   ├──문─────────────문──────────────┬───────문───────┬──문─┴───────┤
@@ -61,7 +61,7 @@ export interface Seat {
 
 export type RoomKey =
   | 'boss' | 'director' | 'meeting'
-  | 'sales' | 'promo' | 'research' | 'register'
+  | 'sales' | 'promo'
   | 'pantry' | 'lab'
 
 /** 상황실 칠판 한 줄 — 사장님이 매일 손으로 적던 '매물장 259(거래가능 238) / 부동산뱅크 202 / 당근 178' */
@@ -348,7 +348,27 @@ const CHARIZARD = mon([
   '.RFFFFFYYYYYYFF.....',
   '......FFF..FFF......',
 ], { F: '#f08030', O: '#b4501c', G: '#2a8c86', E: '#1f1f1f', m: '#8a3a10', Y: '#f8e090', R: '#e83a1a', r: '#fbd34d' }, '#f08030')
-const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON, charizard: CHARIZARD }
+/**
+ * 파이리 — 2026-10-29 사장님이 이현영 자리에 '이쁘게'. 기본 파이리(14×11)보다 머리를 크게, 눈에 하이라이트·
+ * 볼에 분홍, 진한 테두리로 모양을 또렷하게. 꼬리 불꽃은 모니터에 안 가리게 왼쪽.
+ */
+const CHARMANDER_CUTE = mon([
+  '.....DDDDD......',
+  '....DFFFFFD.....',
+  '...DFFFFFFFD....',
+  '..DFEWFFFEWFD...',
+  '..DFEEFFFEEFD...',
+  '..DFBFFmFFBFD...',
+  '...DFFFFFFFD....',
+  '....DFFFFFD.....',
+  '...DFFYYYFFD....',
+  '.R.DFYYYYYFD....',
+  'RoR.DYYYYYD.....',
+  'RrR.DFYYYFD.....',
+  '.RFFDFFFFFD.....',
+  '....DFD.DFD.....',
+], { D: '#c2410c', F: '#fb8c3c', Y: '#fde9a8', E: '#1f1f1f', W: '#ffffff', B: '#f9a8d4', m: '#7c2d12', R: '#ef4444', o: '#fb923c', r: '#fde047' }, '#fb8c3c')
+const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON, charizard: CHARIZARD, charmander: CHARMANDER_CUTE }
 
 /** 직원 — 고른 색(tint)마다 한 마리. 같은 포켓몬이 나란히 앉지 않게 여덟. */
 const STAFF_MONS = [PIKACHU, SQUIRTLE, CHARMANDER, BULBASAUR, JIGGLYPUFF, EEVEE, PSYDUCK, MEOWTH]
@@ -972,16 +992,14 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘 + 수집 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다.
   // 등록실(2026-10-25)·매물조사실(2026-10-29)을 홍보부로 합침(칸막이 없이)
-  // 채널 자리는 다섯 — 하나는 비워 둔다(2026-10-29 사장님 '한 자리 더')
-  promo: { box: 'promo', dx: 10, dy: 34, sx: 40, sy: 0, cols: 5, max: 5 },
-  register: { box: 'promo', dx: 210, dy: 34, sx: 40, sy: 0, cols: 2, max: 2 },
-  research: { box: 'promo', dx: 290, dy: 34, sx: 40, sy: 0, cols: 2, max: 2 },
+  // 직원 한 명 + 로봇 여덟을 한 줄로(순서는 page.tsx 가 정한다)
+  promo: { box: 'promo', dx: 10, dy: 34, sx: 40, sy: 0, cols: 9, max: 9 },
   // 책상 여덟 — 2026-10-29 사장님이 영업부를 넓힘
   sales: { box: 'sales', dx: 12, dy: 30, sx: 42, sy: 0, cols: 8, max: 8 },
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 8, promo: 5, research: 2, register: 2, lab: 16 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 8, promo: 9, lab: 16 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',

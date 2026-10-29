@@ -26,12 +26,16 @@ import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
 import { PixelOffice, type OfficeLayout, type Seat } from '@/components/broker/pixel-office'
 import { fetchOfficeBoard, DIRECTOR_ID } from '@/lib/office-board'
 
-/** 따로 고른 포켓몬 — 이예리는 님피아(2026-10-27 사장님) */
 /** 영업부 책상 순서 — 왼쪽부터 */
 const SALES_ORDER = ['박혜성', '이예리', '문지혜', '김미선', '김불당']
+/** 홍보부에 앉는 직원(이름으로 — 계정이 생기기 전부터 자리를 정해 둔다). 나머지 직원은 영업부 */
+const PROMO_STAFF = ['이현영']
 /** 계정이 아직 없지만 자리를 내 둔 사람 */
-const SALES_PENDING = ['김미선']
+const PENDING_STAFF = ['김미선', '이현영']
+/** 이름으로 고른 포켓몬 — 계정이 생기기 전에도 같은 포켓몬이 앉는다 */
+const NAME_MON: Record<string, string> = { 이현영: 'charmander' }   // 2026-10-29 사장님 '파이리를 이쁘게'
 
+/** 따로 고른 포켓몬 — 이예리는 님피아(2026-10-27 사장님) */
 const STAFF_MON: Record<string, string> = {
   'c7e58900-e6bb-4f88-b3bf-d1879f8a6050': 'sylveon',   // 이예리
   'e21e1f46-6492-4f1d-964c-ba7da59a5372': 'charizard', // 박혜성 — 리자몽(2026-10-28)
@@ -448,7 +452,7 @@ export default function OfficePage() {
     const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id] }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
     return {
-      key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id], name: m.profiles?.name ?? '이름 없음',
+      key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id] ?? NAME_MON[m.profiles?.name ?? ''], name: m.profiles?.name ?? '이름 없음',
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
       state: s.today > 0 || diaries[m.id] ? 'working' : 'idle',
@@ -507,20 +511,26 @@ export default function OfficePage() {
   }
 
   // 직원은 다 영업부 — 김불당도 2026-10-27 상담실에서 영업부로 옮김
-  const deptOf = (id: string) => (id === officeId ? 'boss' : id === DIRECTOR_ID ? 'director' : 'sales')
+  const nameOfId = Object.fromEntries(members.map(m => [m.id, m.profiles?.name ?? '']))
+  const deptOf = (id: string) => (id === officeId ? 'boss' : id === DIRECTOR_ID ? 'director'
+    : PROMO_STAFF.includes(nameOfId[id]) ? 'promo' : 'sales')
   // 자기가 건 일이 돌고 있으면 그 일꾼 옆으로 걸어가 서 있는다(2026-10-27 '직접 이동하게')
   const userOf = Object.fromEntries(members.map(m => [m.id, m.user_id]))
   const inDept = (d: string) => people.filter(p => deptOf(p.key) === d)
     .map(p => (d === 'director' ? { ...p, role: '이사' } : p))
   // 영업부 앉는 순서(2026-10-29 사장님). 계정이 아직 없는 사람은 '가입 전' 자리로 먼저 앉혀 두고,
   // 같은 이름으로 가입·승인되면 그 자리에 진짜 계정이 앉는다
-  const 영업부 = [...inDept('sales')]
-  for (const name of SALES_PENDING) {
-    if (!영업부.some(p => p.name === name)) 영업부.push({
-      key: `pending-${name}`, kind: 'person', tint: 영업부.length, name, role: '직원', state: 'idle', say: '가입 전',
-      note: '아직 부소장 계정이 없습니다 — 이 이름으로 가입하고 승인되면 이 자리에 앉습니다',
-    })
+  const 가입전 = (name: string, tint: number): Seat => ({
+    key: `pending-${name}`, kind: 'person', tint, mon: NAME_MON[name], name, role: '직원', state: 'idle', say: '가입 전',
+    note: '아직 부소장 계정이 없습니다 — 이 이름으로 가입하고 승인되면 이 자리에 앉습니다',
+  })
+  const 자리채움 = (list: Seat[], dept: 'sales' | 'promo') => {
+    for (const name of PENDING_STAFF) {
+      if ((PROMO_STAFF.includes(name) ? 'promo' : 'sales') === dept && !list.some(p => p.name === name)) list.push(가입전(name, list.length))
+    }
+    return list
   }
+  const 영업부 = 자리채움([...inDept('sales')], 'sales')
   const 순번 = (n: string) => { const i = SALES_ORDER.indexOf(n); return i < 0 ? SALES_ORDER.length : i }
   영업부.sort((a, b) => 순번(a.name) - 순번(b.name))
 
@@ -537,17 +547,12 @@ export default function OfficePage() {
       boss: inDept('boss'),
       director: inDept('director'),
       sales: 영업부,
+      // 홍보부 한 줄, 왼쪽부터 — 직원 → 당근·블로그·카페 → 뱅크 등록 → 광고 내리기 → 뱅크 가져오기 → 수집 둘(2026-10-29 사장님)
       promo: [
-        robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
-        robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
+        ...자리채움([...inDept('promo')], 'promo'),
         robot('daangn-post', '당근 담당', ['publish'], 'daangn', `오늘 당근 ${today.daangnPost}건 올림`, 2),
-        robot('takedown', KIND_LABEL.takedown, ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
-      ],
-      research: [
-        robot('naver', KIND_LABEL.naver, ['naver'], null, `오늘 수집한 네이버 매물 ${today.naver}건`),
-        robot('daangn', KIND_LABEL.daangn, ['daangn'], null, `오늘 수집한 당근 매물 ${today.daangn}건`, 1),
-      ],
-      register: [
+        robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
+        robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
         {
           key: 'bank', kind: 'robot', name: '뱅크 등록',
           state: !bankOn ? 'off' : bankRunning ? 'working' : 'idle',
@@ -556,7 +561,10 @@ export default function OfficePage() {
           flash: bankJobs.some(j => j.status === 'done' && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
             ? '임시저장 끝' : null,
         },
+        robot('takedown', KIND_LABEL.takedown, ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
         robot('sync', KIND_LABEL.sync, ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
+        robot('naver', KIND_LABEL.naver, ['naver'], null, `오늘 수집한 네이버 매물 ${today.naver}건`),
+        robot('daangn', KIND_LABEL.daangn, ['daangn'], null, `오늘 수집한 당근 매물 ${today.daangn}건`, 1),
       ],
       // 사무실 일꾼(PC 프로그램)은 그림에 앉히지 않는다 — 방이 없어 헷갈렸다(2026-10-28). 꺼지면 맨 위 경고로 알린다
       lab: [...visibleSessions(sessions ?? []).map((s): Seat => ({
@@ -572,7 +580,7 @@ export default function OfficePage() {
     },
   }
 
-  for (const k of ['boss', 'director', 'sales'] as const) {
+  for (const k of ['boss', 'director', 'sales', 'promo'] as const) {
     layout.seats[k] = layout.seats[k]?.map(p => ({ ...p, visit: visitBy[userOf[p.key] ?? ''] }))
   }
 
