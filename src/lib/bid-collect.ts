@@ -10,7 +10,7 @@ import {
  * 나라장터에서 도장·방수 공고와 낙찰결과를 받아 bid_* 표에 쌓는다.
  *
  * 한 번 돌 때 하는 일 (시간·한도가 남는 만큼):
- *  1. 최근 3일 공고·기초금액·낙찰결과 — 목록은 한 번에 999건씩이라 몇 번이면 끝난다
+ *  1. 최근 3일 공고·기초금액·참가가능지역, 최근 2주 개찰된 낙찰결과 — 목록은 한 번에 999건씩이라 몇 번이면 끝난다
  *  2. 낙찰결과마다 예가 15개(1번) + 업체별 투찰(1번) — **여기가 한도를 다 먹는다**
  *  3. 상세가 다 채워졌으면 과거로 1주씩 거슬러 올라가며 목록을 더 받는다
  *
@@ -23,6 +23,11 @@ const DAILY_LIMIT = 950
 /** 과거 데이터는 여기까지만 거슬러 올라간다 */
 export const BACKFILL_FLOOR = '2023-01-01'
 const RECENT_DAYS = 3
+/**
+ * 낙찰은 '개찰일'로 받는다. 공고 뒤 1~2주에 개찰하므로 최근 낙찰은 2주를 늘 다시 본다.
+ * (공고일로 받던 때는 3일 전보다 먼저 공고된 건이 개찰되면 영영 안 들어왔다 — 온양문화원 방수 공사)
+ */
+const RECENT_RESULT_DAYS = 14
 const WINDOW_DAYS = 7
 const DETAIL_BATCH = 8
 const DETAIL_CONCURRENCY = 4
@@ -86,8 +91,19 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     return out
   }
 
-  /** 기간 하나의 공고·기초금액·낙찰 목록을 받아 넣는다 */
-  const syncWindow = async (from: string, to: string) => {
+  /** 개찰일 기간 하나의 낙찰 목록을 받아 넣는다. 조회구분 2 = 개찰일 (1 은 공고일) */
+  const syncResults = async (from: string, to: string) => {
+    const results = await listAll('result', 'getScsbidListSttusCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD, inqryDiv: '2' })
+    const rrows = dedupe(results.map(toResultRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`)
+    await upsert(supa, 'bid_results', rrows, 'bid_ntce_no,bid_ntce_ord,rbid_no')
+    report.results += rrows.length
+  }
+
+  /**
+   * 공고일 기간 하나의 공고·기초금액(·참가가능지역)과, 같은 기간 개찰된 낙찰을 받아 넣는다.
+   * 참가가능지역은 마감 전 공고에만 쓸모 있어 최근 기간에만 받는다(1주에 조회 ~17번이라 과거까지는 아깝다).
+   */
+  const syncWindow = async (from: string, to: string, opts: { regions?: boolean } = {}) => {
     const notices = await listAll('notice', 'getBidPblancListInfoCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
     const nrows = dedupe(notices.map(toNoticeRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`)
     await upsert(supa, 'bid_notices', nrows, 'bid_ntce_no,bid_ntce_ord')
@@ -95,17 +111,16 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
 
     // 참가가능지역도 업종으로 못 거른다 — 모든 업무 하루 ~2,300줄을 받아 우리 공고에 붙인다.
     // 한 줄도 없으면 지역제한이 없는 공고(전국)라, 이 기간에 공고된 것은 모두 '받음'으로 적는다
-    const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
-    report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
+    if (opts.regions) {
+      const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
+      report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
+    }
 
     // 기초금액은 업종으로 못 거른다 — 공사 전체(1주 ~2,400건)를 받아 우리 공고만 남긴다
     const bsis = await listAll('notice', 'getBidPblancListInfoCnstwkBsisAmount', from, to)
     report.bsis += await applyBsis(supa, bsis.map(toBsisPatch))
 
-    const results = await listAll('result', 'getScsbidListSttusCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
-    const rrows = dedupe(results.map(toResultRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`)
-    await upsert(supa, 'bid_results', rrows, 'bid_ntce_no,bid_ntce_ord,rbid_no')
-    report.results += rrows.length
+    await syncResults(from, to)
   }
 
   /** 낙찰 한 건의 예가·투찰·하한율·A값을 채운다 */
@@ -159,7 +174,8 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
 
   try {
     // 1. 최근
-    await syncWindow(addDays(today, -RECENT_DAYS), today)
+    await syncWindow(addDays(today, -RECENT_DAYS), today, { regions: true })
+    await syncResults(addDays(today, -RECENT_RESULT_DAYS), today)
 
     // 참가가능지역 — 예전에 받은 공고에도 한 번 붙인다(한 주에 조회 ~17번)
     while (rgnUntil > addDays(today, -RGN_BACKFILL_DAYS)) {

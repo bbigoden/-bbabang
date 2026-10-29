@@ -89,6 +89,7 @@ function dday(iso: string | null): { text: string; urgent: boolean } | null {
 }
 
 const REGION_KEY = 'bid_regions_v1'
+const RESULT_COLS = 'bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong'
 
 
 export default function BidPage() {
@@ -131,7 +132,7 @@ export default function BidPage() {
           .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns')
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
         supabase.from('bid_results')
-          .select('bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong')
+          .select(RESULT_COLS)
           .order('openg_at', { ascending: false, nullsFirst: false }).limit(300),
         // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개라 수천 건도 가볍다
         fetchAllPaged<HistoryRow>((from, to) => supabase.from('bid_results')
@@ -204,10 +205,26 @@ export default function BidPage() {
     [baseNotices, regions],
   )
 
+  // 낙찰결과 검색은 받아 둔 최근 300건이 아니라 쌓인 낙찰 전체에서 찾는다 —
+  // 어제 개찰한 온양문화원이 300건 밖이라 검색이 안 됐다
+  const [searched, setSearched] = useState<Result[] | null>(null)
+  useEffect(() => {
+    const words = q.trim().split(/\s+/).filter(Boolean).map(w => w.replace(/[,()%*\\]/g, '')).filter(Boolean)
+    if (tab !== 'result' || !words.length) { setSearched(null); return }
+    const t = setTimeout(async () => {
+      let query = supabase.from('bid_results').select(RESULT_COLS)
+      for (const w of words) query = query.or(`name.ilike.*${w}*,dminstt_nm.ilike.*${w}*,winner_nm.ilike.*${w}*`)
+      const { data } = await query.order('openg_at', { ascending: false, nullsFirst: false }).limit(300)
+      setSearched((data as Result[]) ?? [])
+    }, 300)
+    return () => clearTimeout(t)
+  }, [q, tab, supabase])
+
   const shownResults = useMemo(() => {
+    if (searched) return searched
     const words = q.trim().split(/\s+/).filter(Boolean)
     return results.filter(r => words.every(w => `${r.name} ${r.dminstt_nm ?? ''} ${r.winner_nm ?? ''}`.includes(w)))
-  }, [results, q])
+  }, [results, searched, q])
 
   if (authLoading) return null
   if (!enabled) {
@@ -273,7 +290,7 @@ export default function BidPage() {
           {/* 분석이 얼마나 믿을 만한지는 쌓인 과거 낙찰 수에 달렸다. 숫자를 늘 보이게 둔다 */}
           {!loading && <span>분석에 쓰는 과거 낙찰 {history.length.toLocaleString('ko-KR')}건</span>}
           {tab === 'notice' && !loading && <span>공고 {shownNotices.length.toLocaleString('ko-KR')}건</span>}
-          {tab === 'result' && <span>아래 표는 최근 {results.length.toLocaleString('ko-KR')}건</span>}
+          {tab === 'result' && <span>{searched ? `전체에서 찾음 ${searched.length.toLocaleString('ko-KR')}건` : `아래 표는 최근 ${results.length.toLocaleString('ko-KR')}건 · 검색은 전체에서`}</span>}
           {backfillUntil && backfillUntil > BACKFILL_FLOOR && (
             <span>과거 데이터 {backfillUntil}까지 채움 · {BACKFILL_FLOOR}까지 매일 조금씩</span>
           )}
@@ -393,7 +410,9 @@ export default function BidPage() {
             </ul>
           )
         ) : shownResults.length === 0 ? (
-          <p className="py-10 text-center text-sm text-gray-400">아직 받은 낙찰결과가 없습니다</p>
+          <p className="py-10 text-center text-sm text-gray-400">
+            {q.trim() ? '검색에 맞는 낙찰결과가 없습니다 — 개찰 전이거나 아직 받지 않은 공고일 수 있습니다' : '아직 받은 낙찰결과가 없습니다'}
+          </p>
         ) : (
           <>
           {/* 폰에선 표가 820px 라 1순위·금액이 화면 밖이었다 — 줄마다 카드로 */}
