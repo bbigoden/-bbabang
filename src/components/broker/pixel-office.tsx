@@ -3,18 +3,19 @@
 /**
  * 사무실 화면의 픽셀 사무실 — 한 층짜리 진짜 사무실처럼 그린다.
  *
- *   ┌ 창문 ── 시계 ── 화이트보드 ───────────────────────────────────────┐
+ *   ┌───────────────────────────────────────────────────────────────────┐
  *   │ 대표실   │ 에이전트실                     │ 상황실(현황판)   │
  *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
  *   │ 복도 ════════════════════════════════════════════════│ 로비      │
- *   ├──문──────┬──────문───────┬──────문───────────────────┤ 안내 데스크│
- *   │ 이사실   │ 회의 ┊ 상담실 │ 홍보부(채널 ┊ 등록 로봇)  문  소파     ▯ 출입구
- *   ├──문──────┴──────문───────┴──────문───────────────문──┤           │
+ *   ├──문──────┬──────문──────────────문───────────────────┤ 안내 데스크│
+ *   │ 이사실   │ 홍보부(채널 ┊ 등록 ┊ 수집 로봇)            문  소파     ▯ 출입구
+ *   ├──문──────┴──────문──────────────────────────────문──┤           │
  *   │ 복도 ════════════════════════════════════════════════│           │
- *   ├──문─────────────문───────┬──────문──┬─────────────문─┴───────────┤
- *   │ 영업부 (직원 책상 여섯)       │ 탕비실   │ 매물조사실(수집 로봇)      │
- *   └───────────────────────────┴──────────┴───────────────────────────────┘
- *   (┊ = 한 방을 둘이 나눠 씀. 배치·폭·복도 둘·로비는 2026-10-26 사장님이 정함)
+ *   ├──문─────────────문──────────────┬───────문───────┬──문─┴───────┤
+ *   │ 영업부 (직원 책상 여덟)              │ 회의 ┊ 상담실  문 탕비실     │
+ *   └─────────────────────────────────┴────────────────┴─────────────┘
+ *   (┊ = 한 방을 둘이 나눠 씀. 복도 둘·로비는 2026-10-26, 지금 줄 배치는 2026-10-29 사장님이 정함 —
+ *    매물조사실을 홍보부에 합치고, 회의·상담실을 아래로 내려 영업부를 넓혔다)
  *
  * 광고 PC 프로그램은 하나지만, 하는 일(카페·블로그·당근·회수·수집·뱅크)마다 로봇을 따로 앉혀
  * 지금 어느 일이 도는지 자리로 보이게 한다 — 그 나눔은 화면(page.tsx)이 걸린 일로 정한다.
@@ -669,10 +670,10 @@ function walkKeyframes(name: string, pts: Pt[], speed: number) {
  */
 const JANITOR_ROUTES: { id: string; body: string; pal: Record<string, string>; pts: Pt[] }[] = [
   {
-    // 아래층: 영업부 바닥 → 아래 복도 → 탕비실 → 아래 복도 → 매물조사실 → 돌아온다 (대걸레)
+    // 아래층: 영업부 바닥 → 아래 복도 → 회의·상담실 → 아래 복도 → 탕비실 → 돌아온다 (대걸레)
     id: 'j1', body: 'squirtle', pal: { S: '#6ab0e0', B: '#a0642c', Y: '#f4e4b0', m: '#2c5a7a', P: '#6ab0e0', K: '#3b7fae', M: '#e5e7eb' },
-    pts: [[16, 309], [110, 309, 3], [186, 309], [186, 230], [330, 230], [330, 288], [340, 309, 2.5], [330, 288], [330, 230],
-      [440, 230], [440, 288], [530, 309, 3], [440, 288], [440, 230], [186, 230], [186, 309]],
+    pts: [[16, 309], [120, 309, 3], [260, 309, 2.5], [186, 309], [186, 230], [410, 230], [410, 288], [440, 309, 2.5], [410, 288], [410, 230],
+      [520, 230], [520, 288], [530, 309, 3], [520, 288], [520, 230], [186, 230], [186, 309]],
   },
   {
     // 가운데·위층: 홍보부 → 아래 복도 → 로비 → 위 복도 → 에이전트실 → 되돌아 (빗자루)
@@ -909,7 +910,7 @@ const W = 576
 /**
  * 판 위쪽 0~24 는 예전 뒷벽(창문·시계·화이트보드) 자리 — 2026-10-28 사장님이 '창문 필요 없다' 해서 떼고
  * 그만큼 안을 넓혀 보인다. 좌표는 그대로 두고 보는 창(viewBox)만 TOP 부터 자른다.
- * 시계는 대표실 벽으로, 화이트보드는 매물조사실 벽으로 옮겼다.
+ * 시계는 대표실 벽으로, 화이트보드는 홍보부 벽으로 옮겼다.
  */
 const TOP = 24
 /**
@@ -927,7 +928,7 @@ type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'lab' | 'tile' | 'green'
  * 방(벽으로 둘러싼 칸). 자리 무리(RoomKey)와 따로 둔다 — 한 방에 두 무리가 앉는 곳이 있다
  * (회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이. 협력업체는 2026-10-29 빼고 에이전트실만).
  */
-type BoxKey = 'boss' | 'agentLab' | 'status' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
+type BoxKey = 'boss' | 'agentLab' | 'status' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry'
 
 interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number; h: number; floor: Floor; color: string }
 
@@ -939,11 +940,12 @@ const ROOMS: RoomBox[] = [
   // 칠판 폭에 딱 맞게 줄이고 남은 폭은 에이전트실로(2026-10-29)
   { key: 'status', label: '', x: 438, y: 24, w: 138, h: 96, floor: 'carpet', color: '#14532d' },
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
-  { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 142, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
-  { key: 'promo', label: '홍보부', x: 260, y: 142, w: 236, h: 88, floor: 'wood', color: '#be185d' },
-  { key: 'sales', label: '영업부', x: 0, y: 252, w: 300, h: 80, floor: 'wood', color: '#1d4ed8' },
-  { key: 'pantry', label: '탕비실', x: 300, y: 252, w: 80, h: 80, floor: 'tile', color: '#78350f' },
-  { key: 'research', label: '매물조사실', x: 380, y: 252, w: 196, h: 80, floor: 'lab', color: '#0e7490' },
+  // 매물조사실은 홍보부에 합쳤다 — 수집 로봇도 홍보부 줄 끝에 앉는다(2026-10-29)
+  { key: 'promo', label: '홍보부', x: 120, y: 142, w: 376, h: 88, floor: 'wood', color: '#be185d' },
+  // 아래 줄: 영업부(넓게) · 회의·상담실 · 탕비실
+  { key: 'sales', label: '영업부', x: 0, y: 252, w: 356, h: 80, floor: 'wood', color: '#1d4ed8' },
+  { key: 'meetConsult', label: '회의 · 상담실', x: 356, y: 252, w: 140, h: 80, floor: 'parquet', color: '#7c2d12' },
+  { key: 'pantry', label: '탕비실', x: 496, y: 252, w: 80, h: 80, floor: 'tile', color: '#78350f' },
 ]
 
 /** 문 — 벽 위에 문지방 색을 덧칠해 구멍을 낸다. */
@@ -951,13 +953,13 @@ const DOORS = [
   // 1줄 → 위 복도
   { x: 50, y: 118, w: 18, h: 4 }, { x: 160, y: 118, w: 18, h: 4 }, { x: 300, y: 118, w: 18, h: 4 }, { x: 480, y: 118, w: 18, h: 4 },
   // 위 복도 → 2줄
-  { x: 60, y: 140, w: 18, h: 4 }, { x: 190, y: 140, w: 18, h: 4 }, { x: 300, y: 140, w: 18, h: 4 },
+  { x: 60, y: 140, w: 18, h: 4 }, { x: 190, y: 140, w: 18, h: 4 }, { x: 360, y: 140, w: 18, h: 4 },
   // 2줄 → 아래 복도
-  { x: 60, y: 228, w: 18, h: 4 }, { x: 190, y: 228, w: 18, h: 4 }, { x: 290, y: 228, w: 18, h: 4 }, { x: 440, y: 228, w: 18, h: 4 },
+  { x: 60, y: 228, w: 18, h: 4 }, { x: 190, y: 228, w: 18, h: 4 }, { x: 440, y: 228, w: 18, h: 4 },
   // 아래 복도 → 3줄
-  { x: 60, y: 250, w: 18, h: 4 }, { x: 190, y: 250, w: 18, h: 4 }, { x: 330, y: 250, w: 18, h: 4 }, { x: 440, y: 250, w: 18, h: 4 },
-  // 방끼리 통하는 문은 탕비실 양옆뿐 — 나머지는 복도로만 다닌다(2026-10-26 사장님이 막음)
-  { x: 298, y: 282, w: 4, h: 20 }, { x: 378, y: 282, w: 4, h: 20 },
+  { x: 60, y: 250, w: 18, h: 4 }, { x: 190, y: 250, w: 18, h: 4 }, { x: 410, y: 250, w: 18, h: 4 }, { x: 520, y: 250, w: 18, h: 4 },
+  // 방끼리 통하는 문은 회의·상담실 ↔ 탕비실 하나뿐 — 나머지는 복도로만 다닌다(2026-10-26 사장님이 막음)
+  { x: 494, y: 282, w: 4, h: 20 },
 ]
 
 /** 자리 무리마다 어느 방 어디에 책상을 놓나: 첫 자리(dx, dy), 가로·세로 간격(sx, sy), 한 줄에 몇, 최대 몇. */
@@ -965,17 +967,17 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   boss: { box: 'boss', dx: 44, dy: 40, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   lab: { box: 'agentLab', dx: 12, dy: 28, sx: 38, sy: 34, cols: 8, max: 16 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
-  // 홍보 넷 + 등록 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다
-  promo: { box: 'promo', dx: 10, dy: 34, sx: 38, sy: 0, cols: 4, max: 4 },
-  // 등록 로봇도 홍보부에 앉는다 — 2026-10-25 사장님이 등록실을 홍보부로 합침(칸막이 없이)
-  register: { box: 'promo', dx: 166, dy: 34, sx: 36, sy: 0, cols: 2, max: 2 },
-  // 책상 여섯 — 2026-10-26 사장님이 늘림
-  sales: { box: 'sales', dx: 12, dy: 30, sx: 46, sy: 0, cols: 6, max: 6 },
-  research: { box: 'research', dx: 12, dy: 25, sx: 48, sy: 27, cols: 3, max: 6 },
+  // 홍보 넷 + 등록 둘 + 수집 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다.
+  // 등록실(2026-10-25)·매물조사실(2026-10-29)을 홍보부로 합침(칸막이 없이)
+  promo: { box: 'promo', dx: 12, dy: 34, sx: 42, sy: 0, cols: 4, max: 4 },
+  register: { box: 'promo', dx: 190, dy: 34, sx: 42, sy: 0, cols: 2, max: 2 },
+  research: { box: 'promo', dx: 284, dy: 34, sx: 42, sy: 0, cols: 2, max: 2 },
+  // 책상 여덟 — 2026-10-29 사장님이 영업부를 넓힘
+  sales: { box: 'sales', dx: 12, dy: 30, sx: 42, sy: 0, cols: 8, max: 8 },
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 4, research: 2, register: 2, lab: 16 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 8, promo: 4, research: 2, register: 2, lab: 16 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
@@ -1163,8 +1165,8 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
               {i < guests && <Sprite rows={GUESTS[i].rows} palette={GUESTS[i].pal} x={x + 87 + i * 16} y={y + 54} />}
             </g>
           ))}
-          <Label x={x + 108} y={y + 80} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
-          <Plant x={x + 124} y={y + 70} />
+          <Label x={x + 108} y={y + 75} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
+          <Plant x={x + 124} y={y + 62} />
         </g>
       )
     case 'sales':
@@ -1172,8 +1174,8 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
         <g>
           <Plant x={x + w - 14} y={y + h - 16} />
           {/* 프린터 */}
-          <rect x={x + 240} y={y + h - 14} width={16} height={10} fill="#e5e7eb" />
-          <rect x={x + 241} y={y + h - 13} width={14} height={3} fill="#9ca3af" />
+          <rect x={x + w - 40} y={y + h - 14} width={16} height={10} fill="#e5e7eb" />
+          <rect x={x + w - 39} y={y + h - 13} width={14} height={3} fill="#9ca3af" />
         </g>
       )
     case 'promo':
@@ -1182,21 +1184,15 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           {/* 게시판 — 붙인 광고 */}
           <rect x={x + 94} y={y + 3} width={36} height={13} fill="#c08457" />
           {[0, 1, 2].map(i => <rect key={i} x={x + 97 + i * 11} y={y + 5} width={8} height={9} fill={['#fde68a', '#bfdbfe', '#fbcfe8'][i]} />)}
-          {/* 서류함 — 등록 로봇 쪽 */}
+          {/* 벽 지도 — 매물조사실에 걸려 있던 것 */}
+          <rect x={x + 236} y={y + 3} width={44} height={14} fill="#d1fae5" />
+          <rect x={x + 240} y={y + 6} width={12} height={7} fill="#86efac" />
+          <rect x={x + 254} y={y + 8} width={20} height={6} fill="#93c5fd" />
+          <rect x={x + 262} y={y + 5} width={2} height={2} fill="#ef4444" />
+          {/* 서류함 */}
           <rect x={x + w - 26} y={y + 3} width={16} height={14} fill="#9ca3af" />
           <rect x={x + w - 25} y={y + 5} width={14} height={4} fill="#d1d5db" />
           <rect x={x + w - 25} y={y + 11} width={14} height={4} fill="#d1d5db" />
-          <Plant x={x + w - 14} y={y + h - 16} />
-        </g>
-      )
-    case 'research':
-      return (
-        <g>
-          {/* 벽 지도 */}
-          <rect x={x + w - 60} y={y + 3} width={44} height={14} fill="#d1fae5" />
-          <rect x={x + w - 56} y={y + 6} width={12} height={7} fill="#86efac" />
-          <rect x={x + w - 42} y={y + 8} width={20} height={6} fill="#93c5fd" />
-          <rect x={x + w - 34} y={y + 5} width={2} height={2} fill="#ef4444" />
           <Plant x={x + w - 14} y={y + h - 16} />
         </g>
       )
@@ -1403,18 +1399,18 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
           <text x={85} y={35} fontSize={6} fontWeight={800} textAnchor="middle" fill="#4ade80" style={{ fontFamily: 'monospace' }}>
             {layout.clock.slice(0, 2)}<tspan className="pxo-colon">:</tspan>{layout.clock.slice(3)}
           </text>
-          {/* 매물조사실 화이트보드 — 오늘 광고·수집·할 일 */}
-          <rect x={424} y={255} width={86} height={17} fill="#9ca3af" />
-          <rect x={425} y={256} width={84} height={15} fill="#f8fafc" />
+          {/* 홍보부 화이트보드 — 오늘 광고·수집·할 일 */}
+          <rect x={256} y={145} width={86} height={17} fill="#9ca3af" />
+          <rect x={257} y={146} width={84} height={15} fill="#f8fafc" />
           {layout.board.slice(0, 3).map((l, i) => (
-            <text key={l} x={428} y={261 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
+            <text key={l} x={260} y={151 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
           ))}
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
-          <rect x={241} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
+          <rect x={317} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
           {/* 돌아다니는 것들 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
-          <Vacuum x={14} y={318} span={160} />
+          <Vacuum x={14} y={318} span={220} />
           <Cat x={122} y={220} span={56} />
-          <Cat x={386} y={324} span={110} />
+          <Cat x={504} y={322} span={44} />
           {JANITOR_ROUTES.map(r => <Janitor key={r.id} route={r} />)}
 
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
