@@ -472,17 +472,21 @@ export default function OfficePage() {
   const myTasks = (tasks ?? []).filter(t => t.assignee_broker_id === broker.id)
 
   // 걸린 일: 대기·하는 중 → 실패 → 끝난 것 순. 끝난 것은 앞 몇 건만 보인다.
+  const requesterName: Record<string, string> = Object.fromEntries(members
+    .filter(m => m.user_id && m.profiles?.name).map(m => [m.user_id!, m.profiles!.name!]))
+  // 누가 건 일인지 — 요청한 사람이 없으면 PC 프로그램이 매일 아침 스스로 건 것(2026-10-29 사장님)
+  const whoOf = (id: string | null | undefined) => (id ? requesterName[id] ?? '직원' : '자동')
   const rank = (s: AdJob['status']) => (s === 'running' || s === 'queued' ? 0 : s === 'failed' ? 1 : 2)
   const jobRows = [
     ...adJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
       <JobRow key={`a${j.id}`} status={j.status} at={j.requested_at}
-        title={KIND_LABEL[j.kind] ?? j.kind} detail={jobDetail(j, listingNames)}
+        title={KIND_LABEL[j.kind] ?? j.kind} who={whoOf(j.requested_by)} detail={jobDetail(j, listingNames)}
         onCancel={isOwner && j.status === 'queued' ? () => void cancelAdJob(j) : undefined}
         onRetry={isOwner && j.status === 'failed' ? () => void retryAdJob(j) : undefined} />
     ) })),
     ...bankJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
       <JobRow key={`b${j.id}`} status={j.status} at={j.requested_at}
-        title={`뱅크 임시저장${j.broker_properties?.address ? ` — ${j.broker_properties.address}` : ''}`}
+        title={`뱅크 임시저장${j.broker_properties?.address ? ` — ${j.broker_properties.address}` : ''}`} who={whoOf(j.requested_by)}
         detail={j.status === 'failed' ? j.error : j.progress}
         onCancel={isOwner && j.status === 'queued' ? () => void cancelBankJob(j) : undefined}
         onRetry={isOwner && j.status === 'failed' ? () => void retryBankJob(j) : undefined} />
@@ -511,8 +515,6 @@ export default function OfficePage() {
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
-  const requesterName: Record<string, string> = Object.fromEntries(members
-    .filter(m => m.user_id && m.profiles?.name).map(m => [m.user_id!, m.profiles!.name!]))
 
   /**
    * 광고 PC 프로그램 하나를 하는 일별 로봇으로 나눈다. 그 일의 작업이 돌고 있으면 일하는 중,
@@ -975,10 +977,12 @@ function Section({ icon: Icon, title, hint, children }: {
   )
 }
 
-function JobRow({ status, at, title, detail, onCancel, onRetry }: {
+function JobRow({ status, at, title, who, detail, onCancel, onRetry }: {
   status: AdJob['status']
   at: string
   title: string
+  /** 건 사람 이름, 매일 예약이면 '자동' */
+  who: string
   detail: string | null
   onCancel?: () => void
   onRetry?: () => void
@@ -987,7 +991,10 @@ function JobRow({ status, at, title, detail, onCancel, onRetry }: {
     <li className="flex items-start gap-2 px-4 py-2.5">
       <span className={`mt-0.5 flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${STATUS_CLS[status]}`}>{STATUS_LABEL[status]}</span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-gray-900 dark:text-white">{title}</p>
+        <p className="truncate text-sm text-gray-900 dark:text-white">
+          {title}
+          <span className={`ml-1.5 rounded px-1 py-px text-[10px] font-semibold ${who === '자동' ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' : 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'}`}>{who}</span>
+        </p>
         {detail && <p className={`line-clamp-2 text-[11px] ${status === 'failed' ? 'text-red-600' : 'text-gray-500'}`}>{detail}</p>}
       </div>
       <span className="flex-shrink-0 text-[11px] text-gray-400">{when(at)}</span>
