@@ -4,15 +4,15 @@ import { collectBids } from '@/lib/bid-collect'
 import { g2bKey } from '@/lib/g2b'
 
 /**
- * 하루 3번 (Vercel cron). 나라장터 도장·방수 공고·낙찰결과를 받는다.
+ * 하루 8번 (Vercel cron, 3시간마다). 나라장터 도장·방수 공고·낙찰결과를 받는다.
  *
- * 한 번에 50초만 돈다. 최근 3일치를 먼저 받고, 남는 시간엔 과거 낙찰 상세를 채운다.
- * 하루 한도(서비스마다 1,000건)를 다 쓸 때까지 과거를 채우려고 여러 번 건다.
+ * 한 번에 280초 돈다. 최근 것을 먼저 받고, 남는 시간엔 과거 낙찰 상세를 채운다.
+ * 운영계정으로 한도가 늘어 이젠 시간이 병목이다 — 50초엔 상세 100~190건밖에 못 채웠다.
  *
  * 인증은 다른 cron 과 같다 — Authorization: Bearer CRON_SECRET.
  */
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization') ?? ''
@@ -28,6 +28,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'configuration_error' }, { status: 500 })
   }
 
-  const report = await collectBids(createServerClient(url, serviceKey), { timeBudgetMs: 50_000 })
+  const report = await collectBids(createServerClient(url, serviceKey), { timeBudgetMs: 280_000 })
   return NextResponse.json(report, { status: report.stoppedBy === 'error' ? 500 : 200 })
 }

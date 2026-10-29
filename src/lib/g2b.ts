@@ -54,9 +54,11 @@ export async function g2bGet(
   const text = await res.text()
   let json: unknown
   try { json = JSON.parse(text) } catch {
-    // 키 오류 등은 XML 로 온다
+    // 키 오류·한도 초과 등은 XML 로 온다. 한도 초과(22)를 알아봐야 수집이 '한 건 실패'로 여기고
+    // 남은 낙찰을 줄줄이 건너뜀 처리하지 않는다
     const m = text.match(/<returnAuthMsg>([^<]+)</) ?? text.match(/<errMsg>([^<]+)</)
-    throw new G2bError(m?.[1] ?? `응답을 읽지 못했습니다 (${res.status})`, 'bad_response')
+    const code = text.match(/<returnReasonCode>(\d+)</)?.[1]
+    throw new G2bError(m?.[1] ?? `응답을 읽지 못했습니다 (${res.status})`, code ?? 'bad_response')
   }
   const r = (json as { response?: { header?: { resultCode?: string; resultMsg?: string }; body?: { items?: Raw[] | ''; totalCount?: number } } }).response
   if (!r) {
