@@ -20,6 +20,7 @@ import { todayKST, hmKST } from '@/lib/date-kst'
 import { cn } from '@/lib/utils'
 
 const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'
+const n = (v: number) => v.toLocaleString()
 
 interface Memo { author_id: string; memo: string; updated_at: string }
 
@@ -129,26 +130,30 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
 
       <div className="px-4 pt-3">
         {lines.length > 0 ? (
-          <table className="w-full text-xs tabular-nums">
+          // 현황판 칠판과 같은 칸 — 이름 · 매물장(거래가능) · 뱅크 · 당근(+오늘). 숫자는 오른쪽 끝을 맞춘다
+          <table className="w-full table-fixed text-[13px] tabular-nums">
+            <colgroup><col className="w-[28%]" /><col className="w-[32%]" /><col className="w-[16%]" /><col className="w-[24%]" /></colgroup>
             <thead>
-              <tr className="text-gray-400">
-                <th className="py-1 text-left font-medium">담당</th>
-                <th className="py-1 text-right font-medium">매물장</th>
-                <th className="py-1 text-right font-medium">거래가능</th>
-                <th className="py-1 text-right font-medium">뱅크</th>
-                <th className="py-1 text-right font-medium">당근(오늘)</th>
+              <tr className="text-[11px] text-gray-400">
+                <th className="pb-1.5 text-left font-medium">담당</th>
+                <th className="pb-1.5 pr-3 text-right font-medium">매물장<span className="text-gray-300">(거래가능)</span></th>
+                <th className="pb-1.5 pr-3 text-right font-medium">뱅크</th>
+                <th className="pb-1.5 pr-7 text-right font-medium">당근</th>
               </tr>
             </thead>
             <tbody>
               {lines.map(r => {
                 const total = r === board!.total
                 return (
-                  <tr key={r.name} className={cn('border-t border-gray-100 dark:border-gray-800', total ? 'font-bold text-gray-800 dark:text-gray-100' : 'text-gray-600 dark:text-gray-300')}>
-                    <td className="py-1">{r.name}</td>
-                    <td className="py-1 text-right">{r.props}</td>
-                    <td className="py-1 text-right">{r.avail}</td>
-                    <td className="py-1 text-right">{r.bank}</td>
-                    <td className="py-1 text-right">{r.daangn}{r.daangnToday > 0 && <span className="text-blue-500"> (+{r.daangnToday})</span>}</td>
+                  <tr key={r.name} className={cn(total ? 'border-t border-gray-200 dark:border-gray-700 font-bold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300')}>
+                    <td className="py-1 truncate">{r.name}</td>
+                    <td className="py-1 pr-3 text-right">
+                      {n(r.props)}<span className="ml-0.5 inline-block w-[4.2em] text-left text-[11px] font-normal text-gray-400">({n(r.avail)})</span>
+                    </td>
+                    <td className="py-1 pr-3 text-right">{n(r.bank)}</td>
+                    <td className="py-1 text-right whitespace-nowrap">
+                      {n(r.daangn)}<span className="ml-1 inline-block w-6 text-left text-[11px] font-medium text-emerald-500">{r.daangnToday > 0 ? `+${r.daangnToday}` : ''}</span>
+                    </td>
                   </tr>
                 )
               })}
