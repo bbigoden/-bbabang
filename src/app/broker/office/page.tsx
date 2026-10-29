@@ -186,7 +186,10 @@ export default function OfficePage() {
   /** 오늘 업무일지를 쓴 사람 → 마지막으로 고친 시각 */
   const [diaries, setDiaries] = useState<Record<string, string>>({})
   const [members, setMembers] = useState<Member[]>([])
-  const [memberStats, setMemberStats] = useState<Record<string, { today: number; total: number }>>({})
+  /** 사람마다 오늘 등록한 매물 수(10초마다) */
+  const [todayProps, setTodayProps] = useState<Record<string, number>>({})
+  /** 사람마다 지금까지 등록한 매물 수 — 현황판과 같이 5분마다 건수로만 센다 */
+  const [totalProps, setTotalProps] = useState<Record<string, number>>({})
   const [tasks, setTasks] = useState<Task[] | null>(null)
   const [sessions, setSessions] = useState<ClaudeSession[] | null>(null)
   const [orders, setOrders] = useState<ClaudeOrder[] | null>(null)
@@ -259,8 +262,10 @@ export default function OfficePage() {
         supabase.from('broker_profiles')
           .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
           .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
-        supabase.from('broker_properties').select('broker_id, created_at')
-          .eq('office_broker_id', officeId).is('deleted_at', null).limit(5000),
+        // 오늘 것만 줄로 읽는다. 전체를 읽으면 1000줄에서 잘려 책상의 '지금까지 등록한 매물'이
+        // 현황판과 달랐다(2026-10-29 점검: 김용유 701 ↔ 1,627) — 전체 수는 loadBoard 가 건수로 센다
+        supabase.from('broker_properties').select('broker_id')
+          .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', `${todayKST()}T00:00:00+09:00`),
         사장님만(supabase.from('claude_sessions')
           .select('session_id, project, title, status, last_action, order_id, updated_at')
           .eq('office_broker_id', officeId).gte('updated_at', day)
@@ -283,14 +288,9 @@ export default function OfficePage() {
         .filter(m => m.id === officeId || m.is_approved)
         .sort((a, b) => (a.id === officeId ? -1 : b.id === officeId ? 1 : 0))
       setMembers(list)
-      const stats: Record<string, { today: number; total: number }> = {}
-      const todayYmd = todayKST()
-      for (const p of (props.data ?? []) as { broker_id: string; created_at: string }[]) {
-        const s = (stats[p.broker_id] ??= { today: 0, total: 0 })
-        s.total++
-        if (ymdKST(p.created_at) === todayYmd) s.today++
-      }
-      setMemberStats(stats)
+      const 오늘: Record<string, number> = {}
+      for (const p of (props.data ?? []) as { broker_id: string }[]) 오늘[p.broker_id] = (오늘[p.broker_id] ?? 0) + 1
+      setTodayProps(오늘)
       if (isOwner) {
         setSessions(isMissingTable(ss.error) ? null : ((ss.data as ClaudeSession[] | null) ?? []))
         setOrders(isMissingTable(os.error) ? null : ((os.data as ClaudeOrder[] | null) ?? []))
@@ -309,7 +309,11 @@ export default function OfficePage() {
   // 현황판 — 숫자 세는 법은 업무일지 3번 광고현황과 같이 쓴다(lib/office-board). 천천히 바뀌는 숫자라 5분마다만 본다.
   const loadBoard = useCallback(async () => {
     if (!officeId || !members.length) return
-    setBoard(await fetchOfficeBoard(supabase, officeId, members))
+    const 건수 = (id: string) => supabase.from('broker_properties').select('id', { count: 'exact', head: true })
+      .eq('office_broker_id', officeId).eq('broker_id', id).is('deleted_at', null).then(r => [id, r.count ?? 0] as const)
+    const [b, totals] = await Promise.all([fetchOfficeBoard(supabase, officeId, members), Promise.all(members.map(m => 건수(m.id)))])
+    setBoard(b)
+    setTotalProps(Object.fromEntries(totals))
   }, [supabase, officeId, members])
 
   // 사람 목록이 처음 들어오면 한 번, 그 뒤엔 5분마다(사람이 바뀌어도 다시 안 센다 — 10초마다 새 배열이 온다)
@@ -436,7 +440,7 @@ export default function OfficePage() {
   const adNote = agents?.note ?? '대기 중'
   const bankRunning = bankJobs.find(j => j.status === 'running')
   const people: Seat[] = members.map((m, i) => {
-    const s = memberStats[m.id] ?? { today: 0, total: 0 }
+    const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id] }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
     return {
       key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id], name: m.profiles?.name ?? '이름 없음',
@@ -448,7 +452,7 @@ export default function OfficePage() {
         .filter(Boolean).join('\n') || null,
       pin: true,
       note: `오늘 매물 ${s.today}건 등록 · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
-        + ` · 지금까지 등록한 매물 ${s.total}건 · 남은 할 일 ${open}건`,
+        + (s.total == null ? '' : ` · 지금까지 등록한 매물 ${s.total.toLocaleString()}건`) + ` · 남은 할 일 ${open}건`,
     }
   })
   const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
@@ -602,6 +606,9 @@ export default function OfficePage() {
       </div>
 
       <div className="mx-auto max-w-7xl">
+      {/* 다 불러오기 전엔 아래 칸을 그리지 않는다 — 빈 값으로 그리면 '걸린 일이 없습니다'·'장부 변경 승인 전' 이
+          잠깐 떠 고장처럼 보였다(2026-10-29 점검) */}
+      {!loaded ? <Empty text="불러오는 중…" /> : (<>
 
       {/* ── 일 목록 ─────────────────────────────────── */}
       <Section icon={RotateCcw} title="걸린 일" hint="대기·하는 중인 일과 최근 하루 기록">
@@ -638,6 +645,7 @@ export default function OfficePage() {
         <ClaudeSection officeId={officeId} sessions={sessions} orders={orders} workerOn={officeOn}
           onChange={() => void load()} />
       )}
+      </>)}
       </div>
     </div>
   )
