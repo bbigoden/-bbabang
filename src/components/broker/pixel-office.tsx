@@ -4,7 +4,7 @@
  * 사무실 화면의 픽셀 사무실 — 한 층짜리 진짜 사무실처럼 그린다.
  *
  *   ┌ 창문 ── 시계 ── 화이트보드 ───────────────────────────────────────┐
- *   │ 대표실   │ 협력업체 ┊ 에이전트실(+사무실 일꾼)   │ 상황실(현황판 칠판)    │
+ *   │ 대표실   │ 에이전트실                     │ 상황실(현황판)   │
  *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
  *   │ 복도 ════════════════════════════════════════════════│ 로비      │
  *   ├──문──────┬──────문───────┬──────문───────────────────┤ 안내 데스크│
@@ -61,7 +61,7 @@ export interface Seat {
 export type RoomKey =
   | 'boss' | 'director' | 'meeting'
   | 'sales' | 'promo' | 'research' | 'register'
-  | 'partner' | 'pantry' | 'lab'
+  | 'pantry' | 'lab'
 
 /** 상황실 칠판 한 줄 — 사장님이 매일 손으로 적던 '매물장 259(거래가능 238) / 부동산뱅크 202 / 당근 178' */
 export interface BoardRow {
@@ -675,7 +675,7 @@ const JANITOR_ROUTES: { id: string; body: string; pal: Record<string, string>; p
       [440, 230], [440, 288], [530, 309, 3], [440, 288], [440, 230], [186, 230], [186, 309]],
   },
   {
-    // 가운데·위층: 홍보부 → 아래 복도 → 로비 → 위 복도 → 협력업체·연구실 → 되돌아 (빗자루)
+    // 가운데·위층: 홍보부 → 아래 복도 → 로비 → 위 복도 → 에이전트실 → 되돌아 (빗자루)
     id: 'j2', body: 'pikachu', pal: { S: '#f8d030', N: '#1f1f1f', R: '#e8504a', m: '#7a3b1f', P: '#f8d030', K: '#c8a020', M: '#f59e0b' },
     pts: [[272, 208], [400, 208, 2.5], [440, 208], [440, 230], [552, 230], [552, 180, 3], [552, 120], [302, 120],
       [302, 92], [140, 92, 2.5], [356, 92, 2.5], [302, 92], [302, 120], [552, 120], [552, 230], [440, 230], [440, 208]],
@@ -811,7 +811,7 @@ function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }
   const w = room.w - 12
   const lines = [...status.rows.slice(0, 8), status.total]
   const lh = Math.min(9, 66 / lines.length)
-  const col = { name: x + 5, props: x + 66, bank: x + 98, daangn: x + 126 }
+  const col = { name: x + 5, props: x + 60, bank: x + 88, daangn: x + 110 }
   const n = (v: number) => v.toLocaleString()
   return (
     <g style={{ pointerEvents: 'none' }}>
@@ -925,18 +925,19 @@ type Floor = 'carpet' | 'oak' | 'wood' | 'parquet' | 'lab' | 'tile' | 'green'
 
 /**
  * 방(벽으로 둘러싼 칸). 자리 무리(RoomKey)와 따로 둔다 — 한 방에 두 무리가 앉는 곳이 있다
- * (협력업체 + 에이전트실, 회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이).
+ * (회의실 + 상담실 — 2026-10-25 사장님이 합침, 칸막이 없이. 협력업체는 2026-10-29 빼고 에이전트실만).
  */
-type BoxKey = 'boss' | 'partnerLab' | 'status' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
+type BoxKey = 'boss' | 'agentLab' | 'status' | 'director' | 'meetConsult' | 'promo' | 'sales' | 'pantry' | 'research'
 
 interface RoomBox { key: BoxKey; label: string; x: number; y: number; w: number; h: number; floor: Floor; color: string }
 
 /** 방 배치(사장님이 정한 순서). 좌표는 판 픽셀. 위 벽(창문)이 0~24 를 쓴다. */
 const ROOMS: RoomBox[] = [
   { key: 'boss', label: '대표실', x: 0, y: 24, w: 120, h: 96, floor: 'carpet', color: '#1e3a8a' },
-  { key: 'partnerLab', label: '협력업체 · 에이전트실', x: 120, y: 24, w: 288, h: 96, floor: 'lab', color: '#6d28d9' },
+  { key: 'agentLab', label: '에이전트실', x: 120, y: 24, w: 318, h: 96, floor: 'lab', color: '#6d28d9' },
   // 서버실이던 곳 — 2026-10-28 현황판을 사무실 안에 걸며 상황실로. 일꾼은 에이전트실로 옮김
-  { key: 'status', label: '', x: 408, y: 24, w: 168, h: 96, floor: 'carpet', color: '#14532d' },
+  // 칠판 폭에 딱 맞게 줄이고 남은 폭은 에이전트실로(2026-10-29)
+  { key: 'status', label: '', x: 438, y: 24, w: 138, h: 96, floor: 'carpet', color: '#14532d' },
   { key: 'director', label: '이사실', x: 0, y: 142, w: 120, h: 88, floor: 'oak', color: '#14532d' },
   { key: 'meetConsult', label: '회의 · 상담실', x: 120, y: 142, w: 140, h: 88, floor: 'parquet', color: '#7c2d12' },
   { key: 'promo', label: '홍보부', x: 260, y: 142, w: 236, h: 88, floor: 'wood', color: '#be185d' },
@@ -948,7 +949,7 @@ const ROOMS: RoomBox[] = [
 /** 문 — 벽 위에 문지방 색을 덧칠해 구멍을 낸다. */
 const DOORS = [
   // 1줄 → 위 복도
-  { x: 50, y: 118, w: 18, h: 4 }, { x: 160, y: 118, w: 18, h: 4 }, { x: 300, y: 118, w: 18, h: 4 }, { x: 430, y: 118, w: 18, h: 4 },
+  { x: 50, y: 118, w: 18, h: 4 }, { x: 160, y: 118, w: 18, h: 4 }, { x: 300, y: 118, w: 18, h: 4 }, { x: 480, y: 118, w: 18, h: 4 },
   // 위 복도 → 2줄
   { x: 60, y: 140, w: 18, h: 4 }, { x: 190, y: 140, w: 18, h: 4 }, { x: 300, y: 140, w: 18, h: 4 },
   // 2줄 → 아래 복도
@@ -962,8 +963,7 @@ const DOORS = [
 /** 자리 무리마다 어느 방 어디에 책상을 놓나: 첫 자리(dx, dy), 가로·세로 간격(sx, sy), 한 줄에 몇, 최대 몇. */
 const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: number; sy: number; cols: number; max: number; big?: boolean }>> = {
   boss: { box: 'boss', dx: 44, dy: 40, sx: 0, sy: 0, cols: 1, max: 1, big: true },
-  partner: { box: 'partnerLab', dx: 8, dy: 20, sx: 38, sy: 34, cols: 2, max: 4 },
-  lab: { box: 'partnerLab', dx: 94, dy: 22, sx: 40, sy: 34, cols: 4, max: 8 },
+  lab: { box: 'agentLab', dx: 12, dy: 28, sx: 38, sy: 34, cols: 8, max: 16 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다
   promo: { box: 'promo', dx: 10, dy: 34, sx: 38, sy: 0, cols: 4, max: 4 },
@@ -975,7 +975,7 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 4, research: 2, register: 2, partner: 2, lab: 4 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 4, research: 2, register: 2, lab: 16 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
@@ -1034,11 +1034,9 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           <Plant x={x + 6} y={y + 78} />
         </g>
       )
-    case 'partnerLab':
+    case 'agentLab':
       return (
         <g>
-          <Label x={x + 44} y={y + 88} text="협력업체" size={3.6} color="#6d28d9" />
-          <Label x={x + 170} y={y + 88} text="에이전트실" size={3.6} color="#9a3412" />
           <rect x={x + w - 18} y={y + 3} width={14} height={6} fill="#d97757" />
           <text x={x + w - 11} y={y + 7.4} fontSize={3.4} fontWeight={800} textAnchor="middle" fill="#fff">LAB</text>
         </g>
