@@ -721,8 +721,13 @@ export default function BrokerDiaryPage() {
       if (b.is_approved === false) { setAccessDenied(true); return }
     }
 
-    // 대표: 직원 목록 + 퇴사자 목록 로드
-    if (owner) {
+    // 피커가 검색할 대상 범위(사무소) — office_broker_id 하나면 되므로 멤버 목록 조립이 필요 없다
+    setPickerOfficeId(owner ? b.id : (b.parent_broker_id ?? b.id))
+
+    // 대표: 직원 목록 + 퇴사자 목록 — 일지 고르는 칸에만 쓰이니 화면을 기다리게 하지 않는다.
+    // 기다리면 직원 → 퇴사자(1,000행 넘어 두 번) 왕복이 줄을 서, 폰 느린 회선에서 일지·광고현황이
+    // 약 6초 늦게 떴다(2026-10-29 점검).
+    if (owner) void (async () => {
       const { data: emps } = await supabase
         .from('broker_profiles')
         .select('id, profiles(name)')
@@ -763,12 +768,8 @@ export default function BrokerDiaryPage() {
       } catch (e) {
         console.error('[diary] 퇴사자 목록 로드 실패:', e)
       }
-    } else {
-      setTeamMembers(prof?.name ? [prof.name] : [])
-    }
-
-    // 피커가 검색할 대상 범위(사무소) — office_broker_id 하나면 되므로 멤버 목록 조립이 필요 없다
-    setPickerOfficeId(owner ? b.id : (b.parent_broker_id ?? b.id))
+    })()
+    else setTeamMembers(prof?.name ? [prof.name] : [])
   }
 
   // 날짜를 빠르게 넘기면 늦게 도착한 이전 응답이 최신 화면을 덮어쓰므로 요청 순번으로 차단

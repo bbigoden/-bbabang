@@ -52,7 +52,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       const [common, ms, ps] = await Promise.all([
         supabase.from('office_diary_common').select('ad_board, ad_board_at').eq('office_id', officeId).eq('date', date).maybeSingle(),
         supabase.from('office_diary_ad_memos').select('author_id, memo, updated_at').eq('office_id', officeId).eq('date', date),
-        supabase.from('broker_profiles').select('id, profiles:profiles_visible(name)').or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
+        supabase.from('broker_profiles').select('id, is_approved, profiles:profiles_visible(name)').or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
       ])
       if (gone) return
       const c = common.data as { ad_board: OfficeBoard | null; ad_board_at: string | null } | null
@@ -61,12 +61,15 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       setMissing(isMissingTable(ms.error))
       const list = (ms.data as Memo[] | null) ?? []
       setMemos(list)
-      setNames(Object.fromEntries(((ps.data as unknown as { id: string; profiles: { name: string | null } | null }[] | null) ?? [])
-        .map(p => [p.id, p.profiles?.name ?? '이름 없음'])))
+      const people = (ps.data as unknown as { id: string; is_approved: boolean | null; profiles: { name: string | null } | null }[] | null) ?? []
+      setNames(Object.fromEntries(people.map(p => [p.id, p.profiles?.name ?? '이름 없음'])))
       setLoaded(true)
       // 오늘이면 지금 숫자로 새로 센다. 찍어 두는 건 대표·이사가 열 때만
       if (isToday) {
-        const fresh = await fetchOfficeBoard(supabase, officeId)
+        // 위에서 받은 명단을 넘겨 다시 묻지 않는다(느린 폰 회선에서 왕복 하나 = 2초)
+        const members = people.filter(m => m.id === officeId || m.is_approved)
+          .sort((a, b) => (a.id === officeId ? -1 : b.id === officeId ? 1 : 0))
+        const fresh = await fetchOfficeBoard(supabase, officeId, ps.error ? undefined : members)
         if (gone) return
         setBoard(fresh)
         if (isLead(myBrokerId) && !isMissingTable(common.error)) {
