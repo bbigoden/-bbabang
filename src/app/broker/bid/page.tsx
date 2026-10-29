@@ -116,7 +116,7 @@ export default function BidPage() {
   const [tab, setTab] = useState<Tab>('notice')
   const [notices, setNotices] = useState<Notice[]>([])
   const [results, setResults] = useState<Result[]>([])
-  const [history, setHistory] = useState<HistoryRow[]>([])
+  const [history, setHistory] = useState<(HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string })[]>([])
   const [lastRun, setLastRun] = useState<CollectReport | null>(null)
   const [backfillUntil, setBackfillUntil] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -128,6 +128,26 @@ export default function BidPage() {
   })
   const [q, setQ] = useState('')
   const [opened, setOpened] = useState<string | null>(null)
+
+  // 우리 주력분야와 하나도 안 겹치는 공고(석공 전용 등) — 그 낙찰은 추천 계산에서 뺀다.
+  // 석공 공사는 들어오는 업체·넣는 버릇이 달라 섞으면 추천이 흐려진다
+  const [offFieldKeys, setOffFieldKeys] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!ourFields.length) { setOffFieldKeys(new Set()); return }
+    let alive = true
+    void fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string }>((from, to) => supabase.from('bid_notices')
+      .select('bid_ntce_no, bid_ntce_ord')
+      .not('mfrc_flds', 'is', null).neq('mfrc_flds', '{}')
+      .not('mfrc_flds', 'ov', `{${ourFields.join(',')}}`)
+      .range(from, to))
+      .then(rows => { if (alive) setOffFieldKeys(new Set(rows.map(r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`))) })
+      .catch(() => { /* 못 받으면 거르지 않고 그대로 쓴다 */ })
+    return () => { alive = false }
+  }, [supabase, ourFields])
+  const fieldHistory = useMemo(
+    () => history.filter(h => !offFieldKeys.has(`${h.bid_ntce_no}/${h.bid_ntce_ord}`)),
+    [history, offFieldKeys],
+  )
 
   useEffect(() => {
     try { localStorage.setItem(REGION_KEY, JSON.stringify(regions)) } catch { /* 사생활 보호 창 */ }
@@ -146,8 +166,8 @@ export default function BidPage() {
           .select(RESULT_COLS)
           .order('openg_at', { ascending: false, nullsFirst: false }).limit(300),
         // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개라 수천 건도 가볍다
-        fetchAllPaged<HistoryRow>((from, to) => supabase.from('bid_results')
-          .select('dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng')
+        fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string }>((from, to) => supabase.from('bid_results')
+          .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng')
           .not('sajeong', 'is', null).range(from, to)),
         supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
       ])
@@ -323,7 +343,12 @@ export default function BidPage() {
             </button>
           )}
           {/* 분석이 얼마나 믿을 만한지는 쌓인 과거 낙찰 수에 달렸다. 숫자를 늘 보이게 둔다 */}
-          {!loading && <span>분석에 쓰는 과거 낙찰 {history.length.toLocaleString('ko-KR')}건</span>}
+          {!loading && (
+            <span title={offFieldKeys.size ? '우리 주력분야가 아닌 공고(석공 등)의 낙찰은 뺐습니다' : undefined}>
+              분석에 쓰는 과거 낙찰 {fieldHistory.length.toLocaleString('ko-KR')}건
+              {history.length > fieldHistory.length && ` (주력분야 아닌 ${(history.length - fieldHistory.length).toLocaleString('ko-KR')}건 뺌)`}
+            </span>
+          )}
           {tab === 'notice' && !loading && <span>공고 {shownNotices.length.toLocaleString('ko-KR')}건</span>}
           {tab === 'result' && <span>{searched ? `전체에서 찾음 ${searched.length.toLocaleString('ko-KR')}건` : `아래 표는 최근 ${results.length.toLocaleString('ko-KR')}건 · 검색은 전체에서`}</span>}
           {backfillUntil && backfillUntil > BACKFILL_FLOOR && (
@@ -443,7 +468,7 @@ export default function BidPage() {
                             </a>
                           )}
                         </div>
-                        <AnalysisPanel key={key} notice={n} history={history} />
+                        <AnalysisPanel key={key} notice={n} history={fieldHistory} />
                       </div>
                     )}
                   </li>

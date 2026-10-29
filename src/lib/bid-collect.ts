@@ -182,10 +182,11 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     if (opts.regions) {
       const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
       report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
-      // 주력분야(면허제한) — 하루 ~2,000줄. 같은 면허(4992)라도 석공 공사가 섞여 있어 이걸로 거른다
-      const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
-      report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to)
     }
+    // 주력분야(면허제한) — 하루 ~2,000줄. 같은 면허(4992)라도 석공 공사가 섞여 있어 이걸로 거른다.
+    // 과거 기간에도 받는다 — 분석에 쓰는 과거 낙찰에서 석공 공사를 빼려면 그 공고의 주력분야가 있어야 한다
+    const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
+    report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to)
 
     // 기초금액은 업종으로 못 거른다 — 공사 전체(1주 ~2,400건)를 받아 우리 공고만 남긴다
     const bsis = await listAll('notice', 'getBidPblancListInfoCnstwkBsisAmount', from, to)
@@ -265,8 +266,9 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
       report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
       rgnUntil = from
     }
-    // 주력분야도 나중에(2026-10-29) 붙였다 — 같은 식으로 한 번 거슬러 채운다
-    while (licUntil > addDays(today, -RGN_BACKFILL_DAYS)) {
+    // 주력분야도 나중에(2026-10-29) 붙였다 — 이미 받아 둔 공고(과거 채움이 닿은 데까지)에 한 번 거슬러 채운다.
+    // 그보다 오래된 기간은 과거 채움이 공고를 받을 때 같이 붙인다
+    while (licUntil > backfill.until) {
       const to = addDays(licUntil, -1)
       const from = addDays(licUntil, -WINDOW_DAYS)
       const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
