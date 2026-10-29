@@ -477,7 +477,8 @@ export default function OfficePage() {
    */
   const visitBy: Record<string, string> = {}
   if (bankRunning?.requested_by) visitBy[bankRunning.requested_by] = 'bank'
-  const robot = (key: string, name: string, kinds: string[], channel: string | null, note: string, tint = 0): Seat => {
+  /** today — 오늘 한 일('오늘 3건 올림'). 있으면 영업부 직원처럼 머리 위에 늘 띄운다(2026-10-29 사장님) */
+  const robot = (key: string, name: string, kinds: string[], channel: string | null, note: string, tint = 0, today?: string): Seat => {
     const matches = (j: AdJob) => kinds.includes(j.kind)
       && (!channel || (Array.isArray(j.params?.channels) && (j.params!.channels as string[]).includes(channel)))
     const running = adJobs.find(j => j.status === 'running' && matches(j))
@@ -506,9 +507,12 @@ export default function OfficePage() {
         .filter(Boolean).join(' · '),
       flash: justDone ? (DONE_SAY[justDone.kind] ?? '끝났어요') : null,
       state: !adOn ? 'off' : working ? 'working' : 'idle',
+      pin: !!today,
       say: !adOn ? offSay(agents?.last_seen_at)
         : working ? doing
-          : [waitLine, nextLine].filter(Boolean).join('\n'),
+          // 쉬는 중에 오늘 한 일이 있으면 그것부터 — '대기 중' 만 남는 줄은 뺀다
+          : today ? [today, queued.length ? waitLine : '', nextLine].filter(Boolean).join('\n')
+            : [waitLine, nextLine].filter(Boolean).join('\n'),
     }
   }
 
@@ -560,13 +564,17 @@ export default function OfficePage() {
           flash: bankJobs.some(j => j.status === 'done' && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
             ? '임시저장 끝' : null,
         },
-        robot('daangn-post', '당근 담당', ['publish'], 'daangn', `오늘 당근 ${today.daangnPost}건 올림`, 2),
-        robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),
-        robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
+        robot('daangn-post', '당근 담당', ['publish'], 'daangn', `오늘 당근 ${today.daangnPost}건 올림`, 2,
+          today.daangnPost ? `오늘 ${today.daangnPost}건 올림` : undefined),
+        robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1,
+          today.blog ? `오늘 ${today.blog}건 임시저장` : undefined),
+        robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`, 0,
+          today.cafe ? `오늘 ${today.cafe}건 올림` : undefined),
         robot('takedown', KIND_LABEL.takedown, ['takedown'], null, '계약 끝난 매물의 광고를 전 채널에서 내립니다', 3),
         robot('sync', KIND_LABEL.sync, ['sync', 'renew'], null, '뱅크 매물을 광고관리로 가져오고, 만료 매물을 재등록합니다', 2),
         // 네이버·당근 수집은 한 자리 '매물수집'(2026-10-29 사장님) — 둘 중 하나라도 돌면 일하는 중
-        robot('collect', '매물수집', ['naver', 'daangn'], null, `오늘 수집한 매물 네이버 ${today.naver}건 · 당근 ${today.daangn}건`),
+        robot('collect', '매물수집', ['naver', 'daangn'], null, `오늘 수집한 매물 네이버 ${today.naver}건 · 당근 ${today.daangn}건`, 0,
+          today.naver + today.daangn ? `네이버 ${today.naver.toLocaleString()}건\n당근 ${today.daangn.toLocaleString()}건` : undefined),
       ],
       // 사무실 일꾼(PC 프로그램)은 그림에 앉히지 않는다 — 방이 없어 헷갈렸다(2026-10-28). 꺼지면 맨 위 경고로 알린다
       lab: [...visibleSessions(sessions ?? []).map((s): Seat => ({
