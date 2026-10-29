@@ -34,6 +34,8 @@ const PROMO_STAFF = ['이현영']
 const PENDING_STAFF = ['김미선', '이현영']
 /** 이름으로 고른 포켓몬 — 계정이 생기기 전에도 같은 포켓몬이 앉는다 */
 const NAME_MON: Record<string, string> = { 이현영: 'charmander' }   // 2026-10-29 사장님 '파이리를 이쁘게'
+/** 책상 앞 고양이 — 이현영은 애교 많은 치즈·흰 고양이(2026-10-29 사장님) */
+const NAME_PETS: Record<string, string[]> = { 이현영: ['cheese', 'white'] }
 
 /** 따로 고른 포켓몬 — 이예리는 님피아(2026-10-27 사장님) */
 const STAFF_MON: Record<string, string> = {
@@ -452,7 +454,7 @@ export default function OfficePage() {
     const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id] }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
     return {
-      key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id] ?? NAME_MON[m.profiles?.name ?? ''], name: m.profiles?.name ?? '이름 없음',
+      key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id] ?? NAME_MON[m.profiles?.name ?? ''], pets: NAME_PETS[m.profiles?.name ?? ''], name: m.profiles?.name ?? '이름 없음',
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
       state: s.today > 0 || diaries[m.id] ? 'working' : 'idle',
@@ -521,7 +523,7 @@ export default function OfficePage() {
   // 영업부 앉는 순서(2026-10-29 사장님). 계정이 아직 없는 사람은 '가입 전' 자리로 먼저 앉혀 두고,
   // 같은 이름으로 가입·승인되면 그 자리에 진짜 계정이 앉는다
   const 가입전 = (name: string, tint: number): Seat => ({
-    key: `pending-${name}`, kind: 'person', tint, mon: NAME_MON[name], name, role: '직원', state: 'idle', say: '가입 전',
+    key: `pending-${name}`, kind: 'person', tint, mon: NAME_MON[name], pets: NAME_PETS[name], name, role: '직원', state: 'idle', say: '가입 전',
     note: '아직 부소장 계정이 없습니다 — 이 이름으로 가입하고 승인되면 이 자리에 앉습니다',
   })
   const 자리채움 = (list: Seat[], dept: 'sales' | 'promo') => {

@@ -57,6 +57,8 @@ export interface Seat {
   mon?: string
   /** 자기가 건 일을 하는 자리(일꾼 key) — 책상을 비우고 그 옆으로 걸어가 서 있는다 */
   visit?: string
+  /** 책상 앞에 앉아 있는 고양이(PET_PAL 의 이름) — 이현영은 치즈·흰 고양이(2026-10-29 사장님) */
+  pets?: string[]
 }
 
 export type RoomKey =
@@ -576,6 +578,60 @@ function Cat({ x, y, span }: { x: number; y: number; span: number }) {
         <g className="pxo-step-a"><Sprite rows={[CAT_LEGS[0]]} palette={pal} x={0} y={5} /></g>
         <g className="pxo-step-b"><Sprite rows={[CAT_LEGS[1]]} palette={pal} x={0} y={5} /></g>
       </g>
+    </g>
+  )
+}
+
+/** 앉은 고양이(앞모습). 꼬리는 T — 두 장을 번갈아 켜서 살랑 흔든다. s 는 무늬, W 는 주둥이·발 */
+const PET_SIT = [
+  'O.....O..',
+  'OP...PO..',
+  'OOsOsOO..',
+  'OEOOOEO..',
+  'OOOnOOO..',
+  '.OWWWO...',
+  '.OOOOO...',
+  'OOOOOOO..',
+  'OWOOOWO..',
+]
+const PET_TAIL = [['.......T.', '.......T.'], ['........T', '.......T.']]
+const PET_PAL: Record<string, Record<string, string>> = {
+  cheese: { O: '#f59e0b', s: '#c2410c', W: '#fff7ed', E: '#1f1f1f', P: '#f9a8d4', n: '#ec4899', T: '#f59e0b' },
+  white: { O: '#ffffff', s: '#e5e7eb', W: '#f8fafc', E: '#2563eb', P: '#f9a8d4', n: '#ec4899', T: '#ffffff' },
+}
+const HEART = ['R.R', 'RRR', '.R.']
+
+/**
+ * 애교 많은 고양이 — 주인 책상 앞(이름판 아래)에 나란히 앉아 고개를 까딱이고 몸을 비비며, 꼬리를 살랑대고
+ * 번갈아 하트를 띄운다. 책상 다음에 그려 앞에 보인다.
+ */
+function Pets({ x, y, pets }: { x: number; y: number; pets: string[] }) {
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {pets.map((name, i) => {
+        const pal = PET_PAL[name] ?? PET_PAL.cheese
+        const ink = Object.fromEntries(Object.keys(pal).map(k => [k, '#1f2937']))
+        const px = x - 3 + i * 16
+        const py = y + 30
+        const sprite = (rows: string[], dy = 0) => (
+          <>
+            {[[-0.5, 0], [0.5, 0], [0, -0.5], [0, 0.5]].map(([ox, oy]) => <Sprite key={`${ox}${oy}`} rows={rows} palette={ink} x={px + ox} y={py + dy + oy} />)}
+            <Sprite rows={rows} palette={pal} x={px} y={py + dy} />
+          </>
+        )
+        return (
+          // 1.3배 — 앉은 사람과 어울리는 크기. 발밑(py+9) 기준으로 키운다
+          <g key={name} transform={`translate(${px} ${py + 9}) scale(1.3) translate(${-px} ${-py - 9})`}>
+            <g className={i % 2 ? 'pxo-look' : 'pxo-hop'} style={{ animationDelay: `${i * 1.3}s` }}>
+              {sprite(PET_SIT)}
+              {PET_TAIL.map((t, k) => <g key={k} className={k ? 'pxo-sweep-b' : 'pxo-sweep-a'}>{sprite(t, 5)}</g>)}
+            </g>
+            <g className="pxo-pop" style={{ animationDelay: `${i * 2}s` }}>
+              <Sprite rows={HEART} palette={{ R: '#f472b6' }} x={px + (i ? -4 : 9)} y={py + 1} />
+            </g>
+          </g>
+        )
+      })}
     </g>
   )
 }
@@ -1457,7 +1513,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
           <rect x={221} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
           {/* 고양이·청소 로봇 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
           <Vacuum x={14} y={318} span={180} />
-          <Cat x={122} y={220} span={56} />
+          <Cat x={250} y={220} span={56} />
           <Cat x={504} y={322} span={44} />
 
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
@@ -1468,6 +1524,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             <Desk key={p.seat.key} seat={p.seat} x={p.x} y={p.y} big={p.big} away={away.has(p.seat.key)}
               picked={picked === p.seat.key} onPick={pick(p.seat)} />
           ))}
+          {placed.filter(p => p.seat.pets?.length).map(p => <Pets key={`pet-${p.seat.key}`} x={p.x} y={p.y} pets={p.seat.pets!} />)}
           {/* 청소부는 책상 앞으로 지나간다 — 뒤로 그리면 모니터 뒤로 숨어 다녔다(2026-10-29 사장님) */}
           {JANITOR_ROUTES.map(r => <Janitor key={r.id} route={r} />)}
           {walkers.map(w => <Walker key={`${w.seat.key}-${w.seat.visit}`} seat={w.seat} from={w.from} to={w.to} onPick={pick(w.seat)} />)}
