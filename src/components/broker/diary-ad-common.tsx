@@ -116,7 +116,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
 
       <div className="px-4 pt-3">
         {lines.length > 0 ? (
-          // 현황판 칠판과 같은 칸 — 이름 · 매물장(거래가능) · 뱅크 · 당근(+오늘). 숫자는 오른쪽 끝을 맞춘다
+          // 현황판 칠판과 같은 칸 — 이름 · 매물장(거래가능)(+오늘) · 뱅크 · 당근(+오늘). 숫자는 오른쪽 끝을 맞춘다
           <table className="w-full table-fixed text-[13px] tabular-nums">
             <colgroup><col className="w-[28%]" /><col className="w-[32%]" /><col className="w-[16%]" /><col className="w-[24%]" /></colgroup>
             <thead>
@@ -134,7 +134,9 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
                   <tr key={r.name} className={cn(total ? 'border-t border-gray-200 dark:border-gray-700 font-bold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300')}>
                     <td className="py-1 truncate">{r.name}</td>
                     <td className="py-1 pr-3 text-right">
-                      {n(r.props)}<span className="ml-0.5 inline-block w-[4.2em] text-left text-[11px] font-normal text-gray-400">({n(r.avail)})</span>
+                      {n(r.props)}<span className="ml-0.5 inline-block w-[6.6em] text-left text-[11px] font-normal text-gray-400">
+                        ({n(r.avail)}){!!r.propsToday && <span className="ml-1 font-medium text-emerald-500">+{r.propsToday}</span>}
+                      </span>
                     </td>
                     <td className="py-1 pr-3 text-right">{n(r.bank)}</td>
                     <td className="py-1 text-right whitespace-nowrap">
@@ -155,7 +157,8 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
         )}
       </div>
 
-      {missing ? (
+      {/* 메모는 불러온 뒤에만 — 다 오기 전에 칸을 눌렀다 나가면 빈 글로 저장돼 남의 메모가 지워질 수 있다 */}
+      {!loaded ? null : missing ? (
         <p className="px-4 py-3 text-xs text-gray-400">메모 칸은 준비 중이에요.</p>
       ) : (
         <div className="mt-2 border-t border-gray-100 dark:border-gray-800">

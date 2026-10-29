@@ -72,6 +72,8 @@ export interface BoardRow {
   bank: number
   daangn: number
   daangnToday: number
+  /** 오늘 매물장에 새로 등록한 수 — 매물장 옆 초록 '+n' */
+  propsToday?: number
 }
 
 export interface OfficeLayout {
@@ -841,6 +843,7 @@ function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }
             </text>
             <text x={col.bank} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>{n(r.bank)}</text>
             <text x={col.daangn} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>{n(r.daangn)}</text>
+            {!!r.propsToday && <text x={col.props + 1.5} y={ty} fontSize={3} fill="#86efac">+{r.propsToday}</text>}
             {r.daangnToday > 0 && <text x={col.daangn + 1.5} y={ty} fontSize={3} fill="#86efac">+{r.daangnToday}</text>}
           </g>
         )

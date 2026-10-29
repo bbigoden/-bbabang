@@ -8,7 +8,10 @@ import type { BoardRow } from '@/components/broker/pixel-office'
  */
 export const DIRECTOR_ID = '6581efd5-6ec9-46ea-a391-7e6537cc6345'
 
-/** ids — 이 줄에 묶인 사람(broker_profiles.id). 일지에서 직원에게 드래곤·자기 줄만 보여 줄 때 쓴다 */
+/**
+ * ids — 이 줄에 묶인 사람(broker_profiles.id). 일지에서 직원에게 드래곤·자기 줄만 보여 줄 때 쓴다.
+ * 오늘 등록 수(propsToday)는 BoardRow 에 있다 — 칠판과 일지 표 둘 다 매물장 옆 '+n'(2026-10-29 사장님).
+ */
 export type OfficeBoardRow = BoardRow & { ids?: string[] }
 export interface OfficeBoard { rows: OfficeBoardRow[]; total: OfficeBoardRow; at: string }
 
@@ -37,7 +40,8 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
     if (avail) q = q.eq('status', 'available')
     return 건수(q)
   }
-  const [counts, total, totalAvail, ls, ps] = await Promise.all([
+  const todayYmd = todayKST()
+  const [counts, total, totalAvail, ls, ps, newProps] = await Promise.all([
     Promise.all(members.map(async m => [m.id, await 매물(m.id, false), await 매물(m.id, true)] as const)),
     매물(null, false),
     매물(null, true),
@@ -47,8 +51,11 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
       .eq('bank_tab', '등록매물'),
     supabase.from('ad_posts').select('posted_at, ad_listings!inner(manager, broker_id)')
       .eq('ad_listings.broker_id', officeId).eq('status', 'posted').eq('channel', 'daangn'),
+    // 오늘 등록한 매물 — 하루치라 줄을 읽어 사람마다 나눈다
+    supabase.from('broker_properties').select('broker_id')
+      .eq('office_broker_id', officeId).is('deleted_at', null)
+      .gte('created_at', new Date(`${todayYmd}T00:00:00+09:00`).toISOString()).limit(1000),
   ])
-  const todayYmd = todayKST()
   const empty = (name: string): OfficeBoardRow => ({ name, props: 0, avail: 0, bank: 0, daangn: 0, daangnToday: 0 })
   const byName: Record<string, OfficeBoardRow> = {}
   // 대표·이사는 한 줄 '드래곤'으로 합친다(2026-10-28 사장님) — 같은 줄을 두 이름이 가리킨다
@@ -62,7 +69,12 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
     r.avail += c[2]
     byName[m.profiles?.name ?? m.id] = r
   }
-  const sum = { ...empty('사무실 전체'), props: total, avail: totalAvail }
+  const sum: OfficeBoardRow = { ...empty('사무실 전체'), props: total, avail: totalAvail, propsToday: 0 }
+  for (const p of (newProps.data ?? []) as { broker_id: string }[]) {
+    sum.propsToday!++
+    const r = rows.find(x => x.ids?.includes(p.broker_id))
+    if (r) r.propsToday = (r.propsToday ?? 0) + 1
+  }
   for (const l of (ls.data ?? []) as { manager: string | null }[]) {
     sum.bank++
     const r = l.manager && byName[l.manager]
