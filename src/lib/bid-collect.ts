@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDays, todayKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
+import { parseMfrc } from '@/lib/bid-notices'
 import {
   BID_INDUSTRY_CD, G2bError, g2bDt, g2bGet, toBidRow, toBsisPatch, toNoticeRow, toPrepar, toResultRow,
   type G2bService,
@@ -59,6 +60,7 @@ export type CollectReport = {
   notices: number
   bsis: number
   rgns?: number
+  lics?: number
   results: number
   details: number
   backfillUntil: string | null
@@ -94,6 +96,7 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   const calls: Calls = state.calls?.date === today ? state.calls : { date: today, notice: 0, result: 0 }
   const backfill: Backfill = state.backfill ?? { until: addDays(today, -RECENT_DAYS), done: false }
   let rgnUntil = state.rgn_until ?? addDays(today, -RECENT_DAYS)
+  let licUntil = state.lic_until ?? addDays(today, -RECENT_DAYS)
 
   const report: CollectReport = {
     notices: 0, bsis: 0, results: 0, details: 0, backfillUntil: backfill.until,
@@ -179,6 +182,9 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     if (opts.regions) {
       const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
       report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
+      // 주력분야(면허제한) — 하루 ~2,000줄. 같은 면허(4992)라도 석공 공사가 섞여 있어 이걸로 거른다
+      const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
+      report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to)
     }
 
     // 기초금액은 업종으로 못 거른다 — 공사 전체(1주 ~2,400건)를 받아 우리 공고만 남긴다
@@ -259,6 +265,14 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
       report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
       rgnUntil = from
     }
+    // 주력분야도 나중에(2026-10-29) 붙였다 — 같은 식으로 한 번 거슬러 채운다
+    while (licUntil > addDays(today, -RGN_BACKFILL_DAYS)) {
+      const to = addDays(licUntil, -1)
+      const from = addDays(licUntil, -WINDOW_DAYS)
+      const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
+      report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to)
+      licUntil = from
+    }
 
     // 2·3. 상세를 먼저 채우고, 밀린 상세가 없으면 과거로 한 주 더
     while (true) {
@@ -303,16 +317,16 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   }
 
   report.finishedAt = new Date().toISOString()
-  await writeState(supa, { calls, backfill, rgn_until: rgnUntil, last_run: report })
+  await writeState(supa, { calls, backfill, rgn_until: rgnUntil, lic_until: licUntil, last_run: report })
   return report
 }
 
 // ── 상태 ──────────────────────────────────────────────────
 
-type State = { calls?: Calls; backfill?: Backfill; rgn_until?: string; last_run?: CollectReport }
+type State = { calls?: Calls; backfill?: Backfill; rgn_until?: string; lic_until?: string; last_run?: CollectReport }
 
 async function readState(supa: SupabaseClient): Promise<State> {
-  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn_until'])
+  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn_until', 'lic_until'])
   return Object.fromEntries((data ?? []).map(r => [r.key, r.value])) as State
 }
 
@@ -374,6 +388,31 @@ async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], 
   const rows = (data ?? []).map(n => ({
     ...n,
     prtcpt_rgns: [...new Set((byKey.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`) ?? []).sort((a, b) => a.sno - b.sno).map(r => r.nm))],
+    updated_at: now,
+  }))
+  await upsert(supa, 'bid_notices', rows, 'bid_ntce_no,bid_ntce_ord')
+  return rows.length
+}
+
+/**
+ * 주력분야를 그 기간에 공고된 우리 공고에 붙인다. 면허제한 줄 중 우리 면허(…/4992) 줄의 주력분야만 본다
+ * — 다른 업종으로도 들어갈 수 있게 열린 공고는 그 업종 줄이 따로 온다. 줄이 없으면 '지정 없음'.
+ */
+async function applyLics(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string): Promise<number> {
+  const byKey = new Map<string, string[]>()
+  for (const x of items) {
+    if (!(x.lcnsLmtNm ?? '').endsWith(`/${BID_INDUSTRY_CD}`)) continue
+    const k = `${x.bidNtceNo}/${x.bidNtceOrd || '000'}`
+    byKey.set(k, [...(byKey.get(k) ?? []), ...parseMfrc(x.indstrytyMfrcFldList)])
+  }
+  const { data, error } = await supa.from('bid_notices')
+    .select('bid_ntce_no, bid_ntce_ord, name')
+    .gte('ntce_at', `${from}T00:00:00+09:00`).lte('ntce_at', `${to}T23:59:59+09:00`)
+  if (error) throw error
+  const now = new Date().toISOString()
+  const rows = (data ?? []).map(n => ({
+    ...n,
+    mfrc_flds: [...new Set(byKey.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`) ?? [])],
     updated_at: now,
   }))
   await upsert(supa, 'bid_notices', rows, 'bid_ntce_no,bid_ntce_ord')

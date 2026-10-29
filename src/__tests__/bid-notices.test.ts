@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canEnter, latestOrd, parseWon, shortRegion } from '@/lib/bid-notices'
+import { canEnter, fitsFields, latestOrd, parseMfrc, parseWon, shortRegion } from '@/lib/bid-notices'
 
 const row = (no: string, ord: string, name: string, bssamt: number | null = null) =>
   ({ bid_ntce_no: no, bid_ntce_ord: ord, name, bid_close_at: '2026-10-30T01:00:00Z', bssamt, a_amount: null, rng_end: null })
@@ -63,4 +63,25 @@ describe('canEnter — 아산 업체', () => {
 describe('shortRegion', () => {
   it.each([['충청남도 아산시', '충남 아산시'], ['충청남도', '충남'], ['부산광역시', '부산'], ['서울특별시 강동구', '서울 강동구']])(
     '%s → %s', (a, b) => expect(shortRegion(a)).toBe(b))
+})
+
+describe('주력분야', () => {
+  it('parseMfrc — 나라장터 표기에서 이름만', () => {
+    expect(parseMfrc('[1^습식·방수공사]')).toEqual(['습식·방수공사'])
+    expect(parseMfrc('[1^도장공사][2^석공사]')).toEqual(['도장공사', '석공사'])
+    expect(parseMfrc('')).toEqual([])
+  })
+
+  const ours = ['도장공사', '습식·방수공사']
+  it.each([
+    [['석공사'], false],
+    [['습식·방수공사'], true],
+    [['도장공사', '석공사'], true],
+    [[], true],
+  ] as [string[], boolean][])('%j → %s', (f, v) => expect(fitsFields(f, ours)).toBe(v))
+
+  it('아직 안 받았으면 모른다, 우리 주력분야가 없으면 다 된다', () => {
+    expect(fitsFields(null, ours)).toBeNull()
+    expect(fitsFields(['석공사'], [])).toBe(true)
+  })
 })

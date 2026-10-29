@@ -9,6 +9,7 @@ type OrdRow = {
   a_amount: number | null
   rng_end: number | null
   prtcpt_rgns?: string[] | null
+  mfrc_flds?: string[] | null
 }
 
 /**
@@ -26,12 +27,14 @@ export function latestOrd<T extends OrdRow>(rows: T[]): T[] {
     if (/취소공고/.test(last.name)) continue
     const withBase = sorted.find(r => r.bssamt != null)
     const withRgn = sorted.find(r => r.prtcpt_rgns != null)
+    const withFld = sorted.find(r => r.mfrc_flds != null)
     out.push({
       ...last,
       ...(last.bssamt == null && withBase
         ? { bssamt: withBase.bssamt, a_amount: last.a_amount ?? withBase.a_amount, rng_end: last.rng_end ?? withBase.rng_end }
         : {}),
       ...(last.prtcpt_rgns == null && withRgn ? { prtcpt_rgns: withRgn.prtcpt_rgns } : {}),
+      ...(last.mfrc_flds == null && withFld ? { mfrc_flds: withFld.mfrc_flds } : {}),
     })
   }
   return out.sort((a, b) => (a.bid_close_at ?? '').localeCompare(b.bid_close_at ?? ''))
@@ -73,4 +76,23 @@ export function shortRegion(r: string): string {
     .replace(/^(충청|전라|경상)([남북])도/, (_, a: string, b: string) => a[0] + b)
     .replace(/^전북특별자치도/, '전북').replace(/^강원특별자치도/, '강원').replace(/^제주특별자치도/, '제주')
     .replace(/^세종특별자치시/, '세종').replace(/특별시|광역시/, '')
+}
+
+/** 우리가 고를 수 있는 주력분야 — 4992 면허의 나라장터 표기 그대로 */
+export const BID_FIELDS = ['도장공사', '습식·방수공사', '석공사'] as const
+
+/**
+ * 공고의 주력분야가 우리 주력분야와 맞나. 공고가 주력분야를 안 정했으면(빈 배열) 누구나 된다.
+ * 아직 안 받았으면(null) 모른다 — 빼지 않는다. 우리 주력분야를 안 정했으면 거르지 않는다.
+ */
+export function fitsFields(flds: string[] | null | undefined, ours: string[] | null | undefined): boolean | null {
+  if (!ours?.length) return true
+  if (flds == null) return null
+  if (flds.length === 0) return true
+  return flds.some(f => ours.includes(f))
+}
+
+/** 나라장터 '[1^습식·방수공사]' '[1^도장공사][2^석공사]' → ['습식·방수공사', …] */
+export function parseMfrc(list: string | null | undefined): string[] {
+  return [...(list ?? '').matchAll(/\^([^\]^,]+)/g)].map(m => m[1].trim()).filter(Boolean)
 }

@@ -12,7 +12,7 @@ import { useToast } from '@/components/toast'
 import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
-import { canEnter, latestOrd, shortRegion } from '@/lib/bid-notices'
+import { BID_FIELDS, canEnter, fitsFields, latestOrd, shortRegion } from '@/lib/bid-notices'
 import { AnalysisPanel, type HistoryRow } from './analysis-panel'
 import { ResultDetail, type ResultForDetail } from './result-detail'
 
@@ -49,6 +49,7 @@ type Notice = {
   rng_end: number | null
   a_amount: number | null
   prtcpt_rgns: string[] | null
+  mfrc_flds: string[] | null
 }
 
 type Result = {
@@ -105,6 +106,11 @@ export default function BidPage() {
   // 우리 업체 소재지 — 지역제한 공고 중 들어갈 수 있는 것만 거르는 데 쓴다
   const ourRegion = typeof broker?.bid_region === 'string' && broker.bid_region.trim() ? broker.bid_region.trim() : null
   const [enterableOnly, setEnterableOnly] = useState(true)
+  // 우리 주력분야 — 같은 면허(4992)라도 석공 공사가 하루 공고의 40% 가까이 섞여 나온다
+  const rawFields = broker?.bid_fields
+  const ourFields = useMemo(() => (Array.isArray(rawFields) ? (rawFields as string[]) : []), [rawFields])
+  const [fieldsOnly, setFieldsOnly] = useState(true)
+  const [editingFields, setEditingFields] = useState(false)
   const [editingRegion, setEditingRegion] = useState<string | null>(null)
 
   const [tab, setTab] = useState<Tab>('notice')
@@ -134,7 +140,7 @@ export default function BidPage() {
       const since = new Date(Date.now() - 60 * 86400000).toISOString()
       const [n, r, h, s] = await Promise.all([
         fetchAllPaged<Notice>((from, to) => supabase.from('bid_notices')
-          .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns')
+          .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds')
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
         supabase.from('bid_results')
           .select(RESULT_COLS)
@@ -160,6 +166,14 @@ export default function BidPage() {
   }, [supabase])
 
   useEffect(() => { if (enabled) load() }, [enabled, load])
+
+  const toggleField = async (f: string) => {
+    if (!broker) return
+    const next = ourFields.includes(f) ? ourFields.filter(x => x !== f) : [...ourFields, f]
+    const { error } = await supabase.from('broker_profiles').update({ bid_fields: next.length ? next : null }).eq('id', broker.id)
+    if (error) { toast.error('주력분야를 저장하지 못했습니다'); return }
+    await refresh()
+  }
 
   const saveRegion = async () => {
     if (editingRegion == null || !broker) return
@@ -196,8 +210,9 @@ export default function BidPage() {
     return notices.filter(n =>
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
       (!enterableOnly || canEnter(n.prtcpt_rgns, ourRegion) !== false) &&
+      (!fieldsOnly || fitsFields(n.mfrc_flds, ourFields) !== false) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''} ${n.bid_ntce_no}-${n.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
-  }, [notices, openOnly, enterableOnly, ourRegion, q])
+  }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, q])
 
   const regionCounts = useMemo(() => {
     const m = new Map<string, number>()
@@ -294,6 +309,19 @@ export default function BidPage() {
               우리 업체 소재지 <b className="font-medium text-gray-700 dark:text-gray-300">{ourRegion ?? '정하기'}</b>
             </button>
           )}
+          {editingFields ? (
+            <span className="flex flex-wrap items-center gap-1">
+              우리 주력분야
+              {BID_FIELDS.map(f => (
+                <Chip key={f} size="xs" on={ourFields.includes(f)} onClick={() => void toggleField(f)}>{f.replace('공사', '')}</Chip>
+              ))}
+              <button type="button" onClick={() => setEditingFields(false)} className="font-medium text-blue-600 dark:text-blue-400">닫기</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setEditingFields(true)} className="hover:underline">
+              우리 주력분야 <b className="font-medium text-gray-700 dark:text-gray-300">{ourFields.length ? ourFields.map(f => f.replace('공사', '')).join(', ') : '정하기'}</b>
+            </button>
+          )}
           {/* 분석이 얼마나 믿을 만한지는 쌓인 과거 낙찰 수에 달렸다. 숫자를 늘 보이게 둔다 */}
           {!loading && <span>분석에 쓰는 과거 낙찰 {history.length.toLocaleString('ko-KR')}건</span>}
           {tab === 'notice' && !loading && <span>공고 {shownNotices.length.toLocaleString('ko-KR')}건</span>}
@@ -310,6 +338,12 @@ export default function BidPage() {
               <Chip on={enterableOnly} onClick={() => setEnterableOnly(v => !v)}
                 title={`참가가능지역이 전국이거나 ${ourRegion}을 품는 공고만`}>
                 들어갈 수 있는 것만
+              </Chip>
+            )}
+            {ourFields.length > 0 && (
+              <Chip on={fieldsOnly} onClick={() => setFieldsOnly(v => !v)}
+                title={`주력분야가 ${ourFields.join('·')}이거나 지정 없는 공고만`}>
+                주력분야만
               </Chip>
             )}
             <span className="mx-1 hidden h-4 w-px bg-gray-200 sm:block dark:bg-gray-800" />
@@ -381,6 +415,7 @@ export default function BidPage() {
                           {n.cntrct_mthd && ` · ${n.cntrct_mthd}`}
                         </span>
                         <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} />
+                        <FieldBadge flds={n.mfrc_flds} ours={ourFields} />
                         {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
                         <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
                           {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}
@@ -502,6 +537,18 @@ function RegionBadge({ rgns, ours }: { rgns: string[] | null; ours: string | nul
   return (
     <span className={`mt-0.5 block text-xs ${ok === false ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
       참가 {text}{ok === false && ' — 우리 업체는 못 들어갑니다'}
+    </span>
+  )
+}
+
+/** 주력분야 한 줄. 우리 주력분야가 아니면 빨갛게 */
+function FieldBadge({ flds, ours }: { flds: string[] | null; ours: string[] }) {
+  if (flds == null) return null
+  const ok = fitsFields(flds, ours)
+  return (
+    <span className={`block text-xs ${ok === false ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
+      주력 {flds.length ? flds.map(f => f.replace('공사', '')).join('·') : '지정 없음'}
+      {ok === false && ' — 우리 주력분야가 아닙니다'}
     </span>
   )
 }
