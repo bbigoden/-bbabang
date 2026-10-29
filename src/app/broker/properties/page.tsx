@@ -1402,8 +1402,7 @@ const PropertyRow = memo(function PropertyRow({
             )
           }
           return (
-            // data-col — 새 행을 넣을 때 소재지 칸을 찾아 연다(아래 addingId 효과). 순서로 찾으면 안 된다.
-            <td key={key} data-col={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
+            <td key={key} className="px-2 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: w, maxWidth: w }}>
               {key === 'status'          && <StatusToggleCell value={p.status} onSave={v => onStatusChange(p, v)} />}
               {key === 'address'         && <AddressCell value={p.address} onSave={v => saveField(p.id, 'address', v)} onAutoFill={(bcode) => autoFillRow(p.id, p.address || '', bcode)} autoFilling={isAutoFilling} placeholder="소재지 입력" />}
               {key === 'size_pyeong'     && <AreaCell size={p.size_pyeong} supplied={p.area_supplied} globalUnit={settings.areaUnit ?? '평'} onSave={(ded, sup) => { saveField(p.id, 'size_pyeong', ded); saveField(p.id, 'area_supplied', sup ? Number(sup) : null) }} />}
@@ -2791,7 +2790,9 @@ function BrokerPropertiesContent() {
       })
   }, [searchParams, loading, properties, supabase, searchQuery, toast])
 
-  // 새 행 추가 시: 페이지 이동 + 스크롤 + 소재지 셀 클릭 (편집모드)
+  // 새 행 추가 시: 페이지 이동 + 스크롤(행은 isAdding 으로 강조).
+  // 예전엔 소재지 칸을 눌러 편집 상태로 열었는데, 이제 소재지는 등록 창에서 이미 받는다. 다 적힌 주소가
+  // 좁은 입력칸에 끝쪽부터 보여 '천안시'가 잘린 채 '서북구 불당동 123'만 보였다(10-29 점검, 3명).
   useEffect(() => {
     if (!addingId) return
     // 새 행은 등록순 최신 — up(최신부터)이면 1페이지, down(오래된 것부터)이면 마지막 페이지
@@ -2799,17 +2800,7 @@ function BrokerPropertiesContent() {
     setPage(targetPage)
     const t = setTimeout(() => {
       const row = document.querySelector(`tr[data-row-id="${addingId}"]`) as HTMLElement | null
-      if (row) {
-        row.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        setTimeout(() => {
-          // 소재지 칸을 연다 — 새 행에서 제일 먼저 채우는 칸이다.
-          // **앞에서부터 누를 수 있는 것을 찾아 누르면 안 된다.** 맨 앞 칸이 매물상태 토글
-          // (ALL_COLUMNS[0])이라, 새 행·복사한 행이 들어오자마자 가능→완료로 뒤집혀 저장됐다.
-          // 소재지 칸을 숨겨 두었으면 아무것도 누르지 않는다.
-          const addr = row.querySelector('td[data-col="address"] [class*="cursor-pointer"]') as HTMLElement | null
-          addr?.click()
-        }, 400)
-      }
+      row?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     }, 80)
     return () => clearTimeout(t)
   }, [addingId, direction, totalCount, pageSize])

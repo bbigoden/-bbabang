@@ -25,7 +25,7 @@ export function OnboardingChecklist({ brokerId, items }: { brokerId: string; ite
       title: '첫 매물 등록하기',
       // 안내 문구의 화면·버튼 이름은 실제 메뉴(menu-items.tsx)·버튼 글자와 같게 — '매물장'·'팀 관리'라 적어 찾지 못했다
       desc: '매물목록에서 [+ 매물 등록]을 눌러 바로 추가할 수 있어요',
-      href: '/broker/properties',
+      href: '/broker/properties?new=1',
     },
     {
       done: items.employee,

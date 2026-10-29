@@ -83,6 +83,12 @@ export function validateOfficeForm(f: OfficeForm): OfficeFormErrors {
   return e
 }
 
+/** 번호가 이미 다른 사무소에 있을 때 그 칸 아래 문구 — 등록 전 확인(/api/brokers/check-numbers)과 409 가 같이 쓴다 */
+export const NUMBER_TAKEN_MESSAGE = {
+  license_number: '이 자격증 번호는 이미 다른 사무소에 등록돼 있어요. 본인 번호가 맞다면 고객센터로 문의해 주세요.',
+  business_reg_number: '이 사업자등록번호는 이미 다른 사무소에 등록돼 있어요. 본인 번호가 맞다면 고객센터로 문의해 주세요.',
+} as const
+
 type DbError = { code?: string | null; message?: string | null; details?: string | null } | null | undefined
 
 /**
@@ -97,10 +103,10 @@ export function officeSaveError(err: DbError): { field?: OfficeField; message: s
       return { alreadyRegistered: true, message: '이 계정은 이미 사무소가 등록돼 있어요.' }
     }
     if (/license/.test(text)) {
-      return { field: 'license_number', message: '이 자격증 번호는 이미 다른 사무소에 등록돼 있어요. 본인 번호가 맞다면 고객센터로 문의해 주세요.' }
+      return { field: 'license_number', message: NUMBER_TAKEN_MESSAGE.license_number }
     }
     if (/business_reg/.test(text)) {
-      return { field: 'business_reg_number', message: '이 사업자등록번호는 이미 다른 사무소에 등록돼 있어요. 본인 번호가 맞다면 고객센터로 문의해 주세요.' }
+      return { field: 'business_reg_number', message: NUMBER_TAKEN_MESSAGE.business_reg_number }
     }
     return { message: '이미 등록된 정보와 겹쳐요. 번호를 다시 확인해 주세요.' }
   }

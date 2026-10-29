@@ -11,6 +11,7 @@ import { User, Building2, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatPhoneKR, validateSignup, SIGNUP_PASSWORD_MIN, NAME_MAX, type SignupErrors, type SignupField } from '@/lib/validation'
 import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
+import { CONSENT_RECORDED_EVENT } from '@/components/consent-gate'
 
 /** 인증 메일을 연달아 보내면 Supabase 가 429 로 막는다 — 다시 보내기 버튼을 1분 쉬게 한다. */
 const RESEND_COOLDOWN_SEC = 60
@@ -233,6 +234,8 @@ export function SignupForm({
         body: JSON.stringify({ userId: user.id, marketing: agreeMarketing }),
       }).catch(() => null),
     ])
+    // 약관 창(ConsentGate)은 막 가입한 사람이면 이 신호를 기다렸다가 미동의 약관을 확인한다
+    window.dispatchEvent(new Event(CONSENT_RECORDED_EVENT))
 
     // 세션이 있으니 인증 메일 안내 없이 바로 원래 가려던 곳으로. 이동하는 동안 버튼을 다시 켜지 않는다 —
     // 느린 망에선 이동이 몇 초 걸리는데 다시 눌리는 폼이 보이면 가입이 실패한 줄 알았다(p3).

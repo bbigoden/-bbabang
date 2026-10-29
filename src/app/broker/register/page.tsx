@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { seedRegionFromAddress } from '@/lib/region-from-address'
 import {
   normalizeOfficeForm, validateOfficeForm, officeSaveError, isBusinessNumber, formatBusinessNumber,
-  bizVerifyMessage, verificationState, verificationCopy, type OfficeForm, type OfficeFormErrors,
+  bizVerifyMessage, verificationState, verificationCopy, NUMBER_TAKEN_MESSAGE, type OfficeForm, type OfficeFormErrors,
 } from '@/lib/broker-office'
 
 export default function BrokerRegisterPage() {
@@ -164,6 +164,14 @@ export default function BrokerRegisterPage() {
     }
   }
 
+  // 빨간 칸으로 데려간다 — 폰에선 오류 칸이 화면 위에 있어, 아래 '빨간 글씨' 안내만 보고 어느 칸인지 몰랐다
+  const ownerFormRef = useRef<HTMLFormElement>(null)
+  const focusFirstError = () => requestAnimationFrame(() => {
+    const el = ownerFormRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')
+    el?.scrollIntoView({ block: 'center' })
+    el?.focus({ preventScroll: true })
+  })
+
   // 대표 등록
   const handleOwnerSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -172,13 +180,30 @@ export default function BrokerRegisterPage() {
     setForm(clean)
     const errs = validateOfficeForm(clean)
     setFieldErrors(errs)
-    if (Object.keys(errs).length) { setError('빨간 글씨가 있는 칸을 확인해 주세요.'); return }
+    if (Object.keys(errs).length) { setError('빨간 글씨가 있는 칸을 확인해 주세요.'); focusFirstError(); return }
 
     setLoading(true); setError('')
     try {
       const { data: authData } = await supabase.auth.getUser()
       const user = authData.user
       if (!user) { router.push('/auth/login'); return }
+
+      // 두 번호의 중복을 한꺼번에 본다 — 등록은 겹치는 첫 칸 하나만 알려 줘서, 사업자번호를 고쳐
+      // 다시 내면 그제야 자격증 번호가 걸렸다. 확인이 안 되면(망 오류) 그대로 등록해 409 로 받는다.
+      const dup = await fetch('/api/brokers/check-numbers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ license_number: clean.license_number, business_reg_number: clean.business_reg_number }),
+      }).then(r => (r.ok ? r.json() : null), () => null) as { taken?: Array<keyof typeof NUMBER_TAKEN_MESSAGE> } | null
+      if (dup?.taken?.length) {
+        const errs: OfficeFormErrors = {}
+        for (const field of dup.taken) errs[field] = NUMBER_TAKEN_MESSAGE[field]
+        setFieldErrors(errs)
+        setError('빨간 글씨가 있는 칸을 확인해 주세요.')
+        setLoading(false)
+        focusFirstError()
+        return
+      }
 
       // 사무소 주소 → 시·군·구 자동 추출해 alert_regions 시드 (실패해도 빈 배열로 진행)
       const seed = await seedRegionFromAddress(clean.address)
@@ -209,6 +234,7 @@ export default function BrokerRegisterPage() {
         if (m.field) setFieldErrors({ [m.field]: m.message })
         setError(m.field ? '빨간 글씨가 있는 칸을 확인해 주세요.' : m.message)
         setLoading(false)
+        if (m.field) focusFirstError()
         return
       }
 
@@ -327,7 +353,7 @@ export default function BrokerRegisterPage() {
           <Card>
             <CardBody>
               <p className="mb-4 text-xs text-gray-500">* 표시는 꼭 적어야 하는 칸이에요.</p>
-              <form onSubmit={handleOwnerSubmit} className="space-y-4" noValidate>
+              <form ref={ownerFormRef} onSubmit={handleOwnerSubmit} className="space-y-4" noValidate>
                 <Input label="부동산 상호명 *" placeholder="예: 행복부동산" maxLength={50}
                   value={form.office_name} onChange={(e) => update('office_name', e.target.value)}
                   error={fieldErrors.office_name} required />
@@ -423,7 +449,7 @@ function OfficeOpened({ officeName, verified }: { officeName: string; verified: 
         <p className="mt-2 text-left text-xs text-gray-500">자동 확인이 되지 않아 관리자가 직접 확인해요.</p>
       )}
       <div className="mt-6 flex flex-col gap-2">
-        <Link href="/broker/properties">
+        <Link href="/broker/properties?new=1">
           <Button size="lg" className="w-full">첫 매물 등록하기</Button>
         </Link>
         <Link href="/dashboard/broker">
