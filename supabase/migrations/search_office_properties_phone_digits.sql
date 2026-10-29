@@ -1,6 +1,7 @@
--- (2차) 하이픈 없는 연락처 검색 추가. 위 설명과 동일하게 시그니처 불변.
--- 매물 검색: 공백 없는 검색어("불당동1659")도 "불당동 1659"로 저장된 주소에 매칭.
--- 원문·공백제거본 둘 중 하나라도 부분일치하면 포함. 시그니처 불변.
+-- 매물 검색: 하이픈 없이 친 연락처(01012345678)도 '010-1234-5678' 로 적힌 메모·설명에서 찾는다.
+-- 2026-10-27 첫 판은 그보다 앞선 regexp_replace 본을 바탕으로 해, 그대로 넣으면 translate 개선
+-- (search_office_properties_translate)을 되돌렸다. 운영 정의(translate 본)에 연락처 갈래만 얹어 다시 썼다.
+-- 연락처처럼 생긴 검색어일 때만 정규식을 돈다. 시그니처 불변. 멱등. (2026-10-29 적용)
 
 CREATE OR REPLACE FUNCTION public.search_office_properties(
   p_broker_ids uuid[] DEFAULT NULL,
@@ -33,6 +34,7 @@ DECLARE
   order_expr text;
   q_pat text;
   q_flat text;
+  ws text;
   q_phone text;
 BEGIN
   -- 정렬 방향
@@ -55,15 +57,18 @@ BEGIN
 
   q_pat := '%' || p_q || '%';
   -- 공백 없이 친 검색어("불당동1659")도 주소의 "불당동 1659"에 걸리도록 공백 제거본도 비교
-  q_flat := '%' || regexp_replace(coalesce(p_q,''), '\s', '', 'g') || '%';
-
-  -- 하이픈 없이 친 연락처(01062331205)가 메모의 '010-6233-1205' 에 걸리도록, 전화번호처럼 생긴 검색어일 때만
-  -- 본문의 숫자 사이 하이픈을 빼고도 비교한다. (일반 숫자 검색에는 영향이 없다)
+  -- 지울 공백: 스페이스·탭·줄바꿈·CR·FF·VT·NBSP·전각 공백
+  ws := ' ' || chr(9) || chr(10) || chr(13) || chr(12) || chr(11) || chr(160) || chr(12288);
+  q_flat := '%' || translate(coalesce(p_q,''), ws, '') || '%';
+  -- 연락처처럼 생긴 검색어(01012345678, 010 1234 5678)면 숫자 사이 하이픈을 지운 글에서도 찾는다.
+  -- 그 밖의 검색어는 NULL 이라 정규식을 돌리지 않는다.
   q_phone := CASE WHEN regexp_replace(coalesce(p_q,''), '[\s-]', '', 'g') ~ '^0[0-9]{8,10}$'
                   THEN '%' || regexp_replace(coalesce(p_q,''), '[\s-]', '', 'g') || '%' END;
 
   RETURN QUERY EXECUTE format(
-    'SELECT to_jsonb(p.*) AS data, count(*) OVER() AS total_count
+    'WITH f AS (
+     SELECT p.id, count(*) OVER() AS total_count,
+            row_number() OVER (ORDER BY %s %s NULLS LAST, p.id DESC) AS rn
      FROM broker_properties p
      CROSS JOIN LATERAL (SELECT concat_ws('' '',
              p.seq_no::text, p.address, p.deal_type, p.room_type,
@@ -93,14 +98,17 @@ BEGIN
        AND ($15 IS NULL OR (regexp_match(coalesce(p.size_pyeong,''''), ''[0-9]+\.?[0-9]*''))[1]::numeric <= $15)
        AND ($16 IS NULL OR p.floor >= $16)
        AND ($17 IS NULL OR p.floor <= $17)
-       AND ($5 IS NULL OR s.h ILIKE $6 OR regexp_replace(s.h, ''\s'', '''', ''g'') ILIKE $19
-            OR ($20::text IS NOT NULL AND regexp_replace(s.h, ''(\d)-(?=\d)'', ''\1'', ''g'') ILIKE $20))
-     ORDER BY %s %s NULLS LAST, p.id DESC
-     LIMIT $7 OFFSET $8',
+       AND ($5 IS NULL OR translate(s.h, $20, '''') ILIKE $19
+            OR ($21::text IS NOT NULL AND regexp_replace(s.h, ''(\d)-(?=\d)'', ''\1'', ''g'') ILIKE $21))
+     ORDER BY rn
+     LIMIT $7 OFFSET $8)
+     SELECT to_jsonb(p.*) AS data, f.total_count
+     FROM f JOIN broker_properties p ON p.id = f.id
+     ORDER BY f.rn',
     order_expr, sort_dir)
   USING p_broker_ids, p_deal_type, p_room_types, p_status, p_q, q_pat, p_limit, p_offset,
         p_assignees, p_price_min, p_price_max, p_rent_min, p_rent_max,
-        p_pyeong_min, p_pyeong_max, p_floor_min, p_floor_max, p_office, q_flat, q_phone;
+        p_pyeong_min, p_pyeong_max, p_floor_min, p_floor_max, p_office, q_flat, ws, q_phone;
 END;
 $$;
 
