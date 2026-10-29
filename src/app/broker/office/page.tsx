@@ -208,6 +208,8 @@ export default function OfficePage() {
   const [members, setMembers] = useState<Member[]>([])
   /** 사람마다 오늘 등록한 매물 수(10초마다) */
   const [todayProps, setTodayProps] = useState<Record<string, number>>({})
+  /** 사람마다 오늘 고객목록에 등록한 고객 수 */
+  const [todayCustomers, setTodayCustomers] = useState<Record<string, number>>({})
   const [bidRun, setBidRun] = useState<BidRun | null>(null)
   const [estMonth, setEstMonth] = useState<number | null>(null)
   /** 사람마다 지금까지 등록한 매물 수 — 현황판과 같이 5분마다 건수로만 센다 */
@@ -245,10 +247,9 @@ export default function OfficePage() {
         .eq('office_broker_id', officeId)
         .or(`status.eq.open,done_at.gte.${day}`)
         .order('created_at', { ascending: false }).limit(100),
-      // 상담실 손님 — 오늘 업무일지에 적힌 고객
-      // 상담실 손님 — 오늘 고객목록에 새로 등록된 고객(휴지통 제외)
-      supabase.from('broker_customers').select('id', { count: 'exact', head: true })
-        .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', since),
+      // 오늘 고객목록에 새로 등록된 고객(휴지통 제외) — 상담실 손님 수, 그리고 등록한 사람마다 책상 말풍선에
+      supabase.from('broker_customers').select('broker_id')
+        .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', since).limit(1000),
     ])
 
     setAgents((ag.data as Agents | null) ?? null)
@@ -272,8 +273,11 @@ export default function OfficePage() {
     setToday({
       cafe: 채널('cafe'), blog: 채널('blog'), daangnPost: 채널('daangn'),
       naver: nv.count ?? 0, daangn: dg.count ?? 0,
-      consult: consult.count ?? 0,
+      consult: consult.data?.length ?? 0,
     })
+    const 고객: Record<string, number> = {}
+    for (const c of (consult.data ?? []) as { broker_id: string }[]) 고객[c.broker_id] = (고객[c.broker_id] ?? 0) + 1
+    setTodayCustomers(고객)
     setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
 
     // 직원도 사무실 사람들은 본다(2026-10-28 '직원 계정으론 안 보인다') — Claude 만 사장님 것.
@@ -468,18 +472,19 @@ export default function OfficePage() {
   const adNote = agents?.note ?? '대기 중'
   const bankRunning = bankJobs.find(j => j.status === 'running')
   const people: Seat[] = members.map((m, i) => {
-    const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id] }
+    const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id], customers: todayCustomers[m.id] ?? 0 }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
     return {
       key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id] ?? NAME_MON[m.profiles?.name ?? ''], pets: NAME_PETS[m.profiles?.name ?? ''], name: m.profiles?.name ?? '이름 없음',
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
-      state: s.today > 0 || diaries[m.id] ? 'working' : 'idle',
-      // 한 일만 줄로 적는다 — 매물은 1건부터, 업무일지는 썼을 때만(2026-10-26 사장님이 정함)
-      say: [s.today ? `매물 ${s.today}건 등록` : '', diaries[m.id] ? '업무일지 등록' : '', open ? `할 일 ${open}건` : '']
+      state: s.today > 0 || s.customers > 0 || diaries[m.id] ? 'working' : 'idle',
+      // 한 일만 줄로 적는다 — 매물·고객은 1건부터, 업무일지는 썼을 때만(2026-10-26 사장님이 정함, 고객은 10-29 더함)
+      say: [s.today ? `매물 ${s.today}건 등록` : '', s.customers ? `고객 ${s.customers}건 등록` : '',
+        diaries[m.id] ? '업무일지 등록' : '', open ? `할 일 ${open}건` : '']
         .filter(Boolean).join('\n') || null,
       pin: true,
-      note: `오늘 매물 ${s.today}건 등록 · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
+      note: `오늘 매물 ${s.today}건 · 고객 ${s.customers}건 등록 · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
         + (s.total == null ? '' : ` · 지금까지 등록한 매물 ${s.total.toLocaleString()}건`) + ` · 남은 할 일 ${open}건`,
     }
   })

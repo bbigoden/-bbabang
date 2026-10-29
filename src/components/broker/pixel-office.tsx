@@ -1106,13 +1106,6 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           <Plant x={x + 6} y={y + 78} />
         </g>
       )
-    case 'agentLab':
-      return (
-        <g>
-          <rect x={x + w - 18} y={y + 3} width={14} height={6} fill="#d97757" />
-          <text x={x + w - 11} y={y + 7.4} fontSize={3.4} fontWeight={800} textAnchor="middle" fill="#fff">LAB</text>
-        </g>
-      )
     case 'director':
       // 풀소유 이사실 — 사장님 주문(2026-10-25): 모든 게 갖춰진 방.
       return (
