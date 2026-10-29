@@ -42,7 +42,8 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
   }
   const todayYmd = todayKST()
   const [counts, total, totalAvail, ls, ps, newProps] = await Promise.all([
-    Promise.all(members.map(async m => [m.id, await 매물(m.id, false), await 매물(m.id, true)] as const)),
+    // 사람마다 '전체'·'거래가능' 을 차례로 물으면 왕복이 두 번 쌓인다(느린 폰 회선에서 약 2초) — 함께 보낸다
+    Promise.all(members.map(async m => [m.id, ...await Promise.all([매물(m.id, false), 매물(m.id, true)])] as const)),
     매물(null, false),
     매물(null, true),
     supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
