@@ -62,8 +62,14 @@ export async function g2bGet(
   }
   const r = (json as { response?: { header?: { resultCode?: string; resultMsg?: string }; body?: { items?: Raw[] | ''; totalCount?: number } } }).response
   if (!r) {
-    const err = Object.values(json as Record<string, { header?: { resultCode?: string; resultMsg?: string } }>)[0]?.header
-    throw new G2bError(err?.resultMsg ?? '알 수 없는 오류', err?.resultCode)
+    // 한도 초과는 JSON 으로도 이렇게 온다: { OpenAPI_ServiceResponse: { cmmMsgHeader: { returnReasonCode: '22', … } } }
+    const first = Object.values(json as Record<string, {
+      header?: { resultCode?: string; resultMsg?: string }
+      cmmMsgHeader?: { returnReasonCode?: string; returnAuthMsg?: string; errMsg?: string }
+    }>)[0]
+    const cmm = first?.cmmMsgHeader
+    if (cmm) throw new G2bError(cmm.returnAuthMsg ?? cmm.errMsg ?? '오류', cmm.returnReasonCode)
+    throw new G2bError(first?.header?.resultMsg ?? `알 수 없는 응답: ${text.slice(0, 120)}`, first?.header?.resultCode)
   }
   // 03 = 데이터 없음. 오류가 아니라 빈 목록이다
   if (r.header?.resultCode === '03') return { items: [], total: 0 }

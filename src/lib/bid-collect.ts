@@ -47,7 +47,12 @@ const DETAIL_CONCURRENCY = 12
 /** 참가가능지역은 나중에(2026-10-29) 붙였다. 그 전에 받아 둔 공고는 이만큼 거슬러 한 번 채운다 */
 const RGN_BACKFILL_DAYS = 60
 
-type Calls = { date: string; notice: number; result: number }
+/**
+ * spent: 오늘 나라장터가 한도 초과(22)를 돌려준 기능. **한도는 서비스가 아니라 기능마다 따로** 센다 —
+ * 2026-10-29 낙찰정보는 운영계정으로 늘었는데 입찰공고정보의 '기초금액 조회'만 1,000 에서 막혔다.
+ * 그 기능만 그날 쉬고 나머지는 계속 받는다.
+ */
+type Calls = { date: string; notice: number; result: number; spent?: string[] }
 type Backfill = { until: string; done: boolean }
 
 export type CollectReport = {
@@ -61,6 +66,11 @@ export type CollectReport = {
   stoppedBy: 'done' | 'time' | 'limit' | 'error'
   error?: string
   finishedAt: string
+}
+
+/** 오늘 한도를 다 쓴 기능을 또 부르려 할 때 */
+class SpentError extends Error {
+  constructor(readonly op: string) { super(`${op} 오늘 한도 초과`) }
 }
 
 class StopError extends Error {
@@ -88,18 +98,32 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   }
   const call = async (svc: G2bService, op: string, params: Record<string, string | number>, limit = DAILY_LIMIT) => {
     guard(svc, limit)
-    return g2bGet(svc, op, params, s => { calls[s]++ })
+    if (calls.spent?.includes(op)) throw new SpentError(op)
+    try {
+      return await g2bGet(svc, op, params, s => { calls[s]++ })
+    } catch (e) {
+      if (e instanceof G2bError && e.code === '22') {
+        calls.spent = [...new Set([...(calls.spent ?? []), op])]
+        throw new SpentError(op)
+      }
+      throw e
+    }
   }
   /** 날짜 범위 목록을 999건씩 끝까지 */
   const listAll = async (svc: G2bService, op: string, from: string, to: string, extra: Record<string, string> = {}) => {
     const out: Record<string, string>[] = []
-    for (let page = 1; ; page++) {
-      const { items, total } = await call(svc, op, {
-        numOfRows: 999, pageNo: page, inqryDiv: 1,
-        inqryBgnDt: g2bDt(from, '0000'), inqryEndDt: g2bDt(to, '2359'), ...extra,
-      })
-      out.push(...items)
-      if (out.length >= total || items.length === 0) break
+    try {
+      for (let page = 1; ; page++) {
+        const { items, total } = await call(svc, op, {
+          numOfRows: 999, pageNo: page, inqryDiv: 1,
+          inqryBgnDt: g2bDt(from, '0000'), inqryEndDt: g2bDt(to, '2359'), ...extra,
+        })
+        out.push(...items)
+        if (out.length >= total || items.length === 0) break
+      }
+    } catch (e) {
+      // 이 목록 기능만 오늘 한도가 찼다 — 받은 데까지만 쓰고 다른 목록은 계속 받는다
+      if (!(e instanceof SpentError)) throw e
     }
     return out
   }
@@ -219,7 +243,8 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
           await Promise.all(todo.slice(i, i + DETAIL_CONCURRENCY).map(r => fillDetail(r).catch(async e => {
             // 한 건이 계속 오류를 내면 매번 그 건에서 멈춰 뒤가 영영 안 채워진다.
             // 한도·시간 초과가 아니면 빈 채로 넘기고 다음 건으로 간다
-            if (e instanceof StopError || (e instanceof G2bError && e.code === '22')) throw e
+            // 상세에 필요한 기능이 바닥났으면 틀린 값(A값 없이)으로 채우지 말고 내일로 미룬다
+            if (e instanceof StopError || e instanceof SpentError) throw e
             console.warn('[bid-collect] 상세 건너뜀', r.bid_ntce_no, e instanceof Error ? e.message : e)
             await supa.from('bid_results').update({ detail_at: new Date().toISOString() })
               .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).eq('rbid_no', r.rbid_no)
@@ -237,7 +262,7 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     }
   } catch (e) {
     if (e instanceof StopError) report.stoppedBy = e.reason
-    else if (e instanceof G2bError && e.code === '22') report.stoppedBy = 'limit'  // 포털 쪽 한도 초과
+    else if (e instanceof SpentError) report.stoppedBy = 'limit'  // 포털 쪽 한도 초과(기능 하나)
     else {
       report.stoppedBy = 'error'
       report.error = e instanceof Error ? e.message : String(e)
