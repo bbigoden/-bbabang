@@ -513,7 +513,12 @@ export default function CollectPage() {
     else if (!auth.broker) router.push('/broker/register')
   }, [auth.loading, auth.user, auth.broker, router])
 
-  const [source, setSource] = useState<SourceId>('naver')
+  // 탭은 주소(?tab=daangn)에 남긴다. 안 남기면 당근 탭에서 폰 '뒤로' 를 누를 때 네이버
+  // 탭이 아니라 홈으로 나갔다(점검 10/26). 이 화면은 로그인 확인 전엔 아무것도 안 그려
+  // 서버 화면과 어긋날 일이 없어, 처음 값부터 주소에서 읽는다.
+  const [source, setSource] = useState<SourceId>(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'daangn'
+      ? 'daangn' : 'naver')
   const src = SOURCES[source]
 
   const [rows, setRows] = useState<Row[]>([])
@@ -1107,10 +1112,23 @@ export default function CollectPage() {
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < 60_000
 
   /** 곳을 바꾸면 그 곳에 없는 필터가 남아 있으면 안 된다. */
-  const switchSource = (next: SourceId) => {
-    if (next === source) return
+  const 곳바꾸기 = (next: SourceId) => {
     setSource(next); setKinds([]); setTrades([]); setGoneOnly(false); setPage(1)
   }
+  const switchSource = (next: SourceId) => {
+    if (next === source) return
+    곳바꾸기(next)
+    window.history.pushState(null, '', next === 'naver' ? window.location.pathname : `?tab=${next}`)
+  }
+  // 폰 '뒤로'·'앞으로' 로 주소가 바뀌면 탭도 따라간다.
+  useEffect(() => {
+    const 따라가기 = () => {
+      const next: SourceId = new URLSearchParams(window.location.search).get('tab') === 'daangn' ? 'daangn' : 'naver'
+      if (sourceRef.current !== next) 곳바꾸기(next)
+    }
+    window.addEventListener('popstate', 따라가기)
+    return () => window.removeEventListener('popstate', 따라가기)
+  }, [])
 
   if (auth.loading || !auth.broker) return null
 

@@ -128,7 +128,9 @@ export function Pagination({
           </button>
         </>
       )}
-      <div className="flex items-center gap-1 ml-3">
+      {/* 폰 폭에서 '페이지/당' · '10/개' · '총/140개' 로 글자가 꺾였다. 묶음째 다음 줄로
+          넘기고 글자는 꺾지 않는다. */}
+      <div className="flex items-center gap-1 whitespace-nowrap sm:ml-3">
         <span className="text-sm text-gray-500">페이지당</span>
         {pageSizes.map(n => (
           <button
