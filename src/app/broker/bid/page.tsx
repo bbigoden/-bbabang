@@ -191,7 +191,7 @@ export default function BidPage() {
     return notices.filter(n =>
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
       (!enterableOnly || canEnter(n.prtcpt_rgns, ourRegion) !== false) &&
-      words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''}`.includes(w)))
+      words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''} ${n.bid_ntce_no}-${n.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
   }, [notices, openOnly, enterableOnly, ourRegion, q])
 
   const regionCounts = useMemo(() => {
@@ -209,11 +209,13 @@ export default function BidPage() {
   // 어제 개찰한 온양문화원이 300건 밖이라 검색이 안 됐다
   const [searched, setSearched] = useState<Result[] | null>(null)
   useEffect(() => {
-    const words = q.trim().split(/\s+/).filter(Boolean).map(w => w.replace(/[,()%*\\]/g, '')).filter(Boolean)
+    const words = q.trim().split(/\s+/).filter(Boolean)
+      // 'R26BK01787197-000' 처럼 차수까지 붙여 넣어도 찾게 차수는 뗀다
+      .map(w => w.replace(/[,()%*\\]/g, '').replace(/^(R\d{2}[A-Z]{2}\d+)-\d{3}$/i, '$1')).filter(Boolean)
     if (tab !== 'result' || !words.length) { setSearched(null); return }
     const t = setTimeout(async () => {
       let query = supabase.from('bid_results').select(RESULT_COLS)
-      for (const w of words) query = query.or(`name.ilike.*${w}*,dminstt_nm.ilike.*${w}*,winner_nm.ilike.*${w}*`)
+      for (const w of words) query = query.or(`name.ilike.*${w}*,dminstt_nm.ilike.*${w}*,winner_nm.ilike.*${w}*,bid_ntce_no.ilike.*${w}*`)
       const { data } = await query.order('openg_at', { ascending: false, nullsFirst: false }).limit(300)
       setSearched((data as Result[]) ?? [])
     }, 300)
@@ -223,7 +225,7 @@ export default function BidPage() {
   const shownResults = useMemo(() => {
     if (searched) return searched
     const words = q.trim().split(/\s+/).filter(Boolean)
-    return results.filter(r => words.every(w => `${r.name} ${r.dminstt_nm ?? ''} ${r.winner_nm ?? ''}`.includes(w)))
+    return results.filter(r => words.every(w => `${r.name} ${r.dminstt_nm ?? ''} ${r.winner_nm ?? ''} ${r.bid_ntce_no}-${r.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
   }, [results, searched, q])
 
   if (authLoading) return null
@@ -321,7 +323,7 @@ export default function BidPage() {
               <input
                 value={q}
                 onChange={e => setQ(e.target.value)}
-                placeholder={tab === 'notice' ? '공고명·발주기관' : '공고명·발주기관·낙찰업체'}
+                placeholder={tab === 'notice' ? '공고명·발주기관·공고번호' : '공고명·발주기관·낙찰업체·공고번호'}
                 className="h-9 w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-base sm:text-sm
                            text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none
                            dark:border-gray-800 dark:bg-gray-950 dark:text-white"
