@@ -10,7 +10,8 @@
  * 보이는 범위는 '보고 있는 일지의 주인' 기준이다:
  *   · 대표(김용유)·이사(권세현)의 일지 — 표 전체, 모두의 메모
  *   · 그 밖의 직원 일지 — 표는 '드래곤' 줄과 그 직원 줄, 메모는 대표·이사와 그 직원 것
- * 대표가 직원 일지를 열어도 그 직원 눈높이로 보인다. 맨 아래 칸은 그 일지 주인의 메모(자기 일지면 고칠 수 있다). 메모는 DB 도 같은 규칙으로 막는다(can_see_ad_memo).
+ * 대표가 직원 일지를 열어도 그 직원 눈높이로 보인다. 맨 아래 칸은 그 일지 주인의 메모.
+ * 고치기는 자기 메모, 대표는 모두의 메모(DB 도 같은 규칙). 메모는 DB 도 같은 규칙으로 막는다(can_see_ad_memo).
  * 숫자를 찍어 두는 건 대표·이사가 열 때만 — 직원 계정은 권한에 따라 덜 셀 수 있어 전체 숫자를 덮으면 안 된다.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -39,11 +40,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
   const [memos, setMemos] = useState<Memo[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
   const [missing, setMissing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const focusedRef = useRef(false)
-  const taRef = useRef<HTMLTextAreaElement>(null)
   const isToday = date === todayKST()
   const isLead = (id: string | null) => !!id && (id === officeId || id === DIRECTOR_ID)
   const fullView = isLead(viewedBrokerId)
@@ -65,7 +61,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       setMissing(isMissingTable(ms.error))
       const list = (ms.data as Memo[] | null) ?? []
       setMemos(list)
-      if (!focusedRef.current) setDraft(list.find(m => m.author_id === viewedBrokerId)?.memo ?? '')
       setNames(Object.fromEntries(((ps.data as unknown as { id: string; profiles: { name: string | null } | null }[] | null) ?? [])
         .map(p => [p.id, p.profiles?.name ?? '이름 없음'])))
       setLoaded(true)
@@ -83,29 +78,21 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
     return () => { gone = true }
   }, [officeId, date, myBrokerId, viewedBrokerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const el = taRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
-  }, [draft, readOnly])
-
   // 아래 칸은 '이 일지 주인의 메모' — 자기 일지면 '내 메모'로 고치고, 남의 일지면 그 사람 메모를 같은 자리에 보여 준다.
   // 남의 일지를 볼 때 그 주인 메모가 남의 글 목록에 섞여 '내 메모' 칸이 비어 보였다(2026-10-29 사장님)
   const mine = memos.find(m => m.author_id === viewedBrokerId)
   const ownDiary = !!myBrokerId && myBrokerId === viewedBrokerId
-  const save = async () => {
-    focusedRef.current = false
-    if (!officeId || !myBrokerId || !ownDiary || draft === (mine?.memo ?? '')) { setFailed(false); return }
-    setSaving(true)
+  // 고치기: 자기 메모, 그리고 대표는 모두의 메모(2026-10-29 사장님). 대표가 고쳐도 글의 주인은 그대로다
+  const canEdit = (author: string) => !readOnly && !!myBrokerId && (author === myBrokerId || myBrokerId === officeId)
+  const save = async (author: string, text: string): Promise<boolean> => {
+    if (!officeId) return false
     const at = new Date().toISOString()
-    const { error } = draft.trim()
+    const { error } = text.trim()
       ? await supabase.from('office_diary_ad_memos')
-          .upsert({ office_id: officeId, date, author_id: myBrokerId, memo: draft, updated_at: at }, { onConflict: 'office_id,date,author_id' })
-      : await supabase.from('office_diary_ad_memos').delete().eq('office_id', officeId).eq('date', date).eq('author_id', myBrokerId)
-    setSaving(false)
-    setFailed(!!error)
-    if (!error) setMemos(ms => [...ms.filter(m => m.author_id !== myBrokerId), ...(draft.trim() ? [{ author_id: myBrokerId, memo: draft, updated_at: at }] : [])])
+          .upsert({ office_id: officeId, date, author_id: author, memo: text, updated_at: at }, { onConflict: 'office_id,date,author_id' })
+      : await supabase.from('office_diary_ad_memos').delete().eq('office_id', officeId).eq('date', date).eq('author_id', author)
+    if (!error) setMemos(ms => [...ms.filter(m => m.author_id !== author), ...(text.trim() ? [{ author_id: author, memo: text, updated_at: at }] : [])])
+    return !error
   }
 
   // 표 — 대표·이사 일지면 전체, 아니면 드래곤 줄과 그 직원 줄
@@ -124,10 +111,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
         <span className="text-sm font-bold text-gray-500 flex-shrink-0">{num}.</span>
         <span className="text-sm font-bold text-gray-800">{title}</span>
         <span className="ml-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-600">사무실 공통</span>
-        {saving && <span className="text-xs text-gray-500 ml-2">저장 중...</span>}
-        {!saving && failed && !readOnly && (
-          <button onClick={() => void save()} className="ml-2 text-xs font-medium text-red-500 hover:text-red-600 hover:underline">저장 안 됨 · 다시 저장</button>
-        )}
         <a href="/broker/office" className="ml-auto text-xs text-gray-400 hover:text-blue-500">현황판 ›</a>
       </div>
 
@@ -177,30 +160,71 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       ) : (
         <div className="mt-2 border-t border-gray-100 dark:border-gray-800">
           {others.map(m => (
-            <div key={m.author_id} className="px-4 py-2 border-b border-gray-50 dark:border-gray-800/60">
-              <p className="text-[11px] text-gray-400 mb-0.5">{names[m.author_id] ?? '이름 없음'} · {hmKST(m.updated_at)}</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{m.memo}</p>
-            </div>
+            <MemoBox key={`${date}|${m.author_id}`} label={names[m.author_id] ?? '이름 없음'} memo={m}
+              editable={canEdit(m.author_id)} onSave={t => save(m.author_id, t)} />
           ))}
-          {readOnly || !ownDiary ? (
-            <div className="px-4 py-2">
-              <p className="text-[11px] text-blue-500 mb-0.5">{ownLabel}{mine ? ` · ${hmKST(mine.updated_at)}` : ''}</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{mine?.memo || <span className="text-gray-300">—</span>}</p>
-            </div>
-          ) : (
-            // 남의 메모와 헷갈리지 않게 '내 메모' 머리를 단다 — 머리 없는 칸을 남의 글로 읽었다(2026-10-29)
-            <div className="pt-2">
-              <p className="px-4 text-[11px] text-blue-500">{ownLabel}{mine ? ` · ${hmKST(mine.updated_at)}` : ''}</p>
-              <textarea ref={taRef} value={draft} rows={1}
-                onChange={e => setDraft(e.target.value)}
-                onFocus={() => { focusedRef.current = true }}
-                onBlur={() => void save()}
-                placeholder="광고현황 메모 입력..."
-                className="w-full px-4 pt-0.5 pb-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[40px]" />
-            </div>
+          {viewedBrokerId && (
+            <MemoBox key={`${date}|${viewedBrokerId}`} label={ownLabel} memo={mine} accent
+              editable={canEdit(viewedBrokerId)} onSave={t => save(viewedBrokerId, t)} />
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/** 메모 한 칸 — 고칠 수 있으면 입력란, 아니면 글만. 저장은 칸을 벗어날 때. */
+function MemoBox({ label, memo, accent, editable, onSave }: {
+  label: string; memo: Memo | undefined; accent?: boolean; editable: boolean
+  onSave: (text: string) => Promise<boolean>
+}) {
+  const [draft, setDraft] = useState(memo?.memo ?? '')
+  const [saving, setSaving] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const focusedRef = useRef(false)
+  const taRef = useRef<HTMLTextAreaElement>(null)
+  // 입력 중이 아닐 때만 저장된 글로 맞춘다 — 이어 쓰던 글자를 덮지 않게
+  useEffect(() => { if (!focusedRef.current) setDraft(memo?.memo ?? '') }, [memo?.memo])
+  useEffect(() => {
+    const el = taRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [draft, editable])
+  const save = async () => {
+    focusedRef.current = false
+    if (draft === (memo?.memo ?? '')) { setFailed(false); return }
+    setSaving(true)
+    setFailed(!(await onSave(draft)))
+    setSaving(false)
+  }
+  const head = (
+    <p className={cn('px-4 text-[11px]', accent ? 'text-blue-500' : 'text-gray-400')}>
+      {label}{memo ? ` · ${hmKST(memo.updated_at)}` : ''}
+      {saving && <span className="ml-2 text-gray-500">저장 중...</span>}
+      {!saving && failed && (
+        <button onClick={() => void save()} className="ml-2 font-medium text-red-500 hover:underline">저장 안 됨 · 다시 저장</button>
+      )}
+    </p>
+  )
+  if (!editable) {
+    if (!memo && !accent) return null
+    return (
+      <div className="py-2 border-b border-gray-50 dark:border-gray-800/60 last:border-b-0">
+        {head}
+        <p className="px-4 pt-0.5 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{memo?.memo || <span className="text-gray-300">—</span>}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="pt-2 border-b border-gray-50 dark:border-gray-800/60 last:border-b-0">
+      {head}
+      <textarea ref={taRef} value={draft} rows={1}
+        onChange={e => setDraft(e.target.value)}
+        onFocus={() => { focusedRef.current = true }}
+        onBlur={() => void save()}
+        placeholder="광고현황 메모 입력..."
+        className="w-full px-4 pt-0.5 pb-2 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[36px]" />
     </div>
   )
 }
