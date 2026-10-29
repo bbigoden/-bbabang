@@ -68,6 +68,12 @@ export type CollectReport = {
   finishedAt: string
 }
 
+/**
+ * 1초에 이만큼만 보낸다. 나라장터는 초당 요청도 센다 — 12건씩 동시에 보내다 걸렸고,
+ * 걸린 뒤로는 다시 보내도 한동안 풀리지 않아 그 회차가 통째로 멈췄다.
+ */
+const PER_SECOND = 8
+
 /** 초당 요청 한도 초과 — 코드 23, 또는 문구로 온다 */
 const isPerSecond = (e: G2bError) => e.code === '23' || /초당|PER_SECOND/i.test(e.message)
 
@@ -99,11 +105,22 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     if (Date.now() > deadline) throw new StopError('time')
     if (calls[svc] >= limit) throw new StopError('limit')
   }
+  // 최근 1초 안에 보낸 시각들. 다 차면 가장 오래된 것이 1초를 넘길 때까지 기다린다
+  const sentAt: number[] = []
+  const pace = async () => {
+    for (;;) {
+      const now = Date.now()
+      while (sentAt.length && now - sentAt[0] >= 1000) sentAt.shift()
+      if (sentAt.length < PER_SECOND) { sentAt.push(now); return }
+      await new Promise(res => setTimeout(res, 1000 - (now - sentAt[0]) + 5))
+    }
+  }
   const call = async (svc: G2bService, op: string, params: Record<string, string | number>, limit = DAILY_LIMIT) => {
     guard(svc, limit)
     if (calls.spent?.includes(op)) throw new SpentError(op)
     for (let tries = 0; ; tries++) {
       try {
+        await pace()
         return await g2bGet(svc, op, params, s => { calls[s]++ })
       } catch (e) {
         if (e instanceof G2bError && e.code === '22') {
@@ -274,7 +291,10 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   } catch (e) {
     if (e instanceof StopError) report.stoppedBy = e.reason
     else if (e instanceof SpentError) report.stoppedBy = 'limit'  // 포털 쪽 한도 초과(기능 하나)
-    else if (e instanceof G2bError && isPerSecond(e)) report.stoppedBy = 'limit'  // 쉬어도 계속 초당 한도 — 다음 회차에
+    else if (e instanceof G2bError && isPerSecond(e)) {  // 쉬어도 계속 초당 한도 — 다음 회차에
+      report.stoppedBy = 'limit'
+      report.error = e.message
+    }
     else {
       report.stoppedBy = 'error'
       report.error = e instanceof Error ? e.message : String(e)
