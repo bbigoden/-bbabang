@@ -31,6 +31,7 @@
  *   off      의자만 있는 빈자리 (일꾼 꺼짐·퇴근)
  */
 
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 
 export type SeatState = 'working' | 'waiting' | 'idle' | 'off'
@@ -59,11 +60,13 @@ export interface Seat {
   visit?: string
   /** 책상 앞에 앉아 있는 고양이(PET_PAL 의 이름) — 이현영은 치즈·흰 고양이(2026-10-29 사장님) */
   pets?: string[]
+  /** 누르면 아래 자세히 칸에 [열기] — 이 자리의 일을 하는 화면 */
+  href?: string
 }
 
 export type RoomKey =
   | 'boss' | 'director' | 'meeting'
-  | 'sales' | 'promo'
+  | 'sales' | 'promo' | 'labEnd'
   | 'pantry' | 'lab'
 
 /** 상황실 칠판 한 줄 — 사장님이 매일 손으로 적던 '매물장 259(거래가능 238) / 부동산뱅크 202 / 당근 178' */
@@ -557,31 +560,6 @@ function Bubble({ seat, x, y }: { seat: Seat; x: number; y: number }) {
   )
 }
 
-// ── 돌아다니는 것들 — 사무실이 멈춘 그림처럼 보이지 않게 ─────────
-
-const CAT = [
-  '.........K.K',
-  'C.......CCCC',
-  '.C......CWCW',
-  '..CCCCCCCCC.',
-  '..CCCCCCCC..',
-]
-const CAT_LEGS = ['..C.C...C.C.', '...C.C..C.C.']
-
-/** 고양이 — 방 바닥을 오가다 멈춰 꼬리를 흔든다. */
-function Cat({ x, y, span }: { x: number; y: number; span: number }) {
-  const pal = { C: '#e8954a', K: '#c2410c', W: '#1f1f1f' }
-  return (
-    <g className="pxo-cat" style={{ ['--span' as string]: `${span}px` }}>
-      <g transform={`translate(${x} ${y})`}>
-        <Sprite rows={CAT} palette={pal} x={0} y={0} />
-        <g className="pxo-step-a"><Sprite rows={[CAT_LEGS[0]]} palette={pal} x={0} y={5} /></g>
-        <g className="pxo-step-b"><Sprite rows={[CAT_LEGS[1]]} palette={pal} x={0} y={5} /></g>
-      </g>
-    </g>
-  )
-}
-
 /** 앉은 고양이(앞모습). 꼬리는 T — 두 장을 번갈아 켜서 살랑 흔든다. s 는 무늬, W 는 주둥이·발 */
 const PET_SIT = [
   'O.....O..',
@@ -622,28 +600,29 @@ function Pets({ x, y, pets }: { x: number; y: number; pets: string[] }) {
         return (
           // 1.3배 — 앉은 사람과 어울리는 크기. 발밑(py+9) 기준으로 키운다
           <g key={name} transform={`translate(${px} ${py + 9}) scale(1.3) translate(${-px} ${-py - 9})`}>
-            <g className={i % 2 ? 'pxo-look' : 'pxo-hop'} style={{ animationDelay: `${i * 1.3}s` }}>
+            <g className={i % 2 ? 'pxo-cat-b' : 'pxo-cat-a'}>
               {sprite(PET_SIT)}
+              {/* 눈 깜빡 — 둘이 때를 어긋낸다 */}
+              <Sprite rows={PET_SIT} palette={{ E: pal.E }} x={px} y={py} blink={pal.O} delay={i * 1.7} />
               {PET_TAIL.map((t, k) => <g key={k} className={k ? 'pxo-sweep-b' : 'pxo-sweep-a'}>{sprite(t, 5)}</g>)}
+              {/* 앞발 — 치즈는 옆으로 들어 흔들고, 흰 고양이는 입가로 올려 핥는다 */}
+              <g className="pxo-paw" style={{ animationDelay: `${i * 4.5}s` }}>
+                <g className={i ? undefined : 'pxo-wave'}>
+                  <rect x={px + (i ? 2.5 : 7.5)} y={py + (i ? 4.5 : 2.5)} width={2} height={2} fill={pal.W} stroke="#1f2937" strokeWidth={0.3} />
+                </g>
+              </g>
             </g>
             <g className="pxo-pop" style={{ animationDelay: `${i * 2}s` }}>
               <Sprite rows={HEART} palette={{ R: '#f472b6' }} x={px + (i ? -4 : 9)} y={py + 1} />
             </g>
+            {i === 0 && pets.length > 1 && (
+              <g className="pxo-love">
+                <Sprite rows={['.RR.RR.', 'RRRRRRR', 'RRRRRRR', '.RRRRR.', '..RRR..', '...R...']} palette={{ R: '#ec4899' }} x={px + 9} y={py - 7} />
+              </g>
+            )}
           </g>
         )
       })}
-    </g>
-  )
-}
-
-/** 청소 로봇 — 바닥을 천천히 왕복하며 불이 깜빡인다. */
-function Vacuum({ x, y, span }: { x: number; y: number; span: number }) {
-  return (
-    <g className="pxo-vacuum" style={{ ['--span' as string]: `${span}px` }}>
-      <rect x={x + 1} y={y} width={8} height={1} fill="#4b5563" />
-      <rect x={x} y={y + 1} width={10} height={3} fill="#6b7280" />
-      <rect x={x + 1} y={y + 4} width={8} height={1} fill="#374151" />
-      <rect x={x + 4} y={y + 1.5} width={2} height={1} fill="#22c55e" className="pxo-led" />
     </g>
   )
 }
@@ -1055,7 +1034,9 @@ const DOORS = [
 /** 자리 무리마다 어느 방 어디에 책상을 놓나: 첫 자리(dx, dy), 가로·세로 간격(sx, sy), 한 줄에 몇, 최대 몇. */
 const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: number; sy: number; cols: number; max: number; big?: boolean }>> = {
   boss: { box: 'boss', dx: 44, dy: 40, sx: 0, sy: 0, cols: 1, max: 1, big: true },
-  lab: { box: 'agentLab', dx: 12, dy: 28, sx: 38, sy: 34, cols: 8, max: 16 },
+  lab: { box: 'agentLab', dx: 12, dy: 28, sx: 38, sy: 34, cols: 8, max: 14 },
+  // 끝 두 책상 — 입찰 수집·견적서(2026-10-29 사장님). Claude 세션이 많아도 이 둘은 자리를 지킨다
+  labEnd: { box: 'agentLab', dx: 240, dy: 62, sx: 38, sy: 0, cols: 2, max: 2 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘 + 수집 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다.
   // 등록실(2026-10-25)·매물조사실(2026-10-29)을 홍보부로 합침(칸막이 없이)
@@ -1066,7 +1047,7 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 8, lab: 16 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 8, lab: 14 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
@@ -1382,8 +1363,6 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
         .pxo-sweep-b { animation: pxo-step .5s steps(1) infinite reverse; }
         @keyframes pxo-sparkle { 0%, 100% { opacity: 0 } 30%, 60% { opacity: 1 } }
         .pxo-sparkle { animation: pxo-sparkle 1s steps(3) infinite; }
-        @keyframes pxo-led { 0%, 60% { opacity: 1 } 61%, 100% { opacity: .25 } }
-        .pxo-led { animation: pxo-led 1.4s steps(1) infinite; }
         @keyframes pxo-steam { 0% { transform: translateY(0); opacity: .8 } 100% { transform: translateY(-5px); opacity: 0 } }
         .pxo-steam { animation: pxo-steam 2s linear infinite; }
         @keyframes pxo-eye { 0%, 95% { fill: var(--eye) } 96%, 100% { fill: var(--lid) } }
@@ -1396,11 +1375,20 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
         .pxo-colon { animation: pxo-colon 1s steps(1) infinite; }
         @keyframes pxo-paper { 0%, 80% { transform: translateY(0); opacity: 0 } 85% { opacity: 1 } 100% { transform: translateY(4px); opacity: 1 } }
         .pxo-paper { animation: pxo-paper 9s steps(6) infinite; }
-        @keyframes pxo-walk { 0% { transform: translateX(0) scaleX(1) } 40% { transform: translateX(var(--span)) scaleX(1) }
-          50% { transform: translateX(var(--span)) scaleX(-1) } 90% { transform: translateX(0) scaleX(-1) } 100% { transform: translateX(0) scaleX(1) } }
-        .pxo-cat, .pxo-vacuum { transform-box: fill-box; transform-origin: center; }
-        .pxo-cat { animation: pxo-walk 26s steps(90) infinite; }
-        .pxo-vacuum { animation: pxo-walk 34s linear infinite; }
+        /* 이현영 고양이 — 치즈는 폴짝 뛰었다 흰 고양이에게 머리 비비기, 흰 고양이는 마주 비비고 기지개. 9초 한 바퀴 */
+        @keyframes pxo-cat-a { 0%, 26% { transform: none } 29% { transform: translateY(-4px) } 32% { transform: translate(1px, -5px) } 35%, 55% { transform: none }
+          60%, 70% { transform: translateX(3px) rotate(8deg) } 75%, 100% { transform: none } }
+        @keyframes pxo-cat-b { 0%, 52% { transform: none } 58%, 70% { transform: translateX(-3px) rotate(-8deg) } 74% { transform: none }
+          80%, 88% { transform: scale(1.14, .84) } 92%, 100% { transform: none } }
+        .pxo-cat-a, .pxo-cat-b { transform-box: fill-box; transform-origin: 50% 100%; }
+        .pxo-cat-a { animation: pxo-cat-a 9s ease-in-out infinite; }
+        .pxo-cat-b { animation: pxo-cat-b 9s ease-in-out infinite; }
+        /* 앞발 — 치즈는 손 흔들기, 흰 고양이는 발 핥기(세수) */
+        @keyframes pxo-paw { 0%, 9% { opacity: 0 } 10%, 22% { opacity: 1 } 23%, 100% { opacity: 0 } }
+        .pxo-paw { animation: pxo-paw 9s steps(1) infinite; }
+        /* 머리 비빌 때 커다란 하트 */
+        @keyframes pxo-love { 0%, 59% { opacity: 0; transform: translateY(1px) } 62%, 68% { opacity: 1; transform: translateY(-1px) } 72%, 100% { opacity: 0; transform: translateY(-3px) } }
+        .pxo-love { animation: pxo-love 9s ease-out infinite; }
         @keyframes pxo-step { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
         .pxo-step-a { animation: pxo-step .4s steps(1) infinite; }
         .pxo-step-b { animation: pxo-step .4s steps(1) infinite reverse; }
@@ -1511,10 +1499,6 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
           ))}
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
           <rect x={221} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
-          {/* 고양이·청소 로봇 — 책상보다 먼저 그려 책상 뒤로 지나가게 한다 */}
-          <Vacuum x={14} y={318} span={180} />
-          <Cat x={250} y={220} span={56} />
-          <Cat x={504} y={322} span={44} />
 
           {empties.map(e => <EmptyDesk key={e.key} x={e.x} y={e.y} />)}
           {overflow.map(o => <Label key={o.key} x={o.x} y={o.y} text={`+${o.n}`} size={4} anchor="start" />)}
@@ -1547,6 +1531,11 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             </span>
             {pickedSeat.say && <span className="w-full text-xs text-gray-700 dark:text-gray-300">💬 {pickedSeat.say}</span>}
             {pickedSeat.note && <span className="w-full text-[11px] text-gray-500">{pickedSeat.note}</span>}
+            {pickedSeat.href && (
+              <Link href={pickedSeat.href} className="mt-1 inline-flex min-h-9 items-center rounded-md border-2 border-gray-800 bg-white px-3 text-xs font-bold text-gray-900 hover:bg-gray-50 dark:border-gray-500 dark:bg-gray-800 dark:text-white">
+                열기 →
+              </Link>
+            )}
           </div>
         ) : (
           <p className="text-xs text-gray-500">책상을 누르면 그 자리에서 무슨 일을 하는지 자세히 보입니다.</p>

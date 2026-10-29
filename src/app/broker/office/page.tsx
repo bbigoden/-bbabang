@@ -26,6 +26,15 @@ import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
 import { PixelOffice, type OfficeLayout, type Seat } from '@/components/broker/pixel-office'
 import { fetchOfficeBoard, DIRECTOR_ID } from '@/lib/office-board'
 
+/** 입찰 수집이 마지막으로 돈 기록(bid_sync.last_run) */
+interface BidRun { finishedAt: string; notices: number; results: number; details?: number; stoppedBy?: string }
+
+/** 자리 → 그 일을 하는 화면. 사람 책상은 그 사람의 오늘 업무일지(아래에서 붙인다) */
+const SEAT_HREF: Record<string, string> = {
+  cafe: '/broker/ads', blog: '/broker/ads', 'daangn-post': '/broker/ads', takedown: '/broker/ads', sync: '/broker/ads',
+  bank: '/broker/properties', collect: '/broker/naver', bid: '/broker/bid', estimate: '/broker/estimates',
+}
+
 /** 영업부 책상 순서 — 왼쪽부터 */
 const SALES_ORDER = ['박혜성', '이예리', '문지혜', '김미선', '김불당']
 /** 홍보부에 앉는 직원(이름으로 — 계정이 생기기 전부터 자리를 정해 둔다). 나머지 직원은 영업부 */
@@ -199,6 +208,8 @@ export default function OfficePage() {
   const [members, setMembers] = useState<Member[]>([])
   /** 사람마다 오늘 등록한 매물 수(10초마다) */
   const [todayProps, setTodayProps] = useState<Record<string, number>>({})
+  const [bidRun, setBidRun] = useState<BidRun | null>(null)
+  const [estMonth, setEstMonth] = useState<number | null>(null)
   /** 사람마다 지금까지 등록한 매물 수 — 현황판과 같이 5분마다 건수로만 센다 */
   const [totalProps, setTotalProps] = useState<Record<string, number>>({})
   const [tasks, setTasks] = useState<Task[] | null>(null)
@@ -269,7 +280,7 @@ export default function OfficePage() {
     // 업무일지는 RLS(can_access_diary)가 직원에겐 자기 것만 준다.
     {
       const 사장님만 = <T,>(q: PromiseLike<T>) => (isOwner ? q : Promise.resolve({ data: null, error: null }))
-      const [ms, props, ss, os, dys] = await Promise.all([
+      const [ms, props, ss, os, dys, br, est] = await Promise.all([
         supabase.from('broker_profiles')
           .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
           .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
@@ -287,7 +298,13 @@ export default function OfficePage() {
           .order('requested_at', { ascending: false }).limit(15)),
         // 오늘 업무일지 — 쓴 사람과 고친 시각만 본다. 내용엔 비밀번호 같은 것이 섞여 이 화면엔 옮기지 않는다
         supabase.from('broker_diary').select('broker_id, sections_content, work_summary, content, updated_at').eq('date', todayKST()),
+        // 입찰 수집(서버 cron) 마지막 실행 — 에이전트실 끝 책상
+        사장님만(supabase.from('bid_sync').select('value').eq('key', 'last_run').maybeSingle()),
+        사장님만(supabase.from('estimates').select('id', { count: 'exact', head: true }).eq('owner_broker_id', officeId)
+          .gte('issue_date', `${todayKST().slice(0, 7)}-01`)),
       ])
+      setBidRun(((br as { data: { value: BidRun } | null }).data?.value) ?? null)
+      setEstMonth((est as { count: number | null }).count ?? null)
       const 쓴일지: Record<string, string> = {}
       for (const d of (dys.data ?? []) as { broker_id: string; sections_content: Record<string, unknown> | null; work_summary: string | null; content: string | null; updated_at: string }[]) {
         // 날짜를 열기만 해도 빈 줄이 생긴다 — 무엇이라도 적었을 때만 '썼다'
@@ -553,6 +570,26 @@ export default function OfficePage() {
       boss: inDept('boss'),
       director: inDept('director'),
       sales: 영업부,
+      // 에이전트실 끝 두 책상 — 입찰 수집(서버가 3시간마다)·견적서. 장부가 사장님 것이라 사장님 화면에만
+      labEnd: isOwner ? [
+        (() => {
+          const at = bidRun?.finishedAt ? new Date(bidRun.finishedAt).getTime() : 0
+          const stale = !at || now - at > 4 * 3600_000
+          return {
+            key: 'bid', kind: 'robot', name: '입찰 수집', tint: 1, pin: true,
+            state: stale ? 'off' : 'idle',
+            say: !at ? '아직 받은 적 없음' : stale ? `${when(bidRun!.finishedAt)} 뒤로 멈춤`
+              : `${hmKST(bidRun!.finishedAt)} 받음\n공고 ${bidRun!.notices}·낙찰 ${bidRun!.results}`,
+            note: '나라장터 도장·방수 공고와 낙찰결과를 서버가 3시간마다 받습니다'
+              + (at ? ` · 마지막 ${when(bidRun!.finishedAt)} — 공고 ${bidRun!.notices}건 · 낙찰 ${bidRun!.results}건${bidRun!.details ? ` · 상세 ${bidRun!.details}건` : ''}${bidRun!.stoppedBy === 'limit' ? ' (오늘 한도에서 멈춤)' : ''}` : ''),
+          } satisfies Seat
+        })(),
+        {
+          key: 'estimate', kind: 'robot', name: '견적서', tint: 2, pin: !!estMonth, state: 'idle',
+          say: estMonth ? `이번 달 ${estMonth}건` : null,
+          note: `이번 달 견적서 ${estMonth ?? 0}건`,
+        },
+      ] : [],
       // 홍보부 한 줄, 왼쪽부터 — 직원 → 뱅크 담당 → 당근·블로그·카페 → 광고 내리기 → 뱅크 가져오기 → 매물수집(2026-10-29 사장님)
       promo: [
         ...자리채움([...inDept('promo')], 'promo'),
@@ -592,6 +629,13 @@ export default function OfficePage() {
 
   for (const k of ['boss', 'director', 'sales', 'promo'] as const) {
     layout.seats[k] = layout.seats[k]?.map(p => ({ ...p, visit: visitBy[userOf[p.key] ?? ''] }))
+  }
+  // [열기] — 일꾼은 그 일 화면, 사람은 그 사람의 오늘 업무일지(남의 일지는 사장님만 열 수 있다)
+  for (const k of Object.keys(layout.seats) as (keyof OfficeLayout['seats'])[]) {
+    layout.seats[k] = layout.seats[k]?.map(p => {
+      const 사람 = p.kind === 'person' && !p.key.startsWith('pending-') && (isOwner || p.key === broker?.id)
+      return { ...p, href: SEAT_HREF[p.key] ?? (사람 ? `/broker/diary?date=${todayKST()}&broker=${p.key}` : undefined) }
+    })
   }
 
   return (
