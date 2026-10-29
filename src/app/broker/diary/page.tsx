@@ -1510,7 +1510,7 @@ export default function BrokerDiaryPage() {
           )}
         </div>
 
-        {/* Sections 2~ — 넓은 화면은 두 줄기로 쌓는다(왼쪽 2·4·…, 오른쪽 3·5·…).
+        {/* Sections 2~ — 넓은 화면은 왼쪽에 첫 칸(업무요약)만, 오른쪽에 나머지(3·4·5·…)를 쌓는다.
             예전 2열 그리드는 한 행의 키를 맞춰, 업무요약이 길면 옆 칸이 같이 늘고 4·5번이 그 아래로 밀려
             빈 공간이 생겼다(2026-10-29 사장님). 좁은 화면은 한 줄로 2·3·4·5 순서 그대로(contents + order). */}
         {!diaryLoading && (() => {
@@ -1533,8 +1533,8 @@ export default function BrokerDiaryPage() {
           )
           const column = (side: 0 | 1) => (
             <div className="contents md:flex md:flex-col md:gap-4 md:flex-1 md:min-w-0">
-              {items.filter((_, i) => i % 2 === side)}
-              {sections.length % 2 === side && addBtn}
+              {items.filter((_, i) => (i === 0 ? 0 : 1) === side)}
+              {side === 1 && addBtn}
             </div>
           )
           return (

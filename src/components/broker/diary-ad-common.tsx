@@ -10,7 +10,7 @@
  * 보이는 범위는 '보고 있는 일지의 주인' 기준이다:
  *   · 대표(김용유)·이사(권세현)의 일지 — 표 전체, 모두의 메모
  *   · 그 밖의 직원 일지 — 표는 '드래곤' 줄과 그 직원 줄, 메모는 대표·이사와 그 직원 것
- * 대표가 직원 일지를 열어도 그 직원 눈높이로 보인다. 메모는 DB 도 같은 규칙으로 막는다(can_see_ad_memo).
+ * 대표가 직원 일지를 열어도 그 직원 눈높이로 보인다. 맨 아래 칸은 그 일지 주인의 메모(자기 일지면 고칠 수 있다). 메모는 DB 도 같은 규칙으로 막는다(can_see_ad_memo).
  * 숫자를 찍어 두는 건 대표·이사가 열 때만 — 직원 계정은 권한에 따라 덜 셀 수 있어 전체 숫자를 덮으면 안 된다.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -65,7 +65,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       setMissing(isMissingTable(ms.error))
       const list = (ms.data as Memo[] | null) ?? []
       setMemos(list)
-      if (!focusedRef.current) setDraft(list.find(m => m.author_id === myBrokerId)?.memo ?? '')
+      if (!focusedRef.current) setDraft(list.find(m => m.author_id === viewedBrokerId)?.memo ?? '')
       setNames(Object.fromEntries(((ps.data as unknown as { id: string; profiles: { name: string | null } | null }[] | null) ?? [])
         .map(p => [p.id, p.profiles?.name ?? '이름 없음'])))
       setLoaded(true)
@@ -81,7 +81,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       }
     })()
     return () => { gone = true }
-  }, [officeId, date, myBrokerId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [officeId, date, myBrokerId, viewedBrokerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = taRef.current
@@ -90,10 +90,13 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
     el.style.height = el.scrollHeight + 'px'
   }, [draft, readOnly])
 
-  const mine = memos.find(m => m.author_id === myBrokerId)
+  // 아래 칸은 '이 일지 주인의 메모' — 자기 일지면 '내 메모'로 고치고, 남의 일지면 그 사람 메모를 같은 자리에 보여 준다.
+  // 남의 일지를 볼 때 그 주인 메모가 남의 글 목록에 섞여 '내 메모' 칸이 비어 보였다(2026-10-29 사장님)
+  const mine = memos.find(m => m.author_id === viewedBrokerId)
+  const ownDiary = !!myBrokerId && myBrokerId === viewedBrokerId
   const save = async () => {
     focusedRef.current = false
-    if (!officeId || !myBrokerId || draft === (mine?.memo ?? '')) { setFailed(false); return }
+    if (!officeId || !myBrokerId || !ownDiary || draft === (mine?.memo ?? '')) { setFailed(false); return }
     setSaving(true)
     const at = new Date().toISOString()
     const { error } = draft.trim()
@@ -109,11 +112,11 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
   const lines = !board ? []
     : fullView ? [...board.rows, board.total]
     : board.rows.filter(r => r.name === '드래곤' || (!!viewedBrokerId && r.ids?.includes(viewedBrokerId)))
-  // 메모 — 대표·이사 일지면 모두, 아니면 대표·이사와 그 직원. 내 칸은 아래 입력란으로 따로
+  // 메모 — 대표·이사 일지면 모두, 아니면 대표·이사 것. 일지 주인 메모는 아래 칸으로 따로
   const others = memos
-    .filter(m => m.author_id !== myBrokerId && (fullView || isLead(m.author_id) || m.author_id === viewedBrokerId))
+    .filter(m => m.author_id !== viewedBrokerId && (fullView || isLead(m.author_id)))
     .sort((a, b) => Number(isLead(b.author_id)) - Number(isLead(a.author_id)) || a.updated_at.localeCompare(b.updated_at))
-  const showMine = !!myBrokerId && (fullView || isLead(myBrokerId) || myBrokerId === viewedBrokerId)
+  const ownLabel = ownDiary ? '내 메모' : `${(viewedBrokerId && names[viewedBrokerId]) || '이 일지'} 메모`
 
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
@@ -179,17 +182,15 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{m.memo}</p>
             </div>
           ))}
-          {showMine && (readOnly ? (
-            mine && (
-              <div className="px-4 py-2">
-                <p className="text-[11px] text-gray-400 mb-0.5">내 메모 · {hmKST(mine.updated_at)}</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{mine.memo}</p>
-              </div>
-            )
+          {readOnly || !ownDiary ? (
+            <div className="px-4 py-2">
+              <p className="text-[11px] text-blue-500 mb-0.5">{ownLabel}{mine ? ` · ${hmKST(mine.updated_at)}` : ''}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{mine?.memo || <span className="text-gray-300">—</span>}</p>
+            </div>
           ) : (
             // 남의 메모와 헷갈리지 않게 '내 메모' 머리를 단다 — 머리 없는 칸을 남의 글로 읽었다(2026-10-29)
             <div className="pt-2">
-              <p className="px-4 text-[11px] text-blue-500">내 메모{mine ? ` · ${hmKST(mine.updated_at)}` : ''}</p>
+              <p className="px-4 text-[11px] text-blue-500">{ownLabel}{mine ? ` · ${hmKST(mine.updated_at)}` : ''}</p>
               <textarea ref={taRef} value={draft} rows={1}
                 onChange={e => setDraft(e.target.value)}
                 onFocus={() => { focusedRef.current = true }}
@@ -197,7 +198,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
                 placeholder="광고현황 메모 입력..."
                 className="w-full px-4 pt-0.5 pb-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[40px]" />
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
