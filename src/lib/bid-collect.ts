@@ -38,8 +38,12 @@ const RECENT_DAYS = 3
  */
 const RECENT_RESULT_DAYS = 14
 const WINDOW_DAYS = 7
-const DETAIL_BATCH = 8
-const DETAIL_CONCURRENCY = 4
+/**
+ * 한 번에 몇 건씩 동시에 채울지. 상세 하나에 조회가 2~4번이라 나라장터 응답 시간이 병목이다 —
+ * 4건씩이던 때는 280초에 161건뿐이었다.
+ */
+const DETAIL_BATCH = 24
+const DETAIL_CONCURRENCY = 12
 /** 참가가능지역은 나중에(2026-10-29) 붙였다. 그 전에 받아 둔 공고는 이만큼 거슬러 한 번 채운다 */
 const RGN_BACKFILL_DAYS = 60
 
@@ -135,26 +139,35 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   /** 낙찰 한 건의 예가·투찰·하한율·A값을 채운다 */
   const fillDetail = async (r: { bid_ntce_no: string; bid_ntce_ord: string; rbid_no: string }) => {
     const key = { bidNtceNo: r.bid_ntce_no, bidNtceOrd: r.bid_ntce_ord }
-    const prepar = await call('result', 'getOpengResultListInfoCnstwkPreparPcDetail', { numOfRows: 30, pageNo: 1, inqryDiv: 2, ...key }, DETAIL_LIMIT)
-    const compt = await call('result', 'getOpengResultListInfoOpengCompt', { numOfRows: 999, pageNo: 1, ...key }, DETAIL_LIMIT)
+    // 서로 기다릴 일이 없는 조회는 한꺼번에 보낸다
+    const [prepar, compt, { data: n0 }] = await Promise.all([
+      call('result', 'getOpengResultListInfoCnstwkPreparPcDetail', { numOfRows: 30, pageNo: 1, inqryDiv: 2, ...key }, DETAIL_LIMIT),
+      call('result', 'getOpengResultListInfoOpengCompt', { numOfRows: 999, pageNo: 1, ...key }, DETAIL_LIMIT),
+      supa.from('bid_notices').select('lwlt_rate, a_amount, bssamt')
+        .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).maybeSingle(),
+    ])
     const p = toPrepar(prepar.items.filter(x => (x.rbidNo || '000') === r.rbid_no))
     const bids = dedupe(
       compt.items.filter(x => (x.rbidNo || '000') === r.rbid_no).map(x => toBidRow(x, r.rbid_no)).filter(b => b.bizno),
       b => `${b.rank}/${b.bizno}`,
     )
 
-    // 하한율·A값은 공고 쪽에 있다. 과거 공고가 아직 안 들어와 있으면 번호로 찾는다
-    let { data: n } = await supa.from('bid_notices')
-      .select('lwlt_rate, a_amount, bssamt').eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).maybeSingle()
-    if (!n || n.lwlt_rate == null) {
-      const { items } = await call('notice', 'getBidPblancListInfoCnstwk', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no }, DETAIL_LIMIT)
-      const row = items.map(toNoticeRow).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
+    // 하한율·A값은 공고 쪽에 있다. 과거 공고가 아직 안 들어와 있으면 번호로 찾는다(둘은 동시에)
+    const needNotice = !n0 || n0.lwlt_rate == null
+    const needBsis = !n0 || n0.a_amount == null
+    const [nRes, bRes] = await Promise.all([
+      needNotice ? call('notice', 'getBidPblancListInfoCnstwk', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no }, DETAIL_LIMIT) : null,
+      needBsis ? call('notice', 'getBidPblancListInfoCnstwkBsisAmount', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no }, DETAIL_LIMIT) : null,
+    ])
+    const n = { lwlt_rate: n0?.lwlt_rate ?? null, a_amount: n0?.a_amount ?? null, bssamt: n0?.bssamt ?? null }
+    if (nRes) {
+      const row = nRes.items.map(toNoticeRow).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
       if (row) { await upsert(supa, 'bid_notices', [row], 'bid_ntce_no,bid_ntce_ord'); report.notices++ }
-      n = { lwlt_rate: row?.lwlt_rate ?? null, a_amount: n?.a_amount ?? null, bssamt: n?.bssamt ?? null }
+      n.lwlt_rate = row?.lwlt_rate ?? null
     }
-    if (n.a_amount == null && n.lwlt_rate != null) {
-      const { items } = await call('notice', 'getBidPblancListInfoCnstwkBsisAmount', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no }, DETAIL_LIMIT)
-      const b = items.map(toBsisPatch).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
+    if (bRes) {
+      const b = bRes.items.map(toBsisPatch).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
+      // 공고 줄을 방금 넣었으니 기초금액도 거기 붙는다
       if (b) { report.bsis += await applyBsis(supa, [b]); n.a_amount = b.a_amount }
     }
 
