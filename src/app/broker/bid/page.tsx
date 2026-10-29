@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
@@ -14,6 +14,7 @@ import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
 import { canEnter, latestOrd, shortRegion } from '@/lib/bid-notices'
 import { AnalysisPanel, type HistoryRow } from './analysis-panel'
+import { ResultDetail, type ResultForDetail } from './result-detail'
 
 /**
  * 입찰 — 도장·습식·방수·석공사업 공사 입찰공고와 낙찰가 분석.
@@ -63,6 +64,10 @@ type Result = {
   sucsf_rate: number | null
   plnprc: number | null
   sajeong: number | null
+  bssamt: number | null
+  lwlt_rate: number | null
+  a_amount: number | null
+  prices: ResultForDetail['prices']
 }
 
 type Tab = 'notice' | 'result'
@@ -89,7 +94,7 @@ function dday(iso: string | null): { text: string; urgent: boolean } | null {
 }
 
 const REGION_KEY = 'bid_regions_v1'
-const RESULT_COLS = 'bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong'
+const RESULT_COLS = 'bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong, bssamt, lwlt_rate, a_amount, prices'
 
 
 export default function BidPage() {
@@ -419,8 +424,12 @@ export default function BidPage() {
           <>
           {/* 폰에선 표가 820px 라 1순위·금액이 화면 밖이었다 — 줄마다 카드로 */}
           <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white md:hidden dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
-            {shownResults.map(r => (
-              <li key={`${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`} className="px-4 py-3 text-sm">
+            {shownResults.map(r => {
+              const rk = `r/${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`
+              return (
+              <li key={rk} className="text-sm">
+                <button type="button" onClick={() => setOpened(opened === rk ? null : rk)} aria-expanded={opened === rk}
+                  className="w-full px-4 py-3 text-left">
                 <div className="font-medium text-gray-900 dark:text-white">{r.name}</div>
                 <div className="mt-0.5 text-xs text-gray-500">
                   {r.openg_at ? ymdKST(r.openg_at).slice(2) : '-'} 개찰 · {r.dminstt_nm} · {r.prtcpt_cnum ?? '-'}곳 참여
@@ -431,8 +440,11 @@ export default function BidPage() {
                   <span className="text-gray-500">낙찰률 {r.sucsf_rate ?? '-'}%</span>
                   <span className="text-gray-500">사정률 {r.sajeong != null ? `${(r.sajeong * 100).toFixed(3)}%` : '-'}</span>
                 </div>
+                </button>
+                {opened === rk && <div className="px-4 pb-4"><ResultDetail r={r} /></div>}
               </li>
-            ))}
+              )
+            })}
           </ul>
           <div className="hidden overflow-x-auto rounded-2xl border border-gray-200 bg-white md:block dark:border-gray-800 dark:bg-gray-900">
             <table className="w-full min-w-[820px] text-sm">
@@ -450,8 +462,11 @@ export default function BidPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {shownResults.map(r => (
-                  <tr key={`${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`}>
+                {shownResults.map(r => {
+                  const rk = `r/${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`
+                  return (<Fragment key={rk}>
+                  <tr onClick={() => setOpened(opened === rk ? null : rk)} aria-expanded={opened === rk}
+                    className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 ${opened === rk ? 'bg-gray-50 dark:bg-gray-800/50' : ''}`}>
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{r.openg_at ? ymdKST(r.openg_at).slice(2) : '-'}</td>
                     <td className="px-3 py-2 text-gray-900 dark:text-white">{r.name}</td>
                     <td className="px-3 py-2 text-xs text-gray-500">{r.dminstt_nm}</td>
@@ -462,7 +477,11 @@ export default function BidPage() {
                     <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{r.sucsf_rate ?? '-'}%</td>
                     <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{r.sajeong != null ? `${(r.sajeong * 100).toFixed(3)}%` : '-'}</td>
                   </tr>
-                ))}
+                  {opened === rk && (
+                    <tr><td colSpan={9} className="px-3 pb-4"><ResultDetail r={r} /></td></tr>
+                  )}
+                  </Fragment>)
+                })}
               </tbody>
             </table>
           </div>
