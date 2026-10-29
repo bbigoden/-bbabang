@@ -5,12 +5,13 @@
  *
  * 위: 가상사무실 현황판과 같은 숫자(lib/office-board). 오늘 일지를 열면 새로 세어
  *     office_diary_common.ad_board 에 찍어 둔다 — 지난 날짜는 마지막으로 찍힌 숫자를 본다.
- * 아래: 모두가 같이 쓰는 메모 한 칸. 누가 써도 모든 직원 일지에 같은 글.
+ * 아래: 광고현황 메모. 사람마다 한 칸(office_diary_ad_memos).
  *
- * 표는 대표(김용유)·이사(권세현)만 전체를 본다. 나머지 직원은 '드래곤' 줄과 자기 줄만(2026-10-29 사장님).
- * 숫자를 찍어 두는 것도 둘만 한다 — 직원 계정은 권한에 따라 덜 셀 수 있어 전체 숫자를 덮으면 안 된다.
- *
- * 예전처럼 사람마다 적어 둔 광고현황(sections_content.s_ad)이 있으면 그 날짜에만 '내 메모'로 보여 준다.
+ * 보이는 범위는 '보고 있는 일지의 주인' 기준이다:
+ *   · 대표(김용유)·이사(권세현)의 일지 — 표 전체, 모두의 메모
+ *   · 그 밖의 직원 일지 — 표는 '드래곤' 줄과 그 직원 줄, 메모는 대표·이사와 그 직원 것
+ * 대표가 직원 일지를 열어도 그 직원 눈높이로 보인다. 메모는 DB 도 같은 규칙으로 막는다(can_see_ad_memo).
+ * 숫자를 찍어 두는 건 대표·이사가 열 때만 — 직원 계정은 권한에 따라 덜 셀 수 있어 전체 숫자를 덮으면 안 된다.
  */
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -20,57 +21,66 @@ import { cn } from '@/lib/utils'
 
 const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'
 
-interface CommonRow { ad_board: OfficeBoard | null; ad_board_at: string | null; ad_memo: string | null; memo_at: string | null; memo_by: string | null }
+interface Memo { author_id: string; memo: string; updated_at: string }
 
-export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, ownContent, readOnly }: {
-  num: number; title: string; officeId: string | null; date: string; myBrokerId: string | null
-  /** 예전에 이 사람 일지에 따로 적어 둔 광고현황 */
-  ownContent: string | null
+export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBrokerId, readOnly }: {
+  num: number; title: string; officeId: string | null; date: string
+  /** 로그인한 사람 */
+  myBrokerId: string | null
+  /** 보고 있는 일지의 주인 */
+  viewedBrokerId: string | null
   readOnly?: boolean
 }) {
   const supabase = createClient()
-  const [row, setRow] = useState<CommonRow | null>(null)
   const [board, setBoard] = useState<OfficeBoard | null>(null)
+  const [boardAt, setBoardAt] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [memos, setMemos] = useState<Memo[]>([])
+  const [names, setNames] = useState<Record<string, string>>({})
   const [missing, setMissing] = useState(false)
-  const [memoBy, setMemoBy] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [failed, setFailed] = useState(false)
   const focusedRef = useRef(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const isToday = date === todayKST()
-  const fullView = !!myBrokerId && (myBrokerId === officeId || myBrokerId === DIRECTOR_ID)
+  const isLead = (id: string | null) => !!id && (id === officeId || id === DIRECTOR_ID)
+  const fullView = isLead(viewedBrokerId)
 
   useEffect(() => {
     if (!officeId) return
     let gone = false
-    setRow(null); setBoard(null); setMemoBy(null)
+    setLoaded(false); setBoard(null); setBoardAt(null); setMemos([])
     void (async () => {
-      const { data, error } = await supabase.from('office_diary_common')
-        .select('ad_board, ad_board_at, ad_memo, memo_at, memo_by').eq('office_id', officeId).eq('date', date).maybeSingle()
+      const [common, ms, ps] = await Promise.all([
+        supabase.from('office_diary_common').select('ad_board, ad_board_at').eq('office_id', officeId).eq('date', date).maybeSingle(),
+        supabase.from('office_diary_ad_memos').select('author_id, memo, updated_at').eq('office_id', officeId).eq('date', date),
+        supabase.from('broker_profiles').select('id, profiles:profiles_visible(name)').or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
+      ])
       if (gone) return
-      if (isMissingTable(error)) setMissing(true)
-      const r = (data as CommonRow | null) ?? { ad_board: null, ad_board_at: null, ad_memo: null, memo_at: null, memo_by: null }
-      setRow(r)
-      if (!focusedRef.current) setDraft(r.ad_memo ?? '')
-      setBoard(r.ad_board)
-      if (r.memo_by) {
-        const { data: p } = await supabase.from('broker_profiles').select('profiles:profiles_visible(name)').eq('id', r.memo_by).maybeSingle()
-        if (!gone) setMemoBy((p as unknown as { profiles: { name: string | null } | null } | null)?.profiles?.name ?? null)
-      }
-      // 오늘이면 지금 숫자로 새로 센다. 찍어 두는 건 대표·이사만 — 메모 칸은 건드리지 않는다
+      const c = common.data as { ad_board: OfficeBoard | null; ad_board_at: string | null } | null
+      setBoard(c?.ad_board ?? null)
+      setBoardAt(c?.ad_board_at ?? null)
+      setMissing(isMissingTable(ms.error))
+      const list = (ms.data as Memo[] | null) ?? []
+      setMemos(list)
+      if (!focusedRef.current) setDraft(list.find(m => m.author_id === myBrokerId)?.memo ?? '')
+      setNames(Object.fromEntries(((ps.data as unknown as { id: string; profiles: { name: string | null } | null }[] | null) ?? [])
+        .map(p => [p.id, p.profiles?.name ?? '이름 없음'])))
+      setLoaded(true)
+      // 오늘이면 지금 숫자로 새로 센다. 찍어 두는 건 대표·이사가 열 때만
       if (isToday) {
         const fresh = await fetchOfficeBoard(supabase, officeId)
         if (gone) return
         setBoard(fresh)
-        if (fullView && !isMissingTable(error)) {
+        if (isLead(myBrokerId) && !isMissingTable(common.error)) {
           await supabase.from('office_diary_common')
             .upsert({ office_id: officeId, date, ad_board: fresh, ad_board_at: new Date().toISOString() }, { onConflict: 'office_id,date' })
         }
       }
     })()
     return () => { gone = true }
-  }, [officeId, date]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [officeId, date, myBrokerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = taRef.current
@@ -79,24 +89,31 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, ownConte
     el.style.height = el.scrollHeight + 'px'
   }, [draft, readOnly])
 
+  const mine = memos.find(m => m.author_id === myBrokerId)
   const save = async () => {
     focusedRef.current = false
-    if (!officeId || draft === (row?.ad_memo ?? '')) { setFailed(false); return }
+    if (!officeId || !myBrokerId || draft === (mine?.memo ?? '')) { setFailed(false); return }
     setSaving(true)
     const at = new Date().toISOString()
-    const { error } = await supabase.from('office_diary_common')
-      .upsert({ office_id: officeId, date, ad_memo: draft || null, memo_by: myBrokerId, memo_at: at }, { onConflict: 'office_id,date' })
+    const { error } = draft.trim()
+      ? await supabase.from('office_diary_ad_memos')
+          .upsert({ office_id: officeId, date, author_id: myBrokerId, memo: draft, updated_at: at }, { onConflict: 'office_id,date,author_id' })
+      : await supabase.from('office_diary_ad_memos').delete().eq('office_id', officeId).eq('date', date).eq('author_id', myBrokerId)
     setSaving(false)
     setFailed(!!error)
-    if (!error) {
-      setRow(r => ({ ...(r ?? { ad_board: null, ad_board_at: null, memo_by: null }), ad_memo: draft || null, memo_at: at, memo_by: myBrokerId }))
-      setMemoBy('나')
-    }
+    if (!error) setMemos(ms => [...ms.filter(m => m.author_id !== myBrokerId), ...(draft.trim() ? [{ author_id: myBrokerId, memo: draft, updated_at: at }] : [])])
   }
 
+  // 표 — 대표·이사 일지면 전체, 아니면 드래곤 줄과 그 직원 줄
   const lines = !board ? []
     : fullView ? [...board.rows, board.total]
-    : board.rows.filter(r => r.name === '드래곤' || (!!myBrokerId && r.ids?.includes(myBrokerId)))
+    : board.rows.filter(r => r.name === '드래곤' || (!!viewedBrokerId && r.ids?.includes(viewedBrokerId)))
+  // 메모 — 대표·이사 일지면 모두, 아니면 대표·이사와 그 직원. 내 칸은 아래 입력란으로 따로
+  const others = memos
+    .filter(m => m.author_id !== myBrokerId && (fullView || isLead(m.author_id) || m.author_id === viewedBrokerId))
+    .sort((a, b) => Number(isLead(b.author_id)) - Number(isLead(a.author_id)) || a.updated_at.localeCompare(b.updated_at))
+  const showMine = !!myBrokerId && (fullView || isLead(myBrokerId) || myBrokerId === viewedBrokerId)
+
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50">
@@ -138,35 +155,40 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, ownConte
             </tbody>
           </table>
         ) : (
-          <p className="text-xs text-gray-400">{row === null ? '숫자 세는 중...' : '이 날짜엔 남겨 둔 현황판 숫자가 없어요'}</p>
+          <p className="text-xs text-gray-400">{!loaded || isToday ? '숫자 세는 중...' : '이 날짜엔 남겨 둔 현황판 숫자가 없어요'}</p>
         )}
         {board && (
           <p className="mt-1 text-[11px] text-gray-400">
-            {isToday ? `${board.at} 기준` : row?.ad_board_at ? `그날 ${hmKST(row.ad_board_at)} 기준` : ''}
+            {isToday ? `${board.at} 기준` : boardAt ? `그날 ${hmKST(boardAt)} 기준` : ''}
           </p>
         )}
       </div>
 
       {missing ? (
-        <p className="px-4 py-3 text-xs text-gray-400">공통 메모 칸은 준비 중이에요.</p>
-      ) : readOnly ? (
-        <div className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap min-h-[44px]">{row?.ad_memo || <span className="text-gray-300">—</span>}</div>
+        <p className="px-4 py-3 text-xs text-gray-400">메모 칸은 준비 중이에요.</p>
       ) : (
-        <textarea ref={taRef} value={draft} rows={1}
-          onChange={e => setDraft(e.target.value)}
-          onFocus={() => { focusedRef.current = true }}
-          onBlur={() => void save()}
-          placeholder="공통 메모 — 모든 직원 일지에 같이 보여요"
-          className="mt-2 w-full border-t border-gray-100 dark:border-gray-800 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
-      )}
-      {!missing && row?.ad_memo && row.memo_at && (
-        <p className="px-4 pb-2 text-[11px] text-gray-400">마지막 수정: {memoBy ?? ''} {hmKST(row.memo_at)}</p>
-      )}
-
-      {ownContent && (
-        <div className="mx-4 mb-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 px-3 py-2">
-          <p className="text-[11px] text-gray-400 mb-0.5">이 일지에 따로 적어 둔 광고현황</p>
-          <p className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{ownContent}</p>
+        <div className="mt-2 border-t border-gray-100 dark:border-gray-800">
+          {others.map(m => (
+            <div key={m.author_id} className="px-4 py-2 border-b border-gray-50 dark:border-gray-800/60">
+              <p className="text-[11px] text-gray-400 mb-0.5">{names[m.author_id] ?? '이름 없음'} · {hmKST(m.updated_at)}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{m.memo}</p>
+            </div>
+          ))}
+          {showMine && (readOnly ? (
+            mine && (
+              <div className="px-4 py-2">
+                <p className="text-[11px] text-gray-400 mb-0.5">내 메모 · {hmKST(mine.updated_at)}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{mine.memo}</p>
+              </div>
+            )
+          ) : (
+            <textarea ref={taRef} value={draft} rows={1}
+              onChange={e => setDraft(e.target.value)}
+              onFocus={() => { focusedRef.current = true }}
+              onBlur={() => void save()}
+              placeholder="내 광고현황 메모"
+              className="w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
+          ))}
         </div>
       )}
     </div>

@@ -1516,7 +1516,7 @@ export default function BrokerDiaryPage() {
             {sections.map((def, idx) => def.id === 's_ad' && diaryDate >= AD_COMMON_FROM ? (
               // 광고현황은 사람마다가 아니라 사무실 공통 — 현황판 숫자 + 공통 메모
               <DiaryAdCommon key={def.id} num={idx + 2} title={def.title} officeId={pickerOfficeId} date={diaryDate}
-                myBrokerId={broker?.id ?? null} ownContent={sectionContent[def.id] || null} readOnly={!canEditSections && !isOwner} />
+                myBrokerId={broker?.id ?? null} viewedBrokerId={viewingBrokerId ?? broker?.id ?? null} readOnly={!broker} />
             ) : (
               <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
                 onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={(id) => setSectionDeleteConfirm({ id, title: def.title })} readOnly={!canEditSections} />
