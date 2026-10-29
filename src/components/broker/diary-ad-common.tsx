@@ -113,7 +113,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50">
         <span className="text-sm font-bold text-gray-500 flex-shrink-0">{num}.</span>
         <span className="text-sm font-bold text-gray-800">{title}</span>
-        <span className="ml-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-600">사무실 공통</span>
         <a href="/broker/office" className="ml-auto text-xs text-gray-400 hover:text-blue-500">현황판 ›</a>
       </div>
 
