@@ -320,7 +320,7 @@ export default function OfficePage() {
   }, [load])
 
   /**
-   * 현황판 — 사람마다 매물장(등록한 매물, 거래가능)·뱅크(서비스중·확인중)·당근. 블로그·카페는 뺐다(2026-10-28 사장님).
+   * 현황판 — 사람마다 매물장(등록한 매물, 거래가능)·뱅크(등록매물 탭)·당근. 블로그·카페는 뺐다(2026-10-28 사장님).
    * 뱅크·당근은 뱅크의 '담당자' 이름(ad_listings.manager)으로 사람을 가른다. 매물장은 등록한 사람(broker_id).
    * 천천히 바뀌는 숫자라 5분마다만 본다. 매물장은 1000줄 넘게 읽지 않도록 건수만 센다.
    */
@@ -339,9 +339,9 @@ export default function OfficePage() {
       매물(null, false),
       매물(null, true),
       supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
-        .or('bank_status.like.서비스중*,bank_status.like.확인중*')
-        // 동기화 때 뱅크 목록에서 사라진 매물은 상태가 '서비스중' 으로 굳어 남는다 — 세지 않는다(2026-10-28 대조에서 3건)
-        .neq('bank_tab', '뱅크에 없음'),
+        // 광고관리 [등록매물] 탭·뱅크 화면과 같은 잣대. 상태(서비스중 등)로 세면 '수정실패' 처럼
+        // 등록매물에 있는 매물이 빠져 광고관리와 한 건 어긋났다(2026-10-29)
+        .eq('bank_tab', '등록매물'),
       supabase.from('ad_posts').select('posted_at, ad_listings!inner(manager, broker_id)')
         .eq('ad_listings.broker_id', officeId).eq('status', 'posted').eq('channel', 'daangn'),
     ])
