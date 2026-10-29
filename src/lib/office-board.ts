@@ -89,5 +89,8 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
       if (p.posted_at && ymdKST(p.posted_at) === todayYmd) t.daangnToday++
     }
   }
-  return { rows: rows.filter(r => r.props + r.bank + r.daangn > 0), total: sum, at: hmKST(new Date().toISOString()) }
+  // 줄 순서 — 드래곤 맨 위, 나머지는 매물장 많은 순(2026-10-29 사장님)
+  const shown = rows.filter(r => r.props + r.bank + r.daangn > 0)
+    .sort((a, b) => Number(b.name === '드래곤') - Number(a.name === '드래곤') || b.props - a.props)
+  return { rows: shown, total: sum, at: hmKST(new Date().toISOString()) }
 }

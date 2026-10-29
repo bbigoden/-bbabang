@@ -136,8 +136,8 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
                   <tr key={r.name} className={cn(total ? 'border-t border-gray-200 dark:border-gray-700 font-bold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300')}>
                     <td className="py-1 truncate">{r.name}</td>
                     <td className="py-1 pr-3 text-right">
-                      {/* (거래가능)·+오늘은 각자 고정 칸 — +가 붙어도 괄호 끝이 줄마다 같은 자리 */}
-                      {n(r.props)}<span className="inline-block w-[4.4em] text-right text-[11px] font-normal text-gray-400">({n(r.avail)})</span>
+                      {/* 매물장(거래가능)은 붙여서 오른쪽 끝 맞춤, +오늘은 그 뒤 고정 칸(2026-10-29 사장님 엑셀 모양) */}
+                      {n(r.props)}<span className="text-[11px] font-normal text-gray-400">({n(r.avail)})</span>
                       <span className="inline-block w-[2.6em] pl-[0.4em] text-left text-[11px] font-medium text-emerald-500">{r.propsToday ? `+${r.propsToday}` : ''}</span>
                     </td>
                     <td className="py-1 pr-3 text-right">{n(r.bank)}</td>
