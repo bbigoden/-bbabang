@@ -15,11 +15,16 @@ import {
  *  3. 상세가 다 채워졌으면 과거로 1주씩 거슬러 올라가며 목록을 더 받는다
  *
  * 한도는 서비스마다 하루 1,000건(공고 1,000 / 낙찰 1,000). 넘기면 그날은 막히므로
- * 950 에서 멈춘다. 낙찰 1건 상세에 낙찰 API 2번이라, 하루 과거 낙찰 ~470건씩 채워진다.
+ * 980 에서 멈춘다(상세는 900 까지). 낙찰 1건 상세에 낙찰 API 2번이라, 하루 과거 낙찰 ~470건씩 채워진다.
  * 도장·방수 낙찰이 1주 ~100건이니 하루에 1달치쯤 거슬러 올라간다.
  */
 
-const DAILY_LIMIT = 950
+const DAILY_LIMIT = 980
+/**
+ * 상세(공고 1건에 2번)는 여기서 멈추고, 남은 80번은 목록 조회 몫으로 둔다.
+ * 상세가 950 을 다 먹은 날엔 새로 개찰된 낙찰 목록(하루 1~2번)조차 못 받았다.
+ */
+const DETAIL_LIMIT = 900
 /** 과거 데이터는 여기까지만 거슬러 올라간다 */
 export const BACKFILL_FLOOR = '2023-01-01'
 const RECENT_DAYS = 3
@@ -69,12 +74,12 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   }
 
   // 한도·시간을 부르기 전에 확인한다. 넘으면 StopError 로 빠져나가 지금까지 한 것만 남긴다
-  const guard = (svc: G2bService) => {
+  const guard = (svc: G2bService, limit = DAILY_LIMIT) => {
     if (Date.now() > deadline) throw new StopError('time')
-    if (calls[svc] >= DAILY_LIMIT) throw new StopError('limit')
+    if (calls[svc] >= limit) throw new StopError('limit')
   }
-  const call = async (svc: G2bService, op: string, params: Record<string, string | number>) => {
-    guard(svc)
+  const call = async (svc: G2bService, op: string, params: Record<string, string | number>, limit = DAILY_LIMIT) => {
+    guard(svc, limit)
     return g2bGet(svc, op, params, s => { calls[s]++ })
   }
   /** 날짜 범위 목록을 999건씩 끝까지 */
@@ -126,8 +131,8 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   /** 낙찰 한 건의 예가·투찰·하한율·A값을 채운다 */
   const fillDetail = async (r: { bid_ntce_no: string; bid_ntce_ord: string; rbid_no: string }) => {
     const key = { bidNtceNo: r.bid_ntce_no, bidNtceOrd: r.bid_ntce_ord }
-    const prepar = await call('result', 'getOpengResultListInfoCnstwkPreparPcDetail', { numOfRows: 30, pageNo: 1, inqryDiv: 2, ...key })
-    const compt = await call('result', 'getOpengResultListInfoOpengCompt', { numOfRows: 999, pageNo: 1, ...key })
+    const prepar = await call('result', 'getOpengResultListInfoCnstwkPreparPcDetail', { numOfRows: 30, pageNo: 1, inqryDiv: 2, ...key }, DETAIL_LIMIT)
+    const compt = await call('result', 'getOpengResultListInfoOpengCompt', { numOfRows: 999, pageNo: 1, ...key }, DETAIL_LIMIT)
     const p = toPrepar(prepar.items.filter(x => (x.rbidNo || '000') === r.rbid_no))
     const bids = dedupe(
       compt.items.filter(x => (x.rbidNo || '000') === r.rbid_no).map(x => toBidRow(x, r.rbid_no)).filter(b => b.bizno),
@@ -138,13 +143,13 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     let { data: n } = await supa.from('bid_notices')
       .select('lwlt_rate, a_amount, bssamt').eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).maybeSingle()
     if (!n || n.lwlt_rate == null) {
-      const { items } = await call('notice', 'getBidPblancListInfoCnstwk', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no })
+      const { items } = await call('notice', 'getBidPblancListInfoCnstwk', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no }, DETAIL_LIMIT)
       const row = items.map(toNoticeRow).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
       if (row) { await upsert(supa, 'bid_notices', [row], 'bid_ntce_no,bid_ntce_ord'); report.notices++ }
       n = { lwlt_rate: row?.lwlt_rate ?? null, a_amount: n?.a_amount ?? null, bssamt: n?.bssamt ?? null }
     }
     if (n.a_amount == null && n.lwlt_rate != null) {
-      const { items } = await call('notice', 'getBidPblancListInfoCnstwkBsisAmount', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no })
+      const { items } = await call('notice', 'getBidPblancListInfoCnstwkBsisAmount', { numOfRows: 5, pageNo: 1, inqryDiv: 2, bidNtceNo: r.bid_ntce_no }, DETAIL_LIMIT)
       const b = items.map(toBsisPatch).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
       if (b) { report.bsis += await applyBsis(supa, [b]); n.a_amount = b.a_amount }
     }
