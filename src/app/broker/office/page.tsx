@@ -27,6 +27,11 @@ import { PixelOffice, type OfficeLayout, type Seat } from '@/components/broker/p
 import { fetchOfficeBoard, DIRECTOR_ID } from '@/lib/office-board'
 
 /** 따로 고른 포켓몬 — 이예리는 님피아(2026-10-27 사장님) */
+/** 영업부 책상 순서 — 왼쪽부터 */
+const SALES_ORDER = ['박혜성', '이예리', '문지혜', '김미선', '김불당']
+/** 계정이 아직 없지만 자리를 내 둔 사람 */
+const SALES_PENDING = ['김미선']
+
 const STAFF_MON: Record<string, string> = {
   'c7e58900-e6bb-4f88-b3bf-d1879f8a6050': 'sylveon',   // 이예리
   'e21e1f46-6492-4f1d-964c-ba7da59a5372': 'charizard', // 박혜성 — 리자몽(2026-10-28)
@@ -507,6 +512,17 @@ export default function OfficePage() {
   const userOf = Object.fromEntries(members.map(m => [m.id, m.user_id]))
   const inDept = (d: string) => people.filter(p => deptOf(p.key) === d)
     .map(p => (d === 'director' ? { ...p, role: '이사' } : p))
+  // 영업부 앉는 순서(2026-10-29 사장님). 계정이 아직 없는 사람은 '가입 전' 자리로 먼저 앉혀 두고,
+  // 같은 이름으로 가입·승인되면 그 자리에 진짜 계정이 앉는다
+  const 영업부 = [...inDept('sales')]
+  for (const name of SALES_PENDING) {
+    if (!영업부.some(p => p.name === name)) 영업부.push({
+      key: `pending-${name}`, kind: 'person', tint: 영업부.length, name, role: '직원', state: 'idle', say: '가입 전',
+      note: '아직 부소장 계정이 없습니다 — 이 이름으로 가입하고 승인되면 이 자리에 앉습니다',
+    })
+  }
+  const 순번 = (n: string) => { const i = SALES_ORDER.indexOf(n); return i < 0 ? SALES_ORDER.length : i }
+  영업부.sort((a, b) => 순번(a.name) - 순번(b.name))
 
   const layout: OfficeLayout = {
     clock: hmKST(now),
@@ -520,7 +536,7 @@ export default function OfficePage() {
     seats: {
       boss: inDept('boss'),
       director: inDept('director'),
-      sales: inDept('sales'),
+      sales: 영업부,
       promo: [
         robot('cafe', '카페 담당', ['publish'], 'cafe', `오늘 카페 ${today.cafe}건 올림`),
         robot('blog', '블로그 담당', ['publish'], 'blog', `오늘 블로그 ${today.blog}건 임시저장`, 1),

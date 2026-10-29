@@ -8,7 +8,7 @@
  *   ├──문──────────────문─────────────문──────────────문───┬───────────┤
  *   │ 복도 ════════════════════════════════════════════════│ 로비      │
  *   ├──문──────┬──────문──────────────문───────────────────┤ 안내 데스크│
- *   │ 이사실   │ 홍보부(채널 ┊ 등록 ┊ 수집 로봇)            문  소파     ▯ 출입구
+ *   │ 이사실   │ 홍보부(채널+빈자리 ┊ 등록 ┊ 수집 로봇)     문  소파     ▯ 출입구
  *   ├──문──────┴──────문──────────────────────────────문──┤           │
  *   │ 복도 ════════════════════════════════════════════════│           │
  *   ├──문─────────────문──────────────┬───────문───────┬──문─┴───────┤
@@ -972,15 +972,16 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘 + 수집 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다.
   // 등록실(2026-10-25)·매물조사실(2026-10-29)을 홍보부로 합침(칸막이 없이)
-  promo: { box: 'promo', dx: 12, dy: 34, sx: 42, sy: 0, cols: 4, max: 4 },
-  register: { box: 'promo', dx: 190, dy: 34, sx: 42, sy: 0, cols: 2, max: 2 },
-  research: { box: 'promo', dx: 284, dy: 34, sx: 42, sy: 0, cols: 2, max: 2 },
+  // 채널 자리는 다섯 — 하나는 비워 둔다(2026-10-29 사장님 '한 자리 더')
+  promo: { box: 'promo', dx: 10, dy: 34, sx: 40, sy: 0, cols: 5, max: 5 },
+  register: { box: 'promo', dx: 210, dy: 34, sx: 40, sy: 0, cols: 2, max: 2 },
+  research: { box: 'promo', dx: 290, dy: 34, sx: 40, sy: 0, cols: 2, max: 2 },
   // 책상 여덟 — 2026-10-29 사장님이 영업부를 넓힘
   sales: { box: 'sales', dx: 12, dy: 30, sx: 42, sy: 0, cols: 8, max: 8 },
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 8, promo: 4, research: 2, register: 2, lab: 16 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 8, promo: 5, research: 2, register: 2, lab: 16 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
