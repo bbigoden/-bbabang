@@ -512,6 +512,31 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
   )
 }
 
+// ── MasonryCell (벽돌 쌓기 한 칸) ─────────────────────
+// 그리드 행을 MASONRY_ROW(4px)로 잘게 나누고, 칸마다 자기 키만큼 행을 차지하게 한다.
+// 그리드는 순서대로 놓으며 먼저 비는 줄에 다음 칸을 넣으므로 덜 찬 쪽으로 쌓인다.
+// 칸 사이 간격(16px)은 행 간격 대신 차지하는 키에 더한다. 글을 쓰면 키가 바뀌니 계속 잰다.
+const MASONRY_ROW = 4
+const MASONRY_GAP = 16
+function MasonryCell({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [span, setSpan] = useState(1)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => setSpan(Math.ceil((el.getBoundingClientRect().height + MASONRY_GAP) / MASONRY_ROW))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div style={{ gridRowEnd: `span ${span}` }} className="min-w-0">
+      <div ref={ref}>{children}</div>
+    </div>
+  )
+}
+
 // ── DiarySection (동적, 이름변경/삭제 가능) ───────────────
 function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly }: {
   def: SectionDef; num: number; content: string | null
@@ -1511,40 +1536,32 @@ export default function BrokerDiaryPage() {
           )}
         </div>
 
-        {/* Sections 2~ — 넓은 화면은 왼쪽에 첫 칸(업무요약)만, 오른쪽에 나머지(3·4·5·…)를 쌓는다.
-            예전 2열 그리드는 한 행의 키를 맞춰, 업무요약이 길면 옆 칸이 같이 늘고 4·5번이 그 아래로 밀려
-            빈 공간이 생겼다(2026-10-29 사장님). 좁은 화면은 한 줄로 2·3·4·5 순서 그대로(contents + order). */}
-        {!diaryLoading && (() => {
-          const items = sections.map((def, idx) => (
-            <div key={def.id} style={{ order: idx }}>
-              {def.id === 's_ad' && diaryDate >= AD_COMMON_FROM ? (
-                // 광고현황은 사람마다가 아니라 사무실 공통 — 현황판 숫자 + 메모
-                <DiaryAdCommon num={idx + 2} title={def.title} officeId={pickerOfficeId} date={diaryDate}
-                  myBrokerId={broker?.id ?? null} viewedBrokerId={viewingBrokerId ?? broker?.id ?? null} readOnly={!broker} />
-              ) : (
-                <DiarySection def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
-                  onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={(id) => setSectionDeleteConfirm({ id, title: def.title })} readOnly={!canEditSections} />
-              )}
-            </div>
-          ))
-          const addBtn = effectiveCanEdit && (
-            <button key="add" onClick={addSection} style={{ order: sections.length }} className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-colors">
-              <Plus className="h-4 w-4" />섹션 추가
-            </button>
-          )
-          const column = (side: 0 | 1) => (
-            <div className="contents md:flex md:flex-col md:gap-4 md:flex-1 md:min-w-0">
-              {items.filter((_, i) => (i === 0 ? 0 : 1) === side)}
-              {side === 1 && addBtn}
-            </div>
-          )
-          return (
-            <div className="flex flex-col gap-4 md:flex-row md:items-start">
-              {column(0)}
-              {column(1)}
-            </div>
-          )
-        })()}
+        {/* Sections 2~ — 넓은 화면은 두 줄로, 칸마다 키에 맞춰 덜 찬 쪽에 차례로 쌓는다(벽돌 쌓기).
+            예전 2열 그리드는 한 행의 키를 맞춰 긴 칸 옆이 텅 비었고, 왼쪽·오른쪽을 고정으로 나누면
+            섹션이 많은 날 한쪽만 길어졌다(2026-10-29 사장님). 좁은 화면은 한 줄로 순서 그대로. */}
+        {!diaryLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4" style={{ gridAutoRows: MASONRY_ROW }}>
+            {sections.map((def, idx) => (
+              <MasonryCell key={def.id}>
+                {def.id === 's_ad' && diaryDate >= AD_COMMON_FROM ? (
+                  // 광고현황은 사람마다가 아니라 사무실 공통 — 현황판 숫자 + 메모
+                  <DiaryAdCommon num={idx + 2} title={def.title} officeId={pickerOfficeId} date={diaryDate}
+                    myBrokerId={broker?.id ?? null} viewedBrokerId={viewingBrokerId ?? broker?.id ?? null} readOnly={!broker} />
+                ) : (
+                  <DiarySection def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
+                    onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={(id) => setSectionDeleteConfirm({ id, title: def.title })} readOnly={!canEditSections} />
+                )}
+              </MasonryCell>
+            ))}
+            {effectiveCanEdit && (
+              <MasonryCell>
+                <button onClick={addSection} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 py-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-500 transition-colors">
+                  <Plus className="h-4 w-4" />섹션 추가
+                </button>
+              </MasonryCell>
+            )}
+          </div>
+        )}
 
       </div>
 
