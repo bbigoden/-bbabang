@@ -22,6 +22,8 @@ const PROTECTED_PREFIXES = [
   '/request/new',
   '/favorites', '/history', '/my/', '/notifications', '/recommendations', '/saved-searches',
   '/reviews', '/review/',
+  // 매물 상세 — 사무소 매물장의 지번이 보인다. 로그인 없이는 막는다(2026-10-29 사장님)
+  '/property/',
 ]
 
 // /request/<id> 는 공개(공유 링크·카톡 미리보기·메일)인데 그 아래 /edit 는 작성자 전용이다.

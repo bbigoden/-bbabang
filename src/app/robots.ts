@@ -22,6 +22,7 @@ export default function robots(): MetadataRoute.Robots {
           '/admin/',
           '/profile',
           '/request/',     // /request/[id] 등 사용자 데이터 포함
+          '/property/',    // 매물 상세 — 로그인해야 보인다
           '/review/',      // /review/[proposalId]
           '/notifications',
           '/favorites',

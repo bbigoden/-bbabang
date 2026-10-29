@@ -44,6 +44,14 @@ describe('isProtectedPath — 로그인 전용', () => {
   })
 })
 
+describe('isProtectedPath — 매물 상세는 로그인해야', () => {
+  it('/property/<id> 는 막는다 — 사무소 매물장의 지번이 보인다', () => {
+    expect(isProtectedPath(`/property/${UUID}`)).toBe(true)
+    // '/properties' 같은 다른 이름은 걸리지 않는다
+    expect(isProtectedPath('/property')).toBe(false)
+  })
+})
+
 describe('isProtectedPath — 손님도 보는 공개 화면', () => {
   it.each([
     '/',
@@ -52,7 +60,6 @@ describe('isProtectedPath — 손님도 보는 공개 화면', () => {
     '/regions', '/regions/x',
     '/jobs', '/jobs/1',
     '/support', '/office-intro', '/terms', '/privacy',
-    '/property/1',
     '/search',
     '/account-suspended',
     // 공유 링크 — 카톡 미리보기·메일로 손님이 연다

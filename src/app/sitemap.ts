@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next'
 import { createClient } from '@/lib/supabase/server'
-import { fetchAllPaged } from '@/lib/fetch-all-paged'
 
 const BASE_URL = 'https://bbabang.vercel.app'
 
@@ -65,30 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
-    // 매물 상세 — 공개 안전 뷰에서 최신순으로 '전건' 제출한다.
-    // 예전엔 .limit(500)이라 1,600건 중 1,100여 건이 빠졌고, limit만 키워도 PostgREST가
-    // 1000행에서 조용히 자르므로 페이지로 이어받는다. 같은 시각 생성분이 페이지 경계에서
-    // 겹치거나 빠지지 않게 id로 순서를 고정한다. 5만 URL에 가까워지면 generateSitemaps로 나눌 것.
-    // 매물 쪽만 실패해도 지역 항목은 살리려고 따로 감싼다.
-    try {
-      const props = await fetchAllPaged<{ id: string; created_at: string | null }>((from, to) =>
-        supabase
-          .from('public_properties')
-          .select('id, created_at')
-          .eq('status', 'available')
-          .order('created_at', { ascending: false })
-          .order('id')
-          .range(from, to))
-      for (const p of props) {
-        entries.push({
-          url: `${BASE_URL}/property/${p.id}`,
-          ...(p.created_at ? { lastModified: new Date(p.created_at) } : {}),
-          changeFrequency: 'weekly', priority: 0.6,
-        })
-      }
-    } catch {
-      // 매물 조회 실패 — 정적·지역 항목만 제출
-    }
+    // 매물 상세(/property/*)는 넣지 않는다 — 로그인해야 보이는 화면이다(2026-10-29 사장님).
 
     return [...staticEntries, ...entries]
   } catch {
