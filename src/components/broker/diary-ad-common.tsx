@@ -124,7 +124,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
             <thead>
               <tr className="text-[11px] text-gray-400">
                 <th className="pb-1.5 text-left font-medium">담당</th>
-                <th className="pb-1.5 pr-3 text-right font-medium">매물장<span className="text-gray-300">(거래가능)</span></th>
+                <th className="pb-1.5 pr-[calc(0.75rem+2.6em)] text-right font-medium">매물장<span className="text-gray-300">(거래가능)</span></th>
                 <th className="pb-1.5 pr-3 text-right font-medium">뱅크</th>
                 <th className="pb-1.5 pr-7 text-right font-medium">당근</th>
               </tr>
@@ -136,9 +136,9 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
                   <tr key={r.name} className={cn(total ? 'border-t border-gray-200 dark:border-gray-700 font-bold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300')}>
                     <td className="py-1 truncate">{r.name}</td>
                     <td className="py-1 pr-3 text-right">
-                      {n(r.props)}<span className="ml-0.5 inline-block w-[6.6em] text-left text-[11px] font-normal text-gray-400">
-                        ({n(r.avail)}){!!r.propsToday && <span className="ml-1 font-medium text-emerald-500">+{r.propsToday}</span>}
-                      </span>
+                      {/* (거래가능)·+오늘은 각자 고정 칸 — +가 붙어도 괄호 끝이 줄마다 같은 자리 */}
+                      {n(r.props)}<span className="inline-block w-[4.4em] text-right text-[11px] font-normal text-gray-400">({n(r.avail)})</span>
+                      <span className="inline-block w-[2.6em] pl-[0.4em] text-left text-[11px] font-medium text-emerald-500">{r.propsToday ? `+${r.propsToday}` : ''}</span>
                     </td>
                     <td className="py-1 pr-3 text-right">{n(r.bank)}</td>
                     <td className="py-1 text-right whitespace-nowrap">
