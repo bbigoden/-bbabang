@@ -78,10 +78,9 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
     return () => { gone = true }
   }, [officeId, date, myBrokerId, viewedBrokerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 아래 칸은 '이 일지 주인의 메모' — 자기 일지면 '내 메모'로 고치고, 남의 일지면 그 사람 메모를 같은 자리에 보여 준다.
-  // 남의 일지를 볼 때 그 주인 메모가 남의 글 목록에 섞여 '내 메모' 칸이 비어 보였다(2026-10-29 사장님)
+  // 아래 칸은 '이 일지 주인의 메모' — 이름표 없이 그 자리에. 남의 일지를 볼 때 주인 메모가
+  // 남의 글 목록에 섞여 그 사람 칸이 비어 보였다(2026-10-29 사장님)
   const mine = memos.find(m => m.author_id === viewedBrokerId)
-  const ownDiary = !!myBrokerId && myBrokerId === viewedBrokerId
   // 고치기: 자기 메모, 그리고 대표는 모두의 메모(2026-10-29 사장님). 대표가 고쳐도 글의 주인은 그대로다
   const canEdit = (author: string) => !readOnly && !!myBrokerId && (author === myBrokerId || myBrokerId === officeId)
   const save = async (author: string, text: string): Promise<boolean> => {
@@ -103,7 +102,8 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
   const others = memos
     .filter(m => m.author_id !== viewedBrokerId && (fullView || isLead(m.author_id)))
     .sort((a, b) => Number(isLead(b.author_id)) - Number(isLead(a.author_id)) || a.updated_at.localeCompare(b.updated_at))
-  const ownLabel = ownDiary ? '내 메모' : `${(viewedBrokerId && names[viewedBrokerId]) || '이 일지'} 메모`
+  // 누가 남긴 메모인지는 대표 계정에서만 — 그 밖엔 이름표 없이 글만(2026-10-29 사장님)
+  const showNames = !!myBrokerId && myBrokerId === officeId
 
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
@@ -160,11 +160,11 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       ) : (
         <div className="mt-2 border-t border-gray-100 dark:border-gray-800">
           {others.map(m => (
-            <MemoBox key={`${date}|${m.author_id}`} label={names[m.author_id] ?? '이름 없음'} memo={m}
+            <MemoBox key={`${date}|${m.author_id}`} label={showNames ? names[m.author_id] ?? '이름 없음' : null} memo={m}
               editable={canEdit(m.author_id)} onSave={t => save(m.author_id, t)} />
           ))}
           {viewedBrokerId && (
-            <MemoBox key={`${date}|${viewedBrokerId}`} label={ownLabel} memo={mine} accent
+            <MemoBox key={`${date}|${viewedBrokerId}`} label={null} memo={mine} always
               editable={canEdit(viewedBrokerId)} onSave={t => save(viewedBrokerId, t)} />
           )}
         </div>
@@ -174,8 +174,11 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
 }
 
 /** 메모 한 칸 — 고칠 수 있으면 입력란, 아니면 글만. 저장은 칸을 벗어날 때. */
-function MemoBox({ label, memo, accent, editable, onSave }: {
-  label: string; memo: Memo | undefined; accent?: boolean; editable: boolean
+function MemoBox({ label, memo, always, editable, onSave }: {
+  /** 머리 이름표 — 없으면 글만 */
+  label: string | null; memo: Memo | undefined
+  /** 글이 없어도 칸을 둔다(일지 주인 칸) */
+  always?: boolean; editable: boolean
   onSave: (text: string) => Promise<boolean>
 }) {
   const [draft, setDraft] = useState(memo?.memo ?? '')
@@ -198,9 +201,9 @@ function MemoBox({ label, memo, accent, editable, onSave }: {
     setFailed(!(await onSave(draft)))
     setSaving(false)
   }
-  const head = (
-    <p className={cn('px-4 text-[11px]', accent ? 'text-blue-500' : 'text-gray-400')}>
-      {label}{memo ? ` · ${hmKST(memo.updated_at)}` : ''}
+  const head = (label || saving || failed) && (
+    <p className="px-4 text-[11px] text-gray-400">
+      {label && <>{label}{memo ? ` · ${hmKST(memo.updated_at)}` : ''}</>}
       {saving && <span className="ml-2 text-gray-500">저장 중...</span>}
       {!saving && failed && (
         <button onClick={() => void save()} className="ml-2 font-medium text-red-500 hover:underline">저장 안 됨 · 다시 저장</button>
@@ -208,7 +211,7 @@ function MemoBox({ label, memo, accent, editable, onSave }: {
     </p>
   )
   if (!editable) {
-    if (!memo && !accent) return null
+    if (!memo && !always) return null
     return (
       <div className="py-2 border-b border-gray-50 dark:border-gray-800/60 last:border-b-0">
         {head}
@@ -223,7 +226,7 @@ function MemoBox({ label, memo, accent, editable, onSave }: {
         onChange={e => setDraft(e.target.value)}
         onFocus={() => { focusedRef.current = true }}
         onBlur={() => void save()}
-        placeholder="광고현황 메모 입력..."
+        placeholder="광고현황 입력..."
         className="w-full px-4 pt-0.5 pb-2 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[36px]" />
     </div>
   )
