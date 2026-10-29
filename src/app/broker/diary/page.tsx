@@ -20,6 +20,7 @@ import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { EmptyState } from '@/components/empty-state'
+import { DiaryAdCommon } from '@/components/broker/diary-ad-common'
 import { useToast } from '@/components/toast'
 import { todayKST, addDays } from '@/lib/date-kst'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
@@ -111,6 +112,8 @@ const NO_ROW_MSG = '권한이 없거나 삭제된 항목이에요'
 interface DiaryTarget { archive: boolean; officeId: string; brokerId: string; date: string; req: number; key: string }
 
 interface SectionDef { id: string; title: string }
+// 이날부터 3번 광고현황은 사무실 공통 칸(현황판 숫자 + 공통 메모). 그전 일지는 예전처럼 사람마다 쓴 칸 그대로(2026-10-29 사장님)
+const AD_COMMON_FROM = '2026-10-29'
 const DEFAULT_SECTIONS: SectionDef[] = [
   { id: 's_work',     title: '업무요약' },
   { id: 's_ad',       title: '광고현황' },
@@ -1510,7 +1513,11 @@ export default function BrokerDiaryPage() {
         {/* Sections 2-5 — 2열 그리드 */}
         {!diaryLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {sections.map((def, idx) => (
+            {sections.map((def, idx) => def.id === 's_ad' && diaryDate >= AD_COMMON_FROM ? (
+              // 광고현황은 사람마다가 아니라 사무실 공통 — 현황판 숫자 + 공통 메모
+              <DiaryAdCommon key={def.id} num={idx + 2} title={def.title} officeId={pickerOfficeId} date={diaryDate}
+                myBrokerId={broker?.id ?? null} ownContent={sectionContent[def.id] || null} readOnly={!canEditSections && !isOwner} />
+            ) : (
               <DiarySection key={def.id} def={def} num={idx + 2} content={sectionContent[def.id] ?? null}
                 onSave={v => saveSectionContent(def.id, v)} onRename={renameSection} onDelete={(id) => setSectionDeleteConfirm({ id, title: def.title })} readOnly={!canEditSections} />
             ))}
