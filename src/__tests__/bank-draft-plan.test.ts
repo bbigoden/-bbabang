@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bankOfferCode, parseBankAddress, planBankDraft, type BankDraftProperty } from '@/lib/bank-draft-plan'
+import { bankOfferCode, parseBankAddress, planBankDraft, splitRoadAddress, type BankDraftProperty } from '@/lib/bank-draft-plan'
 
 describe('parseBankAddress', () => {
   it('도·시·구·동·지번·상세를 뱅크 선택지로 나눈다', () => {
@@ -108,5 +108,24 @@ describe('주택으로 들어온 가게 호실', () => {
     expect(plan.ok).toBe(false)
     if (plan.ok) return
     expect(plan.problems[0]).toMatch(/1종\(상가\)·2종\(상가\)로 바꾸면/)
+  })
+})
+
+describe('도로명·괄호 주소', () => {
+  it('괄호로 붙인 대장 주소는 상세주소에서 뺀다(#2085)', () => {
+    const a = parseBankAddress('충남 천안시 서북구 불당동 1846 116호 (충청남도 천안시 서북구 불당25로 8 불당호반써밋플레이스센터시티판매시설 제가동 제지1층 제116호)')
+    expect(a?.detail).toBe('116호')
+  })
+  it('도로명 소재지는 도로명과 나머지로 나눈다(#2098)', () => {
+    expect(splitRoadAddress('충남 천안시 서북구 불당33길 7 베스트타워 403호')).toEqual({ road: '충남 천안시 서북구 불당33길 7', rest: '베스트타워 403호' })
+    expect(splitRoadAddress('아산시 배방읍 희망로 46번길 45-7')).toEqual({ road: '아산시 배방읍 희망로 46번길 45-7', rest: '' })
+  })
+  it('지번으로 읽히거나 도로명이 없으면 null', () => {
+    expect(splitRoadAddress('천안시 서북구 불당동 1479-2 404호')).toBeNull()
+    expect(splitRoadAddress('천안 힐스테이트 퍼스트')).toBeNull()
+  })
+  it('바꾼 주소는 뱅크가 읽는다', () => {
+    const a = parseBankAddress('충남 천안시 서북구 불당동 1638 베스트타워 403호 (충남 천안시 서북구 불당33길 7)')
+    expect(a).toMatchObject({ gu: '천안시 서북구', dong: '불당동', jibun1: '1638', detail: '베스트타워 403호' })
   })
 })

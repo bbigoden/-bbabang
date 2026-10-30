@@ -144,7 +144,8 @@ export function parseBankAddress(address: string | null | undefined): BankAddres
   const m = i < tokens.length ? /^(\d+)(?:-(\d+))?$/.exec(tokens[i]) : null
   if (!m) return null
   i++
-  const detail = tokens.slice(i).join(' ')
+  // 뒤에 괄호로 붙인 도로명·대장 주소('(충청남도 ... 제지1층 제116호)')는 상세주소에 넣지 않는다
+  const detail = tokens.slice(i).join(' ').replace(/\s*\([^)]*\)?/g, '').trim()
 
   // 구가 빠진 천안 주소는 동으로 찾는다. '천안' 만 적힌 것도 '천안시' 로 본다.
   let gu = guParts.join(' ')
@@ -159,6 +160,18 @@ export function parseBankAddress(address: string | null | undefined): BankAddres
   // 행정동 숫자('성정1동')는 뱅크 법정동 이름에 없다
   dong = dong.replace(/[0-9]+(?=동$)/, '')
   return { metro, gu, dong, ri, jibun1: m[1], jibun2: m[2] ?? '', detail }
+}
+
+/**
+ * 지번이 아니라 도로명으로 적힌 소재지를 도로명 부분과 나머지로 나눈다.
+ * '충남 천안시 서북구 불당33길 7 베스트타워 403호' → { road: '충남 천안시 서북구 불당33길 7', rest: '베스트타워 403호' }
+ * 지번으로 읽히는 주소나 도로명이 없는 것은 null. 지번은 카카오 주소 검색으로 찾는다(/api/bank-address).
+ */
+export function splitRoadAddress(address: string | null | undefined): { road: string; rest: string } | null {
+  if (!address || parseBankAddress(address)) return null
+  const text = address.replace(/\s*\([^)]*\)?/g, ' ').replace(/,/g, ' ').replace(/\s+/g, ' ').trim()
+  const m = /^(.*?[가-힣0-9]+(?:로|길)(?:\s*\d+번?길)?\s+\d+(?:-\d+)?)(?=\s|$)(.*)$/.exec(text)
+  return m ? { road: m[1].trim(), rest: m[2].trim() } : null
 }
 
 /** 거래종류 글('매매, 월세') → 뱅크 offer_gbn. 모르면 null. */

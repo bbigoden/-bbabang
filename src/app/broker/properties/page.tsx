@@ -20,7 +20,7 @@ import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
   Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, LocateFixed, Upload, CheckCircle2, AlertCircle,
 } from 'lucide-react'
-import { planBankDraft } from '@/lib/bank-draft-plan'
+import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
 import { ymdKST, todayKST } from '@/lib/date-kst'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
@@ -1611,7 +1611,7 @@ function BrokerPropertiesContent() {
     return () => { v.removeEventListener('resize', upd); v.removeEventListener('scroll', upd); setVvBox(null) }
   }, [statusConfirm])
   // 뱅크 임시저장 확인창 — 넣을 수 있는지(planBankDraft)를 먼저 보여 주고 넣는다.
-  const [bankDraftConfirm, setBankDraftConfirm] = useState<{ p: Property; plan: ReturnType<typeof planBankDraft> } | null>(null)
+  const [bankDraftConfirm, setBankDraftConfirm] = useState<{ p: Property; plan: ReturnType<typeof planBankDraft>; addressFrom?: string } | null>(null)
   const [bankDraftSaving, setBankDraftSaving] = useState(false)
   // Esc 로 확인창 닫기 — 점검에서 Esc 가 안 먹어 뒤가 막힌 줄 알았다
   useEffect(() => {
@@ -1955,10 +1955,25 @@ function BrokerPropertiesContent() {
   }, [bankDraftActive, supabase, bankDraftTick])
   const bankWorkerOffline = bankDraftActive && !(bankWorkerSeenAt && Date.now() - new Date(bankWorkerSeenAt).getTime() < 60_000)
 
-  async function requestBankDraft(p: Property) {
+  // 뱅크 확인창 열기. 도로명으로 적힌 소재지는 지번을 찾아 바꿔 보여 주고, 요청할 때 소재지에 저장한다
+  // — PC 일꾼은 매물 줄을 다시 읽어 같은 planBankDraft 로 채우므로 저장해 둬야 넣을 수 있다(#2098).
+  async function openBankDraft(row: Property) {
+    const plan = planBankDraft(row)
+    if (plan.ok || !splitRoadAddress(row.address)) { setBankDraftConfirm({ p: row, plan }); return }
+    const res = await fetch('/api/bank-address', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: row.address }),
+    }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const address: string | null = res?.address ?? null
+    if (!address) { setBankDraftConfirm({ p: row, plan }); return }
+    const next = { ...row, address }
+    setBankDraftConfirm({ p: next, plan: planBankDraft(next), addressFrom: row.address ?? '' })
+  }
+
+  async function requestBankDraft(p: Property, addressFrom?: string) {
     const office = officeIdRef.current
     if (!office || !auth.user) return
     setBankDraftSaving(true)
+    if (addressFrom != null && !await saveField(p.id, 'address', p.address)) { setBankDraftSaving(false); return }
     const { error } = await supabase.from('bank_draft_jobs')
       .insert({ office_broker_id: office, property_id: p.id, requested_by: auth.user.id })
     setBankDraftSaving(false)
@@ -2011,13 +2026,14 @@ function BrokerPropertiesContent() {
     const rowDealType: string | null = row?.deal_type || null
     // 말이 안 되는 값은 저장하지 않는다 — 음수 가격·10조·0.5층·글자 날짜가 그대로 들어갔었다
     const 거절 = checkPropertyField(field, value)
-    if (거절) { toast.error(거절); return }
+    if (거절) { toast.error(거절); return false }
     setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p))
     const { error } = await supabase.from('broker_properties').update({ [field]: value }).eq('id', id)
     if (error) {
       console.error('[saveField] failed', error)
       setProperties(prev => prev.map(p => p.id === id ? { ...p, [field]: prevValue } : p))
       toast.error(`저장 실패: ${error.message}`)
+      return false
     } else if (field === 'address' && typeof value === 'string' && value.trim() && value !== prevValue) {
       // 중복 의심 경고 — 등록봇과 같은 기준(사무소 전체 소재지+거래형태). 저장은 이미 됐으므로 차단하지 않고 알림만.
       void findDuplicateProperty(supabase, officeIdRef.current, value, rowDealType, id).then(dup => {
@@ -2034,6 +2050,7 @@ function BrokerPropertiesContent() {
         setProperties(prev => prev.map(p => p.id === id ? { ...p, lat: null, lng: null } : p))
       }
     }
+    return true
   }, [])
 
   // 행 자동 채움: 주소 → 카카오 지오코딩 → 세움터 API → 같은 행 다중 필드 일괄 업데이트
@@ -3335,7 +3352,7 @@ function BrokerPropertiesContent() {
                   onCopy={duplicateProperty}
                   onStatusChange={(row, next) => setStatusConfirm({ p: row, next })}
                   bankDraft={bankDrafts[p.id]}
-                  onBankDraft={row => setBankDraftConfirm({ p: row, plan: planBankDraft(row) })}
+                  onBankDraft={openBankDraft}
                 />
               ))}
               {!isAdminView && canEdit && (
@@ -3389,7 +3406,7 @@ function BrokerPropertiesContent() {
 
       {/* 뱅크 임시저장 확인 모달 — 못 넣는 이유(problems)가 있으면 넣기 버튼이 없다 */}
       {bankDraftConfirm && (() => {
-        const { p, plan } = bankDraftConfirm
+        const { p, plan, addressFrom } = bankDraftConfirm
         const 어디 = [p.seq_no != null ? `#${p.seq_no}` : null, p.address || '소재지 없음'].filter(Boolean).join(' ')
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" role="dialog" aria-modal="true">
@@ -3398,6 +3415,11 @@ function BrokerPropertiesContent() {
                 {plan.ok ? '뱅크에 임시 저장할까요?' : '아직 뱅크에 넣을 수 없어요'}
               </h3>
               <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 break-all">{어디}</p>
+              {addressFrom != null && (
+                <p className="mb-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-800 dark:text-blue-300 break-all">
+                  도로명 주소라 지번으로 바꿔 넣습니다. 요청하면 소재지도 위처럼 고쳐 둡니다(원래: {addressFrom}).
+                </p>
+              )}
               {plan.ok && bankDrafts[p.id]?.status === 'done' && (
                 <p className="mb-3 rounded-lg bg-green-50 dark:bg-green-900/20 px-3 py-2 text-xs text-green-800 dark:text-green-300">
                   이미 {ymdKST(bankDrafts[p.id].finished_at ?? bankDrafts[p.id].requested_at)}에 뱅크에 임시 저장했어요{bankDrafts[p.id].result?.bankNo ? ` (임시매물 ${bankDrafts[p.id].result?.bankNo})` : ''}. 다시 요청하면 뱅크 임시 저장목록에 하나 더 생깁니다.
@@ -3434,7 +3456,7 @@ function BrokerPropertiesContent() {
                           onClick={() => {
                             saveField(p.id, 'room_type', t)
                             const next = { ...p, room_type: t }
-                            setBankDraftConfirm({ p: next, plan: planBankDraft(next) })
+                            setBankDraftConfirm({ p: next, plan: planBankDraft(next), addressFrom })
                           }}
                           className="flex-1 rounded-xl border border-blue-200 bg-blue-50 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-900/20 dark:text-blue-300">
                           {t}로 바꾸기
@@ -3448,7 +3470,7 @@ function BrokerPropertiesContent() {
                 <button type="button" onClick={() => setBankDraftConfirm(null)}
                   className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">{plan.ok ? '취소' : '닫기'}</button>
                 {plan.ok && (
-                  <button type="button" disabled={bankDraftSaving} onClick={() => requestBankDraft(p)}
+                  <button type="button" disabled={bankDraftSaving} onClick={() => requestBankDraft(p, addressFrom)}
                     className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
                     {bankDraftSaving ? '넣는 중…' : '임시 저장 요청'}
                   </button>
