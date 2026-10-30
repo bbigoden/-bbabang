@@ -1148,8 +1148,9 @@ const DOORS = [
 /** 자리 무리마다 어느 방 어디에 책상을 놓나: 첫 자리(dx, dy), 가로·세로 간격(sx, sy), 한 줄에 몇, 최대 몇. */
 const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: number; sy: number; cols: number; max: number; big?: boolean }>> = {
   boss: { box: 'boss', dx: 44, dy: 40, sx: 0, sy: 0, cols: 1, max: 1, big: true },
-  lab: { box: 'agentLab', dx: 12, dy: 28, sx: 38, sy: 34, cols: 8, max: 14 },
-  // 끝 책상 — 입찰 수집(2026-10-29 사장님). Claude 세션이 많아도 자리를 지킨다. 견적서 책상은 10-30 뺐다
+  // 견적서 자리는 10-30 뺐지만 책상은 남겨 Claude 가 앉는다(2026-10-30 사장님) — 열다섯 + 끝 입찰 수집 = 열여섯
+  lab: { box: 'agentLab', dx: 12, dy: 28, sx: 38, sy: 34, cols: 8, max: 15 },
+  // 끝 책상 — 입찰 수집(2026-10-29 사장님). Claude 세션이 많아도 자리를 지킨다
   labEnd: { box: 'agentLab', dx: 278, dy: 62, sx: 38, sy: 0, cols: 1, max: 1 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘 + 수집 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다.
@@ -1161,7 +1162,7 @@ const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: 
 }
 
 /** 아무도 없어도 빈 책상을 두는 무리 — 비어 있어야 '방' 으로 보인다. */
-const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 8, lab: 14 }
+const EMPTY_DESKS: Partial<Record<RoomKey, number>> = { sales: 6, promo: 8, lab: 15 }
 
 const FLOOR_FILL: Record<Floor, string> = {
   carpet: 'url(#pxo-carpet)', oak: 'url(#pxo-oak)', wood: 'url(#pxo-wood)', parquet: 'url(#pxo-parquet)',
