@@ -118,6 +118,72 @@ export function passShare(hist: NormalizedHistory[], y: number): number {
   return hist.length ? hist.filter(h => h.r <= y).length / hist.length : 0
 }
 
+/** 추천에 쓰는 과거 낙찰 한 줄 (bid_results 에서 업체 목록 없이 숫자 몇 개) */
+export type PoolRow = {
+  dminstt_cd: string | null
+  dminstt_nm: string | null
+  bssamt: number | null
+  sajeong: number
+  win_y: number | null
+  rng: number | null
+}
+
+export type Scope = 'instt' | 'region' | 'all'
+/** 이보다 적으면 확률이 들쭉날쭉해 한 단계 넓힌다 */
+export const ENOUGH = 30
+/** 이보다 적으면 추천하지 않는다 */
+export const MIN_POOL = 5
+const sidoOf = (nm: string | null) => (nm ?? '').split(' ')[0] || null
+
+/** 예가 범위가 같고 기초금액이 1/3~3배인 것만. 기준 금액(ref)을 모르면 금액대는 안 본다 */
+export function similarPool<T extends PoolRow>(history: T[], ref: number | null, rng: number | null): T[] {
+  return history.filter(h =>
+    (rng == null || h.rng == null || h.rng === rng) &&
+    (!ref || !h.bssamt || (h.bssamt >= ref / 3 && h.bssamt <= ref * 3)))
+}
+
+/** 같은 발주기관 → 같은 시도 → 업종 전체. 넉넉한(ENOUGH) 가장 좁은 범위를 자동으로 고른다 */
+export function scopesOf<T extends PoolRow>(pool: T[], dminsttCd: string | null, dminsttNm: string | null) {
+  const byScope: Record<Scope, T[]> = {
+    instt: pool.filter(h => dminsttCd && h.dminstt_cd === dminsttCd),
+    region: pool.filter(h => sidoOf(dminsttNm) && sidoOf(h.dminstt_nm) === sidoOf(dminsttNm)),
+    all: pool,
+  }
+  const auto: Scope = byScope.instt.length >= ENOUGH ? 'instt' : byScope.region.length >= ENOUGH ? 'region' : 'all'
+  return { byScope, auto }
+}
+
+export const toNorm = (rows: PoolRow[]): NormalizedHistory[] =>
+  rows.map(h => ({ r: Number(h.sajeong), minAbove: h.win_y == null ? Infinity : Number(h.win_y), n: 0 }))
+
+/**
+ * 공고 하나의 추천 자리(y). 공고 화면의 추천 투찰금액과 같은 계산이다 — 낙찰결과의
+ * '추천대로 넣었으면' 되돌려 보기도 이걸 쓴다(그때는 그 공고 개찰 전 낙찰만 넘긴다).
+ */
+export function recommendY(
+  history: PoolRow[],
+  t: { bssamt: number | null; rng: number | null; dminstt_cd: string | null; dminstt_nm: string | null },
+): { y: number; scope: Scope; n: number } | null {
+  const { byScope, auto } = scopesOf(similarPool(history, t.bssamt, t.rng), t.dminstt_cd, t.dminstt_nm)
+  const norm = toNorm(byScope[auto])
+  if (norm.length < MIN_POOL) return null
+  return { y: bestPoint(winCurve(norm)).y, scope: auto, n: norm.length }
+}
+
+/**
+ * 추천 금액을 이미 개찰한 공고에 넣어 봤으면 — 하한 미달 / 통과했지만 더 낮은 업체가 있음 / 낙찰.
+ * 하한선 이상 중 가장 낮은 금액이 1순위라, 실제 1순위 금액보다 낮고 하한선 이상이면 낙찰이다.
+ */
+export function judgeAmount(
+  amount: number,
+  r: { plnprc: number; lwlt_rate: number; a_amount: number | null; sucsf_amt: number | null },
+): 'win' | 'pass' | 'below' {
+  const A = r.a_amount ?? 0
+  const floor = Math.ceil((r.plnprc - A) * (r.lwlt_rate / 100) + A)
+  if (amount < floor) return 'below'
+  return r.sucsf_amt == null || amount < r.sucsf_amt ? 'win' : 'pass'
+}
+
 /** 사정률 분포 요약 (백분율 r×100) */
 export function rateStats(hist: NormalizedHistory[]) {
   const rs = hist.map(h => h.r * 100).sort((a, b) => a - b)

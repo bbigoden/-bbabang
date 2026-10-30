@@ -14,6 +14,7 @@ import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
 import { BID_FIELDS, canEnter, fitsFields, latestOrd, shortRegion } from '@/lib/bid-notices'
 import { AnalysisPanel, type HistoryRow } from './analysis-panel'
+import { amountFor, judgeAmount, recommendY } from '@/lib/bid-analysis'
 import { ResultDetail, type ResultForDetail } from './result-detail'
 
 /**
@@ -69,6 +70,14 @@ type Result = {
   lwlt_rate: number | null
   a_amount: number | null
   prices: ResultForDetail['prices']
+  dminstt_cd: string | null
+  rng: number | null
+}
+type Verdict = 'win' | 'pass' | 'below'
+const VERDICT: Record<Verdict, { label: string; cls: string }> = {
+  win: { label: '낙찰', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' },
+  pass: { label: '통과·순위 밀림', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' },
+  below: { label: '하한 미달', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
 }
 
 type Tab = 'notice' | 'result'
@@ -95,7 +104,7 @@ function dday(iso: string | null): { text: string; urgent: boolean } | null {
 }
 
 const REGION_KEY = 'bid_regions_v1'
-const RESULT_COLS = 'bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong, bssamt, lwlt_rate, a_amount, prices'
+const RESULT_COLS = 'bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong, bssamt, lwlt_rate, a_amount, prices, dminstt_cd, rng'
 
 
 export default function BidPage() {
@@ -116,7 +125,7 @@ export default function BidPage() {
   const [tab, setTab] = useState<Tab>('notice')
   const [notices, setNotices] = useState<Notice[]>([])
   const [results, setResults] = useState<Result[]>([])
-  const [history, setHistory] = useState<(HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string })[]>([])
+  const [history, setHistory] = useState<(HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null })[]>([])
   const [lastRun, setLastRun] = useState<CollectReport | null>(null)
   const [backfillUntil, setBackfillUntil] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -166,8 +175,8 @@ export default function BidPage() {
           .select(RESULT_COLS)
           .order('openg_at', { ascending: false, nullsFirst: false }).limit(600),
         // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개라 수천 건도 가볍다
-        fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string }>((from, to) => supabase.from('bid_results')
-          .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng')
+        fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
+          .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
           .not('sajeong', 'is', null).range(from, to)),
         supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
       ])
@@ -298,6 +307,29 @@ export default function BidPage() {
         && (!fieldsOnly || fitsFields(m?.flds, ourFields) !== false)
     })
   }, [results, searched, q, resultMeta, enterableOnly, ourRegion, fieldsOnly, ourFields])
+
+  // 되돌려 보기 — 그 공고 개찰 전까지의 낙찰만으로 공고 화면과 같은 추천을 내고, 그 금액이었으면 어떻게 됐을지.
+  // 뒤에 개찰한 낙찰을 섞으면 답을 보고 맞히는 셈이라 뺀다
+  const backtest = useMemo(() => {
+    const m = new Map<string, { amount: number; verdict: Verdict }>()
+    for (const r of shownResults) {
+      if (!r.plnprc || !r.bssamt || !r.lwlt_rate || !r.openg_at) continue
+      const before = fieldHistory.filter(h => h.openg_at && h.openg_at < r.openg_at!)
+      const rec = recommendY(before, { bssamt: r.bssamt, rng: r.rng, dminstt_cd: r.dminstt_cd, dminstt_nm: r.dminstt_nm })
+      if (!rec) continue
+      const amount = amountFor(rec.y, r.bssamt, Number(r.lwlt_rate), r.a_amount)
+      m.set(`${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`, {
+        amount,
+        verdict: judgeAmount(amount, { plnprc: r.plnprc, lwlt_rate: Number(r.lwlt_rate), a_amount: r.a_amount, sucsf_amt: r.sucsf_amt }),
+      })
+    }
+    return m
+  }, [shownResults, fieldHistory])
+  const btCount = useMemo(() => {
+    const c = { win: 0, pass: 0, below: 0 }
+    for (const v of backtest.values()) c[v.verdict]++
+    return c
+  }, [backtest])
 
   if (authLoading) return null
   if (!enabled) {
@@ -514,6 +546,16 @@ export default function BidPage() {
           </p>
         ) : (
           <>
+          {backtest.size > 0 && (
+            <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+              추천 금액대로 넣었으면 — 계산된 {backtest.size}건 중{' '}
+              <b className="text-emerald-600 dark:text-emerald-400">낙찰 {btCount.win}건</b>
+              {' '}· 통과했지만 더 낮은 업체에 밀림 {btCount.pass}건 · 하한 미달 {btCount.below}건
+              <span className="block text-xs text-gray-400">
+                그 공고 개찰 전까지의 낙찰만으로 공고 화면과 같은 방식으로 계산했습니다. 다른 업체는 실제 넣은 그대로라고 봅니다.
+              </span>
+            </p>
+          )}
           {/* 폰에선 표가 820px 라 1순위·금액이 화면 밖이었다 — 줄마다 카드로 */}
           <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white md:hidden dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
             {shownResults.map(r => {
@@ -532,6 +574,7 @@ export default function BidPage() {
                   <span className="text-gray-500">낙찰률 {r.sucsf_rate ?? '-'}%</span>
                   <span className="text-gray-500">사정률 {r.sajeong != null ? `${(r.sajeong * 100).toFixed(3)}%` : '-'}</span>
                 </div>
+                <BacktestLine bt={backtest.get(`${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`)} />
                 </button>
                 {opened === rk && <div className="px-4 pb-4"><ResultDetail r={r} /></div>}
               </li>
@@ -539,7 +582,7 @@ export default function BidPage() {
             })}
           </ul>
           <div className="hidden overflow-x-auto rounded-2xl border border-gray-200 bg-white md:block dark:border-gray-800 dark:bg-gray-900">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[940px] text-sm">
               <thead className="border-b border-gray-200 text-left text-xs text-gray-500 dark:border-gray-800">
                 <tr>
                   <th className="px-3 py-2 font-medium">개찰</th>
@@ -551,6 +594,7 @@ export default function BidPage() {
                   <th className="px-3 py-2 text-right font-medium">낙찰금액</th>
                   <th className="px-3 py-2 text-right font-medium">낙찰률</th>
                   <th className="px-3 py-2 text-right font-medium">사정률</th>
+                  <th className="px-3 py-2 text-right font-medium">추천 투찰금액</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -568,9 +612,18 @@ export default function BidPage() {
                     <td className="whitespace-nowrap px-3 py-2 text-right">{won(r.sucsf_amt)}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{r.sucsf_rate ?? '-'}%</td>
                     <td className="whitespace-nowrap px-3 py-2 text-right text-gray-500">{r.sajeong != null ? `${(r.sajeong * 100).toFixed(3)}%` : '-'}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right">
+                      {(() => {
+                        const bt = backtest.get(`${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`)
+                        return bt ? <>
+                          <span className="block tabular-nums">{won(bt.amount)}</span>
+                          <span className={`mt-0.5 inline-block rounded px-1.5 text-[11px] font-medium ${VERDICT[bt.verdict].cls}`}>{VERDICT[bt.verdict].label}</span>
+                        </> : <span className="text-gray-400">-</span>
+                      })()}
+                    </td>
                   </tr>
                   {opened === rk && (
-                    <tr><td colSpan={9} className="px-3 pb-4"><ResultDetail r={r} /></td></tr>
+                    <tr><td colSpan={10} className="px-3 pb-4"><ResultDetail r={r} /></td></tr>
                   )}
                   </Fragment>)
                 })}
@@ -607,5 +660,16 @@ function FieldBadge({ flds, ours }: { flds: string[] | null; ours: string[] }) {
       주력 {flds.length ? flds.map(f => f.replace('공사', '')).join('·') : '지정 없음'}
       {ok === false && ' — 우리 주력분야가 아닙니다'}
     </span>
+  )
+}
+
+function BacktestLine({ bt }: { bt: { amount: number; verdict: Verdict } | undefined }) {
+  if (!bt) return null
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
+      <span className="text-gray-500">추천 투찰금액</span>
+      <span className="font-semibold tabular-nums">{won(bt.amount)}원</span>
+      <span className={`rounded px-1.5 text-[11px] font-medium ${VERDICT[bt.verdict].cls}`}>{VERDICT[bt.verdict].label}</span>
+    </div>
   )
 }

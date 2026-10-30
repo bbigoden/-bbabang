@@ -4,7 +4,7 @@
  * 1순위 (주)다음건설 67,314,900원.
  */
 import { describe, it, expect } from 'vitest'
-import { normalize, winCurve, bestPoint, amountFor, rateStats, rangeOf, yOf, passShare } from '@/lib/bid-analysis'
+import { normalize, winCurve, bestPoint, amountFor, rateStats, rangeOf, yOf, passShare, judgeAmount, recommendY } from '@/lib/bid-analysis'
 import { kstToIso, toBsisPatch, toPrepar } from '@/lib/g2b'
 
 const AMOUNTS = [
@@ -145,5 +145,30 @@ describe('통과 조건', () => {
     const hist = [0.98, 0.99, 1.0, 1.01].map(r => ({ r, minAbove: Infinity, n: 0 }))
     expect(passShare(hist, 0.995)).toBe(0.5)
     expect(passShare([], 1)).toBe(0)
+  })
+})
+
+/** 낙찰결과 되돌려 보기 — 온양문화원: 예정 28,340,200 · 하한선 25,489,383 · 1순위 25,514,040 */
+describe('judgeAmount', () => {
+  const onyang = { plnprc: 28_340_200, lwlt_rate: 89.745, a_amount: 540_907, sucsf_amt: 25_514_040 }
+  it('하한선 밑이면 미달, 하한선~1순위 사이면 낙찰, 1순위 이상이면 밀림', () => {
+    expect(judgeAmount(25_489_382, onyang)).toBe('below')
+    expect(judgeAmount(25_489_383, onyang)).toBe('win')
+    expect(judgeAmount(25_514_039, onyang)).toBe('win')
+    expect(judgeAmount(25_514_040, onyang)).toBe('pass')  // 같은 금액은 진 것으로 친다
+  })
+})
+
+describe('recommendY', () => {
+  const row = (sajeong: number, win_y: number | null) => ({ dminstt_cd: 'X', dminstt_nm: '충청남도 아산시', bssamt: 1e8, sajeong, win_y, rng: 3 })
+  it('비교할 낙찰이 5건 미만이면 추천하지 않는다', () => {
+    expect(recommendY([row(1, 1.01)], { bssamt: 1e8, rng: 3, dminstt_cd: 'X', dminstt_nm: '충청남도 아산시' })).toBeNull()
+  })
+  it('가장 많이 딴 자리를 고른다', () => {
+    const hist = Array.from({ length: 40 }, () => row(0.995, 1.002))
+    const rec = recommendY(hist, { bssamt: 1e8, rng: 3, dminstt_cd: 'X', dminstt_nm: '충청남도 아산시' })!
+    expect(rec.scope).toBe('instt')
+    expect(rec.y).toBeGreaterThanOrEqual(0.995)
+    expect(rec.y).toBeLessThan(1.002)
   })
 })

@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'react'
 import { Chip } from '@/components/ui/chip'
 import {
-  GRID_MIN, GRID_STEP, amountFor, bestPoint, passShare, rateHistogram, rateStats, winCurve, yOf,
-  type CurvePoint, type NormalizedHistory,
+  ENOUGH, GRID_MIN, MIN_POOL, GRID_STEP, amountFor, bestPoint, passShare, rateHistogram, rateStats, scopesOf, similarPool, toNorm, winCurve, yOf,
+  type CurvePoint, type NormalizedHistory, type PoolRow, type Scope,
 } from '@/lib/bid-analysis'
 import { parseWon } from '@/lib/bid-notices'
 
@@ -16,14 +16,7 @@ import { parseWon } from '@/lib/bid-notices'
  * 계산 방식은 src/lib/bid-analysis.ts 맨 위에 적어 두었다.
  */
 
-export type HistoryRow = {
-  dminstt_cd: string | null
-  dminstt_nm: string | null
-  bssamt: number | null
-  sajeong: number
-  win_y: number | null
-  rng: number | null
-}
+export type HistoryRow = PoolRow
 
 export type NoticeForAnalysis = {
   dminstt_cd: string | null
@@ -35,10 +28,7 @@ export type NoticeForAnalysis = {
   rng_end: number | null
 }
 
-type Scope = 'instt' | 'region' | 'all'
 const SCOPE_LABEL: Record<Scope, string> = { instt: '같은 발주기관', region: '같은 시도', all: '업종 전체' }
-/** 이보다 적으면 확률이 들쭉날쭉해 한 단계 넓힌다 */
-const ENOUGH = 30
 
 const won = (n: number) => n.toLocaleString('ko-KR')
 /** 숫자만 친 동안엔 쉼표를 찍어 자릿수가 보이게. '2억3600만' 처럼 한글을 섞으면 그대로 둔다 */
@@ -46,7 +36,6 @@ const commaTyped = (v: string) => {
   const digits = v.replace(/,/g, '')
   return /^\d{1,13}$/.test(digits) ? Number(digits).toLocaleString('ko-KR') : v.slice(0, 30)
 }
-const sido = (nm: string | null) => (nm ?? '').split(' ')[0] || null
 
 export function AnalysisPanel({ notice, history }: { notice: NoticeForAnalysis; history: HistoryRow[] }) {
   const [typedBssamt, setTypedBssamt] = useState('')
@@ -63,26 +52,18 @@ export function AnalysisPanel({ notice, history }: { notice: NoticeForAnalysis; 
   const pool = useMemo(() => {
     // 손으로 치는 값은 쓰지 않는다 — 한 자씩 치면 '3' 원 기준으로 걸러 0건이 되고 입력칸까지 사라졌다
     const ref = notice.bssamt ?? guessBssamt
-    return history.filter(h =>
-      (rng == null || h.rng == null || h.rng === rng) &&
-      (!ref || !h.bssamt || (h.bssamt >= ref / 3 && h.bssamt <= ref * 3)))
+    return similarPool(history, ref, rng)
   }, [history, notice.bssamt, guessBssamt, rng])
 
-  const byScope = useMemo(() => ({
-    instt: pool.filter(h => notice.dminstt_cd && h.dminstt_cd === notice.dminstt_cd),
-    region: pool.filter(h => sido(notice.dminstt_nm) && sido(h.dminstt_nm) === sido(notice.dminstt_nm)),
-    all: pool,
-  }), [pool, notice.dminstt_cd, notice.dminstt_nm])
-
-  const autoScope: Scope = byScope.instt.length >= ENOUGH ? 'instt' : byScope.region.length >= ENOUGH ? 'region' : 'all'
+  const { byScope, auto: autoScope } = useMemo(
+    () => scopesOf(pool, notice.dminstt_cd, notice.dminstt_nm),
+    [pool, notice.dminstt_cd, notice.dminstt_nm],
+  )
   const [picked, setPicked] = useState<Scope | null>(null)
   const scope = picked ?? autoScope
   const rows = byScope[scope]
 
-  const norm: NormalizedHistory[] = useMemo(
-    () => rows.map(h => ({ r: Number(h.sajeong), minAbove: h.win_y == null ? Infinity : Number(h.win_y), n: 0 })),
-    [rows],
-  )
+  const norm: NormalizedHistory[] = useMemo(() => toNorm(rows), [rows])
   const curve = useMemo(() => winCurve(norm), [norm])
   const best = useMemo(() => (norm.length ? bestPoint(curve) : null), [curve, norm.length])
   const stats = useMemo(() => rateStats(norm), [norm])
@@ -105,7 +86,7 @@ export function AnalysisPanel({ notice, history }: { notice: NoticeForAnalysis; 
 
       {!lwlt ? (
         <p className="text-gray-500">이 공고엔 낙찰하한율이 없습니다 — 하한율로 가르는 공고가 아니라 계산하지 않습니다.</p>
-      ) : norm.length < 5 ? (
+      ) : norm.length < MIN_POOL ? (
         <p className="text-gray-500">비교할 과거 낙찰이 {norm.length}건뿐입니다. 과거 데이터가 더 쌓이면 계산합니다.</p>
       ) : (
         <>
