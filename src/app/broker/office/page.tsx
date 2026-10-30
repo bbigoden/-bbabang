@@ -210,6 +210,9 @@ export default function OfficePage() {
   const [todayProps, setTodayProps] = useState<Record<string, number>>({})
   /** 사람마다 오늘 새로 맡은 고객 수(고객목록 담당자 기준) */
   const [todayCustomers, setTodayCustomers] = useState<Record<string, number>>({})
+  /** 담당자 이름마다 오늘 뱅크에 올린 것·당근에 올린 것 */
+  const [todayBank, setTodayBank] = useState<Record<string, number>>({})
+  const [todayDaangn, setTodayDaangn] = useState<Record<string, number>>({})
   const [bidRun, setBidRun] = useState<BidRun | null>(null)
   const [estMonth, setEstMonth] = useState<number | null>(null)
   /** 사람마다 지금까지 등록한 매물 수 — 현황판과 같이 5분마다 건수로만 센다 */
@@ -226,7 +229,9 @@ export default function OfficePage() {
     const since = todayStartIso()
     const day = new Date(Date.now() - 24 * 3600_000).toISOString()
 
-    const [ag, aj, bj, posts, nv, dg, ts, consult] = await Promise.all([
+    // 뱅크 등록기간은 '26.10.30 ~26.11.29' 처럼 적힌다 — 오늘 시작한 것이 오늘 뱅크에 올린 것(재등록 포함)
+    const 오늘뱅크 = todayKST().slice(2).replace(/-/g, '.')
+    const [ag, aj, bj, posts, nv, dg, ts, consult, bankToday, daangnToday] = await Promise.all([
       supabase.from('ad_agents').select('*').eq('broker_id', officeId).maybeSingle(),
       supabase.from('ad_jobs')
         .select('id, kind, status, params, progress, error, requested_at, finished_at, requested_by')
@@ -251,6 +256,12 @@ export default function OfficePage() {
       // 작성은 사장님이 다 해서 작성자(broker_id)가 아니라 담당자(assignee_ids)로 센다(2026-10-29)
       supabase.from('broker_customers').select('assignee_ids')
         .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', since).limit(1000),
+      // 담당자(뱅크 '담당자' 이름)마다 오늘 뱅크에 올린 것·당근에 올린 것 — 영업부 말풍선에(2026-10-30 사장님).
+      // 뱅크는 '뱅크 가져오기' 때 받아 온 만큼만 안다(아침 9:30, 또는 버튼으로 다시)
+      supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
+        .eq('bank_tab', '등록매물').like('bank_period', `${오늘뱅크}%`).limit(1000),
+      supabase.from('ad_posts').select('ad_listings!inner(manager, broker_id)')
+        .eq('ad_listings.broker_id', officeId).eq('channel', 'daangn').eq('status', 'posted').gte('posted_at', since).limit(1000),
     ])
 
     setAgents((ag.data as Agents | null) ?? null)
@@ -281,6 +292,13 @@ export default function OfficePage() {
       for (const id of c.assignee_ids ?? []) 고객[id] = (고객[id] ?? 0) + 1
     }
     setTodayCustomers(고객)
+    const 담당 = (rows: { manager: string | null }[]) => {
+      const n: Record<string, number> = {}
+      for (const r of rows) if (r.manager) n[r.manager] = (n[r.manager] ?? 0) + 1
+      return n
+    }
+    setTodayBank(담당((bankToday.data ?? []) as { manager: string | null }[]))
+    setTodayDaangn(담당(((daangnToday.data ?? []) as unknown as { ad_listings: { manager: string | null } }[]).map(p => p.ad_listings)))
     setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
 
     // 직원도 사무실 사람들은 본다(2026-10-28 '직원 계정으론 안 보인다') — Claude 만 사장님 것.
@@ -475,19 +493,23 @@ export default function OfficePage() {
   const adNote = agents?.note ?? '대기 중'
   const bankRunning = bankJobs.find(j => j.status === 'running')
   const people: Seat[] = members.map((m, i) => {
-    const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id], customers: todayCustomers[m.id] ?? 0 }
+    const 이름 = m.profiles?.name ?? ''
+    const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id], customers: todayCustomers[m.id] ?? 0,
+      bank: todayBank[이름] ?? 0, daangn: todayDaangn[이름] ?? 0 }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
     return {
       key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id] ?? NAME_MON[m.profiles?.name ?? ''], pets: NAME_PETS[m.profiles?.name ?? ''], name: m.profiles?.name ?? '이름 없음',
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
-      state: s.today > 0 || s.customers > 0 || diaries[m.id] ? 'working' : 'idle',
-      // 한 일만 줄로 적는다(고객 → 매물 → 업무일지 순, 2026-10-29) — 매물·고객은 1건부터, 업무일지는 썼을 때만(2026-10-26 사장님이 정함, 고객은 10-29 더함)
+      state: s.today + s.customers + s.bank + s.daangn > 0 || diaries[m.id] ? 'working' : 'idle',
+      // 한 일만 줄로 적는다 — 고객 → 매물 → 뱅크 → 당근 → 업무일지 순(2026-10-30 사장님).
+      // 숫자는 1건부터, 업무일지는 썼을 때만(2026-10-26)
       say: [s.customers ? `고객 ${s.customers}명 등록` : '', s.today ? `매물 ${s.today}건 등록` : '',
+        s.bank ? `뱅크 ${s.bank}건 등록` : '', s.daangn ? `당근 ${s.daangn}건 올림` : '',
         diaries[m.id] ? '업무일지 등록' : '', open ? `할 일 ${open}건` : '']
         .filter(Boolean).join('\n') || null,
       pin: true,
-      note: `오늘 고객 ${s.customers}명 등록(담당 기준) · 매물 ${s.today}건 등록 · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
+      note: `오늘 고객 ${s.customers}명 등록(담당 기준) · 매물 ${s.today}건 등록 · 뱅크 ${s.bank}건 등록 · 당근 ${s.daangn}건 올림 · 업무일지 ${diaries[m.id] ? `작성(${hmKST(diaries[m.id])} 고침)` : '아직 안 씀'}`
         + (s.total == null ? '' : ` · 지금까지 등록한 매물 ${s.total.toLocaleString()}건`) + ` · 남은 할 일 ${open}건`,
     }
   })
