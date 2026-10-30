@@ -99,7 +99,7 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
     .sort((a, b) => Number(b.name === '드래곤') - Number(a.name === '드래곤') || b.props - a.props)
   // 뱅크 '담당자' 가 비었거나 직원 명단에 없는 이름이면 전체에만 세지고 어느 줄에도 안 들어가,
   // 줄을 더해도 전체와 안 맞았다(당근 238 vs 243, 10-30 점검). 그 몫을 한 줄로 보여 준다.
-  const rest = empty('담당자 없음·명단 밖')
+  const rest = empty('없음')
   rest.bank = sum.bank - rows.reduce((s, r) => s + r.bank, 0)
   rest.daangn = sum.daangn - rows.reduce((s, r) => s + r.daangn, 0)
   rest.daangnToday = sum.daangnToday - rows.reduce((s, r) => s + r.daangnToday, 0)
