@@ -88,8 +88,6 @@ export interface OfficeLayout {
   seats: Partial<Record<RoomKey, Seat[]>>
   /** 상담실 손님 수 — 오늘 고객목록에 새로 등록된 고객 */
   guests: number
-  /** 화이트보드에 적을 줄 (서너 줄) */
-  board: string[]
   /** 벽시계 HH:MM */
   clock: string
   /** 상황실 칠판 — 사람마다 + 사무실 전체. 아직 못 셌으면 없음 */
@@ -277,74 +275,95 @@ const ELECTRODE = mon([
   '....RRRRRR....',
 ], { W: '#f8fafc', E: '#1f1f1f', N: '#7f1d1d', R: '#dc2626' }, '#dc2626')
 
-/** 로토무 — 주황 몸에 파란 번개 테두리 */
-const ROTOM = mon([
-  '.....BB.......',
-  '....BOOB....B.',
-  '...BOOOOB..BOB',
-  '..BOOOOOOBBOB.',
-  '..BOWWOWWOBB..',
-  '..BOWEOWEOB...',
-  '..BOOOOOOOB...',
-  '...BOOMMOB....',
-  '....BOOOB.....',
-  '.....BOB......',
-  '......B.......',
-], { O: '#f97316', B: '#38bdf8', W: '#ffffff', E: '#1f1f1f', M: '#7c2d12' }, '#f97316')
+/** 페르시온 — 크림색 몸, 이마에 빨간 보석, 수염 */
+const PERSIAN = mon([
+  '.C........C...',
+  '.CK......KC...',
+  '..CCCRRCCC....',
+  '..CCCCCCCC....',
+  '.WCECCCCECW...',
+  '..CCCmmCCC....',
+  '...CCCCCC.....',
+  '..CCCCCCCC..C.',
+  '..CCCCCCCC.C..',
+  '..CCCCCCCCC...',
+  '..CC....CC....',
+], { C: '#f5e6c8', K: '#3f3f46', R: '#dc2626', E: '#1f1f1f', W: '#9ca3af', m: '#7c2d12' }, '#f5e6c8')
 
-/** 기어르 — 맞물린 톱니바퀴 둘 */
-const KLINK = mon([
-  '.G.G.G.........',
-  'GGGGGGG........',
-  '.GWGWG...G.G.G.',
-  'GGEGEGG.GGGGGGG',
-  '.GGGGG...GWGWG.',
-  'GGGGGGG.GGEGEGG',
-  '.G.G.G...GGGGG.',
-  '........GGGGGGG',
-  '.........G.G.G.',
-], { G: '#9ca3af', W: '#f8fafc', E: '#1f1f1f' }, '#9ca3af')
+/** 에브이 — 연보라 몸, 이마의 빨간 보석, 갈라진 꼬리 */
+const ESPEON = mon([
+  '.L........L...',
+  '.LL......LL...',
+  '.LLL.RR.LLL...',
+  '..LLLLLLLL....',
+  '..LELLLLEL....',
+  '..LLLLmLLL....',
+  '...LLLLLL...L.',
+  '...LLLLLL..L..',
+  '..LLLLLLLLLL..',
+  '..LLLLLLLL....',
+  '..LL....LL....',
+], { L: '#c4a1d8', R: '#dc2626', E: '#4c1d95', m: '#7e22ce' }, '#c4a1d8')
 
-/** 메탕 — 파란 강철 몸에 큰 빨간 눈 하나 */
-const BELDUM = mon([
-  '..............',
-  '.....BBBB.....',
-  '....BBBBBB....',
-  '...BBWWWWBB...',
-  '...BBWRRWBB...',
-  '...BBWWWWBB...',
-  '....BBBBBB....',
-  '.....BBBB.....',
-  '....SS..SS....',
-  '...SS....SS...',
-], { B: '#60a5fa', W: '#e5e7eb', R: '#dc2626', S: '#94a3b8' }, '#60a5fa')
+/** 에나비 — 분홍 몸, 크림색 얼굴, 꼬리 끝 방울 */
+const SKITTY = mon([
+  '.P.......P....',
+  '.PP.....PP....',
+  '.PPPPPPPPP....',
+  '.PCCCCCCCP....',
+  '.PCECCCECP..PP',
+  '.PCCCmCCCP.PPP',
+  '..PCCCCCP..PP.',
+  '..PPPPPPP.P...',
+  '.PPCCCCCPPP...',
+  '.PPCCCCCPP....',
+  '..PP...PP.....',
+], { P: '#f9a8d4', C: '#fef3c7', E: '#1f1f1f', m: '#be185d' }, '#f9a8d4')
 
-/** 동미러 — 청록 원반에 노란 눈 */
-const BRONZOR = mon([
-  '..............',
-  '...TTTTTTTT...',
-  '..TTTTTTTTTT..',
-  '.TTDTTTTTTDTT.',
-  '.TTTEETTEETTT.',
-  '.TDTTTTTTTTDT.',
-  '.TTTTDDDDTTTT.',
-  '..TTTTTTTTTT..',
-  '...TTTTTTTT...',
-], { T: '#2f7d86', D: '#9fd8df', E: '#facc15' }, '#2f7d86')
+/** 나옹마 — 회색 몸, 흰 눈가·배, 돌돌 말린 꼬리 */
+const GLAMEOW = mon([
+  '.G........G...',
+  '.GG......GG...',
+  '.GGGGGGGGGG...',
+  '.GWWGGGGWWG...',
+  '.GWEGGGGEWG...',
+  '.GGGGPGGGGG...',
+  '..GGGGGGGG.GG.',
+  '..GGWWWWGG.G.G',
+  '..GGWWWWGG..GG',
+  '..GGGGGGGG....',
+  '..GG....GG....',
+], { G: '#6b7280', W: '#e5e7eb', E: '#1f1f1f', P: '#f472b6' }, '#6b7280')
 
-/** 폴리곤2 — 둥근 분홍 몸, 파란 꼬리·팔 */
-const PORYGON2 = mon([
-  '..............',
-  '....PPPP......',
-  '...PPPPPP.....',
-  '..PPWEPPPP....',
-  '..PPPPPPPPBB..',
-  '...BBPPPPBBBB.',
-  '..BBBBPPPPPB..',
-  '..BBBPPPPPP...',
-  '...PPPPPPP....',
-  '....PP..PP....',
-], { P: '#f472b6', B: '#3b82f6', W: '#ffffff', E: '#1f1f1f' }, '#f472b6')
+/** 쌔비냥 — 보라 몸, 연두 눈 */
+const PURRLOIN = mon([
+  '.U........U...',
+  '.UU......UU...',
+  '.UUUUUUUUUU...',
+  '.UYEUUUUYEU...',
+  '.UUUUUUUUUU...',
+  '..UUUmmUUU....',
+  '...UUUUUU.....',
+  '...UUUUUU..U..',
+  '..UUUUUUUUUU..',
+  '..UUUUUUUU....',
+  '..UU....UU....',
+], { U: '#8b5cf6', Y: '#a3e635', E: '#1f1f1f', m: '#4c1d95' }, '#8b5cf6')
+
+/** 냐오불 — 검은 몸에 빨간 줄무늬, 노란 눈 */
+const LITTEN = mon([
+  '.K........K...',
+  '.KR......RK...',
+  '.KKKKKKKKKK...',
+  '.KKRKKKKRKK...',
+  '.KYEKKKKYEK...',
+  '.KKKKRRKKKK...',
+  '..KKKKKKKK....',
+  '..KRKKKKRK..R.',
+  '..KKKKKKKK.K..',
+  '..KKRKKRKKK...',
+  '..KK....KK....',
+], { K: '#27272a', R: '#dc2626', Y: '#fde047', E: '#1f1f1f' }, '#27272a')
 
 const DITTO = mon([
   '..............',
@@ -465,10 +484,13 @@ const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON, charizard: CHARIZARD
 const STAFF_MONS = [PIKACHU, SQUIRTLE, CHARMANDER, BULBASAUR, JIGGLYPUFF, EEVEE, PSYDUCK, MEOWTH]
 /** 사무실 일꾼(에이전트실·부서 로봇) — 기계 포켓몬 */
 const ROBOT_MONS = [MAGNEMITE, VOLTORB, PORYGON]
-/** 일꾼마다 다른 포켓몬 — 같은 줄에 겹치지 않게 자리 이름으로 못 박는다(2026-10-30 사장님 '안 겹치게') */
+/**
+ * 일꾼마다 다른 포켓몬 — 같은 줄에 겹치지 않게 자리 이름으로 못 박는다(2026-10-30 사장님 '안 겹치게').
+ * 홍보부 일꾼은 모두 고양이과(2026-10-30 사장님), 에이전트실 끝 입찰 수집은 기계 포켓몬.
+ */
 const ROBOT_BY_KEY: Record<string, Mon> = {
-  bank: MAGNEMITE, 'daangn-post': VOLTORB, blog: PORYGON2, cafe: BRONZOR, takedown: KLINK,
-  sync: BELDUM, collect: ROTOM, bid: ELECTRODE,
+  bank: PERSIAN, 'daangn-post': MEOWTH, blog: ESPEON, cafe: SKITTY, takedown: PURRLOIN,
+  sync: GLAMEOW, collect: LITTEN, bid: ELECTRODE,
 }
 /** 에이전트실 — 세션마다 */
 const AGENT_MONS = [DITTO, MEW, GENGAR]
@@ -1069,7 +1091,7 @@ const W = 576
 /**
  * 판 위쪽 0~24 는 예전 뒷벽(창문·시계·화이트보드) 자리 — 2026-10-28 사장님이 '창문 필요 없다' 해서 떼고
  * 그만큼 안을 넓혀 보인다. 좌표는 그대로 두고 보는 창(viewBox)만 TOP 부터 자른다.
- * 시계는 대표실 벽으로, 화이트보드는 홍보부 벽으로 옮겼다.
+ * 시계는 대표실 벽으로 옮겼다. 화이트보드는 2026-10-30 뺐다(일꾼 말풍선에 다 나온다).
  */
 const TOP = 24
 /**
@@ -1576,12 +1598,6 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
           <text x={85} y={35} fontSize={6} fontWeight={800} textAnchor="middle" fill="#4ade80" style={{ fontFamily: 'monospace' }}>
             {layout.clock.slice(0, 2)}<tspan className="pxo-colon">:</tspan>{layout.clock.slice(3)}
           </text>
-          {/* 홍보부 화이트보드 — 오늘 광고·수집·할 일 */}
-          <rect x={256} y={145} width={86} height={17} fill="#9ca3af" />
-          <rect x={257} y={146} width={84} height={15} fill="#f8fafc" />
-          {layout.board.slice(0, 3).map((l, i) => (
-            <text key={l} x={260} y={151 + i * 4.5} fontSize={3.6} fontWeight={700} fill={['#1d4ed8', '#b91c1c', '#15803d'][i]}>{cut(l, 36)}</text>
-          ))}
           {/* 영업부 프린터 — 가끔 종이가 나온다 */}
           <rect x={221} y={314} width={14} height={2} fill="#f8fafc" className="pxo-paper" />
 

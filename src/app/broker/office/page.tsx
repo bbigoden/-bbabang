@@ -512,7 +512,6 @@ export default function OfficePage() {
         + (s.total == null ? '' : ` · 지금까지 등록한 매물 ${s.total.toLocaleString()}건`) + ` · 남은 할 일 ${open}건`,
     }
   })
-  const openTasks = (tasks ?? []).filter(t => t.status === 'open').length
 
   /**
    * 광고 PC 프로그램 하나를 하는 일별 로봇으로 나눈다. 그 일의 작업이 돌고 있으면 일하는 중,
@@ -590,11 +589,6 @@ export default function OfficePage() {
     clock: hmKST(now),
     guests: today.consult,
     status: board ?? undefined,
-    board: [
-      `광고 올림  카페 ${today.cafe} · 블로그 ${today.blog} · 당근 ${today.daangnPost}`,
-      `오늘 수집한 매물  네이버 ${today.naver} · 당근 ${today.daangn}`,
-      isOwner ? `남은 할 일 ${openTasks}건` : `내 할 일 ${myTasks.filter(t => t.status === 'open').length}건`,
-    ],
     seats: {
       boss: inDept('boss'),
       director: inDept('director'),
