@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDays, todayKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
-import { parseMfrc } from '@/lib/bid-notices'
+import { DOC_RGN, parseMfrc } from '@/lib/bid-notices'
 import {
   BID_INDUSTRY_CD, G2bError, g2bDt, g2bGet, toBidRow, toBsisPatch, toNoticeRow, toPrepar, toResultRow,
   type G2bService,
@@ -46,7 +46,6 @@ const WINDOW_DAYS = 7
 const DETAIL_BATCH = 16
 const DETAIL_CONCURRENCY = 8
 /** 참가가능지역은 나중에(2026-10-29) 붙였다. 그 전에 받아 둔 공고는 이만큼 거슬러 한 번 채운다 */
-const RGN_BACKFILL_DAYS = 60
 
 /**
  * spent: 오늘 나라장터가 한도 초과(22)를 돌려준 기능. **한도는 서비스가 아니라 기능마다 따로** 센다 —
@@ -99,7 +98,7 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   const state = await readState(supa)
   const calls: Calls = state.calls?.date === today ? state.calls : { date: today, notice: 0, result: 0 }
   const backfill: Backfill = state.backfill ?? { until: addDays(today, -RECENT_DAYS), done: false }
-  let rgnUntil = state.rgn_until ?? addDays(today, -RECENT_DAYS)
+  let rgnUntil = state.rgn2_until ?? addDays(today, -RECENT_DAYS)
   let licUntil = state.lic_until ?? addDays(today, -RECENT_DAYS)
 
   const report: CollectReport = {
@@ -178,10 +177,11 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   }
 
   /**
-   * 공고일 기간 하나의 공고·기초금액(·참가가능지역)과, 같은 기간 개찰된 낙찰을 받아 넣는다.
-   * 참가가능지역은 마감 전 공고에만 쓸모 있어 최근 기간에만 받는다(1주에 조회 ~17번이라 과거까지는 아깝다).
+   * 공고일 기간 하나의 공고·기초금액·참가가능지역·주력분야와, 같은 기간 개찰된 낙찰을 받아 넣는다.
+   * 참가가능지역은 과거 기간에도 받는다 — 낙찰결과·실험실의 '들어갈 수 있는 것만'이 지역을 몰라 경북·부산·제주
+   * 공고를 그대로 보였다(10-30, 처음엔 최근 60일만 받았다).
    */
-  const syncWindow = async (from: string, to: string, opts: { regions?: boolean } = {}) => {
+  const syncWindow = async (from: string, to: string) => {
     const notices = await listAll('notice', 'getBidPblancListInfoCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
     const nrows = dedupe(notices.map(toNoticeRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`)
     await upsert(supa, 'bid_notices', nrows, 'bid_ntce_no,bid_ntce_ord')
@@ -189,10 +189,8 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
 
     // 참가가능지역도 업종으로 못 거른다 — 모든 업무 하루 ~2,300줄을 받아 우리 공고에 붙인다.
     // 한 줄도 없으면 지역제한이 없는 공고(전국)라, 이 기간에 공고된 것은 모두 '받음'으로 적는다
-    if (opts.regions) {
-      const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
-      report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
-    }
+    const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
+    report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to, docRgnKeys(notices))
     // 주력분야(면허제한) — 하루 ~2,000줄. 같은 면허(4992)라도 석공 공사가 섞여 있어 이걸로 거른다.
     // 과거 기간에도 받는다 — 분석에 쓰는 과거 낙찰에서 석공 공사를 빼려면 그 공고의 주력분야가 있어야 한다
     const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
@@ -265,15 +263,17 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
 
   try {
     // 1. 최근
-    await syncWindow(addDays(today, -RECENT_DAYS), today, { regions: true })
+    await syncWindow(addDays(today, -RECENT_DAYS), today)
     await syncResults(addDays(today, -RECENT_RESULT_DAYS), today)
 
-    // 참가가능지역 — 예전에 받은 공고에도 한 번 붙인다(한 주에 조회 ~17번)
-    while (rgnUntil > addDays(today, -RGN_BACKFILL_DAYS)) {
+    // 참가가능지역 — 이미 받아 둔 공고(과거 채움이 닿은 데까지)에 다시 붙인다(한 주에 조회 ~20번).
+    // 10-30 '공고서참조'를 알아보게 고치며 처음부터 다시 돈다(상태 이름 rgn2_until)
+    while (rgnUntil > backfill.until) {
       const to = addDays(rgnUntil, -1)
       const from = addDays(rgnUntil, -WINDOW_DAYS)
+      const notices = await listAll('notice', 'getBidPblancListInfoCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
       const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
-      report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to)
+      report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to, docRgnKeys(notices))
       rgnUntil = from
     }
     // 주력분야도 나중에(2026-10-29) 붙였다 — 이미 받아 둔 공고(과거 채움이 닿은 데까지)에 한 번 거슬러 채운다.
@@ -329,16 +329,16 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   }
 
   report.finishedAt = new Date().toISOString()
-  await writeState(supa, { calls, backfill, rgn_until: rgnUntil, lic_until: licUntil, last_run: report })
+  await writeState(supa, { calls, backfill, rgn2_until: rgnUntil, lic_until: licUntil, last_run: report })
   return report
 }
 
 // ── 상태 ──────────────────────────────────────────────────
 
-type State = { calls?: Calls; backfill?: Backfill; rgn_until?: string; lic_until?: string; last_run?: CollectReport }
+type State = { calls?: Calls; backfill?: Backfill; rgn2_until?: string; lic_until?: string; last_run?: CollectReport }
 
 async function readState(supa: SupabaseClient): Promise<State> {
-  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn_until', 'lic_until'])
+  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn2_until', 'lic_until'])
   return Object.fromEntries((data ?? []).map(r => [r.key, r.value])) as State
 }
 
@@ -385,7 +385,17 @@ async function applyBsis(supa: SupabaseClient, patches: ReturnType<typeof toBsis
 }
 
 /** 참가가능지역을 그 기간(공고일 기준, 한국시간)에 공고된 우리 공고에 붙인다. 붙인 건수를 돌려준다 */
-async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string): Promise<number> {
+/**
+ * 지역 줄이 없어도 전국이 아닌 공고 — 나라장터 화면엔 '지역제한: 공고서참조'(참가제한 Y)로 나오고 지역은 첨부 공고서에만 있다.
+ * 지역 판단 기준(본사 소재지 등)만 있고 줄이 없는 것도 같다. 하루 공고 ~480건 중 2~3건
+ */
+function docRgnKeys(notices: Record<string, string>[]): Set<string> {
+  return new Set(notices
+    .filter(n => n.bidPrtcptLmtYn === 'Y' || (n.rgnLmtBidLocplcJdgmBssNm ?? '').trim())
+    .map(n => `${n.bidNtceNo}/${n.bidNtceOrd || '000'}`))
+}
+
+async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string, docRgn: Set<string>): Promise<number> {
   const byKey = new Map<string, { sno: number; nm: string }[]>()
   for (const x of items) {
     const k = `${x.bidNtceNo}/${x.bidNtceOrd || '000'}`
@@ -399,7 +409,9 @@ async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], 
   const now = new Date().toISOString()
   const rows = (data ?? []).map(n => ({
     ...n,
-    prtcpt_rgns: [...new Set((byKey.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`) ?? []).sort((a, b) => a.sno - b.sno).map(r => r.nm))],
+    prtcpt_rgns: byKey.has(`${n.bid_ntce_no}/${n.bid_ntce_ord}`)
+      ? [...new Set(byKey.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`)!.sort((a, b) => a.sno - b.sno).map(r => r.nm))]
+      : docRgn.has(`${n.bid_ntce_no}/${n.bid_ntce_ord}`) ? [DOC_RGN] : [],
     updated_at: now,
   }))
   await upsert(supa, 'bid_notices', rows, 'bid_ntce_no,bid_ntce_ord')

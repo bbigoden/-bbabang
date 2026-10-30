@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canEnter, fitsFields, latestOrd, parseMfrc, parseWon, shortRegion } from '@/lib/bid-notices'
+import { DOC_RGN, canEnter, fitsFields, latestOrd, parseMfrc, parseWon, shortRegion } from '@/lib/bid-notices'
 
 const row = (no: string, ord: string, name: string, bssamt: number | null = null) =>
   ({ bid_ntce_no: no, bid_ntce_ord: ord, name, bid_close_at: '2026-10-30T01:00:00Z', bssamt, a_amount: null, rng_end: null })
@@ -83,5 +83,16 @@ describe('주력분야', () => {
   it('아직 안 받았으면 모른다, 우리 주력분야가 없으면 다 된다', () => {
     expect(fitsFields(null, ours)).toBeNull()
     expect(fitsFields(['석공사'], [])).toBe(true)
+  })
+})
+
+describe('canEnter — 지역이 공고서에만 있는 공고(서남병원 옥상 방수, R26BK01710029)', () => {
+  const ours = '충청남도 아산시'
+  it('현장이 다른 시도면 못 들어간다고 본다', () => {
+    expect(canEnter([DOC_RGN], ours, '서울특별시 양천구')).toBe(false)
+    expect(canEnter([DOC_RGN], ours, null)).toBe(false)
+  })
+  it('현장이 우리 시도면 원문을 봐야 안다(모름)', () => {
+    expect(canEnter([DOC_RGN], ours, '충청남도 천안시')).toBeNull()
   })
 })

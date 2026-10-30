@@ -13,7 +13,7 @@ import { VERSIONS, chanceAtLeast, fixedSweep, priorOf, verdictOf, type LabRow, t
  */
 
 type Row = LabRow & { bid_ntce_no: string; winner_nm: string | null }
-type Meta = { rgns: string[] | null; flds: string[] | null }
+type Meta = { rgns: string[] | null; flds: string[] | null; site: string | null }
 type Period = 30 | 90 | 0
 
 const PERIODS: [Period, string][] = [[30, '최근 30일'], [90, '최근 90일'], [0, '받은 전체']]
@@ -42,8 +42,8 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
         .select('bid_ntce_no, openg_at, prtcpt_cnum, winner_nm, sajeong, win_y, bssamt, rng, dminstt_cd, dminstt_nm')
         .not('openg_at', 'is', null).order('openg_at', { ascending: true })
         .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
-      fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null }>((from, to) =>
-        supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds')
+      fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; site_region: string | null }>((from, to) =>
+        supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds, site_region')
           .or('prtcpt_rgns.not.is.null,mfrc_flds.not.is.null')
           .order('bid_ntce_no').order('bid_ntce_ord').range(from, to)),
     ]).then(([r, ns]) => {
@@ -52,8 +52,8 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
       ns.sort((a, b) => b.bid_ntce_ord.localeCompare(a.bid_ntce_ord))
       const m = new Map<string, Meta>()
       for (const x of ns) {
-        const cur = m.get(x.bid_ntce_no) ?? { rgns: null, flds: null }
-        m.set(x.bid_ntce_no, { rgns: cur.rgns ?? x.prtcpt_rgns, flds: cur.flds ?? x.mfrc_flds })
+        const cur = m.get(x.bid_ntce_no) ?? { rgns: null, flds: null, site: null }
+        m.set(x.bid_ntce_no, { rgns: cur.rgns ?? x.prtcpt_rgns, flds: cur.flds ?? x.mfrc_flds, site: cur.site ?? x.site_region })
       }
       setMeta(m)
       setRows(r)
@@ -70,7 +70,7 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
   const targets = useMemo(() => {
     const since = period ? new Date(Date.now() - period * DAY).toISOString() : ''
     return (rows ?? []).filter(r => r.openg_at >= since && (!ours || (
-      canEnter(meta.get(r.bid_ntce_no)?.rgns, ourRegion) !== false &&
+      canEnter(meta.get(r.bid_ntce_no)?.rgns, ourRegion, meta.get(r.bid_ntce_no)?.site) !== false &&
       fitsFields(meta.get(r.bid_ntce_no)?.flds, ourFields) !== false)))
   }, [rows, meta, period, ours, ourRegion, ourFields])
 

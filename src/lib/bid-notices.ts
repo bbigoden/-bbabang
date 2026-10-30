@@ -59,14 +59,22 @@ export function parseWon(text: string): number | null {
 }
 
 /**
+ * 참가가능지역이 공고서(첨부 파일)에만 적힌 공고의 표시. 나라장터 화면엔 '지역제한: 공고서참조' 로 나오고
+ * API 엔 지역 줄이 없다(참가제한 Y). 서남병원 옥상 방수(R26BK01710029)가 이래서 '전국'으로 잘못 보였다.
+ */
+export const DOC_RGN = '공고서참조'
+
+/**
  * 우리 업체가 이 공고에 들어갈 수 있나.
  * 참가가능지역이 '충청남도' 면 도 안 어디든, '충청남도 아산시' 면 아산만 된다.
  * 목록이 비면(전국) 된다. 아직 안 받았으면(null) 모른다 — 빼지 않고 보여 준다.
+ * 지역이 공고서에만 있으면(DOC_RGN) 지역제한은 대개 현장 시도라, 현장(site)이 우리 시도면 '모름', 아니면 못 들어간다고 본다.
  */
-export function canEnter(rgns: string[] | null | undefined, ours: string | null | undefined): boolean | null {
+export function canEnter(rgns: string[] | null | undefined, ours: string | null | undefined, site?: string | null): boolean | null {
   if (!ours) return true
   if (rgns == null) return null
   if (rgns.length === 0) return true
+  if (rgns.includes(DOC_RGN)) return site && site.split(' ')[0] === ours.split(' ')[0] ? null : false
   return rgns.some(r => ours === r || ours.startsWith(r + ' '))
 }
 
