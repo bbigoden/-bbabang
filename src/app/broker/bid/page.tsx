@@ -286,8 +286,8 @@ export default function BidPage() {
     const words = q.trim().split(/\s+/).filter(Boolean)
     return notices.filter(n =>
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
-      (!enterableOnly || canEnter(n.prtcpt_rgns, ourRegion, n.site_region) !== false) &&
-      (!fieldsOnly || fitsFields(n.mfrc_flds, ourFields) !== false) &&
+      (!enterableOnly || canEnter(n.prtcpt_rgns, ourRegion, n.site_region) === true) &&
+      (!fieldsOnly || fitsFields(n.mfrc_flds, ourFields) === true) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''} ${n.bid_ntce_no}-${n.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
   }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, q])
 
@@ -345,14 +345,15 @@ export default function BidPage() {
     return () => { alive = false }
   }, [supabase, results, searched])
 
-  // 공고 탭과 같은 칩을 쓴다. 지역·주력분야를 모르는 낙찰(공고를 아직 못 받았거나 오래된 것)은 남긴다
+  // 공고 탭과 같은 칩을 쓴다. 지역·주력분야를 모르는 낙찰(공고를 아직 못 받은 오래된 것)도 뺀다 —
+  // 들어갈 수 있었는지 확인이 안 되면 우리 공고가 아니다(10-30 사장님: 벗어나면 어차피 입찰을 못 한다)
   const shownResults = useMemo(() => {
     const words = q.trim().split(/\s+/).filter(Boolean)
     const base = searched ?? results.filter(r => words.every(w => `${r.name} ${r.dminstt_nm ?? ''} ${r.winner_nm ?? ''} ${r.bid_ntce_no}-${r.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
     return base.filter(r => {
       const m = resultMeta.get(r.bid_ntce_no)
-      return (!enterableOnly || canEnter(m?.rgns, ourRegion, m?.site) !== false)
-        && (!fieldsOnly || fitsFields(m?.flds, ourFields) !== false)
+      return (!enterableOnly || canEnter(m?.rgns, ourRegion, m?.site) === true)
+        && (!fieldsOnly || fitsFields(m?.flds, ourFields) === true)
     })
   }, [results, searched, q, resultMeta, enterableOnly, ourRegion, fieldsOnly, ourFields])
 
@@ -472,13 +473,13 @@ export default function BidPage() {
           {tab === 'notice' && <Chip on={openOnly} onClick={() => setOpenOnly(v => !v)}>마감 전만</Chip>}
             {ourRegion && (
               <Chip on={enterableOnly} onClick={() => setEnterableOnly(v => !v)}
-                title={`참가가능지역이 전국이거나 ${ourRegion}을 품는 공고만`}>
+                title={`참가가능지역이 전국이거나 ${ourRegion}을 품는 공고만 — 지역을 아직 모르는 공고도 뺀다`}>
                 들어갈 수 있는 것만
               </Chip>
             )}
             {ourFields.length > 0 && (
               <Chip on={fieldsOnly} onClick={() => setFieldsOnly(v => !v)}
-                title={`주력분야가 ${ourFields.join('·')}이거나 지정 없는 공고만`}>
+                title={`주력분야가 ${ourFields.join('·')}이거나 지정 없는 공고만 — 주력분야를 아직 모르는 공고도 뺀다`}>
                 주력분야만
               </Chip>
             )}

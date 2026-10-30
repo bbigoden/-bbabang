@@ -67,7 +67,7 @@ export const DOC_RGN = '공고서참조'
 /**
  * 우리 업체가 이 공고에 들어갈 수 있나.
  * 참가가능지역이 '충청남도' 면 도 안 어디든, '충청남도 아산시' 면 아산만 된다.
- * 목록이 비면(전국) 된다. 아직 안 받았으면(null) 모른다 — 빼지 않고 보여 준다.
+ * 목록이 비면(전국) 된다. 아직 안 받았으면(null) 모른다 — 화면은 '모름'도 뺀다(true 만 들어갈 수 있는 공고).
  * 지역이 공고서에만 있으면(DOC_RGN) 지역제한은 대개 현장 시도라, 현장(site)이 우리 시도면 '모름', 아니면 못 들어간다고 본다.
  */
 export function canEnter(rgns: string[] | null | undefined, ours: string | null | undefined, site?: string | null): boolean | null {
@@ -91,7 +91,7 @@ export const BID_FIELDS = ['도장공사', '습식·방수공사', '석공사'] 
 
 /**
  * 공고의 주력분야가 우리 주력분야와 맞나. 공고가 주력분야를 안 정했으면(빈 배열) 누구나 된다.
- * 아직 안 받았으면(null) 모른다 — 빼지 않는다. 우리 주력분야를 안 정했으면 거르지 않는다.
+ * 아직 안 받았으면(null) 모른다 — 화면은 '모름'도 뺀다. 우리 주력분야를 안 정했으면 거르지 않는다.
  */
 export function fitsFields(flds: string[] | null | undefined, ours: string[] | null | undefined): boolean | null {
   if (!ours?.length) return true

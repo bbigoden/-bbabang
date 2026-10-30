@@ -70,8 +70,9 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
   const targets = useMemo(() => {
     const since = period ? new Date(Date.now() - period * DAY).toISOString() : ''
     return (rows ?? []).filter(r => r.openg_at >= since && (!ours || (
-      canEnter(meta.get(r.bid_ntce_no)?.rgns, ourRegion, meta.get(r.bid_ntce_no)?.site) !== false &&
-      fitsFields(meta.get(r.bid_ntce_no)?.flds, ourFields) !== false)))
+      // 지역·주력분야가 맞는다고 확인된 공고만 — 모르는 것도 뺀다(벗어나면 어차피 못 넣는다)
+      canEnter(meta.get(r.bid_ntce_no)?.rgns, ourRegion, meta.get(r.bid_ntce_no)?.site) === true &&
+      fitsFields(meta.get(r.bid_ntce_no)?.flds, ourFields) === true)))
   }, [rows, meta, period, ours, ourRegion, ourFields])
 
   const one = targets.filter(t => t.prtcpt_cnum === 1).length
