@@ -85,12 +85,19 @@ export function winCurve(hist: NormalizedHistory[], min = GRID_MIN, max = GRID_M
 
 /**
  * 가장 잘 따는 자리. 한 칸만 튀는 자리는 우연이라, 앞뒤 `window` 칸 평균으로 고른다.
+ * smooth 는 그 평균 낙찰 건수다.
  */
 export function bestPoint(curve: CurvePoint[], window = 5): CurvePoint & { smooth: number } {
+  // 앞뒤 window 칸 합을 밀어 가며 센다 — 실험실이 공고 수천 건마다 부르므로 칸마다 다시 더하지 않는다
   let best = { ...curve[0], smooth: -1 }
+  let s = 0
+  for (let j = 0; j <= Math.min(curve.length - 1, window); j++) s += curve[j].wins
   for (let i = 0; i < curve.length; i++) {
-    let s = 0, c = 0
-    for (let j = Math.max(0, i - window); j <= Math.min(curve.length - 1, i + window); j++) { s += curve[j].rate; c++ }
+    if (i > 0) {
+      if (i + window < curve.length) s += curve[i + window].wins
+      if (i - window - 1 >= 0) s -= curve[i - window - 1].wins
+    }
+    const c = Math.min(curve.length - 1, i + window) - Math.max(0, i - window) + 1
     const smooth = s / c
     if (smooth > best.smooth) best = { ...curve[i], smooth }
   }
