@@ -77,7 +77,7 @@ export function ResultDetail({ r }: { r: ResultForDetail }) {
       </div>
 
       {!r.plnprc ? (
-        <p className="text-gray-500">예정가격 상세를 아직 받지 않았습니다. 수집이 3시간마다 채웁니다.</p>
+        <p className="text-gray-500">예정가격 상세를 아직 받지 않았습니다. 수집이 1시간마다 채웁니다.</p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">

@@ -32,7 +32,7 @@ const LabPanel = dynamic(() => import('./lab-panel').then(m => m.LabPanel))
  * **공고** 탭은 면허로 들어갈 수 있는 공고를 마감 순으로 보여 준다. 줄을 누르면
  * 과거 낙찰로 센 추천 투찰가가 펼쳐진다. **낙찰결과** 탭은 쌓인 과거 낙찰이다.
  *
- * 받는 일은 서버가 한다(나라장터는 Vercel 에서 잘 불린다). 3시간마다
+ * 받는 일은 서버가 한다(나라장터는 Vercel 에서 잘 불린다). 1시간마다
  * 자동이고, [가져오기] 로 지금 한 번 더 돌릴 수 있다. 과거 낙찰은 하루 한도(운영계정)
  * 안에서 조금씩 거슬러 올라가며 채운다.
  *
@@ -433,7 +433,7 @@ export default function BidPage() {
               {언제(lastRun.finishedAt)} 받다가 멈춤 — {lastRun.error ?? '알 수 없는 오류'}
             </span>
           ) : lastRun?.finishedAt && <span>{언제(lastRun.finishedAt)} 받아옴</span>}
-          <span>3시간마다 자동</span>
+          <span>1시간마다 자동</span>
           {editingRegion != null ? (
             <span className="flex items-center gap-1">
               우리 업체 소재지
