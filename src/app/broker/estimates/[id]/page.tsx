@@ -202,8 +202,11 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
     if (error) console.error('[품목 사전] 반영 실패', error)
   }, [brokerId, supabase])
 
+  // saving 상태만 보면 두 번 빠르게 누를 때 두 번째 클릭도 아직 false 를 읽어 저장 요청이 둘 나갔다(10-30 점검)
+  const savingRef = useRef(false)
   const save = useCallback(async (silent = false) => {
-    if (!est || !brokerId || saving) return false
+    if (!est || !brokerId || savingRef.current) return false
+    savingRef.current = true
     setSaving(true)
     try {
       // 화면이 잘 셈했기를 믿지 않고 저장 직전에 다시 맞춘다.
@@ -213,6 +216,22 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       const safeTotals = calcTotals(safeItems, {
         overhead_rate: est.overhead_rate, discount: est.discount, vat_mode: est.vat_mode,
       })
+      // 음수 수량·단가, 할인이 소계보다 커서 합계가 음수인 견적은 거래처에 나갈 수 없다.
+      // 예전엔 그대로 저장돼 이번 달 실적 합계를 깎았다(10-30 점검: 합계 -5,503원)
+      const bad = safeItems.findIndex(it => !it.is_header && (Number(it.qty) < 0 || Number(it.unit_price) < 0))
+      if (bad >= 0) {
+        toast.error(`${safeItems[bad].name || `${bad + 1}번째 줄`}: 수량·단가는 0 이상이어야 저장돼요`)
+        return false
+      }
+      const huge = safeItems.findIndex(it => !it.is_header && Math.abs(Number(it.qty)) >= 1e10)
+      if (huge >= 0) {
+        toast.error(`${safeItems[huge].name || `${huge + 1}번째 줄`}: 수량이 너무 커요 (100억 미만)`)
+        return false
+      }
+      if (safeTotals.supply_amount < 0) {
+        toast.error('할인이 소계보다 커서 합계가 음수예요. 할인을 줄여야 저장돼요')
+        return false
+      }
       const safeMargin = calcMargin(safeItems, safeTotals.supply_amount)
       if (fixed.length > 0) {
         // 모르는 사이에 숫자가 바뀌면 그것대로 믿을 수 없다 — 무엇을 고쳤는지 알린다
@@ -263,7 +282,9 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
           is_header: it.is_header,
           category: it.category, name: it.name, spec: it.spec, unit: it.unit,
           qty: it.qty, unit_price: it.unit_price,
-          material_price: it.material_price, labor_price: it.labor_price, cost_price: it.cost_price,
+          // 재료비·인건비·원가 칸은 DB 가 원 단위 정수만 받는다 — 0.5 가 들어가면 저장이 통째로 실패했다
+          material_price: Math.round(Number(it.material_price) || 0), labor_price: Math.round(Number(it.labor_price) || 0),
+          cost_price: Math.round(Number(it.cost_price) || 0),
           amount: it.amount, remark: it.remark,
         })),
       })
@@ -275,13 +296,15 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       setDirty(false)
       if (!silent) toast.success('저장했습니다')
       return true
-    } catch {
-      toast.error('저장하지 못했습니다')
+    } catch (e) {
+      console.error('[견적 저장] 실패', e)
+      toast.error(`저장하지 못했습니다: ${(e as { message?: string })?.message ?? '알 수 없는 오류'}. 인터넷 연결을 확인하고 다시 눌러 주세요`)
       return false
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
-  }, [est, brokerId, saving, companies, items, syncCatalog, syncClient, supabase, toast])
+  }, [est, brokerId, companies, items, syncCatalog, syncClient, supabase, toast])
 
   /** 화면 값 그대로 PDF 를 받아 미리보기에 건다 (DB 는 건드리지 않는다) */
   const previewSeq = useRef(0)

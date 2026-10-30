@@ -156,6 +156,9 @@ export default function BidPage() {
   const [lastRun, setLastRun] = useState<CollectReport | null>(null)
   const [backfillUntil, setBackfillUntil] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // 분석 재료(과거 낙찰·경쟁 짐작)는 공고 목록을 띄운 뒤 뒤에서 받는다 — 둘이 1만 행 남짓이라
+  // 같이 기다리면 폰 3G 에서 '불러오는 중'이 28초 걸렸다(10-30 점검, 그전 9초)
+  const [analysisReady, setAnalysisReady] = useState(false)
   const [collecting, setCollecting] = useState(false)
 
   const [openOnly, setOpenOnly] = useState(true)
@@ -194,25 +197,27 @@ export default function BidPage() {
     try {
       // 공고는 최근 60일만. 그 전 것은 이미 다 마감됐다
       const since = new Date(Date.now() - 60 * 86400000).toISOString()
-      const [n, r, h, s, c] = await Promise.all([
+      setAnalysisReady(false)
+      // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개. 기다리지 않고 받는 대로 채운다
+      void Promise.all([
+        fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
+          .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
+          .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
+        fetchAllPaged<CrowdRow>((from, to) => supabase.from('bid_results')
+          .select('dminstt_cd, dminstt_nm, bssamt, prtcpt_cnum').gt('prtcpt_cnum', 1)
+          .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
+      ]).then(([h, c]) => { setHistory(h); setCrowd(c); setAnalysisReady(true) })
+        .catch(() => toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요'))
+      const [n, r, s] = await Promise.all([
         fetchAllPaged<Notice>((from, to) => supabase.from('bid_notices')
           .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds')
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
         resultPage(0),
-        // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개라 수천 건도 가볍다
-        fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
-          .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
-          .not('sajeong', 'is', null).range(from, to)),
         supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
-        fetchAllPaged<CrowdRow>((from, to) => supabase.from('bid_results')
-          .select('dminstt_cd, dminstt_nm, bssamt, prtcpt_cnum').gt('prtcpt_cnum', 1)
-          .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
       ])
       setNotices(latestOrd(n))
       setResults((r.data as Result[]) ?? [])
       setMoreResults((r.data?.length ?? 0) === RESULT_PAGE)
-      setHistory(h)
-      setCrowd(c)
       const st = Object.fromEntries((s.data ?? []).map(x => [x.key, x.value]))
       setLastRun((st.last_run as CollectReport) ?? null)
       setBackfillUntil((st.backfill as { until?: string } | undefined)?.until ?? null)
@@ -448,7 +453,8 @@ export default function BidPage() {
             </button>
           )}
           {/* 분석이 얼마나 믿을 만한지는 쌓인 과거 낙찰 수에 달렸다. 숫자를 늘 보이게 둔다 */}
-          {!loading && (
+          {!loading && !analysisReady && <span>과거 낙찰 받는 중…</span>}
+          {!loading && analysisReady && (
             <span title={offFieldKeys.size ? '우리 주력분야가 아닌 공고(석공 등)의 낙찰은 뺐습니다' : undefined}>
               분석에 쓰는 과거 낙찰 {fieldHistory.length.toLocaleString('ko-KR')}건
               {history.length > fieldHistory.length && ` (주력분야 아닌 ${(history.length - fieldHistory.length).toLocaleString('ko-KR')}건 뺌)`}
@@ -478,7 +484,7 @@ export default function BidPage() {
             {tab === 'notice' && (
               <Chip on={crowdOnly} onClick={() => setCrowdOnly(v => !v)}
                 title={`참여 업체가 ${CROWD_CUT}곳 이하로 짐작되는 공고만 — 실험실 버전 5, 공고당 낙찰률이 버전 1의 1.6배였다`}>
-                경쟁 적은 것만
+                경쟁 적은 것만 ({CROWD_CUT}곳 이하)
               </Chip>
             )}
           {tab === 'notice' && <>
@@ -526,7 +532,10 @@ export default function BidPage() {
         ) : tab === 'notice' ? (
           shownNotices.length === 0 ? (
             <p className="py-10 text-center text-sm text-gray-400">
-              {notices.length ? '조건에 맞는 공고가 없습니다' : '아직 받은 공고가 없습니다 — [가져오기] 를 눌러 보세요'}
+              {!notices.length ? '아직 받은 공고가 없습니다 — [가져오기] 를 눌러 보세요'
+                : crowdOnly && !analysisReady ? '경쟁 예상을 셈하는 중이에요… 과거 낙찰을 다 받으면 나옵니다'
+                : <>조건에 맞는 공고가 없습니다<br />위 칩을 하나씩 끄면 더 많은 공고가 보여요
+                  {crowdOnly && <> — 지금 공고 중 경쟁이 {CROWD_CUT}곳 이하로 짐작되는 것이 없어요</>}</>}
             </p>
           ) : (
             <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
@@ -554,7 +563,7 @@ export default function BidPage() {
                         </span>
                         <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} />
                         <FieldBadge flds={n.mfrc_flds} ours={ourFields} />
-                        <CrowdBadge n={crowdOf.get(key) ?? null} />
+                        <CrowdBadge n={crowdOf.get(key) ?? null} ready={analysisReady} />
                         {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
                         <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
                           {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}
@@ -582,7 +591,7 @@ export default function BidPage() {
                             </a>
                           )}
                         </div>
-                        <AnalysisPanel key={key} notice={n} history={fieldHistory} />
+                        {analysisReady ? <AnalysisPanel key={key} notice={n} history={fieldHistory} /> : <p className="py-4 text-center text-sm text-gray-400">과거 낙찰을 받는 중이에요… 잠시 뒤 추천 금액이 나옵니다</p>}
                       </div>
                     )}
                   </li>
@@ -734,7 +743,8 @@ function BacktestLine({ bt }: { bt: { amount: number; verdict: Verdict } | undef
 }
 
 /** 참여 업체 수 짐작 — 버전 5 문턱 이하면 '넣을 만함' */
-function CrowdBadge({ n }: { n: number | null }) {
+function CrowdBadge({ n, ready }: { n: number | null; ready: boolean }) {
+  if (!ready) return <span className="mt-0.5 block text-xs text-gray-400">경쟁 예상 셈하는 중…</span>
   if (n == null) return <span className="mt-0.5 block text-xs text-gray-400">경쟁 예상 모름 (비슷한 과거 공고 부족)</span>
   const low = n <= CROWD_CUT
   return (

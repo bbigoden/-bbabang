@@ -10,7 +10,7 @@ import {
   calcTotals, koreanAmount, numberToKorean, lineAmount, validUntil,
   fillTemplate, isExpired, calcStats, sectionSums,
   isSplitPricing, effectiveUnitPrice, splitTotals,
-  normalizeItems, DEFAULT_PRESETS,
+  normalizeItems, latestRevisions, DEFAULT_PRESETS,
   type EstimateItem, type EstimateStatus,
   docMeta,
 } from '@/lib/estimate'
@@ -430,5 +430,27 @@ describe('isExpired — 서류 종류', () => {
   it('발주서·영수증은 유효기간이 없어 만료되지 않는다', () => {
     expect(isExpired({ ...old, doc_type: 'purchase_order' })).toBe(false)
     expect(isExpired({ ...old, doc_type: 'receipt' })).toBe(false)
+  })
+})
+
+describe('수정 견적 실적 (10-30 점검)', () => {
+  it('같은 묶음은 가장 높은 차수 하나만 센다', () => {
+    const rows = [
+      { id: 'a', root_estimate_id: null, revision: 1, status: 'draft' as EstimateStatus, total: 100 },
+      { id: 'b', root_estimate_id: 'a', revision: 2, status: 'draft' as EstimateStatus, total: 100 },
+      { id: 'c', root_estimate_id: 'a', revision: 3, status: 'sent' as EstimateStatus, total: 120 },
+      { id: 'd', root_estimate_id: null, revision: 1, status: 'draft' as EstimateStatus, total: 0 },
+    ]
+    expect(latestRevisions(rows).map(r => r.id)).toEqual(['c', 'd'])
+    expect(calcStats(latestRevisions(rows)).amount).toBe(120)
+  })
+})
+
+describe('소수 단가 (10-30 점검)', () => {
+  it('단가 0.5 는 원 단위로 반올림하고 바로잡았다고 알린다', () => {
+    const { items, fixed } = normalizeItems([{ ...item(0), qty: 3, unit_price: 0.5, material_price: 0, labor_price: 0 }])
+    expect(items[0].unit_price).toBe(1)
+    expect(items[0].amount).toBe(3)
+    expect(fixed.some(f => f.field === '단가' && f.now === 1)).toBe(true)
   })
 })

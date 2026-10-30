@@ -524,17 +524,28 @@ export default function BrokerCustomersPage() {
 
   // 등록·복사 버튼을 두 번 빠르게 누르면 행이 둘씩 생겼다 — 요청이 끝날 때까지 다시 못 누르게 잠근다
   const rowBusyRef = useRef(false)
+  // 새 고객 — 찾는 조건부터 받는다. 예전엔 누르는 순간 빈 줄이 저장돼 이번달 신규·사무실 '오늘 등록 고객'에
+  // 빈 고객이 세어졌고, 빈 줄의 회색 '요청사항'이 머리글과 같아 칼럼 메뉴를 열게 만들었다(10-30 점검 4명)
+  const [newCust, setNewCust] = useState<{ request: string; category: string } | null>(null)
+  const openNewCustomer = () => setNewCust({ request: '', category: '' })
   const addRow = async () => {
-    if (!broker || rowBusyRef.current) return
+    if (!broker || !newCust || rowBusyRef.current) return
+    const request = newCust.request.trim()
+    if (!request) return toast.error('찾는 조건을 적어 주세요')
     rowBusyRef.current = true
     try {
     const today = todayKST()
     const { data, error } = await supabase.from('broker_customers').insert({
       broker_id: broker.id, client_name: '', received_date: today,
       assignee: profile?.name ?? null,
-      category: '', status: '',
+      category: newCust.category, status: '', request,
     }).select().single()
-    if (error || !data) return
+    if (error || !data) {
+      toast.error(`등록하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}. 로그인이 풀렸다면 다시 로그인해 주세요.`)
+      return
+    }
+    setNewCust(null)
+    toast.success('등록했어요 — 연락처·유입 등 나머지 칸은 표에서 바로 채우면 저장돼요')
     // customers 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
@@ -771,27 +782,27 @@ export default function BrokerCustomersPage() {
     }
   }, [searchParams, loading, customers])
 
+  // 홈 [바로 하기 → 고객 등록] 은 ?new=1 로 들어와 등록 창을 바로 연다 (한 번만, 매물목록과 같게)
+  const newOpenedRef = useRef(false)
+  useEffect(() => {
+    if (newOpenedRef.current || !broker || searchParams.get('new') !== '1') return
+    newOpenedRef.current = true
+    setNewCust({ request: '', category: '' })
+    const u = new URL(window.location.href); u.searchParams.delete('new')
+    window.history.replaceState(window.history.state, '', u.pathname + (u.search ? u.search : ''))
+  }, [broker, searchParams])
+
   // 새 행 추가 시 새 행이 있는 페이지로 이동 + 화면 스크롤 + 첫 셀 자동 편집
   useEffect(() => {
     if (!addingId) return
     // 새 행 위치: 위로 쌓기 → page 1, 아래로 쌓기 → 마지막 페이지
     const targetPage = direction === 'up' ? 1 : Math.max(1, Math.ceil(customers.length / pageSize))
     setPage(targetPage)
-    // 페이지 전환 + 렌더링 후 스크롤 + 첫 셀 클릭
+    // 페이지 전환 + 렌더링 후 스크롤만 — 첫 칸을 눌러 주던 것은 뺐다. 첫 칸이 접수일자라
+    // 등록하자마자(알림으로 들어와도) 달력이 열려, 찾는 조건을 어디 적는지 헷갈렸다(10-30 점검)
     const t = setTimeout(() => {
       const row = document.querySelector(`tr[data-row-id="${addingId}"]`) as HTMLElement | null
-      if (row) {
-        row.scrollIntoView({ block: 'center', behavior: 'smooth' })
-        // 첫 편집 가능 셀 클릭 → 편집 모드 진입
-        setTimeout(() => {
-          const cells = row.querySelectorAll('td')
-          // td[0] = # 번호, td[1] 부터 데이터 셀
-          for (let i = 1; i < cells.length - 1; i++) {
-            const clickable = cells[i].querySelector('div[class*="cursor"], button:not([disabled])') as HTMLElement | null
-            if (clickable) { clickable.click(); break }
-          }
-        }, 400)
-      }
+      row?.scrollIntoView({ block: 'center', behavior: 'smooth' })
     }, 80)
     return () => clearTimeout(t)
   }, [addingId, direction, customers.length, pageSize])
@@ -917,7 +928,7 @@ export default function BrokerCustomersPage() {
           </div>
           {/* 표 맨 아래까지 내려가야 보이던 '고객 등록'을 제목 줄에도 둔다 (매물목록의 '+ 매물 등록' 과 같은 자리) */}
           {canEdit && (
-            <button type="button" onClick={addRow}
+            <button type="button" onClick={openNewCustomer}
               className="flex items-center gap-1.5 rounded-xl bg-[#14274e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#0f1d3a]">
               <Plus className="h-4 w-4" />고객 등록
             </button>
@@ -1150,7 +1161,7 @@ export default function BrokerCustomersPage() {
                   <tr>
                     <td colSpan={activeCols.length + 1} className="border-t border-gray-100 dark:border-gray-800">
                       <div className="flex items-center divide-x divide-gray-100">
-                        <button onClick={addRow}
+                        <button onClick={openNewCustomer}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-600 dark:text-gray-500 hover:bg-gray-50/80 transition-colors">
                           <Plus className="h-3.5 w-3.5" />고객 등록
                         </button>
@@ -1250,6 +1261,40 @@ export default function BrokerCustomersPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 새 고객 — 찾는 조건부터 받는다 (매물목록 '새 매물 등록' 창과 같은 모양) */}
+      {newCust && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setNewCust(null)}>
+          <form onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); void addRow() }}
+            className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+            <h3 className="mb-1 text-lg font-bold text-gray-900 dark:text-white">새 고객 등록</h3>
+            <p className="mb-4 text-sm text-gray-500">찾는 조건만 적으면 등록돼요. 연락처·유입 같은 나머지 칸은 등록한 뒤 표에서 바로 채우면 저절로 저장돼요.</p>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="new-cust-request">찾는 조건 (요청사항)</label>
+            <textarea id="new-cust-request" autoFocus rows={3} maxLength={2000} value={newCust.request}
+              onChange={e => setNewCust(v => v && { ...v, request: e.target.value })}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void addRow() } }}
+              placeholder="예: 불당동 상가 20평 월세 200 이하"
+              className="w-full resize-none rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+            <p className="mb-1 mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">구분 <span className="text-xs font-normal text-gray-400">(나중에 골라도 돼요)</span></p>
+            <div className="flex flex-wrap gap-2">
+              {['비주거', '주거용'].map(d => (
+                <button key={d} type="button" onClick={() => setNewCust(v => v && { ...v, category: v.category === d ? '' : d })}
+                  className={cn('rounded-lg border px-3 py-1.5 text-sm font-medium',
+                    newCust.category === d ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800')}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setNewCust(null)}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">취소</button>
+              <button type="submit" disabled={!newCust.request.trim()}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">등록</button>
+            </div>
+          </form>
         </div>
       )}
 

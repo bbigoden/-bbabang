@@ -15,7 +15,7 @@ import {
   TrendingUp, Trophy, Percent, Clock, CalendarClock, FileSpreadsheet,
 } from 'lucide-react'
 import {
-  calcStats, fmtComma, isExpired, STATUS_LABEL,
+  calcStats, latestRevisions, fmtComma, isExpired, STATUS_LABEL,
   calcTotals, normalizeItems,
   DOC_META, type DocType, type Estimate, type EstimateCompany, type EstimateItem, type EstimateStatus,
 } from '@/lib/estimate'
@@ -289,7 +289,9 @@ export default function EstimatesPage() {
     })
   }, [rows, period, companyId])
 
-  const stats = useMemo(() => calcStats(inPeriod.filter(r => (r.doc_type ?? 'estimate') === 'estimate')), [inPeriod])
+  // 실적 카드는 견적서만, 수정 견적은 가장 높은 차수 하나만 센다 — 아래 목록(발주서·영수증·수정본 모두)과
+  // 숫자가 다른 이유는 목록 위 글에 적어 둔다
+  const stats = useMemo(() => calcStats(latestRevisions(inPeriod.filter(r => (r.doc_type ?? 'estimate') === 'estimate'))), [inPeriod])
 
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase()
@@ -449,6 +451,7 @@ export default function EstimatesPage() {
           </div>
           <span className="ml-auto text-sm text-gray-500">
             {filtered.length}건 · 합계 <b className="text-gray-900 dark:text-white">{fmtComma(sumTotal)}</b>원
+            <span className="ml-1 text-xs text-gray-400">(발주서·영수증·수정본 포함 — 위 실적은 견적서 최신 차수만)</span>
           </span>
         </div>
 

@@ -92,9 +92,11 @@ export function isSplitPricing(
 export function effectiveUnitPrice(
   it: Pick<EstimateItem, 'unit_price' | 'material_price' | 'labor_price'>
 ): number {
-  const m = Number(it.material_price) || 0
-  const l = Number(it.labor_price) || 0
-  return m + l > 0 ? m + l : (Number(it.unit_price) || 0)
+  // 단가는 원 단위 정수다(DB bigint). 0.5 를 그대로 보내면 저장이 실패하고 이유도 안 보였다 —
+  // 반올림하면 normalizeItems 가 '단가를 1원으로 바로잡았습니다' 로 알려 준다
+  const m = Math.round(Number(it.material_price) || 0)
+  const l = Math.round(Number(it.labor_price) || 0)
+  return m + l > 0 ? m + l : Math.round(Number(it.unit_price) || 0)
 }
 
 /**
@@ -471,6 +473,20 @@ export interface EstimateStats {
   openCount: number      // 아직 결론 안 난 건 (작성중 + 발송함)
   /** 수주율 = 수주 / (수주 + 실주). 결론난 건이 없으면 null */
   winRate: number | null
+}
+
+/**
+ * 수정 견적은 원본과 같은 공사다 — 실적에는 묶음(root)마다 가장 높은 차수 하나만 센다.
+ * 다 세면 03·03-r2·03-r3 이 이번 달 견적에 세 번 들어가 금액이 세 배로 부풀었다(2026-10-30 점검).
+ */
+export function latestRevisions<T extends Pick<Estimate, 'id'> & { root_estimate_id?: string | null; revision?: number | null }>(rows: T[]): T[] {
+  const best = new Map<string, T>()
+  for (const r of rows) {
+    const key = r.root_estimate_id ?? r.id
+    const cur = best.get(key)
+    if (!cur || (r.revision ?? 1) > (cur.revision ?? 1)) best.set(key, r)
+  }
+  return rows.filter(r => best.get(r.root_estimate_id ?? r.id) === r)
 }
 
 export function calcStats(rows: Pick<Estimate, 'status' | 'total'>[]): EstimateStats {
