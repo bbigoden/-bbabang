@@ -140,7 +140,9 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
                       {n(r.props)}<span className="text-[11px] font-normal text-gray-400">({n(r.avail)})</span>
                       <span className="inline-block w-[2.6em] pl-[0.4em] text-left text-[11px] font-medium text-emerald-500">{r.propsToday ? `+${r.propsToday}` : ''}</span>
                     </td>
-                    <td className="py-1 pr-3 text-right">{n(r.bank)}</td>
+                    <td className="py-1 pr-3 text-right whitespace-nowrap">
+                      {n(r.bank)}<span className="ml-1 inline-block w-6 text-left text-[11px] font-medium text-emerald-500">{r.bankToday ? `+${r.bankToday}` : ''}</span>
+                    </td>
                     <td className="py-1 text-right whitespace-nowrap">
                       {n(r.daangn)}<span className="ml-1 inline-block w-6 text-left text-[11px] font-medium text-emerald-500">{r.daangnToday > 0 ? `+${r.daangnToday}` : ''}</span>
                     </td>

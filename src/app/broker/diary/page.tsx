@@ -1417,6 +1417,40 @@ export default function BrokerDiaryPage() {
 
   const linkedIds = new Set(diaryCustomers.map(c => c.id))
 
+  // 그날 고객목록에 등록했는데 일지에는 없는 이 사람 담당 고객 — 사무실 화면은 '오늘 고객 1명 등록' 인데
+  // 일지는 0명이라 같은 날 같은 사람 숫자가 달랐다(10-30 점검 4명). 일지는 고른 고객만 담는 칸이라
+  // 자동으로 넣지 않고, 있다는 것을 알려 한 번에 넣을 수 있게 한다.
+  const [dayUnlinked, setDayUnlinked] = useState<Customer[]>([])
+  const linkedKey = diaryCustomers.map(c => c.id).join(',')
+  useEffect(() => {
+    if (!pickerOfficeId || !viewingName || viewingExEmployee) { setDayUnlinked([]); return }
+    let alive = true
+    void (async () => {
+      const { data } = await supabase.from('broker_customers').select(CUST_PICK_COLS)
+        .eq('office_broker_id', pickerOfficeId).ilike('assignee', `%${viewingName}%`)
+        .gte('created_at', new Date(`${diaryDate}T00:00:00+09:00`).toISOString())
+        .lt('created_at', new Date(`${addDays(diaryDate, 1)}T00:00:00+09:00`).toISOString())
+        .limit(100)
+      if (!alive) return
+      const linked = new Set(linkedKey ? linkedKey.split(',') : [])
+      setDayUnlinked(((data ?? []) as Customer[]).filter(c => !linked.has(c.id)
+        && (c.assignee ?? '').split(',').map(x => x.trim()).includes(viewingName)))
+    })()
+    return () => { alive = false }
+  }, [pickerOfficeId, viewingName, viewingExEmployee, diaryDate, linkedKey])
+  const addDayUnlinked = async () => {
+    if (!broker || dayUnlinked.length === 0) return
+    const targetBrokerId = viewingBrokerId ?? broker.id
+    const orders = diaryCustomers.map(d => d.sort_order)
+    let next = orders.length > 0 ? Math.max(...orders) + 1 : 0
+    const inserts = dayUnlinked.map(c => ({ broker_id: targetBrokerId, diary_date: diaryDate, customer_id: c.id, sort_order: next++ }))
+    const { error } = await supabase.from('broker_diary_customers').insert(inserts)
+    if (error) { toast.error(`일지에 넣지 못했습니다: ${error.message}`); return }
+    const { data: fresh } = await supabase.rpc('diary_customers_for_date', { p_broker_id: targetBrokerId, p_date: diaryDate })
+    setDiaryCustomers((fresh ?? []).map(toDiaryRow))
+    toast.success(`고객 ${inserts.length}명을 일지에 넣었어요`)
+  }
+
   if (loading) return <div className="bg-gray-50 dark:bg-gray-950 flex items-center justify-center"><div className="text-gray-500 text-sm">불러오는 중...</div></div>
   if (accessDenied) return (
     <div className="bg-gray-50 dark:bg-gray-950">
@@ -1495,6 +1529,13 @@ export default function BrokerDiaryPage() {
             <span className="text-sm font-bold text-gray-800 dark:text-gray-100">1. 고객정보({viewingName})</span>
             <span className="text-xs text-gray-500">{diaryCustomers.length}명</span>
           </div>
+          {effectiveCanEdit && dayUnlinked.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-500/10 dark:text-amber-300">
+              <span>이 날 고객목록에 등록한 {viewingName} 담당 고객 {dayUnlinked.length}명이 아직 일지에 없어요</span>
+              <button type="button" onClick={() => void addDayUnlinked()}
+                className="rounded-md bg-amber-600 px-2 py-1 font-semibold text-white hover:bg-amber-700">일지에 넣기</button>
+            </div>
+          )}
           {diaryLoading ? (
             <div className="py-8 text-center text-sm text-gray-500">불러오는 중...</div>
           ) : (

@@ -46,7 +46,7 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
     Promise.all(members.map(async m => [m.id, ...await Promise.all([매물(m.id, false), 매물(m.id, true)])] as const)),
     매물(null, false),
     매물(null, true),
-    supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
+    supabase.from('ad_listings').select('manager, bank_period').eq('broker_id', officeId)
       // 광고관리 [등록매물] 탭·뱅크 화면과 같은 잣대. 상태(서비스중 등)로 세면 '수정실패' 처럼
       // 등록매물에 있는 매물이 빠져 광고관리와 한 건 어긋났다(2026-10-29)
       .eq('bank_tab', '등록매물'),
@@ -76,10 +76,15 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
     const r = rows.find(x => x.ids?.includes(p.broker_id))
     if (r) r.propsToday = (r.propsToday ?? 0) + 1
   }
-  for (const l of (ls.data ?? []) as { manager: string | null }[]) {
-    sum.bank++
-    const r = l.manager && byName[l.manager]
-    if (r) r.bank++
+  // 뱅크 오늘 등록 — 등록기간('26.10.30 ~26.11.29')이 오늘 시작한 것(재등록 포함). 사무실 화면 영업부 말풍선과 같은 잣대(2026-10-30)
+  const 오늘뱅크 = todayYmd.slice(2).replace(/-/g, '.')
+  for (const l of (ls.data ?? []) as { manager: string | null; bank_period: string | null }[]) {
+    const r = l.manager ? byName[l.manager] : undefined
+    for (const t of [sum, r]) {
+      if (!t) continue
+      t.bank++
+      if (l.bank_period?.startsWith(오늘뱅크)) t.bankToday = (t.bankToday ?? 0) + 1
+    }
   }
   for (const p of (ps.data ?? []) as unknown as { posted_at: string | null; ad_listings: { manager: string | null } }[]) {
     const r = p.ad_listings.manager ? byName[p.ad_listings.manager] : undefined
@@ -92,5 +97,12 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
   // 줄 순서 — 드래곤 맨 위, 나머지는 매물장 많은 순(2026-10-29 사장님)
   const shown = rows.filter(r => r.props + r.bank + r.daangn > 0)
     .sort((a, b) => Number(b.name === '드래곤') - Number(a.name === '드래곤') || b.props - a.props)
+  // 뱅크 '담당자' 가 비었거나 직원 명단에 없는 이름이면 전체에만 세지고 어느 줄에도 안 들어가,
+  // 줄을 더해도 전체와 안 맞았다(당근 238 vs 243, 10-30 점검). 그 몫을 한 줄로 보여 준다.
+  const rest = empty('담당자 없음·명단 밖')
+  rest.bank = sum.bank - rows.reduce((s, r) => s + r.bank, 0)
+  rest.daangn = sum.daangn - rows.reduce((s, r) => s + r.daangn, 0)
+  rest.daangnToday = sum.daangnToday - rows.reduce((s, r) => s + r.daangnToday, 0)
+  if (rest.bank > 0 || rest.daangn > 0) shown.push(rest)
   return { rows: shown, total: sum, at: hmKST(new Date().toISOString()) }
 }

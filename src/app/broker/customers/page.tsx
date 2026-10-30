@@ -24,7 +24,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import { todayKST, ymdKST } from '@/lib/date-kst'
-import { formatPhoneKR } from '@/lib/validation'
+import { formatPhoneKR, looksLikePhone } from '@/lib/validation'
 import { checkYmdField } from '@/lib/property-field-check'
 
 // ── 컬럼 정의 ──────────────────────────────────────────
@@ -357,6 +357,8 @@ export default function BrokerCustomersPage() {
   const customersRef = useRef(customers)
   customersRef.current = customers
   const [loading, setLoading] = useState(true)
+  // 첫 200명만 먼저 그리고 나머지는 뒤에서 받는다 — 다 받기 전에 '전체 200명' 으로 보여 폰 3G 에서 틀린 숫자로 읽혔다(10-30 점검)
+  const [allLoaded, setAllLoaded] = useState(false)
   const [search, setSearch] = useState('')
   const [monthFilter, setMonthFilter] = useState('전체')
   const [assigneeFilter, setAssigneeFilter] = useState('전체')
@@ -462,8 +464,9 @@ export default function BrokerCustomersPage() {
       void (async () => {
         const rest = await fetchAllPaged((from, to) => custQuery(FIRST_CHUNK + from, FIRST_CHUNK + to))
         if (rest?.length) setCustomers(prev => [...prev, ...visibleRows(rest)])
+        setAllLoaded(true)
       })()
-    }
+    } else setAllLoaded(true)
   }
 
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
@@ -475,6 +478,11 @@ export default function BrokerCustomersPage() {
     }
     // 연락처는 01073320252 · 010 7332 0252 로 넣어도 010-7332-0252 로 저장
     if (field === 'contact' && typeof value === 'string') value = formatPhoneKR(value)
+    // 글 칸 앞뒤 공백은 지운다 — 공백만 넣은 요청사항이 안내문 없는 빈칸으로 저장됐다(10-30 점검)
+    if (typeof value === 'string' && (field === 'request' || field === 'contact' || field === 'client_name')) value = value.trim()
+    if (field === 'contact' && typeof value === 'string' && value && !looksLikePhone(value)) {
+      toast.info('연락처에 전화번호가 없어 보여요 — 적은 그대로 저장했어요')
+    }
     // 되돌릴 값·중복 검사 기준은 updater 밖에서 읽는다 (updater 는 언제 돌지 모른다)
     const prevValue = (customersRef.current.find(c => c.id === id) as any)?.[field]
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c))
@@ -924,7 +932,9 @@ export default function BrokerCustomersPage() {
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">고객목록</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">전체 {customers.length}명 · 검색 {filtered.length}명</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+              {allLoaded ? `전체 ${customers.length}명 · 검색 ${filtered.length}명` : `고객 불러오는 중… (지금 ${customers.length}명까지)`}
+            </p>
           </div>
           {/* 표 맨 아래까지 내려가야 보이던 '고객 등록'을 제목 줄에도 둔다 (매물목록의 '+ 매물 등록' 과 같은 자리) */}
           {canEdit && (

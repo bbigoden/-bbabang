@@ -565,7 +565,8 @@ ${post.title}` : ''}`}
     <button
       onClick={onPublish}
       title={post?.error ? `지난번 실패: ${post.error}` : `이 매물만 ${label}에 올립니다`}
-      className="underline underline-offset-2 text-gray-500 hover:text-green-600 disabled:opacity-50 dark:text-gray-400"
+      // 폰에서 36×16px 이라 손가락으로 누르기 어려웠다 — 누르는 자리를 넓힌다
+      className="-mx-1 -my-1.5 inline-block px-1 py-1.5 underline underline-offset-2 text-gray-500 hover:text-green-600 disabled:opacity-50 dark:text-gray-400"
     >올리기</button>
   )
 }
@@ -1829,7 +1830,8 @@ export default function AdsPage() {
         )}
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg border border-gray-200 dark:border-gray-800">
+          {/* 탭 이름은 꺾지 않고, 폰에서 넘치면 탭 줄만 옆으로 민다 */}
+          <div className="flex max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
             {([
               // 왼쪽에서 오른쪽으로 **일이 흘러가는 순서**다 —
               // 가진 매물 → 지금 광고 중 → 뱅크는 끝났는데 광고가 남음 → 곧 끝남 → 못 내림.
@@ -1855,7 +1857,7 @@ export default function AdsPage() {
                 // 안 풀면 탭을 눌러도 목록이 그대로라 고장 난 것처럼 보인다.
                 onClick={() => { setTab(key as typeof tab); if (좁혀보기 === '계약') set좁혀보기('') }}
                 title={hint}
-                className={`px-3 py-1.5 text-sm first:rounded-l-lg last:rounded-r-lg ${
+                className={`whitespace-nowrap px-3 py-1.5 text-sm first:rounded-l-lg last:rounded-r-lg ${
                   tab === key
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
@@ -1997,7 +1999,8 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium" title="네이버부동산 매물번호 — 고객이 아는 번호입니다. 눌러서 뱅크 원본으로 갑니다">매물번호</th>
                   <th className="px-3 py-2 font-medium" title="뱅크 중개사메모에 적힌 담당자입니다">담당자</th>
                   <th className="px-3 py-2 font-medium">종류</th>
-                  <th className="px-3 py-2 font-medium">소재지</th>
+                  {/* 폰에서 표가 좁아지면 소재지가 한 글자 폭으로 세로로 꺾였다(10-30 점검) — 칸 폭을 지킨다 */}
+                  <th className="min-w-[11rem] px-3 py-2 font-medium">소재지</th>
                   <th className="px-3 py-2 font-medium">면적</th>
                   <th className="px-3 py-2 font-medium">가격</th>
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
@@ -2099,14 +2102,14 @@ export default function AdsPage() {
                           // 다만 **내리기는 되돌릴 수 없다.** 아이콘만 두면 잘못
                           // 누르기 쉬우므로 색을 갈라 놓고 사이를 띄운다.
                           // (누른 뒤 확인창이 한 번 더 막는다.)
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-4 sm:gap-2">
                             {올릴곳(l).length > 0 && (
                               <button
                                 onClick={() => publishAll(l)}
                                 disabled={올릴곳(l).every(c => 줄선칸.has(`${l.bank_no}:${c}`))}
                                 aria-label="올리기"
                                 title={`${올릴곳(l).map(c => CHANNEL_LABEL[c]).join('·')}에 올립니다`}
-                                className="rounded border border-gray-200 p-1 text-gray-500 hover:border-green-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-green-950"
+                                className="rounded border border-gray-200 p-2 sm:p-1 text-gray-500 hover:border-green-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-green-950"
                               ><ArrowUp className="h-3.5 w-3.5" /></button>
                             )}
                             {(bankLive || isLive(l)) && (
@@ -2114,7 +2117,7 @@ export default function AdsPage() {
                                 onClick={() => endAds(l)}
                                 aria-label="내리기"
                                 title="뱅크·카페·당근에서 한 번에 내립니다"
-                                className="rounded border border-gray-200 p-1 text-gray-500 hover:border-red-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950"
+                                className="rounded border border-gray-200 p-2 sm:p-1 text-gray-500 hover:border-red-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950"
                               ><ArrowDown className="h-3.5 w-3.5" /></button>
                             )}
                             {!올릴곳(l).length && !bankLive && !isLive(l) && (

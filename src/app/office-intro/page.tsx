@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Header } from '@/components/layout/header'
 import { SUPPORT_EMAIL } from '@/lib/support'
 import {
-  Building2, Users, BookOpen, Calculator, CalendarDays, MessageCircle,
+  Building2, Users, BookOpen, Calculator, Megaphone, FileText, MessageCircle,
   MapPin, ShieldCheck, Smartphone, CheckCircle2, ArrowRight, Mail, Search,
 } from 'lucide-react'
 
@@ -12,7 +12,7 @@ export const revalidate = 86400
 export const metadata = {
   title: '중개사무소를 위한 부소장 — 매물장부터 정산까지 하나로',
   description:
-    '엑셀·수기·단톡방에 흩어진 사무소 업무를 하나로. 매물장, 고객장, 업무일지, 정산, 일정, 사내 메신저까지 — 실제 중개사무소가 만들고 매일 쓰는 업무 도구.',
+    '엑셀·수기·단톡방에 흩어진 사무소 업무를 하나로. 매물장, 고객장, 업무일지, 정산, 광고관리, 견적서까지 — 실제 중개사무소가 만들고 매일 쓰는 업무 도구.',
 }
 
 const FEATURES = [
@@ -36,15 +36,16 @@ const FEATURES = [
     title: '정산',
     desc: '계약별 수수료와 담당자 분배율을 입력하면 월 손익·직원별 실수령까지 자동 계산됩니다.',
   },
+  // 일정 관리·사내 메신저는 앱에서 아직 '준비중'이라 뺐다 — 소개만 보고 들어온 대표가 메뉴에서 못 찾았다(10-30 점검)
   {
-    icon: CalendarDays,
-    title: '일정 관리',
-    desc: '사무소 공유 캘린더에 임장·계약 일정을 잡고, 고객·매물을 일정에 바로 연결합니다.',
+    icon: Megaphone,
+    title: '광고관리',
+    desc: '부동산뱅크에 올린 매물을 한 화면에서 보고, 카페·당근 광고를 같이 올리고 내립니다. 계약완료인데 광고가 남은 매물은 빨갛게 알려 줘요.',
   },
   {
-    icon: MessageCircle,
-    title: '사내 메신저',
-    desc: '사무소 전체방과 1:1 대화, 사진 첨부까지. 업무 대화를 개인 카톡과 분리하세요.',
+    icon: FileText,
+    title: '견적서',
+    desc: '품목·프리셋으로 견적서를 만들어 PDF·메일로 보냅니다. 수정 견적과 수주·실주까지 한곳에서 관리해요.',
   },
 ]
 
@@ -52,7 +53,7 @@ const TRUST = [
   {
     icon: ShieldCheck,
     title: '사무소 단위 데이터 격리',
-    desc: '매물·고객·정산·일지 모든 데이터는 사무소 단위로 격리되어 다른 사무소에서는 볼 수 없습니다. 직원별 열람 권한도 대표가 직접 정합니다.',
+    desc: '매물·고객·정산·일지 모든 데이터는 사무소 단위로 격리되어 다른 사무소에서는 볼 수 없습니다. 직원은 자기 매물만 고칠 수 있고, 고객은 자기 담당 고객만 봅니다.',
   },
   {
     // 개설은 검증 통과를 기다리지 않는다(broker/register 는 바로 열고 auto-verify 는 배지만 붙인다).
@@ -130,7 +131,7 @@ export default function OfficeIntroPage() {
         <p className="mt-6 text-center text-sm leading-relaxed text-gray-500">
           {/* blue-600 은 이 테마에서 네이비(#14274e)라 다크 배경에선 1.4:1 로 안 보인다 — 아이콘과 같은 dark:blue-400 */}
           <Search className="mr-1.5 inline h-4 w-4 align-[-3px] text-blue-500 dark:text-blue-400" />
-          고객이 올린 매물 요청에 먼저 제안하는 기능도 함께 들어 있어요 (현재 무료){' '}
+          고객이 올린 매물 요청에 먼저 제안하는 기능은 준비 중이에요{' '}
           <Link href="/explore/requests" className="whitespace-nowrap font-medium text-blue-600 dark:text-blue-400 underline-offset-4 hover:underline">
             요청 둘러보기 →
           </Link>

@@ -120,7 +120,8 @@ export default function EstimatesPage() {
         .select('id')
         .single()
       if (error) throw error
-      router.push(`/broker/estimates/${data.id}`)
+      // new=1 — 한 번도 저장하지 않고 떠나면 상세 화면이 이 빈 견적서를 지운다
+      router.push(`/broker/estimates/${data.id}?new=1`)
     } catch {
       toast.error('견적서를 만들지 못했습니다')
       setCreating(false)
