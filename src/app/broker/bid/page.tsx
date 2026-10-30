@@ -164,7 +164,7 @@ export default function BidPage() {
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
         supabase.from('bid_results')
           .select(RESULT_COLS)
-          .order('openg_at', { ascending: false, nullsFirst: false }).limit(300),
+          .order('openg_at', { ascending: false, nullsFirst: false }).limit(600),
         // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개라 수천 건도 가볍다
         fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string }>((from, to) => supabase.from('bid_results')
           .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng')
@@ -262,11 +262,42 @@ export default function BidPage() {
     return () => clearTimeout(t)
   }, [q, tab, supabase])
 
+  // 낙찰결과의 참가가능지역·주력분야는 공고 쪽에 있다 — 화면에 올린 낙찰의 공고만 따로 받아 붙인다.
+  // 정정공고는 차수마다 줄이 있어 번호로 묶고, 값이 있는 가장 늦은 차수 것을 쓴다
+  const [resultMeta, setResultMeta] = useState<Map<string, { rgns: string[] | null; flds: string[] | null }>>(new Map())
+  useEffect(() => {
+    const nos = [...new Set([...results, ...(searched ?? [])].map(r => r.bid_ntce_no))]
+    if (!nos.length) return
+    let alive = true
+    void (async () => {
+      const rows: { bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null }[] = []
+      for (let i = 0; i < nos.length; i += 150) {
+        const { data } = await supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds')
+          .in('bid_ntce_no', nos.slice(i, i + 150))
+        rows.push(...(data ?? []))
+      }
+      if (!alive) return
+      rows.sort((a, b) => b.bid_ntce_ord.localeCompare(a.bid_ntce_ord))
+      const m = new Map<string, { rgns: string[] | null; flds: string[] | null }>()
+      for (const r of rows) {
+        const cur = m.get(r.bid_ntce_no) ?? { rgns: null, flds: null }
+        m.set(r.bid_ntce_no, { rgns: cur.rgns ?? r.prtcpt_rgns, flds: cur.flds ?? r.mfrc_flds })
+      }
+      setResultMeta(m)
+    })()
+    return () => { alive = false }
+  }, [supabase, results, searched])
+
+  // 공고 탭과 같은 칩을 쓴다. 지역·주력분야를 모르는 낙찰(공고를 아직 못 받았거나 오래된 것)은 남긴다
   const shownResults = useMemo(() => {
-    if (searched) return searched
     const words = q.trim().split(/\s+/).filter(Boolean)
-    return results.filter(r => words.every(w => `${r.name} ${r.dminstt_nm ?? ''} ${r.winner_nm ?? ''} ${r.bid_ntce_no}-${r.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
-  }, [results, searched, q])
+    const base = searched ?? results.filter(r => words.every(w => `${r.name} ${r.dminstt_nm ?? ''} ${r.winner_nm ?? ''} ${r.bid_ntce_no}-${r.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
+    return base.filter(r => {
+      const m = resultMeta.get(r.bid_ntce_no)
+      return (!enterableOnly || canEnter(m?.rgns, ourRegion) !== false)
+        && (!fieldsOnly || fitsFields(m?.flds, ourFields) !== false)
+    })
+  }, [results, searched, q, resultMeta, enterableOnly, ourRegion, fieldsOnly, ourFields])
 
   if (authLoading) return null
   if (!enabled) {
@@ -357,8 +388,7 @@ export default function BidPage() {
         </div>
 
         <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-          {tab === 'notice' && <>
-            <Chip on={openOnly} onClick={() => setOpenOnly(v => !v)}>마감 전만</Chip>
+          {tab === 'notice' && <Chip on={openOnly} onClick={() => setOpenOnly(v => !v)}>마감 전만</Chip>}
             {ourRegion && (
               <Chip on={enterableOnly} onClick={() => setEnterableOnly(v => !v)}
                 title={`참가가능지역이 전국이거나 ${ourRegion}을 품는 공고만`}>
@@ -371,6 +401,7 @@ export default function BidPage() {
                 주력분야만
               </Chip>
             )}
+          {tab === 'notice' && <>
             <span className="mx-1 hidden h-4 w-px bg-gray-200 sm:block dark:bg-gray-800" />
             {/* 폰에선 시도 17개가 아홉 줄이 돼 첫 화면에 공고가 하나도 안 보였다 — 한 줄로 옆으로 민다 */}
             <div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 pb-1 sm:contents">
@@ -478,7 +509,8 @@ export default function BidPage() {
           )
         ) : shownResults.length === 0 ? (
           <p className="py-10 text-center text-sm text-gray-400">
-            {q.trim() ? '검색에 맞는 낙찰결과가 없습니다 — 개찰 전이거나 아직 받지 않은 공고일 수 있습니다' : '아직 받은 낙찰결과가 없습니다'}
+            {q.trim() ? '검색에 맞는 낙찰결과가 없습니다 — 개찰 전이거나 아직 받지 않은 공고일 수 있습니다'
+              : results.length ? '조건에 맞는 낙찰결과가 없습니다' : '아직 받은 낙찰결과가 없습니다'}
           </p>
         ) : (
           <>
