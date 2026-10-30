@@ -153,13 +153,13 @@ export function ItemsEditor({ items, onChange, catalog = [] }: Props) {
           showCost && showSplit ? 'min-w-[94rem]'
             : showSplit ? 'min-w-[86rem]'
             : showCost ? 'min-w-[79rem]'
-            : 'min-w-[69rem]'
+            : 'min-w-[72rem]'
         } border-collapse text-sm`}>
           <thead className="bg-gray-50 text-xs text-gray-500 dark:bg-gray-950/50">
             <tr>
               <th className="w-8 px-1 py-2"></th>
               <th className="w-40 px-2 py-2 text-left font-semibold">공종</th>
-              <th className="min-w-[13rem] px-2 py-2 text-left font-semibold">품명</th>
+              <th className="min-w-[16rem] px-2 py-2 text-left font-semibold">품명</th>
               <th className="w-32 px-2 py-2 text-left font-semibold">규격</th>
               <th className="w-16 px-2 py-2 text-left font-semibold">단위</th>
               <th className="w-20 px-2 py-2 text-right font-semibold">수량</th>

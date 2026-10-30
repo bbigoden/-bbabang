@@ -156,12 +156,12 @@ export function verificationState(b: { is_verified?: boolean | null; verificatio
 export function verificationCopy(s: VerificationState): { tone: 'ok' | 'wait' | 'warn'; title: string; body: string } {
   switch (s.kind) {
     case 'verified':
-      return { tone: 'ok', title: '인증된 사무소', body: '인증 배지가 붙어 있어요.' }
+      return { tone: 'ok', title: '인증된 사무소', body: '인증 뱃지가 붙어 있어요.' }
     case 'pending':
-      return { tone: 'wait', title: '승인 대기 중', body: '관리자 검토가 끝나면 인증 배지가 붙어요. 그동안에도 매물·고객·업무일지 등은 그대로 쓸 수 있어요.' }
+      return { tone: 'wait', title: '승인 대기 중', body: '관리자 검토가 끝나면 인증 뱃지가 붙어요. 그동안에도 매물·고객·업무일지 등은 그대로 쓸 수 있어요.' }
     case 'rejected':
       return { tone: 'warn', title: '인증 반려', body: `사유: ${s.reason}. 자세한 내용은 고객센터로 문의해 주세요.` }
     case 'revoked':
-      return { tone: 'warn', title: '재승인 대기 중', body: '관리자가 인증을 취소했어요. 다시 승인되면 인증 배지가 복구돼요. 자세한 사유는 고객센터로 문의해 주세요.' }
+      return { tone: 'warn', title: '재승인 대기 중', body: '관리자가 인증을 취소했어요. 다시 승인되면 인증 뱃지가 복구돼요. 자세한 사유는 고객센터로 문의해 주세요.' }
   }
 }

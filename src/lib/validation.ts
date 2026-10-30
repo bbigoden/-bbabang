@@ -29,8 +29,6 @@ export function validateArea(value: string | number | null | undefined, label = 
  *  숫자와 구분자(공백·하이픈·점·괄호)만으로 된 값만 건드린다. 메모가 섞인 값('010-1234-5678 부인')이나
  *  자릿수가 안 맞는 값은 입력한 그대로 둔다. */
 export function formatPhoneKR(value: string): string {
-  // 전각 숫자·하이픈(０１０－１２３４)은 반각으로 — 폰 키보드에 따라 섞여 들어온다(10-30 점검)
-  value = value.normalize('NFKC')
   const raw = value.trim()
   if (!raw || /[^\d\s\-.()]/.test(raw)) return value
   const d = raw.replace(/\D/g, '')
@@ -154,9 +152,4 @@ export function validateBudgetRange(min: string | number | null | undefined, max
     return { valid: false, error: '최소 예산이 최대 예산보다 큽니다' }
   }
   return { valid: true }
-}
-
-/** 연락처 칸에 전화번호로 볼 만한 숫자(9자리 이상)가 있는지 — 메모를 함께 적는 일이 있어 막지는 않고 알려만 준다 */
-export function looksLikePhone(value: string): boolean {
-  return value.normalize('NFKC').replace(/\D/g, '').length >= 9
 }

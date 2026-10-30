@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -17,7 +17,6 @@ import {
   type EstimateItem, type EstimateStatus, type VatMode,
 } from '@/lib/estimate'
 import { todayKST } from '@/lib/date-kst'
-import { useLeaveGuard, LEAVE_MESSAGE } from '@/lib/use-leave-guard'
 import { ItemsEditor } from './items-editor'
 import { SendMailDialog } from './send-dialog'
 import { InvoicesPanel } from './invoices-panel'
@@ -108,36 +107,13 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => { if (brokerId) load() }, [brokerId, load])
 
-  // 이탈 경고 (저장 안 한 변경이 있을 때) — 새로고침뿐 아니라 앱 안 뒤로 가기·링크도
-  useLeaveGuard(dirty)
-
-  // [새 견적] 으로 막 만든 견적서를 한 번도 저장하지 않고 떠나면 빈 견적서를 지운다.
-  // 누르기만 해도 DB 에 생겨, 나가도 목록·실적에 빈 견적이 남았다(2026-10-30 점검).
-  // 품목·첨부·공유·발송·청구서 중 하나라도 있으면 남긴다.
-  const isNew = useSearchParams().get('new') === '1'
-  const savedOnceRef = useRef(false)
-  const mountedRef = useRef(false)
+  // 이탈 경고 (저장 안 한 변경이 있을 때)
   useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-      if (!isNew || savedOnceRef.current) return
-      // 개발 모드(Strict)는 붙였다 떼었다 다시 붙인다 — 잠깐 기다려 정말 떠났을 때만 지운다
-      setTimeout(() => { if (!mountedRef.current) void dropIfEmpty() }, process.env.NODE_ENV === 'production' ? 0 : 1500)
-    }
-    async function dropIfEmpty() {
-      const head = { count: 'exact' as const, head: true }
-      const [e, ...rel] = await Promise.all([
-        supabase.from('estimates').select('client_name, project_name, site_address').eq('id', id).maybeSingle(),
-        ...['estimate_items', 'estimate_attachments', 'estimate_shares', 'estimate_sends', 'estimate_invoices']
-          .map(t => supabase.from(t).select('id', head).eq('estimate_id', id)),
-      ])
-      const row = e.data as { client_name: string | null; project_name: string | null; site_address: string | null } | null
-      if (!row || row.client_name?.trim() || row.project_name?.trim() || row.site_address?.trim()) return
-      if (rel.some(r => r.error || (r.count ?? 0) > 0)) return
-      await supabase.from('estimates').delete().eq('id', id)
-    }
-  }, [isNew, id, supabase])
+    if (!dirty) return
+    const h = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
+  }, [dirty])
 
   const totals = useMemo(
     () => calcTotals(items, {
@@ -318,7 +294,6 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       if (clientId && clientId !== est.client_id) setEst(prev => prev ? { ...prev, client_id: clientId } : prev)
 
       setDirty(false)
-      savedOnceRef.current = true
       if (!silent) toast.success('저장했습니다')
       return true
     } catch (e) {
@@ -660,7 +635,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
       <div className="px-4 py-6">
         {/* 상단 바 */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <button onClick={() => { if (!dirty || confirm(LEAVE_MESSAGE)) router.push('/broker/estimates') }} aria-label="목록으로" title="목록으로"
+          <button onClick={() => router.push('/broker/estimates')} aria-label="목록으로" title="목록으로"
             className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -736,8 +711,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
           </div>
         )}
 
-        {/* 미리보기를 옆에 두는 건 아주 넓은 화면(2xl)부터 — 1366px 에선 품목 표의 수량·단가 칸이 오른쪽에 숨었다(10-30 점검) */}
-        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_26rem]">
           {/* ── 왼쪽: 입력 ─────────────────────────────── */}
           <div className="space-y-4">
             {/* 발행 정보 */}
@@ -781,9 +755,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white">거래처</h2>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  저장하면 거래처 목록에도 쌓입니다 ·{' '}
-                  {/* 쌓인 거래처를 지우는 곳을 못 찾았다(10-30 점검) — 바로 가는 길을 둔다 */}
-                  <Link href="/broker/estimates/settings?tab=clients" className="text-blue-600 hover:underline">거래처 관리</Link>
+                  저장하면 거래처 목록에도 쌓입니다
                 </span>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -975,7 +947,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
           </div>
 
           {/* ── 오른쪽: 실제 PDF 미리보기 ────────────────── */}
-          <div className="2xl:sticky 2xl:top-20 2xl:self-start">
+          <div className="xl:sticky xl:top-20 xl:self-start">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-bold text-gray-900 dark:text-white">미리보기</h2>
               <button
@@ -993,10 +965,10 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
               <iframe
                 src={previewSrc}
                 title="견적서 미리보기"
-                className="h-[50vh] w-full rounded-xl border border-gray-200 bg-white 2xl:h-[40rem] dark:border-gray-800"
+                className="h-[50vh] w-full rounded-xl border border-gray-200 bg-white xl:h-[40rem] dark:border-gray-800"
               />
             ) : (
-              <div className="flex h-[50vh] w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm text-gray-500 2xl:h-[40rem] dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex h-[50vh] w-full items-center justify-center rounded-xl border border-gray-200 bg-white text-sm text-gray-500 xl:h-[40rem] dark:border-gray-800 dark:bg-gray-900">
                 미리보기를 그리는 중…
               </div>
             )}
@@ -1005,7 +977,7 @@ export default function EstimateDetailPage({ params }: { params: Promise<{ id: s
             </p>
             {/* 폰 브라우저는 PDF 를 이런 틀 안에 못 띄우는 경우가 많다(특히 아이폰).
                 빈칸만 보이면 막막하므로 빠져나갈 길을 적어 둔다. */}
-            <p className="mt-1 text-xs text-gray-500 2xl:hidden">
+            <p className="mt-1 text-xs text-gray-500 xl:hidden">
               위가 비어 보이면 폰이 PDF 를 여기 못 띄우는 것입니다.
               위쪽 <span className="font-semibold">PDF</span> 단추로 내려받아 보세요.
             </p>

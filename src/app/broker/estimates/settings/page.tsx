@@ -25,12 +25,7 @@ const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
 export default function EstimateSettingsPage() {
   const router = useRouter()
   const { broker, loading } = useAuth()
-  // ?tab=clients 처럼 들어오면 그 탭부터 (견적서 화면의 '거래처 관리' 링크)
-  const [tab, setTab] = useState<Tab>(() => {
-    if (typeof window === 'undefined') return 'companies'
-    const t = new URLSearchParams(window.location.search).get('tab')
-    return TABS.some(x => x.id === t) ? (t as Tab) : 'companies'
-  })
+  const [tab, setTab] = useState<Tab>('companies')
 
   if (loading) {
     return (
