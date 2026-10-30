@@ -13,10 +13,15 @@ import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
 import { BID_FIELDS, DOC_RGN, canEnter, dutyOk, fitsFields, latestOrd, shortRegion } from '@/lib/bid-notices'
-import { AnalysisPanel, type HistoryRow } from './analysis-panel'
+import dynamic from 'next/dynamic'
+import type { HistoryRow } from './analysis-panel'
 import { amountFor, judgeAmount, recommendY } from '@/lib/bid-analysis'
-import { ResultDetail, type ResultForDetail } from './result-detail'
-import { LabPanel } from './lab-panel'
+import type { ResultForDetail } from './result-detail'
+
+// 공고를 펼치거나 탭을 바꿀 때만 쓰는 패널은 그때 받는다 — 폰 3G 에서 첫 화면 프로그램을 줄인다(10-30 점검)
+const AnalysisPanel = dynamic(() => import('./analysis-panel').then(m => m.AnalysisPanel))
+const ResultDetail = dynamic(() => import('./result-detail').then(m => m.ResultDetail))
+const LabPanel = dynamic(() => import('./lab-panel').then(m => m.LabPanel))
 
 /**
  * 입찰 — 도장·습식·방수·석공사업 공사 입찰공고와 낙찰가 분석.
@@ -171,8 +176,10 @@ export default function BidPage() {
   // 우리 주력분야와 하나도 안 겹치는 공고(석공 전용 등) — 그 낙찰은 추천 계산에서 뺀다.
   // 석공 공사는 들어오는 업체·넣는 버릇이 달라 섞으면 추천이 흐려진다
   const [offFieldKeys, setOffFieldKeys] = useState<Set<string>>(new Set())
+  // 과거 낙찰(분석 재료)을 다 받은 뒤에 묻는다 — 첫 화면과 같이 받으면 3G 대역을 나눠 쓴다
   useEffect(() => {
     if (!ourFields.length) { setOffFieldKeys(new Set()); return }
+    if (!analysisReady) return
     let alive = true
     void fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string }>((from, to) => supabase.from('bid_notices')
       .select('bid_ntce_no, bid_ntce_ord')
@@ -182,7 +189,7 @@ export default function BidPage() {
       .then(rows => { if (alive) setOffFieldKeys(new Set(rows.map(r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`))) })
       .catch(() => { /* 못 받으면 거르지 않고 그대로 쓴다 */ })
     return () => { alive = false }
-  }, [supabase, ourFields])
+  }, [supabase, ourFields, analysisReady])
   const fieldHistory = useMemo(
     () => history.filter(h => !offFieldKeys.has(`${h.bid_ntce_no}/${h.bid_ntce_ord}`)),
     [history, offFieldKeys],
