@@ -1,13 +1,19 @@
 /**
- * 입찰 실험실 — 투찰 자리를 고르는 방법(전략) 여러 개를 이미 개찰한 공고에 넣어 보고 낙찰 수를 비교한다.
+ * 입찰 실험실 — 투찰 금액을 고르는 방법(버전) 여러 개를 이미 개찰한 공고에 넣어 보고 버전 1과 낙찰 건수를 비교한다.
  *
- * 공정하게 재려고 공고마다 **그 공고 개찰 전 낙찰만** 보고 자리를 정한다(답을 보고 맞히지 않게).
+ * 규칙(사장님, 2026-10-30): **모든 버전은 들어갈 수 있는 공고에 다 넣는다** — 넣는 공고를 줄여 '공고당 낙찰률'을
+ * 올리는 것은 따는 건수가 줄어 소용없다. 금액만 바꿔 버전 1보다 **더 많이 따야** 나은 것이고, 아니면 버전 1을 쓴다.
+ *
+ * 공정하게 재려고 공고마다 **그 공고 개찰 전 낙찰만** 보고 금액을 정한다(답을 보고 맞히지 않게).
  * 다른 업체는 실제 넣은 그대로라고 본다. 판정은 y 로 한다(bid-analysis.ts 맨 위 설명):
  *   y < 사정률            → 하한 미달
  *   y < 1순위의 y(win_y)   → 낙찰 (같으면 진 것으로)
  *   그 밖                  → 하한은 넘었지만 더 낮은 업체에 밀림
  */
-import { bestPoint, recommendY, scopesOf, similarPool, toNorm, winCurve, MIN_POOL, type PoolRow } from './bid-analysis'
+import {
+  bestPoint, recommendY, scopesOf, similarPool, toNorm, winCurve,
+  ENOUGH, GRID_MAX, GRID_MIN, GRID_STEP, MIN_POOL, type CurvePoint, type PoolRow,
+} from './bid-analysis'
 
 export type LabRow = PoolRow & { openg_at: string; prtcpt_cnum: number | null }
 export type Verdict = 'win' | 'pass' | 'below'
@@ -17,52 +23,8 @@ export function verdictOf(y: number, row: { sajeong: number; win_y: number | nul
   return row.win_y == null || y < Number(row.win_y) ? 'win' : 'pass'
 }
 
-type Pick = (prior: LabRow[], t: LabRow) => number | null
-export type Strategy = { id: string; label: string; desc: string; pick: Pick }
-
-const DAY = 86_400_000
-
-/** 비교 범위 안에서 사정률이 q 비율만큼 y 이하로 나왔던 자리 — 통과 확률 q 를 노린다 */
-function passAt(q: number): Pick {
-  return (prior, t) => {
-    const { byScope, auto } = scopesOf(similarPool(prior, t.bssamt, t.rng), t.dminstt_cd, t.dminstt_nm)
-    const rs = byScope[auto].map(h => Number(h.sajeong)).sort((a, b) => a - b)
-    if (rs.length < MIN_POOL) return null
-    return rs[Math.min(rs.length - 1, Math.floor(q * rs.length))]
-  }
-}
-
-export const STRATEGIES: Strategy[] = [
-  {
-    id: 'current', label: '지금 추천',
-    desc: '공고 화면의 추천 투찰금액. 같은 발주기관 → 같은 시도 → 업종 전체 중 30건 넘는 가장 좁은 범위에서 가장 많이 딴 자리',
-    pick: (prior, t) => recommendY(prior, t)?.y ?? null,
-  },
-  {
-    id: 'all', label: '업종 전체로',
-    desc: '발주기관·시도로 좁히지 않고 비슷한 금액대 전체에서 가장 많이 딴 자리',
-    pick: (prior, t) => {
-      const norm = toNorm(similarPool(prior, t.bssamt, t.rng))
-      return norm.length < MIN_POOL ? null : bestPoint(winCurve(norm)).y
-    },
-  },
-  {
-    id: 'recent60', label: '최근 60일만',
-    desc: '지금 추천과 같되 개찰 전 60일 낙찰만 본다 — 업체들 버릇이 바뀌었으면 이쪽이 낫다',
-    pick: (prior, t) => {
-      const since = new Date(Date.parse(t.openg_at) - 60 * DAY).toISOString()
-      return recommendY(prior.filter(h => h.openg_at >= since), t)?.y ?? null
-    },
-  },
-  { id: 'pass50', label: '통과 50% 자리', desc: '과거 사정률의 가운데 값 — 절반은 하한을 넘는 자리', pick: passAt(0.5) },
-  { id: 'pass70', label: '통과 70% 자리', desc: '과거 사정률의 70% 지점 — 하한 미달을 줄이고 대신 순위에서 밀리기 쉽다', pick: passAt(0.7) },
-]
-
-export type Tally = { win: number; pass: number; below: number; none: number }
-export const emptyTally = (): Tally => ({ win: 0, pass: 0, below: 0, none: 0 })
-
 /** 개찰 순으로 정렬된 rows 에서 t 보다 먼저 개찰한 것들 (이분 탐색) */
-export function priorOf(sorted: LabRow[], opengAt: string): LabRow[] {
+export function priorOf<T extends { openg_at: string }>(sorted: T[], opengAt: string): T[] {
   let lo = 0, hi = sorted.length
   while (lo < hi) {
     const mid = (lo + hi) >> 1
@@ -84,103 +46,96 @@ export function fixedSweep(targets: { sajeong: number; win_y: number | null }[],
   return out
 }
 
-/**
- * 실험 2 — 경쟁이 적을 공고 고르기. 한 공고를 딸 확률은 대략 1 ÷ 참여 업체 수라,
- * 금액보다 '어느 공고에 넣느냐'가 더 크게 갈린다. 개찰 전 낙찰만으로 참여 업체 수를 미리 짐작한다:
- * 같은 발주기관 3건 이상 → 그 가운데 값, 아니면 같은 시도·비슷한 금액대 5건 이상, 아니면 비슷한 금액대 전체.
- */
-/** 경쟁 짐작에 쓰는 과거 공고 한 줄 — 공고 화면도 이것만 받아 짐작한다 */
-export type CrowdRow = { dminstt_cd: string | null; dminstt_nm: string | null; bssamt: number | null; prtcpt_cnum: number | null }
-/** 버전 5 — 이 이하로 짐작한 공고만 넣는다. 실험실에서 버전 1보다 확실히 나았다(2,885건 중 1.63배) */
-export const CROWD_CUT = 45
-
-export function predictN(prior: CrowdRow[], t: Omit<CrowdRow, 'prtcpt_cnum'>): { n: number; by: 'instt' | 'region' | 'all' } | null {
-  const near = prior.filter(h => h.prtcpt_cnum && h.prtcpt_cnum > 1 &&
-    (!t.bssamt || !h.bssamt || (h.bssamt >= t.bssamt / 3 && h.bssamt <= t.bssamt * 3)))
-  const med = (rows: CrowdRow[]) => {
-    const ns = rows.map(h => h.prtcpt_cnum!).sort((a, b) => a - b)
-    return ns[Math.floor(ns.length / 2)]
+/** winCurve 와 같되 과거 공고마다 무게(w)를 달리 준다 — 최근 것·경쟁 수가 비슷한 것을 더 믿을 때 */
+function weightedCurve(rows: LabRow[], w: (h: LabRow) => number): CurvePoint[] {
+  const steps = Math.round((GRID_MAX - GRID_MIN) / GRID_STEP)
+  const diff = new Array<number>(steps + 2).fill(0)
+  const idx = (v: number) => Math.ceil((v - GRID_MIN) / GRID_STEP - 1e-9)
+  for (const h of rows) {
+    const from = Math.max(0, idx(Number(h.sajeong)))
+    const to = h.win_y != null ? Math.min(steps, idx(Number(h.win_y)) - 1) : steps
+    if (from > steps || to < from) continue
+    const ww = w(h)
+    diff[from] += ww
+    diff[to + 1] -= ww
   }
-  const instt = t.dminstt_cd ? prior.filter(h => h.dminstt_cd === t.dminstt_cd && h.prtcpt_cnum && h.prtcpt_cnum > 1) : []
-  if (instt.length >= 3) return { n: med(instt), by: 'instt' }
-  const sido = (t.dminstt_nm ?? '').split(' ')[0]
-  const region = sido ? near.filter(h => (h.dminstt_nm ?? '').split(' ')[0] === sido) : []
-  if (region.length >= 5) return { n: med(region), by: 'region' }
-  return near.length >= 5 ? { n: med(near), by: 'all' } : null
+  const out: CurvePoint[] = []
+  let run = 0
+  for (let i = 0; i <= steps; i++) {
+    run += diff[i]
+    out.push({ y: Math.round((GRID_MIN + i * GRID_STEP) * 1e4) / 1e4, wins: run, rate: run })
+  }
+  return out
 }
 
-/** 예상 참여 업체 수 칸 */
-export const N_BUCKETS: { max: number; label: string }[] = [
-  { max: 30, label: '30곳 이하' },
-  { max: 60, label: '31~60곳' },
-  { max: 100, label: '61~100곳' },
-  { max: 200, label: '101~200곳' },
-  { max: Infinity, label: '200곳 넘음' },
-]
-export const bucketOf = (n: number) => N_BUCKETS.findIndex(b => n <= b.max)
-
-/** 참가가능지역 묶음 — 같은 지역제한끼리 경쟁 수가 비슷하다. 모르면 null */
-export const rgnKey = (rgns: string[] | null | undefined) => (rgns == null ? null : rgns.length ? [...rgns].sort().join('|') : '전국')
-
-/**
- * 짐작 2 — 지역제한까지 본다. 아산시만 들어올 수 있는 공고와 전국 공고는 같은 발주기관이라도 붐비는 정도가 다르다.
- * 같은 발주기관·같은 지역제한 3건 → 같은 지역제한·비슷한 금액대 5건 → 짐작 1(predictN).
- */
-export function predictNByRegion(prior: (LabRow & { rgns?: string[] | null })[], t: LabRow & { rgns?: string[] | null }) {
-  const key = rgnKey(t.rgns)
-  if (key) {
-    const same = prior.filter(h => h.prtcpt_cnum && h.prtcpt_cnum > 1 && rgnKey(h.rgns) === key)
-    const med = (rows: LabRow[]) => {
-      const ns = rows.map(h => h.prtcpt_cnum!).sort((a, b) => a - b)
-      return ns[Math.floor(ns.length / 2)]
-    }
-    const instt = t.dminstt_cd ? same.filter(h => h.dminstt_cd === t.dminstt_cd) : []
-    if (instt.length >= 3) return { n: med(instt), by: 'instt' as const }
-    const near = same.filter(h => !t.bssamt || !h.bssamt || (h.bssamt >= t.bssamt / 3 && h.bssamt <= t.bssamt * 3))
-    if (near.length >= 5) return { n: med(near), by: 'region' as const }
-  }
-  return predictN(prior, t)
+/** 지금 추천과 같은 비교 범위(같은 발주기관 → 같은 시도 → 업종 전체 중 enough 건 넘는 가장 좁은 것) */
+function autoRows(c: VersionCtx, enough = ENOUGH): LabRow[] {
+  const { byScope } = scopesOf(similarPool(c.prior, c.t.bssamt, c.t.rng), c.t.dminstt_cd, c.t.dminstt_nm)
+  return byScope.instt.length >= enough ? byScope.instt : byScope.region.length >= enough ? byScope.region : byScope.all
 }
 
-/**
- * 버전 — '어느 공고에 넣고(고르기) 얼마에 넣나(자리)'를 묶은 투찰 방식 하나.
- * 새 실험은 버전을 하나 더 붙이고, 버전 1(전부·지금 추천)과 같은 공고들로 비교한다.
- */
-export type VersionCtx = { prior: LabRow[]; t: LabRow; pred1: number | null; pred2: number | null; cur?: number | null }
-export type Version = { id: string; label: string; desc: string; bid: (c: VersionCtx) => boolean; pick: (c: VersionCtx) => number | null }
+const DAY = 86_400_000
 
-const CUT = 60
-// 여러 버전이 같은 '지금 추천'을 쓰므로 공고마다 한 번만 계산한다
-const current = (c: VersionCtx) => (c.cur !== undefined ? c.cur : (c.cur = recommendY(c.prior, c.t)?.y ?? null))
+export type VersionCtx = { prior: LabRow[]; t: LabRow }
+export type Version = { id: string; label: string; desc: string; pick: (c: VersionCtx) => number | null }
 
 export const VERSIONS: Version[] = [
-  { id: 'v1', label: '버전 1', desc: '모든 공고에, 지금 추천 금액으로', bid: () => true, pick: current },
-  { id: 'v2', label: '버전 2', desc: `참여 ${CUT}곳 이하로 짐작한 공고만, 지금 추천 금액으로`, bid: c => c.pred1 != null && c.pred1 <= CUT, pick: current },
   {
-    id: 'v3', label: '버전 3',
-    desc: `버전 2 + 금액은 참여 업체 수가 비슷했던(짐작의 절반~두 배) 과거 공고만 보고 고른다 — 경쟁이 적으면 업체 사이 간격이 넓다`,
-    bid: c => c.pred1 != null && c.pred1 <= CUT,
+    id: 'v1', label: '버전 1', desc: '지금 추천 — 같은 발주기관 → 같은 시도 → 업종 전체 중 30건 넘는 가장 좁은 범위에서 가장 많이 딴 자리',
+    pick: c => recommendY(c.prior, c.t)?.y ?? null,
+  },
+  {
+    id: 'v2', label: '버전 2', desc: '가장 많이 딴 자리를 고를 때 앞뒤 10칸(±0.1%) 평균으로 — 한두 칸 튄 자리를 덜 믿는다 (버전 1은 ±0.05%)',
+    pick: c => { const r = autoRows(c); return r.length < MIN_POOL ? null : bestPoint(winCurve(toNorm(r)), 10).y },
+  },
+  {
+    id: 'v3', label: '버전 3', desc: '비교 범위를 넓게 — 발주기관·시도 표본이 100건은 넘어야 그 범위를 쓴다 (버전 1은 30건)',
+    pick: c => { const r = autoRows(c, 100); return r.length < MIN_POOL ? null : bestPoint(winCurve(toNorm(r))).y },
+  },
+  {
+    id: 'v4', label: '버전 4', desc: '최근 낙찰을 더 믿는다 — 60일 지날 때마다 무게 절반',
     pick: c => {
-      if (c.pred1 == null) return current(c)
-      const p = c.pred1
-      const similar = c.prior.filter(h => h.prtcpt_cnum != null && h.prtcpt_cnum >= p / 2 && h.prtcpt_cnum <= p * 2)
-      return recommendY(similar, c.t)?.y ?? current(c)
+      const r = autoRows(c)
+      if (r.length < MIN_POOL) return null
+      const T = Date.parse(c.t.openg_at)
+      return bestPoint(weightedCurve(r, h => Math.pow(0.5, (T - Date.parse(h.openg_at)) / (60 * DAY)))).y
     },
   },
   {
-    id: 'v4', label: '버전 4',
-    desc: `짐작에 참가지역 제한까지 넣어(같은 지역제한끼리) 참여 ${CUT}곳 이하인 공고만, 지금 추천 금액으로`,
-    bid: c => c.pred2 != null && c.pred2 <= CUT, pick: current,
+    id: 'v5', label: '버전 5', desc: '업종 전체 하나로 — 발주기관·시도로 좁히지 않는다',
+    pick: c => { const r = similarPool(c.prior, c.t.bssamt, c.t.rng); return r.length < MIN_POOL ? null : bestPoint(winCurve(toNorm(r))).y },
   },
-  { id: 'v5', label: '버전 5', desc: `버전 2를 더 좁혀 참여 ${CROWD_CUT}곳 이하로 짐작한 공고만 — 공고 화면이 이 방식을 쓴다`, bid: c => c.pred1 != null && c.pred1 <= CROWD_CUT, pick: current },
-  { id: 'v6', label: '버전 6', desc: '참여 30곳 이하로 짐작한 공고만 — 낙찰률은 오르지만 넣을 공고가 확 준다', bid: c => c.pred1 != null && c.pred1 <= 30, pick: current },
+  {
+    id: 'v6', label: '버전 6', desc: '발주기관·시도·업종 전체를 섞는다 — 좁은 범위는 표본 수만큼만 믿고 나머지는 넓은 범위로 채운다',
+    pick: c => {
+      const pool = similarPool(c.prior, c.t.bssamt, c.t.rng)
+      if (pool.length < MIN_POOL) return null
+      const { byScope } = scopesOf(pool, c.t.dminstt_cd, c.t.dminstt_nm)
+      const ca = winCurve(toNorm(byScope.all)), cr = winCurve(toNorm(byScope.region)), ci = winCurve(toNorm(byScope.instt))
+      const k = ENOUGH, na = byScope.all.length, nr = byScope.region.length, ni = byScope.instt.length
+      return bestPoint(ca.map((p, i) => {
+        const rr = (cr[i].wins + k * (p.wins / na)) / (nr + k)
+        const ri = (ci[i].wins + k * rr) / (ni + k)
+        return { y: p.y, wins: ri, rate: ri }
+      })).y
+    },
+  },
+  {
+    id: 'v7', label: '버전 7', desc: '참여 업체 수가 비슷했던 공고를 더 믿는다 — 같은 발주기관의 평소 참여 수 기준(경쟁이 많으면 업체 사이 간격이 촘촘하다)',
+    pick: c => {
+      const r = autoRows(c)
+      if (r.length < MIN_POOL) return null
+      const ns = c.prior.filter(h => h.dminstt_cd === c.t.dminstt_cd && h.prtcpt_cnum && h.prtcpt_cnum > 1).map(h => h.prtcpt_cnum!).sort((a, b) => a - b)
+      if (ns.length < 3) return bestPoint(winCurve(toNorm(r))).y
+      const p = ns[Math.floor(ns.length / 2)]
+      return bestPoint(weightedCurve(r, h => (h.prtcpt_cnum ? Math.exp(-Math.abs(Math.log(h.prtcpt_cnum / p))) : 0.3))).y
+    },
+  },
 ]
 
-export type VersionTally = { bids: number; win: number; pass: number; below: number; none: number; expect: number }
-
 /**
- * 버전 1의 공고당 낙찰률(p)로 n번 넣었을 때 win 번 이상 딸 확률 — 작을수록 '운이 아니라 나아졌다'.
- * 0.05 밑이면 확실히 낫다고 본다.
+ * 버전 1과 같은 공고들에서 '이 버전만 딴 공고(gain)'와 '버전 1만 딴 공고(lost)'를 비교한다.
+ * 둘이 반반이라면(차이 없음) gain 번 이상 이길 확률 — 5% 밑이면 운이 아니라 나아졌다고 본다.
  */
 export function chanceAtLeast(win: number, n: number, p: number): number {
   if (win <= 0) return 1
@@ -195,3 +150,5 @@ export function chanceAtLeast(win: number, n: number, p: number): number {
   }
   return Math.max(0, 1 - below)
 }
+
+export type VersionResult = { win: number; pass: number; below: number; none: number; gain: number; lost: number }
