@@ -8,10 +8,10 @@
  * 아래: 광고현황 메모. 사람마다 한 칸(office_diary_ad_memos).
  *
  * 보이는 범위는 '보고 있는 일지의 주인' 기준이다:
- *   · 대표(김용유)·이사(권세현)의 일지 — 표 전체, 모두의 메모
- *   · 그 밖의 직원 일지 — 표는 '드래곤'·그 직원·사무실 전체 줄(다른 직원 줄만 뺀다), 메모는 대표·이사와 그 직원 것
- * 대표가 직원 일지를 열어도 그 직원 눈높이로 보인다. 맨 아래 칸은 그 일지 주인의 메모.
- * 고치기는 자기 메모, 대표는 모두의 메모(DB 도 같은 규칙). 메모는 DB 도 같은 규칙으로 막는다(can_see_ad_memo).
+ *   · 대표(김용유)·이사(권세현)의 일지 — 표 전체
+ *   · 그 밖의 직원 일지 — 표는 '드래곤'·그 직원·사무실 전체 줄(다른 직원 줄만 뺀다)
+ * 메모는 일지의 다른 칸과 같다 — 그 일지 주인의 메모 한 칸만, 본인과 대표만 본다(2026-10-30 사장님).
+ * 이사 메모도 직원에게 보이지 않는다. 고치기는 자기 메모, 대표는 모두의 메모. DB 도 같은 규칙(can_see_ad_memo).
  * 숫자를 찍어 두는 건 대표·이사가 열 때만 — 직원 계정은 권한에 따라 덜 셀 수 있어 전체 숫자를 덮으면 안 된다.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -38,7 +38,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
   const [boardAt, setBoardAt] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [memos, setMemos] = useState<Memo[]>([])
-  const [names, setNames] = useState<Record<string, string>>({})
   const [missing, setMissing] = useState(false)
   const isToday = date === todayKST()
   const isLead = (id: string | null) => !!id && (id === officeId || id === DIRECTOR_ID)
@@ -62,7 +61,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       const list = (ms.data as Memo[] | null) ?? []
       setMemos(list)
       const people = (ps.data as unknown as { id: string; is_approved: boolean | null; profiles: { name: string | null } | null }[] | null) ?? []
-      setNames(Object.fromEntries(people.map(p => [p.id, p.profiles?.name ?? '이름 없음'])))
       setLoaded(true)
       // 오늘이면 지금 숫자로 새로 센다. 찍어 두는 건 대표·이사가 열 때만
       if (isToday) {
@@ -81,8 +79,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
     return () => { gone = true }
   }, [officeId, date, myBrokerId, viewedBrokerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 아래 칸은 '이 일지 주인의 메모' — 이름표 없이 그 자리에. 남의 일지를 볼 때 주인 메모가
-  // 남의 글 목록에 섞여 그 사람 칸이 비어 보였다(2026-10-29 사장님)
+  // 메모는 '이 일지 주인의 메모' 한 칸만 — 일지의 다른 칸처럼 남의 메모는 보이지 않는다
   const mine = memos.find(m => m.author_id === viewedBrokerId)
   // 고치기: 자기 메모, 그리고 대표는 모두의 메모(2026-10-29 사장님). 대표가 고쳐도 글의 주인은 그대로다
   const canEdit = (author: string) => !readOnly && !!myBrokerId && (author === myBrokerId || myBrokerId === officeId)
@@ -101,12 +98,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
   const lines = !board ? []
     : fullView ? [...board.rows, board.total]
     : [...board.rows.filter(r => r.name === '드래곤' || (!!viewedBrokerId && r.ids?.includes(viewedBrokerId))), board.total]
-  // 메모 — 대표·이사 일지면 모두, 아니면 대표·이사 것. 일지 주인 메모는 아래 칸으로 따로
-  const others = memos
-    .filter(m => m.author_id !== viewedBrokerId && (fullView || isLead(m.author_id)))
-    .sort((a, b) => Number(isLead(b.author_id)) - Number(isLead(a.author_id)) || a.updated_at.localeCompare(b.updated_at))
-  // 누가 남긴 메모인지는 대표 계정에서만 — 그 밖엔 이름표 없이 글만(2026-10-29 사장님)
-  const showNames = !!myBrokerId && myBrokerId === officeId
 
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
@@ -166,12 +157,8 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
         <p className="px-4 py-3 text-xs text-gray-400">메모 칸은 준비 중이에요.</p>
       ) : (
         <div className="mt-2 border-t border-gray-100 dark:border-gray-800">
-          {others.map(m => (
-            <MemoBox key={`${date}|${m.author_id}`} label={showNames ? names[m.author_id] ?? '이름 없음' : null} memo={m}
-              editable={canEdit(m.author_id)} onSave={t => save(m.author_id, t)} />
-          ))}
           {viewedBrokerId && (
-            <MemoBox key={`${date}|${viewedBrokerId}`} label={null} memo={mine} always
+            <MemoBox key={`${date}|${viewedBrokerId}`} memo={mine}
               editable={canEdit(viewedBrokerId)} onSave={t => save(viewedBrokerId, t)} />
           )}
         </div>
@@ -181,11 +168,8 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
 }
 
 /** 메모 한 칸 — 고칠 수 있으면 입력란, 아니면 글만. 저장은 칸을 벗어날 때. */
-function MemoBox({ label, memo, always, editable, onSave }: {
-  /** 머리 이름표 — 없으면 글만 */
-  label: string | null; memo: Memo | undefined
-  /** 글이 없어도 칸을 둔다(일지 주인 칸) */
-  always?: boolean; editable: boolean
+function MemoBox({ memo, editable, onSave }: {
+  memo: Memo | undefined; editable: boolean
   onSave: (text: string) => Promise<boolean>
 }) {
   const [draft, setDraft] = useState(memo?.memo ?? '')
@@ -208,9 +192,8 @@ function MemoBox({ label, memo, always, editable, onSave }: {
     setFailed(!(await onSave(draft)))
     setSaving(false)
   }
-  const head = (label || saving || failed) && (
+  const head = (saving || failed) && (
     <p className="px-4 text-[11px] text-gray-400">
-      {label && <>{label}{memo ? ` · ${hmKST(memo.updated_at)}` : ''}</>}
       {saving && <span className="ml-2 text-gray-500">저장 중...</span>}
       {!saving && failed && (
         <button onClick={() => void save()} className="ml-2 font-medium text-red-500 hover:underline">저장 안 됨 · 다시 저장</button>
@@ -218,7 +201,6 @@ function MemoBox({ label, memo, always, editable, onSave }: {
     </p>
   )
   if (!editable) {
-    if (!memo && !always) return null
     return (
       <div className="py-2 border-b border-gray-50 dark:border-gray-800/60 last:border-b-0">
         {head}
