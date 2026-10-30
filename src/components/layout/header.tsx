@@ -44,10 +44,6 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
     && (pathname === '/broker/register' || !!pathname?.startsWith('/broker/register/'))
   if (isBrokerSidebarArea && !preOfficeRegister) return null
 
-  // 고객(로그인 user)은 데스크탑에 사이드바가 있으므로 데스크탑에선 헤더 숨김.
-  // 모바일(< md)에선 헤더 그대로 보임 (사이드바는 hidden md:flex).
-  const isCustomerSidebarArea = !!user && role !== 'broker' && role !== 'admin'
-
   // 이 기기만 로그아웃(scope local)·캐시·푸시 구독 정리·이동은 공용 함수가 한다
   const handleLogout = () => { signOutAndLeave() }
 
@@ -82,7 +78,7 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
   }
 
   return (
-    <header className={`sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 ${isCustomerSidebarArea || preOfficeRegister ? 'md:hidden' : ''}`}>
+    <header className={`sticky top-0 z-50 border-b border-gray-100 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 ${preOfficeRegister ? 'md:hidden' : ''}`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         {/* 좌측: 모바일 서브 페이지엔 ← 뒤로 (PWA에서 브라우저 뒤로가 없음). 그 외엔 로고. */}
         {showBack ? (
