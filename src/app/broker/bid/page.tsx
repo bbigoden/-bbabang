@@ -17,7 +17,6 @@ import { AnalysisPanel, type HistoryRow } from './analysis-panel'
 import { amountFor, judgeAmount, recommendY } from '@/lib/bid-analysis'
 import { ResultDetail, type ResultForDetail } from './result-detail'
 import { LabPanel } from './lab-panel'
-import { CROWD_CUT, predictN, type CrowdRow } from '@/lib/bid-lab'
 
 /**
  * 입찰 — 도장·습식·방수·석공사업 공사 입찰공고와 낙찰가 분석.
@@ -150,16 +149,14 @@ export default function BidPage() {
     }
     setLoadingMore(false)
   }
-  // 경쟁 짐작 재료(버전 5) — 과거 공고마다 발주기관·금액·참여 업체 수
-  const [crowd, setCrowd] = useState<CrowdRow[]>([])
-  const [crowdOnly, setCrowdOnly] = useState(false)
   const [history, setHistory] = useState<(HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null })[]>([])
   const [lastRun, setLastRun] = useState<CollectReport | null>(null)
   const [backfillUntil, setBackfillUntil] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  // 분석 재료(과거 낙찰·경쟁 짐작)는 공고 목록을 띄운 뒤 뒤에서 받는다 — 둘이 1만 행 남짓이라
+  // 분석 재료(과거 낙찰)는 공고 목록을 띄운 뒤 뒤에서 받는다 — 수천 행이라
   // 같이 기다리면 폰 3G 에서 '불러오는 중'이 28초 걸렸다(10-30 점검, 그전 9초)
   const [analysisReady, setAnalysisReady] = useState(false)
+  const [allNotices, setAllNotices] = useState(false)
   const [collecting, setCollecting] = useState(false)
 
   const [openOnly, setOpenOnly] = useState(true)
@@ -199,16 +196,22 @@ export default function BidPage() {
       // 공고는 최근 60일만. 그 전 것은 이미 다 마감됐다
       const since = new Date(Date.now() - 60 * 86400000).toISOString()
       setAnalysisReady(false)
+      setAllNotices(false)
       setResultsLoaded(false)
-      // 첫 화면(공고 탭)에 필요한 것만 기다린다. 낙찰결과(600건)는 그 탭을 열 때, 분석 재료(약 1만 행)는
+      // 첫 화면(공고 탭)에 필요한 것만 기다린다. 낙찰결과(600건)는 그 탭을 열 때, 분석 재료(수천 행)는
       // 목록을 띄운 뒤에 받는다 — 같이 받으면 폰 3G 에서 대역을 나눠 써 '불러오는 중'이 28초였다(10-30 점검)
+      // 공고도 마감 전 것(150건 안팎)부터 — 기본이 '마감 전만'이다. 60일치 전체(1,450건)는 아래에서 이어 받는다
+      const noticeQuery = (from: number, to: number) => supabase.from('bid_notices')
+        .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds')
+        .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)
       const [n, s] = await Promise.all([
-        fetchAllPaged<Notice>((from, to) => supabase.from('bid_notices')
-          .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds')
-          .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
+        fetchAllPaged<Notice>((from, to) => noticeQuery(from, to).gt('bid_close_at', new Date().toISOString())),
         supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
       ])
       setNotices(latestOrd(n))
+      void fetchAllPaged<Notice>(noticeQuery)
+        .then(all => { setNotices(latestOrd(all)); setAllNotices(true) })
+        .catch(() => { /* 못 받으면 마감 전 공고만 보인다 */ })
       const st = Object.fromEntries((s.data ?? []).map(x => [x.key, x.value]))
       setLastRun((st.last_run as CollectReport) ?? null)
       setBackfillUntil((st.backfill as { until?: string } | undefined)?.until ?? null)
@@ -217,14 +220,10 @@ export default function BidPage() {
     }
     setLoading(false)
     // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개. 목록이 뜬 뒤 뒤에서 받아 채운다
-    void Promise.all([
-      fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
-        .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
-        .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
-      fetchAllPaged<CrowdRow>((from, to) => supabase.from('bid_results')
-        .select('dminstt_cd, dminstt_nm, bssamt, prtcpt_cnum').gt('prtcpt_cnum', 1)
-        .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
-    ]).then(([h, c]) => { setHistory(h); setCrowd(c); setAnalysisReady(true) })
+    void fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
+      .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
+      .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to))
+      .then(h => { setHistory(h); setAnalysisReady(true) })
       .catch(() => toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요'))
     // toast는 매 렌더 새 객체라 의존성에서 제외 (다른 페이지들과 동일 패턴)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -281,17 +280,6 @@ export default function BidPage() {
     setCollecting(false)
   }
 
-  // 공고마다 참여 업체 수 짐작 — 실험실 버전 5와 같은 계산(같은 발주기관 → 같은 시도·금액대 → 금액대의 가운데 값).
-  // 기초금액이 아직 없으면 추정가격×1.1 로 금액대를 잡는다
-  const crowdOf = useMemo(() => {
-    const m = new Map<string, number | null>()
-    for (const n of notices) {
-      const bssamt = n.bssamt ?? (n.presmpt_prce ? Math.round(n.presmpt_prce * 1.1) : null)
-      m.set(`${n.bid_ntce_no}/${n.bid_ntce_ord}`, predictN(crowd, { dminstt_cd: n.dminstt_cd, dminstt_nm: n.dminstt_nm, bssamt })?.n ?? null)
-    }
-    return m
-  }, [notices, crowd])
-
   // 지역 칩 숫자는 '마감 전만'·검색까지 건 뒤에 센다 — 칩을 눌렀을 때 나오는 줄 수와 같아야 한다
   const baseNotices = useMemo(() => {
     const now = Date.now()
@@ -300,9 +288,8 @@ export default function BidPage() {
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
       (!enterableOnly || canEnter(n.prtcpt_rgns, ourRegion) !== false) &&
       (!fieldsOnly || fitsFields(n.mfrc_flds, ourFields) !== false) &&
-      (!crowdOnly || (crowdOf.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`) ?? Infinity) <= CROWD_CUT) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''} ${n.bid_ntce_no}-${n.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
-  }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, crowdOnly, crowdOf, q])
+  }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, q])
 
   const regionCounts = useMemo(() => {
     const m = new Map<string, number>()
@@ -474,7 +461,7 @@ export default function BidPage() {
               {history.length > fieldHistory.length && ` (주력분야 아닌 ${(history.length - fieldHistory.length).toLocaleString('ko-KR')}건 뺌)`}
             </span>
           )}
-          {tab === 'notice' && !loading && <span>공고 {shownNotices.length.toLocaleString('ko-KR')}건</span>}
+          {tab === 'notice' && !loading && <span>공고 {shownNotices.length.toLocaleString('ko-KR')}건{!openOnly && !allNotices && ' · 마감된 공고 받는 중…'}</span>}
           {tab === 'result' && <span>{searched ? `전체에서 찾음 ${searched.length.toLocaleString('ko-KR')}건` : `아래 표는 최근 ${results.length.toLocaleString('ko-KR')}건 · 검색은 전체에서`}</span>}
           {backfillUntil && backfillUntil > BACKFILL_FLOOR && (
             <span>과거 데이터 {backfillUntil}까지 채움 · {BACKFILL_FLOOR}까지 매일 조금씩</span>
@@ -493,12 +480,6 @@ export default function BidPage() {
               <Chip on={fieldsOnly} onClick={() => setFieldsOnly(v => !v)}
                 title={`주력분야가 ${ourFields.join('·')}이거나 지정 없는 공고만`}>
                 주력분야만
-              </Chip>
-            )}
-            {tab === 'notice' && (
-              <Chip on={crowdOnly} onClick={() => setCrowdOnly(v => !v)}
-                title={`참여 업체가 ${CROWD_CUT}곳 이하로 짐작되는 공고만 — 실험실 버전 5, 공고당 낙찰률이 버전 1의 1.6배였다`}>
-                경쟁 적은 것만 ({CROWD_CUT}곳 이하)
               </Chip>
             )}
           {tab === 'notice' && <>
@@ -546,10 +527,9 @@ export default function BidPage() {
         ) : tab === 'notice' ? (
           shownNotices.length === 0 ? (
             <p className="py-10 text-center text-sm text-gray-400">
-              {!notices.length ? '아직 받은 공고가 없습니다 — [가져오기] 를 눌러 보세요'
-                : crowdOnly && !analysisReady ? '경쟁 예상을 셈하는 중이에요… 과거 낙찰을 다 받으면 나옵니다'
-                : <>조건에 맞는 공고가 없습니다<br />위 칩을 하나씩 끄면 더 많은 공고가 보여요
-                  {crowdOnly && <> — 지금 공고 중 경쟁이 {CROWD_CUT}곳 이하로 짐작되는 것이 없어요</>}</>}
+              {!openOnly && !allNotices ? '마감된 공고를 받는 중이에요…'
+                : !notices.length ? '아직 받은 공고가 없습니다 — [가져오기] 를 눌러 보세요'
+                : <>조건에 맞는 공고가 없습니다<br />위 칩을 하나씩 끄면 더 많은 공고가 보여요</>}
             </p>
           ) : (
             <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
@@ -577,7 +557,6 @@ export default function BidPage() {
                         </span>
                         <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} />
                         <FieldBadge flds={n.mfrc_flds} ours={ourFields} />
-                        <CrowdBadge n={crowdOf.get(key) ?? null} ready={analysisReady} />
                         {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
                         <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
                           {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}
@@ -753,18 +732,5 @@ function BacktestLine({ bt }: { bt: { amount: number; verdict: Verdict } | undef
       <span className="font-semibold tabular-nums">{won(bt.amount)}원</span>
       <span className={`rounded px-1.5 text-[11px] font-medium ${VERDICT[bt.verdict].cls}`}>{VERDICT[bt.verdict].label}</span>
     </div>
-  )
-}
-
-/** 참여 업체 수 짐작 — 버전 5 문턱 이하면 '넣을 만함' */
-function CrowdBadge({ n, ready }: { n: number | null; ready: boolean }) {
-  if (!ready) return <span className="mt-0.5 block text-xs text-gray-400">경쟁 예상 셈하는 중…</span>
-  if (n == null) return <span className="mt-0.5 block text-xs text-gray-400">경쟁 예상 모름 (비슷한 과거 공고 부족)</span>
-  const low = n <= CROWD_CUT
-  return (
-    <span className="mt-0.5 block text-xs">
-      <span className={low ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'text-gray-500'}>경쟁 예상 약 {n.toLocaleString('ko-KR')}곳</span>
-      {low && <span className="ml-1.5 rounded bg-emerald-100 px-1.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">넣을 만함</span>}
-    </span>
   )
 }
