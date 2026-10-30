@@ -13,7 +13,8 @@ export const DIRECTOR_ID = '6581efd5-6ec9-46ea-a391-7e6537cc6345'
  * 오늘 등록 수(propsToday)는 BoardRow 에 있다 — 칠판과 일지 표 둘 다 매물장 옆 '+n'(2026-10-29 사장님).
  */
 export type OfficeBoardRow = BoardRow & { ids?: string[] }
-export interface OfficeBoard { rows: OfficeBoardRow[]; total: OfficeBoardRow; at: string }
+/** byId — 사람(broker_profiles.id)마다 등록한 매물 전체 수. 사무실 책상이 따로 세지 않게 같이 돌려준다 */
+export interface OfficeBoard { rows: OfficeBoardRow[]; total: OfficeBoardRow; at: string; byId?: Record<string, number> }
 
 interface BoardMember { id: string; profiles: { name: string | null } | null }
 
@@ -104,5 +105,5 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
   rest.daangn = sum.daangn - rows.reduce((s, r) => s + r.daangn, 0)
   rest.daangnToday = sum.daangnToday - rows.reduce((s, r) => s + r.daangnToday, 0)
   if (rest.bank > 0 || rest.daangn > 0) shown.push(rest)
-  return { rows: shown, total: sum, at: hmKST(new Date().toISOString()) }
+  return { rows: shown, total: sum, at: hmKST(new Date().toISOString()), byId: Object.fromEntries(counts.map(c => [c[0], c[1]])) }
 }

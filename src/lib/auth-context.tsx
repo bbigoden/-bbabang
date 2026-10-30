@@ -178,7 +178,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pushClaimedFor = useRef<string | null>(null)
 
   const fetchAll = useCallback(async () => {
-    const { data } = await supabase.auth.getUser()
+    // getUser() 는 auth 잠금을 쥔 채 서버(/auth/v1/user)에 묻는다. 모든 DB 조회가 시작 전에 같은 잠금을
+    // 기다려서, 화면마다 첫 조회가 이 왕복(폰 3G 약 2.2초)만큼 늦게 출발했다(10-30 폰 속도 조사).
+    // 세션은 쿠키에서 바로 읽고(만료면 여기서 갱신), 서버 확인은 화면 첫 조회가 다 나간 뒤에 한다.
+    // 문서 요청마다 proxy 가 이미 세션을 확인하고, 차단·정지는 아래 profile 조회로 가른다.
+    const { data: { session } } = await supabase.auth.getSession()
+    const data = { user: session?.user ?? null }
+    if (data.user) {
+      const uid = data.user.id
+      setTimeout(() => {
+        void supabase.auth.getUser().then(({ data: v, error }) => {
+          // 서버가 '이 세션은 없다'고 답했을 때만(4xx) 로그아웃으로 본다 — 망 오류로 내쫓지 않게
+          if (v.user || !error || leaving || loadedUserId.current !== uid) return
+          const status = (error as { status?: number }).status ?? 0
+          if (status >= 400 && status < 500) {
+            loadedUserId.current = null
+            applied.current = null
+            setUser(null); setProfile(null); setBroker(null)
+            clearCache()
+          }
+        })
+      }, 8000)
+    }
     if (!data.user) {
       loadedUserId.current = null
       applied.current = null

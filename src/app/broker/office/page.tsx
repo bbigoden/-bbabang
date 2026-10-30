@@ -63,7 +63,8 @@ const DONE_SAY: Record<string, string> = {
   publish: '올렸어요', takedown: '내렸어요', naver: '다 받았어요', daangn: '다 받았어요',
   sync: '가져왔어요', renew: '재등록 끝',
 }
-const POLL_MS = 10_000
+// 폰 3G 에서 10초마다면 한 번 새로 보는 데 걸리는 시간과 거의 같아 회선이 쉬지 않았다 — 20초(10-30)
+const POLL_MS = 20_000
 
 interface Agents {
   last_seen_at: string | null
@@ -234,6 +235,30 @@ export default function OfficePage() {
 
     // 뱅크 등록기간은 '26.10.30 ~26.11.29' 처럼 적힌다 — 오늘 시작한 것이 오늘 뱅크에 올린 것(재등록 포함)
     const 오늘뱅크 = todayKST().slice(2).replace(/-/g, '.')
+    // 사람·일지·Claude 쪽 조회도 같이 출발시킨다 — 앞 묶음을 기다렸다가 보내면 폰 3G 에서 왕복이 두세 번 쌓여
+    // 한 번 새로 보는 데 7초쯤 걸렸다(10-30 폰 속도 조사)
+    const 사장님만 = <T,>(q: PromiseLike<T>) => (isOwner ? q : Promise.resolve({ data: null, error: null }))
+    const 사람쪽 = Promise.all([
+      supabase.from('broker_profiles')
+        .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
+        .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
+      // 오늘 것만 줄로 읽는다. 전체를 읽으면 1000줄에서 잘려 책상의 '지금까지 등록한 매물'이
+      // 현황판과 달랐다(2026-10-29 점검: 김용유 701 ↔ 1,627) — 전체 수는 loadBoard 가 건수로 센다
+      supabase.from('broker_properties').select('broker_id')
+        .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', `${todayKST()}T00:00:00+09:00`),
+      사장님만(supabase.from('claude_sessions')
+        .select('session_id, project, title, status, last_action, order_id, updated_at')
+        .eq('office_broker_id', officeId).gte('updated_at', day)
+        .order('updated_at', { ascending: false }).limit(20)),
+      사장님만(supabase.from('claude_orders')
+        .select('id, prompt, status, progress, result, branch, error, requested_at, finished_at')
+        .eq('office_broker_id', officeId)
+        .order('requested_at', { ascending: false }).limit(15)),
+      // 오늘 업무일지 — 쓴 사람과 고친 시각만 본다. 내용엔 비밀번호 같은 것이 섞여 이 화면엔 옮기지 않는다
+      supabase.from('broker_diary').select('broker_id, sections_content, work_summary, content, updated_at').eq('date', todayKST()),
+      // 입찰 수집(서버 cron) 마지막 실행 — 에이전트실 끝 책상
+      사장님만(supabase.from('bid_sync').select('value').eq('key', 'last_run').maybeSingle()),
+    ])
     const [ag, aj, bj, posts, nv, dg, ts, consult, bankToday, daangnToday] = await Promise.all([
       supabase.from('ad_agents').select('*').eq('broker_id', officeId).maybeSingle(),
       supabase.from('ad_jobs')
@@ -273,8 +298,7 @@ export default function OfficePage() {
     // 돌거나 줄 선 광고 작업의 매물 이름 — '성월리 상가'(동네 + 종류). 번지·호수는 말풍선에 안 적는다(번지로 시작하면 읍면동)
     const 번호들 = [...new Set(jobs
       .flatMap(j => (j.params?.bankNos as string[] | undefined) ?? []).map(String))].slice(0, 100)
-    if (번호들.length) {
-      const { data: ls } = await supabase.from('ad_listings').select('bank_no, region, address_detail, property_kind').in('bank_no', 번호들)
+    if (번호들.length) void supabase.from('ad_listings').select('bank_no, region, address_detail, property_kind').in('bank_no', 번호들).then(({ data: ls }) => {
       setListingNames(Object.fromEntries(((ls ?? []) as { bank_no: string; region: string | null; address_detail: string | null; property_kind: string | null }[])
         .map(l => {
           const 동 = l.region?.split(' ').pop()
@@ -282,7 +306,7 @@ export default function OfficePage() {
           const full = [/[가-힣]/.test(l.address_detail?.split(' ')[0] ?? '') ? null : 동, l.address_detail].filter(Boolean).join(' ') || short
           return [l.bank_no, { short, full }]
         })))
-    }
+    })
     setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
     const 채널 = (ch: string) => ((posts.data ?? []) as { channel: string }[]).filter(p => p.channel === ch).length
     setToday({
@@ -309,28 +333,7 @@ export default function OfficePage() {
     // 직원도 사무실 사람들은 본다(2026-10-28 '직원 계정으론 안 보인다') — Claude 만 사장님 것.
     // 업무일지는 RLS(can_access_diary)가 직원에겐 자기 것만 준다.
     {
-      const 사장님만 = <T,>(q: PromiseLike<T>) => (isOwner ? q : Promise.resolve({ data: null, error: null }))
-      const [ms, props, ss, os, dys, br] = await Promise.all([
-        supabase.from('broker_profiles')
-          .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
-          .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
-        // 오늘 것만 줄로 읽는다. 전체를 읽으면 1000줄에서 잘려 책상의 '지금까지 등록한 매물'이
-        // 현황판과 달랐다(2026-10-29 점검: 김용유 701 ↔ 1,627) — 전체 수는 loadBoard 가 건수로 센다
-        supabase.from('broker_properties').select('broker_id')
-          .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', `${todayKST()}T00:00:00+09:00`),
-        사장님만(supabase.from('claude_sessions')
-          .select('session_id, project, title, status, last_action, order_id, updated_at')
-          .eq('office_broker_id', officeId).gte('updated_at', day)
-          .order('updated_at', { ascending: false }).limit(20)),
-        사장님만(supabase.from('claude_orders')
-          .select('id, prompt, status, progress, result, branch, error, requested_at, finished_at')
-          .eq('office_broker_id', officeId)
-          .order('requested_at', { ascending: false }).limit(15)),
-        // 오늘 업무일지 — 쓴 사람과 고친 시각만 본다. 내용엔 비밀번호 같은 것이 섞여 이 화면엔 옮기지 않는다
-        supabase.from('broker_diary').select('broker_id, sections_content, work_summary, content, updated_at').eq('date', todayKST()),
-        // 입찰 수집(서버 cron) 마지막 실행 — 에이전트실 끝 책상
-        사장님만(supabase.from('bid_sync').select('value').eq('key', 'last_run').maybeSingle()),
-      ])
+      const [ms, props, ss, os, dys, br] = await 사람쪽
       setBidRun(((br as { data: { value: BidRun } | null }).data?.value) ?? null)
       const 쓴일지: Record<string, string> = {}
       for (const d of (dys.data ?? []) as { broker_id: string; sections_content: Record<string, unknown> | null; work_summary: string | null; content: string | null; updated_at: string }[]) {
@@ -364,11 +367,10 @@ export default function OfficePage() {
   // 현황판 — 숫자 세는 법은 업무일지 3번 광고현황과 같이 쓴다(lib/office-board). 천천히 바뀌는 숫자라 5분마다만 본다.
   const loadBoard = useCallback(async () => {
     if (!officeId || !members.length) return
-    const 건수 = (id: string) => supabase.from('broker_properties').select('id', { count: 'exact', head: true })
-      .eq('office_broker_id', officeId).eq('broker_id', id).is('deleted_at', null).then(r => [id, r.count ?? 0] as const)
-    const [b, totals] = await Promise.all([fetchOfficeBoard(supabase, officeId, members), Promise.all(members.map(m => 건수(m.id)))])
+    // 사람마다 매물 전체 수는 현황판이 이미 센다 — 따로 또 세면 폰 3G 에서 HEAD 가 사람 수만큼 더 나갔다(10-30)
+    const b = await fetchOfficeBoard(supabase, officeId, members)
     setBoard(b)
-    setTotalProps(Object.fromEntries(totals))
+    setTotalProps(b.byId ?? {})
   }, [supabase, officeId, members])
 
   // 사람 목록이 처음 들어오면 한 번, 그 뒤엔 5분마다(사람이 바뀌어도 다시 안 센다 — 10초마다 새 배열이 온다)

@@ -324,9 +324,8 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
   }
 
   const openPostcode = () => {
-    const w = window as any
-    if (!w.daum?.Postcode) { toast.error('주소 검색 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return }
-    setPostcodeOpen(true)
+    void loadDaumPostcode().then(() => setPostcodeOpen(true),
+      () => toast.error('주소 검색 모듈을 불러오지 못했어요. 잠시 후 다시 시도해주세요.'))
   }
 
   const handlePostcodeComplete = useCallback(({ addr, bcode }: { addr: string; bcode: string }) => {
@@ -417,6 +416,25 @@ function AddressCell({ value, onSave, onAutoFill, autoFilling = false, placehold
  * 만원 단위 숫자 글 → 숫자. '3,000', '3000만', ' 3000 ' 을 읽고, 못 읽으면 NaN.
  * '삼천만' 같은 한글 숫자·'-' 는 NaN/음수로 돌려 위에서 알린다(말없이 버리지 않는다).
  */
+/**
+ * 다음 우편번호 SDK — 주소 검색을 누를 때 받는다. 매물목록을 열 때마다 받으면 폰 3G 에서
+ * 첫 조회와 회선을 나눠 썼다(10-30 폰 속도 조사). 여러 번 불러도 한 번만 받는다.
+ */
+let postcodeLoading: Promise<void> | null = null
+function loadDaumPostcode(): Promise<void> {
+  if ((window as any).daum?.Postcode) return Promise.resolve()
+  postcodeLoading ??= new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script')
+    script.setAttribute('data-daum-postcode', 'true')
+    script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
+    script.async = true
+    script.onload = () => resolve()
+    script.onerror = () => { postcodeLoading = null; script.remove(); reject(new Error('postcode')) }
+    document.head.appendChild(script)
+  })
+  return postcodeLoading
+}
+
 function parseManwon(text: string): number {
   const t = text.normalize('NFKC').replace(/[,\s원]/g, '').replace(/만$/, '')
   if (t === '') return NaN
@@ -1714,18 +1732,6 @@ function BrokerPropertiesContent() {
 
   // 카카오맵 SDK는 useKakaoMapSdk 훅에서 로드
 
-  // 다음 우편번호 SDK 로드 (소재지 검색용)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if ((window as any).daum?.Postcode) return
-    if (document.querySelector('script[data-daum-postcode]')) return
-    const script = document.createElement('script')
-    script.setAttribute('data-daum-postcode', 'true')
-    script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
-    script.async = true
-    script.onerror = () => console.error('[DaumPostcode] SDK 로드 실패')
-    document.head.appendChild(script)
-  }, [])
 
   const init = async () => {
     const targetBrokerId = searchParams.get('broker_id')

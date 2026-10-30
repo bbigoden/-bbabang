@@ -100,18 +100,19 @@ export function Footer() {
           <div>
             <div className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">정책·약관</div>
             <ul className="space-y-1.5 text-xs">
+              {/* 미리받기 끔 — 매 화면 바닥에 그려져 폰 3G 에서 첫 조회와 회선을 나눠 썼다(10-30 폰 속도 조사) */}
               <li>
-                <Link href="/terms" className="hover:text-blue-600 hover:underline">
+                <Link href="/terms" prefetch={false} className="hover:text-blue-600 hover:underline">
                   이용약관
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="hover:text-blue-600 hover:underline font-semibold">
+                <Link href="/privacy" prefetch={false} className="hover:text-blue-600 hover:underline font-semibold">
                   개인정보처리방침
                 </Link>
               </li>
               <li>
-                <Link href="/support" className="hover:text-blue-600 hover:underline">
+                <Link href="/support" prefetch={false} className="hover:text-blue-600 hover:underline">
                   고객센터·신고
                 </Link>
               </li>

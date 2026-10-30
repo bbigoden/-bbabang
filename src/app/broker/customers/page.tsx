@@ -396,13 +396,16 @@ export default function BrokerCustomersPage() {
     // ── 팀원 이름 목록 구성 ────────────────────────────
     const myName = prof?.name
     if (owner) {
-      const { data: emps } = await supabase
+      // 직원 이름은 고객 조회와 함께 보낸다 — 기다렸다가 고객을 부르면 폰 3G 에서 왕복 하나(약 2초)가 더 쌓였다(10-30)
+      void supabase
         .from('broker_profiles')
         .select('profiles(name)')
         .eq('parent_broker_id', b.id)
         .eq('is_approved', true)
-      const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
-      setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
+        .then(({ data: emps }) => {
+          const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
+          setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
+        })
     } else {
       setTeamMembers(myName ? [myName] : [])
     }
