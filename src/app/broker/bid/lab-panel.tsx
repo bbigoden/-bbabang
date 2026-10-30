@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { Chip } from '@/components/ui/chip'
-import { canEnter, fitsFields } from '@/lib/bid-notices'
+import { canEnter, dutyOk, fitsFields } from '@/lib/bid-notices'
 import { VERSIONS, chanceAtLeast, fixedSweep, priorOf, verdictOf, type LabRow, type Verdict, type VersionResult } from '@/lib/bid-lab'
 
 /**
@@ -13,7 +13,7 @@ import { VERSIONS, chanceAtLeast, fixedSweep, priorOf, verdictOf, type LabRow, t
  */
 
 type Row = LabRow & { bid_ntce_no: string; winner_nm: string | null }
-type Meta = { rgns: string[] | null; flds: string[] | null; site: string | null }
+type Meta = { rgns: string[] | null; flds: string[] | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null }
 type Period = 30 | 90 | 0
 
 const PERIODS: [Period, string][] = [[30, '최근 30일'], [90, '최근 90일'], [0, '받은 전체']]
@@ -42,8 +42,8 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
         .select('bid_ntce_no, openg_at, prtcpt_cnum, winner_nm, sajeong, win_y, bssamt, rng, dminstt_cd, dminstt_nm')
         .not('openg_at', 'is', null).order('openg_at', { ascending: true })
         .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
-      fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; site_region: string | null }>((from, to) =>
-        supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds, site_region')
+      fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; site_region: string | null; rgn_duty_rt: number | null; rgn_duty_rgns: string[] | null }>((from, to) =>
+        supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds, site_region, rgn_duty_rt, rgn_duty_rgns')
           .or('prtcpt_rgns.not.is.null,mfrc_flds.not.is.null')
           .order('bid_ntce_no').order('bid_ntce_ord').range(from, to)),
     ]).then(([r, ns]) => {
@@ -52,8 +52,11 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
       ns.sort((a, b) => b.bid_ntce_ord.localeCompare(a.bid_ntce_ord))
       const m = new Map<string, Meta>()
       for (const x of ns) {
-        const cur = m.get(x.bid_ntce_no) ?? { rgns: null, flds: null, site: null }
-        m.set(x.bid_ntce_no, { rgns: cur.rgns ?? x.prtcpt_rgns, flds: cur.flds ?? x.mfrc_flds, site: cur.site ?? x.site_region })
+        const cur = m.get(x.bid_ntce_no) ?? { rgns: null, flds: null, site: null, dutyRt: null, dutyRgns: null }
+        m.set(x.bid_ntce_no, {
+          rgns: cur.rgns ?? x.prtcpt_rgns, flds: cur.flds ?? x.mfrc_flds, site: cur.site ?? x.site_region,
+          dutyRt: cur.dutyRt ?? x.rgn_duty_rt, dutyRgns: cur.dutyRgns ?? x.rgn_duty_rgns,
+        })
       }
       setMeta(m)
       setRows(r)
@@ -72,6 +75,7 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
     return (rows ?? []).filter(r => r.openg_at >= since && (!ours || (
       // 지역·주력분야가 맞는다고 확인된 공고만 — 모르는 것도 뺀다(벗어나면 어차피 못 넣는다)
       canEnter(meta.get(r.bid_ntce_no)?.rgns, ourRegion, meta.get(r.bid_ntce_no)?.site) === true &&
+      dutyOk(meta.get(r.bid_ntce_no)?.dutyRt, meta.get(r.bid_ntce_no)?.dutyRgns, meta.get(r.bid_ntce_no)?.site, ourRegion) === true &&
       fitsFields(meta.get(r.bid_ntce_no)?.flds, ourFields) === true)))
   }, [rows, meta, period, ours, ourRegion, ourFields])
 

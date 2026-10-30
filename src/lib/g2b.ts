@@ -121,6 +121,9 @@ export function toNoticeRow(x: Raw) {
     bid_close_at: kstToIso(x.bidClseDt),
     openg_at: kstToIso(x.opengDt),
     detail_url: str(x.bidNtceDtlUrl),
+    // 지역의무공동도급 — Y 면 의무 비율(비어 있으면 0 이 아니라 '있음'이라 1 로), 아니면 0
+    rgn_duty_rt: x.rgnDutyJntcontrctYn === 'Y' ? (num(x.rgnDutyJntcontrctRt) || 1) : 0,
+    rgn_duty_rgns: [x.jntcontrctDutyRgnNm1, x.jntcontrctDutyRgnNm2, x.jntcontrctDutyRgnNm3].map(v => (v ?? '').trim()).filter(Boolean),
     updated_at: new Date().toISOString(),
   }
 }

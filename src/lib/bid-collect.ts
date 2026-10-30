@@ -98,7 +98,7 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   const state = await readState(supa)
   const calls: Calls = state.calls?.date === today ? state.calls : { date: today, notice: 0, result: 0 }
   const backfill: Backfill = state.backfill ?? { until: addDays(today, -RECENT_DAYS), done: false }
-  let rgnUntil = state.rgn2_until ?? addDays(today, -RECENT_DAYS)
+  let rgnUntil = state.rgn3_until ?? addDays(today, -RECENT_DAYS)
   let licUntil = state.lic_until ?? addDays(today, -RECENT_DAYS)
 
   const report: CollectReport = {
@@ -266,12 +266,13 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     await syncWindow(addDays(today, -RECENT_DAYS), today)
     await syncResults(addDays(today, -RECENT_RESULT_DAYS), today)
 
-    // 참가가능지역 — 이미 받아 둔 공고(과거 채움이 닿은 데까지)에 다시 붙인다(한 주에 조회 ~20번).
-    // 10-30 '공고서참조'를 알아보게 고치며 처음부터 다시 돈다(상태 이름 rgn2_until)
+    // 참가 조건(참가가능지역·지역의무공동도급) — 이미 받아 둔 공고(과거 채움이 닿은 데까지)에 다시 붙인다(한 주에 조회 ~20번).
+    // 조건을 새로 알아볼 때마다 처음부터 다시 돈다: 10-30 '공고서참조'(rgn2_until), 같은 날 지역의무공동도급(rgn3_until)
     while (rgnUntil > backfill.until) {
       const to = addDays(rgnUntil, -1)
       const from = addDays(rgnUntil, -WINDOW_DAYS)
       const notices = await listAll('notice', 'getBidPblancListInfoCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
+      await upsert(supa, 'bid_notices', dedupe(notices.map(toNoticeRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`), 'bid_ntce_no,bid_ntce_ord')
       const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
       report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to, docRgnKeys(notices))
       rgnUntil = from
@@ -329,16 +330,16 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   }
 
   report.finishedAt = new Date().toISOString()
-  await writeState(supa, { calls, backfill, rgn2_until: rgnUntil, lic_until: licUntil, last_run: report })
+  await writeState(supa, { calls, backfill, rgn3_until: rgnUntil, lic_until: licUntil, last_run: report })
   return report
 }
 
 // ── 상태 ──────────────────────────────────────────────────
 
-type State = { calls?: Calls; backfill?: Backfill; rgn2_until?: string; lic_until?: string; last_run?: CollectReport }
+type State = { calls?: Calls; backfill?: Backfill; rgn3_until?: string; lic_until?: string; last_run?: CollectReport }
 
 async function readState(supa: SupabaseClient): Promise<State> {
-  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn2_until', 'lic_until'])
+  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn3_until', 'lic_until'])
   return Object.fromEntries((data ?? []).map(r => [r.key, r.value])) as State
 }
 

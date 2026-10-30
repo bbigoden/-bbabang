@@ -78,6 +78,19 @@ export function canEnter(rgns: string[] | null | undefined, ours: string | null 
   return rgns.some(r => ours === r || ours.startsWith(r + ' '))
 }
 
+/**
+ * 지역의무공동도급을 우리가 채우나. 참가는 '전국'이어도 이게 걸리면 의무 지역(비면 현장 시도) 업체와
+ * 공동도급해야 한다 — 우리가 그 지역 업체면 되고, 아니면 혼자서는 못 들어간다(하양초 외벽 R26BK01792828, 경북 49%).
+ * rt 0 = 의무 없음, null = 아직 안 받음(모름).
+ */
+export function dutyOk(rt: number | null | undefined, rgns: string[] | null | undefined, site: string | null | undefined, ours: string | null | undefined): boolean | null {
+  if (!ours) return true
+  if (rt == null) return null
+  if (rt === 0) return true
+  const duty = rgns?.length ? rgns : site ? [site.split(' ')[0]] : []
+  return duty.some(r => ours === r || ours.startsWith(r + ' '))
+}
+
 /** "충청남도 아산시" → "충남 아산시". 목록 줄에 짧게 */
 export function shortRegion(r: string): string {
   return r

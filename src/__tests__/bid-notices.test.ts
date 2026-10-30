@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DOC_RGN, canEnter, fitsFields, latestOrd, parseMfrc, parseWon, shortRegion } from '@/lib/bid-notices'
+import { DOC_RGN, canEnter, dutyOk, fitsFields, latestOrd, parseMfrc, parseWon, shortRegion } from '@/lib/bid-notices'
 
 const row = (no: string, ord: string, name: string, bssamt: number | null = null) =>
   ({ bid_ntce_no: no, bid_ntce_ord: ord, name, bid_close_at: '2026-10-30T01:00:00Z', bssamt, a_amount: null, rng_end: null })
@@ -94,5 +94,21 @@ describe('canEnter — 지역이 공고서에만 있는 공고(서남병원 옥�
   })
   it('현장이 우리 시도면 원문을 봐야 안다(모름)', () => {
     expect(canEnter([DOC_RGN], ours, '충청남도 천안시')).toBeNull()
+  })
+})
+
+describe('dutyOk — 지역의무공동도급', () => {
+  const ours = '충청남도 아산시'
+  it('의무 없으면 된다, 모르면 모른다', () => {
+    expect(dutyOk(0, [], '경상북도 경산시', ours)).toBe(true)
+    expect(dutyOk(null, null, '경상북도 경산시', ours)).toBeNull()
+  })
+  it('의무 지역이 비면 현장 시도 — 하양초(경북 49%)는 아산 업체 혼자 못 들어간다', () => {
+    expect(dutyOk(49, [], '경상북도 경산시', ours)).toBe(false)
+    expect(dutyOk(49, [], '충청남도 천안시', ours)).toBe(true)
+  })
+  it('의무 지역이 적혀 있으면 그것으로', () => {
+    expect(dutyOk(30, ['충청남도'], '세종특별자치시', ours)).toBe(true)
+    expect(dutyOk(30, ['충청남도 천안시'], '충청남도 천안시', ours)).toBe(false)
   })
 })

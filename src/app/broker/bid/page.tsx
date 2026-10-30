@@ -12,7 +12,7 @@ import { useToast } from '@/components/toast'
 import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
-import { BID_FIELDS, DOC_RGN, canEnter, fitsFields, latestOrd, shortRegion } from '@/lib/bid-notices'
+import { BID_FIELDS, DOC_RGN, canEnter, dutyOk, fitsFields, latestOrd, shortRegion } from '@/lib/bid-notices'
 import { AnalysisPanel, type HistoryRow } from './analysis-panel'
 import { amountFor, judgeAmount, recommendY } from '@/lib/bid-analysis'
 import { ResultDetail, type ResultForDetail } from './result-detail'
@@ -51,6 +51,8 @@ type Notice = {
   rng_end: number | null
   a_amount: number | null
   prtcpt_rgns: string[] | null
+  rgn_duty_rt: number | null
+  rgn_duty_rgns: string[] | null
   mfrc_flds: string[] | null
 }
 
@@ -202,7 +204,7 @@ export default function BidPage() {
       // 목록을 띄운 뒤에 받는다 — 같이 받으면 폰 3G 에서 대역을 나눠 써 '불러오는 중'이 28초였다(10-30 점검)
       // 공고도 마감 전 것(150건 안팎)부터 — 기본이 '마감 전만'이다. 60일치 전체(1,450건)는 아래에서 이어 받는다
       const noticeQuery = (from: number, to: number) => supabase.from('bid_notices')
-        .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds')
+        .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds, rgn_duty_rt, rgn_duty_rgns')
         .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)
       const [n, s] = await Promise.all([
         fetchAllPaged<Notice>((from, to) => noticeQuery(from, to).gt('bid_close_at', new Date().toISOString())),
@@ -286,7 +288,7 @@ export default function BidPage() {
     const words = q.trim().split(/\s+/).filter(Boolean)
     return notices.filter(n =>
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
-      (!enterableOnly || canEnter(n.prtcpt_rgns, ourRegion, n.site_region) === true) &&
+      (!enterableOnly || (canEnter(n.prtcpt_rgns, ourRegion, n.site_region) === true && dutyOk(n.rgn_duty_rt, n.rgn_duty_rgns, n.site_region, ourRegion) === true)) &&
       (!fieldsOnly || fitsFields(n.mfrc_flds, ourFields) === true) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''} ${n.bid_ntce_no}-${n.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
   }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, q])
@@ -321,24 +323,27 @@ export default function BidPage() {
 
   // 낙찰결과의 참가가능지역·주력분야는 공고 쪽에 있다 — 화면에 올린 낙찰의 공고만 따로 받아 붙인다.
   // 정정공고는 차수마다 줄이 있어 번호로 묶고, 값이 있는 가장 늦은 차수 것을 쓴다
-  const [resultMeta, setResultMeta] = useState<Map<string, { rgns: string[] | null; flds: string[] | null; site: string | null }>>(new Map())
+  const [resultMeta, setResultMeta] = useState<Map<string, { rgns: string[] | null; flds: string[] | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null }>>(new Map())
   useEffect(() => {
     const nos = [...new Set([...results, ...(searched ?? [])].map(r => r.bid_ntce_no))]
     if (!nos.length) return
     let alive = true
     void (async () => {
-      const rows: { bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; site_region: string | null }[] = []
+      const rows: { bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; site_region: string | null; rgn_duty_rt: number | null; rgn_duty_rgns: string[] | null }[] = []
       for (let i = 0; i < nos.length; i += 150) {
-        const { data } = await supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds, site_region')
+        const { data } = await supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds, site_region, rgn_duty_rt, rgn_duty_rgns')
           .in('bid_ntce_no', nos.slice(i, i + 150))
         rows.push(...(data ?? []))
       }
       if (!alive) return
       rows.sort((a, b) => b.bid_ntce_ord.localeCompare(a.bid_ntce_ord))
-      const m = new Map<string, { rgns: string[] | null; flds: string[] | null; site: string | null }>()
+      const m = new Map<string, { rgns: string[] | null; flds: string[] | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null }>()
       for (const r of rows) {
-        const cur = m.get(r.bid_ntce_no) ?? { rgns: null, flds: null, site: null }
-        m.set(r.bid_ntce_no, { rgns: cur.rgns ?? r.prtcpt_rgns, flds: cur.flds ?? r.mfrc_flds, site: cur.site ?? r.site_region })
+        const cur = m.get(r.bid_ntce_no) ?? { rgns: null, flds: null, site: null, dutyRt: null, dutyRgns: null }
+        m.set(r.bid_ntce_no, {
+          rgns: cur.rgns ?? r.prtcpt_rgns, flds: cur.flds ?? r.mfrc_flds, site: cur.site ?? r.site_region,
+          dutyRt: cur.dutyRt ?? r.rgn_duty_rt, dutyRgns: cur.dutyRgns ?? r.rgn_duty_rgns,
+        })
       }
       setResultMeta(m)
     })()
@@ -352,7 +357,7 @@ export default function BidPage() {
     const base = searched ?? results.filter(r => words.every(w => `${r.name} ${r.dminstt_nm ?? ''} ${r.winner_nm ?? ''} ${r.bid_ntce_no}-${r.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
     return base.filter(r => {
       const m = resultMeta.get(r.bid_ntce_no)
-      return (!enterableOnly || canEnter(m?.rgns, ourRegion, m?.site) === true)
+      return (!enterableOnly || (canEnter(m?.rgns, ourRegion, m?.site) === true && dutyOk(m?.dutyRt, m?.dutyRgns, m?.site, ourRegion) === true))
         && (!fieldsOnly || fitsFields(m?.flds, ourFields) === true)
     })
   }, [results, searched, q, resultMeta, enterableOnly, ourRegion, fieldsOnly, ourFields])
@@ -556,7 +561,7 @@ export default function BidPage() {
                           {n.bid_close_at && ` · 마감 ${언제(n.bid_close_at)}`}
                           {n.cntrct_mthd && ` · ${n.cntrct_mthd}`}
                         </span>
-                        <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} site={n.site_region} />
+                        <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} site={n.site_region} dutyRt={n.rgn_duty_rt} dutyRgns={n.rgn_duty_rgns} />
                         <FieldBadge flds={n.mfrc_flds} ours={ourFields} />
                         {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
                         <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
@@ -700,15 +705,20 @@ export default function BidPage() {
 }
 
 /** 참가가능지역 한 줄. 우리가 못 들어가는 곳이면 빨갛게 */
-function RegionBadge({ rgns, ours, site }: { rgns: string[] | null; ours: string | null; site: string | null }) {
+function RegionBadge({ rgns, ours, site, dutyRt, dutyRgns }: {
+  rgns: string[] | null; ours: string | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null
+}) {
   if (rgns == null) return null
-  const ok = canEnter(rgns, ours, site)
+  const duty = dutyOk(dutyRt, dutyRgns, site, ours)
+  const ok = canEnter(rgns, ours, site) === false || duty === false ? false : true
   const text = rgns.includes(DOC_RGN) ? '지역 공고서 참조 (API에 없음 — 원문 확인)' : rgns.length === 0 ? '전국' : rgns.length > 3
     ? `${rgns.slice(0, 3).map(shortRegion).join('·')} 외 ${rgns.length - 3}곳`
     : rgns.map(shortRegion).join('·')
   return (
     <span className={`mt-0.5 block text-xs ${ok === false ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>
-      참가 {text}{ok === false && ' — 우리 업체는 못 들어갑니다'}
+      참가 {text}
+      {dutyRt ? ` · 지역의무공동도급 ${dutyRt}% (${(dutyRgns?.length ? dutyRgns : [site?.split(' ')[0] ?? '현장 지역']).map(shortRegion).join('·')} 업체와 공동)` : ''}
+      {ok === false && ' — 우리 업체 혼자는 못 들어갑니다'}
     </span>
   )
 }
