@@ -105,7 +105,8 @@ function dday(iso: string | null): { text: string; urgent: boolean } | null {
 }
 
 const REGION_KEY = 'bid_regions_v1'
-const RESULT_COLS = 'bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong, bssamt, lwlt_rate, a_amount, prices, dminstt_cd, rng'
+const RESULT_PAGE = 600
+const RESULT_COLS ='bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong, bssamt, lwlt_rate, a_amount, prices, dminstt_cd, rng'
 
 
 export default function BidPage() {
@@ -126,6 +127,27 @@ export default function BidPage() {
   const [tab, setTab] = useState<Tab>('notice')
   const [notices, setNotices] = useState<Notice[]>([])
   const [results, setResults] = useState<Result[]>([])
+  // 낙찰결과는 빨리 열리게 최근 것부터 한 묶음씩. 같은 개찰 시각끼리 순서가 흔들리면 묶음 사이에 겹치거나 빠지므로 번호로도 줄 세운다
+  const resultPage = useCallback((from: number) => supabase.from('bid_results').select(RESULT_COLS)
+    .order('openg_at', { ascending: false, nullsFirst: false })
+    .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no')
+    .range(from, from + RESULT_PAGE - 1), [supabase])
+  const [moreResults, setMoreResults] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const loadMoreResults = async () => {
+    setLoadingMore(true)
+    const { data, error } = await resultPage(results.length)
+    if (error) toast.error('더 불러오지 못했습니다')
+    else {
+      const rows = (data as Result[]) ?? []
+      setResults(prev => {
+        const seen = new Set(prev.map(r => `${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`))
+        return [...prev, ...rows.filter(r => !seen.has(`${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`))]
+      })
+      setMoreResults(rows.length === RESULT_PAGE)
+    }
+    setLoadingMore(false)
+  }
   const [history, setHistory] = useState<(HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null })[]>([])
   const [lastRun, setLastRun] = useState<CollectReport | null>(null)
   const [backfillUntil, setBackfillUntil] = useState<string | null>(null)
@@ -172,9 +194,7 @@ export default function BidPage() {
         fetchAllPaged<Notice>((from, to) => supabase.from('bid_notices')
           .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds')
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
-        supabase.from('bid_results')
-          .select(RESULT_COLS)
-          .order('openg_at', { ascending: false, nullsFirst: false }).limit(600),
+        resultPage(0),
         // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개라 수천 건도 가볍다
         fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
           .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
@@ -183,6 +203,7 @@ export default function BidPage() {
       ])
       setNotices(latestOrd(n))
       setResults((r.data as Result[]) ?? [])
+      setMoreResults((r.data?.length ?? 0) === RESULT_PAGE)
       setHistory(h)
       const st = Object.fromEntries((s.data ?? []).map(x => [x.key, x.value]))
       setLastRun((st.last_run as CollectReport) ?? null)
@@ -193,7 +214,7 @@ export default function BidPage() {
     setLoading(false)
     // toast는 매 렌더 새 객체라 의존성에서 제외 (다른 페이지들과 동일 패턴)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase])
+  }, [supabase, resultPage])
 
   useEffect(() => { if (enabled) load() }, [enabled, load])
 
@@ -633,6 +654,14 @@ export default function BidPage() {
               </tbody>
             </table>
           </div>
+          {!searched && moreResults && (
+            <div className="mt-4 text-center">
+              <button type="button" onClick={() => void loadMoreResults()} disabled={loadingMore}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+                {loadingMore ? '불러오는 중…' : `더 보기 — ${RESULT_PAGE}건 더 (지금 ${results.length.toLocaleString('ko-KR')}건 · ${results.at(-1)?.openg_at ? ymdKST(results.at(-1)!.openg_at!).slice(2) : '-'} 개찰까지)`}
+              </button>
+            </div>
+          )}
           </>
         )}
       </main>
