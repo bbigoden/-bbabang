@@ -6,8 +6,8 @@ import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { Chip } from '@/components/ui/chip'
 import { canEnter, fitsFields } from '@/lib/bid-notices'
 import {
-  N_BUCKETS, STRATEGIES, bucketOf, emptyTally, fixedSweep, predictN, priorOf, verdictOf,
-  type LabRow, type Tally, type Verdict,
+  N_BUCKETS, STRATEGIES, VERSIONS, chanceAtLeast, predictNByRegion, bucketOf, emptyTally, fixedSweep, predictN, priorOf, verdictOf,
+  type LabRow, type Tally, type Verdict, type VersionCtx, type VersionTally,
 } from '@/lib/bid-lab'
 
 /**
@@ -15,7 +15,7 @@ import {
  * 계산 방식은 src/lib/bid-lab.ts 맨 위에 적어 두었다.
  */
 
-type Row = LabRow & { bid_ntce_no: string; winner_nm: string | null }
+type Row = LabRow & { bid_ntce_no: string; winner_nm: string | null; rgns?: string[] | null }
 type Meta = { rgns: string[] | null; flds: string[] | null }
 type Period = 30 | 90 | 0
 
@@ -58,7 +58,8 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
         m.set(x.bid_ntce_no, { rgns: cur.rgns ?? x.prtcpt_rgns, flds: cur.flds ?? x.mfrc_flds })
       }
       setMeta(m)
-      setRows(r)
+      // 버전 4 짐작이 참가지역 제한을 쓴다
+      setRows(r.map(x => ({ ...x, rgns: m.get(x.bid_ntce_no)?.rgns ?? null })))
     }).catch(() => { if (alive) setRows([]) })
     return () => { alive = false }
   }, [supabase])
@@ -90,14 +91,17 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
   const [tallies, setTallies] = useState<Record<string, Tally> | null>(null)
   // 실험 2 재료 — 공고마다 미리 짐작한 참여 업체 수, 실제 수, 지금 추천으로 넣었을 때 판정
   const [picks, setPicks] = useState<{ pred: number; actual: number; v: Verdict | null }[]>([])
+  const [versions, setVersions] = useState<Record<string, VersionTally> | null>(null)
   const [progress, setProgress] = useState(0)
   useEffect(() => {
     let alive = true
     setTallies(null)
+    setVersions(null)
     setProgress(0)
     const acc: Record<string, Tally> = Object.fromEntries(STRATEGIES.map(s => [s.id, emptyTally()]))
     const per: { pred: number; actual: number; v: Verdict | null }[] = []
     const all = rows ?? []
+    const vt: Record<string, VersionTally> = Object.fromEntries(VERSIONS.map(v => [v.id, { bids: 0, win: 0, pass: 0, below: 0, none: 0, expect: 0 }]))
     let i = 0
     const step = () => {
       if (!alive) return
@@ -116,11 +120,24 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
           }
         }
         // 참여 업체 수는 석공 공고까지 다 쓴다 — 발주기관이 얼마나 붐비는지는 업종을 안 가린다
-        const pred = predictN(priorOf(all, t.openg_at), t)
+        const allPrior = priorOf(all, t.openg_at)
+        const pred = predictN(allPrior, t)
         if (pred && t.prtcpt_cnum) per.push({ pred: pred.n, actual: t.prtcpt_cnum, v: vCurrent })
+
+        // 버전 비교 — 같은 공고들에 버전마다 '넣을까, 얼마에'를 정해 센다
+        const ctx: VersionCtx = { prior, t, pred1: pred?.n ?? null, pred2: predictNByRegion(allPrior, t)?.n ?? null }
+        for (const v of VERSIONS) {
+          if (!v.bid(ctx)) continue
+          const tally = vt[v.id]
+          tally.bids++
+          if (t.prtcpt_cnum) tally.expect += 1 / t.prtcpt_cnum
+          const y = v.pick(ctx)
+          if (y == null) tally.none++
+          else tally[verdictOf(y, t)]++
+        }
       }
       if (i < calc.length) { setProgress(i / calc.length); setTimeout(step, 0) }
-      else { setTallies(acc); setPicks(per) }
+      else { setTallies(acc); setPicks(per); setVersions(vt) }
     }
     setTimeout(step, 0)
     return () => { alive = false }
@@ -179,6 +196,8 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
         <Tile label="계산한 공고" value={n(calc.length)} sub={calc.length ? `참여 업체 가운데 값 ${n(medianN)}곳` : undefined} />
         <Tile label="평균 업체라면" value={`${baseline.toFixed(1)}건`} sub="공고마다 1 ÷ 참여 업체 수를 더한 값" strong />
       </div>
+
+      <VersionTable versions={versions} progress={progress} />
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
         <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -399,5 +418,68 @@ function SweepChart({ sweep, fixedY, best }: { sweep: { y: number; win: number }
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * 버전 비교 — 버전 1(전부·지금 추천)을 기준으로 공고당 낙찰률이 운이 아니게 올랐는지 본다.
+ * 확실히 낫지 않으면 버전 1을 그대로 쓴다.
+ */
+function VersionTable({ versions, progress }: { versions: Record<string, VersionTally> | null; progress: number }) {
+  const base = versions?.v1
+  const baseRate = base && base.bids ? base.win / base.bids : 0
+  return (
+    <section className="rounded-2xl border-2 border-blue-600/30 bg-white p-4 dark:border-blue-400/30 dark:bg-gray-900">
+      <h2 className="text-sm font-semibold text-gray-900 dark:text-white">버전 비교 — 버전 1 기준</h2>
+      <p className="mt-0.5 text-xs text-gray-500">
+        같은 공고들에 버전마다 &lsquo;넣을지&rsquo;와 &lsquo;얼마에&rsquo;를 정해 셉니다. 공고당 낙찰률이 버전 1보다 높고,
+        그만큼 높게 나올 확률이 우연으로는 5% 미만일 때만 &lsquo;나음&rsquo;입니다. 아니면 버전 1을 씁니다.
+      </p>
+      {!versions || !base ? (
+        <p className="py-6 text-center text-xs text-gray-400">계산 중… {Math.round(progress * 100)}%</p>
+      ) : (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead className="text-left text-xs text-gray-500">
+              <tr>
+                <th className="py-1.5 font-medium">버전</th>
+                <th className="py-1.5 text-right font-medium">넣은 공고</th>
+                <th className="py-1.5 text-right font-medium">낙찰</th>
+                <th className="py-1.5 text-right font-medium">공고당 낙찰률</th>
+                <th className="py-1.5 text-right font-medium">버전 1 대비</th>
+                <th className="py-1.5 pl-4 font-medium">판정</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              {VERSIONS.map(v => {
+                const t = versions[v.id]
+                const rate = t.bids ? t.win / t.bids : 0
+                const chance = v.id === 'v1' ? null : chanceAtLeast(t.win, t.bids, baseRate)
+                const verdict = v.id === 'v1' ? { text: '기준', cls: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' }
+                  : rate > baseRate && chance! < 0.05 ? { text: '확실히 나음', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400' }
+                  : rate > baseRate ? { text: '나아 보이나 우연일 수 있음 — 버전 1 유지', cls: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' }
+                  : { text: '나아지지 않음 — 버전 1 유지', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' }
+                return (
+                  <tr key={v.id}>
+                    <td className="py-2 pr-3">
+                      <div className="font-medium text-gray-900 dark:text-white">{v.label}</div>
+                      <div className="text-[11px] text-gray-400">{v.desc}</div>
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-gray-600 dark:text-gray-300">{n(t.bids)}</td>
+                    <td className="py-2 text-right font-medium tabular-nums text-gray-900 dark:text-white">{n(t.win)}</td>
+                    <td className="py-2 text-right tabular-nums text-gray-900 dark:text-white">{pct(t.win, t.bids)}</td>
+                    <td className="whitespace-nowrap py-2 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                      {v.id === 'v1' ? '-' : baseRate ? `${(rate / baseRate).toFixed(2)}배` : '-'}
+                      {chance != null && <div className="text-[11px] text-gray-400">우연일 확률 {(chance * 100).toFixed(chance < 0.01 ? 2 : 0)}%</div>}
+                    </td>
+                    <td className="py-2 pl-4"><span className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-medium ${verdict.cls}`}>{verdict.text}</span></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }

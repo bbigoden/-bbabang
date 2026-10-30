@@ -1,6 +1,6 @@
 /** 입찰 실험실 — 되돌려 보기 판정과 '개찰 전 낙찰만' 자르기 */
 import { describe, it, expect } from 'vitest'
-import { verdictOf, priorOf, fixedSweep, predictN, STRATEGIES, type LabRow } from '@/lib/bid-lab'
+import { verdictOf, priorOf, fixedSweep, predictN, chanceAtLeast, STRATEGIES, type LabRow } from '@/lib/bid-lab'
 
 const row = (openg_at: string, sajeong: number, win_y: number | null): LabRow =>
   ({ openg_at, sajeong, win_y, dminstt_cd: 'X', dminstt_nm: '충청남도 아산시', bssamt: 1e8, rng: 3, prtcpt_cnum: 10 })
@@ -55,5 +55,14 @@ describe('predictN — 참여 업체 수 미리 짐작', () => {
   })
   it('입찰자 1곳 공고는 경쟁 짐작에 안 쓴다', () => {
     expect(predictN([1, 1, 1, 1, 1].map(n => r('A', '충청남도 아산시', n)), t)).toBeNull()
+  })
+})
+
+describe('chanceAtLeast — 버전 1 낙찰률로 이만큼 딸 확률', () => {
+  it('기대만큼이면 흔하고, 훨씬 많으면 드물다', () => {
+    expect(chanceAtLeast(0, 100, 0.03)).toBe(1)
+    expect(chanceAtLeast(3, 100, 0.03)).toBeGreaterThan(0.5)
+    expect(chanceAtLeast(10, 100, 0.03)).toBeLessThan(0.01)
+    expect(chanceAtLeast(1, 1, 0.5)).toBeCloseTo(0.5)
   })
 })

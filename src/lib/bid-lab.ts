@@ -113,3 +113,80 @@ export const N_BUCKETS: { max: number; label: string }[] = [
   { max: Infinity, label: '200곳 넘음' },
 ]
 export const bucketOf = (n: number) => N_BUCKETS.findIndex(b => n <= b.max)
+
+/** 참가가능지역 묶음 — 같은 지역제한끼리 경쟁 수가 비슷하다. 모르면 null */
+export const rgnKey = (rgns: string[] | null | undefined) => (rgns == null ? null : rgns.length ? [...rgns].sort().join('|') : '전국')
+
+/**
+ * 짐작 2 — 지역제한까지 본다. 아산시만 들어올 수 있는 공고와 전국 공고는 같은 발주기관이라도 붐비는 정도가 다르다.
+ * 같은 발주기관·같은 지역제한 3건 → 같은 지역제한·비슷한 금액대 5건 → 짐작 1(predictN).
+ */
+export function predictNByRegion(prior: (LabRow & { rgns?: string[] | null })[], t: LabRow & { rgns?: string[] | null }) {
+  const key = rgnKey(t.rgns)
+  if (key) {
+    const same = prior.filter(h => h.prtcpt_cnum && h.prtcpt_cnum > 1 && rgnKey(h.rgns) === key)
+    const med = (rows: LabRow[]) => {
+      const ns = rows.map(h => h.prtcpt_cnum!).sort((a, b) => a - b)
+      return ns[Math.floor(ns.length / 2)]
+    }
+    const instt = t.dminstt_cd ? same.filter(h => h.dminstt_cd === t.dminstt_cd) : []
+    if (instt.length >= 3) return { n: med(instt), by: 'instt' as const }
+    const near = same.filter(h => !t.bssamt || !h.bssamt || (h.bssamt >= t.bssamt / 3 && h.bssamt <= t.bssamt * 3))
+    if (near.length >= 5) return { n: med(near), by: 'region' as const }
+  }
+  return predictN(prior, t)
+}
+
+/**
+ * 버전 — '어느 공고에 넣고(고르기) 얼마에 넣나(자리)'를 묶은 투찰 방식 하나.
+ * 새 실험은 버전을 하나 더 붙이고, 버전 1(전부·지금 추천)과 같은 공고들로 비교한다.
+ */
+export type VersionCtx = { prior: LabRow[]; t: LabRow; pred1: number | null; pred2: number | null; cur?: number | null }
+export type Version = { id: string; label: string; desc: string; bid: (c: VersionCtx) => boolean; pick: (c: VersionCtx) => number | null }
+
+const CUT = 60
+// 여러 버전이 같은 '지금 추천'을 쓰므로 공고마다 한 번만 계산한다
+const current = (c: VersionCtx) => (c.cur !== undefined ? c.cur : (c.cur = recommendY(c.prior, c.t)?.y ?? null))
+
+export const VERSIONS: Version[] = [
+  { id: 'v1', label: '버전 1', desc: '모든 공고에, 지금 추천 금액으로', bid: () => true, pick: current },
+  { id: 'v2', label: '버전 2', desc: `참여 ${CUT}곳 이하로 짐작한 공고만, 지금 추천 금액으로`, bid: c => c.pred1 != null && c.pred1 <= CUT, pick: current },
+  {
+    id: 'v3', label: '버전 3',
+    desc: `버전 2 + 금액은 참여 업체 수가 비슷했던(짐작의 절반~두 배) 과거 공고만 보고 고른다 — 경쟁이 적으면 업체 사이 간격이 넓다`,
+    bid: c => c.pred1 != null && c.pred1 <= CUT,
+    pick: c => {
+      if (c.pred1 == null) return current(c)
+      const p = c.pred1
+      const similar = c.prior.filter(h => h.prtcpt_cnum != null && h.prtcpt_cnum >= p / 2 && h.prtcpt_cnum <= p * 2)
+      return recommendY(similar, c.t)?.y ?? current(c)
+    },
+  },
+  {
+    id: 'v4', label: '버전 4',
+    desc: `짐작에 참가지역 제한까지 넣어(같은 지역제한끼리) 참여 ${CUT}곳 이하인 공고만, 지금 추천 금액으로`,
+    bid: c => c.pred2 != null && c.pred2 <= CUT, pick: current,
+  },
+  { id: 'v5', label: '버전 5', desc: '버전 2를 더 좁혀 참여 45곳 이하로 짐작한 공고만', bid: c => c.pred1 != null && c.pred1 <= 45, pick: current },
+  { id: 'v6', label: '버전 6', desc: '참여 30곳 이하로 짐작한 공고만 — 낙찰률은 오르지만 넣을 공고가 확 준다', bid: c => c.pred1 != null && c.pred1 <= 30, pick: current },
+]
+
+export type VersionTally = { bids: number; win: number; pass: number; below: number; none: number; expect: number }
+
+/**
+ * 버전 1의 공고당 낙찰률(p)로 n번 넣었을 때 win 번 이상 딸 확률 — 작을수록 '운이 아니라 나아졌다'.
+ * 0.05 밑이면 확실히 낫다고 본다.
+ */
+export function chanceAtLeast(win: number, n: number, p: number): number {
+  if (win <= 0) return 1
+  if (p <= 0) return 0
+  if (p >= 1) return 1
+  // 로그로 이항분포를 더한다 (n 수천 건도 넘치지 않게)
+  let logPmf = n * Math.log(1 - p)  // k = 0
+  let below = 0
+  for (let k = 0; k < win; k++) {
+    below += Math.exp(logPmf)
+    logPmf += Math.log((n - k) / (k + 1)) + Math.log(p / (1 - p))
+  }
+  return Math.max(0, 1 - below)
+}
