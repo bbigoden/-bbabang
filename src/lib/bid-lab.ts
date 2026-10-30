@@ -83,3 +83,33 @@ export function fixedSweep(targets: { sajeong: number; win_y: number | null }[],
   }
   return out
 }
+
+/**
+ * 실험 2 — 경쟁이 적을 공고 고르기. 한 공고를 딸 확률은 대략 1 ÷ 참여 업체 수라,
+ * 금액보다 '어느 공고에 넣느냐'가 더 크게 갈린다. 개찰 전 낙찰만으로 참여 업체 수를 미리 짐작한다:
+ * 같은 발주기관 3건 이상 → 그 가운데 값, 아니면 같은 시도·비슷한 금액대 5건 이상, 아니면 비슷한 금액대 전체.
+ */
+export function predictN(prior: LabRow[], t: LabRow): { n: number; by: 'instt' | 'region' | 'all' } | null {
+  const near = prior.filter(h => h.prtcpt_cnum && h.prtcpt_cnum > 1 &&
+    (!t.bssamt || !h.bssamt || (h.bssamt >= t.bssamt / 3 && h.bssamt <= t.bssamt * 3)))
+  const med = (rows: LabRow[]) => {
+    const ns = rows.map(h => h.prtcpt_cnum!).sort((a, b) => a - b)
+    return ns[Math.floor(ns.length / 2)]
+  }
+  const instt = t.dminstt_cd ? prior.filter(h => h.dminstt_cd === t.dminstt_cd && h.prtcpt_cnum && h.prtcpt_cnum > 1) : []
+  if (instt.length >= 3) return { n: med(instt), by: 'instt' }
+  const sido = (t.dminstt_nm ?? '').split(' ')[0]
+  const region = sido ? near.filter(h => (h.dminstt_nm ?? '').split(' ')[0] === sido) : []
+  if (region.length >= 5) return { n: med(region), by: 'region' }
+  return near.length >= 5 ? { n: med(near), by: 'all' } : null
+}
+
+/** 예상 참여 업체 수 칸 */
+export const N_BUCKETS: { max: number; label: string }[] = [
+  { max: 30, label: '30곳 이하' },
+  { max: 60, label: '31~60곳' },
+  { max: 100, label: '61~100곳' },
+  { max: 200, label: '101~200곳' },
+  { max: Infinity, label: '200곳 넘음' },
+]
+export const bucketOf = (n: number) => N_BUCKETS.findIndex(b => n <= b.max)
