@@ -10,7 +10,7 @@ import { logAdminAction } from '@/lib/audit'
 import { EmptyState } from '@/components/empty-state'
 import {
   Flag, MessageCircle, ArrowLeft, ExternalLink, Check, X,
-  AlertCircle, Clock, CheckCircle2, XCircle, ChevronDown, Mail, Star
+  AlertCircle, Clock, CheckCircle2, XCircle, ChevronDown, Mail
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
@@ -321,7 +321,6 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
                   </Link>
                 )}
               </div>
-              {report.target_type === 'review' && <ReportedReview reviewId={report.target_id} supabase={supabase} />}
             </div>
           )}
 
@@ -381,68 +380,6 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
           </button>
         </div>
       </div>
-    </div>
-  )
-}
-
-interface ReportedReviewRow {
-  rating: number
-  content: string | null
-  created_at: string
-  profiles: { name: string | null } | null
-  broker_profiles: { office_name: string | null } | null
-}
-
-// 신고된 리뷰 본문. 카드 모양은 관리자 대시보드의 중개사 모달 '고객 리뷰'와 같다.
-// undefined = 불러오는 중, null = 없음(작성자가 지웠거나 id 가 틀림)
-function ReportedReview({ reviewId, supabase }: {
-  reviewId: string
-  supabase: ReturnType<typeof createClient>
-}) {
-  const [review, setReview] = useState<ReportedReviewRow | null | undefined>(undefined)
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    supabase
-      .from('reviews')
-      .select('rating, content, created_at, profiles(name), broker_profiles(office_name)')
-      .eq('id', reviewId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return
-        // 오류를 '없음'으로 보이면 멀쩡한 리뷰를 지워진 것으로 오판한다
-        if (error) { setFailed(true); return }
-        setReview((data ?? null) as ReportedReviewRow | null)
-      })
-    return () => { cancelled = true }
-  }, [supabase, reviewId])
-
-  if (failed) return <p className="mt-3 text-xs text-red-400">리뷰를 불러오지 못했어요</p>
-  if (review === undefined) {
-    return (
-      <div className="mt-3 flex items-center justify-center py-2">
-        <Spinner size="sm" />
-      </div>
-    )
-  }
-  if (!review) return <p className="mt-3 text-xs text-gray-400">리뷰가 없어요 (이미 삭제됐을 수 있어요)</p>
-
-  return (
-    <div className="mt-3 rounded-xl border border-gray-700 bg-gray-800/40 px-3.5 py-2.5">
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <span className="text-sm font-semibold text-white">{review.profiles?.name ?? '(알 수 없음)'}</span>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          {[1,2,3,4,5].map(i => (
-            <Star key={i} className={`h-3 w-3 ${i <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
-          ))}
-        </div>
-      </div>
-      {review.content && <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-line">{review.content}</p>}
-      <p className="mt-1 text-[10px] text-gray-400">
-        {review.broker_profiles?.office_name && <>{review.broker_profiles.office_name} · </>}
-        {formatDate(review.created_at)}
-      </p>
     </div>
   )
 }
