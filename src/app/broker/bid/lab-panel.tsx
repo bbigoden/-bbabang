@@ -39,7 +39,7 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
     let alive = true
     void Promise.all([
       fetchAllPaged<Row>((from, to) => supabase.from('bid_results')
-        .select('bid_ntce_no, openg_at, prtcpt_cnum, winner_nm, sajeong, win_y, bssamt, rng, dminstt_cd, dminstt_nm')
+        .select('bid_ntce_no, openg_at, prtcpt_cnum, winner_nm, sajeong, win_y, bssamt, rng, dminstt_cd, dminstt_nm, lwlt_rate')
         .not('openg_at', 'is', null).order('openg_at', { ascending: true })
         .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
       fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; site_region: string | null; rgn_duty_rt: number | null; rgn_duty_rgns: string[] | null }>((from, to) =>
@@ -227,6 +227,7 @@ function VersionTable({ results, total, baseline, progress }: {
       <p className="mt-0.5 text-xs text-gray-500">
         모든 버전이 같은 공고 {n(total)}건에 다 넣고 금액만 다릅니다(공고마다 그 공고 개찰 전 낙찰만 보고 정함).
         버전 1보다 <b>더 많이 땄고</b> 그 차이가 우연일 확률이 5% 미만일 때만 &lsquo;나음&rsquo;입니다. 아니면 버전 1을 씁니다.
+        {total < 1000 && <> 공고가 {n(total)}건뿐이라 판정이 잘 안 갈립니다 — 금액 고르는 방법은 업종 전체에 같으니 &lsquo;우리 업체 공고만&rsquo;을 끄고 &lsquo;받은 전체&rsquo;로 보면 확실합니다.</>}
       </p>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
         {VERDICTS.map(v => (

@@ -15,7 +15,7 @@ import {
   ENOUGH, GRID_MAX, GRID_MIN, GRID_STEP, MIN_POOL, type CurvePoint, type PoolRow,
 } from './bid-analysis'
 
-export type LabRow = PoolRow & { openg_at: string; prtcpt_cnum: number | null }
+export type LabRow = PoolRow & { openg_at: string; prtcpt_cnum: number | null; lwlt_rate?: number | null }
 export type Verdict = 'win' | 'pass' | 'below'
 
 export function verdictOf(y: number, row: { sajeong: number; win_y: number | null }): Verdict {
@@ -76,6 +76,15 @@ function autoRows(c: VersionCtx, enough = ENOUGH): LabRow[] {
 
 const DAY = 86_400_000
 
+/** 발주기관 유형 — 이름으로 가른다 */
+function insttKind(nm: string | null): string {
+  const s = nm ?? ''
+  if (/교육(청|지원청)|학교/.test(s)) return '교육'
+  if (/공사|공단|진흥원|연구원|병원/.test(s)) return '공기업'
+  if (/(시|군|구|도)(청)?( |$)|특별시|광역시|특별자치/.test(s)) return '지자체'
+  return '기타'
+}
+
 export type VersionCtx = { prior: LabRow[]; t: LabRow }
 export type Version = { id: string; label: string; desc: string; pick: (c: VersionCtx) => number | null }
 
@@ -130,6 +139,32 @@ export const VERSIONS: Version[] = [
       const p = ns[Math.floor(ns.length / 2)]
       return bestPoint(weightedCurve(r, h => (h.prtcpt_cnum ? Math.exp(-Math.abs(Math.log(h.prtcpt_cnum / p))) : 0.3))).y
     },
+  },
+  {
+    id: 'v8', label: '버전 8', desc: '버전 1 자리에서 0.03% 아래 — 같은 금액에 몰린 업체보다 한 끗 낮게',
+    pick: c => { const y = recommendY(c.prior, c.t)?.y; return y == null ? null : y - 0.0003 },
+  },
+  {
+    id: 'v9', label: '버전 9', desc: '발주기관이 표본 30건이 안 되면 시도 대신 같은 유형(교육청·지자체·공기업) 기관으로',
+    pick: c => {
+      const pool = similarPool(c.prior, c.t.bssamt, c.t.rng)
+      const inst = pool.filter(h => c.t.dminstt_cd && h.dminstt_cd === c.t.dminstt_cd)
+      const k = insttKind(c.t.dminstt_nm)
+      const same = pool.filter(h => insttKind(h.dminstt_nm) === k)
+      const rows = inst.length >= ENOUGH ? inst : same.length >= ENOUGH ? same : pool
+      return rows.length < MIN_POOL ? null : bestPoint(winCurve(toNorm(rows))).y
+    },
+  },
+  {
+    id: 'v10', label: '버전 10', desc: '낙찰하한율이 같은 공고끼리만(금액 구간마다 하한율이 달라 업체 버릇도 다를 수 있다)',
+    pick: c => {
+      const same = c.prior.filter(h => h.lwlt_rate != null && Number(h.lwlt_rate) === Number(c.t.lwlt_rate))
+      return recommendY(same.length >= 50 ? same : c.prior, c.t)?.y ?? null
+    },
+  },
+  {
+    id: 'v11', label: '버전 11', desc: '가장 가까운 과거 1,000건만 본다',
+    pick: c => recommendY(c.prior.slice(-1000), c.t)?.y ?? null,
   },
 ]
 
