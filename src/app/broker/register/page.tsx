@@ -12,7 +12,6 @@ import { Card, CardBody } from '@/components/ui/card'
 import { Spinner } from '@/components/ui/spinner'
 import { Shield, CheckCircle, Users, Building2, AlertCircle, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { seedRegionFromAddress } from '@/lib/region-from-address'
 import {
   normalizeOfficeForm, validateOfficeForm, officeSaveError, isBusinessNumber, formatBusinessNumber,
   bizVerifyMessage, verificationState, verificationCopy, NUMBER_TAKEN_MESSAGE, type OfficeForm, type OfficeFormErrors,
@@ -133,14 +132,11 @@ export default function BrokerRegisterPage() {
       const user = authData.user
       if (!user) { router.push('/auth/login'); return }
 
-      // 사무소 주소 → 시·군·구 자동 추출해 alert_regions 시드 (실패해도 빈 배열로 진행)
-      const seed = await seedRegionFromAddress(codePreview.address)
-
       // 합류는 원자적 RPC로 처리: 직원 프로필 생성 + 대표 코드 1회용 재발급 + role 전환.
       // (코드 재발급은 남(대표)의 행 UPDATE라 클라이언트 RLS로는 막혀 조용히 실패했었음 → DEFINER로 일원화)
       const { data: joinRes, error: joinError } = await supabase.rpc('join_office_by_code', {
         p_code: officeCode,
-        p_alert_regions: seed ? [seed] : [],
+        p_alert_regions: [],
       })
       if (joinError || !(joinRes as { ok?: boolean } | null)?.ok) {
         const msg = joinError?.message ?? ''
@@ -205,9 +201,6 @@ export default function BrokerRegisterPage() {
         return
       }
 
-      // 사무소 주소 → 시·군·구 자동 추출해 alert_regions 시드 (실패해도 빈 배열로 진행)
-      const seed = await seedRegionFromAddress(clean.address)
-
       const { error: insertError } = await supabase.from('broker_profiles').insert({
         user_id: user.id,
         office_name: clean.office_name,
@@ -220,7 +213,6 @@ export default function BrokerRegisterPage() {
         is_verified: false,
         is_owner: true,
         is_approved: true,
-        alert_regions: seed ? [seed] : [],
       })
       if (insertError) {
         // 409 를 가려 읽는다 — 이미 등록한 계정 / 남이 쓰는 자격증 번호 / 남이 쓰는 사업자번호

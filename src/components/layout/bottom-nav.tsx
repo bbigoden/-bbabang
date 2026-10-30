@@ -6,20 +6,16 @@ import { usePathname } from 'next/navigation'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
-  Home, Search, Bell, Heart, User, Building2, Briefcase,
+  Home, Bell, User, Building2,
   MoreHorizontal, X, ChevronDown, LogOut, Lock,
   LayoutDashboard, Flag, Users, ClipboardList, Gavel,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BROKER_ITEMS, showItem, type ItemDef } from '@/components/broker/menu-items'
 import { ADMIN_ITEMS } from '@/components/admin/menu-items'
-import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
 // 풀스크린이거나 자체 하단 UI가 있는 페이지는 BottomNav 숨김
 const HIDDEN_PATHS = [
-  // 견적서 공개 열람 — 거래처(외부인)가 보는 화면이라 부소장 껍데기를 붙이지 않는다
-  '/e/',
-  '/chat/',
   '/auth',
   '/account-suspended',
   '/broker/properties/', // 매물 편집 등 풀스크린
@@ -34,7 +30,6 @@ export function BottomNav() {
   const pathname = usePathname() ?? ''
   const { user, profile, broker, loading } = useAuthOptional()
   const { unread } = useNotificationsCtx()
-  const chatUnread = useOfficeChatUnread()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
 
@@ -53,7 +48,6 @@ export function BottomNav() {
   if (!user) {
     items = [
       { href: '/', label: '홈', icon: Home },
-      { href: '/explore/requests', label: '요청', icon: Search },
       { href: '/auth/login', label: '로그인', icon: User },
     ]
   } else if (role === 'broker') {
@@ -68,24 +62,20 @@ export function BottomNav() {
       ...(broker?.bid_enabled && broker.is_owner !== false
         ? [{ href: '/broker/bid', label: '입찰', icon: Gavel }]
         : []),
-      // 일정·대화를 탭에서 뺐으므로 안 읽은 대화도 여기로 모아 센다.
-      // 아니면 안 읽은 대화가 있다는 표시가 폰 어디에도 남지 않는다.
-      { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread + chatUnread },
+      { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
     ]
   } else if (role === 'admin') {
     items = [
       { href: '/admin', label: '홈', icon: LayoutDashboard },
       { href: '/admin/reports', label: '신고', icon: Flag },
-      { href: '/admin/properties', label: '매물', icon: Home },
+      { href: '/admin/users', label: '사용자', icon: Users },
       { href: '/admin/brokers', label: '사무소', icon: Building2 },
       { action: 'more', label: '더보기', icon: MoreHorizontal },
     ]
   } else {
+    // 중개사도 관리자도 아닌 계정(예전 고객 가입) — 고객 화면은 없앴다. 사무소 등록으로 안내한다
     items = [
-      { href: '/dashboard/user', label: '홈', icon: Home },
-      { href: '/recommendations', label: '추천', icon: Briefcase },
-      { href: '/favorites', label: '찜', icon: Heart },
-      { href: '/notifications', label: '알림', icon: Bell, badge: unread },
+      { href: '/broker/register', label: '사무소 등록', icon: Building2 },
       { href: '/settings/account', label: '내정보', icon: User },
     ]
   }

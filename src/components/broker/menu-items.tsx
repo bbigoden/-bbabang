@@ -5,8 +5,7 @@
 import {
   Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
-  User, Bell, Palette, Handshake, Compass, CalendarDays, MessagesSquare, Briefcase,
-  Megaphone, Construction, Radar, FileText, LayoutDashboard, Gavel,
+  User, Bell, Palette, Megaphone, Radar, LayoutDashboard, Gavel,
 } from 'lucide-react'
 
 export interface SubItemDef {
@@ -46,7 +45,6 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList, needsOffice: true },
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone, needsOffice: true },
   { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar, needsOffice: true },
-  { id: 'estimates',  href: '/broker/estimates', label: '견적서', icon: FileText, ownerOnly: true, needsOffice: true },
   { id: 'bid',        href: '/broker/bid', label: '입찰', icon: Gavel, ownerOnly: true, needsOffice: true, bidOnly: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen, needsOffice: true },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator, needsOffice: true },
@@ -61,16 +59,6 @@ export const BROKER_ITEMS: ItemDef[] = [
     ],
   },
   { id: 'trash', href: '/broker/trash', label: '휴지통', icon: Trash2, needsOffice: true },
-  {
-    id: 'wip', label: '준비중', icon: Construction,
-    children: [
-      { href: '/explore/requests', label: '고객요청', icon: Compass },
-      { href: '/request/new?co_broker=true', label: '공동요청', icon: Handshake },
-      { href: '/broker/messenger', label: '대화목록', icon: MessagesSquare, needsOffice: true },
-      { href: '/broker/schedule',  label: '일정관리', icon: CalendarDays, needsOffice: true },
-      { href: '/broker/jobs',      label: '구인구직', icon: Briefcase, ownerOnly: true, needsOffice: true },
-    ],
-  },
 ]
 
 /**

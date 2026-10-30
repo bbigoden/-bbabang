@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { formatDate } from '@/lib/utils'
 import {
   Activity, ArrowLeft, RefreshCw, AlertOctagon, Database,
-  Users, FileText, Building2, MessageCircle, Bell, Heart, Eye, Flag, CheckCircle2
+  Users, Building2, Bell, Flag, CheckCircle2
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
@@ -18,9 +18,6 @@ interface Health {
   recent: {
     notifsLast24h: number
     propertiesLast24h: number
-    requestsLast24h: number
-    proposalsLast24h: number
-    chatMessagesLast24h: number
     errorsLast24h: number
   }
   pushReady: boolean
@@ -50,38 +47,27 @@ export default function AdminHealthPage() {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
 
     const [
-      profiles, requests, brokers, properties, proposals, notifs, reviews,
-      favorites, reports, errLogs, pushSubs,
-      n24, p24, r24, pr24, m24, e24,
+      profiles, brokers, properties, notifs,
+      reports, errLogs, pushSubs,
+      n24, p24, e24,
     ] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase.from('request_posts').select('*', { count: 'exact', head: true }),
       supabase.from('broker_profiles').select('*', { count: 'exact', head: true }),
       supabase.from('broker_properties').select('*', { count: 'exact', head: true }),
-      supabase.from('proposals').select('*', { count: 'exact', head: true }),
       supabase.from('notifications').select('*', { count: 'exact', head: true }),
-      supabase.from('reviews').select('*', { count: 'exact', head: true }),
-      supabase.from('favorites').select('*', { count: 'exact', head: true }),
       supabase.from('reports').select('*', { count: 'exact', head: true }),
       supabase.from('error_logs').select('*', { count: 'exact', head: true }),
       supabase.from('push_subscriptions').select('*', { count: 'exact', head: true }),
       supabase.from('notifications').select('*', { count: 'exact', head: true }).gte('created_at', since),
       supabase.from('broker_properties').select('*', { count: 'exact', head: true }).gte('created_at', since),
-      supabase.from('request_posts').select('*', { count: 'exact', head: true }).gte('created_at', since),
-      supabase.from('proposals').select('*', { count: 'exact', head: true }).gte('created_at', since),
-      supabase.from('chat_messages').select('*', { count: 'exact', head: true }).gte('created_at', since),
       supabase.from('error_logs').select('*', { count: 'exact', head: true }).gte('created_at', since),
     ])
 
     const tables = {
       profiles: profiles.count ?? 0,
       brokers: brokers.count ?? 0,
-      requests: requests.count ?? 0,
       properties: properties.count ?? 0,
-      proposals: proposals.count ?? 0,
       notifications: notifs.count ?? 0,
-      reviews: reviews.count ?? 0,
-      favorites: favorites.count ?? 0,
       reports: reports.count ?? 0,
       error_logs: errLogs.count ?? 0,
       push_subscriptions: pushSubs.count ?? 0,
@@ -90,9 +76,6 @@ export default function AdminHealthPage() {
     const recent = {
       notifsLast24h: n24.count ?? 0,
       propertiesLast24h: p24.count ?? 0,
-      requestsLast24h: r24.count ?? 0,
-      proposalsLast24h: pr24.count ?? 0,
-      chatMessagesLast24h: m24.count ?? 0,
       errorsLast24h: e24.count ?? 0,
     }
 
@@ -203,11 +186,8 @@ export default function AdminHealthPage() {
             {/* 24h 활동 */}
             <section>
               <h2 className="mb-3 font-bold text-white">최근 24시간 활동</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <Activity24h icon={FileText} label="신규 요청" value={data.recent.requestsLast24h} color="text-green-400 bg-green-500/10" />
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 <Activity24h icon={Building2} label="신규 매물" value={data.recent.propertiesLast24h} color="text-emerald-400 bg-emerald-500/10" />
-                <Activity24h icon={MessageCircle} label="제안" value={data.recent.proposalsLast24h} color="text-blue-300 bg-blue-500/10" />
-                <Activity24h icon={MessageCircle} label="채팅 메시지" value={data.recent.chatMessagesLast24h} color="text-purple-400 bg-purple-500/10" />
                 <Activity24h icon={Bell} label="알림 발송" value={data.recent.notifsLast24h} color="text-yellow-400 bg-yellow-500/10" />
                 <Activity24h icon={AlertOctagon} label="에러" value={data.recent.errorsLast24h} color={data.recent.errorsLast24h > 0 ? "text-red-400 bg-red-500/10" : "text-gray-400 bg-gray-800"} />
               </div>
@@ -219,12 +199,8 @@ export default function AdminHealthPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 <TableRow icon={Users} label="사용자" value={data.tables.profiles} />
                 <TableRow icon={Building2} label="중개사" value={data.tables.brokers} />
-                <TableRow icon={FileText} label="요청" value={data.tables.requests} />
                 <TableRow icon={Database} label="매물" value={data.tables.properties} />
-                <TableRow icon={MessageCircle} label="제안" value={data.tables.proposals} />
                 <TableRow icon={Bell} label="알림" value={data.tables.notifications} />
-                <TableRow icon={Eye} label="리뷰" value={data.tables.reviews} />
-                <TableRow icon={Heart} label="찜" value={data.tables.favorites} />
                 <TableRow icon={Flag} label="신고·문의" value={data.tables.reports} />
                 <TableRow icon={AlertOctagon} label="에러 로그" value={data.tables.error_logs} />
                 <TableRow icon={CheckCircle2} label="푸시 구독" value={data.tables.push_subscriptions} />

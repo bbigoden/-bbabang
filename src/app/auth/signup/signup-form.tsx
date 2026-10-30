@@ -33,12 +33,6 @@ function FieldLabel({ htmlFor, optional, children }: { htmlFor: string; optional
 
 const ALREADY_REGISTERED = '이미 가입된 이메일입니다. 로그인하거나 비밀번호 찾기를 이용해주세요.'
 
-/**
- * 중개사·관리자 전용 경로. 고객으로 가입하는 사람은 이런 redirect 를 따라가지 않는다 —
- * /broker/properties 에서 튕겨 온 사람이 역할을 '고객'으로 바꿔 가입하면 고객인 채 중개사 화면에 떨어졌다.
- */
-const STAFF_PATH = /^\/(?:broker|dashboard\/broker|admin)(?:[/?#]|$)/
-
 /** 가입 실패를 칸·까닭별로. 모르는 오류는 서버 문구를 그대로 둔다(예전 동작). */
 function signupErrorMessage(err: AuthError): { field?: SignupField; text: string } {
   if (err.code === 'user_already_exists' || err.code === 'email_exists' || err.message === 'User already registered') {
@@ -59,17 +53,12 @@ function signupErrorMessage(err: AuthError): { field?: SignupField; text: string
   return { text: err.message }
 }
 
-export function SignupForm({
-  defaultRole = 'user',
-  redirectTo = null,
-}: {
-  defaultRole?: 'user' | 'broker'
-  redirectTo?: string | null
-}) {
+export function SignupForm({ redirectTo = null }: { redirectTo?: string | null }) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [role, setRole] = useState<'user' | 'broker'>(defaultRole)
+  // 고객 가입은 2026-10-30 없앴다 — 가입은 늘 중개사·직원
+  const role = 'broker'
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -102,11 +91,8 @@ export function SignupForm({
   const pwMatch = password === passwordConfirm
   const pwStrong = password.length >= SIGNUP_PASSWORD_MIN
 
-  // 가입 뒤 갈 곳. 중개사는 사무소를 등록(대표)하거나 코드로 합류(직원)해야 나머지 화면이 열려 늘 등록 화면.
-  // 고객은 들고 온 redirect(홈 [무료로 조건 등록하기] → /request/new), 없거나 중개사 전용이면 고객 첫 화면.
-  const destination = role === 'broker'
-    ? '/broker/register'
-    : (redirectTo && !STAFF_PATH.test(redirectTo) ? redirectTo : '/dashboard/user')
+  // 가입 뒤 갈 곳. 사무소를 등록(대표)하거나 코드로 합류(직원)해야 나머지 화면이 열려 늘 등록 화면.
+  const destination = '/broker/register'
   // 인증 메일 링크도 같은 곳으로 — 예전엔 돌아올 주소를 안 넘겨 메일 링크가 홈으로 떨어졌다
   const emailRedirectTo = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`
 
@@ -289,16 +275,12 @@ export function SignupForm({
         {resendMsg && (
           <p role="status" className={cn('mt-2 text-xs', resendMsg.ok ? 'text-green-600' : 'text-red-600')}>{resendMsg.text}</p>
         )}
-        {/* 고객의 기본 목적지(/dashboard/user)는 싣지 않는다 — 로그인 화면이 '로그인이 필요한 화면이에요'라
-            막 가입한 사람에게 엉뚱한 인사를 했다. 역할별 첫 화면은 /auth/login 이 알아서 간다. */}
-        <Link href={loginHref(role === 'broker' ? '/broker/register' : redirectTo)} className="mt-3 block">
+        <Link href={loginHref(destination)} className="mt-3 block">
           <Button variant="primary" size="lg" className="w-full">인증했어요 · 로그인하기</Button>
         </Link>
       </div>
     )
   }
-
-  const toRequest = role === 'user' && !!redirectTo && /^\/request\/new(?:[/?#]|$)/.test(redirectTo)
 
   return (
     <>
@@ -310,45 +292,14 @@ export function SignupForm({
         </Link>
         <p className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">부소장에 오신 걸 환영해요 🏠</p>
         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          {toRequest ? '가입하면 바로 조건 등록으로 이어져요' : '무료로 시작하세요'}
+          무료로 시작하세요
         </p>
       </div>
 
       <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
-        {/* 역할 선택 */}
-        <div className="mb-2 grid grid-cols-2 gap-3">
-          {[
-            { value: 'user', label: '고객', icon: User, desc: '주거·상가·토지·공장 등 · 무료' },
-            { value: 'broker', label: '중개사 · 직원', icon: Building2, desc: '매물 제안·관리 · 등록 인증' },
-          ].map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setRole(option.value as 'user' | 'broker')}
-              className={cn(
-                'rounded-xl border-2 p-4 text-left transition-all',
-                role === option.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-              )}
-            >
-              <option.icon className={cn('mb-2 h-5 w-5', role === option.value ? 'text-blue-600' : 'text-gray-500')} />
-              <div className={cn('font-semibold text-sm', role === option.value ? 'text-blue-700' : 'text-gray-700')}>
-                {option.label}
-              </div>
-              <div className="text-xs text-gray-600 mt-0.5">{option.desc}</div>
-            </button>
-          ))}
-        </div>
-        {/* 중개사를 고르면 대표 본인의 다음 단계부터 — 직원 합류 이야기만 있어 대표는 다음에 뭘 하는지 몰랐다(p4) */}
+        {/* 대표 본인의 다음 단계부터 — 직원 합류 이야기만 있어 대표는 다음에 뭘 하는지 몰랐다(p4) */}
         <p className="mb-6 text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
-          {role === 'broker' ? (
-            <>
-              <span className="font-semibold text-gray-900 dark:text-white">대표님</span>은 다음 단계에서 사무소를 등록해요. 소속 직원은 대표님께 받은 <span className="font-semibold text-gray-900 dark:text-white">6자리 사무소 코드</span>로 합류해요.
-            </>
-          ) : (
-            <>
-              소속 직원도 <span className="font-semibold text-gray-900 dark:text-white">중개사·직원</span>을 선택하세요. 다음 단계에서 대표님께 받은 <span className="font-semibold text-gray-900 dark:text-white">6자리 사무소 코드</span>로 합류할 수 있어요.
-            </>
-          )}
+          <span className="font-semibold text-gray-900 dark:text-white">대표님</span>은 다음 단계에서 사무소를 등록해요. 소속 직원은 대표님께 받은 <span className="font-semibold text-gray-900 dark:text-white">6자리 사무소 코드</span>로 합류해요.
         </p>
 
         {/* noValidate — 브라우저 말풍선은 한 칸씩만 알려 줘서, 칸마다 아래에 한꺼번에 띄우는 쪽으로 */}
@@ -356,7 +307,6 @@ export function SignupForm({
           {/* JS 가 붙기 전(느린 망)에 누르면 브라우저가 폼을 GET 으로 보내 이 화면을 다시 연다. 칸들은 name 이
               없어 주소에 실리지 않고(비밀번호 노출 없음), 이 둘만 실려 돌아갈 곳·역할을 잃지 않는다. */}
           {redirectTo && <input type="hidden" name="redirect" value={redirectTo} />}
-          <input type="hidden" name="role" value={role} />
           <p className="text-right text-xs text-gray-500">
             <span className="text-red-500">*</span> 표시는 꼭 입력해야 해요
           </p>
@@ -523,7 +473,7 @@ export function SignupForm({
             loading={loading}
             disabled={!ready}
           >
-            {!ready ? '불러오는 중…' : role === 'broker' ? '중개사·직원으로 가입하기' : '회원가입'}
+            {!ready ? '불러오는 중…' : '가입하기'}
           </Button>
         </form>
 

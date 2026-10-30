@@ -49,13 +49,11 @@ const TARGET_LABEL: Record<NonNullable<Report['target_type']>, string> = {
   review: '리뷰',
 }
 
-// 리뷰는 열 페이지가 없어 '#'(열기 버튼 숨김)으로 두고 모달 안에 내용을 바로 띄운다.
-// /reviews 는 '내가 쓴 리뷰'만 보여 줘서, 관리자가 가면 자기 빈 목록만 나왔다.
-const TARGET_LINK = (type: NonNullable<Report['target_type']>, id: string): string => {
+// 열 페이지가 남은 건 사무소뿐 — 요청·매물 공개 페이지는 없앴다. null 이면 열기 버튼을 숨긴다.
+// 리뷰는 모달 안에 내용을 바로 띄운다.
+const TARGET_LINK = (type: NonNullable<Report['target_type']>): string | null => {
   if (type === 'broker') return '/admin/brokers'  // 공개 프로필 페이지 제거됨 — 검수 화면으로
-  if (type === 'request') return `/request/${id}`
-  if (type === 'property') return `/property/${id}`
-  return '#'
+  return null
 }
 
 export default function AdminReportsPage() {
@@ -270,7 +268,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
   }
 
   const meta = STATUS_META[report.status]
-  const targetHref = report.target_type && report.target_id ? TARGET_LINK(report.target_type, report.target_id) : null
+  const targetHref = report.target_type && report.target_id ? TARGET_LINK(report.target_type) : null
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4"
@@ -315,7 +313,7 @@ function ReportDetailModal({ report, onClose, onUpdated, supabase, adminId }: {
                 <span className="text-sm text-white">
                   {TARGET_LABEL[report.target_type]} · <span className="font-mono text-xs text-gray-400">{report.target_id.slice(0, 8)}...</span>
                 </span>
-                {targetHref !== '#' && targetHref && (
+                {targetHref && (
                   <Link href={targetHref} target="_blank"
                     className="inline-flex items-center gap-1 rounded-lg border border-gray-700 px-2.5 py-1 text-xs font-medium text-gray-300 hover:bg-gray-700">
                     <ExternalLink className="h-3 w-3" />

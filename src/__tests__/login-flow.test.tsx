@@ -52,22 +52,15 @@ describe('LoginForm — 온 까닭별 인사', () => {
     expect(screen.getByRole('link', { name: '무료로 시작하기' })).toHaveAttribute('href', '/auth/signup')
   })
 
-  it('조건 등록으로 가던 길이면 가입부터 권하고, 가입 링크가 redirect 를 싣는다 (#10·#11)', () => {
-    render(<LoginForm redirectTo="/request/new" />)
-    expect(screen.queryByText('다시 만나서 반가워요 👋')).not.toBeInTheDocument()
-    expect(screen.getByText('조건을 등록하려면 로그인이 필요해요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /30초 무료 가입/ })).toHaveAttribute('href', '/auth/signup?redirect=%2Frequest%2Fnew')
-  })
-
-  it('다른 로그인 전용 화면이면 이어진다고만, 중개사 화면이면 가입 역할도 중개사로', () => {
+  it('로그인 전용 화면이면 이어진다고만, 가입 링크가 redirect 를 싣는다', () => {
     render(<LoginForm redirectTo="/broker/properties?focus=1" />)
     expect(screen.getByText('로그인이 필요한 화면이에요')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '무료로 시작하기' }))
-      .toHaveAttribute('href', '/auth/signup?redirect=%2Fbroker%2Fproperties%3Ffocus%3D1&role=broker')
+      .toHaveAttribute('href', '/auth/signup?redirect=%2Fbroker%2Fproperties%3Ffocus%3D1')
   })
 
   it('헤더 [로그인]이 실어 온 공개 화면은 재방문 인사 그대로', () => {
-    render(<LoginForm redirectTo="/explore" />)
+    render(<LoginForm redirectTo="/support" />)
     expect(screen.getByText('다시 만나서 반가워요 👋')).toBeInTheDocument()
   })
 })
@@ -76,7 +69,7 @@ describe('LoginForm — 로그인 실패 까닭별 안내 (#46)', () => {
   it('이메일 인증 전이면 인증 안내 + 재발송 버튼', async () => {
     m.signInWithPassword.mockResolvedValue({ data: { user: null, session: null }, error: authError('Email not confirmed', 'email_not_confirmed', 400) })
     m.resend.mockResolvedValue({ data: {}, error: null })
-    render(<LoginForm redirectTo="/request/new" />)
+    render(<LoginForm redirectTo="/broker/properties" />)
     const user = await login()
     expect(await screen.findByText(/이메일 인증이 아직 안 됐어요/)).toBeInTheDocument()
     expect(screen.queryByText('이메일 또는 비밀번호가 올바르지 않습니다.')).not.toBeInTheDocument()
@@ -85,7 +78,7 @@ describe('LoginForm — 로그인 실패 까닭별 안내 (#46)', () => {
     expect(m.resend).toHaveBeenCalledWith(expect.objectContaining({
       type: 'signup',
       email: 'name@example.com',
-      options: { emailRedirectTo: expect.stringContaining('/auth/callback?next=%2Frequest%2Fnew') },
+      options: { emailRedirectTo: expect.stringContaining('/auth/callback?next=%2Fbroker%2Fproperties') },
     }))
     expect(await screen.findByText(/인증 메일을 다시 보냈어요/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /인증 메일 다시 보내기 \(\d+초\)/ })).toBeDisabled()

@@ -12,6 +12,7 @@ import { OnboardingChecklist, type OnboardingItems } from '@/components/broker/o
 import { calcSettlement, fmtComma, isDistributionRow } from '@/lib/settlement'
 import { todayKST } from '@/lib/date-kst'
 import { verificationState, verificationCopy } from '@/lib/broker-office'
+import { homePath } from '@/lib/home-path'
 
 export default async function BrokerDashboardPage() {
   const supabase = await createClient()
@@ -36,7 +37,7 @@ export default async function BrokerDashboardPage() {
       .eq('user_id', user.id)
       .single(),
   ])
-  if (!profileData || profileData.role !== 'broker') redirect('/dashboard/user')
+  if (!profileData || profileData.role !== 'broker') redirect(homePath(profileData?.role))
   if (!brokerData) redirect('/broker/register')
 
   const profile = profileData

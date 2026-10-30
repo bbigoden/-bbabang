@@ -8,8 +8,8 @@ import { useAuth } from '@/lib/auth-context'
 import { propertyStatusLabel } from '@/lib/property-status'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import {
-  BarChart3, ArrowLeft, Users, FileText, Home, TrendingUp,
-  MapPin, Calendar, Building2, Download
+  BarChart3, ArrowLeft, Users, Home, TrendingUp,
+  Building2, Download
 } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { Spinner } from '@/components/ui/spinner'
@@ -19,7 +19,6 @@ type Range = 7 | 30 | 90
 
 interface TimeBucket { date: string; count: number }
 interface RegionRow { region: string; count: number }
-interface FunnelStage { key: string; label: string; count: number; color: string }
 
 export default function AdminStatsPage() {
   const router = useRouter()
@@ -30,13 +29,9 @@ export default function AdminStatsPage() {
   const [range, setRange] = useState<Range>(30)
   const [loading, setLoading] = useState(true)
   const [signupSeries, setSignupSeries] = useState<{ user: TimeBucket[]; broker: TimeBucket[] }>({ user: [], broker: [] })
-  const [requestSeries, setRequestSeries] = useState<TimeBucket[]>([])
-  const [regionRequests, setRegionRequests] = useState<RegionRow[]>([])
   const [regionProperties, setRegionProperties] = useState<RegionRow[]>([])
-  const [dealTypes, setDealTypes] = useState<RegionRow[]>([])
   const [propStatus, setPropStatus] = useState<RegionRow[]>([])
-  const [totals, setTotals] = useState({ newUsers: 0, newBrokers: 0, newRequests: 0, newProperties: 0 })
-  const [funnel, setFunnel] = useState<FunnelStage[]>([])
+  const [totals, setTotals] = useState({ newUsers: 0, newBrokers: 0, newProperties: 0 })
 
   useEffect(() => {
     if (auth.loading) return
@@ -50,18 +45,12 @@ export default function AdminStatsPage() {
 
     const [
       { data: profs },
-      { data: reqs },
-      { data: regionReqs },
       { data: props },
-      { data: dts },
       pst,
       { count: newPropertiesCount },
     ] = await Promise.all([
       supabase.from('profiles').select('created_at, role').gte('created_at', since),
-      supabase.from('request_posts').select('created_at').gte('created_at', since),
-      supabase.from('request_posts').select('city'),
       supabase.from('broker_profiles').select('district'),
-      supabase.from('request_posts').select('deal_type'),
       // 매물 상태 분포는 전건 집계다. .range() 없이 select하면 PostgREST가
       // 1000행에서 조용히 잘라, 매물이 1745건인 지금 실제의 57%만 반영됐다.
       // (바로 아래 count는 정확해서 "신규 매물 수"와 합계가 어긋나 보였다)
@@ -84,26 +73,6 @@ export default function AdminStatsPage() {
       broker: fillSeries(brokerMap, range),
     })
 
-    // 일별 요청 추이
-    const reqMap = new Map<string, number>()
-    ;(reqs ?? []).forEach(r => {
-      if (!r.created_at) return
-      const d = r.created_at.slice(0, 10)
-      reqMap.set(d, (reqMap.get(d) ?? 0) + 1)
-    })
-    setRequestSeries(fillSeries(reqMap, range))
-
-    // 지역별 요청 (시·도 기준)
-    const regionMap = new Map<string, number>()
-    ;(regionReqs ?? []).forEach(r => {
-      const k = r.city?.trim() || '미지정'
-      regionMap.set(k, (regionMap.get(k) ?? 0) + 1)
-    })
-    setRegionRequests(Array.from(regionMap.entries())
-      .map(([region, count]) => ({ region, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10))
-
     // 중개사 담당 지역 분포 (district는 콤마 구분, 첫 부분만 사용 — sido 추정)
     const propsRegionMap = new Map<string, number>()
     ;(props ?? []).forEach(p => {
@@ -115,14 +84,6 @@ export default function AdminStatsPage() {
       .map(([region, count]) => ({ region, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10))
-
-    // 거래 유형 분포
-    const dtMap = new Map<string, number>()
-    ;(dts ?? []).forEach(d => {
-      const first = d.deal_type?.split(',')?.[0]?.trim() || '기타'
-      dtMap.set(first, (dtMap.get(first) ?? 0) + 1)
-    })
-    setDealTypes(Array.from(dtMap.entries()).map(([region, count]) => ({ region, count })).sort((a, b) => b.count - a.count))
 
     // 매물 상태
     const psMap = new Map<string, number>()
@@ -136,31 +97,8 @@ export default function AdminStatsPage() {
     setTotals({
       newUsers: (profs ?? []).filter(p => p.role !== 'broker' && p.role !== 'admin').length,
       newBrokers: (profs ?? []).filter(p => p.role === 'broker').length,
-      newRequests: (reqs ?? []).length,
       newProperties: newPropertiesCount ?? 0,
     })
-
-    // ── 역경매 전환 깔때기 (기간 내 생성된 의뢰 기준) ──
-    const [
-      { count: reqTotal },
-      { count: reqWithProposal },
-      { count: proposalAccepted },
-      { count: dealCompleted },
-      { count: reviewWritten },
-    ] = await Promise.all([
-      supabase.from('request_posts').select('*', { count: 'exact', head: true }).gte('created_at', since),
-      supabase.from('request_posts').select('*', { count: 'exact', head: true }).gte('created_at', since).gt('proposal_count', 0),
-      supabase.from('proposals').select('*', { count: 'exact', head: true }).gte('created_at', since).eq('status', 'accepted'),
-      supabase.from('proposals').select('*', { count: 'exact', head: true }).gte('created_at', since).eq('stage', 'completed'),
-      supabase.from('reviews').select('*', { count: 'exact', head: true }).gte('created_at', since),
-    ])
-    setFunnel([
-      { key: 'request',  label: '의뢰 등록',   count: reqTotal ?? 0,        color: 'bg-blue-500' },
-      { key: 'proposal', label: '제안 받음',   count: reqWithProposal ?? 0, color: 'bg-cyan-500' },
-      { key: 'accepted', label: '제안 수락',   count: proposalAccepted ?? 0, color: 'bg-purple-500' },
-      { key: 'completed',label: '거래 완료',   count: dealCompleted ?? 0,   color: 'bg-green-500' },
-      { key: 'review',   label: '리뷰 작성',   count: reviewWritten ?? 0,   color: 'bg-amber-500' },
-    ])
 
     setLoading(false)
   }, [supabase, range])
@@ -174,16 +112,7 @@ export default function AdminStatsPage() {
     rows.push(['항목', '값'])
     rows.push(['신규 회원', String(totals.newUsers)])
     rows.push(['신규 중개사', String(totals.newBrokers)])
-    rows.push(['신규 요청', String(totals.newRequests)])
     rows.push(['신규 매물', String(totals.newProperties)])
-    rows.push([])
-    rows.push(['전환 깔때기'])
-    rows.push(['단계', '건수', '직전 단계 대비'])
-    funnel.forEach((f, i) => {
-      const prev = i > 0 ? funnel[i - 1].count : 0
-      const rate = i > 0 && prev > 0 ? `${Math.round((f.count / prev) * 100)}%` : '-'
-      rows.push([f.label, String(f.count), rate])
-    })
     rows.push([])
     rows.push(['일별 가입'])
     rows.push(['날짜', '고객', '중개사'])
@@ -192,21 +121,9 @@ export default function AdminStatsPage() {
       rows.push([u.date, String(u.count), String(b?.count ?? 0)])
     })
     rows.push([])
-    rows.push(['일별 요청'])
-    rows.push(['날짜', '요청 수'])
-    requestSeries.forEach(r => rows.push([r.date, String(r.count)]))
-    rows.push([])
-    rows.push(['요청 많은 지역 TOP10'])
-    rows.push(['지역', '건수'])
-    regionRequests.forEach(r => rows.push([r.region, String(r.count)]))
-    rows.push([])
     rows.push(['중개사 분포 TOP10'])
     rows.push(['지역', '명'])
     regionProperties.forEach(r => rows.push([r.region, String(r.count)]))
-    rows.push([])
-    rows.push(['거래 유형'])
-    rows.push(['유형', '건수'])
-    dealTypes.forEach(r => rows.push([r.region, String(r.count)]))
     rows.push([])
     rows.push(['매물 상태'])
     rows.push(['상태', '건수'])
@@ -292,55 +209,28 @@ export default function AdminStatsPage() {
         ) : (
           <>
             {/* 요약 통계 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <SummaryCard label={`신규 회원 (${range}일)`} value={totals.newUsers} icon={Users} color="text-blue-300 bg-blue-500/10" />
               <SummaryCard label={`신규 중개사 (${range}일)`} value={totals.newBrokers} icon={Building2} color="text-purple-400 bg-purple-500/10" />
-              <SummaryCard label={`신규 요청 (${range}일)`} value={totals.newRequests} icon={FileText} color="text-green-400 bg-green-500/10" />
               <SummaryCard label={`신규 매물 (${range}일)`} value={totals.newProperties} icon={Home} color="text-amber-400 bg-amber-500/10" />
             </div>
 
-            {/* 역경매 전환 깔때기 */}
-            <ChartCard title={`역경매 전환 깔때기 (${range}일)`} icon={TrendingUp}>
-              <FunnelChart stages={funnel} />
+            {/* 가입 추이 */}
+            <ChartCard title="가입 추이" icon={TrendingUp}>
+              <DualLineBars
+                primary={signupSeries.user}
+                primaryLabel="고객"
+                primaryColor="bg-blue-500"
+                secondary={signupSeries.broker}
+                secondaryLabel="중개사"
+                secondaryColor="bg-purple-500"
+              />
             </ChartCard>
 
-            {/* 시계열 차트들 */}
+            {/* 분포 */}
             <div className="grid gap-6 lg:grid-cols-2">
-              <ChartCard title="가입 추이" icon={TrendingUp}>
-                <DualLineBars
-                  primary={signupSeries.user}
-                  primaryLabel="고객"
-                  primaryColor="bg-blue-500"
-                  secondary={signupSeries.broker}
-                  secondaryLabel="중개사"
-                  secondaryColor="bg-purple-500"
-                />
-              </ChartCard>
-
-              <ChartCard title="요청 등록 추이" icon={FileText}>
-                <DualLineBars
-                  primary={requestSeries}
-                  primaryLabel="요청"
-                  primaryColor="bg-green-500"
-                />
-              </ChartCard>
-            </div>
-
-            {/* 지역 분포 */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              <ChartCard title="요청이 많은 지역 (시·도)" icon={MapPin}>
-                <RankBars rows={regionRequests} barColor="bg-green-500/70" />
-              </ChartCard>
-
               <ChartCard title="중개사 분포 (시·도)" icon={Building2}>
                 <RankBars rows={regionProperties} barColor="bg-purple-500/70" />
-              </ChartCard>
-            </div>
-
-            {/* 카테고리 분포 */}
-            <div className="grid gap-6 md:grid-cols-2">
-              <ChartCard title="인기 거래 유형" icon={Calendar}>
-                <RankBars rows={dealTypes} barColor="bg-blue-500/70" />
               </ChartCard>
 
               <ChartCard title="매물 상태 분포" icon={Home}>
@@ -439,48 +329,6 @@ function DualLineBars({ primary, primaryLabel, primaryColor, secondary, secondar
         <span>{primary[primary.length - 1]?.date.slice(5)}</span>
       </div>
     </div>
-  )
-}
-
-function FunnelChart({ stages }: { stages: FunnelStage[] }) {
-  const top = stages[0]?.count ?? 0
-  if (stages.length === 0) {
-    return <EmptyState variant="inline" message="데이터가 없어요" darkBg />
-  }
-  if (top === 0) {
-    return <EmptyState variant="inline" message="아직 의뢰가 없어 전환을 계산할 수 없어요" darkBg />
-  }
-  return (
-    <ul className="space-y-2.5">
-      {stages.map((s, i) => {
-        const prev = i > 0 ? stages[i - 1].count : null
-        const stepRate = prev != null && prev > 0 ? Math.round((s.count / prev) * 100) : null
-        const widthPct = Math.max(2, (s.count / top) * 100)
-        const overallPct = Math.round((s.count / top) * 100)
-        return (
-          <li key={s.key}>
-            <div className="mb-1 flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1.5 text-gray-300">
-                <span className="text-gray-400">{i + 1}.</span> {s.label}
-                {stepRate != null && (
-                  <span className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                    stepRate >= 50 ? 'bg-green-500/15 text-green-400' : stepRate >= 20 ? 'bg-yellow-500/15 text-yellow-400' : 'bg-red-500/15 text-red-400'
-                  }`}>
-                    직전 대비 {stepRate}%
-                  </span>
-                )}
-              </span>
-              <span className="font-bold text-white">{s.count}<span className="ml-1 text-[10px] font-medium text-gray-400">({overallPct}%)</span></span>
-            </div>
-            <div className="h-6 rounded-lg bg-gray-800 overflow-hidden">
-              <div className={`h-full ${s.color} rounded-lg transition-all flex items-center justify-end pr-2`} style={{ width: `${widthPct}%` }}>
-                {s.count > 0 && <span className="text-[10px] font-bold text-white/90">{s.count}</span>}
-              </div>
-            </div>
-          </li>
-        )
-      })}
-    </ul>
   )
 }
 

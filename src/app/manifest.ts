@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '부소장 - 부동산 중개 매칭',
+    name: '부소장 - 중개사무소 업무 도구',
     short_name: '부소장',
-    description: '조건만 올리면 공인중개사가 먼저 제안합니다',
+    description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
     start_url: '/',
     display: 'standalone',
     background_color: '#F9FAFB',

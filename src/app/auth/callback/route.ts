@@ -27,7 +27,7 @@ function safeNext(raw: string | null, origin: string): string | null {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = safeNext(searchParams.get('next'), origin) ?? '/dashboard/user'
+  const next = safeNext(searchParams.get('next'), origin) ?? '/dashboard/broker'
 
   if (code) {
     const supabase = await createClient()

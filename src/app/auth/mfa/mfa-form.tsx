@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Shield } from 'lucide-react'
 import Link from 'next/link'
+import { homePath } from '@/lib/home-path'
 
 /**
  * next 는 같은 사이트 경로만 받는다. 예전엔 검증 없이 router.replace(next) 라
@@ -90,10 +91,7 @@ export function MfaForm() {
       .select('role')
       .eq('id', (await supabase.auth.getUser()).data.user!.id)
       .single()
-    const dest =
-      profile?.role === 'admin' ? '/admin'
-      : profile?.role === 'broker' ? '/dashboard/broker'
-      : '/dashboard/user'
+    const dest = homePath(profile?.role)
     router.replace(dest)
   }
 

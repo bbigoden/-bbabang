@@ -32,7 +32,7 @@ interface BidRun { finishedAt: string; notices: number; results: number; details
 /** 자리 → 그 일을 하는 화면. 사람 책상은 그 사람의 오늘 업무일지(아래에서 붙인다) */
 const SEAT_HREF: Record<string, string> = {
   cafe: '/broker/ads', blog: '/broker/ads', 'daangn-post': '/broker/ads', takedown: '/broker/ads', sync: '/broker/ads',
-  bank: '/broker/properties', collect: '/broker/naver', bid: '/broker/bid', estimate: '/broker/estimates',
+  bank: '/broker/properties', collect: '/broker/naver', bid: '/broker/bid',
 }
 
 /** 영업부 책상 순서 — 왼쪽부터 */
@@ -216,7 +216,6 @@ export default function OfficePage() {
   const [bankTodayTotal, setBankTodayTotal] = useState(0)
   const [todayDaangn, setTodayDaangn] = useState<Record<string, number>>({})
   const [bidRun, setBidRun] = useState<BidRun | null>(null)
-  const [estMonth, setEstMonth] = useState<number | null>(null)
   /** 사람마다 지금까지 등록한 매물 수 — 현황판과 같이 5분마다 건수로만 센다 */
   const [totalProps, setTotalProps] = useState<Record<string, number>>({})
   const [tasks, setTasks] = useState<Task[] | null>(null)
@@ -308,7 +307,7 @@ export default function OfficePage() {
     // 업무일지는 RLS(can_access_diary)가 직원에겐 자기 것만 준다.
     {
       const 사장님만 = <T,>(q: PromiseLike<T>) => (isOwner ? q : Promise.resolve({ data: null, error: null }))
-      const [ms, props, ss, os, dys, br, est] = await Promise.all([
+      const [ms, props, ss, os, dys, br] = await Promise.all([
         supabase.from('broker_profiles')
           .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
           .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
@@ -328,11 +327,8 @@ export default function OfficePage() {
         supabase.from('broker_diary').select('broker_id, sections_content, work_summary, content, updated_at').eq('date', todayKST()),
         // 입찰 수집(서버 cron) 마지막 실행 — 에이전트실 끝 책상
         사장님만(supabase.from('bid_sync').select('value').eq('key', 'last_run').maybeSingle()),
-        사장님만(supabase.from('estimates').select('id', { count: 'exact', head: true }).eq('owner_broker_id', officeId)
-          .gte('issue_date', `${todayKST().slice(0, 7)}-01`)),
       ])
       setBidRun(((br as { data: { value: BidRun } | null }).data?.value) ?? null)
-      setEstMonth((est as { count: number | null }).count ?? null)
       const 쓴일지: Record<string, string> = {}
       for (const d of (dys.data ?? []) as { broker_id: string; sections_content: Record<string, unknown> | null; work_summary: string | null; content: string | null; updated_at: string }[]) {
         // 날짜를 열기만 해도 빈 줄이 생긴다 — 무엇이라도 적었을 때만 '썼다'
@@ -603,7 +599,7 @@ export default function OfficePage() {
       boss: inDept('boss'),
       director: inDept('director'),
       sales: 영업부,
-      // 에이전트실 끝 두 책상 — 입찰 수집(서버가 3시간마다)·견적서. 장부가 사장님 것이라 사장님 화면에만
+      // 에이전트실 끝 책상 — 입찰 수집(서버가 3시간마다). 사장님 화면에만
       labEnd: isOwner ? [
         (() => {
           const at = bidRun?.finishedAt ? new Date(bidRun.finishedAt).getTime() : 0
@@ -617,11 +613,6 @@ export default function OfficePage() {
               + (at ? ` · 마지막 ${when(bidRun!.finishedAt)} — 공고 ${bidRun!.notices}건 · 낙찰 ${bidRun!.results}건${bidRun!.details ? ` · 상세 ${bidRun!.details}건` : ''}${bidRun!.stoppedBy === 'limit' ? ' (오늘 한도에서 멈춤)' : ''}` : ''),
           } satisfies Seat
         })(),
-        {
-          key: 'estimate', kind: 'robot', name: '견적서', tint: 2, pin: !!estMonth, state: 'idle',
-          say: estMonth ? `이번 달 ${estMonth}건` : null,
-          note: `이번 달 견적서 ${estMonth ?? 0}건`,
-        },
       ] : [],
       // 홍보부 한 줄, 왼쪽부터 — 직원 → 뱅크 담당 → 당근·블로그·카페 → 광고 내리기 → 뱅크 가져오기 → 매물수집(2026-10-29 사장님)
       promo: [

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { isProtectedPath } from '@/lib/protected-paths'
+import { homePath } from '@/lib/home-path'
 
 // 로그인 전용 경로는 protected-paths.ts 한 곳에서 정한다 — auth-context 도 같은 목록을 본다.
 // /broker/ 하위는 전부 보호(구 공개 프로필 /broker/[id]는 없어졌고 next.config 가 먼저 '/' 로 돌린다).
@@ -93,7 +94,7 @@ export async function proxy(request: NextRequest) {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single()
     const role = profile?.role
     const url = request.nextUrl.clone()
-    url.pathname = role === 'admin' ? '/admin' : role === 'broker' ? '/dashboard/broker' : '/dashboard/user'
+    url.pathname = homePath(role)
     return NextResponse.redirect(url)
   }
 

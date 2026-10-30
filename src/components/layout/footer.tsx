@@ -13,9 +13,6 @@ import { SUPPORT_EMAIL } from '@/lib/support'
  * BottomNav가 모바일에서 고정되므로 모바일에서는 padding으로 가려짐 방지.
  */
 const HIDDEN_PATHS = [
-  // 견적서 공개 열람 — 거래처(외부인)가 보는 화면이라 부소장 껍데기를 붙이지 않는다
-  '/e/',
-  '/chat/',
   '/admin',
   '/auth',
   '/account-suspended',
@@ -47,9 +44,7 @@ export function Footer() {
               <span className="text-base font-bold text-gray-900 dark:text-white">
                 부소<span className="text-blue-600">장</span>
               </span>
-              {/* 모든 화면에 붙는 한 줄 소개 — 홈(고객 요청 매칭)과 /office-intro(사무소 업무 도구)가
-                  서로 다른 서비스처럼 읽히지 않게 둘 다 담는다 */}
-              <span className="text-xs text-gray-500">매물 요청 매칭 · 중개사무소 업무 도구</span>
+              <span className="text-xs text-gray-500">중개사무소 업무 도구</span>
             </div>
             <dl className="space-y-1 text-xs leading-relaxed">
               <div className="flex flex-wrap gap-x-2">
@@ -122,16 +117,6 @@ export function Footer() {
               <li>
                 <Link href="/support" className="hover:text-blue-600 hover:underline">
                   고객센터·신고
-                </Link>
-              </li>
-              <li>
-                <Link href="/office-intro" className="hover:text-blue-600 hover:underline">
-                  중개사무소용 부소장 소개
-                </Link>
-              </li>
-              <li>
-                <Link href="/jobs" className="hover:text-blue-600 hover:underline">
-                  구인 게시판
                 </Link>
               </li>
             </ul>

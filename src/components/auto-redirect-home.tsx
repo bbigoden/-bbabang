@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthOptional } from '@/lib/auth-context'
+import { homePath } from '@/lib/home-path'
 
 /**
  * 홈 페이지(/)에 mount되어, 로그인 사용자가 bfcache로 돌아왔을 때
@@ -23,22 +24,14 @@ export function AutoRedirectHome() {
   useEffect(() => {
     if (loading || asVisitor) return
     if (!user) return
-    const role = profile?.role
-    const dest = role === 'admin' ? '/admin'
-      : role === 'broker' ? '/dashboard/broker'
-      : '/dashboard/user'
-    router.replace(dest)
+    router.replace(homePath(profile?.role))
   }, [user, profile?.role, loading, router, asVisitor])
 
   // pageshow 이벤트로 bfcache 복원 시에도 트리거
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted && user && !asVisitor) {
-        const role = profile?.role
-        const dest = role === 'admin' ? '/admin'
-          : role === 'broker' ? '/dashboard/broker'
-          : '/dashboard/user'
-        router.replace(dest)
+        router.replace(homePath(profile?.role))
       }
     }
     window.addEventListener('pageshow', onPageShow)

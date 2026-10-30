@@ -2,24 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Bell, BellOff, MessageCircle, Sparkles, Check, AlertCircle, Megaphone, MapPin, X } from 'lucide-react'
+import { Bell, BellOff, Check, AlertCircle, Megaphone } from 'lucide-react'
 import { urlBase64ToUint8Array } from '@/lib/push'
-import { RegionPicker, type RegionValue } from '@/components/region-picker'
 import { Spinner } from '@/components/ui/spinner'
 
-type Prefs = {
-  messages: boolean
-  proposals: boolean
-  matches: boolean
-  announcements: boolean
-}
+// 저장된 다른 키(예전 고객 화면의 messages·proposals·matches)는 그대로 둔 채 덮어쓴다
+type Prefs = { announcements: boolean } & Record<string, boolean>
 
-const DEFAULT_PREFS: Prefs = { messages: true, proposals: true, matches: true, announcements: true }
+const DEFAULT_PREFS: Prefs = { announcements: true }
 
+// 고객 요청·제안·채팅 알림은 2026-10-30 고객 화면과 함께 없앴다
 const CATEGORIES: Array<{ key: keyof Prefs; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: 'messages',      label: '새 메시지',     desc: '채팅 메시지가 도착하면 알려요',         icon: MessageCircle },
-  { key: 'proposals',     label: '새 제안',       desc: '중개사 제안이나 매물 카드가 도착할 때', icon: Sparkles },
-  { key: 'matches',       label: '매칭 알림',     desc: '내 조건에 맞는 매물이 등록될 때',       icon: Bell },
   { key: 'announcements', label: '공지·이벤트',   desc: '부소장 공지·업데이트 소식',               icon: Megaphone },
 ]
 
@@ -37,11 +30,6 @@ export default function SettingsNotificationsPage() {
   const [pushSubscribed, setPushSubscribed] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
 
-  // 관심 지역 (중개사 전용)
-  const [brokerId, setBrokerId] = useState<string | null>(null)
-  const [regions, setRegions] = useState<RegionValue[]>([])
-  const [regionMsg, setRegionMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-
   useEffect(() => {
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -49,17 +37,6 @@ export default function SettingsNotificationsPage() {
       setUser({ id: user.id })
       const { data: p } = await supabase.from('profiles').select('notification_preferences').eq('id', user.id).single()
       if (p?.notification_preferences) setPrefs({ ...DEFAULT_PREFS, ...p.notification_preferences })
-
-      // 중개사면 broker_profile + alert_regions 가져오기
-      const { data: bp } = await supabase
-        .from('broker_profiles')
-        .select('id, alert_regions')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      if (bp) {
-        setBrokerId(bp.id)
-        if (Array.isArray(bp.alert_regions)) setRegions(bp.alert_regions as RegionValue[])
-      }
 
       setLoading(false)
     })()
@@ -85,27 +62,6 @@ export default function SettingsNotificationsPage() {
   }
 
   const toggle = (k: keyof Prefs) => saveAll({ ...prefs, [k]: !prefs[k] })
-
-  // 관심 지역 저장 (alert_regions JSONB 통째로 업데이트) — 실패 시 이전 값으로 롤백
-  const saveRegions = async (next: RegionValue[]) => {
-    if (!brokerId) return
-    const prev = regions
-    setRegions(next); setRegionMsg(null)
-    const { error } = await supabase.from('broker_profiles').update({ alert_regions: next }).eq('id', brokerId)
-    if (error) {
-      console.error('[notifications] saveRegions failed', error)
-      setRegions(prev)
-      setRegionMsg({ type: 'err', text: '저장 중 오류가 발생했습니다.' })
-    }
-    else { setRegionMsg({ type: 'ok', text: '저장됐습니다.' }); setTimeout(() => setRegionMsg(null), 2000) }
-  }
-  const addRegion = (r: RegionValue) => {
-    const key = `${r.sido}|${r.sigungu}|${r.dong}`
-    if (regions.some(x => `${x.sido}|${x.sigungu}|${x.dong}` === key)) return
-    saveRegions([...regions, r])
-  }
-  const removeRegion = (idx: number) => saveRegions(regions.filter((_, i) => i !== idx))
-  const regionKeys = new Set(regions.map(r => `${r.sido}|${r.sigungu}|${r.dong}`))
 
   const enablePush = async () => {
     setPushBusy(true)
@@ -182,50 +138,6 @@ export default function SettingsNotificationsPage() {
           )}
         </div>
       </div>
-
-      {/* 관심 지역 (중개사 전용) */}
-      {brokerId && (
-        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
-          <h2 className="font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-blue-500" /> 관심 지역
-          </h2>
-          <p className="text-xs text-gray-500 mb-4">선택한 지역에서 새 고객 요청이 들어오면 알림을 받아요. 동·읍·면 단위까지 설정할 수 있어요.</p>
-
-          {regions.length > 0 && (
-            <ul className="mb-3 flex flex-wrap gap-2">
-              {regions.map((r, i) => (
-                <li key={`${r.sido}|${r.sigungu}|${r.dong}`}
-                    className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700">
-                  <MapPin className="h-3 w-3" />
-                  <span>{r.sido} {r.sigungu}{r.dong ? ` ${r.dong}` : ' 전체'}</span>
-                  <button type="button" onClick={() => removeRegion(i)} className="text-blue-500 hover:text-blue-700 ml-0.5" aria-label={`${r.sido} ${r.sigungu}${r.dong ? ` ${r.dong}` : ' 전체'} 제거`}>
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <RegionPicker
-            placeholder="동·읍·면으로 검색해서 지역 추가 (예: 불당동, 강남, 영통)"
-            selectedKeys={regionKeys}
-            onPick={addRegion}
-          />
-
-          {regionMsg && (
-            <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${regionMsg.type === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-              {regionMsg.type === 'ok' ? <Check className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-              {regionMsg.text}
-            </div>
-          )}
-
-          {regions.length === 0 && (
-            <p className="mt-3 text-xs text-gray-500">
-              아직 관심 지역이 없어요. 위 검색창에 동 이름을 입력해서 추가해주세요.
-            </p>
-          )}
-        </div>
-      )}
 
       {/* 카테고리별 토글 */}
       <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">

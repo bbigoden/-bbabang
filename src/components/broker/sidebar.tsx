@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import { BROKER_ITEMS as ITEMS, showItem, type ItemDef } from './menu-items'
-import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
 const COLLAPSED_KEY = 'bbabang_broker_sidebar_collapsed'
 
@@ -18,7 +17,6 @@ export function BrokerSidebar() {
   const pathname = usePathname() ?? ''
   const { profile, broker, loading } = useAuthOptional()
   const { unread } = useNotificationsCtx()
-  const chatUnread = useOfficeChatUnread()
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState(false)
 
@@ -174,7 +172,6 @@ export function BrokerSidebar() {
               )
             }
             const active = isActive(item.href!)
-            const badge = item.id === 'messenger' ? chatUnread : 0
             const locked = isLocked(item)
             return (
               <li key={item.id}>
@@ -191,11 +188,6 @@ export function BrokerSidebar() {
                 >
                   <span className="relative flex-shrink-0">
                     <Icon className="h-4 w-4" />
-                    {badge > 0 && collapsed && (
-                      <span className="absolute -top-1 -right-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-                        {badge > 9 ? '9+' : badge}
-                      </span>
-                    )}
                     {/* 접힌 사이드바는 글자가 없어 아이콘 귀퉁이에 자물쇠를 겹친다 */}
                     {locked && collapsed && (
                       <Lock className="absolute -bottom-1 -right-1.5 h-2.5 w-2.5 text-gray-400" aria-hidden />
@@ -205,11 +197,6 @@ export function BrokerSidebar() {
                     <span className="flex flex-1 items-center justify-between gap-2">
                       <span>{item.label}</span>
                       {locked && <Lock className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" aria-hidden />}
-                      {badge > 0 && (
-                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-                          {badge > 9 ? '9+' : badge}
-                        </span>
-                      )}
                     </span>
                   )}
                 </Link>

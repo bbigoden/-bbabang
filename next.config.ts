@@ -23,8 +23,7 @@ const CSP = [
   `connect-src 'self' blob: ${SUPABASE_HOST} ${SUPABASE_WS} https://dapi.kakao.com https://postcode.map.kakao.com https://api.pwnedpasswords.com https://vitals.vercel-insights.com https://api.pexels.com https://api.creatomate.com https://cdn.creatomate.com`,
   // Creatomate CDN: 완성된 mp4 video element src
   `media-src 'self' blob: ${SUPABASE_HOST} https://cdn.creatomate.com`,
-  // blob: 은 견적서 미리보기 — 저장하지 않고 받은 PDF 를 iframe 에 바로 건다
-  `frame-src 'self' blob: https://*.daum.net https://*.kakao.com`,
+  `frame-src 'self' https://*.daum.net https://*.kakao.com`,
   `worker-src 'self' blob:`,
   `object-src 'none'`,
   `base-uri 'self'`,
@@ -94,6 +93,8 @@ const nextConfig: NextConfig = {
     const BROKER_ROUTES = brokerDirs.join('|')
     return [
       { source: '/brokers', destination: '/', permanent: true },
+      // 사무소 소개는 첫 화면(/)이 됐다 — 고객 요청 매칭 화면을 걷어낸 뒤(2026-10-30)
+      { source: '/office-intro', destination: '/', permanent: true },
       {
         // 목록을 (?:…) 로 묶어야 끝($)이 모든 이름에 걸린다. 묶지 않으면 'ads|…|trash$' 의
         // $ 가 마지막 trash 에만 붙어 '앞부분이 폴더명으로 시작'만 해도 예외가 됐다 —
@@ -106,27 +107,11 @@ const nextConfig: NextConfig = {
     ]
   },
   // 16단계 보안 헤더 (CSP·HSTS·XFO 등)
-  // 견적서 PDF는 서버(@react-pdf/renderer)에서 한글 폰트를 파일로 읽어 렌더한다.
-  // public/fonts 는 서버 함수 번들에 자동 포함되지 않으므로 명시적으로 챙긴다.
-  outputFileTracingIncludes: {
-    '/api/estimates/**': ['./public/fonts/**'],
-  },
   async headers() {
     return [
       {
         source: '/:path*',
         headers: SECURITY_HEADERS,
-      },
-      {
-        // 견적서 PDF는 작성 화면에서 same-origin iframe으로 미리보기한다.
-        // 전역 X-Frame-Options: DENY / frame-ancestors 'none' 은 자기 사이트도 막으므로
-        // 이 경로에 한해 SAMEORIGIN 으로 완화한다 (뒤에 오는 규칙이 앞을 덮어씀).
-        source: '/api/estimates/:path*',
-        headers: [
-          ...SECURITY_HEADERS.filter(h => h.key !== 'X-Frame-Options' && h.key !== 'Content-Security-Policy'),
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Content-Security-Policy', value: CSP.replace(`frame-ancestors 'none'`, `frame-ancestors 'self'`) },
-        ],
       },
     ]
   },

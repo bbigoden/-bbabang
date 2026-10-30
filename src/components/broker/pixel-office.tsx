@@ -468,7 +468,7 @@ const ROBOT_MONS = [MAGNEMITE, VOLTORB, PORYGON]
 /** 일꾼마다 다른 포켓몬 — 같은 줄에 겹치지 않게 자리 이름으로 못 박는다(2026-10-30 사장님 '안 겹치게') */
 const ROBOT_BY_KEY: Record<string, Mon> = {
   bank: MAGNEMITE, 'daangn-post': VOLTORB, blog: PORYGON2, cafe: BRONZOR, takedown: KLINK,
-  sync: BELDUM, collect: ROTOM, bid: ELECTRODE, estimate: PORYGON,
+  sync: BELDUM, collect: ROTOM, bid: ELECTRODE,
 }
 /** 에이전트실 — 세션마다 */
 const AGENT_MONS = [DITTO, MEW, GENGAR]
@@ -1127,8 +1127,8 @@ const DOORS = [
 const SLOTS: Partial<Record<RoomKey, { box: BoxKey; dx: number; dy: number; sx: number; sy: number; cols: number; max: number; big?: boolean }>> = {
   boss: { box: 'boss', dx: 44, dy: 40, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   lab: { box: 'agentLab', dx: 12, dy: 28, sx: 38, sy: 34, cols: 8, max: 14 },
-  // 끝 두 책상 — 입찰 수집·견적서(2026-10-29 사장님). Claude 세션이 많아도 이 둘은 자리를 지킨다
-  labEnd: { box: 'agentLab', dx: 240, dy: 62, sx: 38, sy: 0, cols: 2, max: 2 },
+  // 끝 책상 — 입찰 수집(2026-10-29 사장님). Claude 세션이 많아도 자리를 지킨다. 견적서 책상은 10-30 뺐다
+  labEnd: { box: 'agentLab', dx: 278, dy: 62, sx: 38, sy: 0, cols: 1, max: 1 },
   director: { box: 'director', dx: 42, dy: 32, sx: 0, sy: 0, cols: 1, max: 1, big: true },
   // 홍보 넷 + 등록 둘 + 수집 둘을 한 줄로 — 두 줄이면 아랫줄 말풍선이 윗줄 이름판을 가렸다.
   // 등록실(2026-10-25)·매물조사실(2026-10-29)을 홍보부로 합침(칸막이 없이)

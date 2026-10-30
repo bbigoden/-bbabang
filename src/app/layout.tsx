@@ -23,32 +23,32 @@ const BASE_URL = 'https://bbabang.vercel.app'
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: '조건만 올리면 중개사가 찾아드립니다',
+    default: '중개사무소 업무 도구',
     template: '%s | 부소장',
   },
-  description: '내 조건만 올리면 공인중개사가 먼저 제안합니다. 전세·월세·매매 부동산 역경매 매칭 플랫폼',
-  keywords: '부동산, 중개, 전세, 월세, 매매, 역경매, 부소장, 빠방, 공인중개사, 부동산 매칭',
+  description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
+  keywords: '부동산, 중개사무소, 매물장, 고객장, 업무일지, 부소장, 빠방, 공인중개사',
   authors: [{ name: '부소장' }],
   openGraph: {
     type: 'website',
     locale: 'ko_KR',
     url: BASE_URL,
     siteName: '부소장',
-    title: '부소장 - 조건만 올리면 중개사가 찾아드립니다',
-    description: '내 조건만 올리면 공인중개사가 먼저 제안합니다. 전세·월세·매매 부동산 역경매 매칭 플랫폼',
+    title: '부소장 - 중개사무소 업무 도구',
+    description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: '부소장 - 부동산 중개 매칭 플랫폼',
+        alt: '부소장 - 중개사무소 업무 도구',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: '부소장 - 조건만 올리면 중개사가 찾아드립니다',
-    description: '내 조건만 올리면 공인중개사가 먼저 제안합니다.',
+    title: '부소장 - 중개사무소 업무 도구',
+    description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
     images: ['/og-image.png'],
   },
   robots: {
@@ -114,11 +114,6 @@ export default function RootLayout({
                 name: '부소장',
                 alternateName: ['Busojang', '빠방'],
                 url: BASE_URL,
-                potentialAction: {
-                  '@type': 'SearchAction',
-                  target: { '@type': 'EntryPoint', urlTemplate: `${BASE_URL}/search?q={search_term_string}` },
-                  'query-input': 'required name=search_term_string',
-                },
               },
               {
             '@type': 'Organization',
@@ -126,7 +121,7 @@ export default function RootLayout({
             alternateName: ['Busojang', '빠방'],
             url: BASE_URL,
             logo: `${BASE_URL}/icon-512.png`,
-            description: '내 조건을 올리면 공인중개사가 먼저 제안하는 부동산 역경매 매칭 플랫폼',
+            description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
             sameAs: [],
             contactPoint: {
               '@type': 'ContactPoint',

@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Menu, X, Settings, Heart, Search, ArrowLeft } from 'lucide-react'
+import { Menu, X, Settings, ArrowLeft } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
+import { homePath } from '@/lib/home-path'
 
 interface HeaderProps {
   user?: { id: string; email?: string } | null
@@ -52,12 +53,12 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
 
   // 뒤로가기 버튼 노출 조건 — 모바일·PWA에서 서브 페이지에 있을 때.
   // 루트 페이지(홈/대시보드 등)는 "뒤로 갈 곳"이 없으므로 제외.
-  const ROOT_PATHS = new Set(['/', '/dashboard/user', '/dashboard/broker', '/admin'])
-  const NO_RETURN_PATHS = new Set(['/office-intro', '/support', '/terms', '/privacy'])
+  const ROOT_PATHS = new Set(['/', '/dashboard/broker', '/admin'])
+  const NO_RETURN_PATHS = new Set(['/support', '/terms', '/privacy'])
   const isRootPage = ROOT_PATHS.has(pathname ?? '/')
   const showBack = mounted && !isRootPage
   const homeHref = user
-    ? (role === 'broker' ? '/dashboard/broker' : role === 'admin' ? '/admin' : '/dashboard/user')
+    ? homePath(role)
     : '/'
   // 손님의 [로그인]엔 보던 화면을 redirect 로 싣는다 — 새 제안 메일을 로그아웃된 기기에서 연
   // 요청자가 헤더 [로그인]을 누르면 대시보드에 떨어져 요청을 다시 찾아 들어와야 했다.
@@ -114,33 +115,13 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
 
         {/* 데스크탑 네비 */}
         <nav className="hidden items-center gap-1 md:flex" aria-label="주 네비게이션">
-          {role !== 'broker' && role !== 'admin' && pathname !== '/request/new' && (
-            <Link href="/request/new" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
-              매물 요청하기
-            </Link>
-          )}
           {role === 'broker' && (
-            <>
-              {!isBrokerSidebarArea && pathname !== '/request/new' && (
-                <Link href="/request/new?co_broker=true" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
-                  공동요청
-                </Link>
-              )}
-              <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
-                중개사 대시보드
-              </Link>
-            </>
+            <Link href="/dashboard/broker" className="rounded-xl px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:bg-gray-800 transition-colors dark:text-gray-300 dark:hover:bg-gray-800">
+              중개사 대시보드
+            </Link>
           )}
           {user ? (
             <>
-              <Link href="/search" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="통합 검색">
-                <Search className="h-5 w-5 text-gray-600 dark:text-gray-500" />
-              </Link>
-              {role !== 'admin' && (
-                <Link href="/favorites" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="찜 목록">
-                  <Heart className="h-5 w-5 text-gray-600 dark:text-gray-500" />
-                </Link>
-              )}
               {!isBrokerSidebarArea && <NotificationBell userId={user.id} />}
               {/* /settings 는 /settings/account 로 넘기기만 하는 페이지다. 그 주소를 미리 불러오면(prefetch)
                   넘겨진 요청이 끝나지 않고 매달려, 데스크톱 화면마다 요청 하나가 계속 열려 있었다 */}
@@ -163,9 +144,6 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
 
         {/* 모바일 메뉴 버튼 */}
         <div className="flex items-center gap-2 md:hidden">
-          <Link href="/search" className="flex h-11 w-11 items-center justify-center rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors" title="검색">
-            <Search className="h-5 w-5 text-gray-600 dark:text-gray-500" />
-          </Link>
           {user && <NotificationBell userId={user.id} />}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -182,33 +160,13 @@ export function Header({ user: userProp, role: roleProp, unreadCount: _unreadCou
       {mobileOpen && (
         <div className="border-t border-gray-100 bg-white px-4 py-4 md:hidden dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col gap-2">
-            {role !== 'broker' && role !== 'admin' && (
-              <Link href="/request/new" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" size="md" className="w-full justify-start">매물 요청하기</Button>
-              </Link>
-            )}
             {role === 'broker' && (
-              <>
-                <Link href="/request/new?co_broker=true" onClick={() => setMobileOpen(false)}>
-                  <Button variant="ghost" size="md" className="w-full justify-start">공동요청</Button>
-                </Link>
-                <Link href="/dashboard/broker" onClick={() => setMobileOpen(false)}>
-                  <Button variant="ghost" size="md" className="w-full justify-start">중개사 대시보드</Button>
-                </Link>
-              </>
+              <Link href="/dashboard/broker" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" size="md" className="w-full justify-start">중개사 대시보드</Button>
+              </Link>
             )}
             {user ? (
               <>
-                {role !== 'admin' && (
-                  <>
-                    <Link href="/favorites" onClick={() => setMobileOpen(false)}>
-                      <Button variant="ghost" size="md" className="w-full justify-start">찜 목록</Button>
-                    </Link>
-                    <Link href="/reviews" onClick={() => setMobileOpen(false)}>
-                      <Button variant="ghost" size="md" className="w-full justify-start">내 리뷰</Button>
-                    </Link>
-                  </>
-                )}
                 <Link href="/settings/account" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" size="md" className="w-full justify-start">설정</Button>
                 </Link>

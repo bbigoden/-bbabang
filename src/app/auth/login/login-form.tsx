@@ -10,44 +10,31 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Eye, EyeOff, Check } from 'lucide-react'
+import { homePath } from '@/lib/home-path'
 
 const STORAGE_KEY = 'bbabang_saved_email'
 
 /** 인증 메일을 연달아 보내면 Supabase 가 429 로 막는다 — 다시 보내기 버튼을 1분 쉬게 한다. */
 const RESEND_COOLDOWN_SEC = 60
 
-const REQUEST_NEW = /^\/request\/new(?:[/?#]|$)/
-/** 중개사 메뉴의 [공동요청]은 같은 /request/new 지만 중개사만 쓴다 — 고객용 첫 방문 인사·가입 권유를 받으면 안 된다 */
-const isCoBrokerRequest = (path: string) => REQUEST_NEW.test(path) && /[?&]co_broker=true(?:[&#]|$)/.test(path)
-
 /**
- * 로그인 화면에 온 까닭별 인사. 늘 '다시 만나서 반가워요'라, 홈 [무료로 조건 등록하기]를 누른
- * 처음 온 사람도 재방문 인사를 받고 가입 링크는 카드 맨 아래 작은 한 줄뿐이라 헤맸다(p1·p3).
+ * 로그인 화면에 온 까닭별 인사.
  * - 로그인이 풀려 돌아옴(expired) → 그 까닭을 여기서만 말한다. 아래 빨간 오류 상자에도 같은 말을 띄웠더니 두 번 읽혔다.
- * - 조건 등록으로 가던 길 → 가입부터 권한다(firstVisit: 카드 맨 위 큰 가입 버튼)
- * - 다른 로그인 전용 화면으로 가던 길 → 로그인하면 이어진다고만
- * - 헤더 [로그인]은 보던 공개 화면(/explore 등)도 redirect 로 싣는다 — 보호 경로일 때만 '필요해요'
+ * - 로그인 전용 화면으로 가던 길 → 로그인하면 이어진다고만
+ * - 헤더 [로그인]은 보던 공개 화면도 redirect 로 싣는다 — 보호 경로일 때만 '필요해요'
  */
 function loginIntro(redirectTo: string | null, expired: boolean) {
-  if (expired) return { title: '다시 로그인해 주세요', sub: '로그인 상태가 끝났어요. 다시 로그인하면 보던 화면으로 이어져요', firstVisit: false }
-  if (redirectTo && REQUEST_NEW.test(redirectTo) && !isCoBrokerRequest(redirectTo)) {
-    return { title: '조건을 등록하려면 로그인이 필요해요', sub: '처음이면 30초 가입하고 바로 이어서 등록해요', firstVisit: true }
-  }
+  if (expired) return { title: '다시 로그인해 주세요', sub: '로그인 상태가 끝났어요. 다시 로그인하면 보던 화면으로 이어져요' }
   if (redirectTo && isProtectedPath(redirectTo.split(/[?#]/)[0])) {
-    return { title: '로그인이 필요한 화면이에요', sub: '로그인하면 보던 화면으로 바로 이어져요', firstVisit: false }
+    return { title: '로그인이 필요한 화면이에요', sub: '로그인하면 보던 화면으로 바로 이어져요' }
   }
-  return { title: '다시 만나서 반가워요 👋', sub: '부소장과 함께 좋은 하루 보내세요', firstVisit: false }
+  return { title: '다시 만나서 반가워요 👋', sub: '부소장과 함께 좋은 하루 보내세요' }
 }
 
-/**
- * 가입 화면에도 redirect 를 실어 보낸다 — 예전엔 가입 링크가 그걸 버려, 가입·로그인을 거치면
- * 조건 등록이 아니라 대시보드에 떨어졌다. 중개사 화면으로 가던 길이면 역할도 중개사로 골라 둔다.
- */
+/** 가입 화면에도 redirect 를 실어 보낸다 — 가입 화면의 [로그인] 링크가 그걸 이어 받는다 */
 function signupHref(redirectTo: string | null) {
   if (!redirectTo) return '/auth/signup'
-  const q = new URLSearchParams({ redirect: redirectTo })
-  if (/^\/(?:broker\/|dashboard\/broker)/.test(redirectTo) || isCoBrokerRequest(redirectTo)) q.set('role', 'broker')
-  return `/auth/signup?${q}`
+  return `/auth/signup?${new URLSearchParams({ redirect: redirectTo })}`
 }
 
 /**
@@ -94,9 +81,7 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
       if (!session) return
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single()
       const dest = redirectTo
-        ?? (profile?.role === 'admin' ? '/admin'
-          : profile?.role === 'broker' ? '/dashboard/broker'
-          : '/dashboard/user')
+        ?? homePath(profile?.role)
       router.replace(dest)
     })
 
@@ -187,9 +172,7 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
       .single()
 
     const dest = redirectTo
-      ?? (profile?.role === 'admin' ? '/admin'
-        : profile?.role === 'broker' ? '/dashboard/broker'
-        : '/dashboard/user')
+      ?? homePath(profile?.role)
 
     router.replace(dest)
   }
@@ -208,18 +191,6 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
         </div>
 
         <div className="rounded-2xl bg-white dark:bg-gray-900 p-8 shadow-sm border border-gray-100 dark:border-gray-800">
-          {intro.firstVisit && (
-            <>
-              <Link href={signupHref(redirectTo)}>
-                <Button variant="primary" size="lg" className="w-full">처음이에요 · 30초 무료 가입</Button>
-              </Link>
-              <div className="my-6 flex items-center gap-3 text-xs text-gray-500">
-                <span className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-                이미 계정이 있으면 로그인
-                <span className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-              </div>
-            </>
-          )}
           <form onSubmit={handleLogin} className="space-y-4">
             {/* JS 가 붙기 전(느린 망)에 누르면 브라우저가 폼을 GET 으로 보내 이 화면을 다시 연다 — 칸들은 name 이
                 없어 주소에 실리지 않고, 돌아갈 곳만 실려 남는다 */}
@@ -307,14 +278,12 @@ export function LoginForm({ redirectTo, expired }: { redirectTo: string | null; 
             </Button>
           </form>
 
-          {!intro.firstVisit && (
-            <div className="mt-6 text-center text-sm text-gray-500">
-              아직 계정이 없으신가요?{' '}
-              <Link href={signupHref(redirectTo)} className="font-semibold text-blue-600 hover:underline">
-                무료로 시작하기
-              </Link>
-            </div>
-          )}
+          <div className="mt-6 text-center text-sm text-gray-500">
+            아직 계정이 없으신가요?{' '}
+            <Link href={signupHref(redirectTo)} className="font-semibold text-blue-600 hover:underline">
+              무료로 시작하기
+            </Link>
+          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-500">
