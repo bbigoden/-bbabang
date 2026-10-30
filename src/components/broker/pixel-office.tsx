@@ -260,6 +260,90 @@ const PORYGON = mon([
   '......PP.PP...',
 ], { P: '#f08890', B: '#58a8d0', E: '#1f1f1f' }, '#f08890')
 
+/** 붐볼 — 찌리리공을 뒤집은 색(위 흰, 아래 빨강), 화난 눈 */
+const ELECTRODE = mon([
+  '..............',
+  '....WWWWWW....',
+  '...WWWWWWWW...',
+  '..WWWWWWWWWW..',
+  '..WEEWWWWEEW..',
+  '..WWEEWWEEWW..',
+  '..NNNNNNNNNN..',
+  '..RRRRRRRRRR..',
+  '..RRRRRRRRRR..',
+  '...RRRRRRRR...',
+  '....RRRRRR....',
+], { W: '#f8fafc', E: '#1f1f1f', N: '#7f1d1d', R: '#dc2626' }, '#dc2626')
+
+/** 로토무 — 주황 몸에 파란 번개 테두리 */
+const ROTOM = mon([
+  '.....BB.......',
+  '....BOOB....B.',
+  '...BOOOOB..BOB',
+  '..BOOOOOOBBOB.',
+  '..BOWWOWWOBB..',
+  '..BOWEOWEOB...',
+  '..BOOOOOOOB...',
+  '...BOOMMOB....',
+  '....BOOOB.....',
+  '.....BOB......',
+  '......B.......',
+], { O: '#f97316', B: '#38bdf8', W: '#ffffff', E: '#1f1f1f', M: '#7c2d12' }, '#f97316')
+
+/** 기어르 — 맞물린 톱니바퀴 둘 */
+const KLINK = mon([
+  '.G.G.G.........',
+  'GGGGGGG........',
+  '.GWGWG...G.G.G.',
+  'GGEGEGG.GGGGGGG',
+  '.GGGGG...GWGWG.',
+  'GGGGGGG.GGEGEGG',
+  '.G.G.G...GGGGG.',
+  '........GGGGGGG',
+  '.........G.G.G.',
+], { G: '#9ca3af', W: '#f8fafc', E: '#1f1f1f' }, '#9ca3af')
+
+/** 메탕 — 파란 강철 몸에 큰 빨간 눈 하나 */
+const BELDUM = mon([
+  '..............',
+  '.....BBBB.....',
+  '....BBBBBB....',
+  '...BBWWWWBB...',
+  '...BBWRRWBB...',
+  '...BBWWWWBB...',
+  '....BBBBBB....',
+  '.....BBBB.....',
+  '....SS..SS....',
+  '...SS....SS...',
+], { B: '#60a5fa', W: '#e5e7eb', R: '#dc2626', S: '#94a3b8' }, '#60a5fa')
+
+/** 동미러 — 청록 원반에 노란 눈 */
+const BRONZOR = mon([
+  '..............',
+  '...TTTTTTTT...',
+  '..TTTTTTTTTT..',
+  '.TTDTTTTTTDTT.',
+  '.TTTEETTEETTT.',
+  '.TDTTTTTTTTDT.',
+  '.TTTTDDDDTTTT.',
+  '..TTTTTTTTTT..',
+  '...TTTTTTTT...',
+], { T: '#2f7d86', D: '#9fd8df', E: '#facc15' }, '#2f7d86')
+
+/** 폴리곤2 — 둥근 분홍 몸, 파란 꼬리·팔 */
+const PORYGON2 = mon([
+  '..............',
+  '....PPPP......',
+  '...PPPPPP.....',
+  '..PPWEPPPP....',
+  '..PPPPPPPPBB..',
+  '...BBPPPPBBBB.',
+  '..BBBBPPPPPB..',
+  '..BBBPPPPPP...',
+  '...PPPPPPP....',
+  '....PP..PP....',
+], { P: '#f472b6', B: '#3b82f6', W: '#ffffff', E: '#1f1f1f' }, '#f472b6')
+
 const DITTO = mon([
   '..............',
   '..............',
@@ -379,11 +463,16 @@ const NAMED_MONS: Record<string, Mon> = { sylveon: SYLVEON, charizard: CHARIZARD
 const STAFF_MONS = [PIKACHU, SQUIRTLE, CHARMANDER, BULBASAUR, JIGGLYPUFF, EEVEE, PSYDUCK, MEOWTH]
 /** 사무실 일꾼(에이전트실·부서 로봇) — 기계 포켓몬 */
 const ROBOT_MONS = [MAGNEMITE, VOLTORB, PORYGON]
+/** 일꾼마다 다른 포켓몬 — 같은 줄에 겹치지 않게 자리 이름으로 못 박는다(2026-10-30 사장님 '안 겹치게') */
+const ROBOT_BY_KEY: Record<string, Mon> = {
+  bank: MAGNEMITE, 'daangn-post': VOLTORB, blog: PORYGON2, cafe: BRONZOR, takedown: KLINK,
+  sync: BELDUM, collect: ROTOM, bid: ELECTRODE, estimate: PORYGON,
+}
 /** 에이전트실 — 세션마다 */
 const AGENT_MONS = [DITTO, MEW, GENGAR]
 
 function monOf(seat: Seat): Mon {
-  if (seat.kind === 'robot') return ROBOT_MONS[seed(seat.key) % ROBOT_MONS.length]
+  if (seat.kind === 'robot') return ROBOT_BY_KEY[seat.key] ?? ROBOT_MONS[seed(seat.key) % ROBOT_MONS.length]
   if (seat.kind === 'claude') return AGENT_MONS[seed(seat.key) % AGENT_MONS.length]
   return (seat.mon && NAMED_MONS[seat.mon]) || STAFF_MONS[(seat.tint ?? 0) % STAFF_MONS.length]
 }
