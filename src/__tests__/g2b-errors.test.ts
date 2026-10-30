@@ -30,3 +30,16 @@ describe('g2bGet 오류', () => {
     expect(await g2bGet('result', 'x', {})).toEqual({ items: [], total: 0 })
   })
 })
+
+describe('isTransient — 다시 보내 볼 오류', () => {
+  it('20초 시간 초과(10/30 실제)·연결 끊김·5xx 는 다시, 한도·키 오류는 아니다', async () => {
+    const { isTransient } = await import('@/lib/bid-collect')
+    const timeout = await fetch('http://127.0.0.1:9', { signal: AbortSignal.timeout(1) }).catch(e => e)
+    expect(isTransient(new DOMException('The operation was aborted due to timeout', 'TimeoutError'))).toBe(true)
+    expect(isTransient(timeout)).toBe(true)
+    expect(isTransient(new TypeError('fetch failed'))).toBe(true)
+    expect(isTransient(new G2bError('응답을 읽지 못했습니다 (502)', 'bad_response'))).toBe(true)
+    expect(isTransient(new G2bError('응답을 읽지 못했습니다 (200)', 'bad_response'))).toBe(false)
+    expect(isTransient(new G2bError('일일 한도', '22'))).toBe(false)
+  })
+})

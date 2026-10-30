@@ -78,6 +78,10 @@ const PER_SECOND = 8
 
 /** 초당 요청 한도 초과 — 코드 23, 또는 문구로 온다 */
 const isPerSecond = (e: G2bError) => e.code === '23' || /초당|PER_SECOND/i.test(e.message)
+/** 응답 시간 초과·연결 끊김·5xx — 다시 보내면 대개 된다 */
+export const isTransient = (e: unknown) =>
+  (e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError' || (e instanceof TypeError && /fetch failed/i.test(e.message))))
+  || (e instanceof G2bError && e.code === 'bad_response' && /\(5\d\d\)/.test(e.message))
 
 /** 오늘 한도를 다 쓴 기능을 또 부르려 할 때 */
 class SpentError extends Error {
@@ -133,6 +137,12 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
         // 초당 한도(23) — 운영계정으로 한도가 늘자 12건 동시에 보내다 걸렸다. 잠깐 쉬고 다시
         if (e instanceof G2bError && isPerSecond(e) && tries < 4) {
           await new Promise(res => setTimeout(res, 800 * (tries + 1) + Math.random() * 400))
+          guard(svc, limit)
+          continue
+        }
+        // 나라장터가 가끔 20초 넘게 답을 안 한다(10/30 목록 한 번에 회차가 통째로 멈췄다). 두 번 더 해 본다
+        if (isTransient(e) && tries < 2) {
+          await new Promise(res => setTimeout(res, 1500 * (tries + 1)))
           guard(svc, limit)
           continue
         }
