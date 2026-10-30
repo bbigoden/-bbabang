@@ -128,6 +128,7 @@ export default function BidPage() {
   const [tab, setTab] = useState<Tab>('notice')
   const [notices, setNotices] = useState<Notice[]>([])
   const [results, setResults] = useState<Result[]>([])
+  const [resultsLoaded, setResultsLoaded] = useState(false)
   // 낙찰결과는 빨리 열리게 최근 것부터 한 묶음씩. 같은 개찰 시각끼리 순서가 흔들리면 묶음 사이에 겹치거나 빠지므로 번호로도 줄 세운다
   const resultPage = useCallback((from: number) => supabase.from('bid_results').select(RESULT_COLS)
     .order('openg_at', { ascending: false, nullsFirst: false })
@@ -198,26 +199,16 @@ export default function BidPage() {
       // 공고는 최근 60일만. 그 전 것은 이미 다 마감됐다
       const since = new Date(Date.now() - 60 * 86400000).toISOString()
       setAnalysisReady(false)
-      // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개. 기다리지 않고 받는 대로 채운다
-      void Promise.all([
-        fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
-          .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
-          .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
-        fetchAllPaged<CrowdRow>((from, to) => supabase.from('bid_results')
-          .select('dminstt_cd, dminstt_nm, bssamt, prtcpt_cnum').gt('prtcpt_cnum', 1)
-          .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
-      ]).then(([h, c]) => { setHistory(h); setCrowd(c); setAnalysisReady(true) })
-        .catch(() => toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요'))
-      const [n, r, s] = await Promise.all([
+      setResultsLoaded(false)
+      // 첫 화면(공고 탭)에 필요한 것만 기다린다. 낙찰결과(600건)는 그 탭을 열 때, 분석 재료(약 1만 행)는
+      // 목록을 띄운 뒤에 받는다 — 같이 받으면 폰 3G 에서 대역을 나눠 써 '불러오는 중'이 28초였다(10-30 점검)
+      const [n, s] = await Promise.all([
         fetchAllPaged<Notice>((from, to) => supabase.from('bid_notices')
           .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds')
           .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)),
-        resultPage(0),
         supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
       ])
       setNotices(latestOrd(n))
-      setResults((r.data as Result[]) ?? [])
-      setMoreResults((r.data?.length ?? 0) === RESULT_PAGE)
       const st = Object.fromEntries((s.data ?? []).map(x => [x.key, x.value]))
       setLastRun((st.last_run as CollectReport) ?? null)
       setBackfillUntil((st.backfill as { until?: string } | undefined)?.until ?? null)
@@ -225,11 +216,34 @@ export default function BidPage() {
       toast.error('입찰 정보를 불러오지 못했습니다')
     }
     setLoading(false)
+    // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개. 목록이 뜬 뒤 뒤에서 받아 채운다
+    void Promise.all([
+      fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
+        .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
+        .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
+      fetchAllPaged<CrowdRow>((from, to) => supabase.from('bid_results')
+        .select('dminstt_cd, dminstt_nm, bssamt, prtcpt_cnum').gt('prtcpt_cnum', 1)
+        .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to)),
+    ]).then(([h, c]) => { setHistory(h); setCrowd(c); setAnalysisReady(true) })
+      .catch(() => toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요'))
     // toast는 매 렌더 새 객체라 의존성에서 제외 (다른 페이지들과 동일 패턴)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, resultPage])
+  }, [supabase])
 
   useEffect(() => { if (enabled) load() }, [enabled, load])
+
+  // 낙찰결과 탭은 열 때 받는다
+  useEffect(() => {
+    if (!enabled || tab !== 'result' || resultsLoaded) return
+    let alive = true
+    void resultPage(0).then(r => {
+      if (!alive) return
+      setResults((r.data as Result[]) ?? [])
+      setMoreResults((r.data?.length ?? 0) === RESULT_PAGE)
+      setResultsLoaded(true)
+    })
+    return () => { alive = false }
+  }, [enabled, tab, resultsLoaded, resultPage])
 
   const toggleField = async (f: string) => {
     if (!broker) return
@@ -527,7 +541,7 @@ export default function BidPage() {
 
         {tab === 'lab' ? (
           <LabPanel ourRegion={ourRegion} ourFields={ourFields} />
-        ) : loading ? (
+        ) : loading || (tab === 'result' && !resultsLoaded) ? (
           <p className="py-10 text-center text-sm text-gray-400">불러오는 중…</p>
         ) : tab === 'notice' ? (
           shownNotices.length === 0 ? (
