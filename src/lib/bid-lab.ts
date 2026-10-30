@@ -89,10 +89,15 @@ export function fixedSweep(targets: { sajeong: number; win_y: number | null }[],
  * 금액보다 '어느 공고에 넣느냐'가 더 크게 갈린다. 개찰 전 낙찰만으로 참여 업체 수를 미리 짐작한다:
  * 같은 발주기관 3건 이상 → 그 가운데 값, 아니면 같은 시도·비슷한 금액대 5건 이상, 아니면 비슷한 금액대 전체.
  */
-export function predictN(prior: LabRow[], t: LabRow): { n: number; by: 'instt' | 'region' | 'all' } | null {
+/** 경쟁 짐작에 쓰는 과거 공고 한 줄 — 공고 화면도 이것만 받아 짐작한다 */
+export type CrowdRow = { dminstt_cd: string | null; dminstt_nm: string | null; bssamt: number | null; prtcpt_cnum: number | null }
+/** 버전 5 — 이 이하로 짐작한 공고만 넣는다. 실험실에서 버전 1보다 확실히 나았다(2,885건 중 1.63배) */
+export const CROWD_CUT = 45
+
+export function predictN(prior: CrowdRow[], t: Omit<CrowdRow, 'prtcpt_cnum'>): { n: number; by: 'instt' | 'region' | 'all' } | null {
   const near = prior.filter(h => h.prtcpt_cnum && h.prtcpt_cnum > 1 &&
     (!t.bssamt || !h.bssamt || (h.bssamt >= t.bssamt / 3 && h.bssamt <= t.bssamt * 3)))
-  const med = (rows: LabRow[]) => {
+  const med = (rows: CrowdRow[]) => {
     const ns = rows.map(h => h.prtcpt_cnum!).sort((a, b) => a - b)
     return ns[Math.floor(ns.length / 2)]
   }
@@ -167,7 +172,7 @@ export const VERSIONS: Version[] = [
     desc: `짐작에 참가지역 제한까지 넣어(같은 지역제한끼리) 참여 ${CUT}곳 이하인 공고만, 지금 추천 금액으로`,
     bid: c => c.pred2 != null && c.pred2 <= CUT, pick: current,
   },
-  { id: 'v5', label: '버전 5', desc: '버전 2를 더 좁혀 참여 45곳 이하로 짐작한 공고만', bid: c => c.pred1 != null && c.pred1 <= 45, pick: current },
+  { id: 'v5', label: '버전 5', desc: `버전 2를 더 좁혀 참여 ${CROWD_CUT}곳 이하로 짐작한 공고만 — 공고 화면이 이 방식을 쓴다`, bid: c => c.pred1 != null && c.pred1 <= CROWD_CUT, pick: current },
   { id: 'v6', label: '버전 6', desc: '참여 30곳 이하로 짐작한 공고만 — 낙찰률은 오르지만 넣을 공고가 확 준다', bid: c => c.pred1 != null && c.pred1 <= 30, pick: current },
 ]
 
