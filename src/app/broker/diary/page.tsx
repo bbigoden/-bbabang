@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { Plus, ChevronLeft, ChevronRight, Eye, MoreHorizontal, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
 import { SearchClear } from '@/components/ui/search-clear'
 import { cn } from '@/lib/utils'
@@ -251,7 +252,7 @@ function ProposedPropertiesCell({ propIds, propertyMap, onOpen, onRemove, readOn
     <div className="flex flex-wrap gap-1 items-center px-1 py-0.5">
       {selected.map(p => (
         <span key={p.id} className="group/chip inline-flex items-center gap-0.5 rounded-lg bg-indigo-50 pl-2 pr-0.5 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px]" title={`${p.seq_no != null ? `#${p.seq_no} ` : ''}${p.address || '주소없음'}\n${formatDetail(p)}`}>
-          <span className="truncate">{p.address || '주소없음'}</span>
+          <Link href={`/broker/properties?focus=${p.id}`} prefetch={false} onClick={e => e.stopPropagation()} className="truncate hover:underline">{p.address || '주소없음'}</Link>
           {!readOnly && (
             <button
               onClick={e => { e.stopPropagation(); onRemove(p.id) }}
