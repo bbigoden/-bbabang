@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { Plus, ChevronLeft, ChevronRight, Eye, MoreHorizontal, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
 import { SearchClear } from '@/components/ui/search-clear'
 import { cn } from '@/lib/utils'
@@ -80,6 +79,8 @@ interface Customer {
 interface Property {
   id: string; seq_no: number | null; address: string; deal_type: string; room_type: string
   price: number; monthly_rent: number | null
+  // 칩에서만 조회 (피커는 안 가져감) — 누르면 중개사메모 복사
+  memo?: string | null; broker_id?: string | null; assignee?: string | null
 }
 interface DiaryCustomerRow {
   link_id: string   // broker_diary_customers.id
@@ -218,6 +219,7 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
 
 // 피커가 쓰는 매물 컬럼 — 목록 표시에 필요한 최소한만 (images·description 등 무거운 건 제외)
 const PROP_PICK_COLS = 'id, seq_no, address, deal_type, room_type, price, monthly_rent'
+const PROP_CHIP_COLS = `${PROP_PICK_COLS}, memo, broker_id, assignee`
 const CUST_PICK_COLS = 'id, broker_id, client_name, contact, received_date, assignee, category, source, status, request, interest, consult_note, custom_fields'
 
 // 피커가 한 번에 받아올 최대 건수 — 상한에 걸리면 UI에서 사용자에게 알린다
@@ -228,12 +230,26 @@ const PROP_PICK_LIMIT = 30
 const sanitizeFilterTerm = (s: string) => s.trim().replace(/[,()]/g, ' ').replace(/\s+/g, ' ').trim()
 
 // ── ProposedPropertiesCell ────────────────────────────
-function ProposedPropertiesCell({ propIds, propertyMap, onOpen, onRemove, readOnly }: {
+function ProposedPropertiesCell({ propIds, propertyMap, canSeeMemo, onOpen, onRemove, readOnly }: {
   propIds: string[] | null
   propertyMap: Record<string, Property>  // 이 날짜 일지가 참조하는 매물만 담긴 맵 (전건 아님)
+  canSeeMemo: (p: Property) => boolean
   onOpen: () => void; onRemove: (id: string) => void; readOnly?: boolean
 }) {
+  const toast = useToast()
   const selected = (propIds ?? []).map(id => propertyMap[id]).filter(Boolean) as Property[]
+  // 칩을 누르면 중개사메모를 클립보드로 — 바로 다른 곳에 붙여넣게
+  const copyMemo = async (p: Property) => {
+    if (!canSeeMemo(p)) { toast.info('이 매물의 중개사메모는 볼 권한이 없어요'); return }
+    const memo = (p.memo ?? '').trim()
+    if (!memo) { toast.info('중개사메모가 비어 있어요'); return }
+    try {
+      await navigator.clipboard.writeText(memo)
+      toast.success('중개사메모를 복사했어요')
+    } catch {
+      toast.error('복사하지 못했어요')
+    }
+  }
   const formatDetail = (p: Property) => {
     const price = p.deal_type === '월세'
       ? `${p.price != null ? p.price.toLocaleString() + '만' : '—'}/${p.monthly_rent != null ? p.monthly_rent.toLocaleString() + '만' : '—'}`
@@ -252,7 +268,7 @@ function ProposedPropertiesCell({ propIds, propertyMap, onOpen, onRemove, readOn
     <div className="flex flex-wrap gap-1 items-center px-1 py-0.5">
       {selected.map(p => (
         <span key={p.id} className="group/chip inline-flex items-center gap-0.5 rounded-lg bg-indigo-50 pl-2 pr-0.5 py-0.5 text-[11px] font-medium text-indigo-700 max-w-[160px]" title={`${p.seq_no != null ? `#${p.seq_no} ` : ''}${p.address || '주소없음'}\n${formatDetail(p)}`}>
-          <Link href={`/broker/properties?focus=${p.id}`} prefetch={false} onClick={e => e.stopPropagation()} className="truncate hover:underline">{p.address || '주소없음'}</Link>
+          <button type="button" onClick={e => { e.stopPropagation(); void copyMemo(p) }} className="truncate hover:underline">{p.address || '주소없음'}</button>
           {!readOnly && (
             <button
               onClick={e => { e.stopPropagation(); onRemove(p.id) }}
@@ -651,6 +667,7 @@ export default function BrokerDiaryPage() {
   const [pickerOfficeId, setPickerOfficeId] = useState<string | null>(null)
   // 이 날짜 일지가 참조하는 매물만 담는 맵 — 제안매물 칩 표시용
   const [propertyMap, setPropertyMap] = useState<Record<string, Property>>({})
+  const [officeOwnerName, setOfficeOwnerName] = useState('')  // 중개사메모 열람 판정용 (매물목록과 같은 규칙)
   const [showPicker, setShowPicker] = useState(false)
   const [propertyPickerLinkId, setPropertyPickerLinkId] = useState<string | null>(null) // 매물 피커 대상
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null) // link_id
@@ -709,7 +726,7 @@ export default function BrokerDiaryPage() {
       .filter(id => id && !propertyMap[id])
     if (needed.length === 0) return
     let alive = true
-    supabase.from('broker_properties').select(PROP_PICK_COLS).in('id', needed)
+    supabase.from('broker_properties').select(PROP_CHIP_COLS).in('id', needed)
       .then(({ data }) => {
         if (!alive || !data) return
         setPropertyMap(prev => {
@@ -749,6 +766,13 @@ export default function BrokerDiaryPage() {
 
     // 피커가 검색할 대상 범위(사무소) — office_broker_id 하나면 되므로 멤버 목록 조립이 필요 없다
     setPickerOfficeId(owner ? b.id : (b.parent_broker_id ?? b.id))
+
+    // 직원: 대표 이름 — 담당자에 대표가 걸린 매물은 중개사메모를 직원도 본다(매물목록과 동일)
+    if (owner) setOfficeOwnerName(prof?.name ?? '')
+    else if (b.parent_broker_id) void (async () => {
+      const { data } = await supabase.from('broker_profiles').select('profiles(name)').eq('id', b.parent_broker_id).single()
+      setOfficeOwnerName((data?.profiles as any)?.name ?? '')
+    })()
 
     // 대표: 직원 목록 + 퇴사자 목록 — 일지 고르는 칸에만 쓰이니 화면을 기다리게 하지 않는다.
     // 기다리면 직원 → 퇴사자(1,000행 넘어 두 번) 왕복이 줄을 서, 폰 느린 회선에서 일지·광고현황이
@@ -1386,7 +1410,7 @@ export default function BrokerDiaryPage() {
       case 'source':        return <SelectCell value={c.source} options={opts} onSave={v => saveCustomerField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" multi={settings.multi['source']} />
       case 'status':        return <SelectCell value={c.status} options={opts} onSave={v => saveCustomerField(c.id, 'status', v)} colorMap={colorMap} readOnly={ro} placeholder="진행상황" multi={settings.multi['status']} />
       case 'consult_note':  return <LongTextCell value={(c as any).consult_note ?? ''} onSave={v => saveCustomerField(c.id, 'consult_note', v || null)} placeholder="상담내용" readOnly={ro} />
-      case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} propertyMap={propertyMap} onOpen={() => setPropertyPickerLinkId(c.link_id)} onRemove={id => saveProposedProperties(c.link_id, (c.proposed_property_ids ?? []).filter(x => x !== id))} readOnly={ro} />
+      case 'proposed_properties': return <ProposedPropertiesCell propIds={c.proposed_property_ids} propertyMap={propertyMap} canSeeMemo={p => isOwner || p.broker_id === broker?.id || (!!officeOwnerName && (p.assignee ?? '').split(',').map(s => s.trim()).includes(officeOwnerName))} onOpen={() => setPropertyPickerLinkId(c.link_id)} onRemove={id => saveProposedProperties(c.link_id, (c.proposed_property_ids ?? []).filter(x => x !== id))} readOnly={ro} />
       default: return null
     }
   }
