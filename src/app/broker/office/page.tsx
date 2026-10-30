@@ -212,6 +212,8 @@ export default function OfficePage() {
   const [todayCustomers, setTodayCustomers] = useState<Record<string, number>>({})
   /** 담당자 이름마다 오늘 뱅크에 올린 것·당근에 올린 것 */
   const [todayBank, setTodayBank] = useState<Record<string, number>>({})
+  /** 사무실 전체가 오늘 뱅크에 올린 수(담당자 없는 것 포함) — 뱅크 담당 말풍선 */
+  const [bankTodayTotal, setBankTodayTotal] = useState(0)
   const [todayDaangn, setTodayDaangn] = useState<Record<string, number>>({})
   const [bidRun, setBidRun] = useState<BidRun | null>(null)
   const [estMonth, setEstMonth] = useState<number | null>(null)
@@ -298,6 +300,7 @@ export default function OfficePage() {
       return n
     }
     setTodayBank(담당((bankToday.data ?? []) as { manager: string | null }[]))
+    setBankTodayTotal(bankToday.data?.length ?? 0)
     setTodayDaangn(담당(((daangnToday.data ?? []) as unknown as { ad_listings: { manager: string | null } }[]).map(p => p.ad_listings)))
     setTasks(isMissingTable(ts.error) ? null : ((ts.data as Task[] | null) ?? []))
 
@@ -626,8 +629,12 @@ export default function OfficePage() {
         {
           key: 'bank', kind: 'robot', name: '뱅크 담당',
           state: !bankOn ? 'off' : bankRunning ? 'working' : 'idle',
-          say: bankOn ? (bankRunning ? (bankRunning.progress ?? '임시저장 중') : '대기 중') : offSay(agents?.bank_draft_seen_at),
-          note: `뱅크 임시저장 대기 ${bankJobs.filter(j => j.status === 'queued').length}건`,
+          // 오늘 뱅크에 올라간 것 — 임시저장해 둔 것·직원이 뱅크에서 바로 올린 것 모두(2026-10-30 사장님). 당근 담당처럼 늘 띄운다
+          pin: bankTodayTotal > 0,
+          say: !bankOn ? offSay(agents?.bank_draft_seen_at)
+            : bankRunning ? (bankRunning.progress ?? '임시저장 중')
+              : bankTodayTotal ? `오늘 ${bankTodayTotal}건 올림` : '대기 중',
+          note: `오늘 뱅크에 올라간 것 ${bankTodayTotal}건(직원이 바로 올린 것 포함, 뱅크 가져오기 기준) · 임시저장 대기 ${bankJobs.filter(j => j.status === 'queued').length}건`,
           flash: bankJobs.some(j => j.status === 'done' && j.finished_at && now - new Date(j.finished_at).getTime() < FLASH_MS)
             ? '임시저장 끝' : null,
         },
