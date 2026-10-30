@@ -1869,7 +1869,10 @@ function BrokerPropertiesContent() {
       const rows = (data ?? []).map((r: any) => r.data as Property)
       fetchedPageRef.current = rows
       fetchedQueryRef.current = 조건.p_q ?? ''
-      setProperties(rows)
+      // 목록을 받는 사이 등록 창으로 넣은 매물이 조회보다 늦게 들어가면 결과에 빠진다 — 첫 쪽 맨 위에 붙여 둔다
+      const 늦게 = page === 1 ? addedWhileLoadingRef.current.filter(a => !rows.some((r: Property) => r.id === a.id)) : []
+      addedWhileLoadingRef.current = []
+      setProperties(늦게.length ? [...늦게, ...rows] : rows)
       setTotalCount(Number(data?.[0]?.total_count ?? 0))
       setLoading(false)
       // '전체' 도 같은 시점에 다시 센다 — 다른 사람이 줄을 넣거나 지우면 전체가 멈춰 있어 검색이 전체보다 커 보였다
@@ -2268,6 +2271,9 @@ function BrokerPropertiesContent() {
   const [newProp, setNewProp] = useState<{ address: string; deal_type: string } | null>(null)
   const [viewProp, setViewProp] = useState<{ p: Property; memoVisible: boolean } | null>(null)
   const addingRef = useRef(false)
+  const addedWhileLoadingRef = useRef<Property[]>([])
+  // 3G 에서 누르고 몇 초 동안 화면이 그대로라 한 번 더 누르고 싶어졌다 — 버튼에 '등록 중…'
+  const [addingNew, setAddingNew] = useState(false)
   const addNewRow = async () => {
     if (!broker || !newProp) return
     const address = newProp.address.trim()
@@ -2275,6 +2281,7 @@ function BrokerPropertiesContent() {
     // 두 번 눌러도 한 건만
     if (addingRef.current) return
     addingRef.current = true
+    setAddingNew(true)
     const { data, error } = await supabase.from('broker_properties').insert({
       broker_id: broker.id,
       deal_type: newProp.deal_type,
@@ -2289,11 +2296,13 @@ function BrokerPropertiesContent() {
       images: [],
     }).select().single()
     addingRef.current = false
+    setAddingNew(false)
     if (error || !data) {
       toast.error(`등록하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}. 로그인이 풀렸다면 다시 로그인해 주세요.`)
       return
     }
     setNewProp(null)
+    if (loading) addedWhileLoadingRef.current.push(data)
     toast.success('등록했어요 — 가격·면적 등 나머지 칸은 표에서 바로 채우면 저장돼요')
     // 새 행을 현재 페이지에 즉시 표시 (스크롤 effect가 페이지 이동을 처리)
     setProperties(prev => [data, ...prev])
@@ -2828,11 +2837,46 @@ function BrokerPropertiesContent() {
     return () => clearTimeout(t)
   }, [addingId, direction, totalCount, pageSize])
 
+  // 새 매물 — 소재지부터 받는다. 목록을 다 받기 전에도 띄운다 — 홈 [매물 등록] 을 누르면 폰 3G 에서
+  // 목록(10초 남짓)을 다 받을 때까지 창이 안 떴다(10-30 재점검)
+  const newPropModal = newProp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setNewProp(null)}>
+          <form onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); void addNewRow() }}
+            className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+            <h3 className="mb-1 text-lg font-bold text-gray-900 dark:text-white">새 매물 등록</h3>
+            <p className="mb-4 text-sm text-gray-500">소재지만 적으면 등록돼요. 가격·면적 같은 나머지 칸은 등록한 뒤 표에서 바로 채우면 저절로 저장돼요.</p>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="new-prop-address">소재지</label>
+            <input id="new-prop-address" autoFocus maxLength={200} value={newProp.address}
+              onChange={e => setNewProp(v => v && { ...v, address: e.target.value })}
+              placeholder="예: 천안시 서북구 불당동 123"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
+            <p className="mb-1 mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">거래형태 <span className="text-xs font-normal text-gray-400">(나중에 골라도 돼요)</span></p>
+            <div className="flex flex-wrap gap-2">
+              {['월세', '매매', '전세'].map(d => (
+                <button key={d} type="button" onClick={() => setNewProp(v => v && { ...v, deal_type: v.deal_type === d ? '' : d })}
+                  className={cn('rounded-lg border px-3 py-1.5 text-sm font-medium',
+                    newProp.deal_type === d ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800')}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setNewProp(null)}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">취소</button>
+              <button type="submit" disabled={!newProp.address.trim() || addingNew}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">{addingNew ? '등록 중…' : '등록'}</button>
+            </div>
+          </form>
+        </div>
+      )
+
   if (loading) return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-gray-50 dark:bg-gray-950" role="status">
       <Spinner size="lg" />
       <p className="text-sm text-gray-500">매물목록을 불러오는 중이에요…</p>
       <p className="text-xs text-gray-400">휴대폰 데이터가 느리면 20초쯤 걸릴 수 있어요.</p>
+      {newPropModal}
     </div>
   )
 
@@ -3526,38 +3570,7 @@ function BrokerPropertiesContent() {
 
       {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)} />}
 
-      {/* 새 매물 — 소재지부터 받는다 */}
-      {newProp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-          onClick={() => setNewProp(null)}>
-          <form onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); void addNewRow() }}
-            className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
-            <h3 className="mb-1 text-lg font-bold text-gray-900 dark:text-white">새 매물 등록</h3>
-            <p className="mb-4 text-sm text-gray-500">소재지만 적으면 등록돼요. 가격·면적 같은 나머지 칸은 등록한 뒤 표에서 바로 채우면 저절로 저장돼요.</p>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="new-prop-address">소재지</label>
-            <input id="new-prop-address" autoFocus maxLength={200} value={newProp.address}
-              onChange={e => setNewProp(v => v && { ...v, address: e.target.value })}
-              placeholder="예: 천안시 서북구 불당동 123"
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none dark:border-gray-700 dark:bg-gray-950 dark:text-white" />
-            <p className="mb-1 mt-4 text-sm font-medium text-gray-700 dark:text-gray-300">거래형태 <span className="text-xs font-normal text-gray-400">(나중에 골라도 돼요)</span></p>
-            <div className="flex flex-wrap gap-2">
-              {['월세', '매매', '전세'].map(d => (
-                <button key={d} type="button" onClick={() => setNewProp(v => v && { ...v, deal_type: v.deal_type === d ? '' : d })}
-                  className={cn('rounded-lg border px-3 py-1.5 text-sm font-medium',
-                    newProp.deal_type === d ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800')}>
-                  {d}
-                </button>
-              ))}
-            </div>
-            <div className="mt-6 flex gap-3">
-              <button type="button" onClick={() => setNewProp(null)}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">취소</button>
-              <button type="submit" disabled={!newProp.address.trim()}
-                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">등록</button>
-            </div>
-          </form>
-        </div>
-      )}
+      {newPropModal}
 
       {/* 삭제 확인 모달 */}
       {deleteConfirm && (

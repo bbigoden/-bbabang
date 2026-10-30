@@ -521,12 +521,14 @@ export default function BrokerCustomersPage() {
   // 새 고객 — 찾는 조건부터 받는다. 예전엔 누르는 순간 빈 줄이 저장돼 이번달 신규·사무실 '오늘 등록 고객'에
   // 빈 고객이 세어졌고, 빈 줄의 회색 '요청사항'이 머리글과 같아 칼럼 메뉴를 열게 만들었다(10-30 점검 4명)
   const [newCust, setNewCust] = useState<{ request: string; category: string } | null>(null)
+  const [addingNew, setAddingNew] = useState(false)  // 3G 에서 누른 뒤 몇 초 그대로라 — 버튼에 '등록 중…'
   const openNewCustomer = () => setNewCust({ request: '', category: '' })
   const addRow = async () => {
     if (!broker || !newCust || rowBusyRef.current) return
     const request = newCust.request.trim()
     if (!request) return toast.error('찾는 조건을 적어 주세요')
     rowBusyRef.current = true
+    setAddingNew(true)
     try {
     const today = todayKST()
     const { data, error } = await supabase.from('broker_customers').insert({
@@ -544,7 +546,7 @@ export default function BrokerCustomersPage() {
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
     notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
-    } finally { rowBusyRef.current = false }
+    } finally { rowBusyRef.current = false; setAddingNew(false) }
   }
 
   // 고객 row 복사 — id/created_at 제외하고 모든 필드 동일하게 새 row 생성
@@ -690,12 +692,17 @@ export default function BrokerCustomersPage() {
       const names = c.assignee.split(',').map(s => s.trim())
       if (!names.includes(assigneeFilter)) return false
     }
-    if (deferredSearch) {
-      const q = deferredSearch.toLowerCase()
+    // 앞뒤 공백·전각(０１０)은 지우고 찾는다 — '점검용 ' 이 0명으로 나왔다(매물 검색은 됐다, 10-30 재점검).
+    // 연락처는 숫자만 맞춰도 걸리게(01012345678 로 찾아도 010-1234-5678).
+    const q = deferredSearch.normalize('NFKC').trim().toLowerCase()
+    if (q) {
       const fields = [
         c.request, c.contact, c.assignee, c.category, c.source, c.status, c.received_date,
       ]
       if (fields.some(f => f?.toLowerCase().includes(q))) return true
+      const qDigits = q.replace(/\D/g, '')
+      if (qDigits.length >= 3 && qDigits.length === q.replace(/[\s-]/g, '').length
+        && (c.contact ?? '').replace(/\D/g, '').includes(qDigits)) return true
       if (c.custom_fields) {
         return Object.values(c.custom_fields).some(v => typeof v === 'string' && v.toLowerCase().includes(q))
       }
@@ -890,7 +897,15 @@ export default function BrokerCustomersPage() {
           const cTotal = categoryDist.reduce((s,[,v])=>s+v,0)
           const sTotal = sourceDist.reduce((s,[,v])=>s+v,0)
           return (
-            <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            // 다 받기 전엔 첫 200명 기준 숫자라 흐리게 두고 '불러오는 중'을 덮는다 — 폰 3G 에서 200·공동담당 70 을
+            // 진짜 숫자로 읽었다(10-30 재점검). 맨 위 작은 글자만으로는 스크롤해 내려와 있으면 안 보였다.
+            <div className="relative mb-5" aria-busy={!allLoaded}>
+            {!allLoaded && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-600 shadow dark:bg-gray-900/90 dark:text-gray-300">고객 불러오는 중…</span>
+              </div>
+            )}
+            <div className={cn('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3', !allLoaded && 'opacity-30')}>
               {/* 신규 */}
               <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm flex flex-col justify-between">
                 <div className="flex items-center gap-2 mb-3">
@@ -982,6 +997,7 @@ export default function BrokerCustomersPage() {
                   </div>
                 )}
               </div>
+            </div>
             </div>
           )
         })()}
@@ -1163,8 +1179,8 @@ export default function BrokerCustomersPage() {
             <div className="mt-6 flex gap-3">
               <button type="button" onClick={() => setNewCust(null)}
                 className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800">취소</button>
-              <button type="submit" disabled={!newCust.request.trim()}
-                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">등록</button>
+              <button type="submit" disabled={!newCust.request.trim() || addingNew}
+                className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">{addingNew ? '등록 중…' : '등록'}</button>
             </div>
           </form>
         </div>

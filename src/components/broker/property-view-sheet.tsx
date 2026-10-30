@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { X } from 'lucide-react'
 
 /** 폰에서 매물 하나를 펼쳐 보는 창에 필요한 칸만 */
@@ -29,7 +30,8 @@ export interface PropertyView {
   images: string[]
 }
 
-const 만 = (n: number | null | undefined) => (n != null ? `${n.toLocaleString('ko-KR')}만` : null)
+// 0 은 '아직 안 적음'(새 줄 기본값)이다 — '0만 / —' 처럼 0원으로 읽혔다(10-30 재점검)
+const 만 = (n: number | null | undefined) => (n ? `${n.toLocaleString('ko-KR')}만` : null)
 const STATUS_LABEL = { available: '거래가능', contracted: '계약완료', hidden: '숨김' } as const
 
 /**
@@ -39,8 +41,14 @@ const STATUS_LABEL = { available: '거래가능', contracted: '계약완료', hi
  * 매물 하나의 정보를 보려면 표를 옆으로 훑어야 했다(10-30 점검 모바일 사용자). 읽기만 하는 창이다.
  */
 export function PropertyViewSheet({ p, memoVisible, onClose }: { p: PropertyView; memoVisible: boolean; onClose: () => void }) {
+  // Esc 로 닫기 — 열린 채로는 표의 다른 버튼이 안 눌려 갇힌 느낌이었다
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   const price = p.deal_type === '월세'
-    ? `${만(p.price) ?? '—'} / ${만(p.monthly_rent) ?? '—'}`
+    ? (만(p.price) || 만(p.monthly_rent) ? `${만(p.price) ?? '—'} / ${만(p.monthly_rent) ?? '—'}` : null)
     : 만(p.price)
   const area = [p.size_pyeong ? `전용 ${p.size_pyeong}` : null, p.area_supplied ? `공급 ${p.area_supplied}` : null].filter(Boolean).join(' · ')
   const floor = [p.floor != null ? `${p.floor}층` : null, p.total_floors ? `총 ${p.total_floors}층` : null].filter(Boolean).join(' / ')

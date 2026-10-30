@@ -95,6 +95,9 @@ const nextConfig: NextConfig = {
       { source: '/brokers', destination: '/', permanent: true },
       // 사무소 소개는 첫 화면(/)이 됐다 — 고객 요청 매칭 화면을 걷어낸 뒤(2026-10-30)
       { source: '/office-intro', destination: '/', permanent: true },
+      // 옛 전체 폼 매물 등록·수정 화면은 걷어냈다(앱 어디서도 안 이어졌고, 걷어낸 매칭 알림을 부르고 있었다) — 10-30 재점검
+      { source: '/broker/properties/new', destination: '/broker/properties?new=1', permanent: false },
+      { source: '/broker/properties/:id/edit', destination: '/broker/properties', permanent: false },
       {
         // 목록을 (?:…) 로 묶어야 끝($)이 모든 이름에 걸린다. 묶지 않으면 'ads|…|trash$' 의
         // $ 가 마지막 trash 에만 붙어 '앞부분이 폴더명으로 시작'만 해도 예외가 됐다 —

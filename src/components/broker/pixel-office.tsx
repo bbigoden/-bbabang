@@ -86,8 +86,8 @@ export interface BoardRow {
 export interface OfficeLayout {
   /** 방마다 앉을 자리. 없는 방은 빈 방으로 그린다. */
   seats: Partial<Record<RoomKey, Seat[]>>
-  /** 상담실 손님 수 — 오늘 고객목록에 새로 등록된 고객 */
-  guests: number
+  /** 상담실 손님 수 — 오늘 고객목록에 새로 등록된 고객. null 이면 아직 세는 중 */
+  guests: number | null
   /** 벽시계 HH:MM */
   clock: string
   /** 상황실 칠판 — 사람마다 + 사무실 전체. 아직 못 셌으면 없음 */
@@ -1207,7 +1207,7 @@ function Sofa({ x, y, w = 40, color = '#2f5d8c' }: { x: number; y: number; w?: n
 }
 
 /** 방마다 놓는 소품. 자리(책상)는 따로 그린다. */
-function Decor({ room, guests }: { room: RoomBox; guests: number }) {
+function Decor({ room, guests }: { room: RoomBox; guests: number | null }) {
   const { x, y, w, h } = room
   switch (room.key) {
     case 'boss':
@@ -1355,10 +1355,10 @@ function Decor({ room, guests }: { room: RoomBox; guests: number }) {
           {[0, 1].map(i => (
             <g key={i}>
               <rect x={x + 34 + i * 22} y={y + 54} width={12} height={9} fill="#3f3f46" />
-              {i < guests && <Sprite rows={GUESTS[i].rows} palette={GUESTS[i].pal} x={x + 33 + i * 22} y={y + 48} />}
+              {i < (guests ?? 0) && <Sprite rows={GUESTS[i].rows} palette={GUESTS[i].pal} x={x + 33 + i * 22} y={y + 48} />}
             </g>
           ))}
-          <Label x={x + 52} y={y + 75} text={`오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
+          <Label x={x + 52} y={y + 75} text={guests == null ? '오늘 등록 고객 …' : `오늘 등록 고객 ${guests}명`} size={3.6} color="#166534" />
           <Plant x={x + w - 14} y={y + 62} />
         </g>
       )

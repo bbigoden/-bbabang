@@ -16,7 +16,6 @@ const HIDDEN_PATHS = [
   '/admin',
   '/auth',
   '/account-suspended',
-  '/broker/properties/[id]/edit',
 ]
 
 export function Footer() {
@@ -94,10 +93,7 @@ export function Footer() {
                 )}
               </div>
             </dl>
-            <p className="mt-4 text-[11px] text-gray-500 leading-relaxed">
-              부소장은 통신판매중개자이며, 거래 당사자가 아닙니다.
-              매물 정보는 등록한 공인중개사가 책임지며, 부소장은 정보의 정확성·신뢰성에 대해 보증하지 않습니다.
-            </p>
+            {/* '통신판매중개자·매물 정보 보증' 문구는 고객 요청 매칭 시절 것이라 뺐다 — 지금은 사무소 업무 도구다(10-30 재점검) */}
           </div>
 
           {/* 정책·법적 링크 */}

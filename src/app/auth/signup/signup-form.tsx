@@ -457,7 +457,7 @@ export function SignupForm({ redirectTo = null }: { redirectTo?: string | null }
             <span className="text-sm text-gray-600 dark:text-gray-500">
               마케팅 알림 수신에 동의합니다 <span className="text-gray-500">(선택)</span>
               <span className="block text-xs text-gray-500 mt-0.5">
-                할인·이벤트·신규 기능 소식 등을 이메일·푸시로 받아요. 설정에서 언제든 변경 가능.
+                신규 기능·이용 안내 소식을 이메일·푸시로 받아요. 설정에서 언제든 변경 가능.
               </span>
             </span>
           </label>

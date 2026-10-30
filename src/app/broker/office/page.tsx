@@ -203,6 +203,8 @@ export default function OfficePage() {
   const [listingNames, setListingNames] = useState<Record<string, { short: string; full: string }>>({})
   const [bankJobs, setBankJobs] = useState<BankJob[]>([])
   const [today, setToday] = useState({ cafe: 0, blog: 0, daangnPost: 0, naver: 0, daangn: 0, consult: 0 })
+  // 처음 숫자를 받기 전엔 0 이 아니라 '…' — 방금 등록한 고객이 빠진 줄 알았다(10-30 재점검)
+  const [todayLoaded, setTodayLoaded] = useState(false)
   /** 오늘 업무일지를 쓴 사람 → 마지막으로 고친 시각 */
   const [diaries, setDiaries] = useState<Record<string, string>>({})
   const [members, setMembers] = useState<Member[]>([])
@@ -288,6 +290,7 @@ export default function OfficePage() {
       naver: nv.count ?? 0, daangn: dg.count ?? 0,
       consult: consult.data?.length ?? 0,
     })
+    setTodayLoaded(true)
     const 고객: Record<string, number> = {}
     for (const c of (consult.data ?? []) as { assignee_ids: string[] | null }[]) {
       for (const id of c.assignee_ids ?? []) 고객[id] = (고객[id] ?? 0) + 1
@@ -587,7 +590,7 @@ export default function OfficePage() {
 
   const layout: OfficeLayout = {
     clock: hmKST(now),
-    guests: today.consult,
+    guests: todayLoaded ? today.consult : null,
     status: board ?? undefined,
     seats: {
       boss: inDept('boss'),
