@@ -38,6 +38,7 @@ import { PROPERTY_STATUS_META } from '@/lib/property-status'
 import { Spinner } from '@/components/ui/spinner'
 import { SearchClear } from '@/components/ui/search-clear'
 import { PropertyTextHistoryButton } from '@/components/sheet/property-text-history'
+import { PropertyViewSheet } from '@/components/broker/property-view-sheet'
 import { chipClass } from '@/components/ui/chip'
 
 interface Property {
@@ -1306,6 +1307,8 @@ interface PropertyRowProps {
   setLightbox: React.Dispatch<React.SetStateAction<{ images: string[]; index: number } | null>>
   onDelete: (id: string) => void
   onCopy: (p: Property) => void
+  /** 폰에서 번호 칸 [보기] — 매물 한 건을 위아래로 읽는 창 (useState 세터라 memo 를 깨지 않는다) */
+  onView: (v: { p: Property; memoVisible: boolean }) => void
 }
 
 const PropertyRow = memo(function PropertyRow({
@@ -1313,7 +1316,7 @@ const PropertyRow = memo(function PropertyRow({
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, ownerName,
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
-  onDelete, onCopy,
+  onDelete, onCopy, onView,
 }: PropertyRowProps) {
   const toast = useToast()
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
@@ -1352,6 +1355,8 @@ const PropertyRow = memo(function PropertyRow({
             >{광고남음 ? '광고 남음' : adBadge.label === '광고중' ? '광고 중' : adBadge.label}</Link>
           </>
         ) : (p.seq_no ?? '')}
+        <button type="button" onClick={() => onView({ p, memoVisible })}
+          className="mt-1 block w-full rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -1427,7 +1432,7 @@ const PropertyRow = memo(function PropertyRow({
               {key === 'management_fee'  && <NumberCell value={p.management_fee} onSave={v => saveField(p.id, 'management_fee', v)} placeholder="관리비" />}
               {key === 'direction'       && (settings.colTypes['direction'] === 'select' ? <SelectCell value={p.direction ?? ''} options={settings.options['direction'] ?? DIRECTION_OPTS} onSave={v => saveField(p.id, 'direction', v)} multi={settings.multi['direction']} /> : <TextCell value={p.direction} onSave={v => saveField(p.id, 'direction', v || null)} placeholder="예: 남향" />)}
               {key === 'images'          && <ImageCell images={p.images ?? []} onSave={imgs => saveField(p.id, 'images', imgs)} onView={i => setLightbox({ images: p.images, index: i })} />}
-              {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <div className="flex items-start gap-1"><div className="min-w-0 flex-1"><LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" /></div><PropertyTextHistoryButton propertyId={p.id} field="brief_memo" label="매물설명" onRestore={v => saveField(p.id, 'brief_memo', v || null)} /></div>)}
+              {key === 'brief_memo'      && (settings.colTypes['brief_memo'] === 'select' ? <SelectCell value={p.brief_memo ?? ''} options={settings.options['brief_memo'] ?? []} onSave={v => saveField(p.id, 'brief_memo', v)} multi={settings.multi['brief_memo']} /> : <div className="flex items-start gap-1"><div className="min-w-0 flex-1"><LongTextCell value={p.brief_memo} onSave={v => saveField(p.id, 'brief_memo', v || null)} placeholder="매물설명" maxLength={1000} /></div><PropertyTextHistoryButton propertyId={p.id} field="brief_memo" label="매물설명" onRestore={v => saveField(p.id, 'brief_memo', v || null)} /></div>)}
               {key === 'memo'            && (settings.colTypes['memo'] === 'select'
                 ? <SelectCell value={p.memo ?? ''} options={settings.options['memo'] ?? []} onSave={v => saveField(p.id, 'memo', v)} multi={settings.multi['memo']} />
                 : <div className="flex items-start gap-1"><div className="min-w-0 flex-1"><LongTextCell value={p.memo} onSave={v => saveField(p.id, 'memo', v || null)} placeholder="중개사 메모" /></div><PropertyTextHistoryButton propertyId={p.id} field="memo" label="중개사 메모" onRestore={v => saveField(p.id, 'memo', v || null)} /></div>)}
@@ -2261,6 +2266,7 @@ function BrokerPropertiesContent() {
    * 등록된 것처럼 보이기도 했다. 이제 소재지를 적어야 저장하고, 실패하면 이유를 알린다.
    */
   const [newProp, setNewProp] = useState<{ address: string; deal_type: string } | null>(null)
+  const [viewProp, setViewProp] = useState<{ p: Property; memoVisible: boolean } | null>(null)
   const addingRef = useRef(false)
   const addNewRow = async () => {
     if (!broker || !newProp) return
@@ -3332,6 +3338,7 @@ function BrokerPropertiesContent() {
                 <PropertyRow
                   key={p.id}
                   p={p}
+                  onView={setViewProp}
                   adBadge={adBadges[p.id]}
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
@@ -3516,6 +3523,8 @@ function BrokerPropertiesContent() {
           document.body
         )
       })()}
+
+      {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)} />}
 
       {/* 새 매물 — 소재지부터 받는다 */}
       {newProp && (

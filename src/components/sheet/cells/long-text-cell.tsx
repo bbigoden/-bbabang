@@ -15,11 +15,17 @@ export function LongTextCell({
   onSave,
   placeholder = '—',
   readOnly,
+  maxLength = 2000,
 }: {
   value: string | null
   onSave: (v: string) => void
   placeholder?: string
   readOnly?: boolean
+  /**
+   * 칸에 들어가는 최대 글자 수(저장하는 쪽 검사와 같은 값). 넘겨 쓴 뒤 저장이 거절되면 편집칸이 이미 닫혀
+   * 쓴 글이 통째로 사라졌다(10-30 점검: 메모 2,811자) — 애초에 넘겨 쓰지 못하게 막고 남은 글자 수를 보여 준다.
+   */
+  maxLength?: number
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -80,17 +86,25 @@ export function LongTextCell({
   )
 
   if (editing) return (
-    <textarea
-      ref={textareaRef}
-      value={draft}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={e => {
-        if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) }
-      }}
-      rows={3}
-      className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-    />
+    <div>
+      <textarea
+        ref={textareaRef}
+        value={draft}
+        maxLength={maxLength}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === 'Escape') { setDraft(value ?? ''); setEditing(false) }
+        }}
+        rows={3}
+        className="w-full rounded border border-blue-400 bg-white dark:bg-gray-900 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+      />
+      {draft.length > maxLength * 0.8 && (
+        <p className={cn('text-right text-[10px]', draft.length >= maxLength ? 'font-semibold text-red-500' : 'text-gray-400')}>
+          {draft.length.toLocaleString('ko-KR')}/{maxLength.toLocaleString('ko-KR')}자
+        </p>
+      )}
+    </div>
   )
 
   return (

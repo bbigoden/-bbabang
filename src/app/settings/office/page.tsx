@@ -109,7 +109,7 @@ export default function SettingsOfficePage() {
       verification_info: saved.verification_info,
     }
     setBroker(next)
-    setMsg({ type: 'ok', text: next.is_verified ? '저장됐습니다.' : '저장됐습니다. 관리자 검토가 끝나면 인증 뱃지가 붙어요.' })
+    setMsg({ type: 'ok', text: next.is_verified ? '저장됐습니다.' : '저장됐습니다. 관리자 검토가 끝나면 인증 배지가 붙어요.' })
     setTimeout(() => setMsg(null), 3000)
     // 사이드바·다른 화면이 쓰는 사무소 정보(상호 등)도 새 값으로
     refresh().catch(() => {})
