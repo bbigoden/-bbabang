@@ -30,7 +30,6 @@ import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { geocodeAddress } from '@/lib/geocode'
 import { findDuplicateProperty } from '@/lib/dup-check'
-import { PropertyReportButton } from '@/components/broker/property-report-modal'
 import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
@@ -2956,8 +2955,6 @@ function BrokerPropertiesContent() {
                 <Plus className="h-4 w-4" />매물 등록
               </button>
             )}
-            {/* 추천 매물 보고서 (고객 공유 링크) — 어드민 열람 모드에선 숨김 */}
-            {!isAdminView && <PropertyReportButton officeId={officeIdRef.current || null} brokerId={broker?.id ?? null} />}
             {/* 목록/지도 토글 */}
             <div className="flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
               <button

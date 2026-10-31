@@ -1,8 +1,8 @@
 /**
  * 로그인 전용 경로 — proxy 와 auth-context 가 같은 목록을 본다.
  *
- * 목록에서 빠지면 손님이 빈 화면·끝없는 스피너에 갇히고, 잘못 들어가면 공유 보고서(/r/<id>)를
- * 연 손님까지 로그인 화면으로 튕긴다. 앞부분 일치라 끝 '/' 하나에 /broker·/brokers 가 갈린다.
+ * 목록에서 빠지면 손님이 빈 화면·끝없는 스피너에 갇히고, 잘못 들어가면 공개 화면을
+ * 보던 손님까지 로그인 화면으로 튕긴다. 앞부분 일치라 끝 '/' 하나에 /broker·/brokers 가 갈린다.
  */
 import { describe, it, expect } from 'vitest'
 import { isProtectedPath } from '@/lib/protected-paths'
@@ -32,8 +32,6 @@ describe('isProtectedPath — 손님도 보는 공개 화면', () => {
     '/auth/login', '/auth/signup', '/auth/mfa', '/auth/reset-password',
     '/support', '/terms', '/privacy',
     '/account-suspended',
-    // 공유 보고서 — 카톡 미리보기로 손님이 연다
-    '/r/abc',
   ])('%s', p => {
     expect(isProtectedPath(p)).toBe(false)
   })
@@ -66,7 +64,6 @@ describe('isProtectedPath — 퍼센트 인코딩', () => {
   })
 
   it.each([
-    '/r/%EC%B2%9C%EC%95%88',   // 경로 속 한글(천안)
     '/%62roker',               // '/broker' 자체는 막지 않는다(끝 '/')
     '/%62rokers',
   ])('공개 화면 %s 는 풀어도 공개', p => {

@@ -8,7 +8,6 @@
  * 앞부분 일치(startsWith)라 끝 '/' 가 뜻을 가진다.
  * - '/broker/' — 하위 페이지는 전부 중개사 전용. 구 공개 프로필 /broker/<id> 는 next.config 가
  *   proxy 보다 먼저 '/' 로 돌린다. '/brokers'·'/broker' 는 안 걸린다.
- * '/r' 처럼 짧은 앞부분은 절대 넣지 말 것 — 공유 보고서(/r/<id>)는 손님이 연다.
  */
 const PROTECTED_PREFIXES = [
   '/dashboard', '/admin', '/settings', '/broker/', '/notifications',
