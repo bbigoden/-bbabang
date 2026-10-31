@@ -7,16 +7,16 @@ import { NotificationsProvider } from '@/lib/notifications-context'
 import { ThemeProvider } from '@/lib/theme-context'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Footer } from '@/components/layout/footer'
-import { InstallPrompt } from '@/components/install-prompt'
-import { RebrandNotice } from '@/components/rebrand-notice'
 import { ErrorBoundary, GlobalErrorListener } from '@/components/error-tracker'
 import { BrokerGlobalLayout } from '@/components/broker/global-layout'
 import { ToastProvider } from '@/components/toast'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
-import { ConsentGate } from '@/components/consent-gate'
+import { LazyOverlays } from '@/components/lazy-overlays'
 
-const geist = Geist({ subsets: ['latin'] })
+// 미리받기(preload) 끔 — 한글 화면이라 거의 안 쓰는 라틴 글꼴(29KB)이 첫 화면 프로그램과 회선을 나눠 썼다(10-30).
+// 글꼴은 그대로 쓰고, 받기 전엔 시스템 글꼴로 보였다가 바뀐다.
+const geist = Geist({ subsets: ['latin'], preload: false })
 
 const BASE_URL = 'https://bbabang.vercel.app'
 
@@ -145,10 +145,8 @@ export default function RootLayout({
                     <main id="main" className="flex-1">{children}</main>
                     <Footer />
                   </BrokerGlobalLayout>
-                  <ConsentGate />
                   <BottomNav />
-                  <InstallPrompt />
-                  <RebrandNotice />
+                  <LazyOverlays />
                 </ToastProvider>
               </NotificationsProvider>
             </AuthProvider>
