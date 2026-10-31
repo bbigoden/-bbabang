@@ -46,6 +46,9 @@ type Post = {
   title?: string | null
 }
 
+/** 이 탭에서 마지막으로 받은 광고 대장 — 화면을 떠났다 와도 남는다(모듈 변수). 새로고침하면 없다 */
+let adsCache: { key: string; rows: Listing[] } | null = null
+
 type Listing = {
   id: string
   bank_no: string
@@ -107,8 +110,13 @@ type LinkedProperty = {
  * 이어진 매물은 같은 요청에 묶어 받는다. 따로 물으면 쪽마다 요청이 하나 더 나가고, 위 배너가
  * 세는 '계약완료인데 광고중' 은 화면에 뜬 쪽만이 아니라 대장 전체를 봐야 맞는다.
  */
-const POSTS_SELECT = '*, ad_posts(id, channel, external_id, url, status, error, posted_at, title)'
-const LISTING_SELECT = `${POSTS_SELECT}, property:broker_properties(id, seq_no, status, address)` as const
+// '*' 대신 화면이 쓰는 칸만(Listing 타입과 같게) — 한 번에 114KB 를 받아 폰 3G 에서 5초 걸렸다(10-30 폰 속도 조사).
+// 칸을 Listing 에 더하면 여기에도 더한다.
+const LISTING_COLS = 'id, bank_no, bank_kind, naver_no, deal_type, property_kind, region, address_detail, area_supply, area_exclusive, '
+  + 'area_label, price_text, bank_period, is_advertising, contracted_at, synced_at, bank_closed_reason, bank_tab, closing_soon, '
+  + 'manager, check_report, checked_at, anomalies, anomalies_at, dismissed_notes'
+const POSTS_SELECT = `${LISTING_COLS}, ad_posts(id, channel, external_id, url, status, error, posted_at, title)`
+const LISTING_SELECT = `${POSTS_SELECT}, property_id, property_link, property:broker_properties(id, seq_no, status, address)` as const
 
 /**
  * 표에 칸을 내주는 채널.
@@ -926,7 +934,11 @@ export default function AdsPage() {
   }, [q, tab])
 
   async function load() {
-    setLoading(true)
+    // 이 탭에서 받은 목록이 있으면 먼저 그리고 뒤에서 새로 받는다 — 들어올 때마다 대장 전체를 받아 폰 3G 에서
+    // 7초 걸렸다(10-30 폰 속도 조사). 처음 여는 것이면 지금처럼 '불러오는 중'.
+    const 기억키 = auth.broker?.id ?? ''
+    if (adsCache?.key === 기억키 && !listings.length) { setListings(adsCache.rows); setLoading(false) }
+    else if (!listings.length) setLoading(true)
     // 등록종료가 매달 쌓여(월 약 300행) 서버 한도 1,000행을 곧 넘는다. 잘린 채로 세면 '내려야 함' 이
     // 실제보다 적게 나온다 — 틀리면 안 되는 숫자라 끝까지 나눠 받는다. id 로 순서를 못박아야
     // 나눠 받는 사이에 겹치거나 빠지지 않는다.
@@ -956,6 +968,7 @@ export default function AdsPage() {
         })
       })
       setListings(data)
+      adsCache = { key: 기억키, rows: data }
     } catch (e) {
       toast.error(`목록을 불러오지 못했습니다: ${e instanceof Error ? e.message : (e as { message?: string })?.message ?? '알 수 없는 오류'}`)
     }

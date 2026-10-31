@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
@@ -218,9 +218,7 @@ export default function BidPage() {
         supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
       ])
       setNotices(latestOrd(n))
-      void fetchAllPaged<Notice>(noticeQuery)
-        .then(all => { setNotices(latestOrd(all)); setAllNotices(true) })
-        .catch(() => { /* 못 받으면 마감 전 공고만 보인다 */ })
+      allNoticeQuery.current = noticeQuery
       const st = Object.fromEntries((s.data ?? []).map(x => [x.key, x.value]))
       setLastRun((st.last_run as CollectReport) ?? null)
       setBackfillUntil((st.backfill as { until?: string } | undefined)?.until ?? null)
@@ -228,17 +226,37 @@ export default function BidPage() {
       toast.error('입찰 정보를 불러오지 못했습니다')
     }
     setLoading(false)
-    // 분석 재료 — 업체 목록 없이 공고당 숫자 몇 개. 목록이 뜬 뒤 뒤에서 받아 채운다
-    void fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
-      .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
-      .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to))
-      .then(h => { setHistory(h); setAnalysisReady(true) })
-      .catch(() => toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요'))
+    setHistoryAsked(false)
     // toast는 매 렌더 새 객체라 의존성에서 제외 (다른 페이지들과 동일 패턴)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase])
 
   useEffect(() => { if (enabled) load() }, [enabled, load])
+
+  // 60일치 공고(약 140KB)와 분석 재료(과거 낙찰 약 250KB)는 쓸 때 받는다. 목록 뒤에서 늘 받으면 폰 3G 에서
+  // 40초 가까이 회선을 붙잡아 그동안 다른 화면을 눌러도 같이 느렸다(10-30 폰 속도 조사).
+  //  - 60일치 전체: '마감 전만' 을 끌 때
+  //  - 과거 낙찰: 공고를 펼치거나(추천 금액) 낙찰결과 탭(되돌려 보기)을 열 때
+  const allNoticeQuery = useRef<((from: number, to: number) => any) | null>(null)
+  useEffect(() => {
+    if (openOnly || allNotices || loading || !allNoticeQuery.current) return
+    let alive = true
+    void fetchAllPaged<Notice>(allNoticeQuery.current)
+      .then(all => { if (alive) { setNotices(latestOrd(all)); setAllNotices(true) } })
+      .catch(() => { /* 못 받으면 마감 전 공고만 보인다 */ })
+    return () => { alive = false }
+  }, [openOnly, allNotices, loading])
+  const [historyAsked, setHistoryAsked] = useState(false)
+  useEffect(() => {
+    if (historyAsked || loading || !(opened || tab === 'result')) return
+    setHistoryAsked(true)
+    void fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
+      .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
+      .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to))
+      .then(h => { setHistory(h); setAnalysisReady(true) })
+      .catch(() => { setHistoryAsked(false); toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요') })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyAsked, loading, opened, tab, supabase])
 
   // 낙찰결과 탭은 열 때 받는다
   useEffect(() => {
@@ -467,7 +485,7 @@ export default function BidPage() {
             </button>
           )}
           {/* 분석이 얼마나 믿을 만한지는 쌓인 과거 낙찰 수에 달렸다. 숫자를 늘 보이게 둔다 */}
-          {!loading && !analysisReady && <span>과거 낙찰 받는 중…</span>}
+          {!loading && !analysisReady && historyAsked && <span>과거 낙찰 받는 중…</span>}
           {!loading && analysisReady && (
             <span title={offFieldKeys.size ? '우리 주력분야가 아닌 공고(석공 등)의 낙찰은 뺐습니다' : undefined}>
               분석에 쓰는 과거 낙찰 {fieldHistory.length.toLocaleString('ko-KR')}건

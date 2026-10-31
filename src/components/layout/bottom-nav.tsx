@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import {
@@ -26,6 +26,9 @@ type NavItem = { label: string; icon: any; badge?: number; needsOffice?: boolean
   | { href?: never; action: 'more' }
 )
 
+/** 이 탭에서 서랍 메뉴를 한 번 미리 받았는지 */
+let prefetchedDrawer = false
+
 export function BottomNav() {
   const pathname = usePathname() ?? ''
   const { user, profile, broker, loading } = useAuthOptional()
@@ -35,6 +38,18 @@ export function BottomNav() {
 
   // 라우트 이동 시 드로어 자동 닫힘
   useEffect(() => { setDrawerOpen(false) }, [pathname])
+
+  // 서랍(더보기) 메뉴는 화면에 안 보여 Next 가 미리 받지 않는다 — 누르면 화면 정보 왕복(폰 3G 약 2초)부터
+  // 기다렸다(10-30 폰 속도 조사). 첫 화면 데이터가 다 온 뒤(8초 뒤) 한 번만 미리 받아 둔다.
+  const router = useRouter()
+  useEffect(() => {
+    if (!broker || prefetchedDrawer) return
+    const t = setTimeout(() => {
+      prefetchedDrawer = true
+      for (const i of BROKER_ITEMS) if (i.href && showItem(i, broker)) router.prefetch(i.href)
+    }, 8000)
+    return () => clearTimeout(t)
+  }, [broker, router])
 
   // 페이지별 숨김
   if (HIDDEN_PATHS.some(p => pathname.startsWith(p))) return null

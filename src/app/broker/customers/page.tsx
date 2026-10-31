@@ -327,6 +327,9 @@ function DonutChart({ data, colors, total }: { data: [string, number][]; colors:
   )
 }
 
+/** 이 탭에서 마지막으로 다 받은 고객 목록 — 화면을 떠났다 와도 남는다(모듈 변수). 새로고침하면 없다 */
+let custCache: { key: string; rows: Customer[] } | null = null
+
 // ── 메인 페이지 ──────────────────────────────────────
 export default function BrokerCustomersPage() {
   const supabase = createClient()
@@ -445,6 +448,16 @@ export default function BrokerCustomersPage() {
         .range(from, to)
     }
 
+    // 이 탭에서 한 번 받은 목록이 있으면 바로 그리고 뒤에서 통째로 새로 받는다 — 들어올 때마다 900명(약 100KB)을
+    // 처음부터 받아 폰 3G 에서 9초 걸렸다(10-30 폰 속도 조사). 새로 받은 것으로 한 번에 바꾼다.
+    const cacheKey = `${office}|${b.id}|${owner ? 'o' : 's'}`
+    if (custCache?.key === cacheKey) {
+      setCustomers(custCache.rows)
+      setLoading(false)
+      setAllLoaded(true)
+      void fetchAllPaged((from, to) => custQuery(from, to)).then(all => setCustomers(visibleRows(all ?? [])), () => {})
+      return
+    }
     const { data: firstPage } = await custQuery(0, FIRST_CHUNK - 1)
     setCustomers(visibleRows(firstPage ?? []))
     setLoading(false)
@@ -457,6 +470,13 @@ export default function BrokerCustomersPage() {
       })()
     } else setAllLoaded(true)
   }
+
+  // 다 받은 목록(고친 것 포함)을 탭 안에 기억해 둔다 — 다시 들어올 때 바로 그린다
+  useEffect(() => {
+    if (!allLoaded || !broker) return
+    const office = isOwner ? broker.id : (broker.parent_broker_id ?? broker.id)
+    custCache = { key: `${office}|${broker.id}|${isOwner ? 'o' : 's'}`, rows: customers }
+  }, [customers, allLoaded, broker, isOwner])
 
   // 담당자 변경 알림은 DB 트리거(notify_assignee_change)가 처리
   const saveField = useCallback(async (id: string, field: string, value: any) => {
