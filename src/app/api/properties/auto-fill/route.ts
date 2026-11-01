@@ -350,9 +350,13 @@ export async function POST(req: NextRequest) {
     let sizePyeong = areaM2 > 0 ? m2ToPyeong(areaM2) : null
     let sizePyeongSupplied = areaSuppliedM2 > 0 ? m2ToPyeong(areaSuppliedM2) : null
     // ho 지정 시 해당 유닛 용도 우선, ho 없으면 건물 전체 용도(mainPurps) 우선
+    // 호실 용도는 '의원'·'소매점'처럼 세부로 적혀 '기타'가 되기 쉽다 — 그러면 건물 용도(제1종근린생활시설 등)를 쓴다.
+    // (11-01 엘림프라자 205호 '의원' → '기타'로 상가 유형을 덮어씀)
+    const unitType = mapRoomType(yongdoNm)
+    const bldType = mapRoomType(mainPurps)
     const roomType = ho
-      ? mapRoomType(yongdoNm) || mapRoomType(mainPurps)
-      : mapRoomType(mainPurps) || mapRoomType(yongdoNm)
+      ? (unitType && unitType !== '기타' ? unitType : bldType || unitType)
+      : bldType || unitType
 
     // ─────────────────────────────────────────────────────────────
     // 결과 Sanity Check — 잘못된 데이터를 절대 DB에 흘리지 않음.
