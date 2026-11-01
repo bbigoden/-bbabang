@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Home } from 'lucide-react'
+import { LegalLoginLink } from '@/components/legal-login-link'
 
 // 약관은 정적 (1일마다 재생성). CDN 캐시 가능
 export const dynamic = 'force-static'
@@ -64,7 +65,7 @@ export default function TermsPage() {
       <div className="mx-auto max-w-2xl px-4 py-12">
         {/* 헤더 */}
         <div className="mb-8">
-          <Link href="/" className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600">
+          <Link href="/" prefetch={false} className="mb-6 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-blue-600">
             <Home className="h-4 w-4" />
             홈으로
           </Link>
@@ -96,11 +97,7 @@ export default function TermsPage() {
           </div>
         </div>
 
-        <div className="mt-6 text-center">
-          <Link href="/auth/login" className="text-sm text-blue-600 hover:underline">
-            ← 로그인으로 돌아가기
-          </Link>
-        </div>
+        <LegalLoginLink />
       </div>
     </div>
   )
