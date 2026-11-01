@@ -149,9 +149,14 @@ export function d2bNoticeRow(x: D2bRaw, ntceAt: string) {
   }
 }
 
-/** 공개수의 참가업체(Mnuf) → bid_result_bids. 순위는 '1순위'·'10순위' 비고에서, 하한 미만·무효는 순위 없음(0) */
+/**
+ * 공개수의 참가업체(Mnuf) → bid_result_bids. 순위는 '2순위'·'10순위' 비고에서 — **1순위는 '낙찰'로 온다**
+ * (계룡대 세차장: 금강건설 '낙찰', 신라기업 '2순위'. 처음엔 '낙찰'을 순위 없음으로 읽어 2순위를 1순위로 보였다).
+ * 하한 미만·계약포기·자격미달은 순위 없음(0)
+ */
 export function d2bOthbcBid(x: D2bRaw, no: string, ord: string) {
-  const rank = Number((x.negnNote ?? '').match(/(\d+)\s*순위/)?.[1] ?? 0)
+  const note = (x.negnNote ?? '').trim()
+  const rank = note === '낙찰' ? 1 : Number(note.match(/(\d+)\s*순위/)?.[1] ?? 0)
   return {
     bid_ntce_no: no, bid_ntce_ord: ord, rbid_no: '000',
     rank, bizno: (x.bznsRgnb ?? '').trim(), company_nm: str(x.mfkrName),

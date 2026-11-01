@@ -39,6 +39,8 @@ describe('국방전자조달(D2B) 값 다듬기', () => {
   it('공개수의 참가업체 — 순위는 비고에서, 하한 미만은 0', () => {
     expect(d2bOthbcBid({ bznsRgnb: '5928100342', mfkrName: 'A', tnegnAmnt: '54363830', negnRate: '89.873', negnNote: '1순위' }, 'x', '001').rank).toBe(1)
     expect(d2bOthbcBid({ bznsRgnb: '1', negnNote: '10순위' }, 'x', '001').rank).toBe(10)
+    expect(d2bOthbcBid({ bznsRgnb: '1', negnNote: '낙찰' }, 'x', '001').rank).toBe(1)
+    expect(d2bOthbcBid({ bznsRgnb: '1', negnNote: '계약포기(기타)' }, 'x', '001').rank).toBe(0)
     expect(d2bOthbcBid({ bznsRgnb: '1', negnNote: '낙찰하한가미만' }, 'x', '001').rank).toBe(0)
   })
 
