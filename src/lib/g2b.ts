@@ -54,6 +54,8 @@ export async function g2bGet(
   const text = await res.text()
   let json: unknown
   try { json = JSON.parse(text) } catch {
+    // 점검 중엔 200 으로 '시스템 점검 안내' 웹페이지를 준다(2026-10-30 19시~, 29시간 예고였는데 더 길어졌다)
+    if (/시스템\s*점검/.test(text)) throw new G2bError('나라장터 시스템 점검 중', 'maintenance')
     // 키 오류·한도 초과 등은 XML 로 온다. 한도 초과(22)를 알아봐야 수집이 '한 건 실패'로 여기고
     // 남은 낙찰을 줄줄이 건너뜀 처리하지 않는다
     const m = text.match(/<returnAuthMsg>([^<]+)</) ?? text.match(/<errMsg>([^<]+)</)

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { isD2b } from '@/lib/d2b'
+import { isD2b } from '@/lib/bid-notices'
 
 /**
  * 낙찰결과 한 건 펼침 — 예정가격이 어떻게 나왔고, 하한선이 어디였고, 누가 어디에 넣었는지.

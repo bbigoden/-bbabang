@@ -113,6 +113,17 @@ export function fitsFields(flds: string[] | null | undefined, ours: string[] | n
   return flds.some(f => ours.includes(f))
 }
 
+/** 국방전자조달(D2B) 공고 — 번호가 '공고번호+공사번호'(MCS01552026-17331)라 '-' 가 있다. 나라장터 번호엔 없다 */
+export const isD2b = (bidNtceNo: string) => bidNtceNo.includes('-')
+
+/**
+ * '우리 주력분야만' 거르기. 모르면 뺀다 — 단 국방(D2B) 공고는 주력분야가 API 에 없고 첨부 공고문에만 있어
+ * 늘 모른다. 빼면 국방 공사가 하나도 안 보이므로 통과시키고 화면에 '공고문 확인'을 단다
+ */
+export function fieldsPass(bidNtceNo: string, flds: string[] | null | undefined, ours: string[] | null | undefined): boolean {
+  return fitsFields(flds, ours) === true || (isD2b(bidNtceNo) && flds == null)
+}
+
 /** 나라장터 '[1^습식·방수공사]' '[1^도장공사][2^석공사]' → ['습식·방수공사', …] */
 export function parseMfrc(list: string | null | undefined): string[] {
   return [...(list ?? '').matchAll(/\^([^\]^,]+)/g)].map(m => m[1].trim()).filter(Boolean)

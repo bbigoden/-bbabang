@@ -33,6 +33,7 @@ export async function d2bGet(svc: 'BidPblancInfoService' | 'BidResultInfoService
   const text = await res.text()
   let json: { response?: { header?: { resultCode?: string; resultMsg?: string }; body?: { items?: unknown; item?: unknown; totalCount?: number | string } } }
   try { json = JSON.parse(text) } catch {
+    if (/시스템\s*점검/.test(text)) throw new D2bError('국방전자조달 시스템 점검 중', 'maintenance')
     const m = text.match(/<returnAuthMsg>([^<]+)</) ?? text.match(/<errMsg>([^<]+)</)
     throw new D2bError(m?.[1] ?? `응답을 읽지 못했습니다 (${res.status})`, text.match(/<returnReasonCode>(\d+)</)?.[1] ?? 'bad_response')
   }
@@ -70,7 +71,7 @@ export const d2bDate = (ymd: string) => ymd.replace(/-/g, '')
 /** 공고번호+공사번호 — 제이비드·D2B 화면의 'MCS01552026-17331' */
 export const d2bNo = (pblancNo: string, cntrwkNo: string) => `${pblancNo}${cntrwkNo}`
 export const d2bOrd = (odr: string | number) => String(odr || 1).padStart(3, '0')
-export const isD2b = (bidNtceNo: string) => bidNtceNo.includes('-')
+export { isD2b } from '@/lib/bid-notices'
 
 /** 우리 번호 → D2B 조회 키. 발주기관 코드는 공고번호 앞 세 글자, 공사번호는 'YYYY-NNNNN' */
 export function d2bKeyOf(bidNtceNo: string, bidNtceOrd: string) {

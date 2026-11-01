@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { Chip } from '@/components/ui/chip'
-import { canEnter, dutyOk, fitsFields } from '@/lib/bid-notices'
+import { canEnter, dutyOk, fieldsPass, fitsFields } from '@/lib/bid-notices'
 import { VERSIONS, chanceAtLeast, fixedSweep, priorOf, verdictOf, type LabRow, type Verdict, type VersionResult } from '@/lib/bid-lab'
 
 /**
@@ -76,7 +76,7 @@ export function LabPanel({ ourRegion, ourFields }: { ourRegion: string | null; o
       // 지역·주력분야가 맞는다고 확인된 공고만 — 모르는 것도 뺀다(벗어나면 어차피 못 넣는다)
       canEnter(meta.get(r.bid_ntce_no)?.rgns, ourRegion, meta.get(r.bid_ntce_no)?.site) === true &&
       dutyOk(meta.get(r.bid_ntce_no)?.dutyRt, meta.get(r.bid_ntce_no)?.dutyRgns, meta.get(r.bid_ntce_no)?.site, ourRegion) === true &&
-      fitsFields(meta.get(r.bid_ntce_no)?.flds, ourFields) === true)))
+      fieldsPass(r.bid_ntce_no, meta.get(r.bid_ntce_no)?.flds, ourFields))))
   }, [rows, meta, period, ours, ourRegion, ourFields])
 
   const one = targets.filter(t => t.prtcpt_cnum === 1).length

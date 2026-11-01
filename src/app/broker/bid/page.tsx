@@ -12,8 +12,8 @@ import { useToast } from '@/components/toast'
 import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
-import { BID_FIELDS, DOC_RGN, canEnter, dutyOk, fitsFields, latestOrd, shortRegion } from '@/lib/bid-notices'
-import { isD2b } from '@/lib/d2b'
+import { BID_FIELDS, DOC_RGN, canEnter, dutyOk, fieldsPass, fitsFields, isD2b, latestOrd, shortRegion } from '@/lib/bid-notices'
+import { explainStop } from '@/lib/bid-status'
 import dynamic from 'next/dynamic'
 import type { HistoryRow } from './analysis-panel'
 import { amountFor, judgeAmount, recommendY } from '@/lib/bid-analysis'
@@ -159,6 +159,7 @@ export default function BidPage() {
   }
   const [history, setHistory] = useState<(HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null })[]>([])
   const [lastRun, setLastRun] = useState<CollectReport | null>(null)
+  const [d2bRun, setD2bRun] = useState<{ stoppedBy?: string; error?: string; finishedAt?: string } | null>(null)
   const [backfillUntil, setBackfillUntil] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   // 분석 재료(과거 낙찰)는 공고 목록을 띄운 뒤 뒤에서 받는다 — 수천 행이라
@@ -216,12 +217,13 @@ export default function BidPage() {
         .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)
       const [n, s] = await Promise.all([
         fetchAllPaged<Notice>((from, to) => noticeQuery(from, to).gt('bid_close_at', new Date().toISOString())),
-        supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill']),
+        supabase.from('bid_sync').select('key, value').in('key', ['last_run', 'backfill', 'd2b_last_run']),
       ])
       setNotices(latestOrd(n))
       allNoticeQuery.current = noticeQuery
       const st = Object.fromEntries((s.data ?? []).map(x => [x.key, x.value]))
       setLastRun((st.last_run as CollectReport) ?? null)
+      setD2bRun((st.d2b_last_run as typeof d2bRun) ?? null)
       setBackfillUntil((st.backfill as { until?: string } | undefined)?.until ?? null)
     } catch {
       toast.error('입찰 정보를 불러오지 못했습니다')
@@ -447,12 +449,19 @@ export default function BidPage() {
           ))}
         </div>
 
+        {([['나라장터', lastRun], ['국방', d2bRun]] as const).map(([src, run]) => {
+          const info = explainStop(src, run)
+          if (!info || !run) return null
+          return (
+            <div key={src} className={`mb-2 rounded-lg border px-3 py-2 text-xs ${info.needsYou ? 'border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200'}`}>
+              <span className="font-semibold">{src} 수집 멈춤{run.finishedAt ? ` (${언제(run.finishedAt)})` : ''}</span>
+              <span className="block sm:inline sm:before:content-['_—_']">왜: {info.why}</span>
+              <span className="block sm:inline sm:before:content-['_·_']">어떻게: {info.plan}</span>
+            </div>
+          )
+        })}
         <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          {lastRun?.stoppedBy === 'error' ? (
-            <span className="font-medium text-red-600 dark:text-red-400">
-              {언제(lastRun.finishedAt)} 받다가 멈춤 — {lastRun.error ?? '알 수 없는 오류'}
-            </span>
-          ) : lastRun?.finishedAt && <span>{언제(lastRun.finishedAt)} 받아옴</span>}
+          {lastRun?.finishedAt && !explainStop('나라장터', lastRun) && <span>{언제(lastRun.finishedAt)} 받아옴</span>}
           <span>1시간마다 자동</span>
           {editingRegion != null ? (
             <span className="flex items-center gap-1">
@@ -751,14 +760,6 @@ function RegionBadge({ rgns, ours, site, dutyRt, dutyRgns }: {
       {ok === false && ' — 우리 업체 혼자는 못 들어갑니다'}
     </span>
   )
-}
-
-/**
- * '우리 주력분야만' 거르기. 모르면 뺀다 — 단 국방(D2B) 공고는 주력분야가 API 에 없고 첨부 공고문에만 있어
- * 늘 모른다. 빼면 국방 공사가 하나도 안 보이므로 보이게 두고 '공고문 확인'을 단다(FieldBadge)
- */
-function fieldsPass(no: string, flds: string[] | null | undefined, ours: string[]) {
-  return fitsFields(flds, ours) === true || (isD2b(no) && flds == null)
 }
 
 /** 주력분야 한 줄. 우리 주력분야가 아니면 빨갛게 */
