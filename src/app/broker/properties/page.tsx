@@ -2044,12 +2044,12 @@ function BrokerPropertiesContent() {
     setAutoFillingId(id)
     try {
       // 층수 제거 후 호수 추출 (단일·다중·범위 지원)
-      const { addr: searchAddr, hos } = splitAddressForAutoFill(addr)
+      const { addr: searchAddr, hos, floor } = splitAddressForAutoFill(addr)
 
       const callAutoFill = async (ho: string) => {
         const body = bcode && bcode.length === 10
-          ? { bcode, address: searchAddr, ho }
-          : { address: searchAddr, ho }
+          ? { bcode, address: searchAddr, ho, floor }
+          : { address: searchAddr, ho, floor }
         const r = await fetch('/api/properties/auto-fill', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -18,6 +18,8 @@ export interface AutoFillBody {
   ji?: string
   ho?: string
   platGbCd?: string
+  /** 주소에 적힌 층(지하는 음수) — 일반건축물에서 그 층 면적을 고른다 */
+  floor?: number | null
 }
 
 async function geocodeAddress(address: string, kakaoKey: string): Promise<{ sigunguCd: string; bjdongCd: string; bun: string; ji: string } | null> {
@@ -133,6 +135,7 @@ function parseFloor(item: SeumItem): number | null {
 
 export async function lookupBuilding(body: AutoFillBody, deps: LookupDeps): Promise<{ status: number; data: Record<string, unknown> }> {
     const { ho, platGbCd } = body
+    const wantFloor = typeof body.floor === 'number' && body.floor !== 0 ? body.floor : null
     let { sigunguCd, bjdongCd, bun, ji } = body
 
     if (body.bcode && body.bcode.length === 10 && !sigunguCd) {
@@ -291,15 +294,20 @@ export async function lookupBuilding(body: AutoFillBody, deps: LookupDeps): Prom
         }
       } else {
         const flrs = await callSeum(deps.seumKey, 'getBrFlrOulnInfo', addr)
+        // 주소에 적힌 층('4층전체'·'지하1층')이 있으면 그 층 — 예전엔 층을 버리고 1층 면적을 넣었다(11-01 일괄 채우기 점검)
         const target = ho
           ? flrs.filter(f => String(f.flrNoNm ?? '').includes(ho))
-          : flrs.filter(f => Number(f.flrNo) === 1)
+          : wantFloor != null
+            ? flrs.filter(f => parseFloor(f) === wantFloor)
+            // flrNo 만 보면 지하1층도 1 이라 지상1층과 합쳐졌다 — 지상 1층만
+            : flrs.filter(f => parseFloor(f) === 1)
         if (target.length > 0) {
           // 같은 지번에 여러 동이 있는 일반건축물: 면적 합산 (예: 1동 912㎡ + 2동 96㎡ = 1008㎡)
           areaM2 = target.reduce((sum, f) => sum + (Number(f.area) || 0), 0)
           floor = parseFloor(target[0])
           yongdoNm = String(target[0].mainPurpsCdNm ?? '')
-        } else if (flrs.length > 0) {
+        } else if (flrs.length > 0 && !ho && wantFloor == null) {
+          // 호수·층을 콕 집었는데 못 찾았으면 아무 층이나 넣지 않는다(102호 → 첫 층 665평이 들어갈 뻔)
           areaM2 = Number(flrs[0].area) || 0
           yongdoNm = String(flrs[0].mainPurpsCdNm ?? '')
         }

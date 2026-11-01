@@ -1,9 +1,12 @@
 // 자동채움에 넘길 주소·호수 정리 — 매물목록 화면과 일괄 채우기 스크립트(scripts/backfill-area.mjs)가 같이 쓴다.
 // Node 가 이 파일을 바로 읽을 수 있게 import 를 두지 않는다.
 
-/** 층 표기('3층', 'B1층')를 빼고 호수를 뽑는다 — 단일·다중·범위 지원 */
-export function splitAddressForAutoFill(addr: string): { addr: string; hos: string[] } {
-  return extractHos(addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').replace(/\s+/g, ' ').trim())
+/** 층 표기('3층', 'B1층', '지하1층')를 떼어 floor 로 돌려주고 호수를 뽑는다 — 단일·다중·범위 지원 */
+export function splitAddressForAutoFill(addr: string): { addr: string; hos: string[]; floor: number | null } {
+  const f = addr.match(/(?:([Bb]|지하)\s*)?(\d+)층/)
+  const floor = f ? (f[1] ? -Number(f[2]) : Number(f[2])) : null
+  const rest = addr.replace(/\s*(?:[Bb]|지하)?\s*\d+층(?:\s*전체)?\s*/g, ' ').replace(/\s+/g, ' ').trim()
+  return { ...extractHos(rest), floor: floor || null }
 }
 
 // '114호' → ['114']

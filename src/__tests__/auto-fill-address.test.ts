@@ -9,7 +9,13 @@ describe('자동채움 호수 뽑기', () => {
   })
   it('동·층이 같이 있어도', () => {
     expect(extractHos('불당동 1426 풍림아이원 103동 508호')).toEqual({ addr: '불당동 1426 풍림아이원 103동', hos: ['508'] })
-    expect(splitAddressForAutoFill('부대동 1075 1층 103호')).toEqual({ addr: '부대동 1075', hos: ['103'] })
+    expect(splitAddressForAutoFill('부대동 1075 1층 103호')).toEqual({ addr: '부대동 1075', hos: ['103'], floor: 1 })
+  })
+  it('층은 떼어서 따로 — 일반건축물은 그 층 면적을 고른다', () => {
+    expect(splitAddressForAutoFill('쌍용동 1491 4층전체')).toEqual({ addr: '쌍용동 1491', hos: [], floor: 4 })
+    expect(splitAddressForAutoFill('신부동 455-8 지하1층')).toEqual({ addr: '신부동 455-8', hos: [], floor: -1 })
+    expect(splitAddressForAutoFill('불당동 1621 5층 전체').floor).toBe(5)
+    expect(splitAddressForAutoFill('유량동 401-11').floor).toBeNull()
   })
   it('여러 호·범위', () => {
     expect(extractHos('불당동 728 301,302호').hos).toEqual(['301', '302'])

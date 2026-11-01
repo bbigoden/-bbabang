@@ -67,12 +67,12 @@ console.log(`거래가능 ${rows.length} · 면적 빈칸 ${targets.length} · �
 const log = [['번호', '주소', '결과', '면적(전)', '면적(후)', '공급(후)', '층(후)', '유형(후)', '승인일(후)', '주차(후)', '호수']]
 let filled = 0
 for (const [i, r] of tried.entries()) {
-  const { addr, hos } = splitAddressForAutoFill(r.address)
+  const { addr, hos, floor } = splitAddressForAutoFill(r.address)
   const results = []
   for (const ho of hos.length ? hos : ['']) {
     let res = null
     for (let k = 0; k < 2 && !res; k++) {   // 세움터가 가끔 SERVICETIMEOUT — 한 번 더
-      try { res = await lookupBuilding({ address: addr, ho }, deps) } catch { res = null }
+      try { res = await lookupBuilding({ address: addr, ho, floor }, deps) } catch { res = null }
     }
     if (res?.status === 200) results.push(res.data)
   }
