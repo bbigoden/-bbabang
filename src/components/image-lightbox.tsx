@@ -10,9 +10,11 @@ interface ImageLightboxProps {
   onNext: () => void
   onPrev: () => void
   onGoTo: (i: number) => void
+  /** 넘기면 기본 받기(photo_N.jpg) 대신 이걸 부른다 — 원래 파일 이름으로 받아야 하는 곳(자료실)용 */
+  onDownload?: (i: number) => void
 }
 
-export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }: ImageLightboxProps) {
+export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo, onDownload }: ImageLightboxProps) {
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowRight') onNext()
@@ -29,6 +31,7 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo }
   }, [handleKey])
 
   const handleDownload = async () => {
+    if (onDownload) { onDownload(index); return }
     const url = images[index]
     try {
       const res = await fetch(url)

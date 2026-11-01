@@ -160,8 +160,9 @@ export default function BrokerResourcesPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
-  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null)
+  const [lightbox, setLightbox] = useState<{ urls: string[]; files: ResourceFile[]; index: number } | null>(null)
   const [memoExpanded, setMemoExpanded] = useState(false)
+  const [names, setNames] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
   const newRef = useRef<HTMLDivElement>(null)
   const dragDepth = useRef(0)
@@ -215,6 +216,18 @@ export default function BrokerResourcesPage() {
     }))
     setResources(list as Resource[])
     setLoading(false)
+
+    // 파일마다 누가 넣었는지 — 남의 폴더에도 파일을 넣을 수 있어서 폴더 주인과 다를 수 있다.
+    // 저장 경로 두 번째 칸이 넣은 사람(broker id)이라 사무소 사람 이름만 받아 맞춘다. 화면은 기다리지 않는다.
+    void (async () => {
+      const { data: people } = await supabase
+        .from('broker_profiles')
+        .select('id, profiles(name)')
+        .or(`id.eq.${oid},parent_broker_id.eq.${oid}`)
+      const map: Record<string, string> = {}
+      for (const p of (people ?? []) as any[]) if (p.profiles?.name) map[p.id] = p.profiles.name
+      setNames(map)
+    })()
   }
 
   const isOwnerOfOffice = officeBrokerId === broker?.id
@@ -267,13 +280,19 @@ export default function BrokerResourcesPage() {
     if (oversized.length > 0) {
       toast.error(`다음 파일은 20MB를 넘어서 뺐습니다:\n${oversized.map(f => `· ${f.name}`).join('\n')}`)
     }
-    const ok = arr.filter(f => f.size <= MAX_FILE_SIZE)
+    // 같은 이름·크기는 한 번만(같은 파일을 두 번 고르거나 끌어온 경우)
+    const ok = arr.filter((f, i) => f.size <= MAX_FILE_SIZE && arr.findIndex(g => g.name === f.name && g.size === f.size) === i)
     if (ok.length > MAX_FILES) toast.error(`한 번에 ${MAX_FILES}개까지 올릴 수 있습니다.`)
     return ok.slice(0, MAX_FILES)
   }
 
-  const uploadInto = async (target: Resource, list: File[]) => {
-    if (!broker || !officeBrokerId || list.length === 0) return
+  const uploadInto = async (target: Resource, incoming: File[]) => {
+    if (!broker || !officeBrokerId || incoming.length === 0) return
+    // 폴더에 이미 있는 파일(이름·크기 같음)은 다시 올리지 않는다
+    const dup = incoming.filter(f => (target.files ?? []).some(x => x.file_name === f.name && x.file_size === f.size))
+    if (dup.length > 0) toast.info(`이미 폴더에 있어서 뺐습니다:\n${dup.map(f => `· ${f.name}`).join('\n')}`)
+    const list = incoming.filter(f => !dup.includes(f))
+    if (list.length === 0) return
     const startOrder = Math.max(-1, ...(target.files ?? []).map(f => f.sort_order ?? 0)) + 1
     const added: ResourceFile[] = []
     setProgress({ done: 0, total: list.length })
@@ -391,7 +410,7 @@ export default function BrokerResourcesPage() {
   const openFile = (f: ResourceFile, list: ResourceFile[]) => {
     const imgs = list.filter(isImage)
     if (isImage(f) && imgs.every(x => thumbs[x.storage_path])) {
-      setLightbox({ urls: imgs.map(x => thumbs[x.storage_path]), index: imgs.indexOf(f) })
+      setLightbox({ urls: imgs.map(x => thumbs[x.storage_path]), files: imgs, index: imgs.indexOf(f) })
       return
     }
     handleDownload(f)
@@ -423,6 +442,10 @@ export default function BrokerResourcesPage() {
   }
 
   const uploaderName = (r: Resource) => r.uploader?.profiles?.name ?? '—'
+  const fileUploader = (r: Resource, f: ResourceFile) => {
+    const id = f.storage_path.split('/')[1]
+    return names[id] ?? (id === r.uploader_broker_id ? uploaderName(r) : '직원')
+  }
 
   const resourceMenu = (r: Resource) => [
     ...(!isMemo(r) ? [{ label: '열기', icon: FolderOpen, onClick: () => openFolder(r.id) }] : [{ label: '메모 보기', icon: StickyNote, onClick: () => setMemoView(r) }]),
@@ -466,7 +489,7 @@ export default function BrokerResourcesPage() {
       <Folder className="h-5 w-5 flex-shrink-0 fill-blue-600/15 text-blue-600" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{r.title}</p>
-        <p className="truncate text-[11px] text-gray-500">파일 {r.files?.length ?? 0}개{r.description ? ' · 메모' : ''}</p>
+        <p className="truncate text-[11px] text-gray-500">파일 {r.files?.length ?? 0}개 · {uploaderName(r)}{r.description ? ' · 메모' : ''}</p>
       </div>
       <ItemMenu label={r.title} items={resourceMenu(r)} />
     </div>
@@ -513,7 +536,10 @@ export default function BrokerResourcesPage() {
         </div>
         <div className="flex items-center gap-1.5 py-1.5 pl-2.5 pr-1">
           <k.Icon className={`h-4 w-4 flex-shrink-0 ${k.color}`} />
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-gray-800 dark:text-gray-200">{f.file_name}</span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{f.file_name}</p>
+            <p className="truncate text-[11px] text-gray-500">{fileUploader(r, f)}{f.created_at ? ` · ${formatDate(f.created_at)}` : ''}</p>
+          </div>
           <ItemMenu label={f.file_name} items={fileMenu(r, f)} />
         </div>
       </div>
@@ -556,8 +582,8 @@ export default function BrokerResourcesPage() {
             row({ id: f.id,
               icon: <k.Icon className={`h-5 w-5 ${k.color}`} />,
               name: f.file_name,
-              sub: showFolder ? r.title : formatFileSize(f.file_size),
-              meta: `${formatFileSize(f.file_size)}${f.created_at ? ` · ${formatDate(f.created_at)}` : ''}`,
+              sub: `${showFolder ? `📁 ${r.title} · ` : ''}${fileUploader(r, f)}${f.created_at ? ` · ${formatDate(f.created_at)}` : ''}`,
+              meta: formatFileSize(f.file_size),
               onOpen: () => openFile(f, list),
               menu: <ItemMenu label={f.file_name} items={fileMenu(r, f)} />,
             })
@@ -654,6 +680,9 @@ export default function BrokerResourcesPage() {
             </>
           )}
         </nav>
+        {current && (
+          <p className="-mt-3 mb-4 px-2 text-xs text-gray-500 sm:hidden">만든 사람 {uploaderName(current)} · {formatDate(current.created_at)}</p>
+        )}
 
         {folderId && !current ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center dark:border-gray-800 dark:bg-gray-900">
@@ -768,7 +797,7 @@ export default function BrokerResourcesPage() {
                           row({ id: f.id,
                             icon: <k.Icon className={`h-5 w-5 ${k.color}`} />,
                             name: f.file_name,
-                            sub: `📁 ${r.title}`,
+                            sub: `📁 ${r.title} · ${fileUploader(r, f)}`,
                             meta: formatFileSize(f.file_size),
                             onOpen: () => openFolder(r.id),
                             menu: <ItemMenu label={f.file_name} items={fileMenu(r, f)} />,
@@ -896,6 +925,7 @@ export default function BrokerResourcesPage() {
           onNext={() => setLightbox(l => l && { ...l, index: (l.index + 1) % l.urls.length })}
           onPrev={() => setLightbox(l => l && { ...l, index: (l.index - 1 + l.urls.length) % l.urls.length })}
           onGoTo={i => setLightbox(l => l && { ...l, index: i })}
+          onDownload={i => handleDownload(lightbox.files[i])}
         />
       )}
     </div>
