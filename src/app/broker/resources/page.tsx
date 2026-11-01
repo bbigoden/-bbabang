@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import {
   FolderOpen, Folder, FolderPlus, FolderUp, Plus, FileText, FileSpreadsheet, FileImage, File as FileIcon, Palette,
   Download, Trash2, Upload, X, Search, LayoutGrid, List, ChevronRight, MoreVertical, Pencil, Copy,
-  StickyNote, ArrowUpDown, Star, Clock, HardDrive, RotateCcw, FolderInput, Link2, Eye, Check, FileArchive,
+  StickyNote, ArrowUpDown, ArrowLeft, ArrowRight, Star, Clock, HardDrive, RotateCcw, FolderInput, Link2, Eye, Check, FileArchive,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useToast } from '@/components/toast'
@@ -47,12 +47,13 @@ interface Resource {
   description: string | null
   created_at: string
   deleted_at: string | null
+  position?: number | null // 정해 둔 순서(작을수록 앞). 비면 지정 안 함
 }
 
 type Key = string // 'r:<id>' 폴더·메모 / 'f:<id>' 파일
 type Tab = 'drive' | 'recent' | 'starred' | 'trash'
 type ViewMode = 'grid' | 'list'
-type SortMode = 'recent' | 'name' | 'size'
+type SortMode = 'custom' | 'recent' | 'name' | 'size'
 interface Incoming { file: File; rel: string } // rel: 폴더째 올릴 때 'A/B/파일.pdf'
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB per file
@@ -60,7 +61,8 @@ const MAX_FILES = 300
 const TRASH_DAYS = 30
 const LINK_DAYS = 7
 const BUCKET = 'office-resources'
-const SELECT_RESOURCE = 'id, office_broker_id, uploader_broker_id, kind, parent_id, title, description, created_at, deleted_at'
+// '*' — 순서 칸(position)이 DB 에 아직 없어도 깨지지 않게
+const SELECT_RESOURCE = '*'
 const SELECT_FILE = 'id, resource_id, office_broker_id, uploader_broker_id, storage_path, file_name, file_size, file_type, sort_order, created_at, deleted_at'
 const DRAG_TYPE = 'application/x-busojang-items'
 
@@ -137,31 +139,52 @@ function readDropEntries(dt: DataTransfer): Promise<Incoming[]> {
 
 // ⋮ 메뉴 — 바깥을 누르면 닫힌다
 interface MenuItem { label: string; icon: typeof FileIcon; onClick: () => void; danger?: boolean }
+// 메뉴는 화면에 고정해 띄운다 — 파일·메모 칸은 넘치는 부분을 잘라내서(overflow-hidden),
+// 칸 안에 그리면 ⋮ 를 눌러도 메뉴가 잘려 아무것도 안 뜨는 것처럼 보였다.
 function ItemMenu({ label, items }: { label: string; items: MenuItem[] }) {
-  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ right: number; top?: number; bottom?: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+    if (!pos) return
+    const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setPos(null) }
+    const shut = () => setPos(null)
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [open])
+    window.addEventListener('scroll', shut, true)
+    window.addEventListener('resize', shut)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      window.removeEventListener('scroll', shut, true)
+      window.removeEventListener('resize', shut)
+    }
+  }, [pos])
+  const toggle = () => {
+    if (pos) { setPos(null); return }
+    const r = btnRef.current!.getBoundingClientRect()
+    const right = Math.max(8, window.innerWidth - r.right)
+    // 아래 자리가 모자라면 위로 펼친다
+    const need = items.length * 36 + 12
+    setPos(window.innerHeight - r.bottom < need && r.top > need
+      ? { right, bottom: window.innerHeight - r.top + 4 }
+      : { right, top: r.bottom + 4 })
+  }
   if (items.length === 0) return null
   return (
     <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
       <button
-        onClick={() => setOpen(o => !o)}
+        ref={btnRef}
+        onClick={toggle}
         aria-label={`${label} 메뉴`}
         className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200/70 dark:hover:bg-gray-700"
       >
         <MoreVertical className="h-4 w-4" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-9 z-30 w-44 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+      {pos && (
+        <div style={pos} className="fixed z-50 w-44 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
           {items.map(it => (
             <button
               key={it.label}
-              onClick={() => { setOpen(false); it.onClick() }}
+              onClick={() => { setPos(null); it.onClick() }}
               className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${it.danger ? 'text-red-600' : 'text-gray-700 dark:text-gray-200'}`}
             >
               <it.icon className="h-4 w-4" />
@@ -233,7 +256,7 @@ export default function BrokerResourcesPage() {
   // 보기 방식·정렬은 기기마다 기억. 위치(탭·폴더)는 주소에 담아 뒤로가기가 먹게 한다.
   useEffect(() => {
     setView(readPref<ViewMode>('resources:view', 'grid', ['grid', 'list']))
-    setSort(readPref<SortMode>('resources:sort', 'recent', ['recent', 'name', 'size']))
+    setSort(readPref<SortMode>('resources:sort2', 'custom', ['custom', 'recent', 'name', 'size']))
     const loc = readLocation()
     setTab(loc.tab); setFolderId(loc.folder)
     const onPop = () => { const l = readLocation(); setTab(l.tab); setFolderId(l.folder); setQuery(''); setSelected(new Set()) }
@@ -346,13 +369,15 @@ export default function BrokerResourcesPage() {
 
   const changeView = (v: ViewMode) => { setView(v); writePref('resources:view', v) }
   const changeSort = () => {
-    const s: SortMode = sort === 'recent' ? 'name' : sort === 'name' ? 'size' : 'recent'
-    setSort(s); writePref('resources:sort', s)
+    const s: SortMode = sort === 'custom' ? 'recent' : sort === 'recent' ? 'name' : sort === 'name' ? 'size' : 'custom'
+    setSort(s); writePref('resources:sort2', s)
   }
 
   const folderSize = (id: string) => liveFiles.filter(f => isInside(parentOfFile(f), id)).reduce((n, f) => n + (f.file_size ?? 0), 0)
+  // 지정순: 순서를 정한 것 먼저(작은 수부터), 나머지는 최근 것부터
   const sortRes = (list: Resource[]) => [...list].sort((a, b) =>
-    sort === 'name' ? byName(a.title, b.title)
+    sort === 'custom' ? ((a.position ?? Infinity) - (b.position ?? Infinity) || b.created_at.localeCompare(a.created_at))
+      : sort === 'name' ? byName(a.title, b.title)
       : sort === 'size' ? folderSize(b.id) - folderSize(a.id)
         : b.created_at.localeCompare(a.created_at))
   const sortFiles = (list: ResourceFile[]) => [...list].sort((a, b) =>
@@ -748,6 +773,24 @@ export default function BrokerResourcesPage() {
     setSelected(new Set())
   }
 
+  // ── 순서(대표만) ─────────────────────────────────────
+  // 같은 자리의 폴더(또는 메모)를 지금 보이는 순서대로 1,2,3… 다시 매기고 바뀐 것만 저장한다
+  const hasPositionCol = resources.length > 0 && 'position' in resources[0]
+  const canReorder = isOwnerOfOffice && hasPositionCol && tab === 'drive' && !q && sort === 'custom'
+  const moveOrder = async (r: Resource, dir: -1 | 1) => {
+    const list = r.kind === 'folder' ? shownFolders : shownMemos
+    const i = list.findIndex(x => x.id === r.id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= list.length) return
+    const next = [...list];
+    [next[i], next[j]] = [next[j], next[i]]
+    const changed = next.map((x, idx) => ({ id: x.id, position: idx + 1 })).filter(x => resById.get(x.id)?.position !== x.position)
+    const results = await Promise.all(changed.map(c => supabase.from('office_resources').update({ position: c.position }).eq('id', c.id)))
+    const err = results.find(x => x.error)?.error
+    if (err) { toast.error(`순서 바꾸기 실패: ${err.message}`); return }
+    setResources(prev => prev.map(x => { const c = changed.find(y => y.id === x.id); return c ? { ...x, position: c.position } : x }))
+  }
+
   // ── 받기·열기·링크 ────────────────────────────────────
   const handleDownload = async (f: ResourceFile) => {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 60, { download: f.file_name })
@@ -869,6 +912,10 @@ export default function BrokerResourcesPage() {
       ...(mine ? [{ label: '옮기기', icon: FolderInput, onClick: () => startMove([k]) }] : []),
       { label: stars.has(k) ? '별표 해제' : '별표', icon: Star, onClick: () => toggleStar([k]) },
       ...(r.kind === 'folder' ? [{ label: 'zip으로 받기', icon: Download, onClick: () => downloadZip([k], r.title) }] : []),
+      ...(canReorder ? [
+        { label: '앞으로', icon: ArrowLeft, onClick: () => moveOrder(r, -1) },
+        { label: '뒤로', icon: ArrowRight, onClick: () => moveOrder(r, 1) },
+      ] : []),
       { label: '선택', icon: Check, onClick: () => toggleSelect(k) },
       ...(mine ? [{ label: '삭제', icon: Trash2, onClick: () => trashKeysAct([k]), danger: true }] : []),
     ]
@@ -1207,7 +1254,7 @@ export default function BrokerResourcesPage() {
               <button onClick={changeSort} title="정렬 바꾸기"
                 className="inline-flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
                 <ArrowUpDown className="h-3.5 w-3.5" />
-                {sort === 'recent' ? '최근순' : sort === 'name' ? '이름순' : '크기순'}
+                {sort === 'custom' ? '지정순' : sort === 'recent' ? '최근순' : sort === 'name' ? '이름순' : '크기순'}
               </button>
             )}
             <div className="flex flex-shrink-0 overflow-hidden rounded-full border border-gray-200 dark:border-gray-700">
