@@ -261,6 +261,15 @@ function PostcodeModal({ onComplete, onClose }: {
 // '201~205호' / '114-115호' → 범위 자동 확장 (자릿수 같을 때만, 최대 50개)
 // '104동 404호' → ho=['404'], 주소에 '104동' 유지
 // '104-404' → ho=['404'], 주소에 '104동' 추가
+// 자동채움 서버 오류 코드 → 사람 말 (등록하자마자 자동으로 돌아 코드가 그대로 뜨면 헷갈린다)
+const AUTO_FILL_ERRORS: Record<string, string> = {
+  address_not_found: '자동채움: 주소를 찾지 못했어요 — 동·지번으로 적어 주세요',
+  building_not_found: '자동채움: 건축물대장에 없는 주소예요 — 면적은 직접 적어 주세요',
+  missing_fields: '자동채움: 지번을 알 수 없어요 — 동·지번으로 적어 주세요',
+  rate_limited: '자동채움은 한 시간에 30번까지예요 — 잠시 뒤 소재지 칸의 자동채움을 눌러 주세요',
+  upstream_fetch_failed: '자동채움: 건축물대장 서버가 응답하지 않아요 — 잠시 뒤 다시',
+}
+
 function extractHos(addr: string): { addr: string; hos: string[] } {
   // 1) '동번호-호번호' 형식 (예: '104-404') — 호 접미사 없음
   const dongHo = addr.match(/\s(\d{1,3})-(\d{3,4})\s*$/)
@@ -269,7 +278,9 @@ function extractHos(addr: string): { addr: string; hos: string[] } {
     return { addr: cleaned, hos: [dongHo[2]] }
   }
   // 2) 'N호' / 'N,M호' / 'N~M호' 등 다중 호수
-  const m = addr.match(/(\d{1,4}(?:\s*[,\-·~]\s*\d{1,4})*)\s*호\b/)
+  // '호' 뒤에 \b 를 쓰면 안 된다 — 한글은 단어 글자가 아니라 '203호' 끝에서 경계가 안 생겨 호수를 영영 못 찾았다
+  // (5/28~11/01 자동채움이 호수 매물 면적을 하나도 못 채움). 뒤에 글자·숫자가 이어지지 않는지로 본다.
+  const m = addr.match(/(\d{1,4}(?:\s*[,\-·~]\s*\d{1,4})*)\s*호(?![가-힣A-Za-z0-9])/)
   if (!m) return { addr: addr.trim(), hos: [] }
   const start = m.index ?? 0
   const cleaned = (addr.slice(0, start) + ' ' + addr.slice(start + m[0].length)).replace(/\s+/g, ' ').trim()
@@ -2098,7 +2109,7 @@ function BrokerPropertiesContent() {
 
       if (hos.length <= 1) {
         const { ok, data: d } = await callAutoFill(hos[0] ?? '')
-        if (!ok) throw new Error(d.error ?? '세움터 조회 실패')
+        if (!ok) throw new Error(AUTO_FILL_ERRORS[d.error] ?? d.error ?? '세움터 조회 실패')
         data = d
       } else {
         // 다호수 합산: 순차 호출 (서버 캐시가 부지 단위로 동작해 추가 비용 거의 없음)
@@ -2308,7 +2319,7 @@ function BrokerPropertiesContent() {
     }
     setNewProp(null)
     if (loading) addedWhileLoadingRef.current.push(data)
-    toast.success('등록했어요 — 가격·면적 등 나머지 칸은 표에서 바로 채우면 저장돼요')
+    toast.success('등록했어요 — 면적·층·유형은 건축물대장에서 채우는 중, 가격 등 나머지 칸은 표에서 채우면 저장돼요')
     // 새 행을 현재 페이지에 즉시 표시 (스크롤 effect가 페이지 이동을 처리)
     setProperties(prev => [data, ...prev])
     setTotalCount(c => c + 1)
@@ -2317,6 +2328,8 @@ function BrokerPropertiesContent() {
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
     notifyOwnerOfBrokerAction(broker.id, 'property', `/broker/properties?focus=${data.id}`)
+    // 등록하면 자동채움(건축물대장 면적·층·유형·좌표)도 바로 — 버튼을 따로 눌러야 해서 면적 빈 매물이 쌓였다(11-01)
+    void autoFillRow(data.id, address)
   }
 
   const deleteProperty = useCallback((id: string) => {

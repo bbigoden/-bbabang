@@ -193,6 +193,10 @@ export async function POST(req: NextRequest) {
     bjdongCd = geo.bjdongCd
     bun = geo.bun
     ji = geo.ji
+    // 카카오 '비슷한 주소' 검색은 부번을 떼기도 한다 — '불당동 1542-1 엘림프라자' → 1542 로 돌아와
+    // 옆 건물 대장을 뒤졌다(11-01). 적힌 본번이 같고 부번이 비어 돌아오면 적힌 부번을 쓴다.
+    const lot = body.address.match(/(?:동|리|가)\s+(?:산\s*)?(\d+)-(\d+)(?![\d-])/)
+    if (lot && lot[1] === bun && (!ji || ji === '0')) ji = lot[2]
   }
 
   if (!sigunguCd || !bjdongCd || !bun) {
