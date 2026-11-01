@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense, memo } from 'react'
 import { createPortal } from 'react-dom'
@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
+import { splitAddressForAutoFill } from '@/lib/auto-fill-address'
 import { cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
@@ -254,13 +255,6 @@ function PostcodeModal({ onComplete, onClose }: {
   )
 }
 
-// ── 호수 파싱: 단일·다중·범위 모두 지원 (봇과 동일 로직) ────────
-// '114호' → ['114']
-// '114, 115호' / '103,104호' → ['114','115']
-// '201, 202, 203호' → ['201','202','203']
-// '201~205호' / '114-115호' → 범위 자동 확장 (자릿수 같을 때만, 최대 50개)
-// '104동 404호' → ho=['404'], 주소에 '104동' 유지
-// '104-404' → ho=['404'], 주소에 '104동' 추가
 // 자동채움 서버 오류 코드 → 사람 말 (등록하자마자 자동으로 돌아 코드가 그대로 뜨면 헷갈린다)
 const AUTO_FILL_ERRORS: Record<string, string> = {
   address_not_found: '자동채움: 주소를 찾지 못했어요 — 동·지번으로 적어 주세요',
@@ -268,43 +262,6 @@ const AUTO_FILL_ERRORS: Record<string, string> = {
   missing_fields: '자동채움: 지번을 알 수 없어요 — 동·지번으로 적어 주세요',
   rate_limited: '자동채움은 한 시간에 30번까지예요 — 잠시 뒤 소재지 칸의 자동채움을 눌러 주세요',
   upstream_fetch_failed: '자동채움: 건축물대장 서버가 응답하지 않아요 — 잠시 뒤 다시',
-}
-
-function extractHos(addr: string): { addr: string; hos: string[] } {
-  // 1) '동번호-호번호' 형식 (예: '104-404') — 호 접미사 없음
-  const dongHo = addr.match(/\s(\d{1,3})-(\d{3,4})\s*$/)
-  if (dongHo) {
-    const cleaned = (addr.slice(0, dongHo.index) + ` ${dongHo[1]}동`).replace(/\s+/g, ' ').trim()
-    return { addr: cleaned, hos: [dongHo[2]] }
-  }
-  // 2) 'N호' / 'N,M호' / 'N~M호' 등 다중 호수
-  // '호' 뒤에 \b 를 쓰면 안 된다 — 한글은 단어 글자가 아니라 '203호' 끝에서 경계가 안 생겨 호수를 영영 못 찾았다
-  // (5/28~11/01 자동채움이 호수 매물 면적을 하나도 못 채움). 뒤에 글자·숫자가 이어지지 않는지로 본다.
-  const m = addr.match(/(\d{1,4}(?:\s*[,\-·~]\s*\d{1,4})*)\s*호(?![가-힣A-Za-z0-9])/)
-  if (!m) return { addr: addr.trim(), hos: [] }
-  const start = m.index ?? 0
-  const cleaned = (addr.slice(0, start) + ' ' + addr.slice(start + m[0].length)).replace(/\s+/g, ' ').trim()
-  // 호수 확장
-  const parts = m[1].trim().split(/\s*[,·]\s*/)
-  const out: string[] = []
-  for (const p of parts) {
-    const t = p.trim()
-    if (!t) continue
-    const rm = t.match(/^(\d+)\s*[~\-]\s*(\d+)$/)
-    if (rm && rm[1].length === rm[2].length) {
-      const a = Number(rm[1]), b = Number(rm[2])
-      if (a <= b && b - a <= 50) {
-        for (let n = a; n <= b; n++) out.push(String(n))
-        continue
-      }
-    }
-    const n = t.replace(/[^0-9]/g, '')
-    if (n) out.push(n)
-  }
-  // 중복 제거(순서 유지)
-  const seen = new Set<string>()
-  const hos = out.filter(h => !seen.has(h) && (seen.add(h), true))
-  return { addr: cleaned, hos }
 }
 
 // ── 소재지 셀 (다음 우편번호 검색 지원) ────────────────────────
@@ -2087,8 +2044,7 @@ function BrokerPropertiesContent() {
     setAutoFillingId(id)
     try {
       // 층수 제거 후 호수 추출 (단일·다중·범위 지원)
-      const addrNoFloor = addr.replace(/\s*[Bb]?\d+층\s*/g, ' ').replace(/\s+/g, ' ').trim()
-      const { addr: searchAddr, hos } = extractHos(addrNoFloor)
+      const { addr: searchAddr, hos } = splitAddressForAutoFill(addr)
 
       const callAutoFill = async (ho: string) => {
         const body = bcode && bcode.length === 10
