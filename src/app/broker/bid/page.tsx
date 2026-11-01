@@ -13,6 +13,7 @@ import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
 import { BID_FIELDS, DOC_RGN, canEnter, dutyOk, fitsFields, latestOrd, shortRegion } from '@/lib/bid-notices'
+import { isD2b } from '@/lib/d2b'
 import dynamic from 'next/dynamic'
 import type { HistoryRow } from './analysis-panel'
 import { amountFor, judgeAmount, recommendY } from '@/lib/bid-analysis'
@@ -296,8 +297,9 @@ export default function BidPage() {
       if (res.status === 429) toast.error('방금 받았습니다. 1분 뒤에 다시 눌러 주세요')
       else if (!res.ok) toast.error(`가져오지 못했습니다${body.error ? ` — ${body.error}` : ''}`)
       else {
-        const r = body as CollectReport
-        toast.success(`나라장터에서 다시 확인했습니다 — 공고 ${r.notices}건 · 낙찰 ${r.results}건 · 낙찰 상세 ${r.details}건`
+        const r = body as CollectReport & { d2b?: { notices: number; results: number } }
+        toast.success(`나라장터·국방에서 다시 확인했습니다 — 공고 ${r.notices}건 · 낙찰 ${r.results}건 · 낙찰 상세 ${r.details}건`
+          + (r.d2b ? ` · 국방 공고 ${r.d2b.notices}건 · 국방 결과 ${r.d2b.results}건` : '')
           + (r.stoppedBy === 'limit' ? ' · 오늘 조회 한도를 다 써서 나머지는 내일 이어 받습니다' : ''))
         await load()
       }
@@ -314,7 +316,7 @@ export default function BidPage() {
     return notices.filter(n =>
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
       (!enterableOnly || (canEnter(n.prtcpt_rgns, ourRegion, n.site_region) === true && dutyOk(n.rgn_duty_rt, n.rgn_duty_rgns, n.site_region, ourRegion) === true)) &&
-      (!fieldsOnly || fitsFields(n.mfrc_flds, ourFields) === true) &&
+      (!fieldsOnly || fieldsPass(n.bid_ntce_no, n.mfrc_flds, ourFields)) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''} ${n.bid_ntce_no}-${n.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
   }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, q])
 
@@ -383,7 +385,7 @@ export default function BidPage() {
     return base.filter(r => {
       const m = resultMeta.get(r.bid_ntce_no)
       return (!enterableOnly || (canEnter(m?.rgns, ourRegion, m?.site) === true && dutyOk(m?.dutyRt, m?.dutyRgns, m?.site, ourRegion) === true))
-        && (!fieldsOnly || fitsFields(m?.flds, ourFields) === true)
+        && (!fieldsOnly || fieldsPass(r.bid_ntce_no, m?.flds, ourFields))
     })
   }, [results, searched, q, resultMeta, enterableOnly, ourRegion, fieldsOnly, ourFields])
 
@@ -427,7 +429,7 @@ export default function BidPage() {
     <>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <PageHeader title="입찰" icon={Gavel} description="도장ㆍ습식ㆍ방수ㆍ석공사업 · 나라장터" />
+        <PageHeader title="입찰" icon={Gavel} description="도장ㆍ습식ㆍ방수ㆍ석공사업 · 나라장터 · 국방전자조달" />
 
         <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
           {([['notice', '공고'], ['result', '낙찰결과'], ['lab', '실험실']] as [Tab, string][]).map(([id, label]) => (
@@ -580,14 +582,17 @@ export default function BidPage() {
                         {d?.text ?? '-'}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-medium text-gray-900 dark:text-white">{n.name}</span>
+                        <span className="block font-medium text-gray-900 dark:text-white">
+                          {isD2b(n.bid_ntce_no) && <span className="mr-1 rounded bg-emerald-50 px-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">국방</span>}
+                          {n.name}
+                        </span>
                         <span className="mt-0.5 block text-xs text-gray-500">
                           {n.dminstt_nm} · {n.site_region ?? '지역 없음'}
                           {n.bid_close_at && ` · 마감 ${언제(n.bid_close_at)}`}
                           {n.cntrct_mthd && ` · ${n.cntrct_mthd}`}
                         </span>
                         <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} site={n.site_region} dutyRt={n.rgn_duty_rt} dutyRgns={n.rgn_duty_rgns} />
-                        <FieldBadge flds={n.mfrc_flds} ours={ourFields} />
+                        <FieldBadge flds={n.mfrc_flds} ours={ourFields} d2b={isD2b(n.bid_ntce_no)} />
                         {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
                         <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
                           {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}
@@ -611,7 +616,7 @@ export default function BidPage() {
                           {n.detail_url && (
                             <a href={n.detail_url} target="_blank" rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400">
-                              나라장터 원문 <ExternalLink className="h-3 w-3" aria-hidden />
+                              {isD2b(n.bid_ntce_no) ? '국방전자조달(D2B)' : '나라장터 원문'} <ExternalLink className="h-3 w-3" aria-hidden />
                             </a>
                           )}
                         </div>
@@ -748,9 +753,19 @@ function RegionBadge({ rgns, ours, site, dutyRt, dutyRgns }: {
   )
 }
 
+/**
+ * '우리 주력분야만' 거르기. 모르면 뺀다 — 단 국방(D2B) 공고는 주력분야가 API 에 없고 첨부 공고문에만 있어
+ * 늘 모른다. 빼면 국방 공사가 하나도 안 보이므로 보이게 두고 '공고문 확인'을 단다(FieldBadge)
+ */
+function fieldsPass(no: string, flds: string[] | null | undefined, ours: string[]) {
+  return fitsFields(flds, ours) === true || (isD2b(no) && flds == null)
+}
+
 /** 주력분야 한 줄. 우리 주력분야가 아니면 빨갛게 */
-function FieldBadge({ flds, ours }: { flds: string[] | null; ours: string[] }) {
-  if (flds == null) return null
+function FieldBadge({ flds, ours, d2b }: { flds: string[] | null; ours: string[]; d2b?: boolean }) {
+  if (flds == null) return d2b && ours.length
+    ? <span className="block text-xs text-amber-600 dark:text-amber-400">주력분야 공고문 확인 — 국방 API 에 없습니다</span>
+    : null
   const ok = fitsFields(flds, ours)
   return (
     <span className={`block text-xs ${ok === false ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}`}>

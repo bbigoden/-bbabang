@@ -291,7 +291,8 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     while (true) {
       const { data: todo, error } = await supa.from('bid_results')
         .select('bid_ntce_no, bid_ntce_ord, rbid_no')
-        .is('detail_at', null).order('openg_at', { ascending: false, nullsFirst: false }).limit(DETAIL_BATCH)
+        .is('detail_at', null).not('bid_ntce_no', 'like', '%-%')  // 국방(D2B) 낙찰은 d2b-collect 가 채운다
+        .order('openg_at', { ascending: false, nullsFirst: false }).limit(DETAIL_BATCH)
       if (error) throw error
       if (todo?.length) {
         for (let i = 0; i < todo.length; i += DETAIL_CONCURRENCY) {
@@ -403,9 +404,10 @@ async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], 
     const nm = (x.prtcptPsblRgnNm ?? '').trim()
     if (nm) byKey.set(k, [...(byKey.get(k) ?? []), { sno: Number(x.lmtSno) || 0, nm }])
   }
+  // 국방(D2B) 공고는 번호에 '-' 가 있다 — 나라장터 지역·면허 줄로 덮으면 안 된다(d2b.ts)
   const { data, error } = await supa.from('bid_notices')
     .select('bid_ntce_no, bid_ntce_ord, name')
-    .gte('ntce_at', `${from}T00:00:00+09:00`).lte('ntce_at', `${to}T23:59:59+09:00`)
+    .gte('ntce_at', `${from}T00:00:00+09:00`).lte('ntce_at', `${to}T23:59:59+09:00`).not('bid_ntce_no', 'like', '%-%')
   if (error) throw error
   const now = new Date().toISOString()
   const rows = (data ?? []).map(n => ({
@@ -430,9 +432,10 @@ async function applyLics(supa: SupabaseClient, items: Record<string, string>[], 
     const k = `${x.bidNtceNo}/${x.bidNtceOrd || '000'}`
     byKey.set(k, [...(byKey.get(k) ?? []), ...parseMfrc(x.indstrytyMfrcFldList)])
   }
+  // 국방(D2B) 공고는 번호에 '-' 가 있다 — 나라장터 지역·면허 줄로 덮으면 안 된다(d2b.ts)
   const { data, error } = await supa.from('bid_notices')
     .select('bid_ntce_no, bid_ntce_ord, name')
-    .gte('ntce_at', `${from}T00:00:00+09:00`).lte('ntce_at', `${to}T23:59:59+09:00`)
+    .gte('ntce_at', `${from}T00:00:00+09:00`).lte('ntce_at', `${to}T23:59:59+09:00`).not('bid_ntce_no', 'like', '%-%')
   if (error) throw error
   const now = new Date().toISOString()
   const rows = (data ?? []).map(n => ({

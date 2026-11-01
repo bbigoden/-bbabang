@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { collectBids } from '@/lib/bid-collect'
+import { collectD2b } from '@/lib/d2b-collect'
 import { g2bKey } from '@/lib/g2b'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -35,6 +36,8 @@ export async function POST() {
   const allowed = await checkRateLimit(`user:${user.id}:bid-collect`, 1, 60)
   if (!allowed) return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
 
-  const report = await collectBids(createAdminClient(url, serviceKey), { timeBudgetMs: 50_000 })
-  return NextResponse.json(report, { status: report.stoppedBy === 'error' ? 500 : 200 })
+  const supa = createAdminClient(url, serviceKey)
+  const d2b = await collectD2b(supa, { timeBudgetMs: 12_000 })
+  const report = await collectBids(supa, { timeBudgetMs: 40_000 })
+  return NextResponse.json({ ...report, d2b }, { status: report.stoppedBy === 'error' && d2b.stoppedBy === 'error' ? 500 : 200 })
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { isD2b } from '@/lib/d2b'
 
 /**
  * 낙찰결과 한 건 펼침 — 예정가격이 어떻게 나왔고, 하한선이 어디였고, 누가 어디에 넣었는지.
@@ -71,7 +72,7 @@ export function ResultDetail({ r }: { r: ResultForDetail }) {
         {url && (
           <a href={url} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400">
-            나라장터 원문 <ExternalLink className="h-3 w-3" aria-hidden />
+            {isD2b(r.bid_ntce_no) ? '국방전자조달(D2B)' : '나라장터 원문'} <ExternalLink className="h-3 w-3" aria-hidden />
           </a>
         )}
       </div>
