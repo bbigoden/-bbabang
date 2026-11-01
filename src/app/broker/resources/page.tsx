@@ -19,8 +19,9 @@ import { ImageLightbox } from '@/components/image-lightbox'
 // 구글드라이브처럼 쓰는 사무소 자료실.
 // office_resources = 폴더(kind=folder) 또는 메모(kind=memo), parent_id 로 폴더 안에 들어간다.
 // office_resource_files = 파일, resource_id 가 비어 있으면 맨 위(자료실)에 있는 파일.
-// 권한(DB 가 막는다): 대표=전부 보기, 직원=본인 것+대표 것만 보기, 고치기·옮기기·지우기=올린 본인만.
-// 지우기는 휴지통으로(deleted_at) — 30일 지나면 올린 사람이 다음에 열 때 영구삭제된다.
+// 권한(DB 가 막는다): 대표=모든 권한(전부 보기·고치기·옮기기·지우기),
+// 직원=본인 것+대표 것만 보기, 고치기·옮기기·지우기는 본인 것만.
+// 지우기는 휴지통으로(deleted_at) — 30일 지나면 대표나 올린 사람이 다음에 열 때 영구삭제된다.
 
 interface ResourceFile {
   id: string
@@ -280,15 +281,15 @@ export default function BrokerResourcesPage() {
     // 30일 지난 내 휴지통은 비운다
     const cutoff = Date.now() - TRASH_DAYS * 86400000
     const old = [
-      ...rList.filter(r => r.deleted_at && r.uploader_broker_id === b.id && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
-      ...fList.filter(f => f.deleted_at && f.uploader_broker_id === b.id && new Date(f.deleted_at).getTime() < cutoff).map(f => fKey(f.id)),
+      ...rList.filter(r => r.deleted_at && (isOwner || r.uploader_broker_id === b.id) && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
+      ...fList.filter(f => f.deleted_at && (isOwner || f.uploader_broker_id === b.id) && new Date(f.deleted_at).getTime() < cutoff).map(f => fKey(f.id)),
     ]
-    if (old.length > 0) void purge(old, rList, fList, b.id, true)
+    if (old.length > 0) void purge(old, rList, fList, b.id, oid, true)
   }
 
   // ── 권한·관계 ─────────────────────────────────────────
   const isOwnerOfOffice = !!broker && officeBrokerId === broker.id
-  const canManageId = (uploader: string | null) => uploader === broker?.id || (uploader === null && isOwnerOfOffice)
+  const canManageId = (uploader: string | null) => isOwnerOfOffice || (!!uploader && uploader === broker?.id)
   const resById = useMemo(() => new Map(resources.map(r => [r.id, r])), [resources])
   const fileById = useMemo(() => new Map(files.map(f => [f.id, f])), [files])
 
@@ -387,7 +388,7 @@ export default function BrokerResourcesPage() {
   }
   if (tab !== 'recent') { shownFolders = sortRes(shownFolders); shownMemos = sortRes(shownMemos); shownFiles = sortFiles(shownFiles) }
 
-  // 휴지통: 내가 지운 것 중 맨 위 것만(지운 폴더 안 것은 폴더와 함께)
+  // 휴지통: 내가 정리할 수 있는 것(대표는 전부) 중 맨 위 것만(지운 폴더 안 것은 폴더와 함께)
   const trashRes = resources.filter(r => r.deleted_at && !ancestorTrashed(parentOfRes(r)) && canManageId(r.uploader_broker_id))
   const trashFiles = files.filter(f => f.deleted_at && !ancestorTrashed(parentOfFile(f)) && canManageId(f.uploader_broker_id))
   const trashKeys = [...trashRes.map(r => rKey(r.id)), ...trashFiles.map(f => fKey(f.id))]
@@ -625,7 +626,7 @@ export default function BrokerResourcesPage() {
   // ── 옮기기 ─────────────────────────────────────────
   const moveTo = async (keys: Key[], target: string | null) => {
     const mine = keys.filter(canManageKey)
-    if (mine.length < keys.length) toast.info('본인이 올린 것만 옮길 수 있어 나머지는 그대로 뒀습니다.')
+    if (mine.length < keys.length) toast.info('직원은 본인이 올린 것만 옮길 수 있어 나머지는 그대로 뒀습니다.')
     // 폴더를 자기 안으로는 못 옮긴다
     const ok = mine.filter(k => !(k.startsWith('r:') && target && (target === k.slice(2) || isInside(target, k.slice(2)))))
     if (ok.length < mine.length) toast.error('폴더를 그 폴더 안으로는 옮길 수 없습니다.')
@@ -647,7 +648,7 @@ export default function BrokerResourcesPage() {
 
   const startMove = (keys: Key[]) => {
     const mine = keys.filter(canManageKey)
-    if (mine.length === 0) { toast.error('본인이 올린 것만 옮길 수 있습니다.'); return }
+    if (mine.length === 0) { toast.error('직원은 본인이 올린 것만 옮길 수 있습니다.'); return }
     setMoveKeys(mine)
     setMoveAt(tab === 'drive' && currentOk ? folderId : null)
   }
@@ -655,8 +656,8 @@ export default function BrokerResourcesPage() {
   // ── 휴지통 ─────────────────────────────────────────
   const trashKeysAct = async (keys: Key[]) => {
     const mine = keys.filter(canManageKey)
-    if (mine.length === 0) { toast.error('본인이 올린 것만 지울 수 있습니다.'); return }
-    if (mine.length < keys.length) toast.info('본인이 올린 것만 휴지통으로 옮겼습니다.')
+    if (mine.length === 0) { toast.error('직원은 본인이 올린 것만 지울 수 있습니다.'); return }
+    if (mine.length < keys.length) toast.info('직원은 본인이 올린 것만 지울 수 있어 그것만 휴지통으로 옮겼습니다.')
     const now = new Date().toISOString()
     const rIds = mine.filter(k => k.startsWith('r:')).map(k => k.slice(2))
     const fIds = mine.filter(k => k.startsWith('f:')).map(k => k.slice(2))
@@ -693,14 +694,14 @@ export default function BrokerResourcesPage() {
     toast.success(`${keys.length}개를 되살렸습니다.`)
   }
 
-  // 영구삭제 — 폴더면 그 안의 내 것도 함께. 남이 넣은 것은 DB 가 맨 위로 꺼내 놓는다(지워지지 않음).
-  const purge = async (keys: Key[], rList = resources, fList = files, me = broker?.id, quiet = false) => {
+  // 영구삭제 — 폴더면 그 안의 것도 함께(대표는 전부, 직원은 본인 것). 직원이 못 지우는 남의 것은 DB 가 맨 위로 꺼내 놓는다.
+  const purge = async (keys: Key[], rList = resources, fList = files, me = broker?.id, office = officeBrokerId, quiet = false) => {
     const rMap = new Map(rList.map(r => [r.id, r]))
     const inside = (pid: string | null, anc: string) => {
       for (let i = 0, cur = pid; cur && i < 50; i++) { if (cur === anc) return true; cur = rMap.get(cur)?.parent_id ?? null }
       return false
     }
-    const mineOk = (u: string | null) => u === me || (u === null && officeBrokerId === me)
+    const mineOk = (u: string | null) => office === me || (!!u && u === me)
     const topR = keys.filter(k => k.startsWith('r:')).map(k => k.slice(2))
     const rIds = new Set(topR)
     rList.forEach(r => { if (mineOk(r.uploader_broker_id) && topR.some(t => inside(r.parent_id, t))) rIds.add(r.id) })
@@ -1260,7 +1261,7 @@ export default function BrokerResourcesPage() {
         )}
         {tab === 'trash' && !q && (
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-gray-100 px-3.5 py-2.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            <span className="flex-1">내가 지운 것만 보입니다. {TRASH_DAYS}일이 지나면 영구삭제됩니다.</span>
+            <span className="flex-1">{isOwnerOfOffice ? '사무소에서 지운 것이 모두 보입니다.' : '내가 지운 것만 보입니다.'} {TRASH_DAYS}일이 지나면 영구삭제됩니다.</span>
             {trashKeys.length > 0 && (
               <button onClick={() => confirmPurge(trashKeys)} className="rounded-full px-3 py-1 font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-900">휴지통 비우기</button>
             )}
