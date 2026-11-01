@@ -1,53 +1,67 @@
 ﻿'use client'
 
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { zip } from 'fflate'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import {
-  FolderOpen, Folder, FolderPlus, Plus, FileText, FileSpreadsheet, FileImage, File as FileIcon, Palette,
+  FolderOpen, Folder, FolderPlus, FolderUp, Plus, FileText, FileSpreadsheet, FileImage, File as FileIcon, Palette,
   Download, Trash2, Upload, X, Search, LayoutGrid, List, ChevronRight, MoreVertical, Pencil, Copy,
-  StickyNote, ArrowUpDown,
+  StickyNote, ArrowUpDown, Star, Clock, HardDrive, RotateCcw, FolderInput, Link2, Eye, Check, FileArchive,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useToast } from '@/components/toast'
 import { PageHeader } from '@/components/layout/page-header'
 import { ImageLightbox } from '@/components/image-lightbox'
 
-// 구글드라이브처럼 보이게 하되 DB 는 그대로다.
-// 자료(office_resources) 하나 = 폴더 하나, 첨부(office_resource_files) = 폴더 안의 파일.
-// 파일 없이 글만 있는 자료는 '메모'로 보여준다. 폴더에 적힌 설명은 폴더 안 맨 위에 메모로 뜬다.
+// 구글드라이브처럼 쓰는 사무소 자료실.
+// office_resources = 폴더(kind=folder) 또는 메모(kind=memo), parent_id 로 폴더 안에 들어간다.
+// office_resource_files = 파일, resource_id 가 비어 있으면 맨 위(자료실)에 있는 파일.
+// 권한(DB 가 막는다): 대표=전부 보기, 직원=본인 것+대표 것만 보기, 고치기·옮기기·지우기=올린 본인만.
+// 지우기는 휴지통으로(deleted_at) — 30일 지나면 올린 사람이 다음에 열 때 영구삭제된다.
 
 interface ResourceFile {
   id: string
+  resource_id: string | null
+  office_broker_id: string
+  uploader_broker_id: string | null
   storage_path: string
   file_name: string
   file_size: number | null
   file_type: string | null
   sort_order: number
-  created_at?: string
+  created_at: string
+  deleted_at: string | null
 }
 
 interface Resource {
   id: string
   office_broker_id: string
   uploader_broker_id: string | null
+  kind: 'folder' | 'memo'
+  parent_id: string | null
   title: string
   description: string | null
   created_at: string
-  uploader?: { profiles?: { name: string | null } | null } | null
-  files?: ResourceFile[] | null
+  deleted_at: string | null
 }
 
+type Key = string // 'r:<id>' 폴더·메모 / 'f:<id>' 파일
+type Tab = 'drive' | 'recent' | 'starred' | 'trash'
 type ViewMode = 'grid' | 'list'
-type SortMode = 'recent' | 'name'
+type SortMode = 'recent' | 'name' | 'size'
+interface Incoming { file: File; rel: string } // rel: 폴더째 올릴 때 'A/B/파일.pdf'
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB per file
-const MAX_FILES = 50
+const MAX_FILES = 300
+const TRASH_DAYS = 30
+const LINK_DAYS = 7
 const BUCKET = 'office-resources'
-const SELECT_RESOURCE = 'id, office_broker_id, uploader_broker_id, title, description, created_at, uploader:broker_profiles!office_resources_uploader_broker_id_fkey(profiles(name))'
-const SELECT_FILE = 'id, storage_path, file_name, file_size, file_type, sort_order, created_at'
+const SELECT_RESOURCE = 'id, office_broker_id, uploader_broker_id, kind, parent_id, title, description, created_at, deleted_at'
+const SELECT_FILE = 'id, resource_id, office_broker_id, uploader_broker_id, storage_path, file_name, file_size, file_type, sort_order, created_at, deleted_at'
+const DRAG_TYPE = 'application/x-busojang-items'
 
 function formatFileSize(bytes: number | null | undefined): string {
   if (!bytes) return ''
@@ -57,10 +71,14 @@ function formatFileSize(bytes: number | null | undefined): string {
 }
 
 const ext = (name: string) => (name.includes('.') ? name.split('.').pop()!.toLowerCase() : '')
+const rKey = (id: string): Key => `r:${id}`
+const fKey = (id: string): Key => `f:${id}`
+const byName = (a: string, b: string) => a.localeCompare(b, 'ko', { numeric: true })
 
 function isImage(f: ResourceFile) {
   return (f.file_type ?? '').startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext(f.file_name))
 }
+const isPdf = (f: ResourceFile) => ext(f.file_name) === 'pdf' || f.file_type === 'application/pdf'
 
 // 확장자별 아이콘·색 — 드라이브처럼 한눈에 종류가 보이게
 function fileKind(f: ResourceFile): { Icon: typeof FileIcon; color: string; bg: string } {
@@ -71,14 +89,8 @@ function fileKind(f: ResourceFile): { Icon: typeof FileIcon; color: string; bg: 
   if (['doc', 'docx'].includes(e)) return { Icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/40' }
   if (['hwp', 'hwpx'].includes(e)) return { Icon: FileText, color: 'text-sky-500', bg: 'bg-sky-50 dark:bg-sky-950/40' }
   if (['ai', 'psd', 'eps'].includes(e)) return { Icon: Palette, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-950/40' }
+  if (['zip', '7z', 'rar'].includes(e)) return { Icon: FileArchive, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/40' }
   return { Icon: FileIcon, color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-gray-800' }
-}
-
-const byName = (a: string, b: string) => a.localeCompare(b, 'ko', { numeric: true })
-
-function readFolderParam(): string | null {
-  if (typeof window === 'undefined') return null
-  return new URLSearchParams(window.location.search).get('folder')
 }
 
 function readPref<T extends string>(key: string, fallback: T, allowed: T[]): T {
@@ -87,13 +99,44 @@ function readPref<T extends string>(key: string, fallback: T, allowed: T[]): T {
     return v && allowed.includes(v) ? v : fallback
   } catch { return fallback }
 }
-
 function writePref(key: string, v: string) {
   try { localStorage.setItem(key, v) } catch {}
 }
 
+function readLocation(): { tab: Tab; folder: string | null } {
+  if (typeof window === 'undefined') return { tab: 'drive', folder: null }
+  const p = new URLSearchParams(window.location.search)
+  const v = p.get('view')
+  const tab: Tab = v === 'recent' || v === 'starred' || v === 'trash' ? v : 'drive'
+  return { tab, folder: tab === 'drive' ? p.get('folder') : null }
+}
+
+// 끌어다 놓은 것에서 폴더까지 풀어 파일 목록으로 — webkitGetAsEntry 는 drop 이벤트 안에서 바로 불러야 한다
+function readDropEntries(dt: DataTransfer): Promise<Incoming[]> {
+  const entries = Array.from(dt.items ?? [])
+    .map(i => (i.kind === 'file' ? (i as any).webkitGetAsEntry?.() : null))
+    .filter(Boolean) as any[]
+  if (entries.length === 0) return Promise.resolve(Array.from(dt.files).map(file => ({ file, rel: file.name })))
+  const out: Incoming[] = []
+  const walk = async (entry: any, prefix: string): Promise<void> => {
+    if (entry.isFile) {
+      const file: File = await new Promise((res, rej) => entry.file(res, rej))
+      out.push({ file, rel: prefix + file.name })
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader()
+      for (;;) {
+        const batch: any[] = await new Promise((res, rej) => reader.readEntries(res, rej))
+        if (batch.length === 0) break
+        for (const child of batch) await walk(child, `${prefix}${entry.name}/`)
+      }
+    }
+  }
+  return Promise.all(entries.map(e => walk(e, ''))).then(() => out)
+}
+
 // ⋮ 메뉴 — 바깥을 누르면 닫힌다
-function ItemMenu({ label, items }: { label: string; items: { label: string; icon: typeof FileIcon; onClick: () => void; danger?: boolean }[] }) {
+interface MenuItem { label: string; icon: typeof FileIcon; onClick: () => void; danger?: boolean }
+function ItemMenu({ label, items }: { label: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -113,7 +156,7 @@ function ItemMenu({ label, items }: { label: string; items: { label: string; ico
         <MoreVertical className="h-4 w-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-30 w-40 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+        <div className="absolute right-0 top-9 z-30 w-44 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
           {items.map(it => (
             <button
               key={it.label}
@@ -131,9 +174,9 @@ function ItemMenu({ label, items }: { label: string; items: { label: string; ico
 }
 
 interface DialogState {
-  mode: 'folder' | 'rename' | 'memo' | 'editMemo'
-  target?: Resource
-  files?: File[]
+  mode: 'folder' | 'memo' | 'renameRes' | 'renameFile' | 'editMemo'
+  res?: Resource
+  file?: ResourceFile
 }
 
 export default function BrokerResourcesPage() {
@@ -145,27 +188,39 @@ export default function BrokerResourcesPage() {
   const [broker, setBroker] = useState<any>(null)
   const [officeBrokerId, setOfficeBrokerId] = useState<string | null>(null)
   const [resources, setResources] = useState<Resource[]>([])
+  const [files, setFiles] = useState<ResourceFile[]>([])
+  const [stars, setStars] = useState<Set<Key>>(new Set())
+  const [names, setNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
+  const [tab, setTab] = useState<Tab>('drive')
   const [folderId, setFolderId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [view, setView] = useState<ViewMode>('grid')
   const [sort, setSort] = useState<SortMode>('recent')
+  const [selected, setSelected] = useState<Set<Key>>(new Set())
   const [newOpen, setNewOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [dTitle, setDTitle] = useState('')
   const [dText, setDText] = useState('')
   const [saving, setSaving] = useState(false)
   const [memoView, setMemoView] = useState<Resource | null>(null)
+  const [moveKeys, setMoveKeys] = useState<Key[] | null>(null)
+  const [moveAt, setMoveAt] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null) // 'root' | 폴더 id
+  const [progress, setProgress] = useState<{ label: string; done: number; total: number } | null>(null)
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
   const [lightbox, setLightbox] = useState<{ urls: string[]; files: ResourceFile[]; index: number } | null>(null)
   const [memoExpanded, setMemoExpanded] = useState(false)
-  const [names, setNames] = useState<Record<string, string>>({})
   const fileRef = useRef<HTMLInputElement>(null)
+  const dirRef = useRef<HTMLInputElement>(null)
   const newRef = useRef<HTMLDivElement>(null)
   const dragDepth = useRef(0)
+  const dragKeys = useRef<Key[] | null>(null)
+  // 폴더째 올릴 때 방금 만든 폴더를 바로 다시 찾으려고 최신 목록을 들고 있는다
+  const resRef = useRef<Resource[]>([])
+  resRef.current = resources
 
   useEffect(() => {
     if (auth.loading) return
@@ -174,12 +229,13 @@ export default function BrokerResourcesPage() {
     init()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
 
-  // 보기 방식·정렬은 기기마다 기억. 폴더는 주소(?folder=)에 담아 뒤로가기가 먹게 한다.
+  // 보기 방식·정렬은 기기마다 기억. 위치(탭·폴더)는 주소에 담아 뒤로가기가 먹게 한다.
   useEffect(() => {
     setView(readPref<ViewMode>('resources:view', 'grid', ['grid', 'list']))
-    setSort(readPref<SortMode>('resources:sort', 'recent', ['recent', 'name']))
-    setFolderId(readFolderParam())
-    const onPop = () => { setFolderId(readFolderParam()); setQuery('') }
+    setSort(readPref<SortMode>('resources:sort', 'recent', ['recent', 'name', 'size']))
+    const loc = readLocation()
+    setTab(loc.tab); setFolderId(loc.folder)
+    const onPop = () => { const l = readLocation(); setTab(l.tab); setFolderId(l.folder); setQuery(''); setSelected(new Set()) }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -194,31 +250,23 @@ export default function BrokerResourcesPage() {
   const init = async () => {
     const b = auth.broker!
     setBroker(b)
-
     const isOwner = b.is_owner !== false
     const oid = isOwner ? b.id : (b.parent_broker_id ?? b.id)
     setOfficeBrokerId(oid)
 
-    // 룰: 대표=사무소 전체. 직원=대표가 올린 자료 + 본인이 올린 자료(다른 직원이 올린 건 안 보임).
-    let q = supabase
-      .from('office_resources')
-      .select(`${SELECT_RESOURCE}, files:office_resource_files(${SELECT_FILE})`)
-      .eq('office_broker_id', oid)
-    if (!isOwner) {
-      const allowed = [b.id, b.parent_broker_id].filter(Boolean) as string[]
-      q = q.in('uploader_broker_id', allowed)
-    }
-    const { data } = await q.order('created_at', { ascending: false })
-
-    const list = (data ?? []).map((r: any) => ({
-      ...r,
-      files: Array.isArray(r.files) ? [...r.files].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) : [],
-    }))
-    setResources(list as Resource[])
+    // 볼 수 있는 범위는 DB 규칙이 정한다(대표=전부, 직원=본인+대표). 휴지통 것도 같이 받는다.
+    const [{ data: rs }, { data: fs }, { data: st }] = await Promise.all([
+      supabase.from('office_resources').select(SELECT_RESOURCE).eq('office_broker_id', oid).order('created_at', { ascending: false }),
+      supabase.from('office_resource_files').select(SELECT_FILE).eq('office_broker_id', oid).order('sort_order'),
+      supabase.from('office_resource_stars').select('resource_id, file_id').eq('broker_id', b.id),
+    ])
+    const rList = (rs ?? []) as Resource[]
+    const fList = (fs ?? []) as ResourceFile[]
+    setResources(rList)
+    setFiles(fList)
+    setStars(new Set((st ?? []).map((s: any) => (s.resource_id ? rKey(s.resource_id) : fKey(s.file_id)))))
     setLoading(false)
 
-    // 파일마다 누가 넣었는지 — 남의 폴더에도 파일을 넣을 수 있어서 폴더 주인과 다를 수 있다.
-    // 저장 경로 두 번째 칸이 넣은 사람(broker id)이라 사무소 사람 이름만 받아 맞춘다. 화면은 기다리지 않는다.
     void (async () => {
       const { data: people } = await supabase
         .from('broker_profiles')
@@ -228,41 +276,132 @@ export default function BrokerResourcesPage() {
       for (const p of (people ?? []) as any[]) if (p.profiles?.name) map[p.id] = p.profiles.name
       setNames(map)
     })()
+
+    // 30일 지난 내 휴지통은 비운다
+    const cutoff = Date.now() - TRASH_DAYS * 86400000
+    const old = [
+      ...rList.filter(r => r.deleted_at && r.uploader_broker_id === b.id && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
+      ...fList.filter(f => f.deleted_at && f.uploader_broker_id === b.id && new Date(f.deleted_at).getTime() < cutoff).map(f => fKey(f.id)),
+    ]
+    if (old.length > 0) void purge(old, rList, fList, b.id, true)
   }
 
-  const isOwnerOfOffice = officeBrokerId === broker?.id
-  const canDelete = (r: Resource) => r.uploader_broker_id === broker?.id || isOwnerOfOffice
-  // 수정(이름·메모)은 DB 규칙상 올린 본인만 된다
-  const canEdit = (r: Resource) => r.uploader_broker_id === broker?.id
+  // ── 권한·관계 ─────────────────────────────────────────
+  const isOwnerOfOffice = !!broker && officeBrokerId === broker.id
+  const canManageId = (uploader: string | null) => uploader === broker?.id || (uploader === null && isOwnerOfOffice)
+  const resById = useMemo(() => new Map(resources.map(r => [r.id, r])), [resources])
+  const fileById = useMemo(() => new Map(files.map(f => [f.id, f])), [files])
 
-  const isMemo = (r: Resource) => (r.files?.length ?? 0) === 0 && !!r.description?.trim()
-  const folders = useMemo(() => resources.filter(r => !isMemo(r)), [resources])
-  const memos = useMemo(() => resources.filter(isMemo), [resources])
-  const current = folderId ? resources.find(r => r.id === folderId) ?? null : null
+  // 위 폴더가 안 보이면(지워졌거나 볼 수 없는 폴더) 맨 위에 있는 것으로 본다
+  const parentOfRes = (r: Resource) => (r.parent_id && resById.has(r.parent_id) ? r.parent_id : null)
+  const parentOfFile = (f: ResourceFile) => (f.resource_id && resById.has(f.resource_id) ? f.resource_id : null)
+  const ancestorTrashed = (id: string | null): boolean => {
+    for (let i = 0, cur = id; cur && i < 50; i++) {
+      const r = resById.get(cur)
+      if (!r) return false
+      if (r.deleted_at) return true
+      cur = parentOfRes(r)
+    }
+    return false
+  }
+  const resLive = (r: Resource) => !r.deleted_at && !ancestorTrashed(parentOfRes(r))
+  const fileLive = (f: ResourceFile) => !f.deleted_at && !ancestorTrashed(parentOfFile(f))
+  const pathOf = (id: string | null): Resource[] => {
+    const out: Resource[] = []
+    for (let i = 0, cur = id; cur && i < 50; i++) {
+      const r = resById.get(cur)
+      if (!r) break
+      out.unshift(r)
+      cur = parentOfRes(r)
+    }
+    return out
+  }
+  const isInside = (id: string | null, ancestor: string): boolean => pathOf(id).some(r => r.id === ancestor)
 
-  const openFolder = (id: string | null) => {
-    setFolderId(id)
+  const liveRes = useMemo(() => resources.filter(resLive), [resources, resById])
+  const liveFiles = useMemo(() => files.filter(fileLive), [files, resById])
+  const current = tab === 'drive' && folderId ? resById.get(folderId) ?? null : null
+  const currentOk = !folderId || (!!current && current.kind === 'folder' && resLive(current))
+
+  const uploaderOf = (id: string | null) => (id ? names[id] ?? '직원' : '탈퇴한 직원')
+  const keyInfo = (k: Key) => k.startsWith('r:') ? resById.get(k.slice(2)) : fileById.get(k.slice(2))
+  const canManageKey = (k: Key) => { const it = keyInfo(k); return !!it && canManageId(it.uploader_broker_id) }
+
+  // ── 이동(주소) ───────────────────────────────────────
+  const go = (nextTab: Tab, id: string | null = null) => {
+    setTab(nextTab)
+    setFolderId(nextTab === 'drive' ? id : null)
     setQuery('')
+    setSelected(new Set())
     setMemoExpanded(false)
-    const url = id ? `${window.location.pathname}?folder=${id}` : window.location.pathname
-    window.history.pushState({}, '', url)
+    const p = new URLSearchParams()
+    if (nextTab !== 'drive') p.set('view', nextTab)
+    else if (id) p.set('folder', id)
+    const qs = p.toString()
+    window.history.pushState({}, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname)
     window.scrollTo({ top: 0 })
   }
+  const openFolder = (id: string | null) => go('drive', id)
 
   const changeView = (v: ViewMode) => { setView(v); writePref('resources:view', v) }
-  const changeSort = () => { const s = sort === 'recent' ? 'name' : 'recent'; setSort(s); writePref('resources:sort', s) }
+  const changeSort = () => {
+    const s: SortMode = sort === 'recent' ? 'name' : sort === 'name' ? 'size' : 'recent'
+    setSort(s); writePref('resources:sort', s)
+  }
 
-  const sortResources = (list: Resource[]) =>
-    [...list].sort((a, b) => sort === 'name' ? byName(a.title, b.title) : b.created_at.localeCompare(a.created_at))
-  const sortFiles = (list: ResourceFile[]) =>
-    sort === 'name' ? [...list].sort((a, b) => byName(a.file_name, b.file_name)) : list
+  const folderSize = (id: string) => liveFiles.filter(f => isInside(parentOfFile(f), id)).reduce((n, f) => n + (f.file_size ?? 0), 0)
+  const sortRes = (list: Resource[]) => [...list].sort((a, b) =>
+    sort === 'name' ? byName(a.title, b.title)
+      : sort === 'size' ? folderSize(b.id) - folderSize(a.id)
+        : b.created_at.localeCompare(a.created_at))
+  const sortFiles = (list: ResourceFile[]) => [...list].sort((a, b) =>
+    sort === 'name' ? byName(a.file_name, b.file_name)
+      : sort === 'size' ? (b.file_size ?? 0) - (a.file_size ?? 0)
+        : b.created_at.localeCompare(a.created_at))
 
-  // 폴더를 열면 그 안 사진의 미리보기 주소를 한 번에 받는다(비공개 버킷이라 서명 주소가 필요)
+  // ── 지금 보이는 목록 ──────────────────────────────────
+  const q = query.trim().toLowerCase()
+  const match = (s: string | null | undefined) => !!s && s.toLowerCase().includes(q)
+  let shownFolders: Resource[] = []
+  let shownMemos: Resource[] = []
+  let shownFiles: ResourceFile[] = []
+  let showLocation = false
+  if (q && tab !== 'trash') {
+    // 검색은 드라이브처럼 자료실 전체에서
+    shownFolders = liveRes.filter(r => r.kind === 'folder' && (match(r.title) || match(r.description)))
+    shownMemos = liveRes.filter(r => r.kind === 'memo' && (match(r.title) || match(r.description)))
+    shownFiles = liveFiles.filter(f => match(f.file_name))
+    showLocation = true
+  } else if (tab === 'drive') {
+    shownFolders = liveRes.filter(r => r.kind === 'folder' && parentOfRes(r) === (folderId ?? null))
+    shownMemos = liveRes.filter(r => r.kind === 'memo' && parentOfRes(r) === (folderId ?? null))
+    shownFiles = liveFiles.filter(f => parentOfFile(f) === (folderId ?? null))
+  } else if (tab === 'recent') {
+    shownFiles = [...liveFiles].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 60)
+    showLocation = true
+  } else if (tab === 'starred') {
+    shownFolders = liveRes.filter(r => r.kind === 'folder' && stars.has(rKey(r.id)))
+    shownMemos = liveRes.filter(r => r.kind === 'memo' && stars.has(rKey(r.id)))
+    shownFiles = liveFiles.filter(f => stars.has(fKey(f.id)))
+    showLocation = true
+  }
+  if (tab !== 'recent') { shownFolders = sortRes(shownFolders); shownMemos = sortRes(shownMemos); shownFiles = sortFiles(shownFiles) }
+
+  // 휴지통: 내가 지운 것 중 맨 위 것만(지운 폴더 안 것은 폴더와 함께)
+  const trashRes = resources.filter(r => r.deleted_at && !ancestorTrashed(parentOfRes(r)) && canManageId(r.uploader_broker_id))
+  const trashFiles = files.filter(f => f.deleted_at && !ancestorTrashed(parentOfFile(f)) && canManageId(f.uploader_broker_id))
+  const trashKeys = [...trashRes.map(r => rKey(r.id)), ...trashFiles.map(f => fKey(f.id))]
+
+  const shownKeys: Key[] = tab === 'trash' ? trashKeys
+    : [...shownFolders.map(r => rKey(r.id)), ...shownMemos.map(r => rKey(r.id)), ...shownFiles.map(f => fKey(f.id))]
+
+  // 보이는 사진 미리보기 주소를 한 번에 받는다(비공개 저장소라 서명 주소가 필요)
+  const imagePaths = shownFiles.filter(isImage).map(f => f.storage_path).filter(p => !thumbs[p])
+  const imageKey = imagePaths.join('|')
   useEffect(() => {
-    const imgs = (current?.files ?? []).filter(isImage).filter(f => !thumbs[f.storage_path])
-    if (imgs.length === 0) return
+    if (imagePaths.length === 0) return
     let cancelled = false
-    supabase.storage.from(BUCKET).createSignedUrls(imgs.map(f => f.storage_path), 3600).then(({ data }) => {
+    supabase.storage.from(BUCKET).createSignedUrls(imagePaths.slice(0, 100), 3600).then(({ data }) => {
       if (cancelled || !data) return
       setThumbs(prev => {
         const next = { ...prev }
@@ -271,76 +410,116 @@ export default function BrokerResourcesPage() {
       })
     })
     return () => { cancelled = true }
-  }, [current?.id, current?.files?.length])
+  }, [imageKey])
+
+  // Esc 로 선택 해제, Delete 로 휴지통
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest('input, textarea')) return
+      if (e.key === 'Escape') setSelected(new Set())
+      if (e.key === 'Delete' && selected.size > 0 && tab !== 'trash') trashKeysAct([...selected])
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
 
   // ── 올리기 ─────────────────────────────────────────
-  const checkFiles = (incoming: FileList | File[] | null | undefined): File[] => {
-    const arr = Array.from(incoming ?? [])
-    const oversized = arr.filter(f => f.size > MAX_FILE_SIZE)
-    if (oversized.length > 0) {
-      toast.error(`다음 파일은 20MB를 넘어서 뺐습니다:\n${oversized.map(f => `· ${f.name}`).join('\n')}`)
-    }
-    // 같은 이름·크기는 한 번만(같은 파일을 두 번 고르거나 끌어온 경우)
-    const ok = arr.filter((f, i) => f.size <= MAX_FILE_SIZE && arr.findIndex(g => g.name === f.name && g.size === f.size) === i)
+  const prepare = (list: Incoming[]): Incoming[] => {
+    const oversized = list.filter(x => x.file.size > MAX_FILE_SIZE)
+    if (oversized.length > 0) toast.error(`다음 파일은 20MB를 넘어서 뺐습니다:\n${oversized.slice(0, 10).map(x => `· ${x.file.name}`).join('\n')}`)
+    // 같은 경로·크기는 한 번만(같은 파일을 두 번 고르거나 끌어온 경우)
+    const ok = list.filter((x, i) => x.file.size <= MAX_FILE_SIZE && list.findIndex(y => y.rel === x.rel && y.file.size === x.file.size) === i)
     if (ok.length > MAX_FILES) toast.error(`한 번에 ${MAX_FILES}개까지 올릴 수 있습니다.`)
     return ok.slice(0, MAX_FILES)
   }
 
-  const uploadInto = async (target: Resource, incoming: File[]) => {
-    if (!broker || !officeBrokerId || incoming.length === 0) return
-    // 폴더에 이미 있는 파일(이름·크기 같음)은 다시 올리지 않는다
-    const dup = incoming.filter(f => (target.files ?? []).some(x => x.file_name === f.name && x.file_size === f.size))
-    if (dup.length > 0) toast.info(`이미 폴더에 있어서 뺐습니다:\n${dup.map(f => `· ${f.name}`).join('\n')}`)
-    const list = incoming.filter(f => !dup.includes(f))
-    if (list.length === 0) return
-    const startOrder = Math.max(-1, ...(target.files ?? []).map(f => f.sort_order ?? 0)) + 1
-    const added: ResourceFile[] = []
-    setProgress({ done: 0, total: list.length })
-    for (let i = 0; i < list.length; i++) {
-      const f = list[i]
-      const e = ext(f.name)
-      const safeExt = /^[a-z0-9]{1,8}$/.test(e) ? `.${e}` : ''
-      const path = `${officeBrokerId}/${broker.id}/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}${safeExt}`
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, f, { upsert: false, contentType: f.type || undefined })
-      if (upErr) { toast.error(`"${f.name}" 올리기 실패: ${upErr.message}`); continue }
-      const { data: row, error: rowErr } = await supabase
-        .from('office_resource_files')
-        .insert({ resource_id: target.id, storage_path: path, file_name: f.name, file_size: f.size, file_type: f.type || null, sort_order: startOrder + i })
-        .select(SELECT_FILE)
+  // 'A/B' 경로의 폴더를 base 아래에 찾거나 만든다(같은 이름 폴더가 있으면 그 안에 넣는다)
+  const ensureFolder = async (base: string | null, dir: string, cache: Map<string, string | null>): Promise<string | null> => {
+    let parent = base
+    let acc = ''
+    for (const part of dir.split('/').filter(Boolean)) {
+      acc += `/${part}`
+      const ck = `${base ?? ''}${acc}`
+      if (cache.has(ck)) { parent = cache.get(ck)!; continue }
+      const found = resRef.current.find(r => r.kind === 'folder' && !r.deleted_at && (r.parent_id ?? null) === parent && r.title === part)
+      if (found) { parent = found.id; cache.set(ck, parent); continue }
+      const { data, error } = await supabase
+        .from('office_resources')
+        .insert({ office_broker_id: officeBrokerId, uploader_broker_id: broker.id, kind: 'folder', parent_id: parent, title: part.slice(0, 120) })
+        .select(SELECT_RESOURCE)
         .single()
-      if (rowErr || !row) {
-        toast.error(`"${f.name}" 저장 실패: ${rowErr?.message ?? ''}`)
-        await supabase.storage.from(BUCKET).remove([path])
-        continue
-      }
-      added.push(row as ResourceFile)
-      setProgress({ done: i + 1, total: list.length })
+      if (error || !data) throw new Error(`폴더 "${part}" 만들기 실패: ${error?.message ?? ''}`)
+      resRef.current = [data as Resource, ...resRef.current]
+      setResources(prev => [data as Resource, ...prev])
+      parent = (data as Resource).id
+      cache.set(ck, parent)
     }
-    setProgress(null)
-    if (added.length > 0) {
-      setResources(prev => prev.map(r => r.id === target.id ? { ...r, files: [...(r.files ?? []), ...added] } : r))
-      toast.success(`${added.length}개 올렸습니다.`)
-    }
+    return parent
   }
 
-  // 폴더 안이면 바로 그 폴더에, 맨 위(자료실)면 새 폴더 이름부터 묻는다
-  const handleIncoming = (incoming: FileList | File[] | null | undefined) => {
-    const list = checkFiles(incoming)
+  const uploadTo = async (target: string | null, incoming: Incoming[]) => {
+    if (!broker || !officeBrokerId) return
+    const list = prepare(incoming)
     if (list.length === 0) return
-    if (current && !isMemo(current)) { uploadInto(current, list); return }
-    setDTitle(list[0].name.replace(/\.[^.]+$/, ''))
-    setDText('')
-    setDialog({ mode: 'folder', files: list })
+    const cache = new Map<string, string | null>()
+    const skipped: string[] = []
+    const added: ResourceFile[] = []
+    const known = [...files]
+    setProgress({ label: '올리는 중', done: 0, total: list.length })
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const { file: f, rel } = list[i]
+        const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
+        const folder = dir ? await ensureFolder(target, dir, cache) : target
+        // 그 폴더에 이미 있는 파일(이름·크기 같음)은 다시 올리지 않는다
+        if ([...known, ...added].some(x => !x.deleted_at && (x.resource_id ?? null) === folder && x.file_name === f.name && x.file_size === f.size)) {
+          skipped.push(f.name)
+          setProgress({ label: '올리는 중', done: i + 1, total: list.length })
+          continue
+        }
+        const e = ext(f.name)
+        const safeExt = /^[a-z0-9]{1,8}$/.test(e) ? `.${e}` : ''
+        const path = `${officeBrokerId}/${broker.id}/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}${safeExt}`
+        const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, f, { upsert: false, contentType: f.type || undefined })
+        if (upErr) { toast.error(`"${f.name}" 올리기 실패: ${upErr.message}`); continue }
+        const { data: row, error: rowErr } = await supabase
+          .from('office_resource_files')
+          .insert({ resource_id: folder, office_broker_id: officeBrokerId, uploader_broker_id: broker.id, storage_path: path, file_name: f.name, file_size: f.size, file_type: f.type || null, sort_order: i })
+          .select(SELECT_FILE)
+          .single()
+        if (rowErr || !row) {
+          toast.error(`"${f.name}" 저장 실패: ${rowErr?.message ?? ''}`)
+          await supabase.storage.from(BUCKET).remove([path])
+          continue
+        }
+        added.push(row as ResourceFile)
+        setFiles(prev => [...prev, row as ResourceFile])
+        setProgress({ label: '올리는 중', done: i + 1, total: list.length })
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? '올리기 중 오류')
+    } finally {
+      setProgress(null)
+    }
+    if (skipped.length > 0) toast.info(`이미 있어서 뺐습니다:\n${skipped.slice(0, 10).map(n => `· ${n}`).join('\n')}${skipped.length > 10 ? `\n외 ${skipped.length - 10}개` : ''}`)
+    if (added.length > 0) toast.success(`${added.length}개 올렸습니다.`)
+  }
+
+  const uploadHere = (list: Incoming[]) => {
+    if (tab !== 'drive' || !currentOk) { toast.info('내 자료실로 옮겨서 올립니다.'); openFolder(null); void uploadTo(null, list); return }
+    void uploadTo(folderId, list)
   }
 
   const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleIncoming(e.target.files)
+    const list = Array.from(e.target.files ?? []).map(file => ({ file, rel: (file as any).webkitRelativePath || file.name }))
     e.target.value = ''
+    if (list.length) uploadHere(list)
   }
 
   const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
+  const isItemDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes(DRAG_TYPE)
   const onDragEnter = (e: React.DragEvent) => {
-    if (!hasFiles(e)) return
+    if (!hasFiles(e) || tab === 'trash') return
     e.preventDefault()
     dragDepth.current++
     setIsDragging(true)
@@ -351,19 +530,57 @@ export default function BrokerResourcesPage() {
     if (dragDepth.current === 0) setIsDragging(false)
   }
   const onDrop = (e: React.DragEvent) => {
-    if (!hasFiles(e)) return
+    if (!hasFiles(e) || tab === 'trash') return
     e.preventDefault()
     dragDepth.current = 0
     setIsDragging(false)
-    handleIncoming(e.dataTransfer.files)
+    readDropEntries(e.dataTransfer).then(uploadHere)
   }
 
-  // ── 만들기·고치기 ────────────────────────────────────
-  const openDialog = (mode: DialogState['mode'], target?: Resource) => {
+  // 폴더(또는 위치 표시줄)에 놓기 — 파일을 끌어오면 그 폴더에 올리고, 항목을 끌면 그 폴더로 옮긴다
+  const dropProps = (target: string | null) => ({
+    onDragOver: (e: React.DragEvent) => {
+      const items = isItemDrag(e) && dragKeys.current && dragKeys.current.every(k => k !== (target ? rKey(target) : ''))
+      if (!items && !hasFiles(e)) return
+      e.preventDefault(); e.stopPropagation()
+      e.dataTransfer.dropEffect = items ? 'move' : 'copy'
+      setDropTarget(target ?? 'root')
+    },
+    onDragLeave: () => setDropTarget(t => (t === (target ?? 'root') ? null : t)),
+    onDrop: (e: React.DragEvent) => {
+      setDropTarget(null)
+      if (isItemDrag(e) && dragKeys.current) {
+        e.preventDefault(); e.stopPropagation()
+        const keys = dragKeys.current
+        dragKeys.current = null
+        void moveTo(keys, target)
+        return
+      }
+      if (hasFiles(e)) {
+        e.preventDefault(); e.stopPropagation()
+        dragDepth.current = 0; setIsDragging(false)
+        readDropEntries(e.dataTransfer).then(list => uploadTo(target, list))
+      }
+    },
+  })
+
+  const dragProps = (k: Key) => ({
+    draggable: tab !== 'trash',
+    onDragStart: (e: React.DragEvent) => {
+      const keys = selected.has(k) ? [...selected] : [k]
+      dragKeys.current = keys
+      e.dataTransfer.setData(DRAG_TYPE, keys.join(','))
+      e.dataTransfer.effectAllowed = 'move'
+    },
+    onDragEnd: () => { dragKeys.current = null; setDropTarget(null) },
+  })
+
+  // ── 만들기·이름·메모 ──────────────────────────────────
+  const openDialog = (mode: DialogState['mode'], res?: Resource, file?: ResourceFile) => {
     setNewOpen(false)
-    setDTitle(target?.title ?? '')
-    setDText(target?.description ?? '')
-    setDialog({ mode, target })
+    setDTitle(file ? file.file_name : res?.title ?? '')
+    setDText(res?.description ?? '')
+    setDialog({ mode, res, file })
   }
 
   const submitDialog = async () => {
@@ -374,25 +591,30 @@ export default function BrokerResourcesPage() {
     setSaving(true)
     try {
       if (dialog.mode === 'folder' || dialog.mode === 'memo') {
+        const parent = tab === 'drive' && currentOk ? folderId : null
         const { data, error } = await supabase
           .from('office_resources')
-          .insert({ office_broker_id: officeBrokerId, uploader_broker_id: broker.id, title: t, description: dialog.mode === 'memo' ? dText.trim() : null })
+          .insert({
+            office_broker_id: officeBrokerId, uploader_broker_id: broker.id, kind: dialog.mode, parent_id: parent,
+            title: t, description: dialog.mode === 'memo' ? dText.trim() : null,
+          })
           .select(SELECT_RESOURCE)
           .single()
         if (error || !data) { toast.error(`만들기 실패: ${error?.message ?? ''}`); return }
-        const created: Resource = { ...(data as any), files: [] }
-        setResources(prev => [created, ...prev])
+        setResources(prev => [data as Resource, ...prev])
+        if (tab !== 'drive' || !currentOk) openFolder(null)
         setDialog(null)
-        if (dialog.mode === 'folder') {
-          openFolder(created.id)
-          if (dialog.files?.length) await uploadInto(created, dialog.files)
-        }
-      } else if (dialog.target) {
-        const patch = dialog.mode === 'rename' ? { title: t } : { title: t, description: dText.trim() || null }
-        const { error } = await supabase.from('office_resources').update(patch).eq('id', dialog.target.id)
+      } else if (dialog.mode === 'renameFile' && dialog.file) {
+        const { error } = await supabase.from('office_resource_files').update({ file_name: t.slice(0, 200) }).eq('id', dialog.file.id)
         if (error) { toast.error(`저장 실패: ${error.message}`); return }
-        setResources(prev => prev.map(r => r.id === dialog.target!.id ? { ...r, ...patch } : r))
-        if (memoView?.id === dialog.target.id) setMemoView(m => m ? { ...m, ...patch } : m)
+        setFiles(prev => prev.map(f => f.id === dialog.file!.id ? { ...f, file_name: t.slice(0, 200) } : f))
+        setDialog(null)
+      } else if (dialog.res) {
+        const patch = dialog.mode === 'renameRes' ? { title: t } : { title: t, description: dText.trim() || null }
+        const { error } = await supabase.from('office_resources').update(patch).eq('id', dialog.res.id)
+        if (error) { toast.error(`저장 실패: ${error.message}`); return }
+        setResources(prev => prev.map(r => r.id === dialog.res!.id ? { ...r, ...patch } : r))
+        if (memoView?.id === dialog.res.id) setMemoView(m => m ? { ...m, ...patch } : m)
         setDialog(null)
       }
     } finally {
@@ -400,40 +622,162 @@ export default function BrokerResourcesPage() {
     }
   }
 
-  // ── 받기·지우기 ──────────────────────────────────────
+  // ── 옮기기 ─────────────────────────────────────────
+  const moveTo = async (keys: Key[], target: string | null) => {
+    const mine = keys.filter(canManageKey)
+    if (mine.length < keys.length) toast.info('본인이 올린 것만 옮길 수 있어 나머지는 그대로 뒀습니다.')
+    // 폴더를 자기 안으로는 못 옮긴다
+    const ok = mine.filter(k => !(k.startsWith('r:') && target && (target === k.slice(2) || isInside(target, k.slice(2)))))
+    if (ok.length < mine.length) toast.error('폴더를 그 폴더 안으로는 옮길 수 없습니다.')
+    const rIds = ok.filter(k => k.startsWith('r:')).map(k => k.slice(2)).filter(id => (resById.get(id)?.parent_id ?? null) !== target)
+    const fIds = ok.filter(k => k.startsWith('f:')).map(k => k.slice(2)).filter(id => (fileById.get(id)?.resource_id ?? null) !== target)
+    if (rIds.length + fIds.length === 0) return
+    const [r1, r2] = await Promise.all([
+      rIds.length ? supabase.from('office_resources').update({ parent_id: target }).in('id', rIds) : Promise.resolve({ error: null }),
+      fIds.length ? supabase.from('office_resource_files').update({ resource_id: target }).in('id', fIds) : Promise.resolve({ error: null }),
+    ])
+    const err = r1.error || r2.error
+    if (err) { toast.error(`옮기기 실패: ${err.message}`); return }
+    setResources(prev => prev.map(r => rIds.includes(r.id) ? { ...r, parent_id: target } : r))
+    setFiles(prev => prev.map(f => fIds.includes(f.id) ? { ...f, resource_id: target } : f))
+    setSelected(new Set())
+    const where = target ? resById.get(target)?.title ?? '폴더' : '내 자료실'
+    toast.success(`${rIds.length + fIds.length}개를 "${where}"(으)로 옮겼습니다.`)
+  }
+
+  const startMove = (keys: Key[]) => {
+    const mine = keys.filter(canManageKey)
+    if (mine.length === 0) { toast.error('본인이 올린 것만 옮길 수 있습니다.'); return }
+    setMoveKeys(mine)
+    setMoveAt(tab === 'drive' && currentOk ? folderId : null)
+  }
+
+  // ── 휴지통 ─────────────────────────────────────────
+  const trashKeysAct = async (keys: Key[]) => {
+    const mine = keys.filter(canManageKey)
+    if (mine.length === 0) { toast.error('본인이 올린 것만 지울 수 있습니다.'); return }
+    if (mine.length < keys.length) toast.info('본인이 올린 것만 휴지통으로 옮겼습니다.')
+    const now = new Date().toISOString()
+    const rIds = mine.filter(k => k.startsWith('r:')).map(k => k.slice(2))
+    const fIds = mine.filter(k => k.startsWith('f:')).map(k => k.slice(2))
+    const [r1, r2] = await Promise.all([
+      rIds.length ? supabase.from('office_resources').update({ deleted_at: now }).in('id', rIds) : Promise.resolve({ error: null }),
+      fIds.length ? supabase.from('office_resource_files').update({ deleted_at: now }).in('id', fIds) : Promise.resolve({ error: null }),
+    ])
+    const err = r1.error || r2.error
+    if (err) { toast.error(`삭제 실패: ${err.message}`); return }
+    setResources(prev => prev.map(r => rIds.includes(r.id) ? { ...r, deleted_at: now } : r))
+    setFiles(prev => prev.map(f => fIds.includes(f.id) ? { ...f, deleted_at: now } : f))
+    setSelected(new Set())
+    if (memoView && rIds.includes(memoView.id)) setMemoView(null)
+    if (folderId && (rIds.includes(folderId) || rIds.some(id => isInside(folderId, id)))) openFolder(null)
+    toast.success(`${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 되살릴 수 있어요.`)
+  }
+
+  const restore = async (keys: Key[]) => {
+    const rIds = keys.filter(k => k.startsWith('r:')).map(k => k.slice(2))
+    const fIds = keys.filter(k => k.startsWith('f:')).map(k => k.slice(2))
+    // 원래 있던 폴더가 지워졌으면 맨 위로 되살린다
+    const lost = (pid: string | null) => !!pid && (!resById.has(pid) || !!resById.get(pid)!.deleted_at || ancestorTrashed(pid))
+    const rPatch = rIds.map(id => ({ id, parent_id: lost(resById.get(id)?.parent_id ?? null) ? null : resById.get(id)?.parent_id ?? null }))
+    const fPatch = fIds.map(id => ({ id, resource_id: lost(fileById.get(id)?.resource_id ?? null) ? null : fileById.get(id)?.resource_id ?? null }))
+    const results = await Promise.all([
+      ...rPatch.map(p => supabase.from('office_resources').update({ deleted_at: null, parent_id: p.parent_id }).eq('id', p.id)),
+      ...fPatch.map(p => supabase.from('office_resource_files').update({ deleted_at: null, resource_id: p.resource_id }).eq('id', p.id)),
+    ])
+    const err = results.find(r => r.error)?.error
+    if (err) { toast.error(`되살리기 실패: ${err.message}`); return }
+    setResources(prev => prev.map(r => { const p = rPatch.find(x => x.id === r.id); return p ? { ...r, deleted_at: null, parent_id: p.parent_id } : r }))
+    setFiles(prev => prev.map(f => { const p = fPatch.find(x => x.id === f.id); return p ? { ...f, deleted_at: null, resource_id: p.resource_id } : f }))
+    setSelected(new Set())
+    toast.success(`${keys.length}개를 되살렸습니다.`)
+  }
+
+  // 영구삭제 — 폴더면 그 안의 내 것도 함께. 남이 넣은 것은 DB 가 맨 위로 꺼내 놓는다(지워지지 않음).
+  const purge = async (keys: Key[], rList = resources, fList = files, me = broker?.id, quiet = false) => {
+    const rMap = new Map(rList.map(r => [r.id, r]))
+    const inside = (pid: string | null, anc: string) => {
+      for (let i = 0, cur = pid; cur && i < 50; i++) { if (cur === anc) return true; cur = rMap.get(cur)?.parent_id ?? null }
+      return false
+    }
+    const mineOk = (u: string | null) => u === me || (u === null && officeBrokerId === me)
+    const topR = keys.filter(k => k.startsWith('r:')).map(k => k.slice(2))
+    const rIds = new Set(topR)
+    rList.forEach(r => { if (mineOk(r.uploader_broker_id) && topR.some(t => inside(r.parent_id, t))) rIds.add(r.id) })
+    const fIds = new Set(keys.filter(k => k.startsWith('f:')).map(k => k.slice(2)))
+    fList.forEach(f => { if (mineOk(f.uploader_broker_id) && topR.some(t => inside(f.resource_id, t))) fIds.add(f.id) })
+    const paths = fList.filter(f => fIds.has(f.id)).map(f => f.storage_path)
+    if (paths.length) await supabase.storage.from(BUCKET).remove(paths)
+    const [a, b] = await Promise.all([
+      fIds.size ? supabase.from('office_resource_files').delete().in('id', [...fIds]) : Promise.resolve({ error: null }),
+      rIds.size ? supabase.from('office_resources').delete().in('id', [...rIds]) : Promise.resolve({ error: null }),
+    ])
+    const err = a.error || b.error
+    if (err) { if (!quiet) toast.error(`영구삭제 실패: ${err.message}`); return }
+    // 지운 폴더 안에 있던 남의 것은 맨 위로
+    setFiles(prev => prev.filter(f => !fIds.has(f.id)).map(f => (f.resource_id && rIds.has(f.resource_id) ? { ...f, resource_id: null } : f)))
+    setResources(prev => prev.filter(r => !rIds.has(r.id)).map(r => (r.parent_id && rIds.has(r.parent_id) ? { ...r, parent_id: null } : r)))
+    setSelected(new Set())
+    if (!quiet) toast.success('영구삭제했습니다.')
+  }
+
+  const confirmPurge = (keys: Key[]) => {
+    if (!confirm(`${keys.length}개를 영구삭제할까요? 되돌릴 수 없습니다.`)) return
+    void purge(keys)
+  }
+
+  // ── 별표 ───────────────────────────────────────────
+  const toggleStar = async (keys: Key[]) => {
+    if (!broker) return
+    const allOn = keys.every(k => stars.has(k))
+    if (allOn) {
+      const rIds = keys.filter(k => k.startsWith('r:')).map(k => k.slice(2))
+      const fIds = keys.filter(k => k.startsWith('f:')).map(k => k.slice(2))
+      if (rIds.length) await supabase.from('office_resource_stars').delete().eq('broker_id', broker.id).in('resource_id', rIds)
+      if (fIds.length) await supabase.from('office_resource_stars').delete().eq('broker_id', broker.id).in('file_id', fIds)
+      setStars(prev => { const n = new Set(prev); keys.forEach(k => n.delete(k)); return n })
+    } else {
+      const add = keys.filter(k => !stars.has(k))
+      const { error } = await supabase.from('office_resource_stars').insert(add.map(k => (
+        k.startsWith('r:') ? { broker_id: broker.id, resource_id: k.slice(2) } : { broker_id: broker.id, file_id: k.slice(2) }
+      )))
+      if (error) { toast.error(`별표 실패: ${error.message}`); return }
+      setStars(prev => { const n = new Set(prev); add.forEach(k => n.add(k)); return n })
+    }
+    setSelected(new Set())
+  }
+
+  // ── 받기·열기·링크 ────────────────────────────────────
   const handleDownload = async (f: ResourceFile) => {
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 60, { download: f.file_name })
     if (error || !data?.signedUrl) { toast.error(`다운로드 링크 생성 실패: ${error?.message ?? ''}`); return }
     window.open(data.signedUrl, '_blank')
   }
 
-  const openFile = (f: ResourceFile, list: ResourceFile[]) => {
-    const imgs = list.filter(isImage)
+  const previewPdf = async (f: ResourceFile) => {
+    const w = window.open('', '_blank') // 팝업 차단을 피하려고 누른 순간 창부터 연다
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 3600)
+    if (error || !data?.signedUrl) { w?.close(); toast.error(`열기 실패: ${error?.message ?? ''}`); return }
+    if (w) w.location.href = data.signedUrl; else window.open(data.signedUrl, '_blank')
+  }
+
+  const copyLink = async (f: ResourceFile) => {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, LINK_DAYS * 86400)
+    if (error || !data?.signedUrl) { toast.error(`링크 만들기 실패: ${error?.message ?? ''}`); return }
+    try {
+      await navigator.clipboard.writeText(data.signedUrl)
+      toast.success(`링크를 복사했습니다. 받는 사람은 로그인 없이 ${LINK_DAYS}일 동안 열 수 있어요.`)
+    } catch { toast.error('복사하지 못했습니다.') }
+  }
+
+  const openFile = (f: ResourceFile) => {
+    const imgs = shownFiles.filter(isImage)
     if (isImage(f) && imgs.every(x => thumbs[x.storage_path])) {
       setLightbox({ urls: imgs.map(x => thumbs[x.storage_path]), files: imgs, index: imgs.indexOf(f) })
       return
     }
-    handleDownload(f)
-  }
-
-  const removeResource = async (r: Resource) => {
-    const n = r.files?.length ?? 0
-    if (!confirm(`"${r.title}"${isMemo(r) ? ' 메모를' : ' 폴더를'} 삭제할까요?${n > 0 ? ` 안에 있는 파일 ${n}개도 함께 지워집니다.` : ''}`)) return
-    const paths = (r.files ?? []).map(f => f.storage_path)
-    if (paths.length > 0) await supabase.storage.from(BUCKET).remove(paths)
-    const { error } = await supabase.from('office_resources').delete().eq('id', r.id)
-    if (error) { toast.error(`삭제 실패: ${error.message}`); return }
-    setResources(prev => prev.filter(x => x.id !== r.id))
-    if (folderId === r.id) openFolder(null)
-    if (memoView?.id === r.id) setMemoView(null)
-  }
-
-  const removeFile = async (r: Resource, f: ResourceFile) => {
-    if (!confirm(`"${f.file_name}" 파일을 삭제할까요?`)) return
-    const { error } = await supabase.from('office_resource_files').delete().eq('id', f.id)
-    if (error) { toast.error(`삭제 실패: ${error.message}`); return }
-    await supabase.storage.from(BUCKET).remove([f.storage_path])
-    setResources(prev => prev.map(x => x.id === r.id ? { ...x, files: (x.files ?? []).filter(y => y.id !== f.id) } : x))
+    if (isPdf(f)) { void previewPdf(f); return }
+    void handleDownload(f)
   }
 
   const copyText = async (s: string) => {
@@ -441,34 +785,113 @@ export default function BrokerResourcesPage() {
     catch { toast.error('복사하지 못했습니다. 길게 눌러 직접 복사해주세요.') }
   }
 
-  const uploaderName = (r: Resource) => r.uploader?.profiles?.name ?? '—'
-  const fileUploader = (r: Resource, f: ResourceFile) => {
-    const id = f.storage_path.split('/')[1]
-    return names[id] ?? (id === r.uploader_broker_id ? uploaderName(r) : '직원')
+  // 폴더·여러 개를 zip 으로 — 폴더 구조 그대로, 메모는 .txt 로
+  const downloadZip = async (keys: Key[], zipName: string) => {
+    const entries: { path: string; file?: ResourceFile; text?: string }[] = []
+    const addRes = (r: Resource, prefix: string) => {
+      if (r.kind === 'memo') { entries.push({ path: `${prefix}${r.title}.txt`, text: r.description ?? '' }); return }
+      const base = `${prefix}${r.title}/`
+      if (r.description) entries.push({ path: `${base}_폴더메모.txt`, text: r.description })
+      liveFiles.filter(f => parentOfFile(f) === r.id).forEach(f => entries.push({ path: base + f.file_name, file: f }))
+      liveRes.filter(c => parentOfRes(c) === r.id).forEach(c => addRes(c, base))
+    }
+    for (const k of keys) {
+      const it = keyInfo(k)
+      if (!it) continue
+      if (k.startsWith('r:')) addRes(it as Resource, '')
+      else entries.push({ path: (it as ResourceFile).file_name, file: it as ResourceFile })
+    }
+    const withFile = entries.filter(e => e.file)
+    if (entries.length === 0) { toast.info('받을 파일이 없습니다.'); return }
+    // 같은 경로는 (2), (3) 붙이기
+    const used = new Map<string, number>()
+    for (const e of entries) {
+      const n = used.get(e.path) ?? 0
+      used.set(e.path, n + 1)
+      if (n > 0) e.path = e.path.replace(/(\.[^./]+)?$/, m => ` (${n + 1})${m}`)
+    }
+    setProgress({ label: '압축 준비', done: 0, total: withFile.length })
+    try {
+      const { data: signed, error } = withFile.length
+        ? await supabase.storage.from(BUCKET).createSignedUrls(withFile.map(e => e.file!.storage_path), 600)
+        : { data: [], error: null }
+      if (error) throw error
+      const urlOf = new Map((signed ?? []).map(s => [s.path, s.signedUrl]))
+      const enc = new TextEncoder()
+      const data: Record<string, [Uint8Array, { level: 0 }]> = {}
+      let done = 0
+      for (const e of entries) {
+        if (e.text !== undefined) { data[e.path] = [enc.encode(e.text), { level: 0 }]; continue }
+        const url = urlOf.get(e.file!.storage_path)
+        if (!url) continue
+        const res = await fetch(url)
+        data[e.path] = [new Uint8Array(await res.arrayBuffer()), { level: 0 }]
+        setProgress({ label: '압축 준비', done: ++done, total: withFile.length })
+      }
+      const out: Uint8Array = await new Promise((res, rej) => zip(data, (err, d) => (err ? rej(err) : res(d))))
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(new Blob([out as BlobPart], { type: 'application/zip' }))
+      a.download = `${zipName}.zip`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+    } catch (err: any) {
+      toast.error(`압축 실패: ${err?.message ?? ''}`)
+    } finally {
+      setProgress(null)
+    }
   }
 
-  const resourceMenu = (r: Resource) => [
-    ...(!isMemo(r) ? [{ label: '열기', icon: FolderOpen, onClick: () => openFolder(r.id) }] : [{ label: '메모 보기', icon: StickyNote, onClick: () => setMemoView(r) }]),
-    ...(isMemo(r) ? [{ label: '내용 복사', icon: Copy, onClick: () => copyText(r.description ?? '') }] : []),
-    ...(canEdit(r) ? [{ label: '이름 바꾸기', icon: Pencil, onClick: () => openDialog('rename', r) }] : []),
-    ...(canEdit(r) ? [{ label: isMemo(r) ? '메모 고치기' : '폴더 메모', icon: StickyNote, onClick: () => openDialog('editMemo', r) }] : []),
-    ...(canDelete(r) ? [{ label: '삭제', icon: Trash2, onClick: () => removeResource(r), danger: true }] : []),
-  ]
+  // ── 선택 ───────────────────────────────────────────
+  const toggleSelect = (k: Key) => setSelected(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n })
+  const selecting = selected.size > 0
+  const activate = (k: Key, open: () => void) => (e: React.MouseEvent | React.KeyboardEvent) => {
+    // 휴지통에서는 누르면 고른다(열 수 없으니)
+    if (tab === 'trash' || selecting || ('ctrlKey' in e && (e.ctrlKey || e.metaKey))) { toggleSelect(k); return }
+    open()
+  }
 
-  const fileMenu = (r: Resource, f: ResourceFile) => [
-    { label: '다운로드', icon: Download, onClick: () => handleDownload(f) },
-    ...(canDelete(r) ? [{ label: '삭제', icon: Trash2, onClick: () => removeFile(r, f), danger: true }] : []),
-  ]
+  // ── 메뉴 ───────────────────────────────────────────
+  const resMenu = (r: Resource): MenuItem[] => {
+    const k = rKey(r.id)
+    const mine = canManageId(r.uploader_broker_id)
+    if (tab === 'trash') return [
+      { label: '되살리기', icon: RotateCcw, onClick: () => restore([k]) },
+      { label: '영구삭제', icon: Trash2, onClick: () => confirmPurge([k]), danger: true },
+    ]
+    return [
+      r.kind === 'folder'
+        ? { label: '열기', icon: FolderOpen, onClick: () => openFolder(r.id) }
+        : { label: '메모 보기', icon: StickyNote, onClick: () => setMemoView(r) },
+      ...(r.kind === 'memo' ? [{ label: '내용 복사', icon: Copy, onClick: () => copyText(r.description ?? '') }] : []),
+      ...(mine ? [{ label: '이름 바꾸기', icon: Pencil, onClick: () => openDialog('renameRes', r) }] : []),
+      ...(mine ? [{ label: r.kind === 'memo' ? '메모 고치기' : '폴더 메모', icon: StickyNote, onClick: () => openDialog('editMemo', r) }] : []),
+      ...(mine ? [{ label: '옮기기', icon: FolderInput, onClick: () => startMove([k]) }] : []),
+      { label: stars.has(k) ? '별표 해제' : '별표', icon: Star, onClick: () => toggleStar([k]) },
+      ...(r.kind === 'folder' ? [{ label: 'zip으로 받기', icon: Download, onClick: () => downloadZip([k], r.title) }] : []),
+      { label: '선택', icon: Check, onClick: () => toggleSelect(k) },
+      ...(mine ? [{ label: '삭제', icon: Trash2, onClick: () => trashKeysAct([k]), danger: true }] : []),
+    ]
+  }
 
-  // ── 검색 ───────────────────────────────────────────
-  const q = query.trim().toLowerCase()
-  const match = (s: string | null | undefined) => !!s && s.toLowerCase().includes(q)
-  const rootFolders = sortResources(q ? folders.filter(r => match(r.title) || match(r.description)) : folders)
-  const rootMemos = sortResources(q ? memos.filter(r => match(r.title) || match(r.description)) : memos)
-  const fileHits = q
-    ? folders.flatMap(r => (r.files ?? []).filter(f => match(f.file_name)).map(f => ({ r, f })))
-    : []
-  const folderFiles = current ? sortFiles((current.files ?? []).filter(f => !q || match(f.file_name))) : []
+  const fileMenu = (f: ResourceFile): MenuItem[] => {
+    const k = fKey(f.id)
+    const mine = canManageId(f.uploader_broker_id)
+    if (tab === 'trash') return [
+      { label: '되살리기', icon: RotateCcw, onClick: () => restore([k]) },
+      { label: '영구삭제', icon: Trash2, onClick: () => confirmPurge([k]), danger: true },
+    ]
+    return [
+      ...(isPdf(f) || isImage(f) ? [{ label: '미리보기', icon: Eye, onClick: () => (isPdf(f) ? previewPdf(f) : openFile(f)) }] : []),
+      { label: '다운로드', icon: Download, onClick: () => handleDownload(f) },
+      { label: `링크 복사(${LINK_DAYS}일)`, icon: Link2, onClick: () => copyLink(f) },
+      ...(mine ? [{ label: '이름 바꾸기', icon: Pencil, onClick: () => openDialog('renameFile', undefined, f) }] : []),
+      ...(mine ? [{ label: '옮기기', icon: FolderInput, onClick: () => startMove([k]) }] : []),
+      { label: stars.has(k) ? '별표 해제' : '별표', icon: Star, onClick: () => toggleStar([k]) },
+      ...(parentOfFile(f) && (tab !== 'drive' || q) ? [{ label: '파일 위치 열기', icon: FolderOpen, onClick: () => openFolder(parentOfFile(f)) }] : []),
+      { label: '선택', icon: Check, onClick: () => toggleSelect(k) },
+      ...(mine ? [{ label: '삭제', icon: Trash2, onClick: () => trashKeysAct([k]), danger: true }] : []),
+    ]
+  }
 
   if (loading) return (
     <div className="bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
@@ -476,128 +899,217 @@ export default function BrokerResourcesPage() {
     </div>
   )
 
-  // ── 조각들 ─────────────────────────────────────────
-  const folderTile = (r: Resource) => (
-    <div
-      key={r.id}
-      role="button"
-      tabIndex={0}
-      onClick={() => openFolder(r.id)}
-      onKeyDown={e => { if (e.key === 'Enter') openFolder(r.id) }}
-      className="group flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 bg-white py-2.5 pl-3.5 pr-1.5 hover:bg-blue-50/60 hover:border-blue-100 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
+  // ── 조각들(컴포넌트가 아니라 함수 — 다시 그릴 때 메뉴가 닫히지 않게) ──
+  const locationText = (pid: string | null) => {
+    const p = pathOf(pid)
+    return p.length ? p.map(r => r.title).join(' › ') : '내 자료실'
+  }
+  const daysLeft = (d: string | null) => Math.max(0, Math.ceil(TRASH_DAYS - (Date.now() - new Date(d ?? 0).getTime()) / 86400000))
+
+  const checkCircle = (k: Key) => (
+    <button
+      onClick={e => { e.stopPropagation(); toggleSelect(k) }}
+      aria-label={selected.has(k) ? '선택 해제' : '선택'}
+      aria-pressed={selected.has(k)}
+      // 휴대폰은 마우스를 올릴 수 없으니 고르는 중일 때만 보인다(⋮ → 선택으로 시작)
+      className={`h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border-2 transition ${selecting ? 'flex' : 'hidden sm:flex'} ${selected.has(k)
+        ? 'border-blue-600 bg-blue-600 text-white'
+        : `border-gray-300 bg-white/90 text-transparent hover:border-blue-400 dark:border-gray-600 dark:bg-gray-900/90 ${selecting ? '' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'}`}`}
     >
-      <Folder className="h-5 w-5 flex-shrink-0 fill-blue-600/15 text-blue-600" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{r.title}</p>
-        <p className="truncate text-[11px] text-gray-500">파일 {r.files?.length ?? 0}개 · {uploaderName(r)}{r.description ? ' · 메모' : ''}</p>
-      </div>
-      <ItemMenu label={r.title} items={resourceMenu(r)} />
-    </div>
+      <Check className="h-3.5 w-3.5" />
+    </button>
   )
 
-  const memoTile = (r: Resource) => (
-    <div
-      key={r.id}
-      role="button"
-      tabIndex={0}
-      onClick={() => setMemoView(r)}
-      onKeyDown={e => { if (e.key === 'Enter') setMemoView(r) }}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-100 bg-white hover:border-amber-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
-    >
-      <p className="line-clamp-4 h-[5.5rem] whitespace-pre-wrap bg-amber-50/70 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600 dark:bg-amber-950/20 dark:text-gray-400">
-        {r.description}
-      </p>
-      <div className="flex items-center gap-2 py-1.5 pl-3 pr-1">
-        <StickyNote className="h-4 w-4 flex-shrink-0 text-amber-500" />
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900 dark:text-white">{r.title}</span>
-        <ItemMenu label={r.title} items={resourceMenu(r)} />
-      </div>
-    </div>
-  )
+  const starMark = (k: Key) => stars.has(k) ? <Star className="h-3.5 w-3.5 flex-shrink-0 fill-amber-400 text-amber-400" aria-label="별표" /> : null
 
-  const fileTile = (r: Resource, f: ResourceFile, list: ResourceFile[]) => {
-    const k = fileKind(f)
+  const tileRing = (k: Key, id?: string) =>
+    selected.has(k) ? 'border-blue-500 ring-2 ring-blue-500/30 bg-blue-50/60 dark:bg-blue-950/30'
+      : id && dropTarget === id ? 'border-blue-500 ring-2 ring-blue-500/40'
+        : 'border-gray-100 dark:border-gray-800'
+
+  const folderTile = (r: Resource) => {
+    const k = rKey(r.id)
+    const n = liveFiles.filter(f => parentOfFile(f) === r.id).length + liveRes.filter(c => parentOfRes(c) === r.id).length
+    return (
+      <div
+        key={r.id}
+        role="button"
+        tabIndex={0}
+        {...dragProps(k)}
+        {...(tab !== 'trash' ? dropProps(r.id) : {})}
+        onClick={activate(k, () => tab === 'trash' ? undefined : openFolder(r.id))}
+        onKeyDown={e => { if (e.key === 'Enter') activate(k, () => openFolder(r.id))(e) }}
+        className={`group flex cursor-pointer items-center gap-2.5 rounded-xl border bg-white py-2.5 pl-2.5 pr-1 hover:bg-blue-50/60 dark:bg-gray-900 dark:hover:bg-gray-800 ${tileRing(k, r.id)}`}
+      >
+        {checkCircle(k)}
+        <Folder className="h-5 w-5 flex-shrink-0 fill-blue-600/15 text-blue-600" />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1 truncate text-sm font-semibold text-gray-900 dark:text-white"><span className="truncate">{r.title}</span>{starMark(k)}</p>
+          <p className="truncate text-[11px] text-gray-500">
+            {tab === 'trash' ? `${daysLeft(r.deleted_at)}일 뒤 영구삭제` : `${n}개 · ${uploaderOf(r.uploader_broker_id)}${r.description ? ' · 메모' : ''}`}
+          </p>
+        </div>
+        <ItemMenu label={r.title} items={resMenu(r)} />
+      </div>
+    )
+  }
+
+  const memoTile = (r: Resource) => {
+    const k = rKey(r.id)
+    return (
+      <div
+        key={r.id}
+        role="button"
+        tabIndex={0}
+        {...dragProps(k)}
+        onClick={activate(k, () => setMemoView(r))}
+        onKeyDown={e => { if (e.key === 'Enter') activate(k, () => setMemoView(r))(e) }}
+        className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-white hover:shadow-sm dark:bg-gray-900 ${tileRing(k)}`}
+      >
+        <div className="absolute left-2 top-2">{checkCircle(k)}</div>
+        <p className="line-clamp-4 h-[5.5rem] whitespace-pre-wrap bg-amber-50/70 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600 dark:bg-amber-950/20 dark:text-gray-400">
+          {r.description}
+        </p>
+        <div className="flex items-center gap-2 py-1.5 pl-3 pr-1">
+          <StickyNote className="h-4 w-4 flex-shrink-0 text-amber-500" />
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1 truncate text-sm font-semibold text-gray-900 dark:text-white"><span className="truncate">{r.title}</span>{starMark(k)}</p>
+            <p className="truncate text-[11px] text-gray-500">
+              {tab === 'trash' ? `${daysLeft(r.deleted_at)}일 뒤 영구삭제` : showLocation ? locationText(parentOfRes(r)) : `${uploaderOf(r.uploader_broker_id)} · ${formatDate(r.created_at)}`}
+            </p>
+          </div>
+          <ItemMenu label={r.title} items={resMenu(r)} />
+        </div>
+      </div>
+    )
+  }
+
+  const fileTile = (f: ResourceFile) => {
+    const k = fKey(f.id)
+    const kind = fileKind(f)
     const thumb = isImage(f) ? thumbs[f.storage_path] : undefined
     return (
       <div
         key={f.id}
         role="button"
         tabIndex={0}
-        onClick={() => openFile(f, list)}
-        onKeyDown={e => { if (e.key === 'Enter') openFile(f, list) }}
+        {...dragProps(k)}
+        onClick={activate(k, () => tab === 'trash' ? undefined : openFile(f))}
+        onKeyDown={e => { if (e.key === 'Enter') activate(k, () => openFile(f))(e) }}
         title={f.file_name}
-        className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900"
+        className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-white hover:shadow-sm dark:bg-gray-900 ${tileRing(k)}`}
       >
-        <div className={`flex aspect-[4/3] items-center justify-center overflow-hidden ${thumb ? 'bg-gray-100 dark:bg-gray-800' : k.bg}`}>
+        <div className="absolute left-2 top-2 z-10">{checkCircle(k)}</div>
+        <div className={`flex aspect-[4/3] items-center justify-center overflow-hidden ${thumb ? 'bg-gray-50 dark:bg-gray-800' : kind.bg}`}>
           {thumb
             // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={thumb} alt="" loading="lazy" className="h-full w-full object-contain p-1" />
-            : <k.Icon className={`h-10 w-10 ${k.color}`} />}
+            ? <img src={thumb} alt="" loading="lazy" draggable={false} className="h-full w-full object-contain p-1" />
+            : <kind.Icon className={`h-10 w-10 ${kind.color}`} />}
         </div>
         <div className="flex items-center gap-1.5 py-1.5 pl-2.5 pr-1">
-          <k.Icon className={`h-4 w-4 flex-shrink-0 ${k.color}`} />
+          <kind.Icon className={`h-4 w-4 flex-shrink-0 ${kind.color}`} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{f.file_name}</p>
-            <p className="truncate text-[11px] text-gray-500">{fileUploader(r, f)}{f.created_at ? ` · ${formatDate(f.created_at)}` : ''}</p>
+            <p className="flex items-center gap-1 text-xs font-medium text-gray-800 dark:text-gray-200"><span className="truncate">{f.file_name}</span>{starMark(k)}</p>
+            <p className="truncate text-[11px] text-gray-500">
+              {tab === 'trash' ? `${daysLeft(f.deleted_at)}일 뒤 영구삭제` : showLocation ? locationText(parentOfFile(f)) : `${uploaderOf(f.uploader_broker_id)} · ${formatDate(f.created_at)}`}
+            </p>
           </div>
-          <ItemMenu label={f.file_name} items={fileMenu(r, f)} />
+          <ItemMenu label={f.file_name} items={fileMenu(f)} />
         </div>
       </div>
     )
   }
 
-  const row = ({ id, icon, name, sub, meta, onOpen, menu }: { id: string; icon: React.ReactNode; name: string; sub?: string; meta: string; onOpen: () => void; menu: React.ReactNode }) => (
+  const row = (o: { k: Key; dropId?: string; icon: React.ReactNode; name: string; sub: string; meta: string; onOpen: () => void; menu: MenuItem[] }) => (
     <div
-      key={id}
+      key={o.k}
       role="button"
       tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={e => { if (e.key === 'Enter') onOpen() }}
-      className="flex cursor-pointer items-center gap-3 border-b border-gray-100 py-2 pl-3 pr-1 last:border-b-0 hover:bg-blue-50/50 dark:border-gray-800 dark:hover:bg-gray-800"
+      {...dragProps(o.k)}
+      {...(o.dropId && tab !== 'trash' ? dropProps(o.dropId) : {})}
+      onClick={activate(o.k, o.onOpen)}
+      onKeyDown={e => { if (e.key === 'Enter') activate(o.k, o.onOpen)(e) }}
+      className={`group flex cursor-pointer items-center gap-3 border-b py-2 pl-3 pr-1 last:border-b-0 hover:bg-blue-50/50 dark:hover:bg-gray-800 ${selected.has(o.k) ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''} ${o.dropId && dropTarget === o.dropId ? 'ring-2 ring-inset ring-blue-500' : ''} border-gray-100 dark:border-gray-800`}
     >
-      <span className="flex-shrink-0">{icon}</span>
+      {checkCircle(o.k)}
+      <span className="flex-shrink-0">{o.icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{name}</p>
-        {sub && <p className="truncate text-[11px] text-gray-500">{sub}</p>}
+        <p className="flex items-center gap-1 text-sm font-medium text-gray-900 dark:text-white"><span className="truncate">{o.name}</span>{starMark(o.k)}</p>
+        <p className="truncate text-[11px] text-gray-500">{o.sub}</p>
       </div>
-      <span className="hidden flex-shrink-0 text-xs text-gray-500 sm:block">{meta}</span>
-      {menu}
+      <span className="hidden flex-shrink-0 text-xs text-gray-500 sm:block">{o.meta}</span>
+      <ItemMenu label={o.name} items={o.menu} />
     </div>
   )
+
+  const resRow = (r: Resource) => row({
+    k: rKey(r.id),
+    dropId: r.kind === 'folder' ? r.id : undefined,
+    icon: r.kind === 'folder' ? <Folder className="h-5 w-5 fill-blue-600/15 text-blue-600" /> : <StickyNote className="h-5 w-5 text-amber-500" />,
+    name: r.title,
+    sub: tab === 'trash' ? `${daysLeft(r.deleted_at)}일 뒤 영구삭제` : showLocation ? locationText(parentOfRes(r)) : `${uploaderOf(r.uploader_broker_id)} · ${formatDate(r.created_at)}`,
+    meta: r.kind === 'folder' ? formatFileSize(folderSize(r.id)) : '메모',
+    onOpen: () => (tab === 'trash' ? undefined : r.kind === 'folder' ? openFolder(r.id) : setMemoView(r)),
+    menu: resMenu(r),
+  })
+
+  const fileRow = (f: ResourceFile) => {
+    const kind = fileKind(f)
+    return row({
+      k: fKey(f.id),
+      icon: <kind.Icon className={`h-5 w-5 ${kind.color}`} />,
+      name: f.file_name,
+      sub: tab === 'trash' ? `${daysLeft(f.deleted_at)}일 뒤 영구삭제`
+        : `${showLocation ? `${locationText(parentOfFile(f))} · ` : ''}${uploaderOf(f.uploader_broker_id)} · ${formatDate(f.created_at)}`,
+      meta: formatFileSize(f.file_size),
+      onOpen: () => (tab === 'trash' ? undefined : openFile(f)),
+      menu: fileMenu(f),
+    })
+  }
 
   const sectionTitle = (children: React.ReactNode) => (
     <h2 className="mb-2 mt-6 text-sm font-semibold text-gray-600 dark:text-gray-400 first:mt-0">{children}</h2>
   )
+  const listBox = 'rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900'
 
-  const listBox = 'overflow-visible rounded-xl border border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900'
-  const fileGrid = 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5'
-
-  const renderFiles = (r: Resource, list: ResourceFile[], showFolder?: boolean) => view === 'grid'
-    ? <div className={fileGrid}>{list.map(f => fileTile(r, f, list))}</div>
-    : (
-      <div className={listBox}>
-        {list.map(f => {
-          const k = fileKind(f)
-          return (
-            row({ id: f.id,
-              icon: <k.Icon className={`h-5 w-5 ${k.color}`} />,
-              name: f.file_name,
-              sub: `${showFolder ? `📁 ${r.title} · ` : ''}${fileUploader(r, f)}${f.created_at ? ` · ${formatDate(f.created_at)}` : ''}`,
-              meta: formatFileSize(f.file_size),
-              onOpen: () => openFile(f, list),
-              menu: <ItemMenu label={f.file_name} items={fileMenu(r, f)} />,
-            })
-          )
-        })}
-      </div>
+  const section = (title: string, rs: Resource[], fsList: ResourceFile[], kind: 'folder' | 'memo' | 'file') => {
+    if (rs.length + fsList.length === 0) return null
+    return (
+      <>
+        {sectionTitle(title)}
+        {view === 'list'
+          ? <div className={listBox}>{rs.map(resRow)}{fsList.map(fileRow)}</div>
+          : kind === 'folder'
+            ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{rs.map(folderTile)}</div>
+            : kind === 'memo'
+              ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{rs.map(memoTile)}</div>
+              : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{fsList.map(fileTile)}</div>}
+      </>
     )
+  }
 
   const memoLong = (current?.description?.length ?? 0) > 200 || (current?.description?.split('\n').length ?? 0) > 4
+  const crumbs = current ? pathOf(current.id) : []
+  const selKeys = [...selected]
+  const selAllMine = selKeys.every(canManageKey)
+
+  const tabs: { id: Tab; label: string; icon: typeof FileIcon }[] = [
+    { id: 'drive', label: '내 자료실', icon: HardDrive },
+    { id: 'recent', label: '최근', icon: Clock },
+    { id: 'starred', label: '별표', icon: Star },
+    { id: 'trash', label: '휴지통', icon: Trash2 },
+  ]
+
+  // 옮기기 창 — 폴더를 따라 들어가며 고른다
+  const moveFolders = moveKeys
+    ? liveRes.filter(r => r.kind === 'folder' && parentOfRes(r) === moveAt && !moveKeys.includes(rKey(r.id))).sort((a, b) => byName(a.title, b.title))
+    : []
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen" onDragEnter={onDragEnter} onDragOver={e => { if (hasFiles(e)) e.preventDefault() }} onDragLeave={onDragLeave} onDrop={onDrop}>
       <Header user={auth.user} role="broker" />
       <input ref={fileRef} type="file" multiple onChange={onFilePick} className="hidden" />
+      <input ref={dirRef} type="file" multiple onChange={onFilePick} className="hidden" {...({ webkitdirectory: '', directory: '' } as any)} />
       <div className="mx-auto max-w-6xl px-4 py-8">
         <PageHeader
           icon={FolderOpen}
@@ -614,10 +1126,11 @@ export default function BrokerResourcesPage() {
                 새로 만들기
               </button>
               {newOpen && (
-                <div className="absolute right-0 top-12 z-30 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
                   {[
-                    { label: current && !isMemo(current) ? '이 폴더에 파일 올리기' : '파일 올리기', icon: Upload, onClick: () => { setNewOpen(false); fileRef.current?.click() } },
                     { label: '새 폴더', icon: FolderPlus, onClick: () => openDialog('folder') },
+                    { label: '파일 올리기', icon: Upload, onClick: () => { setNewOpen(false); fileRef.current?.click() } },
+                    { label: '폴더째 올리기', icon: FolderUp, onClick: () => { setNewOpen(false); dirRef.current?.click() } },
                     { label: '새 메모', icon: StickyNote, onClick: () => openDialog('memo') },
                   ].map(it => (
                     <button key={it.label} onClick={it.onClick}
@@ -632,67 +1145,146 @@ export default function BrokerResourcesPage() {
           }
         />
 
-        {/* 검색 + 보기 도구 */}
-        <div className="mb-4 flex items-center gap-2">
-          <label className="relative flex-1">
-            <span className="sr-only">자료 검색</span>
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder={current ? `${current.title} 안에서 검색` : '폴더·파일·메모 검색'}
-              className="w-full rounded-full border border-transparent bg-gray-100 py-2.5 pl-10 pr-9 text-sm focus:border-blue-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-800 dark:focus:bg-gray-900"
-            />
-            {query && (
-              <button onClick={() => setQuery('')} aria-label="검색어 지우기"
-                className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </label>
-          <button onClick={changeSort} title="정렬 바꾸기"
-            className="inline-flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
-            <ArrowUpDown className="h-3.5 w-3.5" />
-            {sort === 'recent' ? '최근순' : '이름순'}
-          </button>
-          <div className="flex flex-shrink-0 overflow-hidden rounded-full border border-gray-200 dark:border-gray-700">
-            {([['grid', LayoutGrid, '바둑판 보기'], ['list', List, '목록 보기']] as const).map(([v, Icon, label]) => (
-              <button key={v} onClick={() => changeView(v)} aria-label={label} aria-pressed={view === v}
-                className={`flex h-9 w-10 items-center justify-center ${view === v ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-                <Icon className="h-4 w-4" />
-              </button>
-            ))}
-          </div>
+        {/* 탭: 내 자료실 / 최근 / 별표 / 휴지통 */}
+        <div className="mb-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" role="tablist">
+          {tabs.map(t => (
+            <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => go(t.id)}
+              {...(t.id === 'drive' ? dropProps(null) : {})}
+              className={`-mb-px inline-flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold ${tab === t.id
+                ? 'border-blue-600 text-blue-700 dark:text-blue-300'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'} ${t.id === 'drive' && dropTarget === 'root' ? 'bg-blue-50 dark:bg-blue-950' : ''}`}>
+              <t.icon className="h-4 w-4" />
+              {t.label}
+              {t.id === 'trash' && trashKeys.length > 0 && <span className="rounded-full bg-gray-200 px-1.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300">{trashKeys.length}</span>}
+            </button>
+          ))}
         </div>
 
-        {/* 위치(빵부스러기) */}
-        <nav aria-label="현재 위치" className="mb-4 flex min-h-9 items-center gap-1 text-lg">
-          <button onClick={() => openFolder(null)}
-            className={`rounded-full px-2 py-0.5 ${current ? 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' : 'font-semibold text-gray-900 dark:text-white'}`}>
-            자료실
-          </button>
-          {current && (
-            <>
-              <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
-              <span className="truncate font-semibold text-gray-900 dark:text-white">{current.title}</span>
-              <ItemMenu label={current.title} items={resourceMenu(current).filter(i => i.label !== '열기')} />
-              <span className="ml-auto hidden flex-shrink-0 text-xs text-gray-500 sm:block">{uploaderName(current)} · {formatDate(current.created_at)}</span>
-            </>
-          )}
-        </nav>
-        {current && (
-          <p className="-mt-3 mb-4 px-2 text-xs text-gray-500 sm:hidden">만든 사람 {uploaderName(current)} · {formatDate(current.created_at)}</p>
+        {/* 도구줄 — 고른 게 있으면 선택 도구로 바뀐다 */}
+        {selecting ? (
+          <div className="sticky top-2 z-20 mb-4 flex flex-wrap items-center gap-1 rounded-full bg-blue-50 px-2 py-1.5 shadow-sm ring-1 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
+            <button onClick={() => setSelected(new Set())} aria-label="선택 해제" className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 hover:bg-white dark:text-gray-300 dark:hover:bg-gray-800">
+              <X className="h-4 w-4" />
+            </button>
+            <span className="mr-2 text-sm font-semibold text-blue-800 dark:text-blue-200">{selected.size}개 선택</span>
+            <button onClick={() => setSelected(new Set(shownKeys))} className="rounded-full px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-white dark:text-blue-300 dark:hover:bg-gray-800">전체 선택</button>
+            <div className="ml-auto flex flex-wrap items-center gap-0.5">
+              {tab === 'trash' ? (
+                <>
+                  <button onClick={() => restore(selKeys)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><RotateCcw className="h-4 w-4" />되살리기</button>
+                  <button onClick={() => confirmPurge(selKeys)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-800"><Trash2 className="h-4 w-4" />영구삭제</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => downloadZip(selKeys, `자료실_${selected.size}개`)} title="zip으로 받기" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><Download className="h-4 w-4" /><span className="hidden sm:inline">받기</span></button>
+                  {selAllMine && <button onClick={() => startMove(selKeys)} title="옮기기" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><FolderInput className="h-4 w-4" /><span className="hidden sm:inline">옮기기</span></button>}
+                  <button onClick={() => toggleStar(selKeys)} title="별표" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><Star className="h-4 w-4" /><span className="hidden sm:inline">별표</span></button>
+                  {selAllMine && <button onClick={() => trashKeysAct(selKeys)} title="삭제" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-800"><Trash2 className="h-4 w-4" /><span className="hidden sm:inline">삭제</span></button>}
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 flex items-center gap-2">
+            <label className="relative flex-1">
+              <span className="sr-only">자료 검색</span>
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="자료실 전체에서 검색"
+                className="w-full rounded-full border border-transparent bg-gray-100 py-2.5 pl-10 pr-9 text-sm focus:border-blue-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-800 dark:focus:bg-gray-900"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} aria-label="검색어 지우기"
+                  className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </label>
+            {tab !== 'recent' && tab !== 'trash' && (
+              <button onClick={changeSort} title="정렬 바꾸기"
+                className="inline-flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                {sort === 'recent' ? '최근순' : sort === 'name' ? '이름순' : '크기순'}
+              </button>
+            )}
+            <div className="flex flex-shrink-0 overflow-hidden rounded-full border border-gray-200 dark:border-gray-700">
+              {([['grid', LayoutGrid, '바둑판 보기'], ['list', List, '목록 보기']] as const).map(([v, Icon, label]) => (
+                <button key={v} onClick={() => changeView(v)} aria-label={label} aria-pressed={view === v}
+                  className={`flex h-9 w-10 items-center justify-center ${view === v ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+                  <Icon className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
-        {folderId && !current ? (
-          <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center dark:border-gray-800 dark:bg-gray-900">
-            <p className="text-sm font-semibold text-gray-500">폴더를 찾을 수 없어요 (지워졌거나 볼 수 없는 폴더)</p>
-            <button onClick={() => openFolder(null)} className="mt-3 text-sm font-semibold text-blue-600">자료실로 가기</button>
+        {/* 위치 — 각 칸에 끌어다 놓으면 그리로 옮겨진다 */}
+        {tab === 'drive' && !q && (
+          <>
+            <nav aria-label="현재 위치" className="mb-1 flex min-h-9 flex-wrap items-center gap-0.5 text-lg">
+              <button onClick={() => openFolder(null)} {...dropProps(null)}
+                className={`rounded-full px-2 py-0.5 ${dropTarget === 'root' ? 'bg-blue-100 dark:bg-blue-900' : ''} ${current ? 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' : 'font-semibold text-gray-900 dark:text-white'}`}>
+                내 자료실
+              </button>
+              {crumbs.map((c, i) => {
+                const last = i === crumbs.length - 1
+                return (
+                  <span key={c.id} className="flex min-w-0 items-center gap-0.5">
+                    <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                    {last ? (
+                      <>
+                        <span className="truncate rounded-full px-2 py-0.5 font-semibold text-gray-900 dark:text-white">{c.title}</span>
+                        <ItemMenu label={c.title} items={resMenu(c).filter(it => it.label !== '열기' && it.label !== '선택')} />
+                      </>
+                    ) : (
+                      <button onClick={() => openFolder(c.id)} {...dropProps(c.id)}
+                        className={`truncate rounded-full px-2 py-0.5 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${dropTarget === c.id ? 'bg-blue-100 dark:bg-blue-900' : ''}`}>
+                        {c.title}
+                      </button>
+                    )}
+                  </span>
+                )
+              })}
+            </nav>
+            {current && (
+              <p className="mb-3 px-2 text-xs text-gray-500">만든 사람 {uploaderOf(current.uploader_broker_id)} · {formatDate(current.created_at)}</p>
+            )}
+          </>
+        )}
+        {(tab !== 'drive' || q) && (
+          <h2 className="mb-3 px-1 text-lg font-semibold text-gray-900 dark:text-white">
+            {q ? `"${query}" 검색 결과` : tab === 'recent' ? '최근에 올라온 파일' : tab === 'starred' ? '별표한 자료' : '휴지통'}
+          </h2>
+        )}
+        {tab === 'trash' && !q && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-gray-100 px-3.5 py-2.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            <span className="flex-1">내가 지운 것만 보입니다. {TRASH_DAYS}일이 지나면 영구삭제됩니다.</span>
+            {trashKeys.length > 0 && (
+              <button onClick={() => confirmPurge(trashKeys)} className="rounded-full px-3 py-1 font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-900">휴지통 비우기</button>
+            )}
           </div>
-        ) : current ? (
-          /* ── 폴더 안 ── */
-          <section aria-label={`${current.title} 폴더`}>
-            {current.description && (
+        )}
+
+        {tab === 'drive' && !q && !currentOk ? (
+          <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center dark:border-gray-800 dark:bg-gray-900">
+            <p className="text-sm font-semibold text-gray-500">폴더를 찾을 수 없어요 (휴지통에 있거나 볼 수 없는 폴더)</p>
+            <button onClick={() => openFolder(null)} className="mt-3 text-sm font-semibold text-blue-600">내 자료실로 가기</button>
+          </div>
+        ) : tab === 'trash' && !q ? (
+          trashKeys.length === 0
+            ? <p className="py-16 text-center text-sm text-gray-500">휴지통이 비어 있어요</p>
+            : (
+              <>
+                {section('폴더', trashRes.filter(r => r.kind === 'folder'), [], 'folder')}
+                {section('메모', trashRes.filter(r => r.kind === 'memo'), [], 'memo')}
+                {section('파일', [], trashFiles, 'file')}
+              </>
+            )
+        ) : (
+          <section aria-label={current ? `${current.title} 폴더` : '자료 목록'}>
+            {tab === 'drive' && !q && current?.description && (
               <div className="mb-5 rounded-xl border border-amber-100 bg-amber-50/70 p-3.5 dark:border-amber-900/40 dark:bg-amber-950/20">
                 <div className="mb-1 flex items-center gap-1.5">
                   <StickyNote className="h-4 w-4 text-amber-500" />
@@ -711,127 +1303,48 @@ export default function BrokerResourcesPage() {
               </div>
             )}
 
-            {folderFiles.length > 0 ? (
-              <>
-                {sectionTitle(<>파일 {folderFiles.length}개</>)}
-                {renderFiles(current, folderFiles)}
-              </>
-            ) : q ? (
-              <p className="py-10 text-center text-sm text-gray-500">&quot;{query}&quot;에 맞는 파일이 없어요</p>
-            ) : (
-              <button onClick={() => fileRef.current?.click()}
-                className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 bg-white py-14 text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-900">
-                <Upload className="h-7 w-7" />
-                <span className="font-semibold">빈 폴더예요</span>
-                <span className="text-xs">파일을 여기로 끌어오거나 눌러서 고르세요</span>
-              </button>
+            {section('폴더', shownFolders, [], 'folder')}
+            {section('메모', shownMemos, [], 'memo')}
+            {section(tab === 'recent' ? '파일' : `파일 ${shownFiles.length}개`, [], shownFiles, 'file')}
+
+            {shownKeys.length === 0 && (
+              q ? <p className="py-10 text-center text-sm text-gray-500">&quot;{query}&quot;에 맞는 자료가 없어요</p>
+                : tab === 'starred' ? <p className="py-16 text-center text-sm text-gray-500">⋮ 메뉴에서 별표를 누르면 여기 모입니다</p>
+                  : tab === 'recent' ? <p className="py-16 text-center text-sm text-gray-500">아직 올라온 파일이 없어요</p>
+                    : (
+                      <button onClick={() => fileRef.current?.click()}
+                        className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 bg-white py-14 text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-900">
+                        <Upload className="h-7 w-7" />
+                        <span className="font-semibold">{current ? '빈 폴더예요' : '아직 올라온 자료가 없어요'}</span>
+                        <span className="text-xs">파일이나 폴더를 여기로 끌어오거나 눌러서 고르세요</span>
+                      </button>
+                    )
             )}
           </section>
-        ) : (
-          /* ── 자료실 맨 위 ── */
-          <>
-            {resources.length === 0 ? (
-              <button onClick={() => openDialog('folder')}
-                className="flex w-full flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white p-12 text-center dark:border-gray-800 dark:bg-gray-900">
-                <FolderOpen className="mx-auto mb-3 h-10 w-10 text-gray-200" />
-                <span className="text-sm font-semibold text-gray-500">아직 올라온 자료가 없어요</span>
-                <span className="mt-1 text-xs text-gray-500">폴더를 만들거나 파일을 끌어다 놓으세요</span>
-              </button>
-            ) : (
-              <>
-                {rootFolders.length > 0 && (
-                  <>
-                    {sectionTitle(<>폴더</>)}
-                    {view === 'grid' ? (
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                        {rootFolders.map(r => folderTile(r))}
-                      </div>
-                    ) : (
-                      <div className={listBox}>
-                        {rootFolders.map(r => (
-                          row({ id: r.id,
-                            icon: <Folder className="h-5 w-5 fill-blue-600/15 text-blue-600" />,
-                            name: r.title,
-                            sub: `파일 ${r.files?.length ?? 0}개 · ${uploaderName(r)}`,
-                            meta: formatDate(r.created_at),
-                            onOpen: () => openFolder(r.id),
-                            menu: <ItemMenu label={r.title} items={resourceMenu(r)} />,
-                          })
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
+        )}
 
-                {rootMemos.length > 0 && (
-                  <>
-                    {sectionTitle(<>메모</>)}
-                    {view === 'grid' ? (
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                        {rootMemos.map(r => memoTile(r))}
-                      </div>
-                    ) : (
-                      <div className={listBox}>
-                        {rootMemos.map(r => (
-                          row({ id: r.id,
-                            icon: <StickyNote className="h-5 w-5 text-amber-500" />,
-                            name: r.title,
-                            sub: r.description?.split('\n')[0],
-                            meta: formatDate(r.created_at),
-                            onOpen: () => setMemoView(r),
-                            menu: <ItemMenu label={r.title} items={resourceMenu(r)} />,
-                          })
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {fileHits.length > 0 && (
-                  <>
-                    {sectionTitle(<>파일 {fileHits.length}개</>)}
-                    <div className={listBox}>
-                      {fileHits.map(({ r, f }) => {
-                        const k = fileKind(f)
-                        return (
-                          row({ id: f.id,
-                            icon: <k.Icon className={`h-5 w-5 ${k.color}`} />,
-                            name: f.file_name,
-                            sub: `📁 ${r.title} · ${fileUploader(r, f)}`,
-                            meta: formatFileSize(f.file_size),
-                            onOpen: () => openFolder(r.id),
-                            menu: <ItemMenu label={f.file_name} items={fileMenu(r, f)} />,
-                          })
-                        )
-                      })}
-                    </div>
-                  </>
-                )}
-
-                {q && rootFolders.length + rootMemos.length + fileHits.length === 0 && (
-                  <p className="py-10 text-center text-sm text-gray-500">&quot;{query}&quot;에 맞는 자료가 없어요</p>
-                )}
-              </>
-            )}
-          </>
+        {tab === 'drive' && !selecting && shownKeys.length > 0 && (
+          <p className="mt-6 hidden text-center text-[11px] text-gray-400 sm:block">
+            끌어서 폴더·위치 표시줄에 놓으면 옮겨집니다 · Ctrl+클릭으로 여러 개 선택 · Delete 로 휴지통
+          </p>
         )}
       </div>
 
-      {/* 끌어다 놓기 덮개 */}
-      {isDragging && (
+      {/* 파일 끌어다 놓기 덮개 */}
+      {isDragging && !dropTarget && (
         <div className="pointer-events-none fixed inset-0 z-40 flex items-end justify-center bg-blue-600/10 p-8 ring-4 ring-inset ring-blue-500">
           <div className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg">
-            {current && !isMemo(current) ? `"${current.title}" 폴더에 놓으세요` : '놓으면 새 폴더에 올립니다'}
+            {tab === 'drive' && current ? `"${current.title}" 폴더에 놓으세요` : '내 자료실에 놓으세요'}
           </div>
         </div>
       )}
 
-      {/* 올리는 중 */}
+      {/* 진행 */}
       {progress && (
-        <div className="fixed bottom-6 right-6 z-40 w-64 rounded-xl bg-gray-900 p-3.5 text-white shadow-xl">
-          <p className="text-sm font-semibold">올리는 중 {progress.done}/{progress.total}</p>
+        <div className="fixed bottom-20 right-4 z-40 w-64 rounded-xl bg-gray-900 p-3.5 text-white shadow-xl sm:bottom-6 sm:right-6">
+          <p className="text-sm font-semibold">{progress.label} {progress.done}/{progress.total}</p>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/20">
-            <div className="h-full bg-blue-400 transition-all" style={{ width: `${(progress.done / progress.total) * 100}%` }} />
+            <div className="h-full bg-blue-400 transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} />
           </div>
         </div>
       )}
@@ -849,14 +1362,52 @@ export default function BrokerResourcesPage() {
             </div>
             <p className="flex-1 overflow-y-auto whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed text-gray-700 dark:text-gray-300">{memoView.description}</p>
             <div className="flex items-center gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
-              <span className="min-w-0 flex-1 truncate text-xs text-gray-500">{uploaderName(memoView)} · {formatDate(memoView.created_at)}</span>
-              {canEdit(memoView) && (
+              <span className="min-w-0 flex-1 truncate text-xs text-gray-500">{uploaderOf(memoView.uploader_broker_id)} · {formatDate(memoView.created_at)}</span>
+              {canManageId(memoView.uploader_broker_id) && (
                 <button onClick={() => openDialog('editMemo', memoView)} className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">
                   <Pencil className="h-4 w-4" />고치기
                 </button>
               )}
               <button onClick={() => copyText(memoView.description ?? '')} className="inline-flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
                 <Copy className="h-4 w-4" />전체 복사
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 옮기기 창 */}
+      {moveKeys && (
+        <div role="dialog" aria-modal="true" aria-label="옮기기" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setMoveKeys(null)}>
+          <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl dark:bg-gray-900" onClick={e => e.stopPropagation()}>
+            <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+              <h2 className="font-bold text-gray-900 dark:text-white">{moveKeys.length}개 옮기기</h2>
+              <div className="mt-1 flex flex-wrap items-center gap-0.5 text-sm">
+                <button onClick={() => setMoveAt(null)} className={`rounded px-1 ${moveAt ? 'text-blue-600' : 'font-semibold text-gray-900 dark:text-white'}`}>내 자료실</button>
+                {pathOf(moveAt).map(c => (
+                  <span key={c.id} className="flex items-center gap-0.5">
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+                    <button onClick={() => setMoveAt(c.id)} className={`rounded px-1 ${c.id === moveAt ? 'font-semibold text-gray-900 dark:text-white' : 'text-blue-600'}`}>{c.title}</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="min-h-[12rem] flex-1 overflow-y-auto py-1">
+              {moveFolders.length === 0 && <p className="px-4 py-8 text-center text-sm text-gray-500">이 안에는 폴더가 없어요</p>}
+              {moveFolders.map(r => (
+                <button key={r.id} onClick={() => setMoveAt(r.id)}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+                  <Folder className="h-5 w-5 flex-shrink-0 fill-blue-600/15 text-blue-600" />
+                  <span className="min-w-0 flex-1 truncate">{r.title}</span>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+              <button onClick={() => setMoveKeys(null)} className="rounded-xl px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">취소</button>
+              <button onClick={() => { const k = moveKeys; setMoveKeys(null); void moveTo(k, moveAt) }}
+                className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                {moveAt ? `"${resById.get(moveAt)?.title}"(으)로 옮기기` : '여기(맨 위)로 옮기기'}
               </button>
             </div>
           </div>
@@ -872,15 +1423,21 @@ export default function BrokerResourcesPage() {
             onSubmit={e => { e.preventDefault(); submitDialog() }}
           >
             <h2 className="mb-3 font-bold text-gray-900 dark:text-white">
-              {{ folder: dialog.files?.length ? `새 폴더에 ${dialog.files.length}개 올리기` : '새 폴더', rename: '이름 바꾸기', memo: '새 메모', editMemo: dialog.target && isMemo(dialog.target) ? '메모 고치기' : '폴더 메모' }[dialog.mode]}
+              {{ folder: '새 폴더', memo: '새 메모', renameRes: '이름 바꾸기', renameFile: '파일 이름 바꾸기', editMemo: dialog.res?.kind === 'memo' ? '메모 고치기' : '폴더 메모' }[dialog.mode]}
             </h2>
-            <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">{dialog.mode === 'memo' || (dialog.mode === 'editMemo' && dialog.target && isMemo(dialog.target)) ? '제목' : '폴더 이름'}</label>
+            <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">
+              {dialog.mode === 'renameFile' ? '파일 이름' : dialog.mode === 'memo' || dialog.res?.kind === 'memo' ? '제목' : '폴더 이름'}
+            </label>
             <input
               autoFocus
               value={dTitle}
-              onChange={e => setDTitle(e.target.value.slice(0, 120))}
-              onFocus={e => e.target.select()}
-              maxLength={120}
+              onChange={e => setDTitle(e.target.value.slice(0, dialog.mode === 'renameFile' ? 200 : 120))}
+              onFocus={e => {
+                // 파일 이름은 확장자 앞까지만 골라 둔다(드라이브처럼)
+                const v = e.target.value
+                const dot = dialog.mode === 'renameFile' ? v.lastIndexOf('.') : -1
+                e.target.setSelectionRange(0, dot > 0 ? dot : v.length)
+              }}
               placeholder={dialog.mode === 'memo' ? '예: 표시광고 복붙' : '예: 계약서 양식'}
               className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900"
             />
@@ -897,11 +1454,6 @@ export default function BrokerResourcesPage() {
                 />
                 <p className="mt-1 text-right text-[11px] text-gray-500">{dText.length}/2000</p>
               </>
-            )}
-            {dialog.files && dialog.files.length > 0 && (
-              <ul className="mt-3 max-h-32 space-y-1 overflow-y-auto text-xs text-gray-600 dark:text-gray-400">
-                {dialog.files.map((f, i) => <li key={i} className="truncate">· {f.name} <span className="text-gray-400">({formatFileSize(f.size)})</span></li>)}
-              </ul>
             )}
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" onClick={() => setDialog(null)} disabled={saving}
