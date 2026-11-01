@@ -24,6 +24,7 @@ import { DiaryAdCommon } from '@/components/broker/diary-ad-common'
 import { useToast } from '@/components/toast'
 import { todayKST, addDays } from '@/lib/date-kst'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
+import { SOURCE_OPTIONS, SOURCE_COLORS } from '@/lib/customer-sources'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -36,7 +37,7 @@ const CUST_COLS: ColDef[] = [
   { key: 'received_date',      label: '접수일자', fixed: true, minWidth: 100 },
   { key: 'contact',            label: '연락처',   fixed: true, minWidth: 130 },
   { key: 'interest',           label: '관심물건', fixed: true, minWidth: 110, hasOptions: true, defaultOpts: ['상가','창고','오피스텔','건물','아파트','토지'] },
-  { key: 'source',             label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: ['부소장','당근','플레이스','네이버광고','블로그','공동','지인','톡톡','기타'] },
+  { key: 'source',             label: '유입',     fixed: true, minWidth: 90,  hasOptions: true, defaultOpts: SOURCE_OPTIONS },
   { key: 'status',             label: '진행상황', fixed: true, minWidth: 100, hasOptions: true, defaultOpts: ['잠재','진행중','종료','계약완료'] },
   { key: 'consult_note',       label: '상담내용', fixed: true, minWidth: 260, isLong: true },
   { key: 'proposed_properties',label: '제안 매물', fixed: true, minWidth: 180 },
@@ -53,12 +54,6 @@ const DEFAULT_COL_SETTINGS: ColSettings = {
   multi:      {},
 }
 
-const SOURCE_COLORS: Record<string, string> = {
-  '부소장':'bg-blue-100 text-blue-700','빠방':'bg-blue-100 text-blue-700','당근':'bg-orange-100 text-orange-700',
-  '플레이스':'bg-sky-100 text-sky-700','네이버광고':'bg-green-100 text-green-700',
-  '블로그':'bg-emerald-100 text-emerald-700','공동':'bg-purple-100 text-purple-700',
-  '지인':'bg-pink-100 text-pink-700','톡톡':'bg-yellow-100 text-yellow-700','기타':'bg-gray-100 text-gray-600',
-}
 const STATUS_COLORS: Record<string, string> = {
   '잠재':'bg-gray-100 text-gray-600','진행중':'bg-blue-100 text-blue-700',
   '종료':'bg-red-100 text-red-600','계약완료':'bg-green-100 text-green-700',
@@ -1401,7 +1396,7 @@ export default function BrokerDiaryPage() {
       if (cd?.type === 'select') return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={settings.options[col.id] ?? []} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} multi={settings.multi[col.id]} />
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
-    const def = col.def; const opts = settings.options[def.key] ?? def.defaultOpts ?? []; const colorMap = COL_COLORS[def.key]
+    const def = col.def; const opts = def.key === 'source' ? SOURCE_OPTIONS : (settings.options[def.key] ?? def.defaultOpts ?? []); const colorMap = COL_COLORS[def.key]
     switch (def.key) {
       case 'request':       return <LongTextCell value={c.request} onSave={v => saveCustomerField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
       case 'received_date': return <TextCell value={c.received_date} onSave={v => saveCustomerField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
@@ -1553,7 +1548,7 @@ export default function BrokerDiaryPage() {
                             {col.type === 'custom' ? (() => {
                               const cd = settings.customCols.find(cc => cc.id === col.id)
                               return <ColumnHeader label={col.name} isCustom colType={cd?.type ?? 'text'} onChangeType={t => changeCustomColType(col.id, t)} hasOptions={cd?.type === 'select'} options={settings.options[col.id] ?? []} onSetOptions={opts => setOpts(col.id, opts)} isMulti={settings.multi[col.id]} onChangeMulti={cd?.type === 'select' ? m => setMulti(col.id, m) : undefined} onHide={() => hideCol(col.id)} onRename={n => renameCustomCol(col.id, n)} onDelete={() => deleteCustomCol(col.id)} />
-                            })() : <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []} onSetOptions={opts => setOpts(col.def.key, opts)} isMulti={settings.multi[col.def.key]} onChangeMulti={col.def.hasOptions ? m => setMulti(col.def.key, m) : undefined} onHide={() => hideCol(col.def.key)} />}
+                            })() : <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={col.def.key === 'source' ? SOURCE_OPTIONS : (settings.options[col.def.key] ?? col.def.defaultOpts ?? [])} onSetOptions={col.def.key === 'source' ? undefined : opts => setOpts(col.def.key, opts)} isMulti={settings.multi[col.def.key]} onChangeMulti={col.def.hasOptions ? m => setMulti(col.def.key, m) : undefined} onHide={() => hideCol(col.def.key)} />}
                           </div>
                           <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
                         </th>

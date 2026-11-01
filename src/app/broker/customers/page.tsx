@@ -24,6 +24,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import { todayKST } from '@/lib/date-kst'
+import { SOURCE_OPTIONS, SOURCE_COLORS } from '@/lib/customer-sources'
 import { formatPhoneKR, looksLikePhone } from '@/lib/validation'
 import { checkYmdField } from '@/lib/property-field-check'
 
@@ -39,7 +40,7 @@ const CUST_COLS: ColDef[] = [
   { key: 'contact',        label: '연락처',   fixed: true, minWidth: 130 },
   { key: 'assignee',       label: '담당자',   fixed: true, minWidth: 90, hasOptions: true },
   { key: 'category',       label: '구분',     fixed: true, minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
-  { key: 'source',         label: '유입',     fixed: true, minWidth: 90, hasOptions: true, defaultOpts: ['부소장', '당근', '플레이스', '네이버광고', '블로그', '공동', '지인', '톡톡', '다방', '워킹', '기타'] },
+  { key: 'source',         label: '유입',     fixed: true, minWidth: 90, hasOptions: true, defaultOpts: SOURCE_OPTIONS },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -54,14 +55,6 @@ const DEFAULT_COL_SETTINGS: ColSettings = {
   multi:      {},
 }
 
-const SOURCE_COLORS: Record<string, string> = {
-  '부소장': 'bg-blue-100 text-blue-700', '빠방': 'bg-blue-100 text-blue-700', '당근': 'bg-orange-100 text-orange-700',
-  '플레이스': 'bg-sky-100 text-sky-700', '네이버광고': 'bg-green-100 text-green-700',
-  '블로그': 'bg-emerald-100 text-emerald-700', '네이버블로그': 'bg-emerald-100 text-emerald-700',
-  '공동': 'bg-purple-100 text-purple-700', '지인': 'bg-pink-100 text-pink-700',
-  '톡톡': 'bg-yellow-100 text-yellow-700', '다방': 'bg-teal-100 text-teal-700',
-  '워킹': 'bg-indigo-100 text-indigo-700', '기타': 'bg-gray-100 text-gray-600',
-}
 const STATUS_COLORS: Record<string, string> = {
   '잠재': 'bg-gray-100 text-gray-600', '진행중': 'bg-blue-100 text-blue-700',
   '종료': 'bg-red-100 text-red-600', '계약완료': 'bg-green-100 text-green-700',
@@ -844,7 +837,7 @@ export default function BrokerCustomersPage() {
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
     const def = col.def
-    const opts = settings.options[def.key] ?? def.defaultOpts ?? []
+    const opts = def.key === 'source' ? SOURCE_OPTIONS : (settings.options[def.key] ?? def.defaultOpts ?? [])
     const colorMap = COL_COLORS[def.key]
     switch (def.key) {
       case 'request':       return <TextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
@@ -1098,8 +1091,8 @@ export default function BrokerCustomersPage() {
                               label={col.def.label}
                               isFixed={col.def.fixed}
                               hasOptions={col.def.hasOptions && settings.colTypes[col.def.key] !== 'text'}
-                              options={settings.options[col.def.key] ?? col.def.defaultOpts ?? []}
-                              onSetOptions={col.def.key === 'assignee' ? undefined : opts => setOpts(col.def.key, opts)}
+                              options={col.def.key === 'source' ? SOURCE_OPTIONS : (settings.options[col.def.key] ?? col.def.defaultOpts ?? [])}
+                              onSetOptions={col.def.key === 'assignee' || col.def.key === 'source' ? undefined : opts => setOpts(col.def.key, opts)}
                               colType={col.def.hasOptions && col.def.key !== 'assignee' ? (settings.colTypes[col.def.key] ?? 'select') : undefined}
                               onChangeType={col.def.hasOptions && col.def.key !== 'assignee' ? type => changeFixedColType(col.def.key, type) : undefined}
                               isMulti={settings.multi[col.def.key]}
