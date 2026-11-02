@@ -476,11 +476,12 @@ export function ChatRoom(props: Props) {
         {messages.map((m, i) => {
           const prev = messages[i - 1]
           const next = messages[i + 1]
-          const mine = m.sender_broker_id === myId
+          // 등록 봇 답장은 봇 계정(대표)이 보내지만 '부소장봇'으로 따로 보인다
+          const mine = m.sender_broker_id === myId && !m.bot_name
           const newDay = !prev || ymdKST(prev.created_at) !== ymdKST(m.created_at)
           // 같은 사람이 같은 분에 연달아 보낸 말은 한 덩어리 — 이름·사진은 첫 말, 시각은 끝 말에만
-          const sameAsPrev = !!prev && !newDay && prev.sender_broker_id === m.sender_broker_id && ampm(prev.created_at) === ampm(m.created_at)
-          const sameAsNext = !!next && ymdKST(next.created_at) === ymdKST(m.created_at) && next.sender_broker_id === m.sender_broker_id && ampm(next.created_at) === ampm(m.created_at)
+          const sameAsPrev = !!prev && !newDay && senderKey(prev) === senderKey(m) && ampm(prev.created_at) === ampm(m.created_at)
+          const sameAsNext = !!next && ymdKST(next.created_at) === ymdKST(m.created_at) && senderKey(next) === senderKey(m) && ampm(next.created_at) === ampm(m.created_at)
           const showHead = !mine && !sameAsPrev
           const unread = unreadCount(m)
           const replied = findMsg(m.reply_to_id)
@@ -497,7 +498,10 @@ export function ChatRoom(props: Props) {
                 highlight === m.id && 'rounded-lg bg-yellow-200/60 transition-colors')}>
                 {!mine && (
                   <div className="w-10 flex-shrink-0">
-                    {showHead && (
+                    {showHead && m.bot_name && (
+                      <span className="flex h-10 w-10 items-center justify-center rounded-[38%] bg-[#fee500] text-xl" aria-hidden>🤖</span>
+                    )}
+                    {showHead && !m.bot_name && (
                       <button onClick={() => m.sender_broker_id && props.onOpenProfile(m.sender_broker_id)} aria-label={`${nameOf(m.sender_broker_id)} 프로필`}>
                         <Avatar member={m.sender_broker_id ? memberById[m.sender_broker_id] : null} name={nameOf(m.sender_broker_id)} />
                       </button>
@@ -505,7 +509,7 @@ export function ChatRoom(props: Props) {
                   </div>
                 )}
                 <div className={cn('flex min-w-0 max-w-[75%] flex-col', mine ? 'items-end' : 'items-start')}>
-                  {showHead && <span className="mb-1 text-xs text-gray-700 dark:text-gray-300">{nameOf(m.sender_broker_id)}</span>}
+                  {showHead && <span className="mb-1 text-xs text-gray-700 dark:text-gray-300">{m.bot_name ?? nameOf(m.sender_broker_id)}</span>}
                   <div className={cn('group flex items-end gap-1.5', mine && 'flex-row-reverse')}>
                     <div
                       onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); setMenuMsg(m) }}
@@ -720,6 +724,8 @@ export function ChatRoom(props: Props) {
 }
 
 // ── 작은 조각들 ─────────────────────────────────────────
+
+const senderKey = (m: Msg) => (m.bot_name ? `bot:${m.bot_name}` : m.sender_broker_id)
 
 function addReact(prev: ReactMap, msgId: string, key: string, who: string): ReactMap {
   const byKey = { ...(prev[msgId] ?? {}) }

@@ -24,6 +24,7 @@ export interface Msg {
   file_name?: string | null
   reply_to_id?: string | null
   deleted_at?: string | null
+  bot_name?: string | null            // 등록 봇 답장(부소장등록 bot.py)
   created_at: string
 }
 export interface Member {
