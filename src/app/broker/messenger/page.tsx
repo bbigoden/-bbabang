@@ -86,10 +86,8 @@ export default function BrokerMessengerPage() {
 
   const loadThreads = useCallback(async () => {
     if (!office || !myId) return
-    // 사무소 전체방은 처음 들어온 사람이 만든다(동시에 만들면 유일 인덱스가 막으므로 다시 읽는다)
-    const { data: g } = await supabase.from('office_chat_threads').select('id').eq('office_broker_id', office).eq('kind', 'group').maybeSingle()
-    if (!g) await supabase.from('office_chat_threads').insert({ office_broker_id: office, kind: 'group' })
-
+    // 사무소 전체방(group)은 저절로 만들지 않는다 — 2026-11-02 사장님이 지우고 단체방으로 직접 만들기로 했다.
+    // 이미 있는 사무소의 전체방은 그대로 보인다.
     const [{ data: mine }, { data: all }] = await Promise.all([
       supabase.from('office_chat_members').select('thread_id, last_read_at, pinned_at, muted').eq('broker_id', myId),
       // RLS(oct_select)가 사무소 전체방 + 내가 멤버인 방만 돌려준다
