@@ -25,12 +25,13 @@ export function extractHos(addr: string): { addr: string; hos: string[] } {
   // 2) 'N호' / 'N,M호' / 'N~M호' 등 다중 호수
   // '호' 뒤에 \b 를 쓰면 안 된다 — 한글은 단어 글자가 아니라 '203호' 끝에서 경계가 안 생겨 호수를 영영 못 찾았다
   // (5/28~11/01 자동채움이 호수 매물 면적을 하나도 못 채움). 뒤에 글자·숫자가 이어지지 않는지로 본다.
-  const m = addr.match(/(\d{1,4}(?:\s*[,\-·~]\s*\d{1,4})*)\s*호(?![가-힣A-Za-z0-9])/)
+  // '301호, 302호' 처럼 호수마다 '호'를 붙여 써도 한 묶음으로 — 예전엔 301호만 읽어 면적이 반만 들어갔다(11-02)
+  const m = addr.match(/(\d{1,4}(?:\s*호?\s*[,\-·~]\s*\d{1,4})*)\s*호(?![가-힣A-Za-z0-9])/)
   if (!m) return { addr: addr.trim(), hos: [] }
   const start = m.index ?? 0
   const cleaned = (addr.slice(0, start) + ' ' + addr.slice(start + m[0].length)).replace(/\s+/g, ' ').trim()
   // 호수 확장
-  const parts = m[1].trim().split(/\s*[,·]\s*/)
+  const parts = m[1].replace(/호/g, '').trim().split(/\s*[,·]\s*/)
   const out: string[] = []
   for (const p of parts) {
     const t = p.trim()

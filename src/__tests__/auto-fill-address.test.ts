@@ -36,6 +36,9 @@ describe('자동채움 호수 뽑기', () => {
   it('여러 호·범위', () => {
     expect(extractHos('불당동 728 301,302호').hos).toEqual(['301', '302'])
     expect(extractHos('장재리 1720 234~236호').hos).toEqual(['234', '235', '236'])
+    // 호수마다 '호'를 붙여 쓴 것 — 예전엔 앞 호수 하나만 읽어 면적이 반만 들어갔다
+    expect(extractHos('불당동 699 3층 301호, 302호').hos).toEqual(['301', '302'])
+    expect(extractHos('불당동 1628 104호,106호')).toEqual({ addr: '불당동 1628', hos: ['104', '106'] })
   })
   it('동-호 표기', () => {
     expect(extractHos('불당동 1492 302-2401')).toEqual({ addr: '불당동 1492 302동', hos: ['2401'] })
