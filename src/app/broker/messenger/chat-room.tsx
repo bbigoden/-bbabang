@@ -25,7 +25,9 @@ const MAX_FILE = 20 * 1024 * 1024
 export function Avatar({ member, name, size = 40, className }: { member?: Member | null; name?: string; size?: number; className?: string }) {
   const urls = useSignedUrls([member?.avatarPath])
   const url = urlOf(urls, member?.avatarPath)
-  const label = (member?.name ?? name ?? '?').trim()[0] ?? '?'
+  // '(퇴사)'처럼 괄호로 시작하는 이름은 첫 글자가 '(' 라 물음표로 둔다
+  const first = (member?.name ?? name ?? '').trim()[0]
+  const label = first && first !== '(' ? first : '?'
   return (
     <span
       className={cn('flex flex-shrink-0 items-center justify-center overflow-hidden rounded-[38%] bg-[#a6bdd1] text-white font-bold dark:bg-gray-700', className)}
@@ -651,7 +653,7 @@ export function ChatRoom(props: Props) {
 
       {/* 채팅방 서랍(오른쪽에서 나옴) */}
       {sideOpen && (
-        <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onClick={() => setSideOpen(false)}>
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={() => setSideOpen(false)}>
           <aside className="flex h-full w-full max-w-xs flex-col bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()} aria-label="채팅방 서랍">
             <div className="flex items-center justify-between px-4 py-3">
               <h3 className="font-bold text-gray-900 dark:text-white">채팅방 서랍</h3>
