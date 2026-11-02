@@ -85,6 +85,15 @@ type Row = {
   pnu: string | null
   /** 중개사가 주소를 숨긴 매물. 지번은 보이지만 광고에 쓰면 안 된다. 모르면 null. */
   address_hidden: boolean | null
+  /**
+   * 같은 중개사가 같은 조건(종류·거래·동·면적·층)으로 전에 올린 광고와 그때 가격.
+   * DB 가 받을 때 찾아 붙인다(`naver_articles_find_prev`). 네이버만 — 당근은 끌올해도
+   * 번호가 그대로라 재광고가 새 매물로 섞이지 않는다.
+   */
+  prev_article_no: string | null
+  prev_price_deal: number | null
+  prev_price_deposit: number | null
+  prev_price_rent: number | null
 }
 
 /**
@@ -138,7 +147,7 @@ const SOURCES = {
     /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
     takes: '5~8분',
     /** 받을 칸. collect_listings 가 이 차례대로 배열에 담아 준다. */
-    columns: ['article_no', 'real_estate_type', 'trade_type', 'division', 'sector', 'brokerage_name', 'exposure_start_date', 'first_seen_at', 'last_seen_at', 'gone_at', 'area_exclusive', 'area_supply', 'area_land', 'area_floor', 'price_deal', 'price_deposit', 'price_rent', 'floor_info', 'pnu', 'li', 'address_hidden'] as readonly string[],
+    columns: ['article_no', 'real_estate_type', 'trade_type', 'division', 'sector', 'brokerage_name', 'exposure_start_date', 'first_seen_at', 'last_seen_at', 'gone_at', 'area_exclusive', 'area_supply', 'area_land', 'area_floor', 'price_deal', 'price_deposit', 'price_rent', 'floor_info', 'pnu', 'li', 'address_hidden', 'prev_article_no', 'prev_price_deal', 'prev_price_deposit', 'prev_price_rent'] as readonly string[],
     /** 매물종류 이름 → 코드들 */
     kinds: PROPERTY_KINDS as Record<string, readonly string[]>,
     kindOf,
@@ -182,6 +191,10 @@ const SOURCES = {
       price_deal: a.price_deal,
       price_deposit: a.price_deposit,
       price_rent: a.price_rent,
+      prev_article_no: a.prev_article_no,
+      prev_price_deal: a.prev_price_deal,
+      prev_price_deposit: a.prev_price_deposit,
+      prev_price_rent: a.prev_price_rent,
     }),
   },
   daangn: {
@@ -229,6 +242,10 @@ const SOURCES = {
       price_deal: a.price_deal,
       price_deposit: a.price_deposit,
       price_rent: a.price_rent,
+      prev_article_no: null,
+      prev_price_deal: null,
+      prev_price_deposit: null,
+      prev_price_rent: null,
     }),
   },
 } as const
@@ -487,6 +504,27 @@ function 값(r: Row): string | null {
   return null
 }
 
+/**
+ * 전에 올린 광고와 견준 결과. 전 광고가 없으면 null.
+ *
+ * 매매는 매매가로, 임대는 월세로 견주고 월세가 같으면 보증금으로 견준다.
+ * 가격이 같으면 '재광고' — 번호만 새로 받은 것이라 새 매물로 볼 일이 아니다.
+ */
+function 이전광고(r: Row): { 종류: '재광고' | '인하' | '인상'; 전: string } | null {
+  if (!r.prev_article_no) return null
+  const 전 = { ...r, price_deal: r.prev_price_deal, price_deposit: r.prev_price_deposit, price_rent: r.prev_price_rent }
+  const 전값 = 값(전) ?? '가격 없음'
+  const 차 = r.price_deal || r.prev_price_deal
+    ? (r.price_deal ?? 0) - (r.prev_price_deal ?? 0)
+    : ((r.price_rent ?? 0) - (r.prev_price_rent ?? 0)) || ((r.price_deposit ?? 0) - (r.prev_price_deposit ?? 0))
+  return { 종류: 차 < 0 ? '인하' : 차 > 0 ? '인상' : '재광고', 전: 전값 }
+}
+
+/** 중개사 이름에서 다들 붙이는 꼬리를 뗀다 — 좁은 칸에서 이름이 꼬리에 밀려 잘리지 않게. */
+function 중개사(이름: string | null): string {
+  return (이름 ?? '').replace(/\s*(공인중개사사무소|공인중개사무소|공인중개사|부동산중개법인|중개법인)$/, '').trim()
+}
+
 /** 하루 안에 처음 받은 매물인가. 곳이 주는 날짜가 아니라 **우리가 처음 본 시각** 기준이다. */
 function isFresh(r: Row): boolean {
   return Date.now() - new Date(r.first_seen_at).getTime() < 24 * 60 * 60 * 1000
@@ -563,6 +601,8 @@ export default function CollectPage() {
 
   const [unseenOnly, setUnseenOnly] = useState(false)
   const [goneOnly, setGoneOnly] = useState(false)
+  /** 같은 조건 그대로 다시 올린 광고를 뺀다. 가격을 바꿔 다시 올린 것은 남긴다 — 그건 볼 만하다. */
+  const [재광고빼기, set재광고빼기] = useState(false)
   // 빈 배열 = 전부 본다. 하나라도 고르면 고른 것만.
   const [regions, setRegions] = useState<string[]>([])
   const [kinds, setKinds] = useState<string[]>([])
@@ -621,8 +661,10 @@ export default function CollectPage() {
       // 이름을 바꾼 정렬(지번순 → 지번 오름차순)이 담겨 있으면 최신순으로 돌린다.
       setSort(Object.values(SORTS).includes(담긴것?.sort) ? 담긴것!.sort : 'date')
       set조건열림(담긴것?.열림 ?? false)
+      // [안 본 것만] 과 달리 기억한다 — 켜 둬도 화면이 비지 않아 고장으로 오해할 일이 없다.
+      set재광고빼기(담긴것?.재광고빼기 ?? false)
       const 기간 = 담긴것?.기간
-      const 날 = /^d{4}-d{2}-d{2}$/
+      const 날 = /^\d{4}-\d{2}-\d{2}$/
       if (기간?.오늘까지 && Number.isInteger(기간.날수) && 기간.날수 >= 1 && 기간.날수 <= LONG_DAYS) {
         set첫날(addDays(todayKST(), -(기간.날수 - 1))); set끝날(todayKST())
       } else if (날.test(기간?.첫날 ?? '') && 날.test(기간?.끝날 ?? '')
@@ -637,11 +679,11 @@ export default function CollectPage() {
     if (되살림.current !== source) return   // 되살리기 전에 빈 값을 덮어쓰지 않는다
     try {
       localStorage.setItem(저장열쇠, JSON.stringify({
-        regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림,
+        regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림, 재광고빼기,
         기간: 끝날 === todayKST() ? { 오늘까지: true, 날수: 날수(첫날, 끝날) } : { 첫날, 끝날 },
       }))
     } catch { /* 위와 같음 */ }
-  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림, 첫날, 끝날])
+  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림, 재광고빼기, 첫날, 끝날])
 
   /** 사무소 기준 id — 직원이면 대표의 id 다. 설정은 사무소 단위로 하나뿐이다. */
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
@@ -985,6 +1027,7 @@ export default function CollectPage() {
       // 사무소에서 아무도 안 본 것만. 직원이 확인한 것을 또 훑을 이유가 없다.
       if (unseenOnly && (seen.get(r.article_no)?.사무소 ?? 0) > 0) return false
       if (우리.size && r.owner && 우리.has(r.owner)) return false
+      if (재광고빼기 && 이전광고(r)?.종류 === '재광고') return false
       if (regions.length) {
         const region = REGIONS.find(g => r.division?.startsWith(g.divisionPrefix))
         if (!region || !regions.includes(region.id)) return false
@@ -1019,7 +1062,7 @@ export default function CollectPage() {
       }
       return true
     })
-  }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, seen,
+  }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, 재광고빼기, seen,
       settings, auth.broker, src,
       면적최소, 면적최대, 가격최소, 가격최대, 월세최소, 월세최대, 층])
 
@@ -1107,6 +1150,8 @@ export default function CollectPage() {
     () => { const 오늘 = todayKST(); return filtered.filter(r => ymdKST(r.first_seen_at) === 오늘).length },
     [filtered],
   )
+  /** 목록 가운데 재광고 건수. [재광고 빼기] 를 누를 만한지 숫자로 보여 준다. */
+  const 재광고건수 = useMemo(() => filtered.filter(r => 이전광고(r)?.종류 === '재광고').length, [filtered])
 
   /** 하트비트가 이보다 오래되면 꺼진 것으로 본다. 광고관리 화면과 같은 잣대다. */
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < 60_000
@@ -1211,6 +1256,10 @@ export default function CollectPage() {
             </Chip>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
+            {/* 네이버 '새 매물' 의 절반 넘게가 번호만 새로 받은 재광고다(11/02 실측 59%). */}
+            {source === 'naver' && (
+              <Chip on={재광고빼기} onClick={() => { set재광고빼기(v => !v); setPage(1) }}>재광고 빼기</Chip>
+            )}
             {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
                 이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
                 켜지는 일(받아올 때 가려내기)까지 같이 맡는다. */}
@@ -1447,6 +1496,7 @@ export default function CollectPage() {
                 {sorted.length}건
                 {!unseenOnly && unseenCount < sorted.length && ` · 안 본 것 ${unseenCount}건`}
                 {오늘새로 > 0 && ` · 오늘 새로 ${오늘새로}건`}
+                {재광고건수 > 0 && ` · 재광고 ${재광고건수}건`}
               </p>
               {/* 값이 섞여 있으면 세워 봐야 사과와 오렌지를 견주는 셈이다.
                   막지는 않고 말해 준다 — 아는 채로 보는 것과 모르고 보는 것은 다르다. */}
@@ -1468,6 +1518,7 @@ export default function CollectPage() {
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
               {shown.map(r => {
                 const 본것 = seen.get(r.article_no) ?? { 나: 0, 사무소: 0 }
+                const 전광고 = 이전광고(r)
                 return (
                   <li key={r.article_no}>
                     <a
@@ -1545,12 +1596,40 @@ export default function CollectPage() {
                               비공개
                             </span>
                           )}
+                          {/* 가격을 바꿔 다시 올린 것은 색으로, 그대로 다시 올린 것은 회색으로.
+                              인하는 손님에게 바로 다시 권할 만한 소식이라 눈에 띄게 둔다. */}
+                          {전광고 && (
+                            <span
+                              title={전광고.종류 === '재광고'
+                                ? `같은 중개사가 같은 조건(종류·거래·동·면적·층·가격)으로 전에 올린 광고가 있습니다 — 번호만 새로 받았습니다. 이전 매물번호 ${r.prev_article_no}`
+                                : `같은 중개사가 같은 매물을 가격만 바꿔 다시 올렸습니다. 이전 ${전광고.전} → 지금 ${값(r) ?? '가격 없음'} (이전 매물번호 ${r.prev_article_no})`}
+                              className={`shrink-0 whitespace-nowrap text-[11px] ${
+                                전광고.종류 === '인하' ? 'font-semibold text-blue-600 dark:text-blue-400'
+                                  : 전광고.종류 === '인상' ? 'font-semibold text-red-600 dark:text-red-400'
+                                    : 'text-gray-400 dark:text-gray-500'}`}
+                            >
+                              {/* 폰은 한 줄이 좁아 '▼인하' 까지만. 이전 가격은 넓은 화면에서. */}
+                              {전광고.종류 === '재광고' ? '재광고' : <>
+                                {전광고.종류 === '인하' ? '▼' : '▲'}
+                                <span className="sm:hidden">{전광고.종류}</span>
+                                <span className="hidden sm:inline"> {전광고.전}에서</span>
+                              </>}
+                            </span>
+                          )}
+                        </span>
+                        {/* 올린 중개사. 같은 매물을 누가 쥐고 있는지, 공동중개를 누구와 하게 될지
+                            고를 때 본다. 넓은 화면에서는 제 칸, 폰에서는 소재지 뒤에 줄여 적는다. */}
+                        <span
+                          title={r.owner ?? ''}
+                          className="min-w-0 max-w-[35%] shrink-0 truncate text-xs text-gray-500 sm:order-7 sm:w-[120px] sm:max-w-none dark:text-gray-500"
+                        >
+                          {중개사(r.owner)}
                         </span>
                         {/* 배지와 횟수를 **한 칸**에 모은다. 따로 두면 어떤 줄은 배지가,
                             어떤 줄은 숫자가 서로 다른 자리에 찍혀 눈에 거슬린다.
                             셋은 한 번에 하나만 나온다 — 사라짐 > 본 횟수 > 신규 순. */}
                         <span
-                          className="flex w-14 shrink-0 items-center justify-end sm:order-7"
+                          className="flex w-14 shrink-0 items-center justify-end sm:order-8"
                           title={본것.사무소 ? `사무소 사람들이 ${본것.사무소}회 봤습니다 (내가 ${본것.나}회)` : ''}
                         >
                           {r.gone_at ? (
@@ -1559,7 +1638,7 @@ export default function CollectPage() {
                             <span className="text-xs leading-5 tabular-nums text-gray-400 dark:text-gray-600">
                               {본것.사무소}회 봄
                             </span>
-                          ) : isFresh(r) ? (
+                          ) : isFresh(r) && !전광고 ? (
                             <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
                           ) : null}
                         </span>
