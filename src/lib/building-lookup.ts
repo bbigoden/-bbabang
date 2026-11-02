@@ -86,7 +86,7 @@ async function callSeumPage(url: string, retries = 2): Promise<{ items?: { item?
   return null
 }
 
-async function callSeum(seumKey: string, endpoint: string, params: Record<string, string>): Promise<SeumItem[]> {
+async function callSeum(seumKey: string, endpoint: string, params: Record<string, string>, strict = false): Promise<SeumItem[]> {
   const PAGE_SIZE = 100
   const all: SeumItem[] = []
 
@@ -101,7 +101,12 @@ async function callSeum(seumKey: string, endpoint: string, params: Record<string
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
 
     const body = await callSeumPage(url.toString())
-    if (!body) break
+    // 세움터가 시간 초과(SERVICETIMEOUT)로 답을 못 하면 '건물 없음'이 아니라 오류다 — 예전엔 빈 결과로 보고
+    // "건축물대장에 없는 주소예요"라고 안내했다(11-02 일괄 점검에서 멀쩡한 주소 여럿이 그렇게 나옴)
+    if (!body) {
+      if (page === 1 && strict) throw new Error('seum_unavailable')
+      break
+    }
     const item = body?.items?.item
     if (!item) break
     const rows = Array.isArray(item) ? item : [item]
@@ -179,8 +184,8 @@ export async function lookupBuilding(body: AutoFillBody, deps: LookupDeps): Prom
     const dongParam: Record<string, string> = dongFilter ? { dongNm: dongFilter } : {}
 
     try {
-      let title = await callSeum(deps.seumKey, 'getBrTitleInfo', { ...addr, ...dongParam, regstrKindCd: '4' })
-      if (title.length === 0) title = await callSeum(deps.seumKey, 'getBrTitleInfo', { ...addr, ...dongParam })
+      let title = await callSeum(deps.seumKey, 'getBrTitleInfo', { ...addr, ...dongParam, regstrKindCd: '4' }, true)
+      if (title.length === 0) title = await callSeum(deps.seumKey, 'getBrTitleInfo', { ...addr, ...dongParam }, true)
       if (title.length === 0) {
         return { status: 404, data: { error: 'building_not_found' } }
       }
