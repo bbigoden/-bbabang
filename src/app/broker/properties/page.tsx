@@ -2286,6 +2286,10 @@ function BrokerPropertiesContent() {
     notifyOwnerOfBrokerAction(broker.id, 'property', `/broker/properties?focus=${data.id}`)
     // 등록하면 자동채움(건축물대장 면적·층·유형·좌표)도 바로 — 버튼을 따로 눌러야 해서 면적 빈 매물이 쌓였다(11-01)
     void autoFillRow(data.id, address)
+    // 등록 창은 중복 경고를 안 거쳐 같은 매물이 담당 둘로 들어갔다(11-02) — 표에서 주소 고칠 때와 같은 경고
+    if (officeIdRef.current) void findDuplicateProperty(supabase, officeIdRef.current, address, newProp.deal_type, data.id).then(dup => {
+      if (dup) toast.info(`⚠️ 같은 매물이 이미 있어요: ${dup.address} · ${dup.deal_type}${dup.assignee ? ` · 담당 ${dup.assignee}` : ''}`)
+    })
   }
 
   const deleteProperty = useCallback((id: string) => {

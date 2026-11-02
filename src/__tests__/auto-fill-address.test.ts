@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest'
 import { extractHos, splitAddressForAutoFill } from '@/lib/auto-fill-address'
+import { propertyKey } from '@/lib/dup-check'
+
+describe('매물 중복 키', () => {
+  // 11-02: 글자 그대로 비교해 '충남'/'충청남도'만 달라도 다른 매물로 봤다
+  it('시·도 표기·번지·도로명 괄호가 달라도 같은 매물', () => {
+    expect(propertyKey('충남 천안시 동남구 신부동 466-11')).toBe(propertyKey('충청남도 천안시 동남구 신부동 466-11'))
+    expect(propertyKey('충남 천안시 서북구 불당동 1828 104호')).toBe(propertyKey('충청남도 천안시 서북구 불당동 1828번지 104호'))
+    expect(propertyKey('충남 천안시 서북구 불당동 1846 116호 (충청남도 천안시 서북구 불당25로 8)')).toBe(propertyKey('천안시 서북구 불당동 1846 116호'))
+  })
+  it('호수·건물 동·지번이 다르면 다른 매물', () => {
+    expect(propertyKey('불당동 1828 104호')).not.toBe(propertyKey('불당동 1828 204호'))
+    expect(propertyKey('불당동 1492 302동 2401호')).not.toBe(propertyKey('불당동 1492 301동 2401호'))
+    expect(propertyKey('불당동 1542 205호')).not.toBe(propertyKey('불당동 1542-1 205호'))
+    expect(propertyKey('불당동 728 301,302호')).toBe(propertyKey('불당동 728 302, 301호'))
+  })
+})
 
 describe('자동채움 호수 뽑기', () => {
   // 11-01: '호\b' 로 찾다가 한글 뒤라 '203호' 를 하나도 못 찾았다
