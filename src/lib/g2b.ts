@@ -101,6 +101,11 @@ const num = (s: string | undefined | null): number | null => {
   const n = Number(t)
   return Number.isFinite(n) ? n : null
 }
+// 금액 — 원본에 가끔 말도 안 되는 값(2.7e19 원)이 섞여 DB bigint 를 넘겨 수집 전체가 멈췄다(11/02). 그런 값은 비운다
+const won = (s: string | undefined | null): number | null => {
+  const n = num(s)
+  return n != null && Math.abs(n) <= 1e15 ? n : null
+}
 const str = (s: string | undefined | null) => ((s ?? '').trim() || null)
 
 // ── 행 변환 ────────────────────────────────────────────────
@@ -116,8 +121,8 @@ export function toNoticeRow(x: Raw) {
     cntrct_mthd: str(x.cntrctCnclsMthdNm),
     sucsfbid_mthd: str(x.sucsfbidMthdNm),
     lwlt_rate: num(x.sucsfbidLwltRate),
-    presmpt_prce: num(x.presmptPrce),
-    bdgt_amt: num(x.bdgtAmt),
+    presmpt_prce: won(x.presmptPrce),
+    bdgt_amt: won(x.bdgtAmt),
     site_region: str(x.cnstrtsiteRgnNm),
     ntce_at: kstToIso(x.bidNtceDt),
     bid_close_at: kstToIso(x.bidClseDt),
@@ -141,12 +146,12 @@ export function toBsisPatch(x: Raw) {
   const a = useA
     ? [x.npnInsrprm, x.mrfnHealthInsrprm, x.odsnLngtrmrcprInsrprm, x.rtrfundNon, x.sftyMngcst, x.sftyChckMngcst,
        x.qltyMngcstAObjYn === 'Y' ? x.qltyMngcst : '0']
-        .reduce((s, v) => s + (num(v) ?? 0), 0)
+        .reduce((s, v) => s + (won(v) ?? 0), 0)
     : 0
   return {
     bid_ntce_no: x.bidNtceNo,
     bid_ntce_ord: x.bidNtceOrd || '000',
-    bssamt: num(x.bssamt),
+    bssamt: won(x.bssamt),
     rng_bgn: num(x.rsrvtnPrceRngBgnRate),
     rng_end: num(x.rsrvtnPrceRngEndRate),
     a_amount: a,
@@ -166,7 +171,7 @@ export function toResultRow(x: Raw) {
     prtcpt_cnum: num(x.prtcptCnum),
     winner_nm: str(x.bidwinnrNm),
     winner_bizno: str(x.bidwinnrBizno),
-    sucsf_amt: num(x.sucsfbidAmt),
+    sucsf_amt: won(x.sucsfbidAmt),
     sucsf_rate: num(x.sucsfbidRate),
   }
 }
@@ -178,9 +183,9 @@ export function toPrepar(items: Raw[]) {
   const first = items[0]
   if (!first) return null
   const prices: PriceSlot[] = items
-    .map(x => ({ sno: num(x.compnoRsrvtnPrceSno) ?? 0, price: num(x.bsisPlnprc) ?? 0, drawn: x.drwtYn === 'Y', picks: num(x.drwtNum) ?? 0 }))
+    .map(x => ({ sno: num(x.compnoRsrvtnPrceSno) ?? 0, price: won(x.bsisPlnprc) ?? 0, drawn: x.drwtYn === 'Y', picks: num(x.drwtNum) ?? 0 }))
     .sort((a, b) => a.sno - b.sno)
-  return { bssamt: num(first.bssamt), plnprc: num(first.plnprc), prices }
+  return { bssamt: won(first.bssamt), plnprc: won(first.plnprc), prices }
 }
 
 /** 개찰완료 목록 한 줄 → 업체별 투찰 */
@@ -193,7 +198,7 @@ export function toBidRow(x: Raw, rbidNo: string) {
     rank: num(x.opengRank) ?? 0,
     bizno: (x.prcbdrBizno ?? '').trim(),
     company_nm: str(x.prcbdrNm),
-    amount: num(x.bidprcAmt),
+    amount: won(x.bidprcAmt),
     rate: num(x.bidprcrt),
     picks,
     rmrk: str(x.rmrk),

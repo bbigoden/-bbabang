@@ -268,7 +268,7 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
     else if (e instanceof D2bError && e.code === '22') report.stoppedBy = 'limit'
     else {
       report.stoppedBy = 'error'
-      report.error = e instanceof Error ? e.message : String(e)
+      report.error = e instanceof Error ? e.message : (e as { message?: string })?.message ?? String(e)
       console.error('[d2b-collect]', e)
     }
   }

@@ -325,7 +325,8 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     }
     else {
       report.stoppedBy = 'error'
-      report.error = e instanceof Error ? e.message : String(e)
+      // DB 오류는 Error 가 아닌 객체로 온다 — String(e) 는 '[object Object]'
+      report.error = e instanceof Error ? e.message : (e as { message?: string })?.message ?? String(e)
       console.error('[bid-collect]', e)
     }
   }
