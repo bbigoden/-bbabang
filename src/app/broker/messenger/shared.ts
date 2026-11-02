@@ -1,0 +1,145 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { todayKST, ymdKST, hmKST, addDays } from '@/lib/date-kst'
+
+export interface Thread {
+  id: string
+  kind: 'group' | 'dm' | 'team'
+  dm_key: string | null
+  title: string | null
+  office_broker_id: string
+  notice_message_id: string | null
+  created_at: string
+}
+export interface Msg {
+  id: string
+  thread_id: string
+  sender_broker_id: string | null
+  body: string
+  image_url?: string | null
+  image_paths?: string[] | null
+  file_url?: string | null
+  file_name?: string | null
+  reply_to_id?: string | null
+  deleted_at?: string | null
+  created_at: string
+}
+export interface Member {
+  id: string
+  name: string
+  status: string | null
+  avatarPath: string | null
+}
+/** 내 멤버 행 — 읽은 시각·고정·알림 끄기 */
+export interface MyRow {
+  last_read_at: string | null
+  pinned_at: string | null
+  muted: boolean
+}
+
+// 카톡 공감 여섯 가지. DB 에는 키만 둔다(check 제약과 같은 목록)
+export const REACTIONS = [
+  { key: 'heart', emoji: '❤️', label: '하트' },
+  { key: 'like', emoji: '👍', label: '좋아요' },
+  { key: 'check', emoji: '✅', label: '체크' },
+  { key: 'smile', emoji: '😆', label: '웃겨요' },
+  { key: 'surprise', emoji: '😮', label: '놀라워요' },
+  { key: 'sad', emoji: '😢', label: '슬퍼요' },
+] as const
+export type ReactionKey = typeof REACTIONS[number]['key']
+export const reactionEmoji = (k: string) => REACTIONS.find(r => r.key === k)?.emoji ?? '❤️'
+
+// 날짜·시각은 한국 기준(AGENTS.md) — 서버·폰 시간대가 달라도 같은 날로 읽힌다
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+const weekday = (ymd: string) => {
+  const [y, m, d] = ymd.split('-').map(Number)
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+}
+/** 채팅 목록 시각: 오늘은 오전/오후 시:분, 어제는 '어제', 그 전은 월/일 */
+export const listTimeLabel = (iso: string) => {
+  const ymd = ymdKST(iso)
+  const today = todayKST()
+  if (ymd === today) return ampm(iso)
+  if (ymd === addDays(today, -1)) return '어제'
+  const [y, m, d] = ymd.split('-').map(Number)
+  return ymd.slice(0, 4) === today.slice(0, 4) ? `${m}월 ${d}일` : `${y}. ${m}. ${d}.`
+}
+/** 말풍선 옆 시각: 오후 3:05 */
+export const ampm = (iso: string) => {
+  const [h, mm] = hmKST(iso).split(':').map(Number)
+  if (Number.isNaN(h)) return ''
+  return `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${String(mm).padStart(2, '0')}`
+}
+/** 날짜 구분선: 2026년 11월 2일 월요일 */
+export const dayDivider = (iso: string) => {
+  const ymd = ymdKST(iso)
+  const [y, m, d] = ymd.split('-').map(Number)
+  return `${y}년 ${m}월 ${d}일 ${weekday(ymd)}요일`
+}
+
+export const imagesOf = (m: Msg): string[] =>
+  m.image_paths?.length ? m.image_paths : m.image_url ? [m.image_url] : []
+
+export const previewText = (m: Pick<Msg, 'body' | 'image_url' | 'image_paths' | 'file_url' | 'file_name' | 'deleted_at'>) => {
+  if (m.deleted_at) return '삭제된 메시지입니다.'
+  const n = m.image_paths?.length ?? (m.image_url ? 1 : 0)
+  if (n > 1) return `사진 ${n}장`
+  if (n === 1) return '사진'
+  if (m.file_url) return m.file_name || '파일'
+  return m.body
+}
+
+export const URL_RE = /https?:\/\/[^\s<>"']+/g
+
+// 첨부 버킷은 비공개 — DB에는 경로만 저장하고 렌더 시 서명 URL로 연다.
+// 과거 메시지는 public URL 전체가 저장돼 있으므로 경로를 추출해 호환.
+export const CHAT_BUCKET = 'office-chat-images'
+export const chatStoragePath = (v: string | null | undefined): string | null => {
+  if (!v) return null
+  if (!v.startsWith('http')) return v
+  const marker = `/${CHAT_BUCKET}/`
+  const i = v.indexOf(marker)
+  return i >= 0 ? decodeURIComponent(v.slice(i + marker.length).split('?')[0]) : null
+}
+
+// 서명 URL 은 화면 여러 곳(목록 프로필·대화·서랍)이 같은 경로를 쓰므로 모듈에 한 벌만 둔다.
+// 24시간 유효라 한 번 받은 것은 페이지를 떠날 때까지 다시 받지 않는다.
+const signed: Record<string, string> = {}
+const pending = new Set<string>()
+const listeners = new Set<() => void>()
+
+/** 저장값(경로 또는 과거 public URL) 목록 → 열 수 있는 URL 맵(경로 키). 서명 전 경로는 맵에 없다 */
+export function useSignedUrls(values: (string | null | undefined)[]): Record<string, string> {
+  const [, bump] = useState(0)
+  const key = values.map(v => chatStoragePath(v) ?? '').join('|')
+
+  useEffect(() => {
+    const l = () => bump(n => n + 1)
+    listeners.add(l)
+    return () => { listeners.delete(l) }
+  }, [])
+
+  useEffect(() => {
+    const paths = Array.from(new Set(key.split('|'))).filter(p => p && !signed[p] && !pending.has(p))
+    if (paths.length === 0) return
+    paths.forEach(p => pending.add(p))
+    createClient().storage.from(CHAT_BUCKET).createSignedUrls(paths, 60 * 60 * 24)
+      .then(({ data }) => {
+        for (const r of data ?? []) if (r.signedUrl && r.path) signed[r.path] = r.signedUrl
+      })
+      .finally(() => {
+        paths.forEach(p => pending.delete(p))
+        listeners.forEach(l => l())
+      })
+  }, [key])
+
+  return signed
+}
+
+/** 저장값 → 열 수 있는 URL. 서명 전이면 null */
+export const urlOf = (map: Record<string, string>, v: string | null | undefined): string | null => {
+  const p = chatStoragePath(v)
+  return p ? (map[p] ?? null) : null
+}
