@@ -16,8 +16,9 @@ import {
 import { ChatRoom, Avatar } from './chat-room'
 import {
   type Thread, type Msg, type Member, type MyRow,
-  CHAT_BUCKET, chatStoragePath, listTimeLabel, previewText, whyFailed, shrinkImage,
+  CHAT_BUCKET, chatStoragePath, listTimeLabel, previewText, whyFailed, shrinkImage, useSignedUrls, urlOf,
 } from './shared'
+import { ImageLightbox } from '@/components/image-lightbox'
 
 type Tab = 'friends' | 'chats' | 'more'
 interface Preview { id: string; text: string; at: string }
@@ -504,10 +505,19 @@ function TopTab({ label, on, onClick, badge = 0 }: { label: string; on: boolean;
 
 /** 프로필 보기 — 카톡처럼 큰 사진·이름·상태메시지, 아래에 1:1 채팅(내 프로필이면 나와의 채팅) */
 function ProfileCard({ member, isMe, onClose, onChat, onEdit }: { member: Member; isMe: boolean; onClose: () => void; onChat: () => void; onEdit: () => void }) {
+  // 사진을 누르면 크게 본다(사진이 없으면 글자 동그라미라 누를 것이 없다)
+  const urls = useSignedUrls([member.avatarPath])
+  const photo = urlOf(urls, member.avatarPath)
+  const [zoom, setZoom] = useState(false)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${member.name} 프로필`}>
       <div className="flex w-full max-w-xs flex-col items-center rounded-3xl bg-gradient-to-b from-[#8fa9c2] to-[#5d7a96] px-6 pb-6 pt-10 text-white" onClick={e => e.stopPropagation()}>
-        <Avatar member={member} size={96} className="ring-4 ring-white/30" />
+        {photo
+          ? <button onClick={() => setZoom(true)} aria-label="프로필 사진 크게 보기"><Avatar member={member} size={96} className="ring-4 ring-white/30" /></button>
+          : <Avatar member={member} size={96} className="ring-4 ring-white/30" />}
+        {zoom && photo && (
+          <ImageLightbox images={[photo]} index={0} onClose={() => setZoom(false)} onNext={() => {}} onPrev={() => {}} onGoTo={() => {}} />
+        )}
         <p className="mt-4 text-lg font-bold">{member.name}</p>
         <p className="mt-1 min-h-[1.25rem] text-center text-sm text-white/80">{member.status ?? ''}</p>
         <div className="mt-8 flex w-full border-t border-white/20 pt-4">
@@ -548,8 +558,8 @@ function ProfileEditor({ me, office, onClose, onSaved }: { me: Member; office: s
     try {
       let avatarPath = removePhoto ? null : me.avatarPath
       if (file) {
-        // 프로필은 작은 동그라미로만 보이니 넉넉히 320px 로 — 원본 2MB 사진이 목록을 느리게 했다
-        const small = await shrinkImage(file, 320)
+        // 640px 로 줄여 올린다 — 원본 2MB 사진이 목록을 느리게 했다. 누르면 크게 보므로 320px 은 흐렸다
+        const small = await shrinkImage(file, 640)
         const ext = (small.name.split('.').pop() || 'jpg').toLowerCase()
         const path = `${office}/profiles/${me.id}/${crypto.randomUUID()}.${ext}`
         const { error } = await supabase.storage.from(CHAT_BUCKET).upload(path, small, { contentType: small.type || undefined })

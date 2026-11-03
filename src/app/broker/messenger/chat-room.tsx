@@ -657,13 +657,16 @@ export function ChatRoom(props: Props) {
           rows={1}
           onChange={e => { setDraft(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px' }}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send() }
+            // 휴대폰 키보드의 줄바꿈 키는 줄만 바꾼다(카톡처럼 보내기는 버튼으로). PC 는 Enter 전송, Shift+Enter 줄바꿈
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !matchMedia('(pointer: coarse)').matches) { e.preventDefault(); send() }
           }}
           onPaste={e => {
             const files = Array.from(e.clipboardData.files)
             if (files.length) { e.preventDefault(); stage(files) }
           }}
           placeholder="메세지 입력"
+          // 전역 포커스 테두리(globals.css *:focus-visible)가 누를 때마다 네모 테두리를 씌웠다 — 이 칸은 늘 글을 쓰는 곳이라 뺀다
+          style={{ outline: 'none', borderRadius: 16 }}
           className="max-h-[120px] min-h-[36px] flex-1 resize-none rounded-2xl bg-gray-100 px-3 py-2 text-[15px] outline-none dark:bg-gray-800 dark:text-gray-100"
         />
         <button onClick={send} disabled={!draft.trim() || sending} aria-label="전송"
