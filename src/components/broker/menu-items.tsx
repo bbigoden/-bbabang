@@ -40,7 +40,7 @@ export function showItem(i: ItemDef, broker: { is_owner?: boolean | null; bid_en
 export const BROKER_ITEMS: ItemDef[] = [
   { id: 'dashboard',  href: '/dashboard/broker', label: '홈', icon: Home },
   { id: 'office',     href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
-  { id: 'messenger',  href: '/broker/messenger', label: '메신저', icon: MessagesSquare, needsOffice: true },
+  { id: 'messenger',  href: '/broker/messenger', label: '메시지', icon: MessagesSquare, needsOffice: true },
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users, needsOffice: true },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2, needsOffice: true },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList, needsOffice: true },

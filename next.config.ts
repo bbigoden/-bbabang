@@ -42,6 +42,8 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   compress: true,
+  // 이 빌드의 커밋 — 폰에 떠 있는 앱이 /api/version 과 견줘 새 배포를 알아챈다(sw-register)
+  env: { NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ?? '' },
   images: {
     remotePatterns: [
       {

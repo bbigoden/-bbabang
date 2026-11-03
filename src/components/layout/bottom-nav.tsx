@@ -5,12 +5,14 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
+import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 import {
   Home, Bell, User, Building2,
   MoreHorizontal, X, ChevronDown, LogOut, Lock,
-  LayoutDashboard, Flag, Users, ClipboardList, Gavel,
+  LayoutDashboard, Flag, Users, ClipboardList, Gavel, MessagesSquare, Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isStandaloneApp } from '@/lib/pwa-install'
 import { BROKER_ITEMS, showItem, type ItemDef } from '@/components/broker/menu-items'
 import { ADMIN_ITEMS } from '@/components/admin/menu-items'
 
@@ -33,8 +35,13 @@ export function BottomNav() {
   const pathname = usePathname() ?? ''
   const { user, profile, broker, loading } = useAuthOptional()
   const { unread } = useNotificationsCtx()
+  const chatUnread = useOfficeChatUnread()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+
+  // 홈 화면 앱으로 열렸으면 서랍의 '앱 설치'를 숨긴다
+  const [standalone, setStandalone] = useState(false)
+  useEffect(() => { setStandalone(isStandaloneApp()) }, [])
 
   // 라우트 이동 시 드로어 자동 닫힘
   useEffect(() => { setDrawerOpen(false) }, [pathname])
@@ -68,6 +75,8 @@ export function BottomNav() {
   } else if (role === 'broker') {
     items = [
       { href: '/dashboard/broker', label: '홈', icon: Home },
+      // 안 읽은 메시지 수가 더보기 서랍 안에 묻혀 폰에서는 배지가 안 보였다 — 탭으로 꺼낸다
+      { href: '/broker/messenger', label: '메시지', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
       // 사무소 메뉴는 menu-items 의 needsOffice 와 같은 뜻 — 등록 전엔 탭에도 자물쇠를 단다
       { href: '/broker/customers', label: '고객', icon: Users, needsOffice: true },
       { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
@@ -263,6 +272,11 @@ export function BottomNav() {
                       >
                         <Icon className="h-4 w-4 flex-shrink-0" />
                         <span className="flex-1">{item.label}</span>
+                        {item.id === 'messenger' && chatUnread > 0 && (
+                          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
+                            {chatUnread > 99 ? '99+' : chatUnread}
+                          </span>
+                        )}
                         {itemLocked && <Lock className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" aria-hidden />}
                       </Link>
                     </li>
@@ -271,8 +285,17 @@ export function BottomNav() {
               </ul>
             </nav>
 
-            {/* 푸터 — 알림 + 로그아웃 */}
+            {/* 푸터 — 앱 설치 + 알림 + 로그아웃 */}
             <div className="border-t border-gray-200 dark:border-gray-800 p-3 flex flex-col gap-0.5">
+              {!standalone && (
+                <Link
+                  href="/install"
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/15"
+                >
+                  <Download className="h-4 w-4 flex-shrink-0" />
+                  앱 설치
+                </Link>
+              )}
               <Link
                 href="/notifications"
                 className={cn(

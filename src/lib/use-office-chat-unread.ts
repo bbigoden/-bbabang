@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthOptional } from '@/lib/auth-context'
+import { setAppBadgeCount } from '@/lib/app-badge'
 
 /**
  * 사내 메신저 전체 안 읽은 메시지 수 (사이드바/하단탭 '대화' 배지용).
@@ -29,6 +30,7 @@ function start(brokerId: string) {
     if (!alive || !shared) return
     shared.count = n
     shared.listeners.forEach(l => l(n))
+    setAppBadgeCount(n)
   }
 
   const refresh = async () => {
@@ -64,7 +66,11 @@ function start(brokerId: string) {
 export function useOfficeChatUnread(): number {
   const auth = useAuthOptional()
   const brokerId = !auth.loading && auth.profile?.role === 'broker' ? auth.broker?.id ?? null : null
+  const signedOut = !auth.loading && !auth.user
   const [count, setCount] = useState(0)
+
+  // 로그아웃하면 앱 아이콘에 남은 숫자도 지운다(다음 사람에게 앞사람 수가 보이지 않게)
+  useEffect(() => { if (signedOut) setAppBadgeCount(0) }, [signedOut])
 
   useEffect(() => {
     if (!brokerId) { setCount(0); return }

@@ -9,10 +9,13 @@
 // - navigate(HTML) : 내비게이션 프리로드 응답 우선, 실패 시에만 offline.html fallback
 // - 푸시 알림 / 클릭 처리
 
-const VERSION = 'busojang-v4'
+const VERSION = 'busojang-v5'
 const STATIC_CACHE = `${VERSION}-static`
 const IMAGE_CACHE = `${VERSION}-images`
 const OFFLINE_URL = '/offline.html'
+// 앱 아이콘 숫자 배지 — src/lib/app-badge.ts 와 같은 이름. 버전과 무관하게 남긴다
+const BADGE_CACHE = 'badge-count'
+const BADGE_KEY = '/__badge'
 
 const PRECACHE = [
   '/offline.html',
@@ -48,7 +51,7 @@ self.addEventListener('activate', (event) => {
       }
       const keys = await caches.keys()
       await Promise.all(
-        keys.filter((k) => !k.startsWith(VERSION)).map((k) => caches.delete(k))
+        keys.filter((k) => !k.startsWith(VERSION) && k !== BADGE_CACHE).map((k) => caches.delete(k))
       )
     })()
   )
@@ -133,17 +136,33 @@ self.addEventListener('push', (event) => {
   let data = { title: '부소장', body: '새 알림이 있어요', url: '/' }
   try { if (event.data) data = { ...data, ...event.data.json() } } catch {}
 
-  event.waitUntil(
+  event.waitUntil(Promise.all([
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: { url: data.url },
       tag: data.tag,
+      // 같은 방(tag)의 다음 메시지는 앞 알림을 갈아 끼우기만 하고 소리·진동 없이 조용히 지나갔다
+      renotify: !!data.tag,
       requireInteraction: false,
-    })
-  )
+    }),
+    String(data.tag || '').startsWith('office-chat-') ? bumpBadge() : null,
+  ]))
 })
+
+// 앱이 닫혀 있을 때 메시지 푸시마다 아이콘 숫자를 하나씩 올린다.
+// 앱을 열면 useOfficeChatUnread 가 실제 안 읽은 수로 다시 맞춘다. 화면을 보고 있으면 그쪽이 세므로 건너뛴다.
+async function bumpBadge() {
+  if (!self.navigator.setAppBadge) return
+  const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+  if (wins.some((c) => c.visibilityState === 'visible')) return
+  const cache = await caches.open(BADGE_CACHE)
+  const prev = Number(await (await cache.match(BADGE_KEY))?.text()) || 0
+  const next = prev + 1
+  await cache.put(BADGE_KEY, new Response(String(next)))
+  await self.navigator.setAppBadge(next).catch(() => {})
+}
 
 // ── 알림 클릭 시 페이지 열기 ──────────────────────────────
 self.addEventListener('notificationclick', (event) => {
@@ -154,6 +173,9 @@ self.addEventListener('notificationclick', (event) => {
       for (const c of cs) {
         if (c.url.includes(url) && 'focus' in c) return c.focus()
       }
+      // 앱이 다른 화면에 떠 있으면 새 창을 또 열지 않고 그 창을 알림 화면으로 옮긴다
+      const open = cs.find((c) => 'navigate' in c)
+      if (open) return open.focus().then(() => open.navigate(url))
       if (self.clients.openWindow) return self.clients.openWindow(url)
     })
   )
