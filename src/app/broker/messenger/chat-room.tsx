@@ -657,8 +657,8 @@ export function ChatRoom(props: Props) {
 
       {/* 메시지 메뉴(길게 누르기·우클릭) */}
       {phoneSheet && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setPhoneSheet(null)} role="dialog" aria-modal="true" aria-label="전화번호">
-          <div className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] dark:bg-gray-900 sm:rounded-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setPhoneSheet(null)} role="dialog" aria-modal="true" aria-label="전화번호">
+          <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
             <p className="border-b border-gray-100 px-5 py-3 text-center text-sm font-bold text-gray-900 dark:border-gray-800 dark:text-white">{phoneSheet}</p>
             <a href={telHref(phoneSheet)} onClick={() => setPhoneSheet(null)}
               className="flex w-full items-center gap-3 px-5 py-3 text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
@@ -669,8 +669,9 @@ export function ChatRoom(props: Props) {
         </div>
       )}
       {menuMsg && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setMenuMsg(null)} role="dialog" aria-modal="true" aria-label="메시지 메뉴">
-          <div className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-white dark:bg-gray-900 sm:rounded-2xl" onClick={e => e.stopPropagation()}>
+        // 폰은 카톡처럼 화면 가운데에 띄운다 — 아래에 붙이면 기기에 따라 아래 칸(복사·삭제)이 화면 밖으로 잘렸다
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setMenuMsg(null)} role="dialog" aria-modal="true" aria-label="메시지 메뉴">
+          <div className="max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
             <div className="flex justify-around border-b border-gray-100 px-2 py-3 dark:border-gray-800">
               {REACTIONS.map(r => {
                 const on = reacts[menuMsg.id]?.[r.key]?.includes(myId)
