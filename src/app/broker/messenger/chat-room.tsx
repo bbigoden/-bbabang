@@ -91,7 +91,8 @@ export function ChatRoom(props: Props) {
   const [sideOpen, setSideOpen] = useState(false)
   const [drawer, setDrawer] = useState<null | 'photo' | 'file' | 'link'>(null)
   const [searchOpen, setSearchOpen] = useState(false)
-  const [noticeFolded, setNoticeFolded] = useState(false)
+  // 공지는 한 줄로 접힌 채 연다 — 펼쳐 두면 방에 들어올 때마다 대화를 가렸다. 필요하면 눌러 펼친다
+  const [noticeFolded, setNoticeFolded] = useState(true)
   const [highlight, setHighlight] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [newBelow, setNewBelow] = useState(0) // 위로 올려 보는 중 새로 온 메시지 수
