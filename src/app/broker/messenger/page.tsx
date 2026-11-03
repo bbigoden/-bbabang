@@ -58,14 +58,16 @@ export default function BrokerMessengerPage() {
   const otherOfDm = useCallback((t: Thread) => {
     if (t.kind !== 'dm' || !t.dm_key || !myId) return null
     const [a, b] = t.dm_key.split('__')
-    return a === myId ? b : a
+    return a === myId ? b : a // 나와의 채팅은 a === b === 나
   }, [myId])
+  const isSelf = useCallback((t: Thread) => otherOfDm(t) === myId, [otherOfDm, myId])
   const threadLabel = useCallback((t: Thread) => {
     if (t.kind === 'group') return '사무소 전체'
     if (t.kind === 'team') return t.title || '단체방'
+    if (isSelf(t)) return '나와의 채팅'
     const other = otherOfDm(t)
     return other ? (memberById[other]?.name ?? '(퇴사)') : '대화'
-  }, [otherOfDm, memberById])
+  }, [otherOfDm, isSelf, memberById])
 
   // ── 불러오기 ─────────────────────────────────────────
   const loadMembers = useCallback(async () => {
@@ -213,11 +215,12 @@ export default function BrokerMessengerPage() {
     return threads
       .filter(t => !q || threadLabel(t).includes(q))
       .sort((a, b) => {
+        if (isSelf(a) !== isSelf(b)) return isSelf(a) ? -1 : 1
         const pa = myRows[a.id]?.pinned_at, pb = myRows[b.id]?.pinned_at
         if (pa || pb) return (pb ?? '').localeCompare(pa ?? '')
         return (previews[b.id]?.at ?? b.created_at).localeCompare(previews[a.id]?.at ?? a.created_at)
       })
-  }, [threads, myRows, previews, query, threadLabel])
+  }, [threads, myRows, previews, query, threadLabel, isSelf])
   const friends = useMemo(() => members.filter(m => m.id !== myId && (!query.trim() || m.name.includes(query.trim()))), [members, myId, query])
   const totalUnread = Object.values(unread).reduce((s, n) => s + n, 0)
 
@@ -312,6 +315,7 @@ export default function BrokerMessengerPage() {
                     {roomIcon(t)}
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1">
+                        {isSelf(t) && <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-700 text-[9px] font-bold text-white dark:bg-gray-500">나</span>}
                         <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{threadLabel(t)}</span>
                         {t.kind !== 'dm' && <span className="flex-shrink-0 text-xs text-gray-400">{t.kind === 'group' ? members.length : ''}</span>}
                         {row?.pinned_at && <Pin className="h-3 w-3 flex-shrink-0 text-gray-400" aria-label="고정됨" />}
@@ -435,7 +439,7 @@ function BottomTab({ icon: Icon, label, on, onClick, badge = 0 }: { icon: React.
   )
 }
 
-/** 프로필 보기 — 카톡처럼 큰 사진·이름·상태메시지, 아래에 1:1 채팅 */
+/** 프로필 보기 — 카톡처럼 큰 사진·이름·상태메시지, 아래에 1:1 채팅(내 프로필이면 나와의 채팅) */
 function ProfileCard({ member, isMe, onClose, onChat, onEdit }: { member: Member; isMe: boolean; onClose: () => void; onChat: () => void; onEdit: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={`${member.name} 프로필`}>
@@ -445,7 +449,10 @@ function ProfileCard({ member, isMe, onClose, onChat, onEdit }: { member: Member
         <p className="mt-1 min-h-[1.25rem] text-center text-sm text-white/80">{member.status ?? ''}</p>
         <div className="mt-8 flex w-full border-t border-white/20 pt-4">
           {isMe ? (
-            <button onClick={onEdit} className="flex flex-1 flex-col items-center gap-1 text-xs"><Camera className="h-6 w-6" />프로필 편집</button>
+            <>
+              <button onClick={onChat} className="flex flex-1 flex-col items-center gap-1 text-xs"><MessageCircle className="h-6 w-6" />나와의 채팅</button>
+              <button onClick={onEdit} className="flex flex-1 flex-col items-center gap-1 text-xs"><Camera className="h-6 w-6" />프로필 편집</button>
+            </>
           ) : (
             <button onClick={onChat} className="flex flex-1 flex-col items-center gap-1 text-xs"><MessageCircle className="h-6 w-6" />1:1 채팅</button>
           )}
