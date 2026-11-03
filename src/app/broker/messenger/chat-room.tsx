@@ -144,7 +144,7 @@ export function ChatRoom(props: Props) {
   useEffect(() => {
     setLoading(true)
     setMessages([]); setExtra({}); setReacts({}); setReplyTo(null); setDraft('')
-    setSideOpen(false); setDrawer(null); setSearchOpen(false); setNoticeFolded(false)
+    setSideOpen(false); setDrawer(null); setSearchOpen(false); setNoticeFolded(true)
     loadLatest()
     props.onRead(thread.id)
     supabase.from('office_chat_members').select('broker_id, last_read_at').eq('thread_id', thread.id)
