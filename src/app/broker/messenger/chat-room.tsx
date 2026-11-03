@@ -458,7 +458,8 @@ export function ChatRoom(props: Props) {
   }
 
   const copyText = async (text: string, done = '복사했어요') => {
-    try { await navigator.clipboard.writeText(text); toast.success(done) } catch { toast.error('복사하지 못했어요') }
+    // 안드로이드는 복사하면 폰이 스스로 '복사했어요' 를 띄운다 — 우리 것까지 두 개 뜨지 않게 거기선 생략
+    try { await navigator.clipboard.writeText(text); if (!/Android/i.test(navigator.userAgent)) toast.success(done) } catch { toast.error('복사하지 못했어요') }
   }
   const copy = (m: Msg) => {
     setMenuMsg(null)
@@ -644,7 +645,10 @@ export function ChatRoom(props: Props) {
                     </div>
                   </div>
                   {rx.length > 0 && (
-                    <div className={cn('mt-1 flex flex-wrap gap-1', mine && 'justify-end')}>
+                    // 공감 칩도 길게 누르면 말풍선과 같은 메뉴 — 안 그러면 폰이 글자 선택(복사·웹 검색 막대)을 띄웠다
+                    <div className={cn('mt-1 flex flex-wrap gap-1 select-none [-webkit-touch-callout:none]', mine && 'justify-end')}
+                      onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); menuArmed.current = false; setMenuMsg(m) }}
+                      onPointerDown={pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressMove}>
                       {rx.map(([k, ids]) => (
                         <button key={k} onClick={() => setReactSheet(m)} title={ids.map(nameOf).join(', ')}
                           className={cn('flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
