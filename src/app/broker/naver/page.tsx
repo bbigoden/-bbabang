@@ -510,14 +510,23 @@ function 값(r: Row): string | null {
  * 매매는 매매가로, 임대는 월세로 견주고 월세가 같으면 보증금으로 견준다.
  * 가격이 같으면 '재광고' — 번호만 새로 받은 것이라 새 매물로 볼 일이 아니다.
  */
-function 이전광고(r: Row): { 종류: '재광고' | '인하' | '인상'; 전: string } | null {
+function 이전광고(r: Row): { 종류: '재광고' | '인하' | '인상'; 전: string; 차액: string } | null {
   if (!r.prev_article_no) return null
   const 전 = { ...r, price_deal: r.prev_price_deal, price_deposit: r.prev_price_deposit, price_rent: r.prev_price_rent }
   const 전값 = 값(전) ?? '가격 없음'
-  const 차 = r.price_deal || r.prev_price_deal
-    ? (r.price_deal ?? 0) - (r.prev_price_deal ?? 0)
-    : ((r.price_rent ?? 0) - (r.prev_price_rent ?? 0)) || ((r.price_deposit ?? 0) - (r.prev_price_deposit ?? 0))
-  return { 종류: 차 < 0 ? '인하' : 차 > 0 ? '인상' : '재광고', 전: 전값 }
+  // 무엇이 얼마나 바뀌었나. 임대는 월세가 그대로일 때만 보증금 차이를 적는다.
+  const 매매 = !!(r.price_deal || r.prev_price_deal)
+  const 월세차 = (r.price_rent ?? 0) - (r.prev_price_rent ?? 0)
+  const [차, 이름] = 매매
+    ? [(r.price_deal ?? 0) - (r.prev_price_deal ?? 0), '']
+    : 월세차
+      ? [월세차, '월세 ']
+      : [(r.price_deposit ?? 0) - (r.prev_price_deposit ?? 0), '보증 ']
+  return {
+    종류: 차 < 0 ? '인하' : 차 > 0 ? '인상' : '재광고',
+    전: 전값,
+    차액: `${이름}${Math.abs(차).toLocaleString('ko-KR')}`,
+  }
 }
 
 /** 중개사 이름에서 다들 붙이는 꼬리를 뗀다 — 좁은 칸에서 이름이 꼬리에 밀려 잘리지 않게. */
@@ -1608,12 +1617,9 @@ export default function CollectPage() {
                                   : 전광고.종류 === '인상' ? 'font-semibold text-red-600 dark:text-red-400'
                                     : 'text-gray-400 dark:text-gray-500'}`}
                             >
-                              {/* 폰은 한 줄이 좁아 '▼인하' 까지만. 이전 가격은 넓은 화면에서. */}
-                              {전광고.종류 === '재광고' ? '재광고' : <>
-                                {전광고.종류 === '인하' ? '▼' : '▲'}
-                                <span className="sm:hidden">{전광고.종류}</span>
-                                <span className="hidden sm:inline"> {전광고.전}에서</span>
-                              </>}
+                              {/* 바뀐 금액만 적는다(만원). 이전 가격은 마우스를 올리면 나온다. */}
+                              {전광고.종류 === '재광고' ? '재광고'
+                                : `${전광고.종류 === '인하' ? '▼' : '▲'} ${전광고.차액}`}
                             </span>
                           )}
                         </span>
