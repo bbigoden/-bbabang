@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
-import { X, ChevronLeft, ChevronRight, Download } from 'lucide-react'
+import { useEffect, useCallback, useState } from 'react'
+import { X, ChevronLeft, ChevronRight, Download, RotateCw } from 'lucide-react'
 
 interface ImageLightboxProps {
   images: string[]
@@ -15,11 +15,21 @@ interface ImageLightboxProps {
 }
 
 export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo, onDownload }: ImageLightboxProps) {
+  // 보기만 돌린다(파일은 그대로). 다른 사진으로 넘기면 똑바로 돌아온다
+  const [turn, setTurn] = useState(0)
+  useEffect(() => { setTurn(0) }, [index])
+  const rotate = useCallback(() => setTurn(t => t + 1), [])
+  const sideways = turn % 2 === 1
+  const maxH = images.length > 1
+    ? 'calc(100vh - 180px)'   // 상단바 + 하단 썸네일 공간 확보
+    : 'calc(100vh - 100px)'   // 상단바만
+
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose()
+    if (e.key === 'r' || e.key === 'R') rotate()
     if (e.key === 'ArrowRight') onNext()
     if (e.key === 'ArrowLeft') onPrev()
-  }, [onClose, onNext, onPrev])
+  }, [onClose, onNext, onPrev, rotate])
 
   useEffect(() => {
     document.addEventListener('keydown', handleKey)
@@ -61,6 +71,13 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo, 
         </span>
         <div className="flex items-center gap-2">
           <button
+            onClick={e => { e.stopPropagation(); rotate() }}
+            aria-label="돌리기" title="돌리기 (R)"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+          >
+            <RotateCw className="h-5 w-5" />
+          </button>
+          <button
             onClick={e => { e.stopPropagation(); handleDownload() }}
             className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm text-white hover:bg-white/20 transition-colors"
           >
@@ -93,12 +110,12 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo, 
           src={images[index]}
           alt="매물 사진"
           decoding="async"
-          className="rounded-lg object-contain shadow-2xl"
+          className="rounded-lg object-contain shadow-2xl transition-transform duration-200"
           style={{
-            maxWidth: '80vw',
-            maxHeight: images.length > 1
-              ? 'calc(100vh - 180px)'   // 상단바 + 하단 썸네일 공간 확보
-              : 'calc(100vh - 100px)',  // 상단바만
+            // 옆으로 누우면 가로·세로 한도를 맞바꿔야 화면 밖으로 안 나간다
+            maxWidth: sideways ? maxH : '80vw',
+            maxHeight: sideways ? '80vw' : maxH,
+            transform: `rotate(${turn * 90}deg)`,
           }}
         />
 
