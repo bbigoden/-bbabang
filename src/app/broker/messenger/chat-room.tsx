@@ -103,6 +103,7 @@ export function ChatRoom(props: Props) {
   const [staged, setStaged] = useState<File[]>([]) // 사진·파일은 바로 보내지 않고 한 번 보여준다(카톡처럼)
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null) // 대화 높이가 늘면(공감·사진이 늦게 붙으면) 맨 아래에 다시 붙인다
   const atBottomRef = useRef(true)
   const keepScrollRef = useRef<number | null>(null) // 이전 대화를 위에 붙일 때 보던 자리 유지
   const photoRef = useRef<HTMLInputElement>(null)
@@ -287,8 +288,8 @@ export function ChatRoom(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, highlight])
 
-  // 맨 아래를 보던 중이면 사진이 늦게 뜨거나 키보드가 올라와도 맨 아래에 붙어 있는다
-  // (사진이 뜨며 높이가 늘어 방을 열면 중간에 멈춰 있었다)
+  // 맨 아래를 보던 중이면 사진·공감이 늦게 붙거나 키보드가 올라와도 맨 아래에 붙어 있는다
+  // (공감은 메세지보다 늦게 받아 와서, 방을 열면 마지막 메세지·공감이 입력창 뒤로 잘려 있었다)
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -296,6 +297,7 @@ export function ChatRoom(props: Props) {
     el.addEventListener('load', stick, true)
     const ro = new ResizeObserver(stick)
     ro.observe(el)
+    if (contentRef.current) ro.observe(contentRef.current)
     return () => { el.removeEventListener('load', stick, true); ro.disconnect() }
   }, [])
 
@@ -466,11 +468,12 @@ export function ChatRoom(props: Props) {
   // ── 길게 누르기(폰) ───────────────────────────────────
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pressAt = useRef<{ x: number; y: number } | null>(null)
-  const menuAt = useRef(0)
+  // 메뉴는 연 뒤 바깥을 새로 눌러야 닫힌다 — 길게 누른 손가락을 떼는 것만으로 닫혀 버려 '아무 일도 안 일어나는' 것처럼 보였다
+  const menuArmed = useRef(false)
   const pressStart = (m: Msg) => (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' || m.deleted_at) return
     pressAt.current = { x: e.clientX, y: e.clientY }
-    pressTimer.current = setTimeout(() => { menuAt.current = Date.now(); setMenuMsg(m) }, 450)
+    pressTimer.current = setTimeout(() => { menuArmed.current = false; setMenuMsg(m) }, 450)
   }
   const pressCancel = () => { if (pressTimer.current) clearTimeout(pressTimer.current) }
   // 누르는 손가락은 조금씩 흔들린다 — 2px 만 움직여도 취소하던 것을 10px 넘게 끌 때(스크롤)만 취소한다
@@ -545,6 +548,7 @@ export function ChatRoom(props: Props) {
 
       {/* 대화 */}
       <div ref={scrollRef} onScroll={onScroll} className={cn('flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-3', notice && !searchOpen ? 'pt-24' : 'pt-3')}>
+        <div ref={contentRef}>
         {loading && <p className="py-10 text-center text-sm text-gray-600">불러오는 중…</p>}
         {!loading && hasMore && (
           <div className="mb-3 flex justify-center">
@@ -599,9 +603,10 @@ export function ChatRoom(props: Props) {
                   {/* max-w-full: 답장 인용 줄(truncate)이 긴 글이면 말풍선이 화면 밖으로 뻗었다 */}
                   <div className={cn('group flex max-w-full items-end gap-1.5', mine && 'flex-row-reverse')}>
                     <div
-                      onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); setMenuMsg(m) }}
+                      onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); menuArmed.current = false; setMenuMsg(m) }}
                       onPointerDown={pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressMove}
-                      className="min-w-0 select-text"
+                      // 폰은 길게 누르면 글자 선택이 먼저 잡아채 메뉴가 안 떴다 — 글자 선택을 끄고 복사는 메뉴로(카톡과 같다)
+                      className="min-w-0 select-text pointer-coarse:select-none [-webkit-touch-callout:none]"
                     >
                       {m.deleted_at ? (
                         <div className={cn('flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm text-gray-500', mine ? 'bg-[#fee500]/70' : 'bg-white/80 dark:bg-gray-800')}>
@@ -654,6 +659,7 @@ export function ChatRoom(props: Props) {
             </Fragment>
           )
         })}
+        </div>
       </div>
 
       {newBelow > 0 ? (
@@ -763,7 +769,7 @@ export function ChatRoom(props: Props) {
       })()}
       {menuMsg && (
         // 폰은 카톡처럼 화면 가운데에 띄운다 — 아래에 붙이면 기기에 따라 아래 칸(복사·삭제)이 화면 밖으로 잘렸다
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => { if (Date.now() - menuAt.current > 500) setMenuMsg(null) }} role="dialog" aria-modal="true" aria-label="메세지 메뉴">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onPointerDown={() => { menuArmed.current = true }} onClick={() => { if (menuArmed.current) setMenuMsg(null) }} role="dialog" aria-modal="true" aria-label="메세지 메뉴">
           <div className="max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
             <div className="flex justify-around border-b border-gray-100 px-2 py-3 dark:border-gray-800">
               {REACTIONS.map(r => {
