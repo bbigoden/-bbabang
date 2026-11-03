@@ -88,7 +88,7 @@ type Row = {
   /**
    * 같은 중개사가 같은 조건(종류·거래·동·면적·층)으로 전에 올린 광고와 그때 가격.
    * DB 가 받을 때 찾아 붙인다(`naver_articles_find_prev`). 네이버만 — 당근은 끌올해도
-   * 번호가 그대로라 재광고가 새 매물로 섞이지 않는다.
+   * 번호가 그대로라 재등록가 새 매물로 섞이지 않는다.
    */
   prev_article_no: string | null
   prev_price_deal: number | null
@@ -508,25 +508,20 @@ function 값(r: Row): string | null {
  * 전에 올린 광고와 견준 결과. 전 광고가 없으면 null.
  *
  * 매매는 매매가로, 임대는 월세로 견주고 월세가 같으면 보증금으로 견준다.
- * 가격이 같으면 '재광고' — 번호만 새로 받은 것이라 새 매물로 볼 일이 아니다.
+ * 가격이 같으면 '재등록' — 번호만 새로 받은 것이라 새 매물로 볼 일이 아니다.
  */
-function 이전광고(r: Row): { 종류: '재광고' | '인하' | '인상'; 전: string; 차액: string } | null {
+function 이전광고(r: Row): { 종류: '재등록' | '변동'; 전: string; 바뀐것: { 이름: string; 차: number }[] } | null {
   if (!r.prev_article_no) return null
   const 전 = { ...r, price_deal: r.prev_price_deal, price_deposit: r.prev_price_deposit, price_rent: r.prev_price_rent }
-  const 전값 = 값(전) ?? '가격 없음'
-  // 무엇이 얼마나 바뀌었나. 임대는 월세가 그대로일 때만 보증금 차이를 적는다.
-  const 매매 = !!(r.price_deal || r.prev_price_deal)
-  const 월세차 = (r.price_rent ?? 0) - (r.prev_price_rent ?? 0)
-  const [차, 이름] = 매매
-    ? [(r.price_deal ?? 0) - (r.prev_price_deal ?? 0), '']
-    : 월세차
-      ? [월세차, '월세 ']
-      : [(r.price_deposit ?? 0) - (r.prev_price_deposit ?? 0), '보증 ']
-  return {
-    종류: 차 < 0 ? '인하' : 차 > 0 ? '인상' : '재광고',
-    전: 전값,
-    차액: `${이름}${Math.abs(차).toLocaleString('ko-KR')}`,
-  }
+  // 임대는 보증금과 월세를 **따로** 적는다. 하나만 적었더니 보증금 16,000→36,000 이 오르고
+  // 월세가 200 내린 매물이 '▼ 월세 200' 으로만 보여 싸진 줄 알았다(11/03).
+  const 바뀐것 = (r.price_deal || r.prev_price_deal
+    ? [{ 이름: '', 차: (r.price_deal ?? 0) - (r.prev_price_deal ?? 0) }]
+    : [
+        { 이름: '보증', 차: (r.price_deposit ?? 0) - (r.prev_price_deposit ?? 0) },
+        { 이름: '월세', 차: (r.price_rent ?? 0) - (r.prev_price_rent ?? 0) },
+      ]).filter(b => b.차)
+  return { 종류: 바뀐것.length ? '변동' : '재등록', 전: 값(전) ?? '가격 없음', 바뀐것 }
 }
 
 /** 중개사 이름에서 다들 붙이는 꼬리를 뗀다 — 좁은 칸에서 이름이 꼬리에 밀려 잘리지 않게. */
@@ -611,7 +606,7 @@ export default function CollectPage() {
   const [unseenOnly, setUnseenOnly] = useState(false)
   const [goneOnly, setGoneOnly] = useState(false)
   /** 같은 조건 그대로 다시 올린 광고를 뺀다. 가격을 바꿔 다시 올린 것은 남긴다 — 그건 볼 만하다. */
-  const [재광고빼기, set재광고빼기] = useState(false)
+  const [재등록빼기, set재등록빼기] = useState(false)
   // 빈 배열 = 전부 본다. 하나라도 고르면 고른 것만.
   const [regions, setRegions] = useState<string[]>([])
   const [kinds, setKinds] = useState<string[]>([])
@@ -671,7 +666,7 @@ export default function CollectPage() {
       setSort(Object.values(SORTS).includes(담긴것?.sort) ? 담긴것!.sort : 'date')
       set조건열림(담긴것?.열림 ?? false)
       // [안 본 것만] 과 달리 기억한다 — 켜 둬도 화면이 비지 않아 고장으로 오해할 일이 없다.
-      set재광고빼기(담긴것?.재광고빼기 ?? false)
+      set재등록빼기(담긴것?.재등록빼기 ?? false)
       const 기간 = 담긴것?.기간
       const 날 = /^\d{4}-\d{2}-\d{2}$/
       if (기간?.오늘까지 && Number.isInteger(기간.날수) && 기간.날수 >= 1 && 기간.날수 <= LONG_DAYS) {
@@ -688,11 +683,11 @@ export default function CollectPage() {
     if (되살림.current !== source) return   // 되살리기 전에 빈 값을 덮어쓰지 않는다
     try {
       localStorage.setItem(저장열쇠, JSON.stringify({
-        regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림, 재광고빼기,
+        regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림, 재등록빼기,
         기간: 끝날 === todayKST() ? { 오늘까지: true, 날수: 날수(첫날, 끝날) } : { 첫날, 끝날 },
       }))
     } catch { /* 위와 같음 */ }
-  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림, 재광고빼기, 첫날, 끝날])
+  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림, 재등록빼기, 첫날, 끝날])
 
   /** 사무소 기준 id — 직원이면 대표의 id 다. 설정은 사무소 단위로 하나뿐이다. */
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
@@ -1036,7 +1031,7 @@ export default function CollectPage() {
       // 사무소에서 아무도 안 본 것만. 직원이 확인한 것을 또 훑을 이유가 없다.
       if (unseenOnly && (seen.get(r.article_no)?.사무소 ?? 0) > 0) return false
       if (우리.size && r.owner && 우리.has(r.owner)) return false
-      if (재광고빼기 && 이전광고(r)?.종류 === '재광고') return false
+      if (재등록빼기 && 이전광고(r)?.종류 === '재등록') return false
       if (regions.length) {
         const region = REGIONS.find(g => r.division?.startsWith(g.divisionPrefix))
         if (!region || !regions.includes(region.id)) return false
@@ -1071,7 +1066,7 @@ export default function CollectPage() {
       }
       return true
     })
-  }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, 재광고빼기, seen,
+  }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, 재등록빼기, seen,
       settings, auth.broker, src,
       면적최소, 면적최대, 가격최소, 가격최대, 월세최소, 월세최대, 층])
 
@@ -1159,8 +1154,8 @@ export default function CollectPage() {
     () => { const 오늘 = todayKST(); return filtered.filter(r => ymdKST(r.first_seen_at) === 오늘).length },
     [filtered],
   )
-  /** 목록 가운데 재광고 건수. [재광고 빼기] 를 누를 만한지 숫자로 보여 준다. */
-  const 재광고건수 = useMemo(() => filtered.filter(r => 이전광고(r)?.종류 === '재광고').length, [filtered])
+  /** 목록 가운데 재등록 건수. [재등록 빼기] 를 누를 만한지 숫자로 보여 준다. */
+  const 재등록건수 = useMemo(() => filtered.filter(r => 이전광고(r)?.종류 === '재등록').length, [filtered])
 
   /** 하트비트가 이보다 오래되면 꺼진 것으로 본다. 광고관리 화면과 같은 잣대다. */
   const agentOnline = !!agentSeenAt && Date.now() - new Date(agentSeenAt).getTime() < 60_000
@@ -1265,9 +1260,9 @@ export default function CollectPage() {
             </Chip>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
-            {/* 네이버 '새 매물' 의 절반 넘게가 번호만 새로 받은 재광고다(11/02 실측 59%). */}
+            {/* 네이버 '새 매물' 의 절반 넘게가 번호만 새로 받은 재등록다(11/02 실측 59%). */}
             {source === 'naver' && (
-              <Chip on={재광고빼기} onClick={() => { set재광고빼기(v => !v); setPage(1) }}>재광고 빼기</Chip>
+              <Chip on={재등록빼기} onClick={() => { set재등록빼기(v => !v); setPage(1) }}>재등록 빼기</Chip>
             )}
             {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
                 이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
@@ -1505,7 +1500,7 @@ export default function CollectPage() {
                 {sorted.length}건
                 {!unseenOnly && unseenCount < sorted.length && ` · 안 본 것 ${unseenCount}건`}
                 {오늘새로 > 0 && ` · 오늘 새로 ${오늘새로}건`}
-                {재광고건수 > 0 && ` · 재광고 ${재광고건수}건`}
+                {재등록건수 > 0 && ` · 재등록 ${재등록건수}건`}
               </p>
               {/* 값이 섞여 있으면 세워 봐야 사과와 오렌지를 견주는 셈이다.
                   막지는 않고 말해 준다 — 아는 채로 보는 것과 모르고 보는 것은 다르다. */}
@@ -1609,17 +1604,20 @@ export default function CollectPage() {
                               인하는 손님에게 바로 다시 권할 만한 소식이라 눈에 띄게 둔다. */}
                           {전광고 && (
                             <span
-                              title={전광고.종류 === '재광고'
+                              title={전광고.종류 === '재등록'
                                 ? `같은 중개사가 같은 조건(종류·거래·동·면적·층·가격)으로 전에 올린 광고가 있습니다 — 번호만 새로 받았습니다. 이전 매물번호 ${r.prev_article_no}`
                                 : `같은 중개사가 같은 매물을 가격만 바꿔 다시 올렸습니다. 이전 ${전광고.전} → 지금 ${값(r) ?? '가격 없음'} (이전 매물번호 ${r.prev_article_no})`}
-                              className={`shrink-0 whitespace-nowrap text-[11px] ${
-                                전광고.종류 === '인하' ? 'font-semibold text-blue-600 dark:text-blue-400'
-                                  : 전광고.종류 === '인상' ? 'font-semibold text-red-600 dark:text-red-400'
-                                    : 'text-gray-400 dark:text-gray-500'}`}
+                              className="flex shrink-0 gap-1.5 whitespace-nowrap text-[11px] text-gray-400 dark:text-gray-500"
                             >
-                              {/* 바뀐 금액만 적는다(만원). 이전 가격은 마우스를 올리면 나온다. */}
-                              {전광고.종류 === '재광고' ? '재광고'
-                                : `${전광고.종류 === '인하' ? '▼' : '▲'} ${전광고.차액}`}
+                              {/* 바뀐 금액만 적는다(만원). 보증금과 월세는 오르내림이 엇갈릴 수 있어
+                                  하나씩 제 색으로. 이전 가격은 마우스를 올리면 나온다. */}
+                              {전광고.종류 === '재등록' ? '재등록' : 전광고.바뀐것.map(b => (
+                                <span key={b.이름} className={b.차 < 0
+                                  ? 'font-semibold text-blue-600 dark:text-blue-400'
+                                  : 'font-semibold text-red-600 dark:text-red-400'}>
+                                  {b.차 < 0 ? '▼' : '▲'} {b.이름 && `${b.이름} `}{Math.abs(b.차).toLocaleString('ko-KR')}
+                                </span>
+                              ))}
                             </span>
                           )}
                         </span>
