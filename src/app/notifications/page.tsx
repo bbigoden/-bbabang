@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useNotificationsCtx, type Notification } from '@/lib/notifications-context'
 import { Header } from '@/components/layout/header'
-import { Bell, Check, CheckCheck } from 'lucide-react'
+import { Bell, Check, CheckCheck, Trash2, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
@@ -116,6 +116,27 @@ export default function NotificationsPage() {
     setBusy(false)
   }
 
+  const removeOne = async (n: Notification) => {
+    const { error } = await supabase.from('notifications').delete().eq('id', n.id)
+    if (!error) {
+      setItems(prev => prev.filter(x => x.id !== n.id))
+      if (!n.is_read) reloadCtx()
+    }
+  }
+
+  const removeRead = async () => {
+    if (!auth.user || busy) return
+    if (!confirm('읽은 알림을 모두 지울까요?')) return
+    setBusy(true)
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', auth.user.id)
+      .eq('is_read', true)
+    if (!error) setItems(prev => prev.filter(n => !n.is_read))
+    setBusy(false)
+  }
+
   if (auth.loading || (!auth.user && !auth.loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
@@ -125,6 +146,8 @@ export default function NotificationsPage() {
   }
 
   const unreadCount = items.filter(n => !n.is_read).length
+  const readCount = items.length - unreadCount
+  const actionBtn = 'inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3.5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors'
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -136,15 +159,21 @@ export default function NotificationsPage() {
           iconColor="text-blue-600"
           title="알림"
           description="새 제안·메시지·공지 등 받은 알림을 모아봐요"
-          actions={unreadCount > 0 && (
-            <button
-              onClick={markAllRead}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3.5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 disabled:opacity-50 transition-colors"
-            >
-              <CheckCheck className="h-4 w-4" />
-              {busy ? '처리 중...' : '모두 읽음'}
-            </button>
+          actions={(unreadCount > 0 || readCount > 0) && (
+            <div className="flex gap-2">
+              {unreadCount > 0 && (
+                <button onClick={markAllRead} disabled={busy} className={actionBtn}>
+                  <CheckCheck className="h-4 w-4" />
+                  모두 읽음
+                </button>
+              )}
+              {readCount > 0 && (
+                <button onClick={removeRead} disabled={busy} className={actionBtn}>
+                  <Trash2 className="h-4 w-4" />
+                  읽은 알림 지우기
+                </button>
+              )}
+            </div>
           )}
         />
 
@@ -183,12 +212,10 @@ export default function NotificationsPage() {
           <>
             <ul className="divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
               {items.map(n => (
-                <li key={n.id}>
+                <li key={n.id} className={`flex items-start ${!n.is_read ? 'bg-blue-50/40' : ''}`}>
                   <button
                     onClick={() => handleClick(n)}
-                    className={`w-full flex items-start gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors ${
-                      !n.is_read ? 'bg-blue-50/40' : ''
-                    }`}
+                    className="flex-1 min-w-0 flex items-start gap-3 py-4 pl-5 pr-2 text-left hover:bg-gray-50 transition-colors"
                   >
                     <span className="mt-0.5 text-xl flex-shrink-0">{TYPE_ICON[n.type] ?? '🔔'}</span>
                     <div className="flex-1 min-w-0">
@@ -204,6 +231,13 @@ export default function NotificationsPage() {
                     ) : (
                       <Check className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-gray-300" aria-label="읽음" />
                     )}
+                  </button>
+                  <button
+                    onClick={() => removeOne(n)}
+                    aria-label="알림 지우기"
+                    className="mt-2.5 mr-2 rounded-lg p-2 text-gray-300 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
                   </button>
                 </li>
               ))}
