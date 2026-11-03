@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo, useId } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { refreshOfficeChatUnread } from '@/lib/use-office-chat-unread'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
@@ -166,7 +167,7 @@ export default function BrokerMessengerPage() {
 
   const markRead = useCallback((threadId: string) => {
     setUnread(prev => ({ ...prev, [threadId]: 0 }))
-    upsertMyRow(threadId, { last_read_at: new Date().toISOString() })
+    upsertMyRow(threadId, { last_read_at: new Date().toISOString() }).then(refreshOfficeChatUnread)
   }, [upsertMyRow])
 
   const openThread = (id: string) => { setActive(id); setTab('chats'); setProfileOf(null) }

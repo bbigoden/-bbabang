@@ -18,8 +18,14 @@ let shared: {
   brokerId: string
   count: number
   listeners: Set<(n: number) => void>
+  refresh: () => void
   stop: () => void
 } | null = null
+
+/** 방을 읽음 처리한 직후 바로 다시 센다 — 실시간 이벤트를 놓쳐도 배지가 남지 않게 */
+export function refreshOfficeChatUnread() {
+  shared?.refresh()
+}
 
 function start(brokerId: string) {
   const supabase = createClient()
@@ -54,11 +60,21 @@ function start(brokerId: string) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'office_chat_members' }, schedule)
     .subscribe()
 
+  // 폰에서 앱을 내렸다 올리면 그동안 실시간 연결이 끊겨 이벤트를 놓친다 — 돌아올 때 다시 센다
+  const onVisible = () => { if (document.visibilityState === 'visible') schedule() }
+  document.addEventListener('visibilitychange', onVisible)
+
   shared = {
     brokerId,
     count: 0,
     listeners: new Set(),
-    stop: () => { alive = false; if (timer) clearTimeout(timer); supabase.removeChannel(ch) },
+    refresh: schedule,
+    stop: () => {
+      alive = false
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      supabase.removeChannel(ch)
+    },
   }
   refresh()
 }
