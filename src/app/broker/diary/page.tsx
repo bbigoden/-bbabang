@@ -130,7 +130,10 @@ const KNOWN_SECTION_TITLES: Record<string, string> = {
 //    빠졌다면 되살린다. 전역에서 지워진 기본 섹션의 과거 내용이 사라지지 않게 하는 용도.
 //    이름을 알 수 없는 옛 커스텀 키는 되살리지 않는다(애매한 '기타' 박스 남발 방지).
 //    — 어느 경우든 내용 자체는 DB(sections_content)에 그대로 보존됨.
-function resolveSections(perDate: any, legacy: any, contentKeys: string[]): SectionDef[] {
+function resolveSections(perDate: any, legacy: any, content: Record<string, string>, date: string): SectionDef[] {
+  return dropSuggest(pickSections(perDate, legacy, Object.keys(content)), content, date)
+}
+function pickSections(perDate: any, legacy: any, contentKeys: string[]): SectionDef[] {
   if (Array.isArray(perDate) && perDate.length > 0) return perDate as SectionDef[]
   const base: SectionDef[] = (Array.isArray(legacy) && legacy.length > 0) ? legacy as SectionDef[] : DEFAULT_SECTIONS
   const have = new Set(base.map(s => s.id))
@@ -138,6 +141,13 @@ function resolveSections(perDate: any, legacy: any, contentKeys: string[]): Sect
     .filter(k => KNOWN_SECTION_TITLES[k] && !have.has(k))
     .map(k => ({ id: k, title: KNOWN_SECTION_TITLES[k] }))
   return extra.length > 0 ? [...base, ...extra] : base
+}
+// 이날부터 건의사항 칸을 뺀다 — 전달사항이 4번으로 올라온다(2026-11-03 사장님).
+// 이미 적어 둔 건의사항은 숨기면 안 보이게 되므로, 내용이 있으면 그 날짜만 남긴다.
+const NO_SUGGEST_FROM = '2026-11-03'
+function dropSuggest(list: SectionDef[], content: Record<string, string>, date: string): SectionDef[] {
+  if (date < NO_SUGGEST_FROM || content['s_suggest']?.trim()) return list
+  return list.filter(s => s.id !== 's_suggest')
 }
 
 
@@ -906,7 +916,7 @@ export default function BrokerDiaryPage() {
       }
       setSectionContent(content)
       // 퇴사자는 전역 섹션 정의가 없으므로 기본값 기준으로 복원
-      const archSections = resolveSections((archDiary as any)?.sections, DEFAULT_SECTIONS, Object.keys(content))
+      const archSections = resolveSections((archDiary as any)?.sections, DEFAULT_SECTIONS, content, date)
       setSections(archSections)
       savedSectionsRef.current = archSections
       return
@@ -932,7 +942,7 @@ export default function BrokerDiaryPage() {
     setDiaryCustomers((links ?? []).map(toDiaryRow))
     const content = (diaryRow?.sections_content as any) ?? {}
     setSectionContent(content)
-    const loadedSections = resolveSections((diaryRow as any)?.sections, legacySections, Object.keys(content))
+    const loadedSections = resolveSections((diaryRow as any)?.sections, legacySections, content, date)
     setSections(loadedSections)
     savedSectionsRef.current = loadedSections
   }
@@ -1328,7 +1338,7 @@ export default function BrokerDiaryPage() {
 
       // 3) 섹션 내용 + 구조 복사 (불러온 날의 섹션 구성을 이 날짜로 가져옴)
       const newContent = sourceDiary?.sections_content ?? {}
-      const newSections = resolveSections((sourceDiary as any)?.sections, sections, Object.keys(newContent))
+      const newSections = resolveSections((sourceDiary as any)?.sections, sections, newContent, diaryDate)
       // 본문 저장과 같은 줄에 세운다 — 방금 blur된 섹션 저장의 첫 insert와 겹치면 UNIQUE에 걸린다
       const t = currentTarget()
       if (!t) return
