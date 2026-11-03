@@ -476,7 +476,7 @@ export function ChatRoom(props: Props) {
       )}
 
       {/* 대화 */}
-      <div ref={scrollRef} onScroll={onScroll} className={cn('flex-1 overflow-y-auto px-3 pb-3', notice && !searchOpen ? 'pt-24' : 'pt-3')}>
+      <div ref={scrollRef} onScroll={onScroll} className={cn('flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 pb-3', notice && !searchOpen ? 'pt-24' : 'pt-3')}>
         {loading && <p className="py-10 text-center text-sm text-gray-600">불러오는 중…</p>}
         {!loading && hasMore && (
           <div className="mb-3 flex justify-center">
