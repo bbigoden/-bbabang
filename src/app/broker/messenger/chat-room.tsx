@@ -76,6 +76,7 @@ export function ChatRoom(props: Props) {
 
   const [messages, setMessages] = useState<Msg[]>([])
   const [phoneSheet, setPhoneSheet] = useState<string | null>(null)
+  const [reactSheet, setReactSheet] = useState<Msg | null>(null) // 공감한 사람 보기(폰은 마우스를 올려 볼 수 없다)
   const [extra, setExtra] = useState<Record<string, Msg>>({}) // 화면 밖 답장 원본·공지 메시지
   const [hasMore, setHasMore] = useState(false)
   const [detached, setDetached] = useState(false) // 검색으로 옛 대화로 건너가 최신과 끊긴 상태
@@ -640,7 +641,7 @@ export function ChatRoom(props: Props) {
                   {rx.length > 0 && (
                     <div className={cn('mt-1 flex flex-wrap gap-1', mine && 'justify-end')}>
                       {rx.map(([k, ids]) => (
-                        <button key={k} onClick={() => toggleReact(m, k as ReactionKey)} title={ids.map(nameOf).join(', ')}
+                        <button key={k} onClick={() => setReactSheet(m)} title={ids.map(nameOf).join(', ')}
                           className={cn('flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs',
                             ids.includes(myId) ? 'border-gray-700 bg-white text-gray-900' : 'border-transparent bg-white/70 text-gray-700 dark:bg-gray-800 dark:text-gray-300')}>
                           <span>{reactionEmoji(k)}</span><span>{ids.length}</span>
@@ -738,6 +739,28 @@ export function ChatRoom(props: Props) {
           </div>
         </div>
       )}
+      {reactSheet && (() => {
+        const rows = Object.entries(reacts[reactSheet.id] ?? {}).filter(([, ids]) => ids.length > 0)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setReactSheet(null)} role="dialog" aria-modal="true" aria-label="공감한 사람">
+            <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
+              <p className="border-b border-gray-100 px-5 py-3 text-center text-sm font-bold text-gray-900 dark:border-gray-800 dark:text-white">공감한 사람</p>
+              <div className="max-h-[50vh] overflow-y-auto">
+                {rows.length === 0 && <p className="px-5 py-4 text-center text-sm text-gray-500">아직 없어요</p>}
+                {rows.flatMap(([k, ids]) => ids.map(id => (
+                  <div key={k + id} className="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-800 dark:text-gray-200">
+                    <span className="text-lg">{reactionEmoji(k)}</span>
+                    <span className="flex-1">{nameOf(id)}{id === myId && ' (나)'}</span>
+                    {id === myId && (
+                      <button onClick={() => toggleReact(reactSheet, k as ReactionKey)} className="rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">빼기</button>
+                    )}
+                  </div>
+                )))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
       {menuMsg && (
         // 폰은 카톡처럼 화면 가운데에 띄운다 — 아래에 붙이면 기기에 따라 아래 칸(복사·삭제)이 화면 밖으로 잘렸다
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => { if (Date.now() - menuAt.current > 500) setMenuMsg(null) }} role="dialog" aria-modal="true" aria-label="메세지 메뉴">
