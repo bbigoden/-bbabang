@@ -14,7 +14,6 @@ import { useSheetDirection } from '@/lib/use-sheet-direction'
 import { useClickOutside } from '@/lib/use-click-outside'
 import { useToast } from '@/components/toast'
 import { ColumnHeader } from '@/components/sheet/column-header'
-import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { findDuplicateCustomers } from '@/lib/dup-check'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
@@ -561,7 +560,6 @@ export default function BrokerCustomersPage() {
     // customers 배열은 created_at desc 순서. 화면 reverse가 direction을 처리하므로 항상 앞에 추가.
     setCustomers(prev => [data, ...prev])
     setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
     } finally { rowBusyRef.current = false; setAddingNew(false) }
   }
 
@@ -575,7 +573,6 @@ export default function BrokerCustomersPage() {
       if (error || !data) return
       setCustomers(prev => [data, ...prev])
       setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
-      notifyOwnerOfBrokerAction(broker.id, 'customer', `/broker/customers?focus=${data.id}`)
     } finally { rowBusyRef.current = false }
   }
 

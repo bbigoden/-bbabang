@@ -31,7 +31,6 @@ import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { geocodeAddress } from '@/lib/geocode'
 import { findDuplicateProperty } from '@/lib/dup-check'
-import { notifyOwnerOfBrokerAction } from '@/lib/notify-owner'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 import { PROPERTY_STATUS_META } from '@/lib/property-status'
@@ -2283,7 +2282,6 @@ function BrokerPropertiesContent() {
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'property', `/broker/properties?focus=${data.id}`)
     // 등록하면 자동채움(건축물대장 면적·층·유형·좌표)도 바로 — 버튼을 따로 눌러야 해서 면적 빈 매물이 쌓였다(11-01)
     void autoFillRow(data.id, address)
     // 등록 창은 중복 경고를 안 거쳐 같은 매물이 담당 둘로 들어갔다(11-02) — 표에서 주소 고칠 때와 같은 경고
@@ -2349,7 +2347,6 @@ function BrokerPropertiesContent() {
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
-    notifyOwnerOfBrokerAction(broker.id, 'property', `/broker/properties?focus=${data.id}`)
   }, [broker])
 
   // 필터·검색은 search_office_properties RPC가 서버에서 처리 (동일한 부분 문자열 매칭).

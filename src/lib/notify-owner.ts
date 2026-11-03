@@ -1,5 +1,5 @@
 /**
- * 직원(중개사)이 매물/고객/업무일지/정산을 등록할 때
+ * 직원(중개사)이 업무일지/정산을 등록할 때
  * 사무소 대표(parent_broker_id의 user_id)에게 알림 발송.
  *
  * - 본인이 대표(is_owner=true)거나 사무소 미가입(parent_broker_id 없음)이면 건너뜀.
@@ -7,11 +7,10 @@
  */
 import { createClient } from '@/lib/supabase/client'
 
-type ActionKind = 'property' | 'customer' | 'diary' | 'settlement'
+// 매물·고객 등록 알림은 11-03 뺐다(사장님 요청) — 담당자 지정 알림은 DB 트리거가 따로 보낸다
+type ActionKind = 'diary' | 'settlement'
 
 const META: Record<ActionKind, { icon: string; title: string; link: string }> = {
-  property:   { icon: '🏠', title: '신규 매물이 등록되었습니다',   link: '/broker/properties' },
-  customer:   { icon: '👤', title: '신규 고객이 등록되었습니다',   link: '/broker/customers' },
   diary:      { icon: '📝', title: '신규 업무일지가 등록되었습니다', link: '/broker/diary' },
   settlement: { icon: '💰', title: '신규 정산이 등록되었습니다',   link: '/broker/settlement' },
 }
