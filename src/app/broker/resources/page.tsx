@@ -67,7 +67,7 @@ const SELECT_FILE = 'id, resource_id, office_broker_id, uploader_broker_id, stor
 const DRAG_TYPE = 'application/x-busojang-items'
 
 function formatFileSize(bytes: number | null | undefined): string {
-  if (!bytes) return ''
+  if (bytes == null) return ''
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -163,7 +163,7 @@ function ItemMenu({ label, items }: { label: string; items: MenuItem[] }) {
     const r = btnRef.current!.getBoundingClientRect()
     const right = Math.max(8, window.innerWidth - r.right)
     // 아래 자리가 모자라면 위로 펼친다
-    const need = items.length * 36 + 12
+    const need = items.length * 44 + 12
     setPos(window.innerHeight - r.bottom < need && r.top > need
       ? { right, bottom: window.innerHeight - r.top + 4 }
       : { right, top: r.bottom + 4 })
@@ -175,7 +175,7 @@ function ItemMenu({ label, items }: { label: string; items: MenuItem[] }) {
         ref={btnRef}
         onClick={toggle}
         aria-label={`${label} 메뉴`}
-        className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200/70 dark:hover:bg-gray-700"
+        className="flex h-11 w-11 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200/70 sm:h-8 sm:w-8 dark:hover:bg-gray-700"
       >
         <MoreVertical className="h-4 w-4" />
       </button>
@@ -185,7 +185,7 @@ function ItemMenu({ label, items }: { label: string; items: MenuItem[] }) {
             <button
               key={it.label}
               onClick={() => { setPos(null); it.onClick() }}
-              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${it.danger ? 'text-red-600' : 'text-gray-700 dark:text-gray-200'}`}
+              className={`flex w-full items-center gap-2.5 px-3 py-3 text-left text-sm hover:bg-gray-50 sm:py-2 dark:hover:bg-gray-800 ${it.danger ? 'text-red-600' : 'text-gray-700 dark:text-gray-200'}`}
             >
               <it.icon className="h-4 w-4" />
               {it.label}
@@ -201,6 +201,7 @@ interface DialogState {
   mode: 'folder' | 'memo' | 'renameRes' | 'renameFile' | 'editMemo'
   res?: Resource
   file?: ResourceFile
+  parent?: string | null
 }
 
 export default function BrokerResourcesPage() {
@@ -245,6 +246,20 @@ export default function BrokerResourcesPage() {
   // 폴더째 올릴 때 방금 만든 폴더를 바로 다시 찾으려고 최신 목록을 들고 있는다
   const resRef = useRef<Resource[]>([])
   resRef.current = resources
+  // 올리는 중에 같은 파일을 또 고르면 아직 목록에 없어 중복 검사를 빠져나갔다 — 올리는 중인 것도 따로 들고 있는다
+  const filesRef = useRef<ResourceFile[]>([])
+  filesRef.current = files
+  const uploadingRef = useRef<Set<string>>(new Set())
+  // 쓰기 버튼을 빨리 두 번 누르면 같은 요청이 두 번 나갔다 — 쓰는 중에는 다음 누름을 버린다
+  const busyRef = useRef(false)
+  const exclusive = <A extends unknown[]>(fn: (...a: A) => Promise<void>) => async (...a: A) => {
+    if (busyRef.current) return
+    busyRef.current = true
+    try { await fn(...a) } finally { busyRef.current = false }
+  }
+  // 휴대폰: 길게 누르면 고르기(드라이브처럼). 그 뒤 따라오는 누름은 열기로 치지 않는다
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressed = useRef(false)
 
   useEffect(() => {
     if (auth.loading) return
@@ -259,7 +274,11 @@ export default function BrokerResourcesPage() {
     setSort(readPref<SortMode>('resources:sort2', 'custom', ['custom', 'recent', 'name', 'size']))
     const loc = readLocation()
     setTab(loc.tab); setFolderId(loc.folder)
-    const onPop = () => { const l = readLocation(); setTab(l.tab); setFolderId(l.folder); setQuery(''); setSelected(new Set()) }
+    // 창을 연 채 뒤로 가면 창은 그대로인데 위치만 바뀌어, 새 폴더가 엉뚱한 곳에 생겼다 — 창도 닫는다
+    const onPop = () => {
+      const l = readLocation(); setTab(l.tab); setFolderId(l.folder); setQuery(''); setSelected(new Set())
+      setDialog(null); setMoveKeys(null); setMemoView(null); setNewOpen(false)
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -490,19 +509,22 @@ export default function BrokerResourcesPage() {
     const cache = new Map<string, string | null>()
     const skipped: string[] = []
     const added: ResourceFile[] = []
-    const known = [...files]
+    const mine: string[] = []
     setProgress({ label: '올리는 중', done: 0, total: list.length })
     try {
       for (let i = 0; i < list.length; i++) {
         const { file: f, rel } = list[i]
         const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''
         const folder = dir ? await ensureFolder(target, dir, cache) : target
-        // 그 폴더에 이미 있는 파일(이름·크기 같음)은 다시 올리지 않는다
-        if ([...known, ...added].some(x => !x.deleted_at && (x.resource_id ?? null) === folder && x.file_name === f.name && x.file_size === f.size)) {
+        // 그 폴더에 이미 있거나 지금 올리는 중인 파일(이름·크기 같음)은 다시 올리지 않는다
+        const sig = `${folder ?? ''}|${f.name}|${f.size}`
+        if (uploadingRef.current.has(sig) || [...filesRef.current, ...added].some(x => !x.deleted_at && (x.resource_id ?? null) === folder && x.file_name === f.name && x.file_size === f.size)) {
           skipped.push(f.name)
           setProgress({ label: '올리는 중', done: i + 1, total: list.length })
           continue
         }
+        uploadingRef.current.add(sig)
+        mine.push(sig)
         const e = ext(f.name)
         const safeExt = /^[a-z0-9]{1,8}$/.test(e) ? `.${e}` : ''
         const path = `${officeBrokerId}/${broker.id}/${Date.now()}-${i}-${Math.random().toString(36).slice(2)}${safeExt}`
@@ -525,6 +547,7 @@ export default function BrokerResourcesPage() {
     } catch (err: any) {
       toast.error(err?.message ?? '올리기 중 오류')
     } finally {
+      mine.forEach(s => uploadingRef.current.delete(s))
       setProgress(null)
     }
     if (skipped.length > 0) toast.info(`이미 있어서 뺐습니다:\n${skipped.slice(0, 10).map(n => `· ${n}`).join('\n')}${skipped.length > 10 ? `\n외 ${skipped.length - 10}개` : ''}`)
@@ -537,7 +560,8 @@ export default function BrokerResourcesPage() {
   }
 
   const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const list = Array.from(e.target.files ?? []).map(file => ({ file, rel: (file as any).webkitRelativePath || file.name }))
+    // 폴더째 올릴 때만 '/' 를 폴더 경로로 본다 — 이름에 든 '/' 로 '..' 같은 폴더가 생겼다
+    const list = Array.from(e.target.files ?? []).map(file => ({ file, rel: (file as any).webkitRelativePath || file.name.replace(/\//g, '_') }))
     e.target.value = ''
     if (list.length) uploadHere(list)
   }
@@ -599,6 +623,19 @@ export default function BrokerResourcesPage() {
       e.dataTransfer.effectAllowed = 'move'
     },
     onDragEnd: () => { dragKeys.current = null; setDropTarget(null) },
+    onTouchStart: () => {
+      if (tab === 'trash') return
+      longPressed.current = false
+      if (pressTimer.current) clearTimeout(pressTimer.current)
+      pressTimer.current = setTimeout(() => {
+        longPressed.current = true
+        navigator.vibrate?.(20)
+        toggleSelect(k)
+      }, 500)
+    },
+    onTouchMove: () => { if (pressTimer.current) clearTimeout(pressTimer.current) },
+    onTouchEnd: () => { if (pressTimer.current) clearTimeout(pressTimer.current) },
+    onContextMenu: (e: React.MouseEvent) => { if (longPressed.current) e.preventDefault() },
   })
 
   // ── 만들기·이름·메모 ──────────────────────────────────
@@ -606,10 +643,11 @@ export default function BrokerResourcesPage() {
     setNewOpen(false)
     setDTitle(file ? file.file_name : res?.title ?? '')
     setDText(res?.description ?? '')
-    setDialog({ mode, res, file })
+    // 새로 만들 자리는 창을 연 때의 폴더로 못 박는다
+    setDialog({ mode, res, file, parent: tab === 'drive' && currentOk ? folderId : null })
   }
 
-  const submitDialog = async () => {
+  const submitDialog = exclusive(async () => {
     if (!dialog || !broker || !officeBrokerId) return
     const t = dTitle.trim()
     if (!t) { toast.error('이름을 입력해주세요.'); return }
@@ -617,7 +655,7 @@ export default function BrokerResourcesPage() {
     setSaving(true)
     try {
       if (dialog.mode === 'folder' || dialog.mode === 'memo') {
-        const parent = tab === 'drive' && currentOk ? folderId : null
+        const parent = dialog.parent ?? null
         const { data, error } = await supabase
           .from('office_resources')
           .insert({
@@ -628,7 +666,7 @@ export default function BrokerResourcesPage() {
           .single()
         if (error || !data) { toast.error(`만들기 실패: ${error?.message ?? ''}`); return }
         setResources(prev => [data as Resource, ...prev])
-        if (tab !== 'drive' || !currentOk) openFolder(null)
+        if (tab !== 'drive' || !currentOk || folderId !== parent) openFolder(parent)
         setDialog(null)
       } else if (dialog.mode === 'renameFile' && dialog.file) {
         const { error } = await supabase.from('office_resource_files').update({ file_name: t.slice(0, 200) }).eq('id', dialog.file.id)
@@ -646,10 +684,10 @@ export default function BrokerResourcesPage() {
     } finally {
       setSaving(false)
     }
-  }
+  })
 
   // ── 옮기기 ─────────────────────────────────────────
-  const moveTo = async (keys: Key[], target: string | null) => {
+  const moveTo = exclusive(async (keys: Key[], target: string | null) => {
     const mine = keys.filter(canManageKey)
     if (mine.length < keys.length) toast.info('직원은 본인이 올린 것만 옮길 수 있어 나머지는 그대로 뒀습니다.')
     // 폴더를 자기 안으로는 못 옮긴다
@@ -669,17 +707,25 @@ export default function BrokerResourcesPage() {
     setSelected(new Set())
     const where = target ? resById.get(target)?.title ?? '폴더' : '내 자료실'
     toast.success(`${rIds.length + fIds.length}개를 "${where}"(으)로 옮겼습니다.`)
-  }
+  })
 
   const startMove = (keys: Key[]) => {
     const mine = keys.filter(canManageKey)
     if (mine.length === 0) { toast.error('직원은 본인이 올린 것만 옮길 수 있습니다.'); return }
     setMoveKeys(mine)
-    setMoveAt(tab === 'drive' && currentOk ? folderId : null)
+    // 지금 폴더가 옮기는 폴더 자신(또는 그 안)이면 그 바깥에서 시작한다 — 자기 자신이 목적지로 잡혔다
+    let at = tab === 'drive' && currentOk ? folderId : null
+    for (const k of mine) {
+      if (!k.startsWith('r:')) continue
+      const id = k.slice(2)
+      if (at && (at === id || isInside(at, id))) at = parentOfRes(resById.get(id)!)
+    }
+    setMoveAt(at)
   }
+  const keyParent = (k: Key) => (k.startsWith('r:') ? resById.get(k.slice(2))?.parent_id : fileById.get(k.slice(2))?.resource_id) ?? null
 
   // ── 휴지통 ─────────────────────────────────────────
-  const trashKeysAct = async (keys: Key[]) => {
+  const trashKeysAct = exclusive(async (keys: Key[]) => {
     const mine = keys.filter(canManageKey)
     if (mine.length === 0) { toast.error('직원은 본인이 올린 것만 지울 수 있습니다.'); return }
     if (mine.length < keys.length) toast.info('직원은 본인이 올린 것만 지울 수 있어 그것만 휴지통으로 옮겼습니다.')
@@ -697,10 +743,10 @@ export default function BrokerResourcesPage() {
     setSelected(new Set())
     if (memoView && rIds.includes(memoView.id)) setMemoView(null)
     if (folderId && (rIds.includes(folderId) || rIds.some(id => isInside(folderId, id)))) openFolder(null)
-    toast.success(`${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 되살릴 수 있어요.`)
-  }
+    toast.success(`${mine.length}개를 자료실 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 되살릴 수 있어요.`)
+  })
 
-  const restore = async (keys: Key[]) => {
+  const restore = exclusive(async (keys: Key[]) => {
     const rIds = keys.filter(k => k.startsWith('r:')).map(k => k.slice(2))
     const fIds = keys.filter(k => k.startsWith('f:')).map(k => k.slice(2))
     // 원래 있던 폴더가 지워졌으면 맨 위로 되살린다
@@ -717,10 +763,10 @@ export default function BrokerResourcesPage() {
     setFiles(prev => prev.map(f => { const p = fPatch.find(x => x.id === f.id); return p ? { ...f, deleted_at: null, resource_id: p.resource_id } : f }))
     setSelected(new Set())
     toast.success(`${keys.length}개를 되살렸습니다.`)
-  }
+  })
 
   // 영구삭제 — 폴더면 그 안의 것도 함께(대표는 전부, 직원은 본인 것). 직원이 못 지우는 남의 것은 DB 가 맨 위로 꺼내 놓는다.
-  const purge = async (keys: Key[], rList = resources, fList = files, me = broker?.id, office = officeBrokerId, quiet = false) => {
+  const purge = exclusive(async (keys: Key[], rList: Resource[] = resources, fList: ResourceFile[] = files, me: string | undefined = broker?.id, office: string | null = officeBrokerId, quiet = false) => {
     const rMap = new Map(rList.map(r => [r.id, r]))
     const inside = (pid: string | null, anc: string) => {
       for (let i = 0, cur = pid; cur && i < 50; i++) { if (cur === anc) return true; cur = rMap.get(cur)?.parent_id ?? null }
@@ -745,7 +791,7 @@ export default function BrokerResourcesPage() {
     setResources(prev => prev.filter(r => !rIds.has(r.id)).map(r => (r.parent_id && rIds.has(r.parent_id) ? { ...r, parent_id: null } : r)))
     setSelected(new Set())
     if (!quiet) toast.success('영구삭제했습니다.')
-  }
+  })
 
   const confirmPurge = (keys: Key[]) => {
     if (!confirm(`${keys.length}개를 영구삭제할까요? 되돌릴 수 없습니다.`)) return
@@ -753,7 +799,7 @@ export default function BrokerResourcesPage() {
   }
 
   // ── 별표 ───────────────────────────────────────────
-  const toggleStar = async (keys: Key[]) => {
+  const toggleStar = exclusive(async (keys: Key[]) => {
     if (!broker) return
     const allOn = keys.every(k => stars.has(k))
     if (allOn) {
@@ -771,7 +817,7 @@ export default function BrokerResourcesPage() {
       setStars(prev => { const n = new Set(prev); add.forEach(k => n.add(k)); return n })
     }
     setSelected(new Set())
-  }
+  })
 
   // ── 순서(대표만) ─────────────────────────────────────
   // 같은 자리의 폴더(또는 메모)를 지금 보이는 순서대로 1,2,3… 다시 매기고 바뀐 것만 저장한다
@@ -801,6 +847,8 @@ export default function BrokerResourcesPage() {
   }
 
   const previewPdf = async (f: ResourceFile) => {
+    // PDF 를 못 보여 주는 브라우저(안드로이드 크롬 등)는 그냥 받는다 — 열면 저장소 이름(1779…pdf)으로 받아졌다
+    if (navigator.pdfViewerEnabled === false) { void handleDownload(f); return }
     const w = window.open('', '_blank') // 팝업 차단을 피하려고 누른 순간 창부터 연다
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 3600)
     if (error || !data?.signedUrl) { w?.close(); toast.error(`열기 실패: ${error?.message ?? ''}`); return }
@@ -816,11 +864,23 @@ export default function BrokerResourcesPage() {
     } catch { toast.error('복사하지 못했습니다.') }
   }
 
-  const openFile = (f: ResourceFile) => {
+  const openFile = async (f: ResourceFile) => {
     const imgs = shownFiles.filter(isImage)
-    if (isImage(f) && imgs.every(x => thumbs[x.storage_path])) {
-      setLightbox({ urls: imgs.map(x => thumbs[x.storage_path]), files: imgs, index: imgs.indexOf(f) })
-      return
+    if (isImage(f)) {
+      // 미리보기 주소가 다 오기 전에 누르면 받기로 새던 것 — 모자란 주소는 그 자리에서 받아 연다
+      const missing = imgs.filter(x => !thumbs[x.storage_path]).map(x => x.storage_path)
+      let urls = thumbs
+      if (missing.length > 0) {
+        const { data } = await supabase.storage.from(BUCKET).createSignedUrls(missing.slice(0, 100), 3600)
+        urls = { ...thumbs }
+        data?.forEach(d => { if (d.path && d.signedUrl) urls[d.path] = d.signedUrl })
+        setThumbs(prev => ({ ...prev, ...urls }))
+      }
+      const ready = imgs.filter(x => urls[x.storage_path])
+      if (ready.includes(f)) {
+        setLightbox({ urls: ready.map(x => urls[x.storage_path]), files: ready, index: ready.indexOf(f) })
+        return
+      }
     }
     if (isPdf(f)) { void previewPdf(f); return }
     void handleDownload(f)
@@ -891,6 +951,7 @@ export default function BrokerResourcesPage() {
   const toggleSelect = (k: Key) => setSelected(prev => { const n = new Set(prev); if (n.has(k)) n.delete(k); else n.add(k); return n })
   const selecting = selected.size > 0
   const activate = (k: Key, open: () => void) => (e: React.MouseEvent | React.KeyboardEvent) => {
+    if (longPressed.current) { longPressed.current = false; return }
     // 휴지통에서는 누르면 고른다(열 수 없으니)
     if (tab === 'trash' || selecting || ('ctrlKey' in e && (e.ctrlKey || e.metaKey))) { toggleSelect(k); return }
     open()
@@ -944,7 +1005,7 @@ export default function BrokerResourcesPage() {
   }
 
   if (loading) return (
-    <div className="bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+    <div className="bg-gray-50 dark:bg-gray-950 flex min-h-screen items-center justify-center">
       <div className="text-gray-500 text-sm">불러오는 중...</div>
     </div>
   )
@@ -989,7 +1050,7 @@ export default function BrokerResourcesPage() {
         {...(tab !== 'trash' ? dropProps(r.id) : {})}
         onClick={activate(k, () => tab === 'trash' ? undefined : openFolder(r.id))}
         onKeyDown={e => { if (e.key === 'Enter') activate(k, () => openFolder(r.id))(e) }}
-        className={`group flex cursor-pointer items-center gap-2.5 rounded-xl border bg-white py-2.5 pl-2.5 pr-1 hover:bg-blue-50/60 dark:bg-gray-900 dark:hover:bg-gray-800 ${tileRing(k, r.id)}`}
+        className={`group flex cursor-pointer select-none items-center gap-2.5 rounded-xl border [-webkit-touch-callout:none] bg-white py-2.5 pl-2.5 pr-1 hover:bg-blue-50/60 dark:bg-gray-900 dark:hover:bg-gray-800 ${tileRing(k, r.id)}`}
       >
         {checkCircle(k)}
         <Folder className="h-5 w-5 flex-shrink-0 fill-blue-600/15 text-blue-600" />
@@ -1014,7 +1075,7 @@ export default function BrokerResourcesPage() {
         {...dragProps(k)}
         onClick={activate(k, () => setMemoView(r))}
         onKeyDown={e => { if (e.key === 'Enter') activate(k, () => setMemoView(r))(e) }}
-        className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-white hover:shadow-sm dark:bg-gray-900 ${tileRing(k)}`}
+        className={`group relative flex cursor-pointer select-none flex-col overflow-hidden rounded-xl border [-webkit-touch-callout:none] bg-white hover:shadow-sm dark:bg-gray-900 ${tileRing(k)}`}
       >
         <div className="absolute left-2 top-2">{checkCircle(k)}</div>
         <p className="line-clamp-4 h-[5.5rem] whitespace-pre-wrap bg-amber-50/70 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600 dark:bg-amber-950/20 dark:text-gray-400">
@@ -1047,7 +1108,7 @@ export default function BrokerResourcesPage() {
         onClick={activate(k, () => tab === 'trash' ? undefined : openFile(f))}
         onKeyDown={e => { if (e.key === 'Enter') activate(k, () => openFile(f))(e) }}
         title={f.file_name}
-        className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-white hover:shadow-sm dark:bg-gray-900 ${tileRing(k)}`}
+        className={`group relative flex cursor-pointer select-none flex-col overflow-hidden rounded-xl border [-webkit-touch-callout:none] bg-white hover:shadow-sm dark:bg-gray-900 ${tileRing(k)}`}
       >
         <div className="absolute left-2 top-2 z-10">{checkCircle(k)}</div>
         <div className={`flex aspect-[4/3] items-center justify-center overflow-hidden ${thumb ? 'bg-gray-50 dark:bg-gray-800' : kind.bg}`}>
@@ -1079,7 +1140,7 @@ export default function BrokerResourcesPage() {
       {...(o.dropId && tab !== 'trash' ? dropProps(o.dropId) : {})}
       onClick={activate(o.k, o.onOpen)}
       onKeyDown={e => { if (e.key === 'Enter') activate(o.k, o.onOpen)(e) }}
-      className={`group flex cursor-pointer items-center gap-3 border-b py-2 pl-3 pr-1 last:border-b-0 hover:bg-blue-50/50 dark:hover:bg-gray-800 ${selected.has(o.k) ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''} ${o.dropId && dropTarget === o.dropId ? 'ring-2 ring-inset ring-blue-500' : ''} border-gray-100 dark:border-gray-800`}
+      className={`group flex cursor-pointer select-none items-center gap-3 border-b [-webkit-touch-callout:none] py-2 pl-3 pr-1 last:border-b-0 hover:bg-blue-50/50 dark:hover:bg-gray-800 ${selected.has(o.k) ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''} ${o.dropId && dropTarget === o.dropId ? 'ring-2 ring-inset ring-blue-500' : ''} border-gray-100 dark:border-gray-800`}
     >
       {checkCircle(o.k)}
       <span className="flex-shrink-0">{o.icon}</span>
@@ -1151,9 +1212,12 @@ export default function BrokerResourcesPage() {
   ]
 
   // 옮기기 창 — 폴더를 따라 들어가며 고른다
+  // 옮기는 폴더 자신과 그 안의 폴더는 목적지로 내놓지 않는다
+  const movingFolderIds = (moveKeys ?? []).filter(k => k.startsWith('r:')).map(k => k.slice(2))
   const moveFolders = moveKeys
-    ? liveRes.filter(r => r.kind === 'folder' && parentOfRes(r) === moveAt && !moveKeys.includes(rKey(r.id))).sort((a, b) => byName(a.title, b.title))
+    ? liveRes.filter(r => r.kind === 'folder' && parentOfRes(r) === moveAt && !movingFolderIds.some(id => r.id === id || isInside(r.id, id))).sort((a, b) => byName(a.title, b.title))
     : []
+  const moveNoop = !!moveKeys && moveKeys.every(k => keyParent(k) === moveAt)
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen" onDragEnter={onDragEnter} onDragOver={e => { if (hasFiles(e)) e.preventDefault() }} onDragLeave={onDragLeave} onDrop={onDrop}>
@@ -1165,12 +1229,13 @@ export default function BrokerResourcesPage() {
           icon={FolderOpen}
           iconColor="text-blue-600"
           title="자료실"
-          description={broker?.office_name ? `${broker.office_name} · 사무소 내부 공유` : '사무소 내부 공유'}
+          // '사무소 내부 공유'만 적혀 있어 직원끼리도 서로 보는 줄 알았다 — 실제 보는 범위를 적는다
+          description={`${broker?.office_name ? `${broker.office_name} · ` : ''}${isOwnerOfOffice ? '직원 자료는 그 직원과 대표만 봅니다' : '내 자료와 대표 자료만 보입니다'}`}
           actions={
             <div ref={newRef} className="relative">
               <button
                 onClick={() => setNewOpen(o => !o)}
-                className="inline-flex items-center gap-1.5 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-gray-800 shadow-md ring-1 ring-gray-100 hover:bg-blue-50 dark:bg-gray-900 dark:text-gray-100 dark:ring-gray-800"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-2xl bg-white px-4 py-3 text-sm font-bold sm:py-2.5 text-gray-800 shadow-md ring-1 ring-gray-100 hover:bg-blue-50 dark:bg-gray-900 dark:text-gray-100 dark:ring-gray-800"
               >
                 <Plus className="h-5 w-5 text-blue-600" />
                 새로 만들기
@@ -1184,11 +1249,12 @@ export default function BrokerResourcesPage() {
                     { label: '새 메모', icon: StickyNote, onClick: () => openDialog('memo') },
                   ].map(it => (
                     <button key={it.label} onClick={it.onClick}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+                      className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 sm:py-2.5 dark:text-gray-200 dark:hover:bg-gray-800">
                       <it.icon className="h-4 w-4 text-gray-500" />
                       {it.label}
                     </button>
                   ))}
+                  <p className="border-t border-gray-100 px-3.5 py-2 text-[11px] text-gray-500 dark:border-gray-800">파일 하나에 {MAX_FILE_SIZE / 1024 / 1024}MB까지 · 한 번에 {MAX_FILES}개까지</p>
                 </div>
               )}
             </div>
@@ -1200,7 +1266,7 @@ export default function BrokerResourcesPage() {
           {tabs.map(t => (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => go(t.id)}
               {...(t.id === 'drive' ? dropProps(null) : {})}
-              className={`-mb-px inline-flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold ${tab === t.id
+              className={`-mb-px inline-flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm sm:py-2 font-semibold ${tab === t.id
                 ? 'border-blue-600 text-blue-700 dark:text-blue-300'
                 : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'} ${t.id === 'drive' && dropTarget === 'root' ? 'bg-blue-50 dark:bg-blue-950' : ''}`}>
               <t.icon className="h-4 w-4" />
@@ -1247,14 +1313,14 @@ export default function BrokerResourcesPage() {
               />
               {query && (
                 <button onClick={() => setQuery('')} aria-label="검색어 지우기"
-                  className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
+                  className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </label>
             {tab !== 'recent' && tab !== 'trash' && (
               <button onClick={changeSort} title="정렬 바꾸기"
-                className="inline-flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
+                className="inline-flex h-11 flex-shrink-0 items-center gap-1 rounded-full px-3 text-xs font-semibold sm:h-9 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
                 <ArrowUpDown className="h-3.5 w-3.5" />
                 {sort === 'custom' ? '지정순' : sort === 'recent' ? '최근순' : sort === 'name' ? '이름순' : '크기순'}
               </button>
@@ -1262,7 +1328,7 @@ export default function BrokerResourcesPage() {
             <div className="flex flex-shrink-0 overflow-hidden rounded-full border border-gray-200 dark:border-gray-700">
               {([['grid', LayoutGrid, '바둑판 보기'], ['list', List, '목록 보기']] as const).map(([v, Icon, label]) => (
                 <button key={v} onClick={() => changeView(v)} aria-label={label} aria-pressed={view === v}
-                  className={`flex h-9 w-10 items-center justify-center ${view === v ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+                  className={`flex h-11 w-11 items-center justify-center sm:h-9 sm:w-10 ${view === v ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
                   <Icon className="h-4 w-4" />
                 </button>
               ))}
@@ -1275,7 +1341,7 @@ export default function BrokerResourcesPage() {
           <>
             <nav aria-label="현재 위치" className="mb-1 flex min-h-9 flex-wrap items-center gap-0.5 text-lg">
               <button onClick={() => openFolder(null)} {...dropProps(null)}
-                className={`rounded-full px-2 py-0.5 ${dropTarget === 'root' ? 'bg-blue-100 dark:bg-blue-900' : ''} ${current ? 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' : 'font-semibold text-gray-900 dark:text-white'}`}>
+                className={`rounded-full px-2 py-2 sm:py-0.5 ${dropTarget === 'root' ? 'bg-blue-100 dark:bg-blue-900' : ''} ${current ? 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800' : 'font-semibold text-gray-900 dark:text-white'}`}>
                 내 자료실
               </button>
               {crumbs.map((c, i) => {
@@ -1286,11 +1352,12 @@ export default function BrokerResourcesPage() {
                     {last ? (
                       <>
                         <span className="truncate rounded-full px-2 py-0.5 font-semibold text-gray-900 dark:text-white">{c.title}</span>
-                        <ItemMenu label={c.title} items={resMenu(c).filter(it => it.label !== '열기' && it.label !== '선택')} />
+                        {/* 열어 둔 폴더 자신의 앞으로·뒤로는 눌러도 보이는 게 없어 뺀다 */}
+                        <ItemMenu label={c.title} items={resMenu(c).filter(it => !['열기', '선택', '앞으로', '뒤로'].includes(it.label))} />
                       </>
                     ) : (
                       <button onClick={() => openFolder(c.id)} {...dropProps(c.id)}
-                        className={`truncate rounded-full px-2 py-0.5 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${dropTarget === c.id ? 'bg-blue-100 dark:bg-blue-900' : ''}`}>
+                        className={`truncate rounded-full px-2 py-2 sm:py-0.5 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 ${dropTarget === c.id ? 'bg-blue-100 dark:bg-blue-900' : ''}`}>
                         {c.title}
                       </button>
                     )}
@@ -1366,17 +1433,23 @@ export default function BrokerResourcesPage() {
                         className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 bg-white py-14 text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-900">
                         <Upload className="h-7 w-7" />
                         <span className="font-semibold">{current ? '빈 폴더예요' : '아직 올라온 자료가 없어요'}</span>
-                        <span className="text-xs">파일이나 폴더를 여기로 끌어오거나 눌러서 고르세요</span>
+                        <span className="text-xs">눌러서 파일을 고르거나, 파일·폴더를 여기로 끌어오세요 · 파일 하나에 {MAX_FILE_SIZE / 1024 / 1024}MB까지</span>
                       </button>
                     )
             )}
           </section>
         )}
 
-        {tab === 'drive' && !selecting && shownKeys.length > 0 && (
-          <p className="mt-6 hidden text-center text-[11px] text-gray-400 sm:block">
-            끌어서 폴더·위치 표시줄에 놓으면 옮겨집니다 · Ctrl+클릭으로 여러 개 선택 · Delete 로 휴지통
-          </p>
+        {/* 검색 결과엔 위치 표시줄이 없으니 이 안내도 숨긴다 */}
+        {tab === 'drive' && !q && !selecting && shownKeys.length > 0 && (
+          <>
+            <p className="mt-6 hidden text-center text-[11px] text-gray-400 sm:block">
+              끌어서 폴더·위치 표시줄에 놓으면 옮겨집니다 · Ctrl+클릭으로 여러 개 선택 · Delete 로 휴지통
+            </p>
+            <p className="mt-6 text-center text-[11px] text-gray-400 sm:hidden">
+              길게 누르면 여러 개 고를 수 있어요 · 옮기기는 ⋮ 메뉴에서
+            </p>
+          </>
         )}
       </div>
 
@@ -1433,11 +1506,11 @@ export default function BrokerResourcesPage() {
             <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
               <h2 className="font-bold text-gray-900 dark:text-white">{moveKeys.length}개 옮기기</h2>
               <div className="mt-1 flex flex-wrap items-center gap-0.5 text-sm">
-                <button onClick={() => setMoveAt(null)} className={`rounded px-1 ${moveAt ? 'text-blue-600' : 'font-semibold text-gray-900 dark:text-white'}`}>내 자료실</button>
+                <button onClick={() => setMoveAt(null)} className={`rounded px-2 py-2 sm:py-0.5 ${moveAt ? 'text-blue-600' : 'font-semibold text-gray-900 dark:text-white'}`}>내 자료실</button>
                 {pathOf(moveAt).map(c => (
                   <span key={c.id} className="flex items-center gap-0.5">
                     <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                    <button onClick={() => setMoveAt(c.id)} className={`rounded px-1 ${c.id === moveAt ? 'font-semibold text-gray-900 dark:text-white' : 'text-blue-600'}`}>{c.title}</button>
+                    <button onClick={() => setMoveAt(c.id)} className={`rounded px-2 py-2 sm:py-0.5 ${c.id === moveAt ? 'font-semibold text-gray-900 dark:text-white' : 'text-blue-600'}`}>{c.title}</button>
                   </span>
                 ))}
               </div>
@@ -1454,10 +1527,10 @@ export default function BrokerResourcesPage() {
               ))}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-800">
-              <button onClick={() => setMoveKeys(null)} className="rounded-xl px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">취소</button>
-              <button onClick={() => { const k = moveKeys; setMoveKeys(null); void moveTo(k, moveAt) }}
-                className="rounded-xl bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                {moveAt ? `"${resById.get(moveAt)?.title}"(으)로 옮기기` : '여기(맨 위)로 옮기기'}
+              <button onClick={() => setMoveKeys(null)} className="rounded-xl px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-100 sm:py-2 dark:text-gray-300 dark:hover:bg-gray-800">취소</button>
+              <button onClick={() => { const k = moveKeys; setMoveKeys(null); void moveTo(k, moveAt) }} disabled={moveNoop}
+                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-600 sm:py-2 dark:disabled:bg-gray-700 dark:disabled:text-gray-300">
+                {moveNoop ? '이미 이 폴더에 있어요' : moveAt ? `"${resById.get(moveAt)?.title}"(으)로 옮기기` : '여기(맨 위)로 옮기기'}
               </button>
             </div>
           </div>
@@ -1528,6 +1601,7 @@ export default function BrokerResourcesPage() {
           onPrev={() => setLightbox(l => l && { ...l, index: (l.index - 1 + l.urls.length) % l.urls.length })}
           onGoTo={i => setLightbox(l => l && { ...l, index: i })}
           onDownload={i => handleDownload(lightbox.files[i])}
+          names={lightbox.files.map(f => f.file_name)}
         />
       )}
     </div>

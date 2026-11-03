@@ -108,6 +108,10 @@ export default function TrashPage() {
           <p>
             삭제된 매물·고객은 <b>30일 동안</b> 휴지통에 보관되고 자동으로 영구 삭제됩니다. 그 전엔 언제든 복원 가능합니다.
             {!canPurge && <span className="block mt-1">영구삭제는 대표(사무소 운영자)만 할 수 있어요.</span>}
+            {/* 자료실에서 지운 것을 여기서 찾다 못 찾았다 — 자료실 휴지통은 따로 있다 */}
+            <span className="block mt-1">
+              자료실에서 지운 파일·폴더는 <Link href="/broker/resources?view=trash" className="font-semibold underline">자료실 휴지통</Link>에 있어요.
+            </span>
           </p>
         </div>
 
