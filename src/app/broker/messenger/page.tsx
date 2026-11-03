@@ -244,11 +244,11 @@ export default function BrokerMessengerPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={auth.user} role="broker" />
       <div className="mx-auto max-w-6xl px-0 sm:px-4 sm:py-3">
-        <h1 className="sr-only">메시지</h1>
+        <h1 className="sr-only">메세지</h1>
         <div className="flex h-[calc(100dvh-4rem)] overflow-hidden border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 sm:h-[calc(100dvh-6.5rem)] sm:rounded-2xl sm:border">
 
           {/* 왼쪽 세로 메뉴(PC) — 카톡 PC 판처럼 */}
-          <nav className="hidden w-16 flex-shrink-0 flex-col items-center gap-2 bg-[#ececed] py-4 dark:bg-gray-950 md:flex" aria-label="메시지 메뉴">
+          <nav className="hidden w-16 flex-shrink-0 flex-col items-center gap-2 bg-[#ececed] py-4 dark:bg-gray-950 md:flex" aria-label="메세지 메뉴">
             <RailButton icon={User} label="친구" on={tab === 'friends'} onClick={() => setTab('friends')} />
             <RailButton icon={MessageCircle} label="채팅" on={tab === 'chats'} onClick={() => setTab('chats')} badge={totalUnread} />
             <RailButton icon={MoreHorizontal} label="더보기" on={tab === 'more'} onClick={() => setTab('more')} />
@@ -351,7 +351,7 @@ export default function BrokerMessengerPage() {
             </div>
 
             {/* 아래 탭(폰) */}
-            <nav className="flex border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 md:hidden" aria-label="메시지 메뉴">
+            <nav className="flex border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 md:hidden" aria-label="메세지 메뉴">
               <BottomTab icon={User} label="친구" on={tab === 'friends'} onClick={() => setTab('friends')} />
               <BottomTab icon={MessageCircle} label="채팅" on={tab === 'chats'} onClick={() => setTab('chats')} badge={totalUnread} />
               <BottomTab icon={MoreHorizontal} label="더보기" on={tab === 'more'} onClick={() => setTab('more')} />

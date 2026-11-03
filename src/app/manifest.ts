@@ -47,7 +47,7 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     // 홈 화면 아이콘을 길게 누르면 바로 가는 곳
     shortcuts: [
-      { name: '메시지', url: '/broker/messenger', icons: [{ src: '/icon-192.png?v=3', sizes: '192x192', type: 'image/png' }] },
+      { name: '메세지', url: '/broker/messenger', icons: [{ src: '/icon-192.png?v=3', sizes: '192x192', type: 'image/png' }] },
       { name: '매물목록', url: '/broker/properties', icons: [{ src: '/icon-192.png?v=3', sizes: '192x192', type: 'image/png' }] },
       { name: '업무일지', url: '/broker/diary', icons: [{ src: '/icon-192.png?v=3', sizes: '192x192', type: 'image/png' }] },
     ],

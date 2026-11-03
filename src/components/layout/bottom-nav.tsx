@@ -75,12 +75,12 @@ export function BottomNav() {
   } else if (role === 'broker') {
     items = [
       { href: '/dashboard/broker', label: '홈', icon: Home },
-      // 안 읽은 메시지 수가 더보기 서랍 안에 묻혀 폰에서는 배지가 안 보였다 — 탭으로 꺼낸다
-      { href: '/broker/messenger', label: '메시지', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
       // 사무소 메뉴는 menu-items 의 needsOffice 와 같은 뜻 — 등록 전엔 탭에도 자물쇠를 단다
       { href: '/broker/customers', label: '고객', icon: Users, needsOffice: true },
       { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
       { href: '/broker/diary', label: '일지', icon: ClipboardList, needsOffice: true },
+      // 안 읽은 메시지 수가 더보기 서랍 안에 묻혀 폰에서는 배지가 안 보였다 — 탭으로 꺼낸다
+      { href: '/broker/messenger', label: '메세지', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
       // 입찰을 켠 사무소의 대표에게만(사이드바 메뉴와 같은 조건). 더보기 9번째에 묻혀 있어
       // 폰으로 처음 쓰는 사람은 이 기능이 있는 줄도 몰랐다
       ...(broker?.bid_enabled && broker.is_owner !== false
