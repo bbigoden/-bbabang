@@ -277,7 +277,13 @@ export default function BrokerMessengerPage() {
           {/* 목록 칸 */}
           <div className={cn('flex w-full flex-shrink-0 flex-col border-r border-gray-100 dark:border-gray-800 md:w-80', active && 'hidden md:flex')}>
             <div className="flex items-center justify-between px-4 pb-2 pt-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{tab === 'friends' ? '친구' : tab === 'chats' ? '채팅' : '더보기'}</h2>
+              <h2 className="hidden text-lg font-bold text-gray-900 dark:text-white md:block">{tab === 'friends' ? '친구' : tab === 'chats' ? '채팅' : '더보기'}</h2>
+              {/* 폰: 앱 아래 메뉴바와 두 줄이 되지 않게 친구·채팅·더보기는 위에 둔다 */}
+              <nav className="flex items-center gap-4 md:hidden" aria-label="메세지 메뉴">
+                <TopTab label="친구" on={tab === 'friends'} onClick={() => setTab('friends')} />
+                <TopTab label="채팅" on={tab === 'chats'} onClick={() => setTab('chats')} badge={totalUnread} />
+                <TopTab label="더보기" on={tab === 'more'} onClick={() => setTab('more')} />
+              </nav>
               {tab === 'chats' && (
                 <button onClick={() => setShowNew(true)} className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="새 채팅" title="새 채팅">
                   <Plus className="h-5 w-5 text-gray-700 dark:text-gray-300" />
@@ -371,12 +377,6 @@ export default function BrokerMessengerPage() {
               )}
             </div>
 
-            {/* 아래 탭(폰) */}
-            <nav className="flex border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900 md:hidden" aria-label="메세지 메뉴">
-              <BottomTab icon={User} label="친구" on={tab === 'friends'} onClick={() => setTab('friends')} />
-              <BottomTab icon={MessageCircle} label="채팅" on={tab === 'chats'} onClick={() => setTab('chats')} badge={totalUnread} />
-              <BottomTab icon={MoreHorizontal} label="더보기" on={tab === 'more'} onClick={() => setTab('more')} />
-            </nav>
           </div>
 
           {/* 대화 칸 */}
@@ -446,12 +446,12 @@ function RailButton({ icon: Icon, label, on, onClick, badge = 0 }: { icon: React
   )
 }
 
-function BottomTab({ icon: Icon, label, on, onClick, badge = 0 }: { icon: React.ComponentType<{ className?: string }>; label: string; on: boolean; onClick: () => void; badge?: number }) {
+function TopTab({ label, on, onClick, badge = 0 }: { label: string; on: boolean; onClick: () => void; badge?: number }) {
   return (
     <button onClick={onClick} aria-current={on ? 'page' : undefined}
-      className={cn('relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px]', on ? 'text-gray-900 dark:text-white' : 'text-gray-400')}>
-      <Icon className={cn('h-5 w-5', on && 'fill-current')} />{label}
-      {badge > 0 && <span className="absolute left-1/2 top-1 ml-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ff5a3c] px-1 text-[9px] font-bold text-white">{badge > 99 ? '99+' : badge}</span>}
+      className={cn('relative text-lg font-bold', on ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500')}>
+      {label}
+      {badge > 0 && <span className="absolute -right-3 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ff5a3c] px-1 text-[9px] font-bold text-white">{badge > 99 ? '99+' : badge}</span>}
     </button>
   )
 }
