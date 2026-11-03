@@ -93,8 +93,8 @@ export const previewText = (m: Pick<Msg, 'body' | 'image_url' | 'image_paths' | 
 }
 
 export const URL_RE = /https?:\/\/[^\s<>"']+/g
-/** 말풍선 속 전화번호 — 010-1234-5678 · 01012345678 · 041-123-4567 · 1588-1234 */
-export const PHONE_RE = /(?<![\d-])(?:0\d{1,2}[-. ]?\d{3,4}[-. ]?\d{4}|1[5-9]\d{2}-?\d{4})(?![\d-])/g
+/** 말풍선 속 전화번호 — 010-1234-5678 · 01012345678 · 041-123-4567 · 0507-1379-1665 · 1588-1234 */
+export const PHONE_RE = /(?<![\d-])(?:0\d{1,3}[-. ]?\d{3,4}[-. ]?\d{4}|1[5-9]\d{2}-?\d{4})(?![\d-])/g
 export const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`
 
 // 첨부 버킷은 비공개 — DB에는 경로만 저장하고 렌더 시 서명 URL로 연다.
