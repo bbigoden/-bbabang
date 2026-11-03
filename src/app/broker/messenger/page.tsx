@@ -16,7 +16,7 @@ import {
 import { ChatRoom, Avatar } from './chat-room'
 import {
   type Thread, type Msg, type Member, type MyRow,
-  CHAT_BUCKET, chatStoragePath, listTimeLabel, previewText,
+  CHAT_BUCKET, chatStoragePath, listTimeLabel, previewText, whyFailed, shrinkImage,
 } from './shared'
 
 type Tab = 'friends' | 'chats' | 'more'
@@ -125,6 +125,7 @@ export default function BrokerMessengerPage() {
     }))
     setPreviews(pv)
     setUnread(uc)
+    return list
   }, [office, myId, supabase])
 
   useEffect(() => {
@@ -152,8 +153,13 @@ export default function BrokerMessengerPage() {
     // 주소의 ?t 는 방을 연 뒤에 지운다 — 새로 고침·뒤로가기 때 같은 방이 또 열리지 않게.
     // 먼저 지우면 첫 화면을 그리는 동안 이 화면이 한 번 새로 붙으며 방 번호를 잃었다
     if (location.search) history.replaceState(history.state, '', location.pathname)
+    // 나갔거나 지워진 방의 알림이면 목록에 남는다 — 그대로 열면 폰에서 빈 방 화면에 갇혔다
+    const openIfMine = (list: Thread[] | undefined) => {
+      if (list?.some(t => t.id === pendingOpen)) openThread(pendingOpen)
+      else toast.error('이 대화방을 찾을 수 없어요. 나갔거나 지워진 방이에요')
+    }
     if (threads.some(t => t.id === pendingOpen)) openThread(pendingOpen)
-    else loadThreads().then(() => openThread(pendingOpen))
+    else loadThreads().then(openIfMine)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingOpen, loading, threads])
 
@@ -195,7 +201,8 @@ export default function BrokerMessengerPage() {
     setMyRows(prev => ({ ...prev, [threadId]: { ...(prev[threadId] ?? { last_read_at: null, pinned_at: null, muted: false }), ...patch } }))
     const { error } = await supabase.from('office_chat_members')
       .upsert({ thread_id: threadId, broker_id: myId, ...patch }, { onConflict: 'thread_id,broker_id' })
-    if (error) toast.error('저장 실패: ' + error.message)
+    // 읽음 표시는 다음에 방을 열 때 다시 저장되니 조용히 넘긴다. 고정·알림 끄기만 알린다(영어 오류문은 보여 주지 않는다)
+    if (error && !('last_read_at' in patch)) toast.error(`저장하지 못했어요. ${whyFailed(error)}`)
   }, [myId, supabase, toast])
 
   const markRead = useCallback((threadId: string) => {
@@ -235,7 +242,7 @@ export default function BrokerMessengerPage() {
   const createTeam = async (ids: string[], title: string) => {
     if (!office) return
     const { data, error } = await supabase.rpc('create_team_thread', { p_office: office, p_title: title.trim() || null, p_members: ids })
-    if (error || !data) { toast.error('단체방을 만들지 못했어요' + (error ? ': ' + error.message : '')); return }
+    if (error || !data) { toast.error(`단체방을 만들지 못했어요. ${whyFailed(error)}`); return }
     await addAndOpen(data as string)
   }
   const leave = async () => {
@@ -243,14 +250,14 @@ export default function BrokerMessengerPage() {
     if (!t || t.kind === 'group' || !myId) return
     if (!window.confirm('채팅방을 나갈까요? 대화 내용이 내 목록에서 사라져요.')) return
     const { error } = await supabase.from('office_chat_members').delete().eq('thread_id', t.id).eq('broker_id', myId)
-    if (error) { toast.error('나가기 실패: ' + error.message); return }
+    if (error) { toast.error(`나가지 못했어요. ${whyFailed(error)}`); return }
     setThreads(prev => prev.filter(x => x.id !== t.id))
     closeRoom()
   }
   const invite = async (ids: string[]) => {
     if (!active || ids.length === 0) return
     const { error } = await supabase.from('office_chat_members').insert(ids.map(broker_id => ({ thread_id: active, broker_id })))
-    if (error) { toast.error('초대 실패: ' + error.message); return }
+    if (error) { toast.error(`초대하지 못했어요. ${whyFailed(error)}`); return }
     setShowInvite(false)
     toast.success(`${ids.length}명을 초대했어요`)
   }
@@ -340,7 +347,7 @@ export default function BrokerMessengerPage() {
                       <Avatar member={me} size={56} />
                       <span className="min-w-0">
                         <span className="block font-bold text-gray-900 dark:text-white">{me.name}</span>
-                        <span className="block truncate text-sm text-gray-500">{me.status || '상태메시지를 입력해 보세요'}</span>
+                        <span className="block truncate text-sm text-gray-500">{me.status || '상태메세지를 입력해 보세요'}</span>
                       </span>
                     </button>
                   )}
@@ -393,7 +400,7 @@ export default function BrokerMessengerPage() {
                     <Avatar member={me} size={56} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold text-gray-900 dark:text-white">{me.name}</span>
-                      <span className="block truncate text-sm text-gray-500">{me.status || '상태메시지 없음'}</span>
+                      <span className="block truncate text-sm text-gray-500">{me.status || '상태메세지 없음'}</span>
                     </span>
                     <span className="text-xs text-gray-500">프로필 편집</span>
                   </button>
@@ -406,11 +413,11 @@ export default function BrokerMessengerPage() {
                     </span>
                   </button>
                   <Link href="/settings/notifications" className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
-                    <Bell className="h-5 w-5 text-gray-500" /> 휴대폰 알림 설정 <ChevronRight className="ml-auto h-4 w-4 text-gray-400" />
+                    <Bell className="h-5 w-5 text-gray-500" /> 알림 설정 (휴대폰·PC) <ChevronRight className="ml-auto h-4 w-4 text-gray-400" />
                   </Link>
                   <p className="px-1 pt-2 text-xs leading-relaxed text-gray-500">
                     방마다 알림을 끄려면 채팅방 오른쪽 위 ☰ 를 눌러 &lsquo;알림 끄기&rsquo;를 고르세요.
-                    메시지를 길게 누르면(PC는 오른쪽 클릭) 공감·답장·공지·삭제를 할 수 있어요.
+                    메세지를 길게 누르면(PC는 오른쪽 클릭) 공감·답장·공지·삭제를 할 수 있어요.
                   </p>
                 </div>
               )}
@@ -541,9 +548,11 @@ function ProfileEditor({ me, office, onClose, onSaved }: { me: Member; office: s
     try {
       let avatarPath = removePhoto ? null : me.avatarPath
       if (file) {
-        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+        // 프로필은 작은 동그라미로만 보이니 넉넉히 320px 로 — 원본 2MB 사진이 목록을 느리게 했다
+        const small = await shrinkImage(file, 320)
+        const ext = (small.name.split('.').pop() || 'jpg').toLowerCase()
         const path = `${office}/profiles/${me.id}/${crypto.randomUUID()}.${ext}`
-        const { error } = await supabase.storage.from(CHAT_BUCKET).upload(path, file, { contentType: file.type || undefined })
+        const { error } = await supabase.storage.from(CHAT_BUCKET).upload(path, small, { contentType: small.type || undefined })
         if (error) throw error
         avatarPath = path
       }
@@ -560,7 +569,7 @@ function ProfileEditor({ me, office, onClose, onSaved }: { me: Member; office: s
       }
       onSaved()
     } catch (e) {
-      toast.error('저장 실패: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error(`저장하지 못했어요. ${whyFailed(e)}`)
     } finally {
       setSaving(false)
     }
@@ -591,7 +600,7 @@ function ProfileEditor({ me, office, onClose, onSaved }: { me: Member; office: s
             onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); setRemovePhoto(false) } e.target.value = '' }} />
           <p className="mt-3 font-bold text-gray-900 dark:text-white">{me.name}</p>
         </div>
-        <label className="mt-4 block text-xs text-gray-500">상태메시지
+        <label className="mt-4 block text-xs text-gray-500">상태메세지
           <input value={status} onChange={e => setStatus(e.target.value.slice(0, 60))} placeholder="예: 오늘 오후 현장 답사"
             className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
         </label>

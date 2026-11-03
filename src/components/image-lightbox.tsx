@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { X, ChevronLeft, ChevronRight, Download, RotateCw } from 'lucide-react'
 
 interface ImageLightboxProps {
@@ -30,6 +30,27 @@ export function ImageLightbox({ images, index, onClose, onNext, onPrev, onGoTo, 
     if (e.key === 'ArrowRight') onNext()
     if (e.key === 'ArrowLeft') onPrev()
   }, [onClose, onNext, onPrev, rotate])
+
+  // 휴대폰 뒤로가기는 사진 창만 닫는다 — 기록을 한 칸 쌓지 않으면 그 뒤로가기가 아래 화면(메세지 방)까지 닫았다.
+  // 개발 모드의 두 번 붙이기에도 칸이 두 번 쌓이지 않게, 이미 쌓인 칸이 있으면 그걸 쓰고 닫힌 게 확실할 때만 되돌린다
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    let token = (history.state as { lightbox?: number } | null)?.lightbox
+    if (!token) {
+      token = Date.now()
+      history.pushState({ ...history.state, lightbox: token }, '')
+    }
+    const onPop = () => closeRef.current()
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      setTimeout(() => {
+        if ((history.state as { lightbox?: number } | null)?.lightbox === token
+          && !document.querySelector('[aria-label="이미지 뷰어"]')) history.back()
+      }, 0)
+    }
+  }, [])
 
   useEffect(() => {
     document.addEventListener('keydown', handleKey)

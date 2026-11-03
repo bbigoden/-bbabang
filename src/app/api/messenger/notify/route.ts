@@ -24,7 +24,7 @@ function previewOf(m: MsgRow): string {
   if ((m.image_paths?.length ?? 0) > 1) return `사진 ${m.image_paths!.length}장을 보냈습니다`
   if (m.image_url || m.image_paths?.length) return '사진을 보냈습니다'
   if (m.file_url) return `파일: ${m.file_name ?? ''}`.slice(0, 80)
-  return '새 메시지'
+  return '새 메세지'
 }
 
 export async function POST(req: NextRequest) {
@@ -121,6 +121,14 @@ export async function POST(req: NextRequest) {
   for (const r of (mutedRows ?? []) as { broker_profiles: { user_id: string } | { user_id: string }[] }[]) {
     const bp = Array.isArray(r.broker_profiles) ? r.broker_profiles[0] : r.broker_profiles
     if (bp?.user_id) targetUserIds.delete(bp.user_id)
+  }
+
+  // 설정 → 알림에서 '메세지' 를 끈 사람도 뺀다(키 office_chat — 옛 고객 화면의 messages 와 따로)
+  if (targetUserIds.size) {
+    const { data: prefRows } = await svc.from('profiles').select('id, notification_preferences').in('id', [...targetUserIds])
+    for (const r of prefRows ?? []) {
+      if ((r.notification_preferences as Record<string, boolean> | null)?.office_chat === false) targetUserIds.delete(r.id as string)
+    }
   }
 
   const roomName = thread.kind === 'group' ? '사무소 전체' : thread.kind === 'team' ? (thread.title || '단체방') : null

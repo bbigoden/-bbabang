@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import {
   type Thread, type Msg, type Member, type MyRow, type ReactionKey,
-  REACTIONS, reactionEmoji, ampm, dayDivider, imagesOf, previewText, URL_RE, PHONE_RE, telHref,
+  REACTIONS, reactionEmoji, ampm, dayDivider, imagesOf, previewText, URL_RE, whyFailed, shrinkImage, PHONE_RE, telHref,
   CHAT_BUCKET, chatStoragePath, useSignedUrls, urlOf,
 } from './shared'
 
@@ -36,7 +36,7 @@ export function Avatar({ member, name, size = 40, className }: { member?: Member
     >
       {url
         // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={url} alt="" className="h-full w-full object-cover" />
+        ? <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
         : label}
     </span>
   )
@@ -313,7 +313,7 @@ export function ChatRoom(props: Props) {
     const { data, error } = await supabase.from('office_chat_messages')
       .insert({ thread_id: thread.id, sender_broker_id: myId, body, reply_to_id: replyId }).select().single()
     setSending(false)
-    if (error || !data) { toast.error('전송 실패' + (error ? ': ' + error.message : '')); setDraft(body); return }
+    if (error || !data) { toast.error(`보내지 못했어요. ${whyFailed(error)}`); setDraft(body); return }
     appendMine(data as Msg)
     notify(body.slice(0, 80))
     inputRef.current?.focus()
@@ -338,7 +338,7 @@ export function ChatRoom(props: Props) {
     setSending(true); setAttachOpen(false)
     try {
       if (photos.length) {
-        const paths = await Promise.all(photos.map(upload))
+        const paths = await Promise.all(photos.map(async f => upload(await shrinkImage(f, 1600))))
         const { data, error } = await supabase.from('office_chat_messages')
           .insert({ thread_id: thread.id, sender_broker_id: myId, body: '', image_paths: paths }).select().single()
         if (error || !data) { await supabase.storage.from(CHAT_BUCKET).remove(paths); throw error ?? new Error('전송 실패') }
@@ -354,17 +354,26 @@ export function ChatRoom(props: Props) {
         notify(`파일: ${f.name}`.slice(0, 80))
       }
     } catch (e) {
-      toast.error('전송 실패: ' + (e instanceof Error ? e.message : String(e)))
+      toast.error(`보내지 못했어요. ${whyFailed(e)}`)
     } finally {
       setSending(false)
     }
   }
 
   /** 붙여넣기·끌어놓기·앨범·파일 — 보내기 전 확인 창에 올린다. 여러 번 고르면 쌓인다 */
-  const stage = (files: File[]) => {
+  // 빈 파일은 빼고, 사진이라면서 열리지 않는 파일(확장자만 .png 등)은 깨진 사진 대신 파일로 보낸다.
+  // HEIC 처럼 이 브라우저만 못 여는 진짜 사진도 파일로라도 가게 막지는 않는다
+  const stage = async (files: File[]) => {
     if (files.length === 0 || sending) return
     setAttachOpen(false)
-    setStaged(prev => [...prev, ...files])
+    const empty = files.filter(f => f.size === 0)
+    if (empty.length) toast.error(`빈 파일은 뺐어요: ${empty.map(f => f.name).join(', ')}`)
+    const ok = await Promise.all(files.filter(f => f.size > 0).map(async f => {
+      if (!f.type.startsWith('image/')) return f
+      const opens = await createImageBitmap(f).then(b => { b.close(); return true }, () => false)
+      return opens ? f : new File([f], f.name, { type: 'application/octet-stream' })
+    }))
+    if (ok.length) setStaged(prev => [...prev, ...ok])
   }
 
   // ── 메시지 메뉴 동작 ──────────────────────────────────
@@ -376,16 +385,16 @@ export function ChatRoom(props: Props) {
       ? await supabase.from('office_chat_reactions').delete().eq('message_id', m.id).eq('broker_id', myId).eq('emoji', key)
       : await supabase.from('office_chat_reactions').insert({ message_id: m.id, broker_id: myId, emoji: key })
     if (error && error.code !== '23505') {
-      toast.error('공감 실패: ' + error.message)
+      toast.error(`공감하지 못했어요. ${whyFailed(error)}`)
       setReacts(prev => mine ? addReact(prev, m.id, key, myId) : removeReact(prev, m.id, key, myId))
     }
   }
 
   const deleteMsg = async (m: Msg) => {
     setMenuMsg(null)
-    if (!window.confirm('모두에게서 삭제할까요? 대화방의 모든 사람에게서 사라지고 "삭제된 메시지입니다"로 남아요.')) return
+    if (!window.confirm('모두에게서 삭제할까요? 대화방의 모든 사람에게서 사라지고 "삭제된 메세지입니다"로 남아요.')) return
     const { data, error } = await supabase.rpc('delete_office_chat_message', { p_id: m.id })
-    if (error) { toast.error('삭제 실패: ' + error.message); return }
+    if (error) { toast.error(`지우지 못했어요. ${whyFailed(error)}`); return }
     const gone: Msg = { ...m, body: '', image_url: null, image_paths: null, file_url: null, file_name: null, deleted_at: new Date().toISOString() }
     setMessages(prev => prev.map(x => x.id === m.id ? gone : x))
     if (thread.notice_message_id === m.id) props.onThreadPatch({ notice_message_id: null })
@@ -401,7 +410,7 @@ export function ChatRoom(props: Props) {
     setMenuMsg(null)
     if (messageId === null && !window.confirm('공지를 내릴까요?')) return
     const { error } = await supabase.rpc('set_office_chat_notice', { p_thread: thread.id, p_message: messageId })
-    if (error) { toast.error('공지 ' + (messageId ? '등록' : '내리기') + ' 실패: ' + error.message); return }
+    if (error) { toast.error(`공지를 ${messageId ? '등록' : '내리'}지 못했어요. ${whyFailed(error)}`); return }
     props.onThreadPatch({ notice_message_id: messageId })
     setNoticeFolded(false)
   }
@@ -416,11 +425,19 @@ export function ChatRoom(props: Props) {
 
   // ── 길게 누르기(폰) ───────────────────────────────────
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pressAt = useRef<{ x: number; y: number } | null>(null)
+  const menuAt = useRef(0)
   const pressStart = (m: Msg) => (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' || m.deleted_at) return
-    pressTimer.current = setTimeout(() => setMenuMsg(m), 450)
+    pressAt.current = { x: e.clientX, y: e.clientY }
+    pressTimer.current = setTimeout(() => { menuAt.current = Date.now(); setMenuMsg(m) }, 450)
   }
   const pressCancel = () => { if (pressTimer.current) clearTimeout(pressTimer.current) }
+  // 누르는 손가락은 조금씩 흔들린다 — 2px 만 움직여도 취소하던 것을 10px 넘게 끌 때(스크롤)만 취소한다
+  const pressMove = (e: React.PointerEvent) => {
+    const p = pressAt.current
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) pressCancel()
+  }
 
   const notice = findMsg(thread.notice_message_id)
   const memberCount = thread.kind === 'group' ? members.length : memRows.length
@@ -495,7 +512,7 @@ export function ChatRoom(props: Props) {
           </div>
         )}
         {!loading && messages.length === 0 && (
-          <p className="py-16 text-center text-sm text-gray-600 dark:text-gray-400">첫 메시지를 보내 보세요</p>
+          <p className="py-16 text-center text-sm text-gray-600 dark:text-gray-400">첫 메세지를 보내 보세요</p>
         )}
         {messages.map((m, i) => {
           const prev = messages[i - 1]
@@ -538,12 +555,12 @@ export function ChatRoom(props: Props) {
                   <div className={cn('group flex max-w-full items-end gap-1.5', mine && 'flex-row-reverse')}>
                     <div
                       onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); setMenuMsg(m) }}
-                      onPointerDown={pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressCancel}
+                      onPointerDown={pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressMove}
                       className="min-w-0 select-text"
                     >
                       {m.deleted_at ? (
                         <div className={cn('flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm text-gray-500', mine ? 'bg-[#fee500]/70' : 'bg-white/80 dark:bg-gray-800')}>
-                          <Trash2 className="h-3.5 w-3.5" /> 삭제된 메시지입니다.
+                          <Trash2 className="h-3.5 w-3.5" /> 삭제된 메세지입니다.
                         </div>
                       ) : imgs.length > 0 ? (
                         <PhotoGrid paths={imgs} urls={urls} onOpen={idx => {
@@ -568,7 +585,7 @@ export function ChatRoom(props: Props) {
                     </div>
                     <div className={cn('flex flex-shrink-0 flex-col pb-0.5 leading-tight', mine ? 'items-end' : 'items-start')}>
                       {!m.deleted_at && (
-                        <button onClick={() => setMenuMsg(m)} className="mb-0.5 hidden rounded p-0.5 text-gray-600 hover:bg-black/10 group-hover:block" aria-label="메시지 메뉴">
+                        <button onClick={() => setMenuMsg(m)} className="mb-0.5 hidden rounded p-0.5 text-gray-600 hover:bg-black/10 group-hover:block" aria-label="메세지 메뉴">
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>
                       )}
@@ -596,7 +613,7 @@ export function ChatRoom(props: Props) {
 
       {(newBelow > 0 || detached) && (
         <button onClick={toBottom} className="absolute bottom-20 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-gray-900/80 px-3 py-1.5 text-xs text-white shadow">
-          <ArrowDown className="h-3.5 w-3.5" /> {newBelow > 0 ? `새 메시지 ${newBelow}개` : '최신 메시지로'}
+          <ArrowDown className="h-3.5 w-3.5" /> {newBelow > 0 ? `새 메세지 ${newBelow}개` : '최신 메세지로'}
         </button>
       )}
 
@@ -646,7 +663,7 @@ export function ChatRoom(props: Props) {
             const files = Array.from(e.clipboardData.files)
             if (files.length) { e.preventDefault(); stage(files) }
           }}
-          placeholder="메시지 입력"
+          placeholder="메세지 입력"
           className="max-h-[120px] min-h-[36px] flex-1 resize-none rounded-2xl bg-gray-100 px-3 py-2 text-[15px] outline-none dark:bg-gray-800 dark:text-gray-100"
         />
         <button onClick={send} disabled={!draft.trim() || sending} aria-label="전송"
@@ -655,7 +672,7 @@ export function ChatRoom(props: Props) {
         </button>
       </div>
 
-      {/* 메시지 메뉴(길게 누르기·우클릭) */}
+      {/* 메세지 메뉴(길게 누르기·우클릭) */}
       {phoneSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setPhoneSheet(null)} role="dialog" aria-modal="true" aria-label="전화번호">
           <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
@@ -670,7 +687,7 @@ export function ChatRoom(props: Props) {
       )}
       {menuMsg && (
         // 폰은 카톡처럼 화면 가운데에 띄운다 — 아래에 붙이면 기기에 따라 아래 칸(복사·삭제)이 화면 밖으로 잘렸다
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setMenuMsg(null)} role="dialog" aria-modal="true" aria-label="메시지 메뉴">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => { if (Date.now() - menuAt.current > 500) setMenuMsg(null) }} role="dialog" aria-modal="true" aria-label="메세지 메뉴">
           <div className="max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
             <div className="flex justify-around border-b border-gray-100 px-2 py-3 dark:border-gray-800">
               {REACTIONS.map(r => {
@@ -732,7 +749,7 @@ export function ChatRoom(props: Props) {
                   if (name === null) return
                   const t = name.trim() || null
                   const { error } = await supabase.from('office_chat_threads').update({ title: t }).eq('id', thread.id)
-                  if (error) { toast.error('이름 변경 실패: ' + error.message); return }
+                  if (error) { toast.error(`이름을 바꾸지 못했어요. ${whyFailed(error)}`); return }
                   props.onThreadPatch({ title: t })
                 }} />
               )}

@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Bell, BellOff, Check, AlertCircle, Megaphone } from 'lucide-react'
+import { Bell, BellOff, Check, AlertCircle, Megaphone, MessageCircle } from 'lucide-react'
 import { urlBase64ToUint8Array } from '@/lib/push'
 import { Spinner } from '@/components/ui/spinner'
 
 // 저장된 다른 키(예전 고객 화면의 messages·proposals·matches)는 그대로 둔 채 덮어쓴다
 type Prefs = { announcements: boolean } & Record<string, boolean>
 
-const DEFAULT_PREFS: Prefs = { announcements: true }
+const DEFAULT_PREFS: Prefs = { announcements: true, office_chat: true }
 
 // 고객 요청·제안·채팅 알림은 2026-10-30 고객 화면과 함께 없앴다
 const CATEGORIES: Array<{ key: keyof Prefs; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { key: 'office_chat',   label: '메세지',       desc: '사무실 메세지가 오면 알림 — 방마다 끄기는 채팅방 ☰ → 알림 끄기', icon: MessageCircle },
   { key: 'announcements', label: '공지·이벤트',   desc: '부소장 공지·업데이트 소식',               icon: Megaphone },
 ]
 
@@ -115,7 +116,7 @@ export default function SettingsNotificationsPage() {
           <div>
             <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
               {pushSubscribed ? <Bell className="h-4 w-4 text-blue-500" /> : <BellOff className="h-4 w-4 text-gray-500" />}
-              브라우저 푸시 알림
+              이 기기 알림 (휴대폰·PC)
             </h2>
             <p className="mt-1 text-xs text-gray-500">
               {!pushSupported && '이 브라우저는 푸시 알림을 지원하지 않아요.'}
