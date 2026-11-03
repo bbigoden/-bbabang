@@ -130,7 +130,8 @@ export function BottomNav() {
   return (
     <>
       {/* 본문 가림 방지용 spacer */}
-      <div className="md:hidden h-16" aria-hidden />
+      {/* 메세지는 화면에 꼭 맞춘 대화창이라 받침을 두면 화면 전체가 한 칸 밀린다 */}
+      {!pathname.startsWith('/broker/messenger') && <div className="md:hidden h-16" aria-hidden />}
 
       {/* 블러 없이 불투명 — 상시 떠 있는 바라 폰에서 스크롤 프레임마다 블러를 다시 계산했다(95%라 보이지도 않았음) */}
       <nav aria-label="하단 네비게이션" className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>

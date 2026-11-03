@@ -16,6 +16,7 @@ const HIDDEN_PATHS = [
   '/admin',
   '/auth',
   '/account-suspended',
+  '/broker/messenger', // 화면 꽉 찬 대화창 — 밑에 붙으면 스크롤이 밀려 푸터가 드러난다
 ]
 
 export function Footer() {

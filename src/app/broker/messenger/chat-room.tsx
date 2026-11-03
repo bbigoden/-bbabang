@@ -523,7 +523,8 @@ export function ChatRoom(props: Props) {
                 )}
                 <div className={cn('flex min-w-0 max-w-[75%] flex-col', mine ? 'items-end' : 'items-start')}>
                   {showHead && <span className="mb-1 text-xs text-gray-700 dark:text-gray-300">{m.bot_name ?? nameOf(m.sender_broker_id)}</span>}
-                  <div className={cn('group flex items-end gap-1.5', mine && 'flex-row-reverse')}>
+                  {/* max-w-full: 답장 인용 줄(truncate)이 긴 글이면 말풍선이 화면 밖으로 뻗었다 */}
+                  <div className={cn('group flex max-w-full items-end gap-1.5', mine && 'flex-row-reverse')}>
                     <div
                       onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); setMenuMsg(m) }}
                       onPointerDown={pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressCancel}
