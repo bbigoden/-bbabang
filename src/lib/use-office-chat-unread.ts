@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthOptional } from '@/lib/auth-context'
 import { setAppBadgeCount } from '@/lib/app-badge'
+import { playMessageSound, shouldRingFor } from '@/lib/message-sound'
 
 /**
  * 사내 메신저 전체 안 읽은 메시지 수 (사이드바/하단탭 '대화' 배지용).
@@ -53,9 +54,22 @@ function start(brokerId: string) {
     timer = setTimeout(refresh, 400)
   }
 
+  // 남이 보낸 새 메세지면 알림음 — 알림 끈 방은 조용히
+  const ring = async (row: { thread_id?: string; sender_broker_id?: string | null }) => {
+    if (!row.thread_id || !row.sender_broker_id || row.sender_broker_id === brokerId) return
+    if (!shouldRingFor(row.thread_id)) return
+    const { data } = await supabase.from('office_chat_members')
+      .select('muted').eq('thread_id', row.thread_id).eq('broker_id', brokerId).maybeSingle()
+    if (data?.muted) return
+    playMessageSound()
+  }
+
   const ch = supabase
     .channel(`oc-unread:${brokerId}`)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'office_chat_messages' }, schedule)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'office_chat_messages' }, payload => {
+      schedule()
+      ring(payload.new as { thread_id?: string; sender_broker_id?: string | null })
+    })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'office_chat_messages' }, schedule)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'office_chat_members' }, schedule)
     .subscribe()

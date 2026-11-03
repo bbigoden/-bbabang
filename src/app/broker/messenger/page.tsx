@@ -5,12 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { refreshOfficeChatUnread } from '@/lib/use-office-chat-unread'
+import { isMessageSoundOn, setMessageSoundOn, playMessageSound } from '@/lib/message-sound'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import { cn } from '@/lib/utils'
 import {
-  User, MessageCircle, MoreHorizontal, Plus, Search, X, Hash, Users, Pin, BellOff, Bell, Camera, ChevronRight, MessageSquare,
+  User, MessageCircle, MoreHorizontal, Plus, Search, X, Hash, Users, Pin, BellOff, Bell, Camera, ChevronRight, MessageSquare, Volume2, VolumeX,
 } from 'lucide-react'
 import { ChatRoom, Avatar } from './chat-room'
 import {
@@ -36,6 +37,13 @@ export default function BrokerMessengerPage() {
   const myId = auth.broker?.id ?? null
 
   const [tab, setTab] = useState<Tab>('chats')
+  const [soundOn, setSoundOn] = useState(true)
+  useEffect(() => { setSoundOn(isMessageSoundOn()) }, [])
+  const toggleSound = () => {
+    const next = !soundOn
+    setSoundOn(next); setMessageSoundOn(next)
+    if (next) playMessageSound()
+  }
   const [members, setMembers] = useState<Member[]>([])
   const [threads, setThreads] = useState<Thread[]>([])
   const [myRows, setMyRows] = useState<Record<string, MyRow>>({})
@@ -365,6 +373,14 @@ export default function BrokerMessengerPage() {
                       <span className="block truncate text-sm text-gray-500">{me.status || '상태메시지 없음'}</span>
                     </span>
                     <span className="text-xs text-gray-500">프로필 편집</span>
+                  </button>
+                  <button onClick={toggleSound} role="switch" aria-checked={soundOn}
+                    className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+                    {soundOn ? <Volume2 className="h-5 w-5 text-gray-500" /> : <VolumeX className="h-5 w-5 text-gray-500" />}
+                    <span className="flex-1">메세지 알림음 <span className="block text-xs text-gray-500">앱을 보고 있을 때 새 메세지가 오면 띵동</span></span>
+                    <span className={cn('relative h-6 w-11 rounded-full transition-colors', soundOn ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600')}>
+                      <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', soundOn ? 'left-[22px]' : 'left-0.5')} />
+                    </span>
                   </button>
                   <Link href="/settings/notifications" className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
                     <Bell className="h-5 w-5 text-gray-500" /> 휴대폰 알림 설정 <ChevronRight className="ml-auto h-4 w-4 text-gray-400" />

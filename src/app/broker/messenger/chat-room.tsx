@@ -6,6 +6,7 @@ import { useToast } from '@/components/toast'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { cn } from '@/lib/utils'
 import { ymdKST } from '@/lib/date-kst'
+import { setOpenOfficeThread } from '@/lib/message-sound'
 import {
   ArrowLeft, Search, Menu, Plus, Send, X, FileText, Download, CornerUpLeft, Copy, Trash2,
   Megaphone, ChevronDown, ChevronUp, Image as ImageIcon, Paperclip, Link2, Pin, PinOff,
@@ -66,6 +67,12 @@ export function ChatRoom(props: Props) {
   const { thread, title, myId, office, members, memberById, myRow } = props
   const supabase = useMemo(() => createClient(), [])
   const toast = useToast()
+
+  // 펼쳐 둔 방의 메세지는 알림음을 내지 않는다
+  useEffect(() => {
+    setOpenOfficeThread(thread.id)
+    return () => setOpenOfficeThread(null)
+  }, [thread.id])
 
   const [messages, setMessages] = useState<Msg[]>([])
   const [extra, setExtra] = useState<Record<string, Msg>>({}) // 화면 밖 답장 원본·공지 메시지
