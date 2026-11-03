@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
-import { todayKST, ymdKST } from '@/lib/date-kst'
+import { todayKST, ymdKST, hmKST } from '@/lib/date-kst'
 import { SearchClear } from '@/components/ui/search-clear'
 import { Chip } from '@/components/ui/chip'
 import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
@@ -140,6 +140,18 @@ const CHANNELS: Array<{ key: 'cafe' | 'blog' | 'daangn'; label: string }> = [
  * 열을 더하거나 뺄 때 여기도 같이 고쳐야 펼침이 표 폭과 어긋나지 않는다.
  */
 const FIXED_COLS = 9
+/**
+ * 표가 옆으로 밀려도 붙어 있는 칸. 매물번호는 늘 왼쪽에 — 어느 줄인지 알아야 누른다.
+ * [전체](올리기·내리기)는 넓은 화면에서만 오른쪽에 붙인다 — 1366 폭에서 그 칸이 잘려 안내의
+ * "줄마다 ↓" 를 찾을 수 없었다(11-03 점검). 폰은 붙이면 가운데가 너무 좁아 밀어서 본다.
+ */
+const 탭설명: Record<string, string> = {
+  all: '부동산뱅크 등록매물 탭 그대로입니다. 종료예정은 이 안의 일부이고, 광고 중은 뱅크와 따로 셉니다.',
+  live: '카페·블로그·당근 중 한 곳이라도 광고가 살아 있는 매물입니다. 한 매물이 여러 채널에 있으면 채널 숫자를 더한 것이 이보다 큽니다.',
+  takedown: '↓(내리기)를 눌렀는데 아직 어느 채널에서 안 내려간 매물을 모읍니다. 표시광고법상 바로 내려야 해서 따로 봅니다.',
+}
+const STICKY_LEFT = 'sticky left-0 z-10 shadow-[inset_-1px_0_0_rgb(229,231,235)] dark:shadow-[inset_-1px_0_0_rgb(31,41,55)]'
+const STICKY_RIGHT = 'sm:sticky sm:right-0 sm:z-10 sm:shadow-[inset_1px_0_0_rgb(229,231,235)] dark:sm:shadow-[inset_1px_0_0_rgb(31,41,55)]'
 
 const CHANNEL_LABEL: Record<string, string> = {
   cafe: '카페', blog: '블로그', daangn: '당근', bank: '뱅크',
@@ -412,7 +424,10 @@ function ClosedReason({ listing }: { listing: Listing }) {
  */
 function 남은점검(l: Listing) {
   const 접은것 = new Set(l.dismissed_notes ?? [])
-  return (l.check_report ?? []).filter(r => !접은것.has(r))
+  // '뱅크에서 아직 확인중' 은 그 뒤 어디든 올라갔으면 지난 일이다 — 당근 '광고 중' 인 줄에
+  // [건너뜀] 확인중 알림이 남아 지금 상태인지 지난 실패인지 헷갈렸다(11-03 점검)
+  const 올라감 = l.ad_posts.some(p => p.status === 'posted')
+  return (l.check_report ?? []).filter(r => !접은것.has(r) && !(올라감 && r.includes('확인중인 매물')))
 }
 function 남은특이(l: Listing) {
   const 접은것 = new Set(l.dismissed_notes ?? [])
@@ -1921,6 +1936,12 @@ export default function AdsPage() {
           
         </div>
 
+        {/* 탭이 무엇을 세는지 — 광고만 남음·종료예정은 위 안내가 말하고, 나머지는 툴팁에만 있어
+            '못 내림' 이 무슨 뜻인지, 282 가 356 의 일부인지 알 수 없었다(11-03 점검) */}
+        {탭설명[tab] && !(tab === 'takedown' && takedownCount > 0) && (
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{탭설명[tab]}</p>
+        )}
+
         {/* [광고 중] 안에서만 보이는 채널 칩. 숫자는 탭과 같은 잣대로 센다. */}
         {tab === 'live' && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1950,9 +1971,12 @@ export default function AdsPage() {
           )}
           {/* 찾을 때는 탭을 벗어난다. 말해 주지 않으면 등록매물 탭인데 왜
               등록종료 매물이 보이는지 알 수 없다. */}
+          {/* 그중 지금 탭에 드는 것도 말한다 — 등록매물 탭에서 '이예리' 를 치면 51건인데 담당자 고르기는
+              44 라 어느 쪽이 맞는지 몰랐다(11-03 점검). 나머지 7건은 뱅크에서 끝난 줄이다. */}
           {q.trim() && (
             <span className="text-blue-600 dark:text-blue-400">
               모든 탭에서 찾은 매물 {filtered.length}건
+              {filtered.length > 0 && ` (이 탭에 있는 것 ${filtered.filter(inTab).length}건)`}
             </span>
           )}
           {/* 매물을 나란히 놓고 봐야 보이는 것 — 뱅크에 같은 매물이 두 번
@@ -2005,11 +2029,16 @@ export default function AdsPage() {
             </p>
           </div>
         ) : (
+          <>
+          {/* 폰 첫 화면엔 번호·소재지만 보여 채널 칸이 있는 줄 몰랐다 — 매물목록과 같은 안내(11-03 점검) */}
+          <p className="mb-1.5 text-[11px] text-gray-400 sm:hidden">표를 옆으로 밀면 카페·블로그·당근 칸이 나옵니다</p>
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-gray-50 text-left text-xs text-gray-500 dark:bg-gray-900 dark:text-gray-400">
                 <tr>
-                  <th className="px-3 py-2 font-medium" title="네이버부동산 매물번호 — 고객이 아는 번호입니다. 눌러서 뱅크 원본으로 갑니다">매물번호</th>
+                  {/* 매물번호는 왼쪽에 붙여 둔다 — 폰에서 채널 칸까지 밀면 어느 매물 줄인지 사라지고
+                      '올리기'·↑↓ 만 남아 엉뚱한 줄을 누를 뻔했다(11-03 점검) */}
+                  <th className={`${STICKY_LEFT} bg-gray-50 px-3 py-2 font-medium dark:bg-gray-900`} title="네이버부동산 매물번호 — 고객이 아는 번호입니다. 눌러서 뱅크 원본으로 갑니다">매물번호</th>
                   <th className="px-3 py-2 font-medium" title="뱅크 중개사메모에 적힌 담당자입니다">담당자</th>
                   <th className="px-3 py-2 font-medium">종류</th>
                   {/* 폰에서 표가 좁아지면 소재지가 한 글자 폭으로 세로로 꺾였다(10-30 점검) — 칸 폭을 지킨다 */}
@@ -2019,7 +2048,7 @@ export default function AdsPage() {
                   <th className="px-3 py-2 font-medium">뱅크만료</th>
                   {CHANNELS.map(c => <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>)}
                   <th className="px-3 py-2 font-medium" title="올릴 때 뱅크 내용에서 발견한 문제. 빨간 건은 이 문제 때문에 안 올라간 것입니다">점검</th>
-                  <th className="px-3 py-2 font-medium" title="↑ 카페·당근에 한 번에 올립니다   ↓ 뱅크·카페·당근에서 한 번에 내립니다">전체</th>
+                  <th className={`${STICKY_RIGHT} bg-gray-50 px-3 py-2 font-medium dark:bg-gray-900`} title="↑ 카페·당근에 한 번에 올립니다   ↓ 뱅크·카페·당근에서 한 번에 내립니다">전체</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -2028,12 +2057,14 @@ export default function AdsPage() {
                   // 뱅크에 아직 살아 있는가. 끝난 매물에 남은 날짜·[광고종료] 를
                   // 띄우면 지금 손봐야 할 일처럼 보인다.
                   const bankLive = l.bank_tab === '등록매물'
+                  // 붙여 둔 칸은 밑 칸이 비치지 않게 화면 바탕을 칠한다(줄은 바탕이 없어 화면 색이 비친다)
+                  const 붙인칸바탕 = 'bg-[var(--background)]'
                   const row = (
                     <tr key={l.id} className={done ? 'bg-gray-50/60 text-gray-400 dark:bg-gray-900/40' : ''}>
                       {/* 고객이 부르는 번호만 보여준다. 뱅크 번호는 사장님도 쓸 일이
                           없고 두 개가 나란히 있으면 어느 것을 말하는지 헷갈린다.
                           링크는 그대로 뱅크 원본으로 간다. */}
-                      <td className="px-3 py-2 font-mono text-xs leading-none whitespace-nowrap">
+                      <td className={`${STICKY_LEFT} ${붙인칸바탕} px-3 py-2 font-mono text-xs leading-none whitespace-nowrap`}>
                         {bankDetailUrl(l)
                           ? <a
                               href={bankDetailUrl(l)!}
@@ -2103,7 +2134,7 @@ export default function AdsPage() {
                           onToggle={() => setOpenReport(openReport === l.id ? null : l.id)}
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className={`${STICKY_RIGHT} ${붙인칸바탕} px-3 py-2`}>
                         {done ? (
                           <span className="flex items-center gap-1 whitespace-nowrap text-xs text-gray-400">
                             <CircleCheck className="h-3.5 w-3.5" /> 종료
@@ -2115,23 +2146,22 @@ export default function AdsPage() {
                           // 다만 **내리기는 되돌릴 수 없다.** 아이콘만 두면 잘못
                           // 누르기 쉬우므로 색을 갈라 놓고 사이를 띄운다.
                           // (누른 뒤 확인창이 한 번 더 막는다.)
-                          <div className="flex items-center gap-4 sm:gap-2">
+                          // 폰에서 화살표만 붙어 있으니 무엇을 하는 버튼인지 몰랐다(11-03 점검) — 글자를 붙이고 더 띄운다.
+                          <div className="flex items-center gap-5 sm:gap-2">
                             {올릴곳(l).length > 0 && (
                               <button
                                 onClick={() => publishAll(l)}
                                 disabled={올릴곳(l).every(c => 줄선칸.has(`${l.bank_no}:${c}`))}
-                                aria-label="올리기"
                                 title={`${올릴곳(l).map(c => CHANNEL_LABEL[c]).join('·')}에 올립니다`}
-                                className="rounded border border-gray-200 p-2 sm:p-1 text-gray-500 hover:border-green-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-green-950"
-                              ><ArrowUp className="h-3.5 w-3.5" /></button>
+                                className="flex items-center gap-0.5 whitespace-nowrap rounded border border-gray-200 px-2 py-1.5 text-xs sm:px-1.5 sm:py-0.5 text-gray-500 hover:border-green-500 hover:bg-green-50 hover:text-green-600 disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-green-950"
+                              ><ArrowUp className="h-3.5 w-3.5" />올리기</button>
                             )}
                             {(bankLive || isLive(l)) && (
                               <button
                                 onClick={() => endAds(l)}
-                                aria-label="내리기"
                                 title="뱅크·카페·당근에서 한 번에 내립니다"
-                                className="rounded border border-gray-200 p-2 sm:p-1 text-gray-500 hover:border-red-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950"
-                              ><ArrowDown className="h-3.5 w-3.5" /></button>
+                                className="flex items-center gap-0.5 whitespace-nowrap rounded border border-gray-200 px-2 py-1.5 text-xs sm:px-1.5 sm:py-0.5 text-gray-500 hover:border-red-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-red-950"
+                              ><ArrowDown className="h-3.5 w-3.5" />내리기</button>
                             )}
                             {!올릴곳(l).length && !bankLive && !isLive(l) && (
                               // 어디에도 올릴 곳이 없고 남은 광고도 없다.
@@ -2164,6 +2194,12 @@ export default function AdsPage() {
                             펼친 내용이 왼쪽 화면 밖에 그려져 '안 열린다' 로 보였다(2026-10-21 점검).
                             보이는 자리에 붙여 둔다. */}
                         <div className="sticky left-4 max-w-[min(56rem,calc(100vw-5rem))] space-y-3">
+                        {/* 언제 본 것인지 — 날짜가 없어 지난 실패인지 지금 상태인지 몰랐다(11-03 점검) */}
+                        {l.checked_at && (점검줄.length > 0) && (
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                            마지막으로 올리며 점검한 때: {ymdKST(l.checked_at).slice(5).replace('-', '/')} {hmKST(l.checked_at)} ({fmtWhen(l.checked_at)})
+                          </p>
+                        )}
                         {!!특이줄.length && (
                           <div>
                             <p className="mb-2 text-xs font-medium text-red-800 dark:text-red-300">
@@ -2206,12 +2242,20 @@ export default function AdsPage() {
                               {보이는번호(l)} 알림 — 줄마다 할 일이 적혀 있습니다
                             </p>
                             <ul className="space-y-1.5">
-                              {알림줄.map((r, i) => (
+                              {알림줄.map((r, i) => {
+                                // [카페]·[당근] 알림은 그 글을 고치라는 말이 많다 — 글로 바로 가는 링크를 붙인다(11-03 점검)
+                                const 채널 = r.startsWith('[카페]') ? 'cafe' : r.startsWith('[당근]') ? 'daangn' : r.startsWith('[블로그]') ? 'blog' : null
+                                const 글 = 채널 ? l.ad_posts.find(p => p.channel === 채널 && p.url && p.status === 'posted') : undefined
+                                return (
                                 <li key={i} className="group flex items-start gap-1.5 text-xs leading-relaxed text-gray-700 dark:text-gray-300">
-                                  <span>· {r}</span>
+                                  <span>· {r}{글 && (
+                                    <a href={글.url!} target="_blank" rel="noreferrer"
+                                      className="ml-1.5 whitespace-nowrap text-blue-600 underline underline-offset-2 dark:text-blue-400">그 글 열기 ↗</a>
+                                  )}</span>
                                   <DismissButton onClick={() => 접어두기(l, r)} />
                                 </li>
-                              ))}
+                                )
+                              })}
                             </ul>
                           </div>
                         )}
@@ -2262,9 +2306,14 @@ export default function AdsPage() {
               </tbody>
             </table>
             {!filtered.length && (
-              <p className="py-10 text-center text-sm text-gray-500">조건에 맞는 매물이 없습니다.</p>
+              <p className="py-10 text-center text-sm text-gray-500">
+                {tab === 'takedown' && !q.trim() && !manager && !좁혀보기
+                  ? '내리기를 눌렀는데 안 내려간 매물이 없습니다 — 모두 내려갔습니다.'
+                  : '조건에 맞는 매물이 없습니다.'}
+              </p>
             )}
           </div>
+          </>
         )}
 
         {listings.length > 0 && (

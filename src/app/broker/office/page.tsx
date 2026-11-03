@@ -228,7 +228,10 @@ export default function OfficePage() {
   const [board, setBoard] = useState<OfficeLayout['status'] | null>(null)
   const [showAllDone, setShowAllDone] = useState(false)
 
-  const load = useCallback(async () => {
+  // 앞 새로 보기가 아직 오는 중이면 다음 것을 겹쳐 보내지 않는다 — 폰 3G 에서 겹친 요청이 서로 끊겨
+  // (HEAD ERR_ABORTED) 숫자가 몇 분씩 옛것으로 남았다(11-03 점검)
+  const 불러오는중 = useRef(false)
+  const loadOnce = useCallback(async () => {
     if (!officeId) return
     const since = todayStartIso()
     const day = new Date(Date.now() - 24 * 3600_000).toISOString()
@@ -358,6 +361,11 @@ export default function OfficePage() {
     setNow(Date.now())
     setLoaded(true)
   }, [supabase, officeId, isOwner])
+  const load = useCallback(async () => {
+    if (불러오는중.current) return
+    불러오는중.current = true
+    try { await loadOnce() } finally { 불러오는중.current = false }
+  }, [loadOnce])
 
   useEffect(() => {
     void load()
@@ -407,7 +415,7 @@ export default function OfficePage() {
     const { error } = await supabase.from('ad_jobs').insert({ broker_id: officeId, kind, requested_by: auth.user?.id })
     if (error) return toast.error(`요청하지 못했습니다: ${error.message}`)
     toast.success(`${josa(label, ['을', '를'])} 걸었습니다`)
-    await load()
+    await loadOnce()
   })
 
   const cancelAdJob = (j: AdJob) => once(j.id, async () => {
@@ -416,7 +424,7 @@ export default function OfficePage() {
       .update({ status: 'canceled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', j.id).eq('status', 'queued')
     if (error) return toast.error(`취소하지 못했습니다: ${error.message}`)
-    await load()
+    await loadOnce()
   })
 
   const retryAdJob = (j: AdJob) => once(j.id, async () => {
@@ -428,7 +436,7 @@ export default function OfficePage() {
       .insert({ broker_id: officeId, kind: j.kind, params, requested_by: auth.user?.id })
     if (error) return toast.error(`다시 걸지 못했습니다: ${error.message}`)
     toast.success('다시 걸었습니다')
-    await load()
+    await loadOnce()
   })
 
   const cancelBankJob = (j: BankJob) => once(j.id, async () => {
@@ -436,7 +444,7 @@ export default function OfficePage() {
       .update({ status: 'canceled', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', j.id).eq('status', 'queued')
     if (error) return toast.error(`취소하지 못했습니다: ${error.message}`)
-    await load()
+    await loadOnce()
   })
 
   const retryBankJob = (j: BankJob) => once(j.id, async () => {
@@ -445,7 +453,7 @@ export default function OfficePage() {
       .insert({ office_broker_id: officeId, property_id: j.property_id, requested_by: auth.user?.id })
     if (error) return toast.error(`다시 걸지 못했습니다: ${error.message}`)
     toast.success('다시 걸었습니다')
-    await load()
+    await loadOnce()
   })
 
   if (loading) return null
@@ -464,7 +472,13 @@ export default function OfficePage() {
   if (!adOn) alerts.push('광고 일꾼이 꺼져 있습니다 — PC 의 부소장 광고 프로그램을 켜 주세요')
   if (!bankOn) alerts.push('뱅크 임시저장 일꾼이 꺼져 있습니다')
   if (isOwner && orders !== null && !officeOn) alerts.push('사무실 일꾼이 꺼져 있습니다 — Claude 지시와 활동 표시가 멈춥니다')
-  if (failedAd.length + failedBank.length) alerts.push(`최근 하루 실패한 일 ${failedAd.length + failedBank.length}건 — 아래 빨간 글의 까닭을 먼저 풀고 [다시 시도] 하세요`)
+  // 사용자가 풀 수 없는 실패(프로그램이 바뀐 화면을 못 따라감)는 따로 센다 — "까닭을 풀고 [다시 시도]" 라고만
+  // 하니 '당근 화면 구조가 바뀌었을 수 있습니다' 까지 사람이 풀 일로 읽혔다(11-03 점검)
+  const 프로그램탓 = [...failedAd.map(j => j.error), ...failedBank.map(j => j.error)].filter(프로그램쪽실패).length
+  if (failedAd.length + failedBank.length) {
+    alerts.push(`최근 하루 실패한 일 ${failedAd.length + failedBank.length}건 — 아래 '걸린 일' 줄마다 까닭과 할 일이 있습니다`
+      + (프로그램탓 ? ` (그중 ${프로그램탓}건은 프로그램을 고쳐야 하는 일이라 다시 시도해도 같습니다 — Claude 에게 맡겨 주세요)` : ''))
+  }
   if (waitingClaude.length) alerts.push(`Claude ${waitingClaude.length}명이 사장님 대답을 기다립니다`)
 
   const myTasks = (tasks ?? []).filter(t => t.assignee_broker_id === broker.id)
@@ -480,14 +494,16 @@ export default function OfficePage() {
       <JobRow key={`a${j.id}`} status={j.status} at={j.requested_at}
         title={KIND_LABEL[j.kind] ?? j.kind} who={whoOf(j.requested_by)} detail={jobDetail(j, listingNames)}
         onCancel={isOwner && j.status === 'queued' ? () => void cancelAdJob(j) : undefined}
-        onRetry={isOwner && j.status === 'failed' ? () => void retryAdJob(j) : undefined} />
+        onRetry={isOwner && j.status === 'failed' && !프로그램쪽실패(j.error) ? () => void retryAdJob(j) : undefined}
+        programFault={j.status === 'failed' && 프로그램쪽실패(j.error)} />
     ) })),
     ...bankJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
       <JobRow key={`b${j.id}`} status={j.status} at={j.requested_at}
         title={`뱅크 임시저장${j.broker_properties?.address ? ` — ${j.broker_properties.address}` : ''}`} who={whoOf(j.requested_by)}
         detail={j.status === 'failed' ? j.error : j.progress}
         onCancel={isOwner && j.status === 'queued' ? () => void cancelBankJob(j) : undefined}
-        onRetry={isOwner && j.status === 'failed' ? () => void retryBankJob(j) : undefined} />
+        onRetry={isOwner && j.status === 'failed' && !프로그램쪽실패(j.error) ? () => void retryBankJob(j) : undefined}
+        programFault={j.status === 'failed' && 프로그램쪽실패(j.error)} />
     ) })),
   ].sort((a, b) => rank(a.status) - rank(b.status) || b.at.localeCompare(a.at))
   const hiddenDone = Math.max(0, jobRows.filter(r => rank(r.status) === 2).length - DONE_SHOWN)
@@ -645,7 +661,7 @@ export default function OfficePage() {
         key: s.session_id, kind: 'claude',
         name: s.title || '제목 없는 작업',
         state: s.status === 'ended' ? 'off' : s.status,
-        say: s.status === 'ended' ? '퇴근' : s.last_action,
+        say: s.status === 'ended' ? '퇴근' : 말풍선(s.last_action),
         note: `${s.project ?? ''} · ${when(s.updated_at)}`,
         badge: s.order_id ? '지시' : undefined,
         flash: s.status === 'idle' && s.last_action === '일을 마쳤습니다' && now - new Date(s.updated_at).getTime() < FLASH_MS
@@ -673,7 +689,7 @@ export default function OfficePage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">사무실</h1>
           <p className="mt-0.5 text-xs text-gray-500">
             {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : '직원·PC 일꾼이 지금 하는 일과 내 할 일'}
-            {' · '}{loaded ? `${hmKST(now)} 기준, 10초마다 새로 봅니다` : '불러오는 중…'}
+            {' · '}{loaded ? `${hmKST(now)} 기준, 20초마다 새로 봅니다(현황판은 5분마다)` : '불러오는 중…'}
           </p>
         </div>
         <button onClick={() => void load()} aria-label="지금 새로 보기"
@@ -695,19 +711,6 @@ export default function OfficePage() {
       {/* ── 픽셀 사무실 ─────────────────────────────── */}
       <div className="mb-7">
         <PixelOffice layout={layout} loading={!loaded} />
-
-        {isOwner && (
-          // 사무실 그림과 같은 폭·위치에(pxo-fit) — 따로 두면 그림은 가운데, 버튼은 왼쪽 끝이라 삐져나와 보였다
-          <div className="pxo-fit mt-3 flex flex-wrap gap-2">
-            {RUN_NOW.map(r => (
-              <button key={r.kind} onClick={() => void runNow(r.kind, r.label)} disabled={busy.includes(`run-${r.kind}`)}
-                className="inline-flex min-h-11 items-center gap-1 rounded-lg disabled:opacity-50 border border-gray-200 bg-white px-3 py-1.5 text-xs sm:min-h-0 font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
-                <Play className="h-3.5 w-3.5" /> {r.label}
-              </button>
-            ))}
-            {!adOn && <span className="self-center text-[11px] text-gray-500">꺼져 있어도 걸어 두면 켤 때 실행됩니다</span>}
-          </div>
-        )}
       </div>
 
       <div className="mx-auto max-w-7xl">
@@ -731,24 +734,40 @@ export default function OfficePage() {
             )}
           </>
         )}
+        {isOwner && (
+          // 예전엔 사무실 그림 바로 밑, 맨 위 경고 띠 아래에 붙어 있어 현황판을 보러 밀다가 닿기 쉬웠다(11-03 점검).
+          // 일을 거는 버튼이라 걸린 일 목록 아래로 — 무엇이 걸리는지 바로 위에서 본다.
+          <div className="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+            <p className="mb-2 text-[11px] font-semibold text-gray-500">지금 바로 걸기 <span className="font-normal">— PC 일꾼에게 지금 한 번 시킵니다</span></p>
+            <div className="flex flex-wrap gap-3">
+              {RUN_NOW.map(r => (
+                <button key={r.kind} onClick={() => void runNow(r.kind, r.label)} disabled={busy.includes(`run-${r.kind}`)}
+                  className="inline-flex min-h-11 items-center gap-1 rounded-lg disabled:opacity-50 border border-gray-200 bg-white px-3 py-1.5 text-xs sm:min-h-0 font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+                  <Play className="h-3.5 w-3.5" /> {r.label}
+                </button>
+              ))}
+              {!adOn && <span className="self-center text-[11px] text-gray-500">꺼져 있어도 걸어 두면 켤 때 실행됩니다</span>}
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* ── 직원 ─────────────────────────────────────── */}
       {isOwner ? (
         <StaffSection officeId={officeId} members={members} tasks={tasks}
-          onChange={() => void load()} />
+          onChange={() => void loadOnce()} />
       ) : (
         <Section icon={Users} title="내 할 일">
           {tasks === null ? <Empty text="할 일 칸이 아직 준비되지 않았습니다" />
             : myTasks.length === 0 ? <Empty text="배정된 할 일이 없습니다" />
-              : <TaskList tasks={myTasks} canDelete={false} onChange={() => void load()} />}
+              : <TaskList tasks={myTasks} canDelete={false} onChange={() => void loadOnce()} />}
         </Section>
       )}
 
       {/* ── Claude ───────────────────────────────────── */}
       {isOwner && (
         <ClaudeSection officeId={officeId} sessions={sessions} orders={orders} workerOn={officeOn}
-          onChange={() => void load()} />
+          onChange={() => void loadOnce()} />
       )}
       </>)}
       </div>
@@ -1024,7 +1043,28 @@ function Section({ icon: Icon, title, hint, children }: {
   )
 }
 
-function JobRow({ status, at, title, who, detail, onCancel, onRetry }: {
+/**
+ * 사람이 풀 수 없는 실패 — 채널 화면이 바뀌어 프로그램이 못 따라간 것. 몇 번을 다시 눌러도 같다.
+ * 사진 없음·확인중·로그인 풀림처럼 할 일이 적힌 실패는 여기 들지 않는다.
+ */
+/**
+ * Claude 머리 위 말풍선. 일꾼이 보내는 last_action 은 도구 설명 그대로라 영어 명령 설명·파일 이름
+ * ("Click ad-runn…", "029-click_카페_…", "BRIEF.md 읽는 중")이 사무실에 떠 있었다(11-03 점검, 5명 모두).
+ * 한글로 된 사람 말만 그대로 두고 나머지는 '일하는 중' 으로 줄인다. 자세한 것은 아래 Claude 칸에 있다.
+ */
+function 말풍선(action: string | null) {
+  if (!action) return action
+  const 영어 = (action.match(/[A-Za-z]/g) ?? []).length
+  const 한글 = (action.match(/[가-힣]/g) ?? []).length
+  const 파일 = /[\w-]+\.(md|tsx?|jsx?|mjs|json|png|sql|py|txt|log)\b|[\\/]|\w+_\w+/.test(action)
+  return 파일 || 영어 > 한글 ? '일하는 중' : action
+}
+
+function 프로그램쪽실패(error: string | null | undefined) {
+  return !!error && /화면 구조가 바뀌|화면이 바뀐 것 같|요청을 잡지 못했|가리고 있습니다/.test(error)
+}
+
+function JobRow({ status, at, title, who, detail, onCancel, onRetry, programFault }: {
   status: AdJob['status']
   at: string
   title: string
@@ -1033,6 +1073,8 @@ function JobRow({ status, at, title, who, detail, onCancel, onRetry }: {
   detail: string | null
   onCancel?: () => void
   onRetry?: () => void
+  /** 프로그램을 고쳐야 하는 실패 — [다시 시도] 대신 그렇다고 적는다 */
+  programFault?: boolean
 }) {
   return (
     <li className="flex items-start gap-2 px-4 py-2.5">
@@ -1043,6 +1085,7 @@ function JobRow({ status, at, title, who, detail, onCancel, onRetry }: {
           <span className={`ml-1.5 rounded px-1 py-px text-[10px] font-semibold ${who === '자동' ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' : 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'}`}>{who}</span>
         </p>
         {detail && <p className={`line-clamp-2 text-[11px] ${status === 'failed' ? 'text-red-600' : 'text-gray-500'}`}>{detail}</p>}
+        {programFault && <p className="text-[11px] text-gray-500">프로그램을 고쳐야 하는 일입니다 — 다시 시도해도 같아요. Claude 에게 맡겨 주세요.</p>}
       </div>
       <span className="flex-shrink-0 text-[11px] text-gray-400">{when(at)}</span>
       {onRetry && (
