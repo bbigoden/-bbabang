@@ -95,8 +95,9 @@ export function InstallGuide() {
         {path === 'manual' && (
           <ol className="space-y-4">
             <Step n={1}>브라우저 오른쪽 위 <MoreVertical className="inline h-4 w-4" /> <b>메뉴</b>를 눌러요</Step>
-            <Step n={2}><b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 눌러요</Step>
-            <Step n={3}>홈 화면의 부소장 아이콘으로 열고, 알림 허용을 눌러요</Step>
+            <Step n={2}><b>설치 및 바로가기 만들기</b>(또는 <b>앱 설치</b>·<b>홈 화면에 추가</b>)를 눌러요</Step>
+            <Step n={3}>뜨는 창에서 <b>설치</b>를 골라요 — <b>바로가기</b>를 고르면 알림·배지가 안 와요</Step>
+            <Step n={4}>홈 화면의 부소장 아이콘으로 열고, 알림 허용을 눌러요</Step>
           </ol>
         )}
       </div>
