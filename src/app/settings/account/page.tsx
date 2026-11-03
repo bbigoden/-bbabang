@@ -9,6 +9,7 @@ import { BrokerChangeOffice } from '@/components/broker-change-office'
 import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'
 import { validatePhoneKR, formatPhoneKR, validateName, NAME_MAX } from '@/lib/validation'
 import { Spinner } from '@/components/ui/spinner'
+import { InstallAppCard } from '@/components/settings/install-app-card'
 
 export default function SettingsAccountPage() {
   const supabase = createClient()
@@ -260,6 +261,8 @@ export default function SettingsAccountPage() {
           </div>
         </div>
       </div>
+
+      <InstallAppCard />
 
       {/* 정보 수정 */}
       <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-6">
