@@ -38,16 +38,18 @@ export function showItem(i: ItemDef, broker: { is_owner?: boolean | null; bid_en
 }
 
 export const BROKER_ITEMS: ItemDef[] = [
+  // 차례는 사장님이 정했다(11/03) — 매일 쓰는 것부터, 입찰·정산·설정은 아래로.
   { id: 'dashboard',  href: '/dashboard/broker', label: '홈', icon: Home },
-  { id: 'office',     href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
-  { id: 'messenger',  href: '/broker/messenger', label: '메세지', icon: MessagesSquare, needsOffice: true },
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users, needsOffice: true },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2, needsOffice: true },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList, needsOffice: true },
-  { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone, needsOffice: true },
   { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar, needsOffice: true },
-  { id: 'bid',        href: '/broker/bid', label: '입찰', icon: Gavel, ownerOnly: true, needsOffice: true, bidOnly: true },
+  { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone, needsOffice: true },
+  { id: 'messenger',  href: '/broker/messenger', label: '메세지', icon: MessagesSquare, needsOffice: true },
+  { id: 'office',     href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen, needsOffice: true },
+  { id: 'trash',      href: '/broker/trash', label: '휴지통', icon: Trash2, needsOffice: true },
+  { id: 'bid',        href: '/broker/bid', label: '입찰', icon: Gavel, ownerOnly: true, needsOffice: true, bidOnly: true },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator, needsOffice: true },
   {
     id: 'settings', label: '설정', icon: Settings,
@@ -59,7 +61,6 @@ export const BROKER_ITEMS: ItemDef[] = [
       { href: '/settings/notifications', label: '알림',   icon: Bell },
     ],
   },
-  { id: 'trash', href: '/broker/trash', label: '휴지통', icon: Trash2, needsOffice: true },
 ]
 
 /**
