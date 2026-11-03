@@ -1297,6 +1297,21 @@ export default function BrokerDiaryPage() {
   const [importError, setImportError] = useState<string | null>(null)
   const [importNotice, setImportNotice] = useState<string | null>(null)  // 건너뛴 행 안내 (실패는 아님)
 
+  // 불러오기를 열면 이 날짜 전에 마지막으로 쓴 일지 날짜를 기본으로 채운다(2026-11-03 사장님).
+  // 본문만 있는 날도, 고객만 있는 날도 있어 두 표를 다 보고 늦은 쪽을 고른다.
+  const openImport = async () => {
+    setImportDate(''); setShowImport(true)
+    if (!broker) return
+    const targetBrokerId = viewingBrokerId ?? broker.id
+    const [{ data: d }, { data: c }] = await Promise.all([
+      supabase.from('broker_diary').select('date').eq('broker_id', targetBrokerId).lt('date', diaryDate).order('date', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('broker_diary_customers').select('diary_date').eq('broker_id', targetBrokerId).lt('diary_date', diaryDate).order('diary_date', { ascending: false }).limit(1).maybeSingle(),
+    ])
+    const last = [d?.date, c?.diary_date].filter(Boolean).sort().pop()
+    // 기다리는 사이 직접 고른 날짜는 덮지 않는다
+    if (last) setImportDate(prev => prev || last)
+  }
+
   const importFromDate = async () => {
     if (!broker || !importDate) return
     setImporting(true)
@@ -1515,7 +1530,7 @@ export default function BrokerDiaryPage() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {effectiveCanEdit && (
-              <button onClick={() => { setImportDate(''); setShowImport(true) }}
+              <button onClick={openImport}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
                 <Download className="h-3.5 w-3.5" />불러오기
               </button>
