@@ -604,6 +604,20 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
     if (draft === (content ?? '')) { setFailed(false); return }
     void save(draft)
   }
+  // blur에서만 저장하면 쓰다가 새로고침·뒤로가기 했을 때 글이 경고 없이 사라졌다(11-03 점검).
+  // 입력이 1.5초 멈추면 저장하고, 안 끝난 글·저장 중이 있으면 떠나기 전에 브라우저가 묻게 한다.
+  useEffect(() => {
+    if (readOnly || !focusedRef.current || draft === (content ?? '')) return
+    const t = setTimeout(() => { if (focusedRef.current) void save(draft) }, 1500)
+    return () => clearTimeout(t)
+  }, [draft]) // eslint-disable-line react-hooks/exhaustive-deps
+  const unsavedRef = useRef(false)
+  unsavedRef.current = !readOnly && (draft !== (content ?? '') || saving)
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => { if (unsavedRef.current) e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [])
   return (
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 group/header">
@@ -1711,8 +1725,8 @@ export default function BrokerDiaryPage() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">오늘 일지에서 제거할까요?</h3>
-            <p className="text-sm text-gray-500 mb-6">고객 정보는 유지되고, 오늘 일지에서만 사라져요.</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">이 날 일지에서 제거할까요?</h3>
+            <p className="text-sm text-gray-500 mb-6">고객 정보는 유지되고, {formatDateHeader(diaryDate)} 일지에서만 사라져요.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
               <button onClick={() => unlinkCustomer(deleteConfirm)} className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600">제거</button>
