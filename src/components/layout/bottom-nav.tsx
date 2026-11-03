@@ -74,7 +74,8 @@ export function BottomNav() {
     ]
   } else if (role === 'broker') {
     items = [
-      { href: '/dashboard/broker', label: '홈', icon: Home },
+      // 홈 대신 사무실(일꾼·직원·Claude 한 화면). 홈은 더보기 서랍 맨 위에 있다
+      { href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
       // 사무소 메뉴는 menu-items 의 needsOffice 와 같은 뜻 — 등록 전엔 탭에도 자물쇠를 단다
       { href: '/broker/customers', label: '고객', icon: Users, needsOffice: true },
       { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
