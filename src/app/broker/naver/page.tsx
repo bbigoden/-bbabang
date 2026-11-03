@@ -374,15 +374,18 @@ function 해당층(r: Row): number | null {
 function 수읽기(글: string): number | null {
   const t = 글.replace(/[\s,]/g, '')
   if (!t) return null
-  const m = t.match(/^(?:(\d+(?:\.\d+)?)억)?(?:(\d+(?:\.\d+)?)천)?(\d+(?:\.\d+)?)?만?$/)
+  // 끝의 단위는 떼고 읽는다 — 면적 칸 옆에 '평' 이 적혀 있어 '30평' 으로 치기 쉽다.
+  const m = t.match(/^(?:(\d+(?:\.\d+)?)억)?(?:(\d+(?:\.\d+)?)천)?(\d+(?:\.\d+)?)?(?:만원?|원|평|㎡)?$/)
   if (!m || (!m[1] && !m[2] && !m[3])) return null
   const v = (m[1] ? Number(m[1]) * 10_000 : 0) + (m[2] ? Number(m[2]) * 1_000 : 0) + (m[3] ? Number(m[3]) : 0)
-  return v > 0 ? v : null
+  // 9를 수백 개 치면 Infinity 가 되어 '∞평 이상' 으로 걸렸다. 못 읽은 값으로 본다.
+  return Number.isFinite(v) && v >= 0 ? v : null
 }
 
 /** 최소·최대 한 쌍을 읽는다. 거꾸로 넣으면(100 ~ 10) 바로 세워 읽는다. */
 function 범위읽기(값: { 최소: string; 최대: string }): [number | null, number | null] {
-  const a = 수읽기(값.최소), b = 수읽기(값.최대)
+  // 0 은 읽되 조건 없음으로 친다. 전에는 0 을 '숫자로 읽지 못했습니다' 로 빨갛게 했다.
+  const a = 수읽기(값.최소) || null, b = 수읽기(값.최대) || null
   return a !== null && b !== null && a > b ? [b, a] : [a, b]
 }
 
@@ -678,17 +681,25 @@ export default function CollectPage() {
     if (되살림.current === source) return
     되살림.current = source
     try {
-      const 담긴것 = JSON.parse(localStorage.getItem(저장열쇠) ?? 'null')
-      setRegions(담긴것?.regions ?? []); setKinds(담긴것?.kinds ?? []); setTrades(담긴것?.trades ?? [])
-      set면적조건(담긴것?.면적 ?? { 최소: '', 최대: '' })
-      set가격조건(담긴것?.가격 ?? { 최소: '', 최대: '' })
-      set월세조건(담긴것?.월세 ?? { 최소: '', 최대: '' })
-      set층(담긴것?.층 ?? [])
+      const 읽음 = JSON.parse(localStorage.getItem(저장열쇠) ?? 'null')
+      // 모양이 틀린 값(손댄 값, 옛 형식)은 버린다. 그대로 넣으면 그릴 때 터져 화면 전체가
+      // '오류가 발생했어요' 로 넘어갔다(점검 11/03 — {"면적":{"최소":5}}).
+      const 담긴것 = 읽음 && typeof 읽음 === 'object' && !Array.isArray(읽음) ? 읽음 : null
+      const 글목록 = (v: unknown) => Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+      const 범위 = (v: unknown) => {
+        const o = v as { 최소?: unknown; 최대?: unknown } | null
+        return { 최소: typeof o?.최소 === 'string' ? o.최소 : '', 최대: typeof o?.최대 === 'string' ? o.최대 : '' }
+      }
+      setRegions(글목록(담긴것?.regions)); setKinds(글목록(담긴것?.kinds)); setTrades(글목록(담긴것?.trades))
+      set면적조건(범위(담긴것?.면적))
+      set가격조건(범위(담긴것?.가격))
+      set월세조건(범위(담긴것?.월세))
+      set층(글목록(담긴것?.층))
       // 이름을 바꾼 정렬(지번순 → 지번 오름차순)이 담겨 있으면 최신순으로 돌린다.
       setSort(Object.values(SORTS).includes(담긴것?.sort) ? 담긴것!.sort : 'date')
-      set조건열림(담긴것?.열림 ?? false)
+      set조건열림(담긴것?.열림 === true)
       // [안 본 것만] 과 달리 기억한다 — 켜 둬도 화면이 비지 않아 고장으로 오해할 일이 없다.
-      set재등록빼기(담긴것?.재등록빼기 ?? false)
+      set재등록빼기(담긴것?.재등록빼기 === true)
       const 기간 = 담긴것?.기간
       const 날 = /^\d{4}-\d{2}-\d{2}$/
       if (기간?.오늘까지 && Number.isInteger(기간.날수) && 기간.날수 >= 1 && 기간.날수 <= LONG_DAYS) {
@@ -935,14 +946,18 @@ export default function CollectPage() {
    * 중에도 다른 하나를 걸 수 있다. PC 프로그램은 한 번에 하나씩 처리하므로
    * 뒤엣것은 앞엣것이 끝날 때까지 '차례 기다리는 중' 으로 서 있는다.
    */
+  const 묻기취소 = useRef(0)
   async function requestCollect(id: SourceId) {
     if (!officeId || jobs[id]) return
+    // 확인 창이 떠 있는 동안 한 번 더 누른 것은 창을 닫은 뒤에 들어온다. 취소한 직후의
+    // 클릭은 버린다 — 안 그러면 [취소] 를 눌러도 같은 창이 한 번 더 떴다(점검 11/03).
+    if (Date.now() - 묻기취소.current < 1000) return
     const s = SOURCES[id]
     if (!agentOnline && !confirm(
       `PC의 부소장광고 프로그램이 꺼져 있는 것 같습니다.${NL}${NL}`
       + `요청은 남겨 두고, 프로그램을 켜면 그때 실행됩니다.${NL}`
       + '계속할까요?'
-    )) return
+    )) { 묻기취소.current = Date.now(); return }
 
     setJobs(prev => ({ ...prev, [id]: '요청 보냄' }))
 
@@ -1012,6 +1027,9 @@ export default function CollectPage() {
   }, [supabase, officeId, src.jobKind, rows])
 
   const 기간잡기 = (a: string, b: string) => { set첫날(a); set끝날(b); setPage(1) }
+  const 오늘만 = 보는첫날 === todayKST() && 끝날 === todayKST()
+  /** [오늘] 을 켜기 전 기간 — 다시 누르면 여기로 돌아간다 */
+  const 오늘전기간 = useRef<[string, string] | null>(null)
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {
     set(list.includes(id) ? list.filter(x => x !== id) : [...list, id])
@@ -1184,7 +1202,12 @@ export default function CollectPage() {
    * 보면 "오늘 별거 없네" 하고 넘어가게 된다. 오늘 수확을 따로 적어 준다.
    */
   const 오늘새로 = useMemo(
-    () => { const 오늘 = todayKST(); return filtered.filter(r => ymdKST(r.first_seen_at) === 오늘).length },
+    // 번호만 새로 받은 재등록은 뺀다. 넣으면 '오늘 새로 120건' 인데 그중 85건이 재등록이라,
+    // 문구를 믿으면 새 매물이 120건인 줄 알았다(점검 11/03). 가격을 바꿔 다시 올린 것은 넣는다.
+    () => {
+      const 오늘 = todayKST()
+      return filtered.filter(r => ymdKST(r.first_seen_at) === 오늘 && 이전광고(r)?.종류 !== '재등록').length
+    },
     [filtered],
   )
   /** 목록 가운데 재등록 건수. [재등록 빼기] 를 누를 만한지 숫자로 보여 준다. */
@@ -1298,7 +1321,14 @@ export default function CollectPage() {
             </span>
             {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
                 되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
-            <Chip on={보는첫날 === todayKST() && 끝날 === todayKST()} onClick={() => 기간잡기(todayKST(), todayKST())}>
+            {/* 옆 칩들처럼 다시 누르면 꺼진다 — 켜기 전 기간으로, 모르면 기본 3일로 돌아간다.
+                켜기만 되던 때는 3일로 돌아가려면 달력에서 두 날을 다시 골라야 했다(점검 11/03). */}
+            <Chip on={오늘만} onClick={() => {
+              if (!오늘만) { 오늘전기간.current = [첫날, 끝날]; 기간잡기(todayKST(), todayKST()); return }
+              const [a, b] = 오늘전기간.current ?? [addDays(todayKST(), -2), todayKST()]
+              오늘전기간.current = null
+              기간잡기(a === todayKST() && b === todayKST() ? addDays(todayKST(), -2) : a, b)
+            }}>
               오늘
             </Chip>
             <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
@@ -1470,6 +1500,7 @@ export default function CollectPage() {
               <input
                 autoFocus
                 value={이름초안}
+                maxLength={200}
                 onChange={e => set이름초안(e.target.value)}
                 onBlur={이름저장}
                 onKeyDown={e => {
@@ -1486,7 +1517,7 @@ export default function CollectPage() {
                 type="button"
                 onClick={() => { set이름초안(ownNames.join(', ')); set이름고침(true) }}
                 title="우리 매물에 찍히는 이름을 고칩니다"
-                className="text-xs text-gray-400 underline decoration-dotted underline-offset-2
+                className="max-w-full truncate text-xs text-gray-400 underline decoration-dotted underline-offset-2
                            hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400"
               >
                 {!ownNames.length
@@ -1613,8 +1644,11 @@ export default function CollectPage() {
                         </span>
                       </div>
                       <div className="flex min-w-0 items-center gap-2 sm:contents">
-                        <span className="flex min-w-0 flex-1 items-center gap-1.5 sm:order-3">
-                          <span className={`min-w-0 truncate text-sm text-gray-900 group-hover:underline
+                        {/* 폰에서는 동 이름이 먼저다. 가격 변동(▼ 보증 2,000 ▼ 월세 80)과 긴 중개사
+                            이름이 같이 붙으면 소재지가 '천안…' 두 글자만 남았다 — 소재지에 최소 폭을 주고,
+                            모자라면 중개사 이름이 먼저 줄어든다. */}
+                        <span className="flex flex-1 items-center gap-1.5 sm:order-3 sm:min-w-0">
+                          <span className={`min-w-[7.5rem] truncate text-sm text-gray-900 group-hover:underline sm:min-w-0
                                             dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
                             {[r.division, r.sector, r.jibun].filter(Boolean).join(' ')}
                           </span>
@@ -1668,7 +1702,7 @@ export default function CollectPage() {
                             고를 때 본다. 넓은 화면에서는 제 칸, 폰에서는 소재지 뒤에 줄여 적는다. */}
                         <span
                           title={r.owner ?? ''}
-                          className="min-w-0 max-w-[35%] shrink-0 truncate text-xs text-gray-500 sm:order-7 sm:w-[120px] sm:max-w-none dark:text-gray-500"
+                          className="min-w-0 max-w-[35%] truncate text-xs sm:shrink-0 text-gray-500 sm:order-7 sm:w-[120px] sm:max-w-none dark:text-gray-500"
                         >
                           {중개사(r.owner)}
                         </span>
