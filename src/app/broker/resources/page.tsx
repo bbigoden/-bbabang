@@ -1229,8 +1229,6 @@ export default function BrokerResourcesPage() {
           icon={FolderOpen}
           iconColor="text-blue-600"
           title="자료실"
-          // '사무소 내부 공유'만 적혀 있어 직원끼리도 서로 보는 줄 알았다 — 실제 보는 범위를 적는다
-          description={`${broker?.office_name ? `${broker.office_name} · ` : ''}${isOwnerOfOffice ? '직원 자료는 그 직원과 대표만 봅니다' : '내 자료와 대표 자료만 보입니다'}`}
           actions={
             <div ref={newRef} className="relative">
               <button
