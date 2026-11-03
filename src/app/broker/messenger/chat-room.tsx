@@ -88,6 +88,7 @@ export function ChatRoom(props: Props) {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [newBelow, setNewBelow] = useState(0) // 위로 올려 보는 중 새로 온 메시지 수
   const [dragging, setDragging] = useState(false)
+  const [staged, setStaged] = useState<File[]>([]) // 붙여넣기·끌어놓기는 바로 보내지 않고 한 번 보여준다(카톡처럼)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
@@ -351,6 +352,12 @@ export function ChatRoom(props: Props) {
     }
   }
 
+  /** 붙여넣기·끌어놓기 — 보내기 전 확인 창에 올린다. 여러 번 붙이면 쌓인다 */
+  const stage = (files: File[]) => {
+    if (files.length === 0 || sending) return
+    setStaged(prev => [...prev, ...files])
+  }
+
   // ── 메시지 메뉴 동작 ──────────────────────────────────
   const toggleReact = async (m: Msg, key: ReactionKey) => {
     setMenuMsg(null)
@@ -414,12 +421,17 @@ export function ChatRoom(props: Props) {
       className="relative flex h-full min-w-0 flex-1 flex-col bg-[#bacee0] dark:bg-gray-950"
       onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDragging(true) } }}
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false) }}
-      onDrop={e => { e.preventDefault(); setDragging(false); sendFiles(Array.from(e.dataTransfer.files)) }}
+      onDrop={e => { e.preventDefault(); setDragging(false); stage(Array.from(e.dataTransfer.files)) }}
     >
       {dragging && (
         <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-gray-600 bg-white/40">
-          <span className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-800 shadow">여기에 놓으면 보내요</span>
+          <span className="rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gray-800 shadow">여기에 놓으세요</span>
         </div>
+      )}
+      {staged.length > 0 && (
+        <StagedSend files={staged} sending={sending}
+          onCancel={() => { setStaged([]); inputRef.current?.focus() }}
+          onSend={async () => { const f = staged; setStaged([]); await sendFiles(f); inputRef.current?.focus() }} />
       )}
 
       {/* 머리 */}
@@ -619,7 +631,7 @@ export function ChatRoom(props: Props) {
           }}
           onPaste={e => {
             const files = Array.from(e.clipboardData.files)
-            if (files.length) { e.preventDefault(); sendFiles(files) }
+            if (files.length) { e.preventDefault(); stage(files) }
           }}
           placeholder="메시지 입력"
           className="max-h-[120px] min-h-[36px] flex-1 resize-none rounded-2xl bg-gray-100 px-3 py-2 text-[15px] outline-none dark:bg-gray-800 dark:text-gray-100"
@@ -932,6 +944,55 @@ function Drawer({ kind, threadId, nameOf, onClose, onJump, onOpenImages }: {
           ))}
         </div>
       </aside>
+    </div>
+  )
+}
+
+/** 붙여넣기·끌어놓기한 사진·파일을 보내기 전에 보여준다. Enter 전송, Esc 취소 */
+function StagedSend({ files, sending, onSend, onCancel }: {
+  files: File[]; sending: boolean; onSend: () => void; onCancel: () => void
+}) {
+  const previews = useMemo(
+    () => files.map(f => (f.type.startsWith('image/') ? URL.createObjectURL(f) : null)),
+    [files],
+  )
+  useEffect(() => () => previews.forEach(u => u && URL.revokeObjectURL(u)), [previews])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+      else if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); onSend() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onSend, onCancel])
+
+  const photos = files.filter(f => f.type.startsWith('image/')).length
+  const title = photos === files.length
+    ? (photos > 1 ? `사진 ${photos}장 보내기` : '사진 보내기')
+    : `파일 ${files.length}개 보내기`
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onCancel} role="dialog" aria-modal="true" aria-label={title}>
+      <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
+        <p className="px-4 pt-4 text-[15px] font-semibold text-gray-900 dark:text-gray-100">{title}</p>
+        <div className={cn('grid max-h-[50vh] gap-1 overflow-y-auto p-4', files.length > 1 ? 'grid-cols-3' : 'grid-cols-1')}>
+          {files.map((f, i) => previews[i] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={i} src={previews[i]!} alt={f.name}
+              className={cn('w-full rounded-lg bg-gray-100 object-cover', files.length > 1 ? 'aspect-square' : 'max-h-[45vh] object-contain')} />
+          ) : (
+            <div key={i} className="col-span-full flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800">
+              <FileText className="h-4 w-4 flex-shrink-0 text-gray-500" />
+              <span className="truncate text-sm text-gray-800 dark:text-gray-200">{f.name}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex border-t border-gray-100 dark:border-gray-800">
+          <button onClick={onCancel} className="flex-1 py-3 text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800">취소</button>
+          <button onClick={onSend} disabled={sending} autoFocus
+            className="flex-1 bg-[#fee500] py-3 text-sm font-semibold text-gray-900 disabled:opacity-50">전송</button>
+        </div>
+      </div>
     </div>
   )
 }
