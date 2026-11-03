@@ -793,9 +793,11 @@ export default function BrokerResourcesPage() {
 
   // ── 받기·열기·링크 ────────────────────────────────────
   const handleDownload = async (f: ResourceFile) => {
-    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 60, { download: f.file_name })
+    // download 옵션에 이름을 넘기면 storage-js 가 한 번 인코딩한 뒤 encodeURI 로 또 감싸
+    // 한글 이름이 '%EC%A0%84….hwp' 로 저장된다. 이름은 직접 한 번만 인코딩해 붙인다.
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(f.storage_path, 60)
     if (error || !data?.signedUrl) { toast.error(`다운로드 링크 생성 실패: ${error?.message ?? ''}`); return }
-    window.open(data.signedUrl, '_blank')
+    window.open(`${data.signedUrl}&download=${encodeURIComponent(f.file_name)}`, '_blank')
   }
 
   const previewPdf = async (f: ResourceFile) => {
