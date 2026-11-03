@@ -86,8 +86,8 @@ export function InstallGuide() {
         {path === 'ios' && (
           <ol className="space-y-4">
             <Step n={1}><b>Safari</b>로 이 화면을 열어요 (다른 브라우저면 주소를 복사해 Safari에 붙여 넣기)</Step>
-            <Step n={2}>아래쪽 <Share className="inline h-4 w-4 text-blue-600" /> <b>공유</b> 버튼을 눌러요</Step>
-            <Step n={3}>목록을 올려 <SquarePlus className="inline h-4 w-4" /> <b>홈 화면에 추가</b> → <b>추가</b></Step>
+            <Step n={2}>주소창 옆 <b>…</b> 을 누르고 <Share className="inline h-4 w-4 text-blue-600" /> <b>공유</b>를 눌러요 (공유 버튼이 바로 보이면 그걸 눌러요)</Step>
+            <Step n={3}>목록을 올려 <SquarePlus className="inline h-4 w-4" /> <b>홈 화면에 추가</b> → <b>웹 앱으로 열기</b>가 켜진 채로 <b>추가</b></Step>
             <Step n={4}>홈 화면의 부소장 아이콘으로 열고, 알림 허용을 눌러요</Step>
           </ol>
         )}
