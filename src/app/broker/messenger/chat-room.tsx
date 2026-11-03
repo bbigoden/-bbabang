@@ -88,7 +88,7 @@ export function ChatRoom(props: Props) {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [newBelow, setNewBelow] = useState(0) // 위로 올려 보는 중 새로 온 메시지 수
   const [dragging, setDragging] = useState(false)
-  const [staged, setStaged] = useState<File[]>([]) // 붙여넣기·끌어놓기는 바로 보내지 않고 한 번 보여준다(카톡처럼)
+  const [staged, setStaged] = useState<File[]>([]) // 사진·파일은 바로 보내지 않고 한 번 보여준다(카톡처럼)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
@@ -352,9 +352,10 @@ export function ChatRoom(props: Props) {
     }
   }
 
-  /** 붙여넣기·끌어놓기 — 보내기 전 확인 창에 올린다. 여러 번 붙이면 쌓인다 */
+  /** 붙여넣기·끌어놓기·앨범·파일 — 보내기 전 확인 창에 올린다. 여러 번 고르면 쌓인다 */
   const stage = (files: File[]) => {
     if (files.length === 0 || sending) return
+    setAttachOpen(false)
     setStaged(prev => [...prev, ...files])
   }
 
@@ -611,9 +612,9 @@ export function ChatRoom(props: Props) {
         </div>
       )}
       <input ref={photoRef} type="file" accept="image/*" multiple className="hidden"
-        onChange={e => { sendFiles(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+        onChange={e => { stage(Array.from(e.target.files ?? [])); e.target.value = '' }} />
       <input ref={fileRef} type="file" multiple className="hidden"
-        onChange={e => { sendFiles(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+        onChange={e => { stage(Array.from(e.target.files ?? [])); e.target.value = '' }} />
 
       {/* 입력 */}
       <div className="flex items-end gap-2 bg-white px-2 py-2 dark:bg-gray-900">
