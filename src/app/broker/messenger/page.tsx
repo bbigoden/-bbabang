@@ -134,6 +134,29 @@ export default function BrokerMessengerPage() {
     Promise.all([loadMembers(), loadThreads()]).finally(() => setLoading(false))
   }, [auth.loading, auth.user, auth.broker, loadMembers, loadThreads, router])
 
+  // ── 알림으로 들어오면 그 방을 바로 연다(?t=방) ─────────────
+  const [pendingOpen, setPendingOpen] = useState<string | null>(null)
+  useEffect(() => {
+    const take = (search: string) => {
+      const t = new URLSearchParams(search).get('t')
+      if (t) setPendingOpen(t)
+    }
+    take(location.search)
+    const onPush = (e: Event) => take((e as CustomEvent<string>).detail)
+    window.addEventListener('push-open', onPush)
+    return () => window.removeEventListener('push-open', onPush)
+  }, [])
+  useEffect(() => {
+    if (!pendingOpen || loading) return
+    setPendingOpen(null)
+    // 주소의 ?t 는 방을 연 뒤에 지운다 — 새로 고침·뒤로가기 때 같은 방이 또 열리지 않게.
+    // 먼저 지우면 첫 화면을 그리는 동안 이 화면이 한 번 새로 붙으며 방 번호를 잃었다
+    if (location.search) history.replaceState(history.state, '', location.pathname)
+    if (threads.some(t => t.id === pendingOpen)) openThread(pendingOpen)
+    else loadThreads().then(() => openThread(pendingOpen))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOpen, loading, threads])
+
   // ── 실시간: 목록 미리보기·안 읽음·새 방 ─────────────────
   const threadsRef = useRef<Thread[]>([])
   threadsRef.current = threads

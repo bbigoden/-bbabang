@@ -10,11 +10,11 @@ import { setOpenOfficeThread } from '@/lib/message-sound'
 import {
   ArrowLeft, Search, Menu, Plus, Send, X, FileText, Download, CornerUpLeft, Copy, Trash2,
   Megaphone, ChevronDown, ChevronUp, Image as ImageIcon, Paperclip, Link2, Pin, PinOff,
-  Bell, BellOff, Pencil, UserPlus, LogOut, MoreHorizontal, ArrowDown,
+  Bell, BellOff, Pencil, UserPlus, LogOut, MoreHorizontal, ArrowDown, Phone,
 } from 'lucide-react'
 import {
   type Thread, type Msg, type Member, type MyRow, type ReactionKey,
-  REACTIONS, reactionEmoji, ampm, dayDivider, imagesOf, previewText, URL_RE,
+  REACTIONS, reactionEmoji, ampm, dayDivider, imagesOf, previewText, URL_RE, PHONE_RE, telHref,
   CHAT_BUCKET, chatStoragePath, useSignedUrls, urlOf,
 } from './shared'
 
@@ -75,6 +75,7 @@ export function ChatRoom(props: Props) {
   }, [thread.id])
 
   const [messages, setMessages] = useState<Msg[]>([])
+  const [phoneSheet, setPhoneSheet] = useState<string | null>(null)
   const [extra, setExtra] = useState<Record<string, Msg>>({}) // 화면 밖 답장 원본·공지 메시지
   const [hasMore, setHasMore] = useState(false)
   const [detached, setDetached] = useState(false) // 검색으로 옛 대화로 건너가 최신과 끊긴 상태
@@ -405,9 +406,12 @@ export function ChatRoom(props: Props) {
     setNoticeFolded(false)
   }
 
-  const copy = async (m: Msg) => {
+  const copyText = async (text: string, done = '복사했어요') => {
+    try { await navigator.clipboard.writeText(text); toast.success(done) } catch { toast.error('복사하지 못했어요') }
+  }
+  const copy = (m: Msg) => {
     setMenuMsg(null)
-    try { await navigator.clipboard.writeText(m.body); toast.success('복사했어요') } catch { toast.error('복사하지 못했어요') }
+    copyText(m.body)
   }
 
   // ── 길게 누르기(폰) ───────────────────────────────────
@@ -558,7 +562,7 @@ export function ChatRoom(props: Props) {
                               <span className="block truncate text-xs text-gray-500">{previewText(replied)}</span>
                             </button>
                           )}
-                          <Linkified text={m.body} />
+                          <Linkified text={m.body} onPhone={setPhoneSheet} />
                         </div>
                       )}
                     </div>
@@ -652,6 +656,18 @@ export function ChatRoom(props: Props) {
       </div>
 
       {/* 메시지 메뉴(길게 누르기·우클릭) */}
+      {phoneSheet && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setPhoneSheet(null)} role="dialog" aria-modal="true" aria-label="전화번호">
+          <div className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] dark:bg-gray-900 sm:rounded-2xl" onClick={e => e.stopPropagation()}>
+            <p className="border-b border-gray-100 px-5 py-3 text-center text-sm font-bold text-gray-900 dark:border-gray-800 dark:text-white">{phoneSheet}</p>
+            <a href={telHref(phoneSheet)} onClick={() => setPhoneSheet(null)}
+              className="flex w-full items-center gap-3 px-5 py-3 text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+              <Phone className="h-4 w-4" />전화 걸기
+            </a>
+            <MenuItem icon={Copy} label="번호 복사" onClick={() => { copyText(phoneSheet, '번호를 복사했어요'); setPhoneSheet(null) }} />
+          </div>
+        </div>
+      )}
       {menuMsg && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setMenuMsg(null)} role="dialog" aria-modal="true" aria-label="메시지 메뉴">
           <div className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-white dark:bg-gray-900 sm:rounded-2xl" onClick={e => e.stopPropagation()}>
@@ -761,14 +777,22 @@ function removeReact(prev: ReactMap, msgId: string, key: string, who: string): R
   return { ...prev, [msgId]: { ...byKey, [key]: byKey[key].filter(x => x !== who) } }
 }
 
-function Linkified({ text }: { text: string }) {
+/** 주소는 새 창 링크로, 전화번호는 누르면 전화 걸기·번호 복사를 고르게 */
+function Linkified({ text, onPhone }: { text: string; onPhone: (phone: string) => void }) {
+  const hits = [
+    ...[...text.matchAll(URL_RE)].map(m => ({ at: m.index ?? 0, s: m[0], url: true })),
+    ...[...text.matchAll(PHONE_RE)].map(m => ({ at: m.index ?? 0, s: m[0], url: false })),
+  ].sort((a, b) => a.at - b.at)
   const parts: React.ReactNode[] = []
   let last = 0
-  for (const m of text.matchAll(URL_RE)) {
-    const at = m.index ?? 0
-    if (at > last) parts.push(text.slice(last, at))
-    parts.push(<a key={at} href={m[0]} target="_blank" rel="noopener noreferrer" className="underline break-all">{m[0]}</a>)
-    last = at + m[0].length
+  for (const h of hits) {
+    if (h.at < last) continue          // 주소 안에 든 숫자는 번호로 보지 않는다
+    if (h.at > last) parts.push(text.slice(last, h.at))
+    parts.push(h.url
+      ? <a key={h.at} href={h.s} target="_blank" rel="noopener noreferrer" className="underline break-all">{h.s}</a>
+      : <button key={h.at} type="button" onClick={e => { e.stopPropagation(); onPhone(h.s) }}
+          className="underline decoration-dotted underline-offset-2">{h.s}</button>)
+    last = h.at + h.s.length
   }
   if (last < text.length) parts.push(text.slice(last))
   return <>{parts}</>

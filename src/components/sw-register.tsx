@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 import { captureInstallPrompt } from '@/lib/pwa-install'
 
@@ -18,6 +19,22 @@ const CHECK_GAP_MS = 60 * 1000
  */
 export function ServiceWorkerRegister() {
   const [updateReady, setUpdateReady] = useState(false)
+  const router = useRouter()
+
+  // 알림을 눌렀을 때 SW 가 보내는 주소로 옮긴다. 같은 화면(메세지)이면 화면에 알려 방만 바꾼다
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
+    const onMessage = (e: MessageEvent) => {
+      const d = e.data as { type?: string; url?: string } | null
+      if (d?.type !== 'open-url' || !d.url) return
+      const to = new URL(d.url, location.origin)
+      if (to.origin !== location.origin) return
+      if (to.pathname === location.pathname) window.dispatchEvent(new CustomEvent('push-open', { detail: to.search }))
+      else router.push(to.pathname + to.search)
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
+  }, [router])
 
   useEffect(() => {
     if (typeof window === 'undefined') return

@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       const r = await sendPushToUser(uid, {
         title,
         body: preview,
-        url: '/broker/messenger',
+        url: `/broker/messenger?t=${threadId}`,   // 알림을 누르면 그 방이 바로 열린다
         tag: `office-chat-${threadId}`,
       })
       sent += r.sent

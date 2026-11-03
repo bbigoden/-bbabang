@@ -9,7 +9,7 @@
 // - navigate(HTML) : 내비게이션 프리로드 응답 우선, 실패 시에만 offline.html fallback
 // - 푸시 알림 / 클릭 처리
 
-const VERSION = 'busojang-v5'
+const VERSION = 'busojang-v6'
 const STATIC_CACHE = `${VERSION}-static`
 const IMAGE_CACHE = `${VERSION}-images`
 const OFFLINE_URL = '/offline.html'
@@ -165,17 +165,21 @@ async function bumpBadge() {
 }
 
 // ── 알림 클릭 시 페이지 열기 ──────────────────────────────
+// 앱이 떠 있으면 새로 고치지 않고 그 창에 '이 주소로 가라'고만 알린다(sw-register 가 받아 화면을 옮긴다).
+// 예전엔 메세지 화면이 떠 있으면 그 창을 앞으로만 꺼내 방이 열리지 않았고,
+// 다른 화면이면 navigate 로 통째로 다시 불러 느렸다.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const url = event.notification.data?.url || '/'
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
-      for (const c of cs) {
-        if (c.url.includes(url) && 'focus' in c) return c.focus()
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (cs) => {
+      const mine = cs.filter((c) => new URL(c.url).origin === self.location.origin)
+      const win = mine.find((c) => c.focused) || mine.find((c) => c.visibilityState === 'visible') || mine[0]
+      if (win) {
+        const w = await win.focus().catch(() => win)
+        ;(w || win).postMessage({ type: 'open-url', url })
+        return
       }
-      // 앱이 다른 화면에 떠 있으면 새 창을 또 열지 않고 그 창을 알림 화면으로 옮긴다
-      const open = cs.find((c) => 'navigate' in c)
-      if (open) return open.focus().then(() => open.navigate(url))
       if (self.clients.openWindow) return self.clients.openWindow(url)
     })
   )
