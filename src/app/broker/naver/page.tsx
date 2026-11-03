@@ -515,11 +515,13 @@ function 이전광고(r: Row): { 종류: '재등록' | '변동'; 전: string; �
   const 전 = { ...r, price_deal: r.prev_price_deal, price_deposit: r.prev_price_deposit, price_rent: r.prev_price_rent }
   // 임대는 보증금과 월세를 **따로** 적는다. 하나만 적었더니 보증금 16,000→36,000 이 오르고
   // 월세가 200 내린 매물이 '▼ 월세 200' 으로만 보여 싸진 줄 알았다(11/03).
+  // 한쪽 값이 비었으면 견주지 않는다 — 비은 쪽을 0으로 세면 '▲ 50,000' 같은 가짜 변동이 된다.
+  const 차 = (지금: number | null, 전: number | null) => (지금 != null && 전 != null ? 지금 - 전 : 0)
   const 바뀐것 = (r.price_deal || r.prev_price_deal
-    ? [{ 이름: '', 차: (r.price_deal ?? 0) - (r.prev_price_deal ?? 0) }]
+    ? [{ 이름: '', 차: 차(r.price_deal, r.prev_price_deal) }]
     : [
-        { 이름: '보증', 차: (r.price_deposit ?? 0) - (r.prev_price_deposit ?? 0) },
-        { 이름: '월세', 차: (r.price_rent ?? 0) - (r.prev_price_rent ?? 0) },
+        { 이름: '보증', 차: 차(r.price_deposit, r.prev_price_deposit) },
+        { 이름: '월세', 차: 차(r.price_rent, r.prev_price_rent) },
       ]).filter(b => b.차)
   return { 종류: 바뀐것.length ? '변동' : '재등록', 전: 값(전) ?? '가격 없음', 바뀐것 }
 }
@@ -602,6 +604,26 @@ export default function CollectPage() {
    */
   const [첫날, set첫날] = useState<string>(() => addDays(todayKST(), -2))
   const [끝날, set끝날] = useState<string>(() => todayKST())
+
+  /**
+   * 화면을 연 채로 날이 바뀌면 '오늘까지' 를 오늘로 따라오게 한다. 며칠치는 그대로 둔다.
+   *
+   * 안 그러면 밤새 열어 둔 화면에서 끝날이 어제에 묶여, 아침 수집이 끝나 다시 읽어도
+   * 오늘 들어온 매물이 목록에서 빠졌다.
+   */
+  const 오늘본날 = useRef(todayKST())
+  useEffect(() => {
+    const 확인 = () => {
+      const 오늘 = todayKST(), 그날 = 오늘본날.current
+      if (오늘 === 그날) return
+      오늘본날.current = 오늘
+      if (끝날 !== 그날) return
+      set첫날(addDays(첫날, 날수(그날, 오늘) - 1)); set끝날(오늘)
+    }
+    const id = setInterval(확인, 60_000)
+    document.addEventListener('visibilitychange', 확인)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', 확인) }
+  }, [첫날, 끝날])
 
   const [unseenOnly, setUnseenOnly] = useState(false)
   const [goneOnly, setGoneOnly] = useState(false)
@@ -750,13 +772,21 @@ export default function CollectPage() {
   const sourceRef = useRef(source)
   useEffect(() => { loadRef.current = load; sourceRef.current = source }, [load, source])
 
+  /**
+   * 그 곳의 설정을 읽는다. **늦게 온 응답은 버린다** — 탭을 빨리 오가면 당근 설정이 네이버
+   * 탭에 깔리고, 그 상태로 무엇을 켜면 저장이 당근 이름으로 네이버 칸을 덮는다.
+   * 읽기에 실패하면 이전 값을 그대로 둔다(빈 값으로 바꿨다가 저장하면 이름이 지워진다).
+   */
   useEffect(() => {
     if (!officeId) return
+    let 버림 = false
     void (async () => {
-      const { data } = await supabase.from('collect_settings')
+      const { data, error } = await supabase.from('collect_settings')
         .select('hide_own, track_gone, own_names').eq('broker_id', officeId).eq('source', source).maybeSingle()
+      if (버림 || error) return
       setSettings((data as Settings) ?? DEFAULT_SETTINGS)
     })()
+    return () => { 버림 = true }
   }, [supabase, officeId, source])
 
   /**
@@ -967,7 +997,7 @@ export default function CollectPage() {
    */
   const [최근작업, set최근작업] = useState<{
     status: string; finished_at: string | null; error: string | null
-    result: { warn?: string; first?: boolean } | null
+    result: { warn?: string; first?: boolean; missed?: number; truncated?: number } | null
   } | null>(null)
   useEffect(() => {
     if (!officeId) return
@@ -1136,7 +1166,10 @@ export default function CollectPage() {
   }, [sort, 거래하나, kinds])
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const shown = sorted.slice((page - 1) * pageSize, page * pageSize)
+  // 쪽 번호를 범위 안으로 당긴다. 10쪽에서 한 쪽 개수를 늘리거나, 다시 받아 건수가 줄면
+  // 없는 쪽에 머물러 빈 목록만 보였다.
+  const 쪽 = Math.min(page, totalPages)
+  const shown = sorted.slice((쪽 - 1) * pageSize, 쪽 * pageSize)
   const unseenCount = useMemo(
     () => filtered.filter(r => (seen.get(r.article_no)?.사무소 ?? 0) === 0).length,
     [filtered, seen],
@@ -1218,6 +1251,16 @@ export default function CollectPage() {
           {최근작업?.result?.warn && (
             <span className="text-amber-600 dark:text-amber-500">⚠ {최근작업.result.warn}</span>
           )}
+          {/* 일부만 받은 회차. 누를 때만 알림으로 띄우던 것이라, 아침 자동 수집이 일부를
+              놓쳐도 아무 데도 안 나왔다. */}
+          {(최근작업?.result?.missed || 최근작업?.result?.truncated) ? (
+            <span className="text-amber-600 dark:text-amber-500">
+              ⚠ 일부를 못 받았습니다
+              {최근작업.result.missed ? ` — ${최근작업.result.missed}곳 실패` : ''}
+              {최근작업.result.truncated ? ` — ${최근작업.result.truncated}자리 덜 들어옴` : ''}
+              . [매물수집] 을 다시 눌러 주세요
+            </span>
+          ) : null}
           {agentSeenAt !== undefined && <AgentStatus online={agentOnline} />}
           {/* 자동으로 받는다는 걸 화면 어딘가에서 말해 주지 않으면, 아침에 이미 받아져
               있는 것을 보고 "어제 것이 남아 있나" 하게 된다. */}
@@ -1654,13 +1697,13 @@ export default function CollectPage() {
             </ul>
 
             <Pagination
-              page={page}
+              page={쪽}
               totalPages={totalPages}
               pageSize={pageSize}
               totalCount={filtered.length}
               // 쪽을 넘겨도 화면이 아래에 머물러, 새 쪽의 첫 매물을 보려면 50줄을 올려야 했다.
               onPageChange={p => { setPage(p); 목록머리.current?.scrollIntoView({ block: 'start' }) }}
-              onPageSizeChange={setPageSize}
+              onPageSizeChange={n => { setPageSize(n); setPage(1) }}
             />
           </>
         )}
