@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useClickOutside } from '@/lib/use-click-outside'
 
 /**
@@ -9,6 +9,17 @@ import { useClickOutside } from '@/lib/use-click-outside'
  * - 다중 모드(multi=true): 한 셀에 칩 여러 개. 칩 ✕ 또는 옵션 클릭으로 토글.
  *   값은 ", " 구분 CSV로 저장(예: "김가주, 권세현"). 빈 값/빈 배열은 '' 저장.
  */
+// 팝업은 셀 왼쪽 끝에 붙여 연다 — 오른쪽 칸이면 화면 밖으로 잘리므로(11-03 모바일 유입 칸) 열린 뒤 폭을 재서 안으로 당긴다.
+function useKeepInViewport(open: boolean, popupRef: React.RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const el = popupRef.current
+    if (!open || !el) return
+    const r = el.getBoundingClientRect()
+    const over = r.right - (window.innerWidth - 8)
+    if (over > 0) el.style.left = `${Math.max(8, r.left - over)}px`
+  }, [open, popupRef])
+}
+
 function parseCsv(v: string | null): string[] {
   if (!v) return []
   return v.split(',').map(s => s.trim()).filter(Boolean)
@@ -46,7 +57,9 @@ function SingleSelectCell({
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
+  useKeepInViewport(open, popupRef)
 
   if (readOnly) return (
     <div className="max-w-full overflow-hidden">
@@ -84,6 +97,7 @@ function SingleSelectCell({
       </div>
       {open && (
         <div
+          ref={popupRef}
           className={`rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${
             options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[120px]'
           }`}
@@ -126,7 +140,9 @@ function MultiSelectCell({
   const [popupStyle, setPopupStyle] = useState<React.CSSProperties>({})
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLDivElement>(null)
+  const popupRef = useRef<HTMLDivElement>(null)
   useClickOutside(ref, () => setOpen(false))
+  useKeepInViewport(open, popupRef)
 
   const selected = parseCsv(value)
   const commit = (next: string[]) => onSave(next.join(', '))
@@ -190,6 +206,7 @@ function MultiSelectCell({
       </div>
       {open && (
         <div
+          ref={popupRef}
           className={`rounded-xl border border-gray-200 bg-white shadow-lg py-1 ${
             options.length > 5 ? 'grid grid-cols-2 min-w-[200px]' : 'flex flex-col min-w-[140px]'
           }`}
