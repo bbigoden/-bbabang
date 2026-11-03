@@ -1299,15 +1299,17 @@ export default function BrokerDiaryPage() {
 
   // 불러오기를 열면 이 날짜 전에 마지막으로 쓴 일지 날짜를 기본으로 채운다(2026-11-03 사장님).
   // 본문만 있는 날도, 고객만 있는 날도 있어 두 표를 다 보고 늦은 쪽을 고른다.
+  // 섹션 구조만 저장됐거나 글을 다 지운 빈 행도 남아 있어서, 행이 있다고 고르면 빈 날로 덮어쓰게 된다 — 글이 있는 행만 센다.
   const openImport = async () => {
     setImportDate(''); setShowImport(true)
     if (!broker) return
     const targetBrokerId = viewingBrokerId ?? broker.id
-    const [{ data: d }, { data: c }] = await Promise.all([
-      supabase.from('broker_diary').select('date').eq('broker_id', targetBrokerId).lt('date', diaryDate).order('date', { ascending: false }).limit(1).maybeSingle(),
+    const [{ data: ds }, { data: c }] = await Promise.all([
+      supabase.from('broker_diary').select('date, sections_content').eq('broker_id', targetBrokerId).lt('date', diaryDate).order('date', { ascending: false }).limit(60),
       supabase.from('broker_diary_customers').select('diary_date').eq('broker_id', targetBrokerId).lt('diary_date', diaryDate).order('diary_date', { ascending: false }).limit(1).maybeSingle(),
     ])
-    const last = [d?.date, c?.diary_date].filter(Boolean).sort().pop()
+    const written = (ds ?? []).find(r => Object.values((r.sections_content as Record<string, string>) ?? {}).some(v => typeof v === 'string' && v.trim()))
+    const last = [written?.date, c?.diary_date].filter(Boolean).sort().pop()
     // 기다리는 사이 직접 고른 날짜는 덮지 않는다
     if (last) setImportDate(prev => prev || last)
   }
@@ -1326,6 +1328,12 @@ export default function BrokerDiaryPage() {
       ])
       if (srcLinkErr) throw srcLinkErr
       if (srcDiaryErr) throw srcDiaryErr
+      // 빈 날을 불러오면 지금 일지만 조용히 지워진다 — 덮기 전에 막는다
+      const srcHasText = Object.values((sourceDiary?.sections_content as Record<string, string>) ?? {}).some(v => typeof v === 'string' && v.trim())
+      if (!(sourceLinks ?? []).some((l: any) => !l.is_deleted) && !srcHasText) {
+        setImportError('그날 일지는 비어 있어요. 다른 날짜를 골라 주세요.')
+        return
+      }
 
       // 2) 현재 날짜 고객 링크 삭제 후 재삽입
       const { error: delErr } = await supabase.from('broker_diary_customers')
