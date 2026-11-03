@@ -96,6 +96,8 @@ export function ChatRoom(props: Props) {
   const [highlight, setHighlight] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [newBelow, setNewBelow] = useState(0) // 위로 올려 보는 중 새로 온 메시지 수
+  const [farFromBottom, setFarFromBottom] = useState(false) // 맨 아래로 버튼
+  const [unreadFrom, setUnreadFrom] = useState<string | null>(null) // '여기까지 읽었습니다' 아래 첫 메세지
   const [dragging, setDragging] = useState(false)
   const [staged, setStaged] = useState<File[]>([]) // 사진·파일은 바로 보내지 않고 한 번 보여준다(카톡처럼)
 
@@ -109,6 +111,10 @@ export function ChatRoom(props: Props) {
   detachedRef.current = detached
   const messagesRef = useRef<Msg[]>([])
   messagesRef.current = messages
+  // 방을 열기 직전의 내 읽음 시각 — 처음 불러올 때만 써서 안 읽은 곳부터 보여 준다
+  // (개발 모드처럼 방 열기가 두 번 돌아도 첫 값을 지키게 방별로 한 번만 잡는다)
+  const readMarkRef = useRef<{ thread: string; at: string | null } | null>(null)
+  const jumpUnreadRef = useRef<string | null>(null)
 
   const nameOf = useCallback((id: string | null | undefined) =>
     id ? (memberById[id]?.name ?? '(퇴사)') : '(퇴사)', [memberById])
@@ -128,24 +134,34 @@ export function ChatRoom(props: Props) {
     })
   }, [supabase])
 
-  const loadLatest = useCallback(async () => {
+  const loadLatest = useCallback(async (initial = false) => {
     const { data } = await supabase.from('office_chat_messages').select('*').eq('thread_id', thread.id)
       .order('created_at', { ascending: false }).limit(PAGE)
     const rows = ((data ?? []) as Msg[]).reverse()
+    if (initial) {
+      // 처음 여는 방(읽은 적 없음)은 맨 아래부터. 내가 쓴 말은 안 읽은 것으로 치지 않는다
+      const mark = readMarkRef.current?.at
+      const t = mark ? new Date(mark).getTime() : Infinity
+      const first = rows.find(m => new Date(m.created_at).getTime() > t && !(m.sender_broker_id === myId && !m.bot_name))
+      setUnreadFrom(first?.id ?? null)
+      jumpUnreadRef.current = first?.id ?? null
+    }
     setMessages(rows)
     setHasMore(rows.length === PAGE)
     setDetached(false)
     setNewBelow(0)
-    atBottomRef.current = true
+    atBottomRef.current = !(initial && jumpUnreadRef.current)
     loadReactions(rows.map(m => m.id))
     setLoading(false)
-  }, [supabase, thread.id, loadReactions])
+  }, [supabase, thread.id, loadReactions, myId])
 
   useEffect(() => {
+    if (readMarkRef.current?.thread !== thread.id) readMarkRef.current = { thread: thread.id, at: myRow?.last_read_at ?? null }
+    setUnreadFrom(null); setFarFromBottom(false)
     setLoading(true)
     setMessages([]); setExtra({}); setReacts({}); setReplyTo(null); setDraft('')
     setSideOpen(false); setDrawer(null); setSearchOpen(false); setNoticeFolded(true)
-    loadLatest()
+    loadLatest(true)
     props.onRead(thread.id)
     supabase.from('office_chat_members').select('broker_id, last_read_at').eq('thread_id', thread.id)
       .then(({ data }) => setMemRows(data ?? []))
@@ -258,14 +274,36 @@ export function ChatRoom(props: Props) {
     if (keepScrollRef.current !== null) {
       el.scrollTop = el.scrollHeight - keepScrollRef.current
       keepScrollRef.current = null
+    } else if (jumpUnreadRef.current) {
+      // 안 읽은 첫 메세지를 화면 위쪽(공지 아래)에. 남은 게 한 화면이 안 되면 자연히 맨 아래에 닿는다
+      const target = document.getElementById(`msg-unread-${jumpUnreadRef.current}`)
+      jumpUnreadRef.current = null
+      if (target) el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top - (notice ? 88 : 8)
+      atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
     } else if (atBottomRef.current && !highlight) {
       el.scrollTop = el.scrollHeight
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, highlight])
+
+  // 맨 아래를 보던 중이면 사진이 늦게 뜨거나 키보드가 올라와도 맨 아래에 붙어 있는다
+  // (사진이 뜨며 높이가 늘어 방을 열면 중간에 멈춰 있었다)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const stick = () => { if (atBottomRef.current) el.scrollTop = el.scrollHeight }
+    el.addEventListener('load', stick, true)
+    const ro = new ResizeObserver(stick)
+    ro.observe(el)
+    return () => { el.removeEventListener('load', stick, true); ro.disconnect() }
+  }, [])
+
   const onScroll = () => {
     const el = scrollRef.current
     if (!el) return
-    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    const gap = el.scrollHeight - el.scrollTop - el.clientHeight
+    atBottomRef.current = gap < 80
+    setFarFromBottom(gap > el.clientHeight / 2)
     if (atBottomRef.current && !detached) setNewBelow(0)
   }
   const toBottom = () => {
@@ -531,6 +569,11 @@ export function ChatRoom(props: Props) {
           const rx = Object.entries(reacts[m.id] ?? {}).filter(([, ids]) => ids.length > 0)
           return (
             <Fragment key={m.id}>
+              {unreadFrom === m.id && (
+                <div id={`msg-unread-${m.id}`} className="my-3 flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-400">
+                  <span className="h-px flex-1 bg-black/15 dark:bg-white/15" />여기까지 읽었습니다<span className="h-px flex-1 bg-black/15 dark:bg-white/15" />
+                </div>
+              )}
               {newDay && (
                 <div className="my-3 flex justify-center">
                   <span className="rounded-full bg-black/10 px-3 py-1 text-[11px] text-gray-700 dark:bg-gray-800 dark:text-gray-400">{dayDivider(m.created_at)}</span>
@@ -612,9 +655,15 @@ export function ChatRoom(props: Props) {
         })}
       </div>
 
-      {(newBelow > 0 || detached) && (
+      {newBelow > 0 ? (
         <button onClick={toBottom} className="absolute bottom-20 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-gray-900/80 px-3 py-1.5 text-xs text-white shadow">
-          <ArrowDown className="h-3.5 w-3.5" /> {newBelow > 0 ? `새 메세지 ${newBelow}개` : '최신 메세지로'}
+          <ArrowDown className="h-3.5 w-3.5" /> 새 메세지 {newBelow}개
+        </button>
+      ) : (farFromBottom || detached) && (
+        // 카톡처럼 오른쪽 아래 동그란 '맨 아래로'
+        <button onClick={toBottom} aria-label="맨 아래로" title="맨 아래로"
+          className="absolute bottom-20 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-md ring-1 ring-black/5 dark:bg-gray-800/90 dark:text-gray-200">
+          <ChevronDown className="h-6 w-6" />
         </button>
       )}
 
