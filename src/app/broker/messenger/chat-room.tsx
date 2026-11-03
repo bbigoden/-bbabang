@@ -618,7 +618,7 @@ export function ChatRoom(props: Props) {
         onChange={e => { stage(Array.from(e.target.files ?? [])); e.target.value = '' }} />
 
       {/* 입력 */}
-      <div className="flex items-end gap-2 bg-white px-2 py-2 dark:bg-gray-900">
+      <div className="flex items-end gap-2 bg-white px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] dark:bg-gray-900">
         <button onClick={() => setAttachOpen(v => !v)} disabled={sending}
           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 disabled:opacity-40 dark:hover:bg-gray-800" aria-label="사진·파일 보내기">
           {attachOpen ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5" />}

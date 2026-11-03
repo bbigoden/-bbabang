@@ -172,7 +172,22 @@ export default function BrokerMessengerPage() {
     upsertMyRow(threadId, { last_read_at: new Date().toISOString() }).then(refreshOfficeChatUnread)
   }, [upsertMyRow])
 
-  const openThread = (id: string) => { setActive(id); setTab('chats'); setProfileOf(null) }
+  // 폰은 방이 화면을 덮으니, 휴대폰 뒤로가기가 앱을 떠나지 않고 목록으로 돌아오게 기록을 한 칸 쌓는다
+  const openThread = (id: string) => {
+    if (window.matchMedia('(max-width: 767px)').matches && !(history.state as { ocRoom?: boolean } | null)?.ocRoom) {
+      history.pushState({ ...history.state, ocRoom: true }, '')
+    }
+    setActive(id); setTab('chats'); setProfileOf(null)
+  }
+  const closeRoom = () => {
+    if ((history.state as { ocRoom?: boolean } | null)?.ocRoom) history.back()  // popstate 가 닫는다
+    else setActive(null)
+  }
+  useEffect(() => {
+    const onPop = () => { if (!(history.state as { ocRoom?: boolean } | null)?.ocRoom) setActive(null) }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   // ── 방 만들기·나가기 ─────────────────────────────────────
   const addAndOpen = async (threadId: string) => {
@@ -199,7 +214,7 @@ export default function BrokerMessengerPage() {
     const { error } = await supabase.from('office_chat_members').delete().eq('thread_id', t.id).eq('broker_id', myId)
     if (error) { toast.error('나가기 실패: ' + error.message); return }
     setThreads(prev => prev.filter(x => x.id !== t.id))
-    setActive(null)
+    closeRoom()
   }
   const invite = async (ids: string[]) => {
     if (!active || ids.length === 0) return
@@ -365,7 +380,8 @@ export default function BrokerMessengerPage() {
           </div>
 
           {/* 대화 칸 */}
-          <div className={cn('min-w-0 flex-1', !active && 'hidden md:flex')}>
+          {/* 폰은 카톡처럼 방이 화면을 다 덮는다 — 위 머리·아래 메뉴바 없이 */}
+          <div className={cn('min-w-0 flex-1', !active ? 'hidden md:flex' : 'max-md:fixed max-md:inset-0 max-md:z-50 max-md:flex max-md:bg-[#bacee0] max-md:pt-[env(safe-area-inset-top)] max-md:dark:bg-gray-900')}>
             {activeThread && myId && office ? (
               <ChatRoom
                 key={activeThread.id}
@@ -376,7 +392,7 @@ export default function BrokerMessengerPage() {
                 members={members}
                 memberById={memberById}
                 myRow={myRows[activeThread.id] ?? null}
-                onBack={() => setActive(null)}
+                onBack={closeRoom}
                 onOpenProfile={setProfileOf}
                 onRead={markRead}
                 onSent={m => setPreviews(prev => ({ ...prev, [m.thread_id]: { id: m.id, text: previewText(m), at: m.created_at } }))}
