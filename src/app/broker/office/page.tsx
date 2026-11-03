@@ -179,7 +179,7 @@ export default function OfficePage() {
    * 뱅크 번호 → 매물 이름. short '성월리 상가' 는 말풍선에(번지·호수 없이),
    * full '성정동 1465 세림프라자 108호' 는 걸린 일 줄에 — 같은 동네 상가가 여럿 줄 서면 short 로는 못 가른다.
    */
-  const [listingNames, setListingNames] = useState<Record<string, { short: string; full: string }>>({})
+  const [listingNames, setListingNames] = useState<Record<string, { short: string; full: string; 확인중: boolean }>>({})
   const [bankJobs, setBankJobs] = useState<BankJob[]>([])
   const [today, setToday] = useState({ cafe: 0, blog: 0, daangnPost: 0, naver: 0, daangn: 0, consult: 0 })
   // 처음 숫자를 받기 전엔 0 이 아니라 '…' — 방금 등록한 고객이 빠진 줄 알았다(10-30 재점검)
@@ -274,13 +274,15 @@ export default function OfficePage() {
     // 돌거나 줄 선 광고 작업의 매물 이름 — '성월리 상가'(동네 + 종류). 번지·호수는 말풍선에 안 적는다(번지로 시작하면 읍면동)
     const 번호들 = [...new Set(jobs
       .flatMap(j => (j.params?.bankNos as string[] | undefined) ?? []).map(String))].slice(0, 100)
-    if (번호들.length) void supabase.from('ad_listings').select('bank_no, region, address_detail, property_kind').in('bank_no', 번호들).then(({ data: ls }) => {
-      setListingNames(Object.fromEntries(((ls ?? []) as { bank_no: string; region: string | null; address_detail: string | null; property_kind: string | null }[])
+    if (번호들.length) void supabase.from('ad_listings').select('bank_no, region, address_detail, property_kind, bank_status').in('bank_no', 번호들).then(({ data: ls }) => {
+      setListingNames(Object.fromEntries(((ls ?? []) as { bank_no: string; region: string | null; address_detail: string | null; property_kind: string | null; bank_status: string | null }[])
         .map(l => {
           const 동 = l.region?.split(' ').pop()
-          const short = [(/[가-힣]/.test(l.address_detail?.split(' ')[0] ?? '') ? l.address_detail!.split(' ')[0] : null) || 동, l.property_kind?.replace(/점포$/, '')].filter(Boolean).join(' ')
-          const full = [/[가-힣]/.test(l.address_detail?.split(' ')[0] ?? '') ? null : 동, l.address_detail].filter(Boolean).join(' ') || short
-          return [l.bank_no, { short, full }]
+          // 상세주소가 '성월리 …' 처럼 동네로 시작할 때만 동네를 뺀다 — '103동 508호' 는 동네가 없어 어느 단지인지 몰랐다(11-04)
+          const 동네로시작 = /^[가-힣]/.test(l.address_detail ?? '')
+          const short = [(동네로시작 ? l.address_detail!.split(' ')[0] : null) || 동, l.property_kind?.replace(/점포$/, '')].filter(Boolean).join(' ')
+          const full = [동네로시작 ? null : 동, l.address_detail].filter(Boolean).join(' ') || short
+          return [l.bank_no, { short, full, 확인중: /^확인중/.test(l.bank_status ?? '') }]
         })))
     })
     setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
@@ -437,13 +439,16 @@ export default function OfficePage() {
     .filter(m => m.user_id && m.profiles?.name).map(m => [m.user_id!, m.profiles!.name!]))
   // 누가 건 일인지 — 요청한 사람이 없으면 PC 프로그램이 매일 아침 스스로 건 것(2026-10-29 사장님)
   const whoOf = (id: string | null | undefined) => (id ? requesterName[id] ?? '직원' : '자동')
+  // '확인중인 매물입니다' 로 실패했는데 뱅크에서 아직 확인중이면 다시 걸어도 같은 까닭으로 또 실패한다
+  const 아직확인중 = (j: AdJob) => /확인중인 매물/.test(j.error ?? '')
+    && ((j.params?.bankNos as string[] | undefined) ?? []).some(n => listingNames[String(n)]?.확인중)
   const rank = (s: AdJob['status']) => (s === 'running' || s === 'queued' ? 0 : s === 'failed' ? 1 : 2)
   const jobRows = [
     ...adJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
       <JobRow key={`a${j.id}`} status={j.status} at={j.requested_at}
         title={KIND_LABEL[j.kind] ?? j.kind} who={whoOf(j.requested_by)} detail={jobDetail(j, listingNames)}
         onCancel={isOwner && j.status === 'queued' ? () => void cancelAdJob(j) : undefined}
-        onRetry={isOwner && j.status === 'failed' ? () => void retryAdJob(j) : undefined} />
+        onRetry={isOwner && j.status === 'failed' && !아직확인중(j) ? () => void retryAdJob(j) : undefined} />
     ) })),
     ...bankJobs.map(j => ({ at: j.requested_at, status: j.status, node: (
       <JobRow key={`b${j.id}`} status={j.status} at={j.requested_at}
@@ -734,8 +739,12 @@ function jobDetail(j: AdJob, names: Record<string, { full: string }>): string | 
     channels.map(c => CHANNEL_LABEL[c] ?? c).join('·'),
     nos.length ? (names[String(nos[0])] ? `${names[String(nos[0])].full}${nos.length > 1 ? ` 외 ${nos.length - 1}` : ''}` : `매물 ${nos.length}건`) : '',
   ].filter(Boolean).join(' ')
-  // 일꾼 진행 글 맨 앞의 매물번호는 뺀다 — 이름을 위에 적었다
-  const body = j.status === 'failed' ? j.error : j.progress?.replace(/^\d{6,}\s*/, '')
+  // 일꾼 진행 글 맨 앞의 매물번호는 뺀다 — 이름을 위에 적었다.
+  // 실패 까닭 앞의 '당근: 2659164418:' 은 위에 채널·매물 이름이 있어 군더더기고, '(화면: C:\…png)' 는 PC 에만 있는 파일이다.
+  // 폰에서 이것들이 두 줄을 먼저 차지해 정작 할 일이 잘렸다(11-04)
+  const body = j.status === 'failed'
+    ? j.error?.replace(/([가-힣]+):\s*\d{6,}:\s*/g, channels.length > 1 ? '$1: ' : '').replace(/\s*\(화면:[^)]*\)/g, '')
+    : j.progress?.replace(/^\d{6,}\s*/, '')
   return [head, body].filter(Boolean).join(' · ') || null
 }
 
@@ -904,7 +913,8 @@ function JobRow({ status, at, title, who, detail, onCancel, onRetry }: {
           {title}
           <span className={`ml-1.5 rounded px-1 py-px text-[10px] font-semibold ${who === '자동' ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' : 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'}`}>{who}</span>
         </p>
-        {detail && <p className={`line-clamp-2 text-[11px] ${status === 'failed' ? 'text-red-600' : 'text-gray-500'}`}>{detail}</p>}
+        {/* 실패 까닭은 끝까지 — 맨 뒤에 할 일이 적혀 있다 */}
+        {detail && <p className={`text-[11px] ${status === 'failed' ? 'text-red-600' : 'line-clamp-2 text-gray-500'}`}>{detail}</p>}
       </div>
       <span className="flex-shrink-0 text-[11px] text-gray-400">{when(at)}</span>
       {onRetry && (
