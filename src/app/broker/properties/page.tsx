@@ -1291,6 +1291,8 @@ interface PropertyRowProps {
   isAdding: boolean
   isAutoFilling: boolean
   teamMembers: string[]
+  /** 업종 선택지 — 사무소 공통(대표 설정) */
+  industryOpts: string[]
   ownerName: string
   saveField: (id: string, field: string, value: any) => void
   /** 매물상태(가능↔완료)는 바로 저장하지 않고 확인창을 거친다 — 한 번 잘못 눌러 계약완료가 되면 광고까지 내려야 한다. */
@@ -1307,7 +1309,7 @@ interface PropertyRowProps {
 const PropertyRow = memo(function PropertyRow({
   p, adBadge, bankDraft, onBankDraft, syncedOrder, customColumns, settings,
   isAdminView, canEdit, isOwner, brokerSelfId,
-  isAdding, isAutoFilling, teamMembers, ownerName,
+  isAdding, isAutoFilling, teamMembers, industryOpts, ownerName,
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
   onDelete, onCopy, onView,
 }: PropertyRowProps) {
@@ -1416,7 +1418,7 @@ const PropertyRow = memo(function PropertyRow({
                       saveField(p.id, 'monthly_rent', rent)
                     }} />)}
               {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
-              {key === 'industry'        && (settings.colTypes['industry'] === 'text' ? <TextCell value={industryOf(p) || null} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="예: 식당" /> : <SelectCell value={industryOf(p)} options={settings.options['industry'] ?? INDUSTRY_OPTS} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="업종" multi={settings.multi['industry']} />)}
+              {key === 'industry'        && (settings.colTypes['industry'] === 'text' ? <TextCell value={industryOf(p) || null} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="예: 식당" /> : <SelectCell value={industryOf(p)} options={industryOpts} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="업종" multi={settings.multi['industry']} />)}
               {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
               {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
               {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
@@ -1643,6 +1645,9 @@ function BrokerPropertiesContent() {
 
   // 칼럼 설정 (DB)
   const { settings, update, loaded: colLoaded } = useColSettings('properties', settingsBrokerId, DEFAULT_PROP_SETTINGS)
+  // 업종 선택지는 사무소 공통 — 대표 칼럼 설정에 있는 목록을 직원도 그대로 쓴다. 고치는 건 대표만(직원은 대표 행을 못 고친다).
+  const [officeIndustryOpts, setOfficeIndustryOpts] = useState<string[] | null>(null)
+  const industryOpts = isOwner ? (settings.options['industry'] ?? INDUSTRY_OPTS) : (officeIndustryOpts ?? INDUSTRY_OPTS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'properties')
 
   // 신규 고정칼럼(매물상태) 자동 마이그레이션 — 기존 사용자의 DB에 저장된 visible/order에 없으면 추가
@@ -1798,8 +1803,10 @@ function BrokerPropertiesContent() {
         // 직원 → 대표(parent_broker_id) 이름 조회. 담당자에 대표 이름이 잡힌 매물의 메모를 열람하기 위함.
         if (b.parent_broker_id) {
           const { data: ownerBroker } = await supabase
-            .from('broker_profiles').select('address, profiles(name)').eq('id', b.parent_broker_id).single()
+            .from('broker_profiles').select('address, col_settings, profiles(name)').eq('id', b.parent_broker_id).single()
           setOwnerName((ownerBroker?.profiles as any)?.name ?? '')
+          const officeOpts = (ownerBroker as any)?.col_settings?.properties?.options?.industry
+          if (Array.isArray(officeOpts)) setOfficeIndustryOpts(officeOpts)
           setOfficeAddress((ownerBroker as any)?.address ?? null)
         }
       }
@@ -3050,7 +3057,7 @@ function BrokerPropertiesContent() {
             <div>
               <p className="mb-2 text-xs font-semibold text-gray-500">업종 (다중 선택)</p>
               <div className="flex flex-wrap gap-1.5">
-                {(settings.options['industry'] ?? INDUSTRY_OPTS).map(t => (
+                {industryOpts.map(t => (
                   <button key={t} onClick={() => toggleIndustry(t)}
                     className={chipClass(filterIndustries.includes(t), 'xs')}
                   >{t}</button>
@@ -3321,8 +3328,8 @@ function BrokerPropertiesContent() {
                                 colType={defaultType !== undefined && !isAssignee ? effectiveType : undefined}
                                 onChangeType={defaultType !== undefined && !isAssignee ? type => changeFixedColType(key, type) : undefined}
                                 hasOptions={showMulti}
-                                options={settings.options[key] ?? []}
-                                onSetOptions={isAssignee ? undefined : opts => setOpts(key, opts)}
+                                options={key === 'industry' ? industryOpts : (settings.options[key] ?? [])}
+                                onSetOptions={isAssignee || (key === 'industry' && !isOwner) ? undefined : opts => setOpts(key, opts)}
                                 isMulti={settings.multi[key]}
                                 onChangeMulti={showMulti ? m => setMulti(key, m) : undefined}
                                 onHide={() => hideCol(key)}
@@ -3408,6 +3415,7 @@ function BrokerPropertiesContent() {
                   isAdding={p.id === addingId || p.id === jumpId}
                   isAutoFilling={autoFillingId === p.id}
                   teamMembers={teamMembers}
+                  industryOpts={industryOpts}
                   ownerName={ownerName}
                   saveField={saveField}
                   autoFillRow={autoFillRow}
