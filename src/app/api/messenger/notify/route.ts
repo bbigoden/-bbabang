@@ -16,7 +16,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
  */
 const RECENT_MS = 2 * 60 * 1000
 
-type MsgRow = { body: string | null; image_url: string | null; image_paths: string[] | null; file_url: string | null; file_name: string | null }
+type MsgRow = { body: string | null; image_url: string | null; image_paths: string[] | null; file_url: string | null; file_name: string | null; mention_ids: string[] | null }
 
 /** 메신저 화면(ChatRoom 의 send·sendFiles)이 보내는 미리보기와 같은 규칙 */
 function previewOf(m: MsgRow): string {
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   // 없으면 가장 최근 것으로 만든다. 하나도 없으면 실제 메시지가 없는 호출이라 보내지 않는다.
   const { data: recent } = await svc
     .from('office_chat_messages')
-    .select('body, image_url, image_paths, file_url, file_name')
+    .select('body, image_url, image_paths, file_url, file_name, mention_ids')
     .eq('thread_id', threadId)
     .eq('sender_broker_id', me.id)
     .is('deleted_at', null)
@@ -84,7 +84,9 @@ export async function POST(req: NextRequest) {
   if (!recent?.length) return NextResponse.json({ ok: true, targets: 0, sent: 0, skipped: 'no_message' })
   const claimed = typeof body.preview === 'string' ? body.preview.slice(0, 80) : ''
   const previews = (recent as MsgRow[]).map(previewOf)
-  const preview = previews.find(p => p === claimed) ?? previews[0]
+  const picked = Math.max(0, previews.indexOf(claimed))
+  const preview = previews[picked]
+  const mentionIds = (recent as MsgRow[])[picked].mention_ids ?? []
 
   // 대상 user_id 수집
   const targetUserIds = new Set<string>()
@@ -115,12 +117,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 이 방 알림을 끈 사람은 뺀다(채팅방 서랍의 '알림 끄기')
+  // @태그된 사람(지금 대상에 든 사람만) — 방 알림을 꺼 둬도 받는다
+  const taggedUserIds = new Set<string>()
+  if (mentionIds.length) {
+    const { data: tagged } = await svc.from('broker_profiles').select('user_id').in('id', mentionIds)
+    for (const t of tagged ?? []) if (t.user_id && targetUserIds.has(t.user_id as string)) taggedUserIds.add(t.user_id as string)
+  }
+
+  // 이 방 알림을 끈 사람은 뺀다(채팅방 서랍의 '알림 끄기') — 태그된 사람은 남긴다
   const { data: mutedRows } = await svc.from('office_chat_members')
     .select('broker_profiles!inner(user_id)').eq('thread_id', threadId).eq('muted', true)
   for (const r of (mutedRows ?? []) as { broker_profiles: { user_id: string } | { user_id: string }[] }[]) {
     const bp = Array.isArray(r.broker_profiles) ? r.broker_profiles[0] : r.broker_profiles
-    if (bp?.user_id) targetUserIds.delete(bp.user_id)
+    if (bp?.user_id && !taggedUserIds.has(bp.user_id)) targetUserIds.delete(bp.user_id)
   }
 
   // 설정 → 알림에서 '메세지' 를 끈 사람도 뺀다(키 office_chat — 옛 고객 화면의 messages 와 따로)
@@ -138,7 +147,7 @@ export async function POST(req: NextRequest) {
   await Promise.all([...targetUserIds].map(async uid => {
     try {
       const r = await sendPushToUser(uid, {
-        title,
+        title: taggedUserIds.has(uid) ? `${title} · 나를 태그했어요` : title,
         body: preview,
         url: `/broker/messenger?t=${threadId}`,   // 알림을 누르면 그 방이 바로 열린다
         tag: `office-chat-${threadId}`,

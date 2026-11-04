@@ -10,7 +10,7 @@ import { setOpenOfficeThread } from '@/lib/message-sound'
 import {
   ArrowLeft, Search, Menu, Plus, Send, X, FileText, Download, CornerUpLeft, Copy, Trash2,
   Megaphone, ChevronDown, ChevronUp, Image as ImageIcon, Paperclip, Link2, Pin, PinOff,
-  Bell, BellOff, Pencil, UserPlus, LogOut, MoreHorizontal, ArrowDown, Phone,
+  Bell, BellOff, Pencil, UserPlus, LogOut, MoreHorizontal, ArrowDown, Phone, Check,
 } from 'lucide-react'
 import {
   type Thread, type Msg, type Member, type MyRow, type ReactionKey,
@@ -86,6 +86,8 @@ export function ChatRoom(props: Props) {
 
   const [draft, setDraft] = useState('')
   const [replyTo, setReplyTo] = useState<Msg | null>(null)
+  const [editing, setEditing] = useState<Msg | null>(null) // 고치는 중인 내 메세지 — 입력칸에 본문을 올려 고친다
+  const [mentionQ, setMentionQ] = useState<{ at: number; q: string } | null>(null) // '@' 뒤에 쓰는 중인 이름
   const [sending, setSending] = useState(false)
   const [attachOpen, setAttachOpen] = useState(false)
   const [menuMsg, setMenuMsg] = useState<Msg | null>(null)
@@ -120,6 +122,17 @@ export function ChatRoom(props: Props) {
 
   const nameOf = useCallback((id: string | null | undefined) =>
     id ? (memberById[id]?.name ?? '(퇴사)') : '(퇴사)', [memberById])
+
+  const roomMembers = useMemo(() => thread.kind === 'group'
+    ? members
+    : memRows.map(r => memberById[r.broker_id]).filter((m): m is Member => !!m), [thread.kind, members, memRows, memberById])
+  // 태그는 이 방 사람만. 긴 이름부터 맞춰야 '김용' 이 '김용유' 를 먼저 먹지 않는다
+  const tagNames = useMemo(() => roomMembers.map(m => m.name).filter(Boolean).sort((a, b) => b.length - a.length), [roomMembers])
+  const mentionsIn = (body: string) => {
+    const re = tagRegex(tagNames)
+    const named = new Set(re ? [...body.matchAll(re)].map(x => x[0].slice(1)) : [])
+    return roomMembers.filter(m => m.id !== myId && named.has(m.name)).map(m => m.id)
+  }
 
   // ── 메시지 불러오기 ─────────────────────────────────────
   const loadReactions = useCallback(async (ids: string[]) => {
@@ -161,7 +174,7 @@ export function ChatRoom(props: Props) {
     if (readMarkRef.current?.thread !== thread.id) readMarkRef.current = { thread: thread.id, at: myRow?.last_read_at ?? null }
     setUnreadFrom(null); setFarFromBottom(false)
     setLoading(true)
-    setMessages([]); setExtra({}); setReacts({}); setReplyTo(null); setDraft('')
+    setMessages([]); setExtra({}); setReacts({}); setReplyTo(null); setDraft(''); setEditing(null); setMentionQ(null)
     setSideOpen(false); setDrawer(null); setSearchOpen(false); setNoticeFolded(true)
     loadLatest(true)
     props.onRead(thread.id)
@@ -346,19 +359,76 @@ export function ChatRoom(props: Props) {
     props.onSent(msg)
   }
 
+  const resizeInput = () => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }
+
   const send = async () => {
     const body = draft.trim()
     if (!body || sending) return
+    if (editing) { saveEdit(editing, body); return }
     const replyId = replyTo?.id ?? null
+    const mentionIds = mentionsIn(body)
     setSending(true)
-    setDraft(''); setReplyTo(null)
+    setDraft(''); setReplyTo(null); setMentionQ(null)
     const { data, error } = await supabase.from('office_chat_messages')
-      .insert({ thread_id: thread.id, sender_broker_id: myId, body, reply_to_id: replyId }).select().single()
+      .insert({ thread_id: thread.id, sender_broker_id: myId, body, reply_to_id: replyId, mention_ids: mentionIds.length ? mentionIds : null }).select().single()
     setSending(false)
     if (error || !data) { toast.error(`보내지 못했어요. ${whyFailed(error)}`); setDraft(body); return }
     appendMine(data as Msg)
     notify(body.slice(0, 80))
     inputRef.current?.focus()
+  }
+
+  // ── 수정 ────────────────────────────────────────────
+  const startEdit = (m: Msg) => {
+    setMenuMsg(null); setReplyTo(null); setAttachOpen(false)
+    setEditing(m); setDraft(m.body)
+    requestAnimationFrame(() => {
+      const el = inputRef.current
+      if (!el) return
+      resizeInput(); el.focus(); el.setSelectionRange(el.value.length, el.value.length)
+    })
+  }
+  const cancelEdit = () => {
+    setEditing(null); setDraft(''); setMentionQ(null)
+    requestAnimationFrame(resizeInput)
+  }
+  const saveEdit = async (m: Msg, body: string) => {
+    if (body === m.body.trim()) { cancelEdit(); return }
+    const mentionIds = mentionsIn(body)
+    setSending(true)
+    const { data, error } = await supabase.rpc('edit_office_chat_message', { p_id: m.id, p_body: body, p_mentions: mentionIds })
+    setSending(false)
+    if (error) { toast.error(`고치지 못했어요. ${whyFailed(error)}`); return }
+    const patch = { body, edited_at: (data as string | null) ?? new Date().toISOString(), mention_ids: mentionIds.length ? mentionIds : null }
+    setMessages(prev => prev.map(x => x.id === m.id ? { ...x, ...patch } : x))
+    setExtra(prev => prev[m.id] ? { ...prev, [m.id]: { ...prev[m.id], ...patch } } : prev)
+    cancelEdit()
+  }
+  // 카톡처럼 보낸 지 24시간 안의 내 글자 메세지만
+  const canEdit = (m: Msg) => m.sender_broker_id === myId && !m.bot_name && !m.deleted_at && !!m.body
+    && imagesOf(m).length === 0 && !m.file_url && Date.now() - new Date(m.created_at).getTime() < 24 * 3600 * 1000
+
+  // ── 태그(@이름) ──────────────────────────────────────
+  const mentionCandidates = mentionQ
+    ? roomMembers.filter(m => m.id !== myId && m.name.toLowerCase().includes(mentionQ.q.toLowerCase())).slice(0, 8)
+    : []
+  const watchMention = (el: HTMLTextAreaElement) => {
+    const before = el.value.slice(0, el.selectionStart ?? el.value.length)
+    const hit = before.match(/(?:^|\s)@([^\s@]{0,10})$/)
+    setMentionQ(hit ? { at: before.length - hit[1].length - 1, q: hit[1] } : null)
+  }
+  const pickMention = (m: Member) => {
+    const el = inputRef.current
+    if (!mentionQ || !el) return
+    const end = el.selectionStart ?? draft.length
+    const next = `${draft.slice(0, mentionQ.at)}@${m.name} ${draft.slice(end)}`
+    const caret = mentionQ.at + m.name.length + 2
+    setDraft(next); setMentionQ(null)
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(caret, caret); resizeInput() })
   }
 
   const upload = async (file: File) => {
@@ -485,9 +555,6 @@ export function ChatRoom(props: Props) {
 
   const notice = findMsg(thread.notice_message_id)
   const memberCount = thread.kind === 'group' ? members.length : memRows.length
-  const roomMembers = thread.kind === 'group'
-    ? members
-    : memRows.map(r => memberById[r.broker_id]).filter((m): m is Member => !!m)
 
   return (
     <section
@@ -623,14 +690,15 @@ export function ChatRoom(props: Props) {
                       ) : (
                         <div className={cn('whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[15px] leading-snug',
                           mine ? 'bg-[#fee500] text-gray-900' : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100',
-                          !sameAsPrev && (mine ? 'rounded-tr-sm' : 'rounded-tl-sm'))}>
+                          !sameAsPrev && (mine ? 'rounded-tr-sm' : 'rounded-tl-sm'),
+                          m.mention_ids?.includes(myId) && 'ring-2 ring-[#3a6fd8]/60')}>
                           {replied && (
                             <button onClick={() => jumpTo(replied)} className="mb-1.5 block w-full border-b border-black/10 pb-1.5 text-left">
                               <span className="block text-xs font-semibold text-gray-700 dark:text-gray-300">{nameOf(replied.sender_broker_id)}에게 답장</span>
                               <span className="block truncate text-xs text-gray-500">{previewText(replied)}</span>
                             </button>
                           )}
-                          <Linkified text={m.body} onPhone={setPhoneSheet} />
+                          <Linkified text={m.body} onPhone={setPhoneSheet} tagNames={tagNames} />
                         </div>
                       )}
                     </div>
@@ -641,6 +709,7 @@ export function ChatRoom(props: Props) {
                         </button>
                       )}
                       {unread > 0 && <span className="text-[11px] font-bold text-[#e6b800] dark:text-yellow-400">{unread}</span>}
+                      {m.edited_at && !m.deleted_at && <span className="whitespace-nowrap text-[10px] text-gray-600 dark:text-gray-400">수정됨</span>}
                       {!sameAsNext && <span className="whitespace-nowrap text-[10px] text-gray-600 dark:text-gray-400">{ampm(m.created_at)}</span>}
                     </div>
                   </div>
@@ -676,6 +745,32 @@ export function ChatRoom(props: Props) {
           className="absolute bottom-20 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-md ring-1 ring-black/5 dark:bg-gray-800/90 dark:text-gray-200">
           <ChevronDown className="h-6 w-6" />
         </button>
+      )}
+
+      {/* 태그할 사람 고르기('@' 뒤) */}
+      {mentionCandidates.length > 0 && (
+        <ul className="max-h-56 overflow-y-auto border-t border-gray-200 bg-white py-1 dark:border-gray-800 dark:bg-gray-900" aria-label="태그할 사람">
+          {mentionCandidates.map((m, i) => (
+            <li key={m.id}>
+              <button onMouseDown={e => e.preventDefault()} onClick={() => pickMention(m)}
+                className={cn('flex w-full items-center gap-3 px-3 py-1.5 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800', i === 0 && 'bg-gray-50 dark:bg-gray-800')}>
+                <Avatar member={m} size={28} />{m.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* 수정 중 */}
+      {editing && (
+        <div className="flex items-center gap-2 border-t border-gray-200 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
+          <Pencil className="h-4 w-4 flex-shrink-0 text-gray-500" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">메세지 수정</p>
+            <p className="truncate text-xs text-gray-500">{editing.body}</p>
+          </div>
+          <button onClick={cancelEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100" aria-label="수정 취소"><X className="h-4 w-4" /></button>
+        </div>
       )}
 
       {/* 답장 중 */}
@@ -716,8 +811,11 @@ export function ChatRoom(props: Props) {
           ref={inputRef}
           value={draft}
           rows={1}
-          onChange={e => { setDraft(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px' }}
+          onChange={e => { setDraft(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; watchMention(e.target) }}
+          onClick={e => watchMention(e.currentTarget)}
           onKeyDown={e => {
+            if (mentionCandidates.length && (e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); pickMention(mentionCandidates[0]); return }
+            if (e.key === 'Escape') { if (mentionQ) setMentionQ(null); else if (editing) cancelEdit(); return }
             // 휴대폰 키보드의 줄바꿈 키는 줄만 바꾼다(카톡처럼 보내기는 버튼으로). PC 는 Enter 전송, Shift+Enter 줄바꿈
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !matchMedia('(pointer: coarse)').matches) { e.preventDefault(); send() }
           }}
@@ -725,14 +823,14 @@ export function ChatRoom(props: Props) {
             const files = Array.from(e.clipboardData.files)
             if (files.length) { e.preventDefault(); stage(files) }
           }}
-          placeholder="메세지 입력"
+          placeholder={editing ? '고칠 내용 입력' : '메세지 입력'}
           // 전역 포커스 테두리(globals.css *:focus-visible)가 누를 때마다 네모 테두리를 씌웠다 — 이 칸은 늘 글을 쓰는 곳이라 뺀다
           style={{ outline: 'none', borderRadius: 16 }}
           className="max-h-[120px] min-h-[36px] flex-1 resize-none rounded-2xl bg-gray-100 px-3 py-2 text-[15px] outline-none dark:bg-gray-800 dark:text-gray-100"
         />
-        <button onClick={send} disabled={!draft.trim() || sending} aria-label="전송"
+        <button onClick={send} disabled={!draft.trim() || sending} aria-label={editing ? '수정 완료' : '전송'}
           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[#fee500] text-gray-900 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-800">
-          <Send className="h-4 w-4" />
+          {editing ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
         </button>
       </div>
 
@@ -786,8 +884,9 @@ export function ChatRoom(props: Props) {
                 )
               })}
             </div>
-            <MenuItem icon={CornerUpLeft} label="답장" onClick={() => { setReplyTo(menuMsg); setMenuMsg(null); inputRef.current?.focus() }} />
+            <MenuItem icon={CornerUpLeft} label="답장" onClick={() => { if (editing) cancelEdit(); setReplyTo(menuMsg); setMenuMsg(null); inputRef.current?.focus() }} />
             {!!menuMsg.body && <MenuItem icon={Copy} label="복사" onClick={() => copy(menuMsg)} />}
+            {canEdit(menuMsg) && <MenuItem icon={Pencil} label="수정" onClick={() => startEdit(menuMsg)} />}
             {thread.notice_message_id === menuMsg.id
               ? <MenuItem icon={Megaphone} label="공지 내리기" onClick={() => setNotice(null)} />
               : <MenuItem icon={Megaphone} label="공지로 등록" onClick={() => setNotice(menuMsg.id)} />}
@@ -866,6 +965,10 @@ export function ChatRoom(props: Props) {
 
 // ── 작은 조각들 ─────────────────────────────────────────
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/** 본문의 '@이름' 찾기. 긴 이름부터 맞추므로 '@김용유님' 도 김용유로 잡힌다 */
+const tagRegex = (names: string[]) => names.length ? new RegExp(`@(?:${names.map(escapeRe).join('|')})`, 'g') : null
+
 const senderKey = (m: Msg) => (m.bot_name ? `bot:${m.bot_name}` : m.sender_broker_id)
 
 function addReact(prev: ReactMap, msgId: string, key: string, who: string): ReactMap {
@@ -882,18 +985,22 @@ function removeReact(prev: ReactMap, msgId: string, key: string, who: string): R
 }
 
 /** 주소는 새 창 링크로, 전화번호는 누르면 전화 걸기·번호 복사를 고르게 */
-function Linkified({ text, onPhone }: { text: string; onPhone: (phone: string) => void }) {
+function Linkified({ text, onPhone, tagNames = [] }: { text: string; onPhone: (phone: string) => void; tagNames?: string[] }) {
+  const tagRe = tagRegex(tagNames)
   const hits = [
-    ...[...text.matchAll(URL_RE)].map(m => ({ at: m.index ?? 0, s: m[0], url: true })),
-    ...[...text.matchAll(PHONE_RE)].map(m => ({ at: m.index ?? 0, s: m[0], url: false })),
+    ...[...text.matchAll(URL_RE)].map(m => ({ at: m.index ?? 0, s: m[0], kind: 'url' as const })),
+    ...[...text.matchAll(PHONE_RE)].map(m => ({ at: m.index ?? 0, s: m[0], kind: 'phone' as const })),
+    ...(tagRe ? [...text.matchAll(tagRe)] : []).map(m => ({ at: m.index ?? 0, s: m[0], kind: 'tag' as const })),
   ].sort((a, b) => a.at - b.at)
   const parts: React.ReactNode[] = []
   let last = 0
   for (const h of hits) {
     if (h.at < last) continue          // 주소 안에 든 숫자는 번호로 보지 않는다
     if (h.at > last) parts.push(text.slice(last, h.at))
-    parts.push(h.url
+    parts.push(h.kind === 'url'
       ? <a key={h.at} href={h.s} target="_blank" rel="noopener noreferrer" className="underline break-all">{h.s}</a>
+      : h.kind === 'tag'
+      ? <span key={h.at} className="font-semibold text-[#2f5fc4] dark:text-blue-400">{h.s}</span>
       : <button key={h.at} type="button" onClick={e => { e.stopPropagation(); onPhone(h.s) }}
           className="underline decoration-dotted underline-offset-2">{h.s}</button>)
     last = h.at + h.s.length

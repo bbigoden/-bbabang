@@ -25,6 +25,8 @@ export interface Msg {
   reply_to_id?: string | null
   deleted_at?: string | null
   bot_name?: string | null            // 등록 봇 답장(부소장등록 bot.py)
+  edited_at?: string | null           // 보낸 뒤 고친 시각(edit_office_chat_message)
+  mention_ids?: string[] | null       // 본문의 '@이름' 으로 태그한 사람
   created_at: string
 }
 export interface Member {
