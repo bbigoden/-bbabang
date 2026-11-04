@@ -197,6 +197,7 @@ type ColKey = typeof ALL_COLUMNS[number]['key']
 // 업종은 DB 칼럼 없이 custom_fields.industry 에 담는다 — 행에 붙는 값이라 사무소 모두 같은 값을 본다.
 // 공통 칼럼이 생기기 전 이예리 개인 칼럼(col_1793434493650)에 적힌 업종 29건은 그대로 이어 보인다.
 const LEGACY_INDUSTRY_KEY = 'col_1793434493650'
+// 업종은 사무소 모두 다중 선택 — 한 매물에 '식당, 카페' 처럼 여럿을 고른다(하나만 골라도 된다). 사람마다 끄는 스위치는 없앴다.
 const industryOf = (p: { custom_fields: Record<string, string> | null }) =>
   p.custom_fields?.industry ?? p.custom_fields?.[LEGACY_INDUSTRY_KEY] ?? ''
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
@@ -1418,7 +1419,7 @@ const PropertyRow = memo(function PropertyRow({
                       saveField(p.id, 'monthly_rent', rent)
                     }} />)}
               {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
-              {key === 'industry'        && (settings.colTypes['industry'] === 'text' ? <TextCell value={industryOf(p) || null} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="예: 식당" /> : <SelectCell value={industryOf(p)} options={industryOpts} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="업종" multi={settings.multi['industry']} />)}
+              {key === 'industry'        && (settings.colTypes['industry'] === 'text' ? <TextCell value={industryOf(p) || null} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="예: 식당" /> : <SelectCell value={industryOf(p)} options={industryOpts} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="업종" multi />)}
               {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
               {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
               {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
@@ -3330,8 +3331,8 @@ function BrokerPropertiesContent() {
                                 hasOptions={showMulti}
                                 options={key === 'industry' ? industryOpts : (settings.options[key] ?? [])}
                                 onSetOptions={isAssignee || (key === 'industry' && !isOwner) ? undefined : opts => setOpts(key, opts)}
-                                isMulti={settings.multi[key]}
-                                onChangeMulti={showMulti ? m => setMulti(key, m) : undefined}
+                                isMulti={key === 'industry' || settings.multi[key]}
+                                onChangeMulti={showMulti && key !== 'industry' ? m => setMulti(key, m) : undefined}
                                 onHide={() => hideCol(key)}
                                 areaUnit={isAreaCol ? (settings.areaUnit ?? '평') : undefined}
                                 onChangeAreaUnit={isAreaCol ? u => update(prev => ({ ...prev, areaUnit: u })) : undefined}
