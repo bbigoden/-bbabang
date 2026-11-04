@@ -1459,6 +1459,15 @@ export default function BrokerDiaryPage() {
 
   const linkedIds = new Set(diaryCustomers.map(c => c.id))
 
+  // 화면 순서는 접수일자 순 — 넣은 순서(sort_order)대로만 그리면 옛 고객을 나중에 넣을 때
+  // 11-04 아래에 07-13 이 끼는 식으로 날짜가 뒤섞였다(11-04 사장님). 위로 쌓기는 최근이 위,
+  // 아래로 쌓기는 최근이 아래. 접수일 없는 새 줄은 가장 최근으로 친다. 같은 날은 넣은 순서.
+  const shownCustomers = [...diaryCustomers].sort((a, b) => {
+    const da = a.received_date ?? '9999-99-99', db = b.received_date ?? '9999-99-99'
+    if (da !== db) return direction === 'up' ? db.localeCompare(da) : da.localeCompare(db)
+    return a.sort_order - b.sort_order
+  })
+
   // 그날 고객목록에 등록했는데 일지에는 없는 이 사람 담당 고객 — 사무실 화면은 '오늘 고객 1명 등록' 인데
   // 일지는 0명이라 같은 날 같은 사람 숫자가 달랐다(10-30 점검 4명). 일지는 고른 고객만 담는 칸이라
   // 자동으로 넣지 않고, 있다는 것을 알려 한 번에 넣을 수 있게 한다.
@@ -1610,7 +1619,7 @@ export default function BrokerDiaryPage() {
                 <tbody>
                   {diaryCustomers.length === 0 ? (
                     <EmptyRow colSpan={activeCols.length + 1} message="아래 버튼으로 고객을 추가하세요" />
-                  ) : diaryCustomers.map((c) => (
+                  ) : shownCustomers.map((c) => (
                     <tr key={c.link_id} data-row-id={c.id} className={cn('border-b border-gray-50 hover:bg-gray-50/50 transition-colors', addingId === c.id && 'animate-pulse bg-blue-50/40', c.is_deleted && 'bg-gray-50/70 dark:bg-gray-800/30')}>
                       {activeCols.map((col, ci) => (
                         <td key={getColKey(col)} className="px-3 py-1.5 border-r border-gray-100 dark:border-gray-800" style={{ width: getColWidth(col), maxWidth: getColWidth(col) }}>
