@@ -176,7 +176,8 @@ const ALL_COLUMNS = [
   { key: 'size_pyeong',     label: '면적(전용/공급)' },
   { key: 'price',           label: '가격' },
   { key: 'room_type',       label: '중개대상물종류' },
-  { key: 'deal_type',       label: '거래형태' },
+  { key: 'industry',        label: '업종' },
+  { key: 'deal_type',      label: '거래형태' },
   { key: 'total_floors',    label: '총 층수' },
   { key: 'move_in_date',    label: '입주가능일' },
   { key: 'rooms_bathrooms', label: '방수/욕실수' },
@@ -190,6 +191,12 @@ const ALL_COLUMNS = [
   { key: 'assignee',        label: '담당자' },
 ] as const
 type ColKey = typeof ALL_COLUMNS[number]['key']
+
+// 업종은 DB 칼럼 없이 custom_fields.industry 에 담는다 — 행에 붙는 값이라 사무소 모두 같은 값을 본다.
+// 공통 칼럼이 생기기 전 이예리 개인 칼럼(col_1793434493650)에 적힌 업종 29건은 그대로 이어 보인다.
+const LEGACY_INDUSTRY_KEY = 'col_1793434493650'
+const industryOf = (p: { custom_fields: Record<string, string> | null }) =>
+  p.custom_fields?.industry ?? p.custom_fields?.[LEGACY_INDUSTRY_KEY] ?? ''
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
 const _DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
 
@@ -201,7 +208,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
   order:      [...FIXED_COLS],
   widths: {
     status: 80,
-    address: 200, received_date: 95, size_pyeong: 70, price: 96, room_type: 110, deal_type: 110,
+    address: 200, received_date: 95, size_pyeong: 70, price: 96, room_type: 110, industry: 90, deal_type: 110,
     total_floors: 70, move_in_date: 90, rooms_bathrooms: 80,
     approval_date: 90, parking: 72, management_fee: 72,
     direction: 68, images: 56, brief_memo: 200, memo: 240, assignee: 80,
@@ -1379,6 +1386,7 @@ const PropertyRow = memo(function PropertyRow({
               if (key === 'images') return p.images?.length > 0
                 ? <div className="flex items-center gap-1"><img src={p.images[0]} alt="매물 사진" loading="lazy" decoding="async" className="h-6 w-6 rounded border border-gray-200 dark:border-gray-800 object-cover" />{p.images.length > 1 && <span className="text-[10px] text-gray-500">+{p.images.length - 1}</span>}</div>
                 : <span className="text-xs text-gray-500">—</span>
+              if (key === 'industry') return industryOf(p) || '—'
               const raw: any = (p as any)[key]
               return raw != null && raw !== '' ? String(raw) : '—'
             })()
@@ -1406,6 +1414,7 @@ const PropertyRow = memo(function PropertyRow({
                       saveField(p.id, 'monthly_rent', rent)
                     }} />)}
               {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
+              {key === 'industry'        && <TextCell value={industryOf(p) || null} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="예: 식당" />}
               {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
               {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
               {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
@@ -1645,6 +1654,20 @@ function BrokerPropertiesContent() {
       order: prev.order.includes('status') ? prev.order : ['status', ...prev.order],
     }))
   }, [colLoaded, settings.visible, settings.order])
+
+  // 업종 칼럼도 같은 방식 — 저장된 순서에 없으면 중개대상물종류 뒤에 한 번 끼워 보이게 한다. 그 뒤 숨김은 각자 몫.
+  const industryMigratedRef = useRef(false)
+  useEffect(() => {
+    if (!colLoaded || industryMigratedRef.current) return
+    industryMigratedRef.current = true
+    if (settings.order.includes('industry')) return
+    update(prev => {
+      const order = prev.order.filter(k => k !== LEGACY_INDUSTRY_KEY)
+      const at = order.indexOf('room_type')
+      order.splice(at >= 0 ? at + 1 : order.length, 0, 'industry')
+      return { ...prev, order, visible: [...prev.visible.filter(k => k !== LEGACY_INDUSTRY_KEY), 'industry'] }
+    })
+  }, [colLoaded, settings.order])
 
   // 고정 칼럼이 settings.order에 없는 경우 추가 (첫 로드 또는 새 칼럼 추가시)
   const syncedOrder = useMemo(() => {
@@ -3288,7 +3311,7 @@ function BrokerPropertiesContent() {
                                 areaUnit={isAreaCol ? (settings.areaUnit ?? '평') : undefined}
                                 onChangeAreaUnit={isAreaCol ? u => update(prev => ({ ...prev, areaUnit: u })) : undefined}
                                 sortDir={sortKey === key ? sortDir : null}
-                                onSort={key === 'images' ? undefined : () => toggleSort(key)}
+                                onSort={key === 'images' || key === 'industry' ? undefined : () => toggleSort(key)}
                               />
                             )
                           })()}
