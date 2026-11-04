@@ -548,8 +548,17 @@ function 이전광고(r: Row): { 종류: '재등록' | '변동'; 전: string; �
  * 1층 전용 42.8㎡ 상가 하나에 남의 광고 100건이 붙었다. 상가 단지가 같은 크기로
  * 칸을 나눠 분양해서다. 공급면적·전체층까지 똑같은 것만 추리니 5건, 가격도 다 같았다(11/04).
  * 중개사가 면적을 조금 다르게 적으면 안 묶이지만, 다른 물건이 묶이는 것보다 낫다.
+ *
+ * **지번이 있는 매물(공장/창고)은 따로 잰다 — 지번 + 거래 + 그 동의 면적.** 공장은 중개사마다
+ * 층을 `B1/1`·`0/1`·`-/1`·`-1/1` 로, 대지를 1,181㎡·3,007㎡ 로 제각각 적어 위 잣대로는
+ * 같은 공장이 하나도 안 묶였다. 한 필지에 동이 여럿이라(287·357·374·717㎡) 지번만으로도
+ * 못 묶는다. 그 동의 넓이는 다들 같게 적는다 — 전용에 적든 연면적에 적든(11/04, 직산 모시리).
  */
 function 같은매물열쇠(r: Row): string | null {
+  if (r.pnu) {
+    const 동면적 = r.area_exclusive || r.area_floor
+    return 동면적 ? ['필지', r.trade_code, r.pnu, 동면적].join('|') : null
+  }
   if (!(r.area_exclusive || r.area_land || r.area_supply || r.area_floor)) return null
   return [r.kind_code, r.trade_code, r.division, r.sector, r.floor_info ?? '',
     r.area_exclusive, r.area_supply, r.area_land, r.area_floor, r.pnu ?? ''].map(v => v ?? '').join('|')
