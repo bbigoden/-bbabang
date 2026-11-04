@@ -143,6 +143,9 @@ const SOURCES = {
     label: '네이버',
     // 표·날짜 칸·종류 칸은 collect_listings 가 곳마다 정한다. 여기를 바꾸면 거기도.
     views: 'naver_article_views',
+    /** 매물 표와 올린 이 칸. 우리 매물을 기간과 상관없이 찾을 때 쓴다. */
+    table: 'naver_articles',
+    ownerColumn: 'brokerage_name',
     jobKind: 'naver',
     /** 한 번 받는 데 걸리는 시간. 실측값이다 — 어림수를 적으면 멈춘 줄 안다. */
     takes: '5~8분',
@@ -200,6 +203,8 @@ const SOURCES = {
   daangn: {
     label: '당근',
     views: 'daangn_article_views',
+    table: 'daangn_articles',
+    ownerColumn: 'writer_name',
     jobKind: 'daangn',
     /** 실측 346초. 우리 지역 아닌 동을 첫 쪽에서 접기 전에는 460초였다. */
     takes: '6~9분',
@@ -535,14 +540,19 @@ function 이전광고(r: Row): { 종류: '재등록' | '변동'; 전: string; �
  * 네이버 화면의 [동일매물 묶기] 와 같은 일이다. 상가 하나를 중개사 넷이 올리면 목록에
  * 네 줄이 따로 떠서, 훑을 때 같은 물건을 네 번 읽게 된다.
  *
- * 견주는 것: 종류·거래·동·층·면적(㎡ 반올림)·지번. **가격은 안 본다** — 중개사마다
- * 6억, 6억 3,000 처럼 다르게 부르는 것이 흔하고, 그 차이가 묶어 볼 까닭이다.
- * 면적이 없으면 묶지 않는다. 그것까지 비면 같은 동 같은 층 아무 매물이나 붙는다.
+ * 견주는 것: 종류·거래·동·층(전체층까지)·면적 넷(전용·공급·대지·연면적, 소수 그대로)·지번.
+ * **가격은 안 본다** — 중개사마다 6억, 6억 3,000 처럼 다르게 부르는 것이 흔하고, 그
+ * 차이가 묶어 볼 까닭이다. 면적이 없으면 묶지 않는다.
+ *
+ * **면적을 반올림하지 않는다.** 처음엔 전용만 ㎡ 반올림, 층은 해당층만 봤더니 불당동
+ * 1층 전용 42.8㎡ 상가 하나에 남의 광고 100건이 붙었다. 상가 단지가 같은 크기로
+ * 칸을 나눠 분양해서다. 공급면적·전체층까지 똑같은 것만 추리니 5건, 가격도 다 같았다(11/04).
+ * 중개사가 면적을 조금 다르게 적으면 안 묶이지만, 다른 물건이 묶이는 것보다 낫다.
  */
 function 같은매물열쇠(r: Row): string | null {
-  const m2 = r.area_exclusive || r.area_land || r.area_supply || r.area_floor
-  if (!m2) return null
-  return [r.kind_code, r.trade_code, r.division, r.sector, 해당층(r) ?? r.floor_info ?? '', Math.round(m2), r.pnu ?? ''].join('|')
+  if (!(r.area_exclusive || r.area_land || r.area_supply || r.area_floor)) return null
+  return [r.kind_code, r.trade_code, r.division, r.sector, r.floor_info ?? '',
+    r.area_exclusive, r.area_supply, r.area_land, r.area_floor, r.pnu ?? ''].map(v => v ?? '').join('|')
 }
 
 /** 한 줄로 그릴 것 — 매물 하나, 또는 같은 매물을 올린 광고 여럿. */
@@ -1107,14 +1117,36 @@ export default function CollectPage() {
    *
    * 다른 조건으로 걸러지기 전의 전체에서 찾는다. 우리 광고가 가격 조건에 안 맞아
    * 먼저 빠졌어도 남의 광고는 같은 물건이다.
+   *
+   * **우리 매물은 기간과 상관없이 따로 받는다.** 보는 기간 안의 것만 보면, 우리가 지난주에
+   * 올린 매물을 남이 오늘 올린 광고가 그대로 남는다 — [오늘] 로 보면 우리 것 1건만 빠지고
+   * 같은 물건 남의 광고는 하나도 안 빠졌다(11/04). 지금 떠 있는 우리 매물만이라 몇십 건이다.
    */
+  const [우리전체, set우리전체] = useState<Row[]>([])
+  const 우리이름열쇠 = 우리이름(settings, auth.broker?.office_name).join('\n')
+  useEffect(() => {
+    if (!묶기 || !settings.hide_own || !우리이름열쇠) { set우리전체([]); return }
+    let 버림 = false
+    const s = SOURCES[source]
+    // 묶음 열쇠에 드는 칸만 받는다. 종류 칸 이름은 곳마다 다르다.
+    const 칸 = s.columns.filter(c => !/^(prev_|price_)|_date$|^last_seen_at$/.test(c))
+    void (async () => {
+      const { data, error } = await supabase.from(s.table).select(칸.join(','))
+        .in(s.ownerColumn, 우리이름열쇠.split('\n')).is('gone_at', null).limit(1000)
+      // 못 받으면 보는 기간 안의 우리 매물로만 뺀다 — 그만큼 덜 빠질 뿐 틀리게 빠지지는 않는다.
+      if (버림 || error) return
+      set우리전체((data ?? []).map(a => s.toRow(a)))
+    })()
+    return () => { 버림 = true }
+  }, [supabase, source, 묶기, settings.hide_own, 우리이름열쇠])
+
   const 우리매물열쇠 = useMemo(() => {
     if (!묶기 || !settings.hide_own) return new Set<string>()
     const 우리 = new Set(우리이름(settings, auth.broker?.office_name))
-    return new Set(rows
+    return new Set([...rows, ...우리전체]
       .filter(r => !r.gone_at && r.owner && 우리.has(r.owner))
       .map(같은매물열쇠).filter((k): k is string => !!k))
-  }, [rows, settings, auth.broker, 묶기])
+  }, [rows, 우리전체, settings, auth.broker, 묶기])
   /** 우리 매물과 같은 물건이라 함께 뺀 남의 광고 수 */
   const 같이뺀건수 = useMemo(() => {
     if (!우리매물열쇠.size) return 0
