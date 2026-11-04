@@ -1462,7 +1462,8 @@ export default function BrokerDiaryPage() {
   // 화면 순서는 접수일자 순 — 넣은 순서(sort_order)대로만 그리면 옛 고객을 나중에 넣을 때
   // 11-04 아래에 07-13 이 끼는 식으로 날짜가 뒤섞였다(11-04 사장님). 위로 쌓기는 최근이 위,
   // 아래로 쌓기는 최근이 아래. 접수일 없는 새 줄은 가장 최근으로 친다. 같은 날은 넣은 순서.
-  const shownCustomers = [...diaryCustomers].sort((a, b) => {
+  // 2026-11-04 일지부터만 — 그전 일지는 적어 둔 순서 그대로 둔다(사장님 지시).
+  const shownCustomers = diaryDate < '2026-11-04' ? diaryCustomers : [...diaryCustomers].sort((a, b) => {
     const da = a.received_date ?? '9999-99-99', db = b.received_date ?? '9999-99-99'
     if (da !== db) return direction === 'up' ? db.localeCompare(da) : da.localeCompare(db)
     return a.sort_order - b.sort_order
