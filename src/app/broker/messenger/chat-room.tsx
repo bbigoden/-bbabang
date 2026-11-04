@@ -15,7 +15,7 @@ import {
 import {
   type Thread, type Msg, type Member, type MyRow, type ReactionKey,
   REACTIONS, reactionEmoji, ampm, dayDivider, imagesOf, previewText, URL_RE, whyFailed, shrinkImage, PHONE_RE, telHref,
-  CHAT_BUCKET, chatStoragePath, useSignedUrls, urlOf,
+  CHAT_BUCKET, useSignedUrls, urlOf,
 } from './shared'
 
 const PAGE = 100
@@ -329,8 +329,30 @@ export function ChatRoom(props: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }
 
+  // ── 지운 메세지 원본(대표만) ─────────────────────────────
+  // 직원이 '모두에게서 삭제' 한 것도 대표 화면엔 원본을 흐리게 보여 준다. 읽기 권한은 DB 가 대표에게만 준다
+  const isOwner = myId === office
+  const [deletedOrig, setDeletedOrig] = useState<Record<string, Msg | null>>({})
+  const needDeleted = useMemo(() => isOwner
+    ? messages.filter(m => m.deleted_at && !(m.id in deletedOrig)).map(m => m.id).sort().join(',')
+    : '', [isOwner, messages, deletedOrig])
+  useEffect(() => {
+    if (!needDeleted) return
+    const ids = needDeleted.split(',')
+    supabase.from('office_chat_deleted_messages').select('message_id, body, image_url, image_paths, file_url, file_name').in('message_id', ids)
+      .then(({ data }) => setDeletedOrig(prev => {
+        const next = { ...prev }
+        for (const id of ids) if (!(id in next)) next[id] = null // 이 기능 전에 지워 원본이 없는 것 — 다시 묻지 않는다
+        for (const r of data ?? []) {
+          const m = messagesRef.current.find(x => x.id === r.message_id)
+          if (m) next[r.message_id] = { ...m, ...r, deleted_at: null }
+        }
+        return next
+      }))
+  }, [needDeleted, supabase])
+
   // ── 첨부 서명 URL ────────────────────────────────────
-  const urls = useSignedUrls(messages.flatMap(m => [...imagesOf(m), m.file_url]))
+  const urls = useSignedUrls([...messages, ...Object.values(deletedOrig).filter((x): x is Msg => !!x)].flatMap(m => [...imagesOf(m), m.file_url]))
 
   // ── 읽지 않은 사람 수(카톡의 노란 숫자) ────────────────
   const unreadCount = (m: Msg): number => {
@@ -505,17 +527,13 @@ export function ChatRoom(props: Props) {
   const deleteMsg = async (m: Msg) => {
     setMenuMsg(null)
     if (!window.confirm('모두에게서 삭제할까요? 대화방의 모든 사람에게서 사라지고 "삭제된 메세지입니다"로 남아요.')) return
-    const { data, error } = await supabase.rpc('delete_office_chat_message', { p_id: m.id })
+    // 첨부는 지우지 않는다 — 원본은 대표가 볼 수 있게 office_chat_deleted_messages 로 옮겨진다
+    const { error } = await supabase.rpc('delete_office_chat_message', { p_id: m.id })
     if (error) { toast.error(`지우지 못했어요. ${whyFailed(error)}`); return }
     const gone: Msg = { ...m, body: '', image_url: null, image_paths: null, file_url: null, file_name: null, deleted_at: new Date().toISOString() }
     setMessages(prev => prev.map(x => x.id === m.id ? gone : x))
     if (thread.notice_message_id === m.id) props.onThreadPatch({ notice_message_id: null })
-    // 첨부는 행이 비워진 뒤에 지운다 — 저장소 정책은 올린 사람만 지울 수 있다(나 = 보낸 사람)
-    const paths = ((data ?? []) as string[]).map(chatStoragePath).filter((p): p is string => !!p)
-    if (paths.length) {
-      const { error: rmErr } = await supabase.storage.from(CHAT_BUCKET).remove(paths)
-      if (rmErr) console.error('[messenger] attachment remove failed', rmErr)
-    }
+    if (isOwner) setDeletedOrig(prev => ({ ...prev, [m.id]: m }))
   }
 
   const setNotice = async (messageId: string | null) => {
@@ -676,7 +694,10 @@ export function ChatRoom(props: Props) {
                       // 폰은 길게 누르면 글자 선택이 먼저 잡아채 메뉴가 안 떴다 — 글자 선택을 끄고 복사는 메뉴로(카톡과 같다)
                       className="min-w-0 select-text pointer-coarse:select-none [-webkit-touch-callout:none]"
                     >
-                      {m.deleted_at ? (
+                      {m.deleted_at && deletedOrig[m.id] ? (
+                        <DeletedOriginal orig={deletedOrig[m.id]!} mine={mine} urls={urls} onPhone={setPhoneSheet} tagNames={tagNames}
+                          onOpenImages={(images, index) => setLightbox({ images, index })} />
+                      ) : m.deleted_at ? (
                         <div className={cn('flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm text-gray-500', mine ? 'bg-[#fee500]/70' : 'bg-white/80 dark:bg-gray-800')}>
                           <Trash2 className="h-3.5 w-3.5" /> 삭제된 메세지입니다.
                         </div>
@@ -1047,6 +1068,33 @@ function FileBubble({ name, url, mine }: { name: string | null | undefined; url:
       </span>
       <Download className="h-4 w-4 flex-shrink-0 text-gray-500" />
     </a>
+  )
+}
+
+/** 대표 화면의 지운 메세지 — 원본을 흐리게, 위에 '삭제됨 · 대표만 보여요' */
+function DeletedOriginal({ orig, mine, urls, onPhone, tagNames, onOpenImages }: {
+  orig: Msg; mine: boolean; urls: Record<string, string>; onPhone: (phone: string) => void; tagNames: string[]
+  onOpenImages: (images: string[], index: number) => void
+}) {
+  const imgs = imagesOf(orig)
+  return (
+    <div className={cn('rounded-2xl border border-dashed border-gray-500/60 px-3 py-2 opacity-70', mine ? 'bg-[#fee500]/60' : 'bg-white/70 dark:bg-gray-800/70')}>
+      <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+        <Trash2 className="h-3 w-3" /> 삭제됨 · 대표만 보여요
+      </span>
+      {imgs.length > 0 && (
+        <PhotoGrid paths={imgs} urls={urls} onOpen={idx => {
+          const list = imgs.map(p => urlOf(urls, p)).filter((u): u is string => !!u)
+          if (list.length) onOpenImages(list, Math.min(idx, list.length - 1))
+        }} />
+      )}
+      {orig.file_url && <FileBubble name={orig.file_name} url={urlOf(urls, orig.file_url)} mine={mine} />}
+      {!!orig.body && (
+        <div className="whitespace-pre-wrap break-words text-[15px] leading-snug text-gray-900 dark:text-gray-100">
+          <Linkified text={orig.body} onPhone={onPhone} tagNames={tagNames} />
+        </div>
+      )}
+    </div>
   )
 }
 
