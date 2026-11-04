@@ -41,7 +41,7 @@ const PROMO_STAFF = ['이현영']
 /** 계정이 아직 없지만 자리를 내 둔 사람 */
 const PENDING_STAFF = ['김미선', '이현영']
 /** 이름으로 고른 포켓몬 — 계정이 생기기 전에도 같은 포켓몬이 앉는다 */
-const NAME_MON: Record<string, string> = { 이현영: 'charmander' }   // 2026-10-29 사장님 '파이리를 이쁘게'
+const NAME_MON: Record<string, string> = { 이현영: 'charmander', 권세현: 'charmander' }   // 2026-10-29 사장님 '파이리를 이쁘게', 권세현 이사도 같은 파이리(11-04)
 /** 책상 앞 고양이 — 이현영은 애교 많은 치즈·흰 고양이(2026-10-29 사장님) */
 const NAME_PETS: Record<string, string[]> = { 이현영: ['cheese', 'white'] }
 
