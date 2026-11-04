@@ -101,6 +101,8 @@ const _STATUS_COLOR: Record<string, string> = {
 const DEAL_TYPES = ['매매', '전세', '월세']  // 신규 등록 페이지(new/page.tsx)와 일치
 const ROOM_TYPES = ALL_ROOM_TYPES
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
+// 업종 기본 선택지 — 헤더 메뉴에서 각자 늘리고 줄일 수 있다
+const INDUSTRY_OPTS = ['공실', '식당', '카페', '주점', '편의점', '뷰티샵', '학원', '병원', '약국', '사무실', '공방', '기타']
 const _PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
@@ -214,7 +216,7 @@ const DEFAULT_PROP_SETTINGS: ColSettings = {
     direction: 68, images: 56, brief_memo: 200, memo: 240, assignee: 80,
   },
   customCols: [],
-  options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS] },
+  options:    { room_type: [...ROOM_TYPES], deal_type: [...DEAL_TYPES], direction: [...DIRECTION_OPTS], industry: [...INDUSTRY_OPTS] },
   colTypes:   {},
   multi:      {},
   areaUnit:   '평',
@@ -1414,7 +1416,7 @@ const PropertyRow = memo(function PropertyRow({
                       saveField(p.id, 'monthly_rent', rent)
                     }} />)}
               {key === 'room_type'       && (settings.colTypes['room_type'] === 'text' ? <TextCell value={p.room_type} onSave={v => saveField(p.id, 'room_type', v)} placeholder="건물 유형" /> : <SelectCell value={p.room_type} options={settings.options['room_type'] ?? ROOM_TYPES} onSave={v => saveField(p.id, 'room_type', v)} placeholder="중개대상물" multi={settings.multi['room_type']} />)}
-              {key === 'industry'        && <TextCell value={industryOf(p) || null} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="예: 식당" />}
+              {key === 'industry'        && (settings.colTypes['industry'] === 'text' ? <TextCell value={industryOf(p) || null} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="예: 식당" /> : <SelectCell value={industryOf(p)} options={settings.options['industry'] ?? INDUSTRY_OPTS} onSave={v => saveCustomField(p.id, 'industry', v)} placeholder="업종" multi={settings.multi['industry']} />)}
               {key === 'deal_type'       && (settings.colTypes['deal_type'] === 'text' ? <TextCell value={p.deal_type} onSave={v => saveField(p.id, 'deal_type', v)} placeholder="거래 형태" /> : <SelectCell value={p.deal_type} options={settings.options['deal_type'] ?? DEAL_TYPES} onSave={v => saveField(p.id, 'deal_type', v)} colorMap={DEAL_TYPE_COLOR_MAP} placeholder="거래형태" multi={settings.multi['deal_type']} />)}
               {key === 'received_date'   && <DateCell value={p.received_date} onSave={v => saveField(p.id, 'received_date', v || null)} />}
               {key === 'total_floors'    && <FloorCell floor={p.floor} totalFloors={p.total_floors} onSave={(f, t) => { saveField(p.id, 'floor', f); saveField(p.id, 'total_floors', t) }} />}
@@ -1524,6 +1526,10 @@ function BrokerPropertiesContent() {
     })
   }
   const [filterAssignees, setFilterAssignees] = useState<string[]>([])  // 담당자 다중 선택
+  const [filterIndustries, setFilterIndustries] = useState<string[]>([])  // 업종 다중 선택
+  const toggleIndustry = (t: string) => {
+    setFilterIndustries(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+  }
   const toggleAssignee = (name: string) => {
     setFilterAssignees(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name])
   }
@@ -1557,9 +1563,9 @@ function BrokerPropertiesContent() {
     [filterPyeongMin, filterPyeongMax], [filterFloorMin, filterFloorMax],
   ].filter(([a, b]) => a || b).length
   const activeFilterCount = (filterDealType ? 1 : 0) + filterRoomTypes.length + (filterStatus ? 1 : 0)
-    + filterAssignees.length + rangeCount
+    + filterAssignees.length + filterIndustries.length + rangeCount
   const resetFilters = () => {
-    setFilterDealType(''); setFilterRoomTypes([]); setFilterStatus(''); setFilterAssignees([])
+    setFilterDealType(''); setFilterRoomTypes([]); setFilterStatus(''); setFilterAssignees([]); setFilterIndustries([])
     setFilterPriceMin(''); setFilterPriceMax(''); setFilterRentMin(''); setFilterRentMax('')
     setFilterPyeongMin(''); setFilterPyeongMax(''); setFilterFloorMin(''); setFilterFloorMax('')
   }
@@ -1717,7 +1723,7 @@ function BrokerPropertiesContent() {
     if (!auth.broker) { router.push('/broker/register'); return }
     init()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
-  useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, searchQuery, pageSize])
+  useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, filterStatus, filterAssignees, filterIndustries, debouncedRanges, searchQuery, pageSize])
 
   // 카카오맵 SDK는 useKakaoMapSdk 훅에서 로드
 
@@ -1827,6 +1833,8 @@ function BrokerPropertiesContent() {
     p_room_types: filterRoomTypes.length > 0 ? filterRoomTypes : null,
     p_status: filterStatus || null,
     p_assignees: filterAssignees.length > 0 ? filterAssignees : null,
+    // 업종을 고를 때만 보낸다
+    ...(filterIndustries.length > 0 ? { p_industries: filterIndustries } : {}),
     p_price_min: debouncedRanges.priceMin ?? null,
     p_price_max: debouncedRanges.priceMax ?? null,
     p_rent_min: debouncedRanges.rentMin ?? null,
@@ -1837,7 +1845,7 @@ function BrokerPropertiesContent() {
     p_floor_max: debouncedRanges.floorMax ?? null,
     p_sort_key: sortKey ?? 'created_at',
     p_sort_dir: sortKey ? sortDir : (direction === 'up' ? 'desc' : 'asc'),
-  }), [scopeState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, filterAssignees, debouncedRanges, sortKey, sortDir, direction])
+  }), [scopeState, debouncedQuery, filterDealType, filterRoomTypes, filterStatus, filterAssignees, filterIndustries, debouncedRanges, sortKey, sortDir, direction])
   useEffect(() => { tableScrollRef.current?.scrollTo({ left: 0 }) }, [filterParams])
   const rpcParams = useCallback((limit: number, offset: number) => ({
     ...filterParams, p_limit: limit, p_offset: offset,
@@ -3039,6 +3047,16 @@ function BrokerPropertiesContent() {
                 })}
               </div>
             </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold text-gray-500">업종 (다중 선택)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(settings.options['industry'] ?? INDUSTRY_OPTS).map(t => (
+                  <button key={t} onClick={() => toggleIndustry(t)}
+                    className={chipClass(filterIndustries.includes(t), 'xs')}
+                  >{t}</button>
+                ))}
+              </div>
+            </div>
             {teamMembers.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-semibold text-gray-500">담당자 (다중 선택)</p>
@@ -3291,7 +3309,7 @@ function BrokerPropertiesContent() {
                       >
                         <div className="pr-2 flex items-center gap-1 overflow-hidden">
                           {(() => {
-                            const TOGGLE_COLS: Record<string, 'text' | 'select'> = { room_type: 'select', deal_type: 'select', direction: 'text', brief_memo: 'text', memo: 'text' }
+                            const TOGGLE_COLS: Record<string, 'text' | 'select'> = { room_type: 'select', deal_type: 'select', industry: 'select', direction: 'text', brief_memo: 'text', memo: 'text' }
                             const defaultType = TOGGLE_COLS[key]
                             const effectiveType = settings.colTypes[key] ?? defaultType
                             // 담당자(assignee)는 select-like 동작(다중 토글)만 제공, 옵션 편집/text-select 토글은 숨김
@@ -3311,7 +3329,7 @@ function BrokerPropertiesContent() {
                                 areaUnit={isAreaCol ? (settings.areaUnit ?? '평') : undefined}
                                 onChangeAreaUnit={isAreaCol ? u => update(prev => ({ ...prev, areaUnit: u })) : undefined}
                                 sortDir={sortKey === key ? sortDir : null}
-                                onSort={key === 'images' || key === 'industry' ? undefined : () => toggleSort(key)}
+                                onSort={key === 'images' ? undefined : () => toggleSort(key)}
                               />
                             )
                           })()}
