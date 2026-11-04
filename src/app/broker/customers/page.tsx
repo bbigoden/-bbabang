@@ -39,7 +39,9 @@ const CUST_COLS: ColDef[] = [
   { key: 'contact',        label: '연락처',   fixed: true, minWidth: 130 },
   { key: 'assignee',       label: '담당자',   fixed: true, minWidth: 90, hasOptions: true },
   { key: 'category',       label: '구분',     fixed: true, minWidth: 80, hasOptions: true, defaultOpts: ['비주거', '주거용'] },
-  { key: 'source',         label: '유입',     fixed: true, minWidth: 90, hasOptions: true, defaultOpts: SOURCE_OPTIONS },
+  // 업종은 DB 칼럼 없이 custom_fields.industry 에 담는다 — 행에 붙는 값이라 사무소 모두 같은 값을 본다
+  { key: 'industry',       label: '업종',     fixed: true, minWidth: 100 },
+  { key: 'source',        label: '유입',     fixed: true, minWidth: 90, hasOptions: true, defaultOpts: SOURCE_OPTIONS },
 ]
 
 const DEFAULT_WIDTHS: Record<string, number> = Object.fromEntries(CUST_COLS.map(c => [c.key, c.minWidth ?? 100]))
@@ -366,6 +368,23 @@ export default function BrokerCustomersPage() {
   // 칼럼 설정 (DB)
   const { settings, update, loaded } = useColSettings('customers', broker?.id ?? null, DEFAULT_COL_SETTINGS)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'customers')
+
+  // 저장된 칼럼 설정은 기본값을 통째로 대신하므로, 나중에 생긴 공통 칼럼(업종 등)은 순서에 없으면 앞 칼럼 뒤에 끼워 보이게 한다.
+  // 한 번 순서에 들어가면 그 뒤 숨김은 사용자 몫이다.
+  useEffect(() => {
+    if (!loaded) return
+    const missing = CUST_COLS.filter(c => !settings.order.includes(c.key))
+    if (!missing.length) return
+    update(prev => {
+      const order = [...prev.order]
+      for (const col of missing) {
+        const before = CUST_COLS[CUST_COLS.indexOf(col) - 1]
+        const at = before ? order.indexOf(before.key) : -1
+        order.splice(at >= 0 ? at + 1 : order.length, 0, col.key)
+      }
+      return { ...prev, order, visible: [...prev.visible, ...missing.map(c => c.key)] }
+    })
+  }, [loaded, settings.order])
 
   useEffect(() => {
     if (auth.loading) return
@@ -846,6 +865,7 @@ export default function BrokerCustomersPage() {
       case 'category':      return (settings.colTypes['category'] === 'text')
         ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" readOnly={ro} />
         : <SelectCell value={c.category} options={opts} onSave={v => saveField(c.id, 'category', v)} colorMap={colorMap} readOnly={ro} placeholder="구분" multi={settings.multi['category']} />
+      case 'industry':      return <TextCell value={c.custom_fields?.industry ?? ''} onSave={v => saveCustomField(c.id, 'industry', v)} placeholder="업종" readOnly={ro} />
       case 'source':        return (settings.colTypes['source'] === 'text')
         ? <TextCell value={c.source} onSave={v => saveField(c.id, 'source', v || null)} placeholder="유입" readOnly={ro} />
         : <SelectCell value={c.source ?? ''} options={opts} onSave={v => saveField(c.id, 'source', v)} colorMap={colorMap} readOnly={ro} placeholder="유입" multi={settings.multi['source']} />
