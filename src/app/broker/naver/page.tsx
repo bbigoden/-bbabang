@@ -1100,6 +1100,29 @@ export default function CollectPage() {
     return rows.filter(r => r.owner && 우리.has(r.owner)).length
   }, [rows, settings, auth.broker])
 
+  /**
+   * 묶기와 우리 매물 빼기를 같이 켜면 **묶음째** 뺀다 — 우리가 이미 쥔 매물을 다른
+   * 중개사가 올린 광고까지. 우리 광고만 빼면 같은 물건이 '중개사 3곳' 으로 그대로 남아,
+   * 훑을 때 또 읽게 된다.
+   *
+   * 다른 조건으로 걸러지기 전의 전체에서 찾는다. 우리 광고가 가격 조건에 안 맞아
+   * 먼저 빠졌어도 남의 광고는 같은 물건이다.
+   */
+  const 우리매물열쇠 = useMemo(() => {
+    if (!묶기 || !settings.hide_own) return new Set<string>()
+    const 우리 = new Set(우리이름(settings, auth.broker?.office_name))
+    return new Set(rows
+      .filter(r => !r.gone_at && r.owner && 우리.has(r.owner))
+      .map(같은매물열쇠).filter((k): k is string => !!k))
+  }, [rows, settings, auth.broker, 묶기])
+  /** 우리 매물과 같은 물건이라 함께 뺀 남의 광고 수 */
+  const 같이뺀건수 = useMemo(() => {
+    if (!우리매물열쇠.size) return 0
+    const 우리 = new Set(우리이름(settings, auth.broker?.office_name))
+    return rows.filter(r => !r.gone_at && !(r.owner && 우리.has(r.owner))
+      && 우리매물열쇠.has(같은매물열쇠(r) ?? '')).length
+  }, [rows, settings, auth.broker, 우리매물열쇠])
+
   // 입력칸의 글자를 숫자로 읽어 둔다. 빈 칸이나 못 읽는 글자는 '조건 없음'.
   const [면적최소, 면적최대] = 범위읽기(면적조건)
   const [가격최소, 가격최대] = 범위읽기(가격조건)
@@ -1116,6 +1139,7 @@ export default function CollectPage() {
       // 사무소에서 아무도 안 본 것만. 직원이 확인한 것을 또 훑을 이유가 없다.
       if (unseenOnly && (seen.get(r.article_no)?.사무소 ?? 0) > 0) return false
       if (우리.size && r.owner && 우리.has(r.owner)) return false
+      if (우리매물열쇠.size && 우리매물열쇠.has(같은매물열쇠(r) ?? '')) return false
       if (재등록빼기 && 이전광고(r)?.종류 === '재등록') return false
       if (regions.length) {
         const region = REGIONS.find(g => r.division?.startsWith(g.divisionPrefix))
@@ -1152,7 +1176,7 @@ export default function CollectPage() {
       return true
     })
   }, [rows, regions, kinds, trades, q, unseenOnly, goneOnly, 재등록빼기, seen,
-      settings, auth.broker, src,
+      settings, auth.broker, src, 우리매물열쇠,
       면적최소, 면적최대, 가격최소, 가격최대, 월세최소, 월세최대, 층])
 
   /**
@@ -1198,9 +1222,9 @@ export default function CollectPage() {
       월세글 ? `월세 ${월세글}` : null,
       층.length ? 층.join('·') : null,
       q.trim() ? `"${q.trim()}"` : null,
-      settings.hide_own ? '우리 매물 뺌' : null,
+      settings.hide_own ? (묶기 ? '우리 매물 묶음째 뺌' : '우리 매물 뺌') : null,
     ].filter(Boolean).join(' · ') || '전체'
-  }, [regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, q, settings.hide_own, src])
+  }, [regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, q, settings.hide_own, 묶기, src])
 
   const 건조건있음 = 조건요약 !== '전체'
   const 조건비우기 = () => {
@@ -1583,7 +1607,7 @@ export default function CollectPage() {
                 {!ownNames.length
                   ? `${src.label}에 찍히는 우리 이름을 적어 주세요`
                   : 뺀건수
-                    ? `'${ownLabel}' 매물 ${뺀건수}건을 뺐습니다`
+                    ? `'${ownLabel}' 매물 ${뺀건수}건을 뺐습니다${같이뺀건수 ? ` — 같은 매물을 올린 다른 중개사 광고 ${같이뺀건수}건도 함께` : ''}`
                     : `'${ownLabel}' 이름으로 올린 ${src.label} 매물이 이 기간에 없습니다`}
               </button>
             ))}
