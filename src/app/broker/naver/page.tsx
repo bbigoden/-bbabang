@@ -1775,7 +1775,7 @@ export default function CollectPage() {
                             {대표.floor_info ? `${대표.floor_info}층` : ''}
                           </span>
                           {/* 가격이 갈리면 두 줄로 — 한 줄에 '10,000/700~12,000/800' 을 넣으면 칸을 넘는다. */}
-                          <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[86px] dark:text-gray-300">
+                          <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[110px] dark:text-gray-300">
                             {범위 ? (
                               <span className="flex flex-col leading-tight">
                                 <span>{범위.낮은}{범위.높은 && '~'}</span>
@@ -1852,7 +1852,9 @@ export default function CollectPage() {
                         <span className="hidden shrink-0 whitespace-nowrap text-xs tabular-nums text-gray-500 sm:order-5 sm:block sm:w-[52px] dark:text-gray-500">
                           {r.floor_info ? `${r.floor_info}층` : ''}
                         </span>
-                        <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[86px] dark:text-gray-300">
+                        {/* 폭은 가장 긴 가격에 맞춘다 — 공장 월세 '140,000/14,000' 이 105px.
+                            86px 일 때는 뒷자리가 중개사 칸에 겹쳐 '14,000미래터…' 로 읽혔다(11/04). */}
+                        <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[110px] dark:text-gray-300">
                           {값(r) ?? <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
                       </div>
