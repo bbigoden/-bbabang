@@ -529,6 +529,38 @@ function 이전광고(r: Row): { 종류: '재등록' | '변동'; 전: string; �
   return { 종류: 바뀐것.length ? '변동' : '재등록', 전: 값(전) ?? '가격 없음', 바뀐것 }
 }
 
+/**
+ * 동일매물 열쇠 — 여러 중개사가 같은 매물을 따로 올린 것을 한 줄로 묶을 때 쓴다.
+ *
+ * 네이버 화면의 [동일매물 묶기] 와 같은 일이다. 상가 하나를 중개사 넷이 올리면 목록에
+ * 네 줄이 따로 떠서, 훑을 때 같은 물건을 네 번 읽게 된다.
+ *
+ * 견주는 것: 종류·거래·동·층·면적(㎡ 반올림)·지번. **가격은 안 본다** — 중개사마다
+ * 6억, 6억 3,000 처럼 다르게 부르는 것이 흔하고, 그 차이가 묶어 볼 까닭이다.
+ * 면적이 없으면 묶지 않는다. 그것까지 비면 같은 동 같은 층 아무 매물이나 붙는다.
+ */
+function 같은매물열쇠(r: Row): string | null {
+  const m2 = r.area_exclusive || r.area_land || r.area_supply || r.area_floor
+  if (!m2) return null
+  return [r.kind_code, r.trade_code, r.division, r.sector, 해당층(r) ?? r.floor_info ?? '', Math.round(m2), r.pnu ?? ''].join('|')
+}
+
+/** 한 줄로 그릴 것 — 매물 하나, 또는 같은 매물을 올린 광고 여럿. */
+type 묶음 = { 열쇠: string; 줄들: Row[] }
+
+/**
+ * 묶음의 가격 — 가장 싼 것과 비싼 것. 같으면 하나만.
+ * 임대는 보증금, 같으면 월세로 견준다.
+ */
+function 가격범위(줄들: Row[]): { 낮은: string; 높은: string | null } | null {
+  const 값들 = [...줄들]
+    .sort((a, b) => (대표가격(a) ?? 0) - (대표가격(b) ?? 0) || (a.price_rent ?? 0) - (b.price_rent ?? 0))
+    .map(값).filter((v): v is string => !!v)
+  if (!값들.length) return null
+  const 낮은 = 값들[0], 높은 = 값들[값들.length - 1]
+  return { 낮은, 높은: 높은 === 낮은 ? null : 높은 }
+}
+
 /** 중개사 이름에서 다들 붙이는 꼬리를 뗀다 — 좁은 칸에서 이름이 꼬리에 밀려 잘리지 않게. */
 function 중개사(이름: string | null): string {
   return (이름 ?? '').replace(/\s*(공인중개사사무소|공인중개사무소|공인중개사|부동산중개법인|중개법인)$/, '').trim()
@@ -632,6 +664,10 @@ export default function CollectPage() {
   const [goneOnly, setGoneOnly] = useState(false)
   /** 같은 조건 그대로 다시 올린 광고를 뺀다. 가격을 바꿔 다시 올린 것은 남긴다 — 그건 볼 만하다. */
   const [재등록빼기, set재등록빼기] = useState(false)
+  /** 여러 중개사가 올린 같은 매물을 한 줄로 묶는다. */
+  const [묶기, set묶기] = useState(false)
+  /** 펼쳐 둔 묶음의 열쇠들 */
+  const [펼친묶음, set펼친묶음] = useState<Set<string>>(new Set())
   // 빈 배열 = 전부 본다. 하나라도 고르면 고른 것만.
   const [regions, setRegions] = useState<string[]>([])
   const [kinds, setKinds] = useState<string[]>([])
@@ -700,6 +736,7 @@ export default function CollectPage() {
       set조건열림(담긴것?.열림 === true)
       // [안 본 것만] 과 달리 기억한다 — 켜 둬도 화면이 비지 않아 고장으로 오해할 일이 없다.
       set재등록빼기(담긴것?.재등록빼기 === true)
+      set묶기(담긴것?.묶기 === true)
       const 기간 = 담긴것?.기간
       const 날 = /^\d{4}-\d{2}-\d{2}$/
       if (기간?.오늘까지 && Number.isInteger(기간.날수) && 기간.날수 >= 1 && 기간.날수 <= LONG_DAYS) {
@@ -716,11 +753,11 @@ export default function CollectPage() {
     if (되살림.current !== source) return   // 되살리기 전에 빈 값을 덮어쓰지 않는다
     try {
       localStorage.setItem(저장열쇠, JSON.stringify({
-        regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림, 재등록빼기,
+        regions, kinds, trades, 면적: 면적조건, 가격: 가격조건, 월세: 월세조건, 층, sort, 열림: 조건열림, 재등록빼기, 묶기,
         기간: 끝날 === todayKST() ? { 오늘까지: true, 날수: 날수(첫날, 끝날) } : { 첫날, 끝날 },
       }))
     } catch { /* 위와 같음 */ }
-  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림, 재등록빼기, 첫날, 끝날])
+  }, [저장열쇠, source, regions, kinds, trades, 면적조건, 가격조건, 월세조건, 층, sort, 조건열림, 재등록빼기, 묶기, 첫날, 끝날])
 
   /** 사무소 기준 id — 직원이면 대표의 id 다. 설정은 사무소 단위로 하나뿐이다. */
   const officeId = auth.broker?.parent_broker_id ?? auth.broker?.id
@@ -1183,11 +1220,34 @@ export default function CollectPage() {
     return null
   }, [sort, 거래하나, kinds])
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
+  /**
+   * 그릴 줄들. 묶기를 켜면 같은 매물을 한 줄로 모은다.
+   *
+   * **세운 뒤에 묶는다.** 묶음은 맨 앞 광고 자리에 서고, 그 광고가 대표가 된다 —
+   * 최신순이면 가장 최근에 올라온 광고 자리, 가격순이면 가장 싼 광고 자리다.
+   */
+  const 목록 = useMemo<묶음[]>(() => {
+    if (!묶기) return sorted.map(r => ({ 열쇠: r.article_no, 줄들: [r] }))
+    const 모음 = new Map<string, 묶음>()
+    const 차례: 묶음[] = []
+    for (const r of sorted) {
+      const 열쇠 = 같은매물열쇠(r)
+      const 있던것 = 열쇠 ? 모음.get(열쇠) : undefined
+      if (있던것) { 있던것.줄들.push(r); continue }
+      const 새것 = { 열쇠: 열쇠 ?? r.article_no, 줄들: [r] }
+      if (열쇠) 모음.set(열쇠, 새것)
+      차례.push(새것)
+    }
+    return 차례
+  }, [sorted, 묶기])
+
+  const totalPages = Math.max(1, Math.ceil(목록.length / pageSize))
   // 쪽 번호를 범위 안으로 당긴다. 10쪽에서 한 쪽 개수를 늘리거나, 다시 받아 건수가 줄면
   // 없는 쪽에 머물러 빈 목록만 보였다.
   const 쪽 = Math.min(page, totalPages)
-  const shown = sorted.slice((쪽 - 1) * pageSize, 쪽 * pageSize)
+  const shown = 목록.slice((쪽 - 1) * pageSize, 쪽 * pageSize)
+  /** 둘 이상이 묶인 줄 수 */
+  const 묶인줄수 = useMemo(() => 목록.filter(g => g.줄들.length > 1).length, [목록])
   const unseenCount = useMemo(
     () => filtered.filter(r => (seen.get(r.article_no)?.사무소 ?? 0) === 0).length,
     [filtered, seen],
@@ -1575,14 +1635,25 @@ export default function CollectPage() {
                 {!unseenOnly && unseenCount < sorted.length && ` · 안 본 것 ${unseenCount}건`}
                 {오늘새로 > 0 && ` · 오늘 새로 ${오늘새로}건`}
                 {재등록건수 > 0 && ` · 재등록 ${재등록건수}건`}
+                {묶기 && 묶인줄수 > 0 && ` · 같은 매물 ${묶인줄수}곳 묶음`}
               </p>
               {/* 값이 섞여 있으면 세워 봐야 사과와 오렌지를 견주는 셈이다.
                   막지는 않고 말해 준다 — 아는 채로 보는 것과 모르고 보는 것은 다르다. */}
               {섞임경고 && <span className="text-xs text-amber-600 dark:text-amber-500">{섞임경고}</span>}
+              {/* 네이버처럼 정렬 옆에 둔다. 무엇을 어떻게 늘어놓는지에 관한 일이라서다. */}
+              <label
+                title="여러 중개사가 올린 같은 매물(종류·거래·동·층·면적·지번이 같은 것)을 한 줄로 묶습니다"
+                className="ml-auto flex cursor-pointer items-center gap-1.5 text-sm text-gray-600 dark:text-gray-400"
+              >
+                <input type="checkbox" checked={묶기}
+                  onChange={e => { set묶기(e.target.checked); setPage(1) }}
+                  className="h-4 w-4 accent-blue-600" />
+                동일매물 묶기
+              </label>
               <select
                 value={sort}
                 onChange={e => { setSort(e.target.value as SortKey); setPage(1) }}
-                className="ml-auto h-8 rounded-xl border border-gray-200 bg-white px-2 text-sm
+                className="h-8 rounded-xl border border-gray-200 bg-white px-2 text-sm
                            text-gray-700 focus:border-blue-500 focus:outline-none
                            dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
               >
@@ -1594,11 +1665,88 @@ export default function CollectPage() {
             </div>
             <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
-              {shown.map(r => {
+              {/* 묶음은 머리 한 줄로 서고, 펼치면 그 아래에 광고마다 한 줄씩 붙는다 —
+                  네이버 [동일매물 묶기] 와 같은 모양이다. 펼친 줄은 왼쪽 띠로 묶음임을 보인다. */}
+              {shown.flatMap(g => g.줄들.length === 1
+                ? [{ r: g.줄들[0], 안쪽: false }]
+                : [{ g }, ...(펼친묶음.has(g.열쇠) ? g.줄들.map(r => ({ r, 안쪽: true })) : [])],
+              ).map(항목 => {
+                if ('g' in 항목) {
+                  const g = 항목.g, 대표 = g.줄들[0]
+                  const 펼침 = 펼친묶음.has(g.열쇠)
+                  const 범위 = 가격범위(g.줄들)
+                  const 새것있음 = g.줄들.some(r => isFresh(r) && !이전광고(r) && !(seen.get(r.article_no)?.사무소))
+                  const 다봄 = g.줄들.every(r => (seen.get(r.article_no)?.사무소 ?? 0) > 0)
+                  return (
+                    <li key={`묶음:${g.열쇠}`} className={펼침 ? 'bg-blue-50/40 dark:bg-gray-800/40' : undefined}>
+                      <button
+                        type="button"
+                        aria-expanded={펼침}
+                        onClick={() => set펼친묶음(prev => {
+                          const 다음 = new Set(prev)
+                          if (다음.has(g.열쇠)) 다음.delete(g.열쇠); else 다음.add(g.열쇠)
+                          return 다음
+                        })}
+                        className="flex w-full flex-col gap-0.5 px-4 py-2.5 text-left transition-colors
+                                   hover:bg-blue-50/60 sm:flex-row sm:items-center sm:gap-3 dark:hover:bg-gray-800"
+                      >
+                        {/* 칸 차례·폭은 아래 매물 줄과 같다. 묶음 줄만 칸이 어긋나면 훑을 때 눈이 걸린다. */}
+                        <div className="flex items-center gap-3 sm:contents">
+                          <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 sm:order-1 dark:text-gray-600">
+                            {대표.shown_date?.slice(5).replace('-', '/')}
+                          </span>
+                          <span className="shrink-0 whitespace-nowrap text-sm text-gray-600 sm:order-2 sm:w-[124px] dark:text-gray-400">
+                            {src.kindOf(대표.kind_code)}
+                            <span className="ml-1 text-xs text-gray-400">
+                              {대표.trade_code ? (src.trades[대표.trade_code] ?? 대표.trade_code) : ''}
+                            </span>
+                          </span>
+                          <span className="min-w-0 truncate whitespace-nowrap text-xs text-gray-600 sm:order-4 sm:w-[150px] sm:shrink-0 dark:text-gray-400">
+                            {면적(대표)
+                              ? <>{면적(대표)!.앞}{면적(대표)!.뒤 && <span className="ml-1 hidden text-gray-400 sm:inline">{면적(대표)!.뒤}</span>}</>
+                              : <span className="text-gray-300 dark:text-gray-600">–</span>}
+                          </span>
+                          <span className="hidden shrink-0 whitespace-nowrap text-xs tabular-nums text-gray-500 sm:order-5 sm:block sm:w-[52px] dark:text-gray-500">
+                            {대표.floor_info ? `${대표.floor_info}층` : ''}
+                          </span>
+                          {/* 가격이 갈리면 두 줄로 — 한 줄에 '10,000/700~12,000/800' 을 넣으면 칸을 넘는다. */}
+                          <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[86px] dark:text-gray-300">
+                            {범위 ? (
+                              <span className="flex flex-col leading-tight">
+                                <span>{범위.낮은}{범위.높은 && '~'}</span>
+                                {범위.높은 && <span className="text-xs text-gray-500 dark:text-gray-400">{범위.높은}</span>}
+                              </span>
+                            ) : <span className="text-gray-300 dark:text-gray-600">–</span>}
+                          </span>
+                        </div>
+                        <div className="flex min-w-0 items-center gap-2 sm:contents">
+                          <span className="flex flex-1 items-center gap-1.5 sm:order-3 sm:min-w-0">
+                            <span className="min-w-[7.5rem] truncate text-sm font-medium text-gray-900 sm:min-w-0 dark:text-white">
+                              {[대표.division, 대표.sector, 대표.jibun].filter(Boolean).join(' ')}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs font-semibold text-blue-600 sm:order-7 sm:w-[120px] dark:text-blue-400">
+                            중개사 {g.줄들.length}곳
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${펼침 ? 'rotate-180' : ''}`} aria-hidden />
+                          </span>
+                          <span className="flex w-14 shrink-0 items-center justify-end sm:order-8">
+                            {새것있음 ? (
+                              <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
+                            ) : 다봄 ? (
+                              <span className="text-xs leading-5 text-gray-400 dark:text-gray-600">다 봄</span>
+                            ) : null}
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  )
+                }
+                const { r, 안쪽 } = 항목
                 const 본것 = seen.get(r.article_no) ?? { 나: 0, 사무소: 0 }
                 const 전광고 = 이전광고(r)
                 return (
-                  <li key={r.article_no}>
+                  <li key={r.article_no}
+                    className={안쪽 ? 'border-l-4 border-blue-200 bg-gray-50/70 dark:border-blue-900 dark:bg-gray-950/40' : undefined}>
                     <a
                       href={src.link(r.article_no)}
                       target="_blank"
@@ -1734,7 +1882,7 @@ export default function CollectPage() {
               page={쪽}
               totalPages={totalPages}
               pageSize={pageSize}
-              totalCount={filtered.length}
+              totalCount={목록.length}
               // 쪽을 넘겨도 화면이 아래에 머물러, 새 쪽의 첫 매물을 보려면 50줄을 올려야 했다.
               onPageChange={p => { setPage(p); 목록머리.current?.scrollIntoView({ block: 'start' }) }}
               onPageSizeChange={n => { setPageSize(n); setPage(1) }}
