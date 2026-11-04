@@ -670,8 +670,7 @@ export function ChatRoom(props: Props) {
                   <span className="rounded-full bg-black/10 px-3 py-1 text-[11px] text-gray-700 dark:bg-gray-800 dark:text-gray-400">{dayDivider(m.created_at)}</span>
                 </div>
               )}
-              <div id={`msg-${m.id}`} className={cn('flex gap-2', mine ? 'justify-end' : 'justify-start', sameAsPrev ? 'mt-1' : 'mt-3',
-                highlight === m.id && 'rounded-lg bg-yellow-200/60 transition-colors')}>
+              <div id={`msg-${m.id}`} className={cn('flex gap-2', mine ? 'justify-end' : 'justify-start', sameAsPrev ? 'mt-1' : 'mt-3')}>
                 {!mine && (
                   <div className="w-10 flex-shrink-0">
                     {showHead && m.bot_name && (
@@ -692,7 +691,9 @@ export function ChatRoom(props: Props) {
                       onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); menuArmed.current = false; setMenuMsg(m) }}
                       onPointerDown={pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressMove}
                       // 폰은 길게 누르면 글자 선택이 먼저 잡아채 메뉴가 안 떴다 — 글자 선택을 끄고 복사는 메뉴로(카톡과 같다)
-                      className="min-w-0 select-text pointer-coarse:select-none [-webkit-touch-callout:none]"
+                      // 원문으로 건너왔을 때 강조는 말풍선에만 — 줄 전체에 칠하면 빈 아바타 칸까지 노랗게 물들었다
+                      className={cn('min-w-0 select-text rounded-2xl pointer-coarse:select-none [-webkit-touch-callout:none]',
+                        highlight === m.id && 'ring-4 ring-yellow-300/90 transition-shadow')}
                     >
                       {m.deleted_at && deletedOrig[m.id] ? (
                         <DeletedOriginal orig={deletedOrig[m.id]!} mine={mine} urls={urls} onPhone={setPhoneSheet} tagNames={tagNames}
@@ -712,9 +713,16 @@ export function ChatRoom(props: Props) {
                         <div className={cn('whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[15px] leading-snug',
                           mine ? 'bg-[#fee500] text-gray-900' : 'bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100',
                           !sameAsPrev && (mine ? 'rounded-tr-sm' : 'rounded-tl-sm'),
-                          m.mention_ids?.includes(myId) && 'ring-2 ring-[#3a6fd8]/60')}>
+                          m.mention_ids?.includes(myId) && 'ring-2 ring-[#3a6fd8]/60',
+                          replied && 'cursor-pointer')}
+                          // 답장 말풍선은 어디를 눌러도 원문으로 — 본문 안 링크·전화번호·태그, 글자 드래그 선택은 그대로 둔다
+                          onClick={replied ? e => {
+                            if ((e.target as HTMLElement).closest('a,button')) return
+                            if (window.getSelection()?.toString()) return
+                            jumpTo(replied)
+                          } : undefined}>
                           {replied && (
-                            <button onClick={() => jumpTo(replied)} className="mb-1.5 block w-full border-b border-black/10 pb-1.5 text-left">
+                            <button onClick={e => { e.stopPropagation(); jumpTo(replied) }} className="mb-1.5 block w-full border-b border-black/10 pb-1.5 text-left">
                               <span className="block text-xs font-semibold text-gray-700 dark:text-gray-300">{nameOf(replied.sender_broker_id)}에게 답장</span>
                               <span className="block truncate text-xs text-gray-500">{previewText(replied)}</span>
                             </button>
