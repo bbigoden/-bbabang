@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
     images: [
       {
-        url: '/og-image.png',
+        url: '/og-busojang.png',  // 이름을 바꿔야 카톡이 옛 '빠방' 그림을 버린다(og-image.svg 참고)
         width: 1200,
         height: 630,
         alt: '부소장 - 중개사무소 업무 도구',
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '부소장 - 중개사무소 업무 도구',
     description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
-    images: ['/og-image.png'],
+    images: ['/og-busojang.png'],
   },
   robots: {
     index: true,

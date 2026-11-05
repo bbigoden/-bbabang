@@ -1,8 +1,7 @@
 <svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- 우측 밝은 배경 -->
+  <!-- 부소장 공유 미리보기 원본. PNG 는 public/og-busojang.png (sharp 로 변환).
+       카톡은 그림을 '주소'로 기억한다 — 내용을 바꾸면 파일 이름도 바꿔야 새 그림이 뜬다(11-05: og-image.png 를 고쳤는데 옛 '빠방' 그림이 계속 떴다). -->
   <rect width="1200" height="630" fill="#F9FAFB"/>
-
-  <!-- 좌측 네이비 그라디언트 블록 -->
   <rect width="600" height="630" fill="url(#bg)"/>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="600" y2="630" gradientUnits="userSpaceOnUse">
@@ -11,29 +10,20 @@
     </linearGradient>
   </defs>
 
-  <!-- B 아이콘 박스 (흰 배경 + 네이비 B, PWA 아이콘과 인버트) -->
   <rect x="80" y="160" width="160" height="160" rx="32" fill="white"/>
   <text x="160" y="242" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="118" text-anchor="middle" dominant-baseline="central" fill="#14274e">B</text>
 
-  <!-- "부소장" 한글 큰 글자 -->
-  <text x="80" y="410" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="900" font-size="84" fill="white">부소장</text>
-  <text x="80" y="464" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="500" font-size="24" fill="white" fill-opacity="0.82">부동산 역경매 매칭 플랫폼</text>
+  <text x="80" y="410" font-family="'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="900" font-size="84" fill="white">부소장</text>
+  <text x="80" y="464" font-family="'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="500" font-size="26" fill="white" fill-opacity="0.82">중개사무소 업무 도구</text>
 
-  <!-- 우측 메인 카피 -->
-  <text x="660" y="232" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="700" font-size="40" fill="#111827">조건만 올리면</text>
-  <text x="660" y="288" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="700" font-size="40" fill="#111827">공인중개사가</text>
-  <text x="660" y="348" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="900" font-size="40" fill="#14274e">먼저 제안해드립니다</text>
+  <text x="660" y="240" font-family="'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="700" font-size="42" fill="#111827">중개사무소 업무를</text>
+  <text x="660" y="300" font-family="'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="900" font-size="42" fill="#14274e">한 곳에서</text>
 
-  <!-- 태그 -->
-  <rect x="660" y="396" width="100" height="40" rx="20" fill="#14274e"/>
-  <text x="710" y="422" font-family="-apple-system, 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="700" font-size="16" text-anchor="middle" fill="white">전세</text>
-
-  <rect x="775" y="396" width="100" height="40" rx="20" fill="#14274e"/>
-  <text x="825" y="422" font-family="-apple-system, 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="700" font-size="16" text-anchor="middle" fill="white">월세</text>
-
-  <rect x="890" y="396" width="100" height="40" rx="20" fill="#14274e"/>
-  <text x="940" y="422" font-family="-apple-system, 'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="700" font-size="16" text-anchor="middle" fill="white">매매</text>
-
-  <!-- URL -->
-  <text x="660" y="510" font-family="-apple-system, 'Malgun Gothic', '맑은 고딕', sans-serif" font-size="20" fill="#6B7280">bbabang.vercel.app</text>
+  <g font-family="'Malgun Gothic', '맑은 고딕', sans-serif" font-weight="700" font-size="18" text-anchor="middle" fill="white">
+    <rect x="660" y="360" width="112" height="42" rx="21" fill="#14274e"/><text x="716" y="387">매물장</text>
+    <rect x="784" y="360" width="112" height="42" rx="21" fill="#14274e"/><text x="840" y="387">고객장</text>
+    <rect x="908" y="360" width="124" height="42" rx="21" fill="#14274e"/><text x="970" y="387">업무일지</text>
+    <rect x="660" y="414" width="124" height="42" rx="21" fill="#14274e"/><text x="722" y="441">광고관리</text>
+    <rect x="796" y="414" width="100" height="42" rx="21" fill="#14274e"/><text x="846" y="441">정산</text>
+  </g>
 </svg>
