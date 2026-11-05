@@ -10,14 +10,14 @@ import { cn } from '@/lib/utils'
 import { ymdKST } from '@/lib/date-kst'
 import { setOpenOfficeThread } from '@/lib/message-sound'
 import {
-  ArrowLeft, Search, Menu, Plus, Send, X, FileText, Download, CornerUpLeft, Copy, Trash2,
+  ArrowLeft, Search, Menu, Plus, Send, X, FileText, Download, CornerUpLeft, Copy, Trash2, Clock, AlertCircle, RotateCw,
   Megaphone, ChevronDown, ChevronUp, Image as ImageIcon, Paperclip, Link2, Pin, PinOff,
   Bell, BellOff, Pencil, UserPlus, LogOut, MoreHorizontal, ArrowDown, Phone, Check,
 } from 'lucide-react'
 import {
   type Thread, type Msg, type Member, type MyRow, type ReactionKey,
   REACTIONS, reactionEmoji, ampm, dayDivider, imagesOf, previewText, URL_RE, whyFailed, shrinkImage, PHONE_RE, telHref,
-  CHAT_BUCKET, useSignedUrls, urlOf,
+  CHAT_BUCKET, useSignedUrls, urlOf, primeLocalUrl,
 } from './shared'
 
 const PAGE = 100
@@ -248,7 +248,8 @@ export function ChatRoom(props: Props) {
         const msg = payload.new as Msg
         if (msg.sender_broker_id !== myId) props.onRead(thread.id)
         if (detachedRef.current) { setNewBelow(n => n + 1); return }
-        setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg])
+        // 내가 보낸 것은 이미 '보내는 중' 말풍선으로 떠 있다 — 같은 번호로 저장본을 끼운다
+        setMessages(prev => prev.some(m => m.id === msg.id) ? prev.map(m => m.id === msg.id ? msg : m) : [...prev, msg])
         if (!atBottomRef.current && msg.sender_broker_id !== myId) setNewBelow(n => n + 1)
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'office_chat_messages', filter: `thread_id=eq.${thread.id}` }, payload => {
@@ -391,20 +392,71 @@ export function ChatRoom(props: Props) {
     el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'
   }
 
-  const send = async () => {
+  // ── 보내기: 누르면 바로 말풍선, 저장은 뒤에서(2026-11-05 '보낼 때도 빠르게') ──
+  // 번호(id)를 여기서 정해 보내므로, 저장본·실시간 도착분이 같은 말풍선 자리에 그대로 들어간다.
+  // 저장은 줄 세워 하나씩 — 빨리 연달아 보내도 순서(created_at)가 뒤바뀌지 않는다.
+  const sendQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const retryJobs = useRef(new Map<string, () => Promise<void>>())
+  const patchMsg = (id: string, patch: Partial<Msg> | null, saved?: Msg) => setMessages(prev => {
+    if (saved) return prev.some(m => m.id === id) ? prev.map(m => m.id === id ? saved : m) : [...prev, saved]
+    return prev.map(m => m.id === id ? { ...m, ...patch } : m)
+  })
+  /** 보내는 중 말풍선을 먼저 띄우고, 저장 일을 줄에 세운다. 실패하면 말풍선에 '다시 보내기' */
+  const enqueueSend = (local: Msg, save: () => Promise<Msg>, preview: string) => {
+    appendMine(local)
+    const job = async () => {
+      patchMsg(local.id, { pending: 'sending' })
+      try {
+        const saved = await save()
+        retryJobs.current.delete(local.id)
+        patchMsg(local.id, null, saved)
+        props.onSent(saved)
+        notify(preview)
+      } catch (e) {
+        patchMsg(local.id, { pending: 'failed' })
+        toast.error(`보내지 못했어요. ${whyFailed(e)}`)
+      }
+    }
+    retryJobs.current.set(local.id, job)
+    sendQueue.current = sendQueue.current.then(job)
+  }
+  const retrySend = (m: Msg) => {
+    const job = retryJobs.current.get(m.id)
+    if (job) sendQueue.current = sendQueue.current.then(job)
+  }
+  const dropFailed = (m: Msg) => {
+    retryJobs.current.delete(m.id)
+    setMessages(prev => prev.filter(x => x.id !== m.id))
+  }
+  const localMsg = (fields: Partial<Msg>): Msg => ({
+    id: crypto.randomUUID(), thread_id: thread.id, sender_broker_id: myId, body: '',
+    created_at: new Date().toISOString(), pending: 'sending', ...fields,
+  })
+  const insertMsg = async (m: Msg): Promise<Msg> => {
+    const row = {
+      id: m.id, thread_id: m.thread_id, sender_broker_id: m.sender_broker_id, body: m.body,
+      reply_to_id: m.reply_to_id ?? null, mention_ids: m.mention_ids ?? null,
+      image_paths: m.image_paths ?? null, file_url: m.file_url ?? null, file_name: m.file_name ?? null,
+    }
+    const { data, error } = await supabase.from('office_chat_messages').insert(row).select().single()
+    if (!error && data) return data as Msg
+    // 저장은 됐는데 응답만 끊긴 경우 — 다시 보내기가 같은 번호로 또 넣다 '중복'으로 막히면 이미 있는 것을 쓴다
+    if (error?.code === '23505') {
+      const { data: got } = await supabase.from('office_chat_messages').select('*').eq('id', m.id).maybeSingle()
+      if (got) return got as Msg
+    }
+    throw error ?? new Error('전송 실패')
+  }
+
+  const send = () => {
     const body = draft.trim()
-    if (!body || sending) return
-    if (editing) { saveEdit(editing, body); return }
-    const replyId = replyTo?.id ?? null
+    if (!body) return
+    if (editing) { if (!sending) saveEdit(editing, body); return }
     const mentionIds = mentionsIn(body)
-    setSending(true)
+    const local = localMsg({ body, reply_to_id: replyTo?.id ?? null, mention_ids: mentionIds.length ? mentionIds : null })
     setDraft(''); setReplyTo(null); setMentionQ(null)
-    const { data, error } = await supabase.from('office_chat_messages')
-      .insert({ thread_id: thread.id, sender_broker_id: myId, body, reply_to_id: replyId, mention_ids: mentionIds.length ? mentionIds : null }).select().single()
-    setSending(false)
-    if (error || !data) { toast.error(`보내지 못했어요. ${whyFailed(error)}`); setDraft(body); return }
-    appendMine(data as Msg)
-    notify(body.slice(0, 80))
+    requestAnimationFrame(resizeInput)
+    enqueueSend(local, () => insertMsg(local), body.slice(0, 80))
     inputRef.current?.focus()
   }
 
@@ -435,7 +487,7 @@ export function ChatRoom(props: Props) {
     cancelEdit()
   }
   // 카톡처럼 보낸 지 24시간 안의 내 글자 메세지만
-  const canEdit = (m: Msg) => m.sender_broker_id === myId && !m.bot_name && !m.deleted_at && !!m.body
+  const canEdit = (m: Msg) => m.sender_broker_id === myId && !m.bot_name && !m.deleted_at && !m.pending && !!m.body
     && imagesOf(m).length === 0 && !m.file_url && Date.now() - new Date(m.created_at).getTime() < 24 * 3600 * 1000
 
   // ── 태그(@이름) ──────────────────────────────────────
@@ -457,44 +509,48 @@ export function ChatRoom(props: Props) {
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(caret, caret); resizeInput() })
   }
 
-  const upload = async (file: File) => {
-    const ext = (file.name.split('.').pop() || 'bin').toLowerCase()
-    const path = `${office}/${thread.id}/${crypto.randomUUID()}.${ext}`
-    const { error } = await supabase.storage.from(CHAT_BUCKET).upload(path, file, { contentType: file.type || undefined })
-    if (error) throw error
-    return path
-  }
-
-  /** 사진 여러 장은 메시지 하나(묶음)로, 그 밖의 파일은 한 개씩 */
+  /** 사진 여러 장은 메시지 하나(묶음)로, 그 밖의 파일은 한 개씩. 말풍선은 바로 뜨고 올리기는 뒤에서 */
   const sendFiles = async (files: File[]) => {
-    if (files.length === 0 || sending) return
+    if (files.length === 0) return
     const big = files.find(f => f.size > MAX_FILE)
     if (big) { toast.error(`20MB 이하 파일만 보낼 수 있어요 (${big.name})`); return }
     const photos = files.filter(f => f.type.startsWith('image/'))
     const others = files.filter(f => !f.type.startsWith('image/'))
     if (photos.length > MAX_PHOTOS) { toast.error(`사진은 한 번에 ${MAX_PHOTOS}장까지 보낼 수 있어요`); return }
-    setSending(true); setAttachOpen(false)
-    try {
-      if (photos.length) {
-        const paths = await Promise.all(photos.map(async f => upload(await shrinkImage(f, 1600))))
-        const { data, error } = await supabase.from('office_chat_messages')
-          .insert({ thread_id: thread.id, sender_broker_id: myId, body: '', image_paths: paths }).select().single()
-        if (error || !data) { await supabase.storage.from(CHAT_BUCKET).remove(paths); throw error ?? new Error('전송 실패') }
-        appendMine(data as Msg)
-        notify(paths.length > 1 ? `사진 ${paths.length}장을 보냈습니다` : '사진을 보냈습니다')
+    setAttachOpen(false)
+    const pathFor = (f: File) => {
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase()
+      return `${office}/${thread.id}/${crypto.randomUUID()}.${ext}`
+    }
+    const put = async (path: string, file: Blob, type?: string) => {
+      const { error } = await supabase.storage.from(CHAT_BUCKET).upload(path, file, { contentType: type || undefined })
+      if (error) throw error
+    }
+    // 하나라도 실패하면 올린 것을 모두 지운다 — 다시 보내기가 같은 경로로 처음부터 올린다(덮어쓰기 권한 없이)
+    const uploadAll = async (list: { path: string; make: () => Promise<{ blob: Blob; type?: string }> }[], m: Msg) => {
+      try {
+        await Promise.all(list.map(async x => { const { blob, type } = await x.make(); await put(x.path, blob, type) }))
+        return await insertMsg(m)
+      } catch (e) {
+        await supabase.storage.from(CHAT_BUCKET).remove(list.map(x => x.path)).catch(() => {})
+        throw e
       }
-      for (const f of others) {
-        const path = await upload(f)
-        const { data, error } = await supabase.from('office_chat_messages')
-          .insert({ thread_id: thread.id, sender_broker_id: myId, body: '', file_url: path, file_name: f.name }).select().single()
-        if (error || !data) { await supabase.storage.from(CHAT_BUCKET).remove([path]); throw error ?? new Error('전송 실패') }
-        appendMine(data as Msg)
-        notify(`파일: ${f.name}`.slice(0, 80))
-      }
-    } catch (e) {
-      toast.error(`보내지 못했어요. ${whyFailed(e)}`)
-    } finally {
-      setSending(false)
+    }
+    if (photos.length) {
+      // 줄이고 올리는 동안에도 말풍선은 폰에 있는 원본 그림으로 먼저 뜬다
+      const items = photos.map(f => ({ f, path: pathFor(f) }))
+      for (const it of items) primeLocalUrl(it.path, URL.createObjectURL(it.f))
+      const local = localMsg({ image_paths: items.map(it => it.path) })
+      enqueueSend(local, () => uploadAll(items.map(it => ({
+        path: it.path,
+        make: async () => { const small = await shrinkImage(it.f, 1600); return { blob: small, type: small.type || it.f.type } },
+      })), local), items.length > 1 ? `사진 ${items.length}장을 보냈습니다` : '사진을 보냈습니다')
+    }
+    for (const f of others) {
+      const path = pathFor(f)
+      primeLocalUrl(path, URL.createObjectURL(f))
+      const local = localMsg({ file_url: path, file_name: f.name })
+      enqueueSend(local, () => uploadAll([{ path, make: async () => ({ blob: f, type: f.type }) }], local), `파일: ${f.name}`.slice(0, 80))
     }
   }
 
@@ -692,8 +748,8 @@ export function ChatRoom(props: Props) {
                   {/* max-w-full: 답장 인용 줄(truncate)이 긴 글이면 말풍선이 화면 밖으로 뻗었다 */}
                   <div className={cn('group flex max-w-full items-end gap-1.5', mine && 'flex-row-reverse')}>
                     <div
-                      onContextMenu={e => { if (m.deleted_at) return; e.preventDefault(); menuArmed.current = false; setMenuMsg(m) }}
-                      onPointerDown={pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressMove}
+                      onContextMenu={e => { if (m.deleted_at || m.pending) return; e.preventDefault(); menuArmed.current = false; setMenuMsg(m) }}
+                      onPointerDown={m.pending ? undefined : pressStart(m)} onPointerUp={pressCancel} onPointerLeave={pressCancel} onPointerMove={pressMove}
                       // 폰은 길게 누르면 글자 선택이 먼저 잡아채 메뉴가 안 떴다 — 글자 선택을 끄고 복사는 메뉴로(카톡과 같다)
                       // 원문으로 건너왔을 때 강조는 말풍선에만 — 줄 전체에 칠하면 빈 아바타 칸까지 노랗게 물들었다
                       className={cn('min-w-0 select-text rounded-2xl pointer-coarse:select-none [-webkit-touch-callout:none]',
@@ -737,12 +793,21 @@ export function ChatRoom(props: Props) {
                     </div>
                     <div className={cn('relative flex flex-shrink-0 flex-col pb-0.5 leading-tight', mine ? 'items-end' : 'items-start')}>
                       {/* 띄워서 얹는다 — 흐름 안에 넣으면 마우스만 올려도 이 칸이 넓어지고 높아져 말풍선이 옆으로 밀리고 아랫줄이 내려갔다 */}
-                      {!m.deleted_at && (
+                      {!m.deleted_at && !m.pending && (
                         <button onClick={() => setMenuMsg(m)} className={cn('absolute bottom-0.5 hidden rounded p-0.5 text-gray-600 hover:bg-black/10 group-hover:block', mine ? 'right-full mr-1' : 'left-full ml-1')} aria-label="메세지 메뉴">
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      {unread > 0 && <span className="text-[11px] font-bold text-[#e6b800] dark:text-yellow-400">{unread}</span>}
+                      {m.pending === 'sending' && <Clock className="h-3 w-3 text-gray-500" aria-label="보내는 중" />}
+                      {m.pending === 'failed' && (
+                        <span className="flex items-center gap-1">
+                          <button onClick={() => retrySend(m)} className="flex items-center gap-0.5 rounded bg-red-500 px-1.5 py-0.5 text-[11px] font-semibold text-white" aria-label="다시 보내기">
+                            <AlertCircle className="h-3 w-3" /><RotateCw className="h-3 w-3" />
+                          </button>
+                          <button onClick={() => dropFailed(m)} className="rounded p-0.5 text-gray-500 hover:bg-black/10" aria-label="보내지 않고 지우기"><X className="h-3 w-3" /></button>
+                        </span>
+                      )}
+                      {!m.pending && unread > 0 && <span className="text-[11px] font-bold text-[#e6b800] dark:text-yellow-400">{unread}</span>}
                       {m.edited_at && !m.deleted_at && <span className="whitespace-nowrap text-[10px] text-gray-600 dark:text-gray-400">수정됨</span>}
                       {!sameAsNext && <span className="whitespace-nowrap text-[10px] text-gray-600 dark:text-gray-400">{ampm(m.created_at)}</span>}
                     </div>

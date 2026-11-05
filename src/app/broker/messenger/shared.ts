@@ -28,6 +28,8 @@ export interface Msg {
   edited_at?: string | null           // 보낸 뒤 고친 시각(edit_office_chat_message)
   mention_ids?: string[] | null       // 본문의 '@이름' 으로 태그한 사람
   created_at: string
+  /** 화면에만 있는 표시 — 보내는 중(아직 저장 전)·못 보냄. DB 에는 없다 */
+  pending?: 'sending' | 'failed'
 }
 export interface Member {
   id: string
@@ -176,6 +178,15 @@ export function useSignedUrls(values: (string | null | undefined)[]): Record<str
   }, [key])
 
   return signed
+}
+
+/**
+ * 보내는 중인 사진을 폰에 있는 그림(blob URL)으로 먼저 보여 준다 — 올리기가 끝나기 전에 말풍선이 뜬다.
+ * 폰에 적어 두지는 않는다(signedAt 이 없어 saveSigned 가 거른다). 다음에 열 땐 서명 URL 을 새로 받는다.
+ */
+export function primeLocalUrl(path: string, blobUrl: string) {
+  signed[path] = blobUrl
+  listeners.forEach(l => l())
 }
 
 /** 저장값 → 열 수 있는 URL. 서명 전이면 null */
