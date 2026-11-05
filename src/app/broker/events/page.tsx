@@ -16,9 +16,9 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import { canUseEvents } from '@/components/broker/menu-items'
-import { todayKST, ymdKST, hmKST } from '@/lib/date-kst'
+import { todayKST, ymdKST, hmKST, addDays } from '@/lib/date-kst'
 import {
-  CalendarCheck, Plus, Copy, Check, X, Phone, MessageSquareWarning, BarChart3, Pencil, AlertTriangle,
+  CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Plus, Copy, Check, X, Phone, MessageSquareWarning, BarChart3, Pencil, AlertTriangle,
 } from 'lucide-react'
 
 type Source = 'manual' | 'naver' | 'kakao' | 'insta_link' | 'insta_dm' | 'link'
@@ -57,6 +57,16 @@ const SOURCE_COLOR: Record<Source, string> = {
 const STATUS_LABEL: Record<Status, string> = {
   pending: '확인 필요', confirmed: '확정', done: '완료', canceled: '취소', no_show: '노쇼',
 }
+const DOT: Record<Status, string> = {
+  pending: 'bg-red-500', confirmed: 'bg-blue-600', done: 'bg-gray-400', canceled: 'bg-gray-300', no_show: 'bg-gray-400',
+}
+const CHIP: Record<Status, string> = {
+  pending: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  confirmed: 'bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  done: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+  canceled: 'bg-gray-100 text-gray-400 line-through',
+  no_show: 'bg-gray-100 text-gray-500 line-through dark:bg-gray-800',
+}
 /** 이만큼 지나도 확인 안 하면 '놓친 예약'으로 본다 */
 const MISSED_HOURS = 3
 
@@ -86,7 +96,7 @@ function hoursSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 3_600_000
 }
 
-type Tab = 'pending' | 'upcoming' | 'past' | 'stats'
+type Tab = 'calendar' | 'pending' | 'upcoming' | 'past' | 'stats'
 
 interface FormState {
   id?: string
@@ -113,7 +123,9 @@ export default function EventsPage() {
   const [feedback, setFeedback] = useState<Feedback[]>([])
   const [names, setNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('pending')
+  const [tab, setTab] = useState<Tab>('calendar')
+  const [month, setMonth] = useState(() => todayKST().slice(0, 7))   // YYYY-MM (한국 기준)
+  const [selDay, setSelDay] = useState(() => todayKST())
   const [form, setForm] = useState<FormState | null>(null)
   const [saving, setSaving] = useState(false)
   const [fbOpen, setFbOpen] = useState<{ eventId: string | null } | null>(null)
@@ -162,6 +174,31 @@ export default function EventsPage() {
       .sort((a, c) => (c.starts_at ?? c.created_at).localeCompare(a.starts_at ?? a.created_at))
     return { pending, upcoming, past }
   }, [events, today])
+
+  // ── 달력 ── 날짜는 전부 한국 기준 문자열로 센다(AGENTS.md)
+  const byDay = useMemo(() => {
+    const m: Record<string, Ev[]> = {}
+    for (const e of events) {
+      if (!e.starts_at || e.status === 'canceled') continue
+      ;(m[ymdKST(e.starts_at)] ??= []).push(e)
+    }
+    for (const k in m) m[k].sort((a, c) => a.starts_at!.localeCompare(c.starts_at!))
+    return m
+  }, [events])
+  const grid = useMemo(() => {
+    const first = `${month}-01`
+    const dow = new Date(`${first}T00:00:00Z`).getUTCDay()
+    const start = addDays(first, -dow)
+    // 그달이 걸친 주만(4~6줄) — 다음 달만 있는 빈 줄은 안 그린다
+    const [y, m] = month.split('-').map(Number)
+    const days = new Date(Date.UTC(y, m, 0)).getUTCDate()
+    return Array.from({ length: Math.ceil((dow + days) / 7) * 7 }, (_, i) => addDays(start, i))
+  }, [month])
+  const moveMonth = (n: number) => {
+    const [y, m] = month.split('-').map(Number)
+    const d = new Date(Date.UTC(y, m - 1 + n, 1))
+    setMonth(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
+  }
 
   // ── 저장 ──
   const save = async () => {
@@ -238,66 +275,9 @@ export default function EventsPage() {
     setFeedback(prev => prev.map(x => (x.id === f.id ? { ...x, resolved: !x.resolved } : x)))
   }
 
-  if (!auth.loading && b && !allowed) {
-    return (
-      <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
-        <Header />
-        <section className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-gray-500">
-          예약·일정은 아직 시험 중인 기능이에요.
-        </section>
-      </div>
-    )
-  }
-
-  const list = tab === 'pending' ? groups.pending : tab === 'upcoming' ? groups.upcoming : groups.past
-  const tabs: { id: Tab; label: string; count?: number }[] = [
-    { id: 'pending', label: '확인 필요', count: groups.pending.length },
-    { id: 'upcoming', label: '다가오는', count: groups.upcoming.length },
-    { id: 'past', label: '지난·완료' },
-    ...(isOwner ? [{ id: 'stats' as Tab, label: '시험 현황' }] : []),
-  ]
-
-  return (
-    <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
-      <Header />
-      <section className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <h1 className="mr-auto flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
-            <CalendarCheck className="h-5 w-5 text-blue-600" />예약·일정
-          </h1>
-          <button onClick={() => { setFbOpen({ eventId: null }); setFbText('') }}
-            className="flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 dark:bg-gray-900">
-            <MessageSquareWarning className="h-4 w-4" />불편 신고
-          </button>
-          <button onClick={() => setForm(emptyForm())}
-            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-            <Plus className="h-4 w-4" />새 예약
-          </button>
-        </div>
-
-        <div className="mb-4 flex rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900">
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex flex-1 items-center justify-center gap-1 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === t.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
-              {t.id === 'stats' && <BarChart3 className="h-4 w-4" />}
-              {t.label}
-              {!!t.count && <span className={`rounded-full px-1.5 text-xs ${tab === t.id ? 'bg-white/20' : t.id === 'pending' ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-800'}`}>{t.count}</span>}
-            </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <div className="py-20 text-center text-sm text-gray-500">불러오는 중...</div>
-        ) : tab === 'stats' ? (
-          <Stats events={events} feedback={feedback} names={names} onToggle={toggleResolved} />
-        ) : list.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 py-14 text-center text-sm text-gray-500 dark:border-gray-700">
-            {tab === 'pending' ? '확인할 예약이 없어요' : tab === 'upcoming' ? '다가오는 예약이 없어요' : '지난 예약이 없어요'}
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {list.map((e, i) => {
-              const newDay = tab === 'upcoming' && e.starts_at && (i === 0 || ymdKST(list[i - 1].starts_at ?? '') !== ymdKST(e.starts_at))
+  /** 예약 카드 한 장 — 목록 탭과 달력 아래 '그날 예약'이 같이 쓴다 */
+  const renderCard = (e: Ev, i: number, arr: Ev[], withDay: boolean) => {
+              const newDay = withDay && e.starts_at && (i === 0 || ymdKST(arr[i - 1].starts_at ?? '') !== ymdKST(e.starts_at))
               const late = e.status === 'pending' && hoursSince(e.created_at) >= MISSED_HOURS
               return (
                 <li key={e.id}>
@@ -352,7 +332,127 @@ export default function EventsPage() {
                   </div>
                 </li>
               )
-            })}
+  }
+
+  if (!auth.loading && b && !allowed) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
+        <Header />
+        <section className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-gray-500">
+          예약·일정은 아직 시험 중인 기능이에요.
+        </section>
+      </div>
+    )
+  }
+
+  const list = tab === 'pending' ? groups.pending : tab === 'upcoming' ? groups.upcoming : groups.past
+  const tabs: { id: Tab; label: string; count?: number }[] = [
+    { id: 'calendar', label: '달력' },
+    { id: 'pending', label: '확인 필요', count: groups.pending.length },
+    { id: 'upcoming', label: '다가오는', count: groups.upcoming.length },
+    { id: 'past', label: '지난·완료' },
+    ...(isOwner ? [{ id: 'stats' as Tab, label: '시험 현황' }] : []),
+  ]
+
+  return (
+    <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
+      <Header />
+      <section className="mx-auto max-w-3xl px-4 py-6">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <h1 className="mr-auto flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
+            <CalendarCheck className="h-5 w-5 text-blue-600" />예약·일정
+          </h1>
+          <button onClick={() => { setFbOpen({ eventId: null }); setFbText('') }}
+            className="flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 dark:bg-gray-900">
+            <MessageSquareWarning className="h-4 w-4" />불편 신고
+          </button>
+          <button onClick={() => setForm({ ...emptyForm(), date: tab === 'calendar' ? selDay : todayKST() })}
+            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            <Plus className="h-4 w-4" />새 예약
+          </button>
+        </div>
+
+        <div className="mb-4 flex overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`flex flex-1 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 py-2 text-sm font-semibold transition-colors ${tab === t.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
+              {t.id === 'stats' && <BarChart3 className="h-4 w-4" />}
+              {t.id === 'calendar' && <CalendarDays className="h-4 w-4" />}
+              {t.label}
+              {!!t.count && <span className={`rounded-full px-1.5 text-xs ${tab === t.id ? 'bg-white/20' : t.id === 'pending' ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-800'}`}>{t.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="py-20 text-center text-sm text-gray-500">불러오는 중...</div>
+        ) : tab === 'calendar' ? (
+          <div>
+            <div className="mb-2 flex items-center gap-1">
+              <button onClick={() => moveMonth(-1)} aria-label="이전 달" className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"><ChevronLeft className="h-5 w-5 text-gray-600" /></button>
+              <h2 className="min-w-[5.5rem] text-center text-lg font-bold tabular-nums text-gray-900 dark:text-white">{month.replace('-', '.')}</h2>
+              <button onClick={() => moveMonth(1)} aria-label="다음 달" className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"><ChevronRight className="h-5 w-5 text-gray-600" /></button>
+              <button onClick={() => { setMonth(today.slice(0, 7)); setSelDay(today) }}
+                className="ml-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">오늘</button>
+              <span className="ml-auto flex items-center gap-2 text-[11px] text-gray-500">
+                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-red-500" />확인 필요</span>
+                <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-blue-600" />확정</span>
+                <span className="hidden items-center gap-1 sm:flex"><i className="h-2 w-2 rounded-full bg-gray-400" />완료</span>
+              </span>
+            </div>
+            <div className="mb-1 grid grid-cols-7 text-center text-xs font-semibold text-gray-400">
+              {WEEK.map((w, i) => <div key={w} className={i === 0 ? 'text-rose-400' : i === 6 ? 'text-blue-400' : ''}>{w}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {grid.map((d, idx) => {
+                const inMonth = d.startsWith(month)
+                const evs = byDay[d] ?? []
+                const sel = d === selDay
+                const dow = idx % 7
+                return (
+                  <button key={d} onClick={() => setSelDay(d)}
+                    className={`flex min-h-[56px] flex-col items-start justify-start rounded-lg border p-1 text-left sm:min-h-[92px] ${sel ? 'border-blue-500 ring-1 ring-blue-500' : inMonth ? 'border-gray-100 dark:border-gray-800' : 'border-transparent'} ${inMonth ? 'bg-white dark:bg-gray-900' : 'bg-gray-50/60 dark:bg-gray-950'}`}>
+                    <span className={`text-xs font-semibold ${d === today ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white' : !inMonth ? 'text-gray-300 dark:text-gray-700' : dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {Number(d.slice(8))}
+                    </span>
+                    {/* 폰: 점만 / 큰 화면: 시간·내용 3줄 */}
+                    <div className="mt-0.5 flex flex-wrap gap-0.5 sm:hidden">
+                      {evs.slice(0, 4).map(e => <i key={e.id} className={`h-1.5 w-1.5 rounded-full ${DOT[e.status]}`} />)}
+                      {evs.length > 4 && <span className="text-[9px] leading-none text-gray-400">+{evs.length - 4}</span>}
+                    </div>
+                    <div className="mt-0.5 hidden w-full space-y-0.5 sm:block">
+                      {evs.slice(0, 3).map(e => (
+                        <div key={e.id} className={`truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${CHIP[e.status]}`}>
+                          <span className="tabular-nums opacity-70">{hmKST(e.starts_at!)} </span>{e.title}
+                        </div>
+                      ))}
+                      {evs.length > 3 && <div className="px-1 text-[10px] text-gray-400">+{evs.length - 3}</div>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mb-2 mt-4 px-1 text-sm font-bold text-gray-700 dark:text-gray-300">
+              {selDay === today ? '오늘 · ' : ''}{dayLabel(selDay)} 예약 {(byDay[selDay] ?? []).length}건
+            </p>
+            {(byDay[selDay] ?? []).length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 py-8 text-center text-sm text-gray-500 dark:border-gray-700">이날은 예약이 없어요</div>
+            ) : (
+              <ul className="space-y-2">{(byDay[selDay] ?? []).map((e, i, arr) => renderCard(e, i, arr, false))}</ul>
+            )}
+            {groups.pending.some(e => !e.starts_at) && (
+              <p className="mt-3 text-xs text-gray-500">날짜가 정해지지 않은 예약은 <button onClick={() => setTab('pending')} className="font-semibold text-blue-600 underline">확인 필요</button>에 있어요.</p>
+            )}
+          </div>
+        ) : tab === 'stats' ? (
+          <Stats events={events} feedback={feedback} names={names} onToggle={toggleResolved} />
+        ) : list.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-300 py-14 text-center text-sm text-gray-500 dark:border-gray-700">
+            {tab === 'pending' ? '확인할 예약이 없어요' : tab === 'upcoming' ? '다가오는 예약이 없어요' : '지난 예약이 없어요'}
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {list.map((e, i) => renderCard(e, i, list, tab === 'upcoming'))}
           </ul>
         )}
       </section>
