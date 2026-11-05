@@ -17,6 +17,7 @@ const HIDDEN_PATHS = [
   '/auth',
   '/account-suspended',
   '/broker/messenger', // 화면 꽉 찬 대화창 — 밑에 붙으면 스크롤이 밀려 푸터가 드러난다
+  '/b/', // 손님용 예약 페이지 — 부소장 이름이 하나도 보이면 안 된다(11-06 사장님)
 ]
 
 export function Footer() {

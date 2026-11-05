@@ -44,7 +44,8 @@ export function InstallPrompt() {
   }
 
   // /install 화면은 같은 안내를 크게 보여 준다
-  if (!show || !path || pathname === '/install') return null
+  // 손님용 예약 페이지(/b/)엔 '부소장 앱 설치'를 띄우지 않는다
+  if (!show || !path || pathname === '/install' || pathname?.startsWith('/b/')) return null
   const inApp = path === 'kakao' || path === 'inapp'
   // iOS 의 카톡 밖 앱 안 브라우저는 밖으로 여는 길이 없어 안내만 한다
   const canOpenOut = path === 'kakao' || (path === 'inapp' && isAndroid())

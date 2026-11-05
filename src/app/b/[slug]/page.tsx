@@ -19,6 +19,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     robots: { index: false, follow: false },
     openGraph: { type: 'website', locale: 'ko_KR', url: `/b/${slug}`, title, description, siteName: title },
     twitter: { card: 'summary_large_image', title, description },
+    // 탭 아이콘·홈 화면 추가 시 이름도 부소장 것을 쓰지 않는다
+    icons: { icon: '/booking-icon.svg', apple: '/booking-icon-180.png' },
+    appleWebApp: { capable: false, title },
+    manifest: null,
   }
 }
 
