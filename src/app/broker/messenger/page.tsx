@@ -17,6 +17,7 @@ import { ChatRoom, Avatar } from './chat-room'
 import {
   type Thread, type Msg, type Member, type MyRow,
   CHAT_BUCKET, chatStoragePath, listTimeLabel, previewText, whyFailed, shrinkImage, useSignedUrls, urlOf,
+  prefetchRooms, rememberMsg,
 } from './shared'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -130,6 +131,20 @@ export default function BrokerMessengerPage() {
     Promise.all([loadMembers(), loadThreads()]).finally(() => setLoading(false))
   }, [auth.loading, auth.user, auth.broker, loadMembers, loadThreads, router])
 
+  // 열어 볼 만한 방(안 읽은 방 먼저, 그다음 최근 대화)을 목록이 뜬 뒤 미리 받아 둔다 — 누르면 기다림 없이 열린다.
+  // 처음 한 번만, 다섯 방까지. 화면을 그리는 데 방해되지 않게 조금 있다가 하나씩
+  const prefetched = useRef(false)
+  useEffect(() => {
+    if (loading || prefetched.current || threads.length === 0) return
+    prefetched.current = true
+    const ids = [...threads]
+      .sort((a, b) => ((unread[b.id] ?? 0) > 0 ? 1 : 0) - ((unread[a.id] ?? 0) > 0 ? 1 : 0)
+        || (previews[b.id]?.at ?? '').localeCompare(previews[a.id]?.at ?? ''))
+      .slice(0, 5).map(t => t.id)
+    // 정리(clearTimeout)는 두지 않는다 — 안 읽은 수가 바로 바뀌면 다시 돌지 않아 미리 받기가 통째로 빠졌다
+    setTimeout(() => { void prefetchRooms(ids) }, 300)
+  }, [loading, threads, unread, previews])
+
   // ── 알림으로 들어오면 그 방을 바로 연다(?t=방) ─────────────
   const [pendingOpen, setPendingOpen] = useState<string | null>(null)
   useEffect(() => {
@@ -167,6 +182,7 @@ export default function BrokerMessengerPage() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'office_chat_messages' }, payload => {
         const msg = payload.new as Msg
         if (!threadsRef.current.some(t => t.id === msg.thread_id)) { loadThreads(); return }
+        rememberMsg(msg)
         setPreviews(prev => ({ ...prev, [msg.thread_id]: { id: msg.id, text: previewText(msg), at: msg.created_at } }))
         if (msg.thread_id !== activeRef.current && msg.sender_broker_id !== myId) {
           setUnread(prev => ({ ...prev, [msg.thread_id]: (prev[msg.thread_id] ?? 0) + 1 }))

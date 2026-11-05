@@ -17,7 +17,7 @@ import {
 import {
   type Thread, type Msg, type Member, type MyRow, type ReactionKey,
   REACTIONS, reactionEmoji, ampm, dayDivider, imagesOf, previewText, URL_RE, whyFailed, shrinkImage, PHONE_RE, telHref,
-  CHAT_BUCKET, useSignedUrls, urlOf, primeLocalUrl,
+  CHAT_BUCKET, useSignedUrls, urlOf, primeLocalUrl, type RoomData, cachedRoom, fetchRoom, rememberRoom,
 } from './shared'
 
 const PAGE = 100
@@ -152,39 +152,80 @@ export function ChatRoom(props: Props) {
     })
   }, [supabase])
 
-  const loadLatest = useCallback(async (initial = false) => {
-    const { data } = await supabase.from('office_chat_messages').select('*').eq('thread_id', thread.id)
-      .order('created_at', { ascending: false }).limit(PAGE)
-    const rows = ((data ?? []) as Msg[]).reverse()
-    if (initial) {
+  /**
+   * 받은 방 내용을 화면에 — mode: initial(처음 연 것: 안 읽은 곳부터) · refresh(기억해 둔 것을 띄운 뒤 새로 받은 것:
+   * 보던 자리 그대로) · latest(맨 아래로 다시). 보내는 중인 내 말풍선은 지우지 않는다
+   */
+  const applyRoom = useCallback((room: RoomData, mode: 'initial' | 'refresh' | 'latest') => {
+    const rows = room.messages
+    if (mode === 'initial') {
       // 처음 여는 방(읽은 적 없음)은 맨 아래부터. 내가 쓴 말은 안 읽은 것으로 치지 않는다
       const mark = readMarkRef.current?.at
       const t = mark ? new Date(mark).getTime() : Infinity
       const first = rows.find(m => new Date(m.created_at).getTime() > t && !(m.sender_broker_id === myId && !m.bot_name))
       setUnreadFrom(first?.id ?? null)
       jumpUnreadRef.current = first?.id ?? null
+      atBottomRef.current = !jumpUnreadRef.current
+    } else if (mode === 'latest') {
+      atBottomRef.current = true
     }
-    setMessages(rows)
+    setMessages(prev => {
+      const have = new Set(rows.map(r => r.id))
+      return [...rows, ...prev.filter(m => m.pending && !have.has(m.id))]
+    })
     setHasMore(rows.length === PAGE)
     setDetached(false)
     setNewBelow(0)
-    atBottomRef.current = !(initial && jumpUnreadRef.current)
-    loadReactions(rows.map(m => m.id))
+    setReacts(() => {
+      const next: ReactMap = {}
+      for (const m of rows) next[m.id] = {}
+      for (const r of room.reactions) (( next[r.message_id] ??= {})[r.emoji] ??= []).push(r.broker_id)
+      return next
+    })
+    setMemRows(room.members)
+    if (room.extra.length) setExtra(prev => ({ ...prev, ...Object.fromEntries(room.extra.map(m => [m.id, m])) }))
     setLoading(false)
-  }, [supabase, thread.id, loadReactions, myId])
+  }, [myId])
+
+  const loadLatest = useCallback(async (mode: 'initial' | 'refresh' | 'latest' = 'latest') => {
+    const room = await fetchRoom(thread.id, PAGE)
+    if (room) { applyRoom(room, mode); return }
+    // 한 번에 받기가 안 되면 예전처럼 나눠서 받는다
+    const [{ data }, { data: mem }] = await Promise.all([
+      supabase.from('office_chat_messages').select('*').eq('thread_id', thread.id).order('created_at', { ascending: false }).limit(PAGE),
+      supabase.from('office_chat_members').select('broker_id, last_read_at').eq('thread_id', thread.id),
+    ])
+    const rows = ((data ?? []) as Msg[]).reverse()
+    const { data: rx } = rows.length
+      ? await supabase.from('office_chat_reactions').select('message_id, broker_id, emoji').in('message_id', rows.map(m => m.id))
+      : { data: [] }
+    applyRoom({ messages: rows, reactions: rx ?? [], members: mem ?? [], extra: [] }, mode)
+  }, [supabase, thread.id, applyRoom])
 
   useEffect(() => {
     if (readMarkRef.current?.thread !== thread.id) readMarkRef.current = { thread: thread.id, at: myRow?.last_read_at ?? null }
     setUnreadFrom(null); setFarFromBottom(false)
     setLoading(true)
-    setMessages([]); setExtra({}); setReacts({}); setReplyTo(null); setDraft(''); setEditing(null); setMentionQ(null)
+    setMessages([]); setExtra({}); setReacts({}); setMemRows([]); setReplyTo(null); setDraft(''); setEditing(null); setMentionQ(null)
     setSideOpen(false); setDrawer(null); setSearchOpen(false); setNoticeFolded(true)
-    loadLatest(true)
+    // 기억해 둔(또는 목록에서 미리 받은) 방이면 기다리지 않고 바로 띄우고, 새 내용은 뒤에서 맞춘다
+    const cached = cachedRoom(thread.id)
+    if (cached) applyRoom(cached, 'initial')
+    loadLatest(cached ? 'refresh' : 'initial')
     props.onRead(thread.id)
-    supabase.from('office_chat_members').select('broker_id, last_read_at').eq('thread_id', thread.id)
-      .then(({ data }) => setMemRows(data ?? []))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.id])
+
+  // 보고 있는 방의 내용을 기억해 둔다 — 나갔다 다시 들어오면 바로 보이게
+  useEffect(() => {
+    if (loading || detached) return
+    const reactions = Object.entries(reacts).flatMap(([message_id, byKey]) =>
+      Object.entries(byKey).flatMap(([emoji, ids]) => ids.map(broker_id => ({ message_id, broker_id, emoji }))))
+    rememberRoom(thread.id, {
+      messages: messages.filter(m => !m.pending).slice(-PAGE),
+      reactions, members: memRows, extra: Object.values(extra),
+    })
+  }, [loading, detached, messages, reacts, memRows, extra, thread.id])
 
   const loadOlder = async () => {
     const first = messages[0]

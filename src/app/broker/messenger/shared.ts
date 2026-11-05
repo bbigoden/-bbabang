@@ -189,6 +189,52 @@ export function primeLocalUrl(path: string, blobUrl: string) {
   listeners.forEach(l => l())
 }
 
+// ── 방 열기: 한 번에 받고, 앱을 켜 둔 동안 기억한다(2026-11-05 '방 열 때도 빠르게') ──
+// 대화 내용은 폰 저장소에 쓰지 않는다 — 앱 메모리에만 둔다(앱을 닫으면 사라짐).
+export interface RoomData {
+  messages: Msg[]
+  reactions: { message_id: string; broker_id: string; emoji: string }[]
+  members: { broker_id: string; last_read_at: string | null }[]
+  extra: Msg[]
+}
+const roomCache = new Map<string, RoomData>()
+const roomInflight = new Map<string, Promise<RoomData | null>>()
+export const cachedRoom = (threadId: string) => roomCache.get(threadId) ?? null
+/** 방 하나를 한 번에(office_chat_room_open). 같은 방을 동시에 두 번 묻지 않는다 */
+export function fetchRoom(threadId: string, limit = 100): Promise<RoomData | null> {
+  const key = `${threadId}:${limit}`
+  const busy = roomInflight.get(key)
+  if (busy) return busy
+  const p = (async () => {
+    const { data, error } = await createClient().rpc('office_chat_room_open', { p_thread: threadId, p_limit: limit })
+    if (error || !data) return null
+    const room = data as RoomData
+    roomCache.set(threadId, room)
+    return room
+  })().finally(() => roomInflight.delete(key))
+  roomInflight.set(key, p)
+  return p
+}
+/** 목록을 연 뒤 열어 볼 만한 방(안 읽은 방·최근 방)을 미리 받아 둔다 — 하나씩, 이미 있으면 건너뛴다 */
+export async function prefetchRooms(threadIds: string[]) {
+  for (const id of threadIds) {
+    if (roomCache.has(id)) continue
+    await fetchRoom(id)
+  }
+}
+/** 보고 있는 방의 지금 모습을 기억해 둔다 */
+export function rememberRoom(threadId: string, room: RoomData) {
+  roomCache.set(threadId, room)
+}
+/** 새 메세지가 오면 기억해 둔 방에도 붙인다 — 다음에 열 때 바로 보이게 */
+export function rememberMsg(msg: Msg) {
+  const r = roomCache.get(msg.thread_id)
+  if (!r || msg.pending) return
+  const i = r.messages.findIndex(m => m.id === msg.id)
+  if (i >= 0) r.messages[i] = msg
+  else r.messages = [...r.messages, msg].slice(-100)
+}
+
 /** 저장값 → 열 수 있는 URL. 서명 전이면 null */
 export const urlOf = (map: Record<string, string>, v: string | null | undefined): string | null => {
   const p = chatStoragePath(v)
