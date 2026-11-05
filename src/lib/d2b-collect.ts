@@ -217,8 +217,11 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
     const { prices, plnprc } = d2bPrices(bsic)
     const winner = bids.filter(b => b.rank > 0).sort((a, b) => a.rank - b.rank)[0]
     const bssamt = n.bssamt ?? null
-    const norm = bssamt && plnprc && n.lwlt_rate
-      ? normalize({ bssamt, plnprc, lwlt_rate: Number(n.lwlt_rate), a_amount: n.a_amount, amounts: bids.map(b => b.amount ?? 0).filter(a => a > 0) })
+    // 개찰 직후엔 참가업체만 있고 금액이 비어 오기도 한다 — 그대로 계산하면 '1순위 없음'(win_y 없음)이 돼
+    // 실험실·낙찰결과가 아무 금액이나 낙찰로 센다. 금액이 들어올 때까지 사정률을 비워 둔다(1순위 없으면 다시 받는다)
+    const amounts = bids.map(b => b.amount ?? 0).filter(a => a > 0)
+    const norm = bssamt && plnprc && n.lwlt_rate && amounts.length
+      ? normalize({ bssamt, plnprc, lwlt_rate: Number(n.lwlt_rate), a_amount: n.a_amount, amounts })
       : null
     const { error } = await supa.from('bid_results').update({
       prtcpt_cnum: bids.length || null,
