@@ -776,11 +776,11 @@ export default function BrokerCustomersPage() {
   }, [addingId, direction, customers.length, pageSize])
 
   // 도넛 분포 — 최대 8개. 9개 이상은 상위 7 + 기타.
-  const distribute = (map: Record<string, number>): [string, number][] => {
+  const distribute = (map: Record<string, number>, max = 8): [string, number][] => {
     const entries = Object.entries(map).sort((a, b) => b[1] - a[1])
-    if (entries.length <= 8) return entries
-    const top = entries.slice(0, 7)
-    const restSum = entries.slice(7).reduce((s, [, v]) => s + v, 0)
+    if (entries.length <= max) return entries
+    const top = entries.slice(0, max - 1)
+    const restSum = entries.slice(max - 1).reduce((s, [, v]) => s + v, 0)
     return [...top, ['기타', restSum]]
   }
   // 도넛은 현재 필터(월/담당자/검색)에 맞춘 filtered 기준으로 계산.
@@ -803,7 +803,7 @@ export default function BrokerCustomersPage() {
   const sourceDist = (() => {
     const map: Record<string, number> = {}
     filtered.forEach(c => { if (c.source) map[c.source] = (map[c.source] ?? 0) + 1 })
-    return distribute(map)
+    return distribute(map, 10)  // 유입은 10칸까지 따로 보인다 — 8칸이면 톡톡·워킹이 '기타'에 묻혔다(11-05)
   })()
 
   // 활성 칼럼
@@ -909,7 +909,7 @@ export default function BrokerCustomersPage() {
         {(() => {
           const ASSIGNEE_COLORS = ['#5174b1','#2c5095','#14274e','#859ecd']
           const CATEGORY_COLORS_CHART = ['#a78bfa','#8b5cf6','#7c3aed','#c4b5fd']
-          const SOURCE_COLORS_CHART = ['#34d399','#10b981','#f59e0b','#f97316','#6366f1','#ec4899','#14b8a6','#84cc16']
+          const SOURCE_COLORS_CHART = ['#34d399','#10b981','#f59e0b','#f97316','#6366f1','#ec4899','#14b8a6','#84cc16','#a855f7','#0ea5e9']
           const aTotal = assigneeDist.reduce((s,[,v])=>s+v,0)
           const cTotal = categoryDist.reduce((s,[,v])=>s+v,0)
           const sTotal = sourceDist.reduce((s,[,v])=>s+v,0)
