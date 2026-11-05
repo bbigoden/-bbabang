@@ -107,14 +107,15 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
 
       <div className="px-4 pt-3">
         {lines.length > 0 ? (
-          // 현황판 칠판과 같은 칸 — 이름 · 매물장(거래가능)(+오늘) · 뱅크 · 당근(+오늘). 숫자는 오른쪽 끝을 맞춘다
+          // 현황판 칠판과 같은 칸 — 이름 · 매물장(거래가능)(+오늘) · 뱅크 · 당근(+오늘). 숫자는 오른쪽 끝을 맞춘다.
+          // 칸 폭은 폰(카드 안 약 310px)에 맞춰 잰 값 — 넘치면 우측 정렬이 풀려 숫자가 왼쪽에 붙는다(11-06 뱅크 칸)
           <table className="w-full table-fixed text-[13px] tabular-nums">
-            <colgroup><col className="w-[28%]" /><col className="w-[36%]" /><col className="w-[16%]" /><col className="w-[20%]" /></colgroup>
+            <colgroup><col className="w-[27%]" /><col className="w-[37%]" /><col className="w-[18%]" /><col className="w-[18%]" /></colgroup>
             <thead>
               <tr className="text-[11px] text-gray-400">
                 <th className="pb-1.5 text-left font-medium">담당</th>
-                <th className="pb-1.5 pr-[calc(0.75rem+2.6em)] text-right font-medium">매물장<span className="text-gray-300">(거래가능)</span></th>
-                <th className="pb-1.5 pr-3 text-right font-medium">뱅크</th>
+                <th className="pb-1.5 pr-[calc(0.25rem+2.6em)] text-right font-medium">매물장<span className="text-gray-300">(거래가능)</span></th>
+                <th className="pb-1.5 pr-7 text-right font-medium">뱅크</th>
                 <th className="pb-1.5 pr-7 text-right font-medium">당근</th>
               </tr>
             </thead>
@@ -124,13 +125,13 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
                 return (
                   <tr key={r.name} className={cn(total ? 'border-t border-gray-200 dark:border-gray-700 font-bold text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300')}>
                     <td className="py-1 truncate">{r.name}</td>
-                    <td className="py-1 pr-3 text-right whitespace-nowrap">
+                    <td className="py-1 pr-1 text-right whitespace-nowrap">
                       {/* 매물장(거래가능)은 붙여서 오른쪽 끝 맞춤, +오늘은 그 뒤 고정 칸(2026-10-29 사장님 엑셀 모양).
                           줄바꿈 금지 — 굵은 '사무실 전체' 줄만 칸을 넘어 +오늘 칸이 아랫줄로 내려가며 숫자가 위·오른쪽으로 밀렸다(11-06) */}
                       {n(r.props)}<span className="text-[11px] font-normal text-gray-400">({n(r.avail)})</span>
                       <span className="inline-block w-[2.6em] pl-[0.4em] text-left text-[11px] font-medium text-emerald-500">{r.propsToday ? `+${r.propsToday}` : ''}</span>
                     </td>
-                    <td className="py-1 pr-3 text-right whitespace-nowrap">
+                    <td className="py-1 text-right whitespace-nowrap">
                       {n(r.bank)}<span className="ml-1 inline-block w-6 text-left text-[11px] font-medium text-emerald-500">{r.bankToday ? `+${r.bankToday}` : ''}</span>
                     </td>
                     <td className="py-1 text-right whitespace-nowrap">
