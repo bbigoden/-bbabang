@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
-import { X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 
 /** 폰에서 매물 하나를 펼쳐 보는 창에 필요한 칸만 */
 export interface PropertyView {
@@ -41,12 +41,21 @@ const STATUS_LABEL = { available: '거래가능', contracted: '계약완료', hi
  * 매물 하나의 정보를 보려면 표를 옆으로 훑어야 했다(10-30 점검 모바일 사용자). 읽기만 하는 창이다.
  */
 export function PropertyViewSheet({ p, memoVisible, onClose }: { p: PropertyView; memoVisible: boolean; onClose: () => void }) {
-  // Esc 로 닫기 — 열린 채로는 표의 다른 버튼이 안 눌려 갇힌 느낌이었다
+  // 사진을 누르면 화면 가득 크게 — 작은 썸네일로는 안이 안 보였다(11-05)
+  const [zoom, setZoom] = useState<number | null>(null)
+  const n = p.images?.length ?? 0
+  const step = useCallback((d: number) => setZoom(z => (z == null ? z : (z + d + n) % n)), [n])
+  // Esc 로 닫기 — 열린 채로는 표의 다른 버튼이 안 눌려 갇힌 느낌이었다. 사진이 열려 있으면 사진만 닫는다.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { if (zoom != null) setZoom(null); else onClose() }
+      else if (zoom != null && e.key === 'ArrowLeft') step(-1)
+      else if (zoom != null && e.key === 'ArrowRight') step(1)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, zoom, step])
+  const touchX = useRef<number | null>(null)
   const price = p.deal_type === '월세'
     ? (만(p.price) || 만(p.monthly_rent) ? `${만(p.price) ?? '—'} / ${만(p.monthly_rent) ?? '—'}` : null)
     : 만(p.price)
@@ -83,7 +92,37 @@ export function PropertyViewSheet({ p, memoVisible, onClose }: { p: PropertyView
         </div>
         {p.images?.length > 0 && (
           <div className="mb-3 flex gap-2 overflow-x-auto">
-            {p.images.map(src => <img key={src} src={src} alt="매물 사진" loading="lazy" className="h-24 w-32 shrink-0 rounded-lg object-cover" />)}
+            {p.images.map((src, i) => (
+              <button key={src} type="button" onClick={() => setZoom(i)} aria-label={`사진 ${i + 1} 크게 보기`} className="shrink-0 select-none">
+                <img src={src} alt="매물 사진" loading="lazy" className="h-24 w-32 rounded-lg object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+        {zoom != null && n > 0 && (
+          <div className="fixed inset-0 z-[60] flex select-none items-center justify-center bg-black/95" onClick={() => setZoom(null)}
+            onTouchStart={e => { touchX.current = e.touches[0].clientX }}
+            onTouchEnd={e => {
+              const s = touchX.current; touchX.current = null
+              if (s == null || n < 2) return
+              const dx = e.changedTouches[0].clientX - s
+              if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1)
+            }}>
+            <img src={p.images[zoom]} alt={`매물 사진 ${zoom + 1}`} onClick={e => e.stopPropagation()} className="max-h-full max-w-full object-contain" />
+            <button type="button" onClick={() => setZoom(null)} aria-label="사진 닫기" className="absolute right-3 top-3 rounded-full bg-black/50 p-2 text-white">
+              <X className="h-6 w-6" />
+            </button>
+            {n > 1 && (
+              <>
+                <button type="button" onClick={e => { e.stopPropagation(); step(-1) }} aria-label="이전 사진" className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white">
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button type="button" onClick={e => { e.stopPropagation(); step(1) }} aria-label="다음 사진" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white">
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+                <p className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white">{zoom + 1} / {n}</p>
+              </>
+            )}
           </div>
         )}
         <dl className="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-2 text-sm">

@@ -1341,9 +1341,9 @@ const PropertyRow = memo(function PropertyRow({
       className={`border-b transition-colors ${isAdding ? 'border-blue-300 bg-blue-50/40' : 'border-gray-200 dark:border-gray-800 hover:bg-gray-50/60'} ${p.status === 'hidden' ? 'opacity-50' : ''}`}
     >
       {/* 광고 배지는 번호 밑에 작게 붙인다 — 칸을 새로 내면 표가 넓어진다.
-          배지가 있으면 고르기(select-all)를 번호에만 걸어, 번호를 복사할 때 '광고중' 이 딸려 오지 않게 한다.
+          고르기(select-all)는 번호에만 건다 — 번호를 복사할 때 '광고중'·'보기' 가 딸려 오지 않게.
           배지는 칸 여백까지 조금 쓴다(-mx-1) — 칸 안쪽이 40px 라 '광고 남음' 넉 자가 넘친다. */}
-      <td className={`px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-500 tabular-nums ${adBadge ? '' : 'select-all'}`} style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
+      <td className={`px-2 py-1.5 border-r border-gray-100 dark:border-gray-800 text-center text-xs font-semibold text-gray-500 dark:text-gray-500 tabular-nums`} style={{ width: 56, maxWidth: 56 }} title="매물번호 (사무소 내 고정)">
         {adBadge ? (
           <>
             <span className="block select-all leading-none">{p.seq_no ?? ''}</span>
@@ -1356,9 +1356,10 @@ const PropertyRow = memo(function PropertyRow({
                   : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400'}`}
             >{광고남음 ? '광고 남음' : adBadge.label === '광고중' ? '광고 중' : adBadge.label}</Link>
           </>
-        ) : (p.seq_no ?? '')}
+        ) : <span className="block select-all leading-none">{p.seq_no ?? ''}</span>}
+        {/* select-none — 칸 전체에 select-all 이 걸려 있을 땐 폰에서 [보기] 를 누르면 번호가 블록으로 잡혔다(11-05) */}
         <button type="button" onClick={() => onView({ p, memoVisible })}
-          className="mt-1 block w-full rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
+          className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
