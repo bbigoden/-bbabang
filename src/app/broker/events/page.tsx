@@ -16,9 +16,10 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import { canUseEvents } from '@/components/broker/menu-items'
+import { BookingSettings } from './booking-settings'
 import { todayKST, ymdKST, hmKST, addDays } from '@/lib/date-kst'
 import {
-  CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Plus, Copy, Check, X, Phone, MessageSquareWarning, BarChart3, Pencil, AlertTriangle,
+  CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Plus, Copy, Check, X, Phone, MessageSquareWarning, BarChart3, Pencil, AlertTriangle, Link2,
 } from 'lucide-react'
 
 type Source = 'manual' | 'naver' | 'kakao' | 'insta_link' | 'insta_dm' | 'link'
@@ -130,6 +131,7 @@ export default function EventsPage() {
   const [saving, setSaving] = useState(false)
   const [fbOpen, setFbOpen] = useState<{ eventId: string | null } | null>(null)
   const [fbText, setFbText] = useState('')
+  const [linkOpen, setLinkOpen] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
 
   useEffect(() => {
@@ -362,6 +364,10 @@ export default function EventsPage() {
           <h1 className="mr-auto flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
             <CalendarCheck className="h-5 w-5 text-blue-600" />예약·일정
           </h1>
+          <button onClick={() => setLinkOpen(true)}
+            className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+            <Link2 className="h-4 w-4" />예약 링크
+          </button>
           <button onClick={() => { setFbOpen({ eventId: null }); setFbText('') }}
             className="flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 dark:bg-gray-900">
             <MessageSquareWarning className="h-4 w-4" />불편 신고
@@ -487,6 +493,13 @@ export default function EventsPage() {
           <button onClick={save} disabled={saving} className="mt-1 w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
             {saving ? '저장 중...' : '저장'}
           </button>
+        </Sheet>
+      )}
+
+      {/* 예약 링크 페이지 설정 */}
+      {linkOpen && officeId && b && (
+        <Sheet title="예약 링크" onClose={() => setLinkOpen(false)}>
+          <BookingSettings officeId={officeId} myId={b.id} isOwner={isOwner} />
         </Sheet>
       )}
 

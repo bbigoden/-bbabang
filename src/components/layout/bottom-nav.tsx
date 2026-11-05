@@ -22,6 +22,7 @@ const HIDDEN_PATHS = [
   '/auth',
   '/account-suspended',
   '/broker/properties/', // 매물 편집 등 풀스크린
+  '/b/',                 // 손님용 예약 페이지 — 로그인 안 한 손님에게 '홈·로그인' 바가 떴다
 ]
 
 type NavItem = { label: string; icon: any; badge?: number; needsOffice?: boolean } & (
