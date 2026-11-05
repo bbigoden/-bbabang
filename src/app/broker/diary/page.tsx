@@ -1483,11 +1483,14 @@ export default function BrokerDiaryPage() {
   const [dayUnlinked, setDayUnlinked] = useState<Customer[]>([])
   const linkedKey = diaryCustomers.map(c => c.id).join(',')
   useEffect(() => {
-    if (!pickerOfficeId || !viewingName || viewingExEmployee) { setDayUnlinked([]); return }
+    // 일지를 다 불러오기 전에 세면 이미 들어 있는 고객까지 '없다'로 잡혀 알림이 떴다 사라졌다(11-05).
+    if (!pickerOfficeId || !viewingName || viewingExEmployee || diaryLoading) { setDayUnlinked([]); return }
     let alive = true
     void (async () => {
+      // 고객목록에서 지운 고객은 빼야 한다 — 같은 날 만들었다 지운 빈 줄이 '1명 없음'으로 떴다(11-05).
       const { data } = await supabase.from('broker_customers').select(CUST_PICK_COLS)
         .eq('office_broker_id', pickerOfficeId).ilike('assignee', `%${viewingName}%`)
+        .is('deleted_at', null)
         .gte('created_at', new Date(`${diaryDate}T00:00:00+09:00`).toISOString())
         .lt('created_at', new Date(`${addDays(diaryDate, 1)}T00:00:00+09:00`).toISOString())
         .limit(100)
@@ -1497,7 +1500,7 @@ export default function BrokerDiaryPage() {
         && (c.assignee ?? '').split(',').map(x => x.trim()).includes(viewingName)))
     })()
     return () => { alive = false }
-  }, [pickerOfficeId, viewingName, viewingExEmployee, diaryDate, linkedKey])
+  }, [pickerOfficeId, viewingName, viewingExEmployee, diaryDate, linkedKey, diaryLoading])
   const addDayUnlinked = async () => {
     if (!broker || dayUnlinked.length === 0) return
     const targetBrokerId = viewingBrokerId ?? broker.id
