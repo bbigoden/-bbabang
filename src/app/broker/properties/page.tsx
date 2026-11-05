@@ -844,7 +844,9 @@ function ImageCell({ images, onSave, onView }: {
             {localImgs.length + newFiles.length < 5 && (
               <label className="flex h-14 w-14 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 text-gray-500 hover:border-blue-400 transition-colors">
                 <ImagePlus className="h-4 w-4" />
-                <input type="file" accept="image/*" multiple className="hidden" onChange={handleAdd} />
+                {/* accept="image/*" 는 윈도우 크롬이 등록된 그림 확장자를 전부 펼쳐 파일 창이 '응답 없음'으로 멈추곤 했다(11-05 직원 PC).
+                    어차피 받는 네 가지(ALLOWED_TYPES)만 적는다 */}
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif" multiple className="hidden" onChange={handleAdd} />
               </label>
             )}
           </div>
