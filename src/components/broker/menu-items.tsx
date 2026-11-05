@@ -6,7 +6,7 @@ import { bidOf } from '@/lib/office-role'
 import {
   Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
-  User, Bell, Palette, Megaphone, Radar, LayoutDashboard, Gavel, MessagesSquare,
+  User, Bell, Palette, Megaphone, Radar, LayoutDashboard, Gavel, MessagesSquare, CalendarCheck,
 } from 'lucide-react'
 
 export interface SubItemDef {
@@ -27,7 +27,16 @@ export interface ItemDef {
   needsOffice?: boolean
   /** 입찰을 켠 사무소(broker_profiles.bid_enabled)에만 보인다. 사장님의 건설업 일이라 다른 사무소엔 숨긴다 */
   bidOnly?: boolean
+  /** 일정(예약 모으기) 시험 — 대표 + permissions.events=true 직원만(11-05 사장님: "대표와 이예리만"). 이사도 안 보인다 */
+  eventsOnly?: boolean
   children?: SubItemDef[]
+}
+
+/** 일정 화면을 쓸 수 있는 계정인가 — DB 권한(office_event_can_*)과 같은 규칙 */
+export function canUseEvents(broker: Parameters<typeof bidOf>[0]): boolean {
+  if (!broker) return false
+  if (broker.is_owner !== false) return true
+  return broker.is_approved === true && broker.permissions?.events === true
 }
 
 /** 이 사무소에 보일 메뉴인가 — 사이드바·모바일 드로어가 같이 쓴다 */
@@ -36,6 +45,7 @@ export function showItem(i: ItemDef, broker: Parameters<typeof bidOf>[0]): boole
   if (i.ownerOnly && !isOwner) return false
   // 입찰은 대표 + 이사(대표가 입찰을 켰을 때)
   if (i.bidOnly && !bidOf(broker).enabled) return false
+  if (i.eventsOnly && !canUseEvents(broker)) return false
   return true
 }
 
@@ -45,6 +55,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users, needsOffice: true },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2, needsOffice: true },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList, needsOffice: true },
+  { id: 'events',     href: '/broker/events', label: '예약·일정', icon: CalendarCheck, needsOffice: true, eventsOnly: true },
   { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar, needsOffice: true },
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone, needsOffice: true },
   { id: 'messenger',  href: '/broker/messenger', label: '메세지', icon: MessagesSquare, needsOffice: true },
