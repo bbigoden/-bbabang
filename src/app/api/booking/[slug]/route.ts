@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { sendPushToUser } from '@/lib/push-server'
@@ -97,21 +97,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: '접수하지 못했어요. 잠시 뒤에 다시 해 주세요.' }, { status: 500 })
   }
 
-  // 담당 직원 폰에 알림 — 실패해도 신청은 받은 것
-  try {
-    const { data: owner } = await supa.from('broker_profiles').select('user_id').eq('id', cfg.owner_broker_id).maybeSingle()
-    if (owner?.user_id) {
-      const [, m, d] = date.split('-').map(Number)
-      await sendPushToUser(owner.user_id, {
-        title: '새 예약 신청',
-        body: `${name} · ${m}/${d} ${time} · ${title}`,
-        url: '/broker/events',
-        tag: 'booking',
-      })
+  // 담당 직원 폰에 알림 — 손님에게 먼저 답하고 그 뒤에 보낸다(기기 4대에 보내느라 '보내는 중'이 길었다).
+  // 실패해도 신청은 받은 것
+  after(async () => {
+    try {
+      const { data: owner } = await supa.from('broker_profiles').select('user_id').eq('id', cfg.owner_broker_id).maybeSingle()
+      if (owner?.user_id) {
+        const [, m, d] = date.split('-').map(Number)
+        await sendPushToUser(owner.user_id, {
+          title: '새 예약 신청',
+          body: `${name} · ${m}/${d} ${time} · ${title}`,
+          url: '/broker/events',
+          tag: 'booking',
+        })
+      }
+    } catch (e) {
+      console.error('[booking] push failed', e)
     }
-  } catch (e) {
-    console.error('[booking] push failed', e)
-  }
+  })
 
   return NextResponse.json({ ok: true })
 }
