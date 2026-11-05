@@ -230,20 +230,11 @@ export default function BrokerTeamPage() {
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{emp.profiles?.name ?? '—'}</div>
                       <div className="text-xs text-gray-500">{emp.profiles?.email}</div>
                     </div>
-                    <div role="radiogroup" aria-label="등급" className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-0.5 flex-shrink-0">
-                      {GRADES.map(g => {
-                        const on = gradeOf(emp) === g.key
-                        return (
-                          <button key={g.key} role="radio" aria-checked={on}
-                            onClick={() => setGrade(emp, g.key)} disabled={gradingId === emp.id}
-                            className={cn('rounded-lg px-3 py-1 text-xs font-bold transition-colors disabled:opacity-50',
-                              on ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300')}>
-                            {g.label}
-                          </button>
-                        )
-                      })}
-                    </div>
+                    <select aria-label={`${emp.profiles?.name ?? '직원'} 등급`} value={gradeOf(emp)}
+                      onChange={e => setGrade(emp, e.target.value as Grade)} disabled={gradingId === emp.id}
+                      className="flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 disabled:opacity-50">
+                      {GRADES.map(g => <option key={g.key} value={g.key}>{g.label}</option>)}
+                    </select>
                     <button onClick={() => removeEmployee(emp.id)} aria-label="직원 제거" title="직원 제거"
                       className={cn('flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors')}>
                       <X className="h-3.5 w-3.5" />
