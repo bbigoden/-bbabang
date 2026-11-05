@@ -26,6 +26,7 @@ import { useToast } from '@/components/toast'
 import { todayKST, addDays } from '@/lib/date-kst'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { SOURCE_OPTIONS, SOURCE_COLORS } from '@/lib/customer-sources'
+import { useOfficeSources } from '@/lib/use-office-sources'
 
 // ── 컬럼 정의 (고객목록과 동일) ─────────────────────────
 interface ColDef {
@@ -728,6 +729,8 @@ export default function BrokerDiaryPage() {
   // 퇴사자는 col_settings 없으므로 대표 본인 설정으로 fallback
   const settingsBrokerId = viewingExEmployee ? (broker?.id ?? null) : (viewingBrokerId ?? broker?.id ?? null)
   const { settings, update, loaded } = useColSettings('diary_cust', settingsBrokerId, DEFAULT_COL_SETTINGS)
+  // 유입 선택지는 사무실 공통 — 대표만 머리글에서 고친다(use-office-sources.ts)
+  const { sourceOptions, saveSourceOptions } = useOfficeSources(broker ? (broker.is_owner !== false ? broker.id : (broker.parent_broker_id ?? broker.id)) : null, isOwner)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'diary')
   const toast = useToast()
 
@@ -1448,7 +1451,7 @@ export default function BrokerDiaryPage() {
       if (cd?.type === 'select') return <SelectCell value={c.custom_fields?.[col.id] ?? ''} options={settings.options[col.id] ?? []} onSave={v => saveCustomField(c.id, col.id, v)} readOnly={ro} multi={settings.multi[col.id]} />
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
-    const def = col.def; const opts = def.key === 'source' ? SOURCE_OPTIONS : (settings.options[def.key] ?? def.defaultOpts ?? []); const colorMap = COL_COLORS[def.key]
+    const def = col.def; const opts = def.key === 'source' ? sourceOptions : (settings.options[def.key] ?? def.defaultOpts ?? []); const colorMap = COL_COLORS[def.key]
     switch (def.key) {
       case 'request':       return <LongTextCell value={c.request} onSave={v => saveCustomerField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
       case 'received_date': return <TextCell value={c.received_date} onSave={v => saveCustomerField(c.id, 'received_date', v || null)} placeholder="접수일자" readOnly={ro} />
@@ -1610,7 +1613,7 @@ export default function BrokerDiaryPage() {
                             {col.type === 'custom' ? (() => {
                               const cd = settings.customCols.find(cc => cc.id === col.id)
                               return <ColumnHeader label={col.name} isCustom colType={cd?.type ?? 'text'} onChangeType={t => changeCustomColType(col.id, t)} hasOptions={cd?.type === 'select'} options={settings.options[col.id] ?? []} onSetOptions={opts => setOpts(col.id, opts)} isMulti={settings.multi[col.id]} onChangeMulti={cd?.type === 'select' ? m => setMulti(col.id, m) : undefined} onHide={() => hideCol(col.id)} onRename={n => renameCustomCol(col.id, n)} onDelete={() => deleteCustomCol(col.id)} />
-                            })() : <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={col.def.key === 'source' ? SOURCE_OPTIONS : (settings.options[col.def.key] ?? col.def.defaultOpts ?? [])} onSetOptions={col.def.key === 'source' ? undefined : opts => setOpts(col.def.key, opts)} isMulti={settings.multi[col.def.key]} onChangeMulti={col.def.hasOptions ? m => setMulti(col.def.key, m) : undefined} onHide={() => hideCol(col.def.key)} />}
+                            })() : <ColumnHeader label={col.def.label} isFixed={col.def.fixed} hasOptions={col.def.hasOptions} options={col.def.key === 'source' ? sourceOptions : (settings.options[col.def.key] ?? col.def.defaultOpts ?? [])} onSetOptions={col.def.key === 'source' ? saveSourceOptions : opts => setOpts(col.def.key, opts)} isMulti={settings.multi[col.def.key]} onChangeMulti={col.def.hasOptions ? m => setMulti(col.def.key, m) : undefined} onHide={() => hideCol(col.def.key)} />}
                           </div>
                           <div onMouseDown={e => startResize(key, e)} className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-400 transition-all" />
                         </th>

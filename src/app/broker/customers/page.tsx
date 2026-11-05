@@ -25,6 +25,7 @@ import { DateCell } from '@/components/sheet/cells/date-cell'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 import { todayKST } from '@/lib/date-kst'
 import { SOURCE_OPTIONS, SOURCE_COLORS } from '@/lib/customer-sources'
+import { useOfficeSources } from '@/lib/use-office-sources'
 import { formatPhoneKR, looksLikePhone } from '@/lib/validation'
 import { checkYmdField } from '@/lib/property-field-check'
 
@@ -366,6 +367,8 @@ export default function BrokerCustomersPage() {
 
   // 칼럼 설정 (DB)
   const { settings, update, loaded } = useColSettings('customers', broker?.id ?? null, DEFAULT_COL_SETTINGS)
+  // 유입 선택지는 사무실 공통 — 대표만 머리글에서 고친다(use-office-sources.ts)
+  const { sourceOptions, saveSourceOptions } = useOfficeSources(broker ? (broker.is_owner !== false ? broker.id : (broker.parent_broker_id ?? broker.id)) : null, isOwner)
   const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'customers')
 
   useEffect(() => {
@@ -835,7 +838,7 @@ export default function BrokerCustomersPage() {
       return <TextCell value={c.custom_fields?.[col.id] ?? ''} onSave={v => saveCustomField(c.id, col.id, v)} placeholder="—" readOnly={ro} />
     }
     const def = col.def
-    const opts = def.key === 'source' ? SOURCE_OPTIONS : (settings.options[def.key] ?? def.defaultOpts ?? [])
+    const opts = def.key === 'source' ? sourceOptions : (settings.options[def.key] ?? def.defaultOpts ?? [])
     const colorMap = COL_COLORS[def.key]
     switch (def.key) {
       case 'request':       return <TextCell value={c.request} onSave={v => saveField(c.id, 'request', v || null)} placeholder="요청사항" readOnly={ro} />
@@ -1089,8 +1092,8 @@ export default function BrokerCustomersPage() {
                               label={col.def.label}
                               isFixed={col.def.fixed}
                               hasOptions={col.def.hasOptions && settings.colTypes[col.def.key] !== 'text'}
-                              options={col.def.key === 'source' ? SOURCE_OPTIONS : (settings.options[col.def.key] ?? col.def.defaultOpts ?? [])}
-                              onSetOptions={col.def.key === 'assignee' || col.def.key === 'source' ? undefined : opts => setOpts(col.def.key, opts)}
+                              options={col.def.key === 'source' ? sourceOptions : (settings.options[col.def.key] ?? col.def.defaultOpts ?? [])}
+                              onSetOptions={col.def.key === 'assignee' ? undefined : col.def.key === 'source' ? saveSourceOptions : opts => setOpts(col.def.key, opts)}
                               colType={col.def.hasOptions && col.def.key !== 'assignee' ? (settings.colTypes[col.def.key] ?? 'select') : undefined}
                               onChangeType={col.def.hasOptions && col.def.key !== 'assignee' ? type => changeFixedColType(col.def.key, type) : undefined}
                               isMulti={settings.multi[col.def.key]}
