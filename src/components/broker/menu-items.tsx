@@ -32,11 +32,13 @@ export interface ItemDef {
   children?: SubItemDef[]
 }
 
-/** 일정 화면을 쓸 수 있는 계정인가 — DB 권한(office_event_can_*)과 같은 규칙 */
+/**
+ * 일정 화면을 쓸 수 있는 계정인가 — permissions.events=true 인 계정만(대표 김용유·직원 이예리, 11-05).
+ * 대표에게도 표시를 요구해 다른 사무소 대표에겐 메뉴가 안 보인다. DB(office_event_can_*)는 대표를 늘 허용한다.
+ */
 export function canUseEvents(broker: Parameters<typeof bidOf>[0]): boolean {
-  if (!broker) return false
-  if (broker.is_owner !== false) return true
-  return broker.is_approved === true && broker.permissions?.events === true
+  if (!broker || broker.permissions?.events !== true) return false
+  return broker.is_owner !== false || broker.is_approved === true
 }
 
 /** 이 사무소에 보일 메뉴인가 — 사이드바·모바일 드로어가 같이 쓴다 */

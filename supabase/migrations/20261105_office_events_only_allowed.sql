@@ -39,3 +39,8 @@ $$;
 UPDATE broker_profiles
 SET permissions = COALESCE(permissions, '{}'::jsonb) || '{"events": true}'::jsonb
 WHERE id = 'c7e58900-e6bb-4f88-b3bf-d1879f8a6050';
+
+-- 대표(김용유)도 같은 표시 — 메뉴는 이 표시가 있는 계정에만 보인다(다른 사무소 대표에게 안 보이게). 11-05 사장님 승인·적용.
+UPDATE broker_profiles
+SET permissions = COALESCE(permissions, '{}'::jsonb) || '{"events": true}'::jsonb
+WHERE id = '7edde640-a6ea-4657-ab52-0403e9fdd39e';
