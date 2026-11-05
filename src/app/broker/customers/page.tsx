@@ -922,7 +922,8 @@ export default function BrokerCustomersPage() {
                 <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-600 shadow dark:bg-gray-900/90 dark:text-gray-300">고객 불러오는 중…</span>
               </div>
             )}
-            <div className={cn('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3', !allLoaded && 'opacity-30')}>
+            {/* 유입이 10칸이라 칸을 넓게 주고, 나머지 카드는 내용을 세로 가운데에 — 같은 줄 높이에 맞춰 늘어나 아래가 텅 비어 보였다(11-05) */}
+            <div className={cn('grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[0.5fr_1.15fr_0.85fr_1.5fr] gap-3', !allLoaded && 'opacity-30')}>
               {/* 신규 */}
               <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm flex flex-col justify-between">
                 <div className="flex items-center gap-2 mb-3">
@@ -938,12 +939,12 @@ export default function BrokerCustomersPage() {
               </div>
 
               {/* 담당자 도넛 */}
-              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm">
+              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm flex flex-col">
                 <div className="text-xs font-semibold text-gray-500 mb-3">담당자</div>
                 {assigneeDist.length === 0 ? (
                   <div className="text-xs text-gray-500 text-center py-6">데이터 없음</div>
                 ) : (
-                  <div className="flex items-center gap-3">
+                  <div className="flex-1 flex items-center gap-3">
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                       <DonutChart data={assigneeDist} colors={ASSIGNEE_COLORS} total={aTotal} />
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -964,12 +965,12 @@ export default function BrokerCustomersPage() {
               </div>
 
               {/* 구분 도넛 */}
-              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm">
+              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm flex flex-col">
                 <div className="text-xs font-semibold text-gray-500 mb-3">구분</div>
                 {categoryDist.length === 0 ? (
                   <div className="text-xs text-gray-500 text-center py-6">데이터 없음</div>
                 ) : (
-                  <div className="flex items-center gap-3">
+                  <div className="flex-1 flex items-center gap-3">
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                       <DonutChart data={categoryDist} colors={CATEGORY_COLORS_CHART} total={cTotal} />
                       <div className="absolute inset-0 flex items-center justify-center">
@@ -990,19 +991,19 @@ export default function BrokerCustomersPage() {
               </div>
 
               {/* 유입 도넛 */}
-              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm">
+              <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 px-4 py-4 shadow-sm flex flex-col @container">
                 <div className="text-xs font-semibold text-gray-500 mb-3">유입</div>
                 {sourceDist.length === 0 ? (
                   <div className="text-xs text-gray-500 text-center py-6">데이터 없음</div>
                 ) : (
-                  <div className="flex items-center gap-3">
+                  <div className="flex-1 flex items-center gap-3">
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                       <DonutChart data={sourceDist} colors={SOURCE_COLORS_CHART} total={sTotal} />
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-[11px] font-bold text-gray-600 dark:text-gray-500">{sTotal}</span>
                       </div>
                     </div>
-                    <div className={`flex-1 min-w-0 ${sourceDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
+                    <div className={`flex-1 min-w-0 ${sourceDist.length > 6 ? 'grid grid-cols-2 @sm:grid-cols-3 gap-x-3 gap-y-1.5' : sourceDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
                       {sourceDist.map(([label, count], i) => (
                         <div key={label} className="flex items-center gap-1.5 min-w-0">
                           <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: SOURCE_COLORS_CHART[i % SOURCE_COLORS_CHART.length] }} />
