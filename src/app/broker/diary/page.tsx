@@ -674,6 +674,9 @@ export default function BrokerDiaryPage() {
   const [isOwner, setIsOwner] = useState(false)
   const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([])
   const [exEmployees, setExEmployees] = useState<Array<{ id: string; name: string }>>([])
+  // 퇴사자 일지는 사건이 생겨야 본다(2026-11-05 사장님) — 일지를 열 때마다 받지 않고, 고르는 칸에서
+  // '퇴사자 일지 보기…' 를 누를 때 한 번 받는다. null=아직 안 받음, 'loading'=받는 중
+  const [exState, setExState] = useState<null | 'loading' | 'done'>(null)
   const [_teamMembers, setTeamMembers] = useState<string[]>([])
   const [viewingBrokerId, setViewingBrokerId] = useState<string | null>(null) // null = 자기 자신
   const [viewingExEmployee, setViewingExEmployee] = useState(false) // true면 archive에서 읽음
@@ -803,7 +806,7 @@ export default function BrokerDiaryPage() {
       setOfficeOwnerName((data?.profiles as any)?.name ?? '')
     })()
 
-    // 대표: 직원 목록 + 퇴사자 목록 — 일지 고르는 칸에만 쓰이니 화면을 기다리게 하지 않는다.
+    // 대표: 직원 목록 — 일지 고르는 칸에만 쓰이니 화면을 기다리게 하지 않는다.
     // 기다리면 직원 → 퇴사자(1,000행 넘어 두 번) 왕복이 줄을 서, 폰 느린 회선에서 일지·광고현황이
     // 약 6초 늦게 떴다(2026-10-29 점검).
     // 이사도 같다 — 이사는 대표 + 다른 직원(자기 빼고) 일지를 고른다
@@ -820,43 +823,44 @@ export default function BrokerDiaryPage() {
       } else {
         setTeamMembers(prof?.name ? [prof.name] : [])
       }
-      // archive에서 distinct 퇴사자 목록 — diary archive · customer archive 양쪽 합집합.
-      // customer archive는 이미 1,000행을 넘었다. PostgREST는 1,000행에서 조용히 자르므로
-      // 그냥 받으면 그 뒤에만 기록이 있는 퇴사자가 목록에서 빠진다 → 페이지를 이어 받는다.
-      // 실패해도 일지는 떠야 하므로(아래 피커 범위 설정까지 막히면 안 됨) 여기서 삼킨다.
-      try {
-        // 겹치지 않는 사람만 한 번에(office_archive_authors) — 보관 표 1,300줄 넘게를 매번 받던 것(2026-11-05)
-        const { data: authors, error: authErr } = await supabase.rpc('office_archive_authors', { p_office: officeId })
-        if (!authErr && authors) {
-          setExEmployees((authors as { author_broker_id: string; author_name: string | null }[])
-            .map(a => ({ id: a.author_broker_id, name: a.author_name ?? '퇴사자' })))
-          return
-        }
+      // 퇴사자 목록은 여기서 받지 않는다 — 고르는 칸에서 '퇴사자 일지 보기…' 를 누를 때만(loadExEmployees).
+    })()
+    else setTeamMembers(prof?.name ? [prof.name] : [])
+  }
+
+  const loadExEmployees = async () => {
+    if (!pickerOfficeId || exState) return
+    setExState('loading')
+    try {
+      // 겹치지 않는 사람만 한 번에(office_archive_authors)
+      const { data: authors, error: authErr } = await supabase.rpc('office_archive_authors', { p_office: pickerOfficeId })
+      if (!authErr && authors) {
+        setExEmployees((authors as { author_broker_id: string; author_name: string | null }[])
+          .map(a => ({ id: a.author_broker_id, name: a.author_name ?? '퇴사자' })))
+      } else {
+        // 함수가 없으면 예전처럼 두 보관 표를 이어 받아 겹친 것을 거른다.
+        // customer archive는 1,000행을 넘었다 — PostgREST는 1,000행에서 조용히 자르므로 페이지를 이어 받는다.
         const [archAuthors1, archAuthors2] = await Promise.all([
           fetchAllPaged((from, to) => supabase.from('broker_diary_archive')
-            .select('author_broker_id, author_name')
-            .eq('office_broker_id', officeId)
-            .order('id').range(from, to)),
+            .select('author_broker_id, author_name').eq('office_broker_id', pickerOfficeId).order('id').range(from, to)),
           fetchAllPaged((from, to) => supabase.from('broker_diary_customers_archive')
-            .select('author_broker_id, author_name')
-            .eq('office_broker_id', officeId)
-            .order('id').range(from, to)),
+            .select('author_broker_id, author_name').eq('office_broker_id', pickerOfficeId).order('id').range(from, to)),
         ])
         const seen = new Set<string>()
         const exList: Array<{ id: string; name: string }> = []
-        for (const a of [...archAuthors1, ...archAuthors2]) {
-          const aid = (a as any).author_broker_id
-          if (aid && !seen.has(aid)) {
-            seen.add(aid)
-            exList.push({ id: aid, name: (a as any).author_name ?? '퇴사자' })
+        for (const a of [...archAuthors1, ...archAuthors2] as { author_broker_id: string | null; author_name: string | null }[]) {
+          if (a.author_broker_id && !seen.has(a.author_broker_id)) {
+            seen.add(a.author_broker_id)
+            exList.push({ id: a.author_broker_id, name: a.author_name ?? '퇴사자' })
           }
         }
         setExEmployees(exList)
-      } catch (e) {
-        console.error('[diary] 퇴사자 목록 로드 실패:', e)
       }
-    })()
-    else setTeamMembers(prof?.name ? [prof.name] : [])
+      setExState('done')
+    } catch (e) {
+      console.error('[diary] 퇴사자 목록 로드 실패:', e)
+      setExState(null) // 다시 누르면 또 받는다
+    }
   }
 
   // 날짜를 빠르게 넘기면 늦게 도착한 이전 응답이 최신 화면을 덮어쓰므로 요청 순번으로 차단
@@ -1551,6 +1555,7 @@ export default function BrokerDiaryPage() {
                 value={viewingExEmployee ? `ex:${viewingBrokerId}` : (viewingBrokerId ?? '')}
                 onChange={e => {
                   const v = e.target.value
+                  if (v === '__ex') { void loadExEmployees(); return }
                   if (!v) { setViewingBrokerId(null); setViewingExEmployee(false) }
                   else if (v.startsWith('ex:')) { setViewingBrokerId(v.slice(3)); setViewingExEmployee(true) }
                   else { setViewingBrokerId(v); setViewingExEmployee(false) }
@@ -1566,13 +1571,15 @@ export default function BrokerDiaryPage() {
                     ))}
                   </optgroup>
                 )}
-                {exEmployees.length > 0 && (
-                  <optgroup label="퇴사">
-                    {exEmployees.map(e => (
-                      <option key={e.id} value={`ex:${e.id}`}>{e.name}</option>
-                    ))}
-                  </optgroup>
-                )}
+                <optgroup label="퇴사">
+                  {exState !== 'done' && (
+                    <option value="__ex">{exState === 'loading' ? '퇴사자 불러오는 중…' : '퇴사자 일지 보기…'}</option>
+                  )}
+                  {exState === 'done' && exEmployees.length === 0 && <option disabled>퇴사자 기록 없음</option>}
+                  {exEmployees.map(e => (
+                    <option key={e.id} value={`ex:${e.id}`}>{e.name}</option>
+                  ))}
+                </optgroup>
               </select>
             )}
             {viewingExEmployee && (
