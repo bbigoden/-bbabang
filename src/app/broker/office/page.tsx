@@ -347,20 +347,22 @@ export default function OfficePage() {
 
   // 현황판 — 숫자 세는 법은 업무일지 3번 광고현황과 같이 쓴다(lib/office-board). 천천히 바뀌는 숫자라 5분마다만 본다.
   const loadBoard = useCallback(async () => {
-    if (!officeId || !members.length) return
+    if (!officeId) return
     // 사람마다 매물 전체 수는 현황판이 이미 센다 — 따로 또 세면 폰 3G 에서 HEAD 가 사람 수만큼 더 나갔다(10-30)
-    const b = await fetchOfficeBoard(supabase, officeId, members)
+    // 사람 목록이 아직 없으면(처음 열 때) 현황판이 직접 묻는다 — 위 묶음 15개가 끝나길 기다리면 폰에서
+    // 현황판이 1초 넘게 늦게 떴다(2026-11-05)
+    const b = await fetchOfficeBoard(supabase, officeId, members.length ? members : undefined)
     setBoard(b)
     setTotalProps(b.byId ?? {})
   }, [supabase, officeId, members])
 
-  // 사람 목록이 처음 들어오면 한 번, 그 뒤엔 5분마다(사람이 바뀌어도 다시 안 센다 — 10초마다 새 배열이 온다)
+  // 화면을 열면 곧바로 한 번, 그 뒤엔 5분마다(사람이 바뀌어도 다시 안 센다 — 10초마다 새 배열이 온다)
   const boardLoaded = useRef(false)
   useEffect(() => {
-    if (!members.length || boardLoaded.current) return
+    if (!officeId || boardLoaded.current) return
     boardLoaded.current = true
     void loadBoard()
-  }, [members, loadBoard])
+  }, [officeId, loadBoard])
   const loadBoardRef = useRef(loadBoard)
   useEffect(() => { loadBoardRef.current = loadBoard }, [loadBoard])
   useEffect(() => pollWhileVisible(() => { void loadBoardRef.current() }, 5 * 60_000), [])
