@@ -9,7 +9,7 @@
 // - navigate(HTML) : 내비게이션 프리로드 응답 우선, 실패 시에만 offline.html fallback
 // - 푸시 알림 / 클릭 처리
 
-const VERSION = 'busojang-v6'
+const VERSION = 'busojang-v7'
 const STATIC_CACHE = `${VERSION}-static`
 const IMAGE_CACHE = `${VERSION}-images`
 const OFFLINE_URL = '/offline.html'
@@ -21,6 +21,7 @@ const PRECACHE = [
   '/offline.html',
   '/icon-192.png',
   '/icon-512.png',
+  '/badge-96.png',
   '/favicon.ico',
   '/manifest.webmanifest',
 ]
@@ -140,7 +141,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      // 안드로이드 상단바 작은 아이콘은 투명 배경 흰 모양만 쓴다 — 꽉 찬 아이콘을 주면 흰 네모가 된다
+      badge: '/badge-96.png',
       data: { url: data.url },
       tag: data.tag,
       // 같은 방(tag)의 다음 메시지는 앞 알림을 갈아 끼우기만 하고 소리·진동 없이 조용히 지나갔다

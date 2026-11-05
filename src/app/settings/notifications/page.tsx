@@ -28,6 +28,7 @@ export default function SettingsNotificationsPage() {
   // 푸시 구독 상태
   const [pushSupported, setPushSupported] = useState(false)
   const [pushPermission, setPushPermission] = useState<NotificationPermission>('default')
+  const [isIOS, setIsIOS] = useState(false)
   const [pushSubscribed, setPushSubscribed] = useState(false)
   const [pushBusy, setPushBusy] = useState(false)
 
@@ -42,6 +43,7 @@ export default function SettingsNotificationsPage() {
       setLoading(false)
     })()
 
+    if (typeof window !== 'undefined') setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
       setPushSupported(true)
       setPushPermission(Notification.permission)
@@ -119,8 +121,13 @@ export default function SettingsNotificationsPage() {
               이 기기 알림 (휴대폰·PC)
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              {!pushSupported && '이 브라우저는 푸시 알림을 지원하지 않아요.'}
-              {pushSupported && pushPermission === 'denied' && '브라우저 알림이 차단되어 있어요. 주소창 옆 자물쇠 → 알림 → 허용으로 변경해주세요.'}
+              {/* 아이폰은 홈 화면에 추가한 앱에서만 푸시가 된다(iOS 16.4+). 사파리에선 PushManager 가 아예 없다 */}
+              {!pushSupported && (isIOS
+                ? '아이폰은 홈 화면에 추가한 앱에서만 알림이 와요. 사파리 공유 버튼 → 홈 화면에 추가 → 그 아이콘으로 열어 주세요.'
+                : '이 브라우저는 푸시 알림을 지원하지 않아요.')}
+              {pushSupported && pushPermission === 'denied' && (isIOS
+                ? '알림이 꺼져 있어요. 아이폰 설정 → 알림 → 부소장에서 켜 주세요.'
+                : '브라우저 알림이 차단되어 있어요. 주소창 옆 자물쇠 → 알림 → 허용으로 변경해주세요.')}
               {pushSupported && pushPermission !== 'denied' && (pushSubscribed
                 ? '이 디바이스에서 알림을 받고 있어요'
                 : '허용하면 이 디바이스로 알림이 와요')}
