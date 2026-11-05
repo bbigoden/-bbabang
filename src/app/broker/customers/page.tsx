@@ -800,10 +800,19 @@ export default function BrokerCustomersPage() {
     filtered.forEach(c => { if (c.category) map[c.category] = (map[c.category] ?? 0) + 1 })
     return distribute(map)
   })()
+  // 유입은 PC 12칸·폰 10칸까지 따로 보인다 — 8칸이면 톡톡·워킹이 '기타'에 묻혔다(11-05).
+  // PC 는 카드가 넓어 3열로 놓이니 12칸도 4줄이고, 폰은 2열이라 10칸(5줄)에서 끊는다.
+  const [wideStats, setWideStats] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)')
+    const on = () => setWideStats(mq.matches)
+    on(); mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
   const sourceDist = (() => {
     const map: Record<string, number> = {}
     filtered.forEach(c => { if (c.source) map[c.source] = (map[c.source] ?? 0) + 1 })
-    return distribute(map, 10)  // 유입은 10칸까지 따로 보인다 — 8칸이면 톡톡·워킹이 '기타'에 묻혔다(11-05)
+    return distribute(map, wideStats ? 12 : 10)
   })()
 
   // 활성 칼럼
@@ -909,7 +918,7 @@ export default function BrokerCustomersPage() {
         {(() => {
           const ASSIGNEE_COLORS = ['#5174b1','#2c5095','#14274e','#859ecd']
           const CATEGORY_COLORS_CHART = ['#a78bfa','#8b5cf6','#7c3aed','#c4b5fd']
-          const SOURCE_COLORS_CHART = ['#34d399','#10b981','#f59e0b','#f97316','#6366f1','#ec4899','#14b8a6','#84cc16','#a855f7','#0ea5e9']
+          const SOURCE_COLORS_CHART = ['#34d399','#10b981','#f59e0b','#f97316','#6366f1','#ec4899','#14b8a6','#84cc16','#a855f7','#0ea5e9','#eab308','#64748b']
           const aTotal = assigneeDist.reduce((s,[,v])=>s+v,0)
           const cTotal = categoryDist.reduce((s,[,v])=>s+v,0)
           const sTotal = sourceDist.reduce((s,[,v])=>s+v,0)
