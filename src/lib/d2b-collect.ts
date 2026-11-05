@@ -34,6 +34,8 @@ const PER_SECOND = 8
 const RECENT_RESULT_DAYS = 14
 const WINDOW_DAYS = 7
 const DETAIL_BATCH = 12
+// 공개수의는 개찰 뒤 한참 있다가 순위가 붙는다(11/03 개찰 → 11/05 순위확정). 1순위가 없으면 이 간격으로 다시 본다
+const RECHECK_HOURS = 3
 /** 4992 아닌 공사 번호는 이만큼만 기억한다(오래된 것부터 버린다) */
 const SKIP_KEEP = 4000
 
@@ -206,6 +208,9 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
     const bids = mnuf.map(x => (othbc ? d2bOthbcBid : d2bCmpetBid)(x, r.bid_ntce_no, r.bid_ntce_ord))
       .filter(b => b.bizno && !seen.has(`${b.rank}/${b.bizno}`) && seen.add(`${b.rank}/${b.bizno}`))
     if (bids.length) {
+      // 순위가 나중에 붙으면 키(rank)가 바뀌어 예전 '순위 없음' 줄이 남는다 — 지우고 다시 넣는다
+      const { error: delErr } = await supa.from('bid_result_bids').delete().eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord)
+      if (delErr) throw delErr
       const { error } = await supa.from('bid_result_bids').upsert(bids, { onConflict: 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno' })
       if (error) throw error
     }
@@ -240,6 +245,13 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
     await syncNotices()
     await syncResults(addDays(today, -RECENT_RESULT_DAYS), today)
     let backfill = state.backfill ?? addDays(today, -RECENT_RESULT_DAYS)
+    {
+      const { error } = await supa.from('bid_results').update({ detail_at: null })
+        .like('bid_ntce_no', '%-%').is('winner_nm', null)
+        .gte('openg_at', new Date(Date.now() - RECENT_RESULT_DAYS * 864e5).toISOString())
+        .lt('detail_at', new Date(Date.now() - RECHECK_HOURS * 36e5).toISOString())
+      if (error) throw error
+    }
     while (true) {
       const { data: todo, error } = await supa.from('bid_results').select('bid_ntce_no, bid_ntce_ord, openg_at')
         .like('bid_ntce_no', '%-%').is('detail_at', null).order('openg_at', { ascending: false, nullsFirst: false }).limit(DETAIL_BATCH)
