@@ -1456,23 +1456,6 @@ export default function CollectPage() {
             }}>
               오늘
             </Chip>
-            <span className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-800" />
-            <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
-            {/* 네이버 '새 매물' 의 절반 넘게가 번호만 새로 받은 재등록다(11/02 실측 59%). */}
-            {source === 'naver' && (
-              <Chip on={재등록빼기} onClick={() => { set재등록빼기(v => !v); setPage(1) }}>재등록 빼기</Chip>
-            )}
-            {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
-                이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
-                켜지는 일(받아올 때 가려내기)까지 같이 맡는다. */}
-            {/* 당근은 늘어난 지도 칸만 열어 새 매물을 건지므로, 안 본 매물이 내려갔는지
-                알 길이 없다. 눌러도 늘 비는 칩은 없는 편이 낫다. */}
-            {source === 'naver' && (
-              <Chip on={goneOnly} onClick={() => {
-                if (!settings.track_gone) void saveSetting({ track_gone: true })
-                setGoneOnly(v => !v); setPage(1)
-              }}>사라진 것</Chip>
-            )}
             {/* 보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
                 탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
                 네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
@@ -1489,6 +1472,27 @@ export default function CollectPage() {
               <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
               {jobs[source] ?? '매물수집'}
             </button>
+          </div>
+          {/* 칩은 제 줄로 — 기간 줄 끝에 이어 붙이면 폭에 따라 '사라진 것' 하나만 아랫줄로 떨어지고
+              [매물수집] 이 그 옆 오른쪽 끝에 붙어 줄이 들쭉날쭉했다(11-06). 아래 지역·종류 줄처럼 이름표를 단다. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">보기</span>
+            <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
+            {/* 네이버 '새 매물' 의 절반 넘게가 번호만 새로 받은 재등록다(11/02 실측 59%). */}
+            {source === 'naver' && (
+              <Chip on={재등록빼기} onClick={() => { set재등록빼기(v => !v); setPage(1) }}>재등록 빼기</Chip>
+            )}
+            {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
+                이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
+                켜지는 일(받아올 때 가려내기)까지 같이 맡는다. */}
+            {/* 당근은 늘어난 지도 칸만 열어 새 매물을 건지므로, 안 본 매물이 내려갔는지
+                알 길이 없다. 눌러도 늘 비는 칩은 없는 편이 낫다. */}
+            {source === 'naver' && (
+              <Chip on={goneOnly} onClick={() => {
+                if (!settings.track_gone) void saveSetting({ track_gone: true })
+                setGoneOnly(v => !v); setPage(1)
+              }}>사라진 것</Chip>
+            )}
           </div>
           {/* **조건은 접어 둔다.** 줄이 일곱이면 폰에서 목록이 두 화면 뒤로 밀린다.
               접힌 채로도 무엇을 걸어 두었는지는 한 줄로 보인다 — 칩이 여기저기
@@ -1728,7 +1732,10 @@ export default function CollectPage() {
                 ))}
               </select>
             </div>
-            <ul className="divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
+            {/* 한 줄 모양은 화면 폭이 아니라 목록 폭(56rem=896px)으로 가른다. 고정 칸만 772px 이라
+                태블릿(sm)에서 한 줄로 펴면 소재지 칸이 0이 되어 '재등록'·'지도' 가 면적 칸 위에 겹쳤다(11-06).
+                사이드바가 있는 PC 에서도 목록이 좁으면 같은 일이 나므로 컨테이너 쿼리로 본다. */}
+            <ul className="@container divide-y divide-gray-100 overflow-hidden rounded-2xl border border-gray-200
                            bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
               {/* 묶음은 머리 한 줄로 서고, 펼치면 그 아래에 광고마다 한 줄씩 붙는다 —
                   네이버 [동일매물 묶기] 와 같은 모양이다. 펼친 줄은 왼쪽 띠로 묶음임을 보인다. */}
@@ -1753,29 +1760,29 @@ export default function CollectPage() {
                           return 다음
                         })}
                         className="flex w-full flex-col gap-0.5 px-4 py-2.5 text-left transition-colors
-                                   hover:bg-blue-50/60 sm:flex-row sm:items-center sm:gap-3 dark:hover:bg-gray-800"
+                                   hover:bg-blue-50/60 @[56rem]:flex-row @[56rem]:items-center @[56rem]:gap-3 dark:hover:bg-gray-800"
                       >
                         {/* 칸 차례·폭은 아래 매물 줄과 같다. 묶음 줄만 칸이 어긋나면 훑을 때 눈이 걸린다. */}
-                        <div className="flex items-center gap-3 sm:contents">
-                          <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 sm:order-1 dark:text-gray-600">
+                        <div className="flex items-center gap-3 @[56rem]:contents">
+                          <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 @[56rem]:order-1 dark:text-gray-600">
                             {대표.shown_date?.slice(5).replace('-', '/')}
                           </span>
-                          <span className="shrink-0 whitespace-nowrap text-sm text-gray-600 sm:order-2 sm:w-[124px] dark:text-gray-400">
+                          <span className="shrink-0 whitespace-nowrap text-sm text-gray-600 @[56rem]:order-2 @[56rem]:w-[124px] dark:text-gray-400">
                             {src.kindOf(대표.kind_code)}
                             <span className="ml-1 text-xs text-gray-400">
                               {대표.trade_code ? (src.trades[대표.trade_code] ?? 대표.trade_code) : ''}
                             </span>
                           </span>
-                          <span className="min-w-0 truncate whitespace-nowrap text-xs text-gray-600 sm:order-4 sm:w-[150px] sm:shrink-0 dark:text-gray-400">
+                          <span className="min-w-0 truncate whitespace-nowrap text-xs text-gray-600 @[56rem]:order-4 @[56rem]:w-[150px] @[56rem]:shrink-0 dark:text-gray-400">
                             {면적(대표)
-                              ? <>{면적(대표)!.앞}{면적(대표)!.뒤 && <span className="ml-1 hidden text-gray-400 sm:inline">{면적(대표)!.뒤}</span>}</>
+                              ? <>{면적(대표)!.앞}{면적(대표)!.뒤 && <span className="ml-1 hidden text-gray-400 @[56rem]:inline">{면적(대표)!.뒤}</span>}</>
                               : <span className="text-gray-300 dark:text-gray-600">–</span>}
                           </span>
-                          <span className="hidden shrink-0 whitespace-nowrap text-xs tabular-nums text-gray-500 sm:order-5 sm:block sm:w-[52px] dark:text-gray-500">
+                          <span className="hidden shrink-0 whitespace-nowrap text-xs tabular-nums text-gray-500 @[56rem]:order-5 @[56rem]:block @[56rem]:w-[52px] dark:text-gray-500">
                             {대표.floor_info ? `${대표.floor_info}층` : ''}
                           </span>
                           {/* 가격이 갈리면 두 줄로 — 한 줄에 '10,000/700~12,000/800' 을 넣으면 칸을 넘는다. */}
-                          <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[110px] dark:text-gray-300">
+                          <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 @[56rem]:order-6 @[56rem]:w-[110px] dark:text-gray-300">
                             {범위 ? (
                               <span className="flex flex-col leading-tight">
                                 <span>{범위.낮은}{범위.높은 && '~'}</span>
@@ -1784,17 +1791,17 @@ export default function CollectPage() {
                             ) : <span className="text-gray-300 dark:text-gray-600">–</span>}
                           </span>
                         </div>
-                        <div className="flex min-w-0 items-center gap-2 sm:contents">
-                          <span className="flex flex-1 items-center gap-1.5 sm:order-3 sm:min-w-0">
-                            <span className="min-w-[7.5rem] truncate text-sm font-medium text-gray-900 sm:min-w-0 dark:text-white">
+                        <div className="flex min-w-0 items-center gap-2 @[56rem]:contents">
+                          <span className="flex flex-1 items-center gap-1.5 @[56rem]:order-3 @[56rem]:min-w-0">
+                            <span className="min-w-[7.5rem] truncate text-sm font-medium text-gray-900 @[56rem]:min-w-0 dark:text-white">
                               {[대표.division, 대표.sector, 대표.jibun].filter(Boolean).join(' ')}
                             </span>
                           </span>
-                          <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs font-semibold text-blue-600 sm:order-7 sm:w-[120px] dark:text-blue-400">
+                          <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs font-semibold text-blue-600 @[56rem]:order-7 @[56rem]:w-[120px] dark:text-blue-400">
                             중개사 {g.줄들.length}곳
                             <ChevronDown className={`h-3.5 w-3.5 transition-transform ${펼침 ? 'rotate-180' : ''}`} aria-hidden />
                           </span>
-                          <span className="flex w-14 shrink-0 items-center justify-end sm:order-8">
+                          <span className="flex w-14 shrink-0 items-center justify-end @[56rem]:order-8">
                             {새것있음 ? (
                               <span className={`${BADGE} bg-blue-600 font-semibold text-white`}>신규</span>
                             ) : 다봄 ? (
@@ -1818,20 +1825,20 @@ export default function CollectPage() {
                       rel="noreferrer"
                       onClick={() => markSeen(r.article_no)}
                       className="group flex flex-col gap-0.5 px-4 py-2.5 transition-colors
-                                 hover:bg-blue-50/60 sm:flex-row sm:items-center sm:gap-3
+                                 hover:bg-blue-50/60 @[56rem]:flex-row @[56rem]:items-center @[56rem]:gap-3
                                  dark:hover:bg-gray-800"
                     >
                       {/* 열 차례를 광고관리와 같게 둔다 — 종류·소재지·면적·가격.
                           폰에서는 두 줄로 나눈다(한 줄에 다 넣으면 소재지가 잘린다).
-                          `sm:contents` 로 넓은 화면에서는 감싸개가 사라지고, 차례는
-                          `sm:order-*` 로 광고관리와 맞춘다. */}
-                      <div className="flex items-center gap-3 sm:contents">
-                        <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 sm:order-1 dark:text-gray-600">
+                          `@[56rem]:contents` 로 넓은 화면에서는 감싸개가 사라지고, 차례는
+                          `@[56rem]:order-*` 로 광고관리와 맞춘다. */}
+                      <div className="flex items-center gap-3 @[56rem]:contents">
+                        <span className="w-11 shrink-0 text-sm tabular-nums text-gray-400 @[56rem]:order-1 dark:text-gray-600">
                           {r.shown_date?.slice(5).replace('-', '/')}
                         </span>
                         {/* 종류와 거래를 한 칸에 붙인다 — 광고관리와 같다.
                             '지식산업센터' 가 접히면 그 줄만 키가 커지므로 한 줄로 못박는다. */}
-                        <span className="shrink-0 whitespace-nowrap text-sm text-gray-600 sm:order-2 sm:w-[124px] dark:text-gray-400">
+                        <span className="shrink-0 whitespace-nowrap text-sm text-gray-600 @[56rem]:order-2 @[56rem]:w-[124px] dark:text-gray-400">
                           {src.kindOf(r.kind_code)}
                           <span className="ml-1 text-xs text-gray-400">
                             {r.trade_code ? (src.trades[r.trade_code] ?? r.trade_code) : ''}
@@ -1841,29 +1848,29 @@ export default function CollectPage() {
                             없어 면적과 가격을 같이 적는다 — 광고관리와 같은 모양이다. */}
                         {/* 폰은 한 줄에 날짜·종류·면적·가격이 다 들어가야 한다. 공급·연면적까지 적으면
                             가격 끝자리가 화면 밖으로 밀려났다(10,000/70…). 곁 면적은 넓은 화면에서만. */}
-                        <span className="min-w-0 truncate whitespace-nowrap text-xs text-gray-600 sm:order-4 sm:w-[150px] sm:shrink-0 dark:text-gray-400">
+                        <span className="min-w-0 truncate whitespace-nowrap text-xs text-gray-600 @[56rem]:order-4 @[56rem]:w-[150px] @[56rem]:shrink-0 dark:text-gray-400">
                           {면적(r)
-                            ? <>{면적(r)!.앞}{면적(r)!.뒤 && <span className="ml-1 hidden text-gray-400 sm:inline">{면적(r)!.뒤}</span>}</>
+                            ? <>{면적(r)!.앞}{면적(r)!.뒤 && <span className="ml-1 hidden text-gray-400 @[56rem]:inline">{면적(r)!.뒤}</span>}</>
                             : <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
                         {/* 층은 **넓은 화면에서만** 적는다. 폰은 한 줄에 네 칸이 이미 꽉
                             차 있어 하나만 더해도 가로로 넘친다. 층으로 좁히는 일은
                             책상에서 하는 일이라 이 편이 낫다. */}
-                        <span className="hidden shrink-0 whitespace-nowrap text-xs tabular-nums text-gray-500 sm:order-5 sm:block sm:w-[52px] dark:text-gray-500">
+                        <span className="hidden shrink-0 whitespace-nowrap text-xs tabular-nums text-gray-500 @[56rem]:order-5 @[56rem]:block @[56rem]:w-[52px] dark:text-gray-500">
                           {r.floor_info ? `${r.floor_info}층` : ''}
                         </span>
                         {/* 폭은 가장 긴 가격에 맞춘다 — 공장 월세 '140,000/14,000' 이 105px.
                             86px 일 때는 뒷자리가 중개사 칸에 겹쳐 '14,000미래터…' 로 읽혔다(11/04). */}
-                        <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 sm:order-6 sm:w-[110px] dark:text-gray-300">
+                        <span className="shrink-0 whitespace-nowrap text-sm tabular-nums text-gray-700 @[56rem]:order-6 @[56rem]:w-[110px] dark:text-gray-300">
                           {값(r) ?? <span className="text-gray-300 dark:text-gray-600">–</span>}
                         </span>
                       </div>
-                      <div className="flex min-w-0 items-center gap-2 sm:contents">
+                      <div className="flex min-w-0 items-center gap-2 @[56rem]:contents">
                         {/* 폰에서는 동 이름이 먼저다. 가격 변동(▼ 보증 2,000 ▼ 월세 80)과 긴 중개사
                             이름이 같이 붙으면 소재지가 '천안…' 두 글자만 남았다 — 소재지에 최소 폭을 주고,
                             모자라면 중개사 이름이 먼저 줄어든다. */}
-                        <span className="flex flex-1 items-center gap-1.5 sm:order-3 sm:min-w-0">
-                          <span className={`min-w-[7.5rem] truncate text-sm text-gray-900 group-hover:underline sm:min-w-0
+                        <span className="flex flex-1 items-center gap-1.5 @[56rem]:order-3 @[56rem]:min-w-0">
+                          <span className={`min-w-[7.5rem] truncate text-sm text-gray-900 group-hover:underline @[56rem]:min-w-0
                                             dark:text-white ${r.gone_at ? 'line-through' : ''}`}>
                             {[r.division, r.sector, r.jibun].filter(Boolean).join(' ')}
                           </span>
@@ -1917,7 +1924,7 @@ export default function CollectPage() {
                             고를 때 본다. 넓은 화면에서는 제 칸, 폰에서는 소재지 뒤에 줄여 적는다. */}
                         <span
                           title={r.owner ?? ''}
-                          className="min-w-0 max-w-[35%] truncate text-xs sm:shrink-0 text-gray-500 sm:order-7 sm:w-[120px] sm:max-w-none dark:text-gray-500"
+                          className="min-w-0 max-w-[35%] truncate text-xs @[56rem]:shrink-0 text-gray-500 @[56rem]:order-7 @[56rem]:w-[120px] @[56rem]:max-w-none dark:text-gray-500"
                         >
                           {중개사(r.owner)}
                         </span>
@@ -1925,7 +1932,7 @@ export default function CollectPage() {
                             어떤 줄은 숫자가 서로 다른 자리에 찍혀 눈에 거슬린다.
                             셋은 한 번에 하나만 나온다 — 사라짐 > 본 횟수 > 신규 순. */}
                         <span
-                          className="flex w-14 shrink-0 items-center justify-end sm:order-8"
+                          className="flex w-14 shrink-0 items-center justify-end @[56rem]:order-8"
                           title={본것.사무소 ? `사무소 사람들이 ${본것.사무소}회 봤습니다 (내가 ${본것.나}회)` : ''}
                         >
                           {r.gone_at ? (
