@@ -139,8 +139,10 @@ export default function EventsPage() {
     if (!auth.user || !b) { router.push('/auth/login'); return }
     if (!allowed || !officeId) { setLoading(false); return }
     load()
+    // allowed 도 본다 — 폰에 저장된 예전 계정 정보(events 표시 전)로 먼저 열리면 목록을 안 불러오고,
+    // 새 정보가 와도 id 가 같아 다시 안 불러서 빈 화면이 남았다(11-05 대표 화면).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.loading, auth.user?.id, b?.id])
+  }, [auth.loading, auth.user?.id, b?.id, allowed, officeId])
 
   const load = async () => {
     setLoading(true)
