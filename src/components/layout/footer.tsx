@@ -44,7 +44,8 @@ export function Footer() {
 
   return (
     <footer className="mt-8 border-t border-gray-200 bg-gray-50 text-[11px] leading-relaxed text-gray-500 dark:border-gray-800 dark:bg-gray-950">
-      <div className="mx-auto max-w-6xl px-4 pt-4 pb-24 md:pb-4">
+      {/* 폰 아래 여백 = 메뉴바 높이(약 4rem)+안전영역+조금. pb-24 였을 땐 푸터 밑이 한 뼘 비어 보였다(11-06) */}
+      <div className="mx-auto max-w-6xl px-4 pt-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
           <span className="font-bold text-gray-700 dark:text-gray-300">{companyName}</span>
           {info.map(([k, v]) => (

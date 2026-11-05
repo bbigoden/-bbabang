@@ -120,11 +120,14 @@ export function DateCell({
   onSave,
   onClear,
   readOnly,
+  triggerClassName,
 }: {
   value: string | null
   onSave: (v: string) => void
   onClear?: () => void
   readOnly?: boolean
+  /** 표 밖(일지 머리 등)에서 옆 버튼과 글씨를 맞출 때 — 표 칸 모양(text-xs·px-1)을 덮어쓴다 */
+  triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
@@ -189,7 +192,7 @@ export function DateCell({
   return (
     <div className="relative w-full">
       <div ref={btnRef} onClick={handleOpen}
-        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}
+        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400", triggerClassName)}
        >
         {value || '날짜'}
       </div>
