@@ -111,14 +111,14 @@ export function BookingForm({ slug }: { slug: string }) {
           </div>
         </section>
 
-        {date && (
-          <section className={box}>
-            <span className={label}>2. 시간</span>
+        <section className={box}>
+          <span className={label}>2. 시간</span>
+          {date ? (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {slots.map(t => <button key={t} type="button" onClick={() => setTime(t)} className={chip(time === t)}>{timeLabel(t)}</button>)}
             </div>
-          </section>
-        )}
+          ) : <p className="text-sm text-gray-400">날짜를 먼저 골라 주세요</p>}
+        </section>
 
         {products.length > 0 && (
           <section className={box}>
