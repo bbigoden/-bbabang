@@ -27,7 +27,7 @@ const env = Object.fromEntries(fs.readFileSync(path.join(ROOT, '.env.local'), 'u
 const deps = { seumKey: env.SEUM_API_KEY, kakaoKey: env.KAKAO_REST_KEY, mapRoomType: mapPurposeToRoomType }
 
 const b = await chromium.launch(); const ctx = await b.newContext({ storageState: STATE }); const pg = await ctx.newPage()
-await pg.goto('https://bbabang.vercel.app/dashboard/broker', { waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(3000)
+await pg.goto('https://busojang.vercel.app/dashboard/broker', { waitUntil: 'domcontentloaded' }); await pg.waitForTimeout(3000)
 let raw = (await ctx.cookies()).filter(c => c.name.startsWith('sb-') && c.name.includes('auth-token')).sort((a, c) => a.name.localeCompare(c.name)).map(c => decodeURIComponent(c.value)).join('')
 if (raw.startsWith('base64-')) raw = Buffer.from(raw.slice(7), 'base64url').toString('utf8')
 const token = JSON.parse(raw).access_token

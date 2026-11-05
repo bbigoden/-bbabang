@@ -26,7 +26,7 @@ import * as path from 'node:path'
  *     proposals / chat_rooms 는 request_id, chat_messages 는 room_id 의 FK ON DELETE CASCADE 로 함께 삭제됨
  */
 
-const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app'
+const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://busojang.vercel.app'
 
 // 점검 전용 테스트 계정 (tests/visual/inspection.spec.ts 와 동일한 방식)
 // 공개 레포이므로 비밀번호 하드코딩 금지 (.env.local의 PUSH_TEST_PASSWORD)

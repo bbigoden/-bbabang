@@ -10,7 +10,7 @@ try { process.loadEnvFile('.env.local') } catch { /* env 파일 없으면 shell 
  *   npm run inspect:e2e
  *   (= npx playwright test --config=playwright.e2e.config.ts --reporter=list)
  *
- * 라이브 사이트(https://bbabang.vercel.app)에서 실제 계정으로
+ * 라이브 사이트(https://busojang.vercel.app)에서 실제 계정으로
  * 요청 등록 → 제안 → 확인 → 채팅 왕복을 수행하고, 만든 데이터는
  * afterAll에서 전부 삭제한다. (tests/e2e/core-flow.spec.ts 참고)
  *
@@ -26,7 +26,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app',
+    baseURL: process.env.BBANG_BASE_URL ?? 'https://busojang.vercel.app',
     trace: 'retain-on-failure',
     actionTimeout: 15_000,
     navigationTimeout: 30_000,

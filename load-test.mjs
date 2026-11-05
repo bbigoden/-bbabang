@@ -22,7 +22,7 @@ try {
   }
 } catch { /* env 없으면 기존 환경변수 사용 */ }
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bbabang.vercel.app'
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://busojang.vercel.app'
 
 // 성능 기준 (p99 응답시간 기준)
 const THRESHOLDS = {

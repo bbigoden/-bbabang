@@ -20,7 +20,7 @@ try {
   }
 } catch { /* env 없으면 기존 환경변수 사용 */ }
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bbabang.vercel.app'
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://busojang.vercel.app'
 
 let pass = 0, fail = 0, warn = 0
 const failures = []

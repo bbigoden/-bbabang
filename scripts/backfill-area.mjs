@@ -32,7 +32,7 @@ async function getToken() {
   const b = await chromium.launch()
   const ctx = await b.newContext({ storageState: STATE })
   const page = await ctx.newPage()
-  await page.goto('https://bbabang.vercel.app/dashboard/broker', { waitUntil: 'domcontentloaded' })
+  await page.goto('https://busojang.vercel.app/dashboard/broker', { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(3000)
   const parts = (await ctx.cookies()).filter(c => c.name.startsWith('sb-') && c.name.includes('auth-token')).sort((a, b) => a.name.localeCompare(b.name))
   let raw = parts.map(c => decodeURIComponent(c.value)).join('')

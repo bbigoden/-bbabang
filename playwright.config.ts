@@ -28,7 +28,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report/visual', open: 'never' }],
   ],
   use: {
-    baseURL: process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app',
+    baseURL: process.env.BBANG_BASE_URL ?? 'https://busojang.vercel.app',
     trace: 'retain-on-failure',
     actionTimeout: 15_000,
     navigationTimeout: 30_000,

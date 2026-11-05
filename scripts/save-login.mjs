@@ -2,13 +2,13 @@
 // 로그인이 끝나면 세션(쿠키)만 .playwright-auth/owner.json 에 저장하고 창을 닫는다.
 // 점검 브라우저(페르소나)들이 이 파일로 같은 계정으로 들어간다.
 //
-//   사용: npm run login:save            (운영 bbabang.vercel.app)
+//   사용: npm run login:save            (운영 busojang.vercel.app)
 //         npm run login:save -- http://localhost:3100   (다른 주소)
 import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from 'playwright'
 
-const base = (process.argv[2] ?? 'https://bbabang.vercel.app').replace(/\/$/, '')
+const base = (process.argv[2] ?? 'https://busojang.vercel.app').replace(/\/$/, '')
 const OUT = path.join('.playwright-auth', 'owner.json')
 fs.mkdirSync('.playwright-auth', { recursive: true })
 

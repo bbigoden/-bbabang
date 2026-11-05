@@ -10,7 +10,7 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
 
-const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app'
+const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://busojang.vercel.app'
 const PW = process.env.PUSH_TEST_PASSWORD ?? ''
 const MARK = '점검용 거래처'          // 정리 기준이 되는 표식
 // 로그인 상태를 저장해 다시 쓴다. 짧은 사이에 여러 번 로그인하면 Supabase 가 막는다

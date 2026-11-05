@@ -4,7 +4,7 @@
 // 로그인 페이지들은 시각 검증 report.json의 loadTimeMs 추세로 대신 본다.
 import { chromium } from '@playwright/test'
 
-const BASE = process.env.PERF_BASE_URL || 'https://bbabang.vercel.app'
+const BASE = process.env.PERF_BASE_URL || 'https://busojang.vercel.app'
 const PAGES = ['/', '/explore/requests', '/auth/login', '/regions', '/search']
 const RUNS = 2 // 콜드/웜 각 1회 — 중앙값 대신 두 값 모두 표기
 

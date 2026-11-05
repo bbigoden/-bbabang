@@ -15,7 +15,7 @@ import * as path from 'node:path'
  * 결과: test-results/visual/{screenshots,report.json}
  */
 
-const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app'
+const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://busojang.vercel.app'
 const FULL_MODE = process.env.FULL === '1'
 
 // 점검 계정 공용 비밀번호 — 공개 레포이므로 절대 하드코딩 금지 (.env.local의 PUSH_TEST_PASSWORD)

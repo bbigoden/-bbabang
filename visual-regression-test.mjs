@@ -23,7 +23,7 @@ try {
   }
 } catch { /* env 없으면 기존 환경변수 사용 */ }
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bbabang.vercel.app'
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://busojang.vercel.app'
 const UPDATE = process.argv.includes('--update')
 const THRESHOLD = 0.05        // 픽셀당 허용 색상 차이 (0~1)
 const DIFF_PERCENT_LIMIT = 0.5 // 전체 픽셀 중 허용 차이 비율 (%)

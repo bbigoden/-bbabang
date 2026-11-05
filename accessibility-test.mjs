@@ -22,7 +22,7 @@ try {
   }
 } catch { /* env 없으면 기존 환경변수 사용 */ }
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://bbabang.vercel.app'
+const BASE = process.env.NEXT_PUBLIC_APP_URL ?? 'https://busojang.vercel.app'
 
 // 테스트할 공개 페이지 목록
 const PAGES = [

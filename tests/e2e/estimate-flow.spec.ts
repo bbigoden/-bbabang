@@ -8,7 +8,7 @@
 
 import { test, expect, type Page } from '@playwright/test'
 
-const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://bbabang.vercel.app'
+const BASE_URL = process.env.BBANG_BASE_URL ?? 'https://busojang.vercel.app'
 const PW = process.env.PUSH_TEST_PASSWORD ?? ''
 
 test.skip(!PW, 'PUSH_TEST_PASSWORD 없음 — 견적서 실동작 검증 생략')
