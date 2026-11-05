@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context'
 import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { splitAddressForAutoFill } from '@/lib/auto-fill-address'
+import { shrinkImage, PROPERTY_PHOTO_SIDE, PROPERTY_PHOTO_QUALITY } from '@/lib/shrink-image'
 import { cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
@@ -733,7 +734,9 @@ function ImageCell({ images, onSave, onView }: {
     if (!files.length) return uploaded
     const { data } = await supabase.auth.getUser()
     const uid = data.user?.id ?? 'unknown'
-    for (const file of files) {
+    for (const original of files) {
+      // 원본(장당 1~4MB)을 그대로 올려 저장 한도를 며칠 만에 채울 뻔했다 — 올리기 전에 줄인다
+      const file = await shrinkImage(original, PROPERTY_PHOTO_SIDE, PROPERTY_PHOTO_QUALITY)
       const ext = file.name.split('.').pop()
       const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })

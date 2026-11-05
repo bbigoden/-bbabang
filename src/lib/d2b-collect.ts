@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDays, todayKST, ymdKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
 import { BACKFILL_FLOOR } from '@/lib/bid-collect'
+import { bidFloor, trimBids } from '@/lib/bid-trim'
 import { BID_INDUSTRY_CD } from '@/lib/g2b'
 import {
   D2bError, d2bCmpetBid, d2bCodes, d2bDate, d2bGet, d2bKeyOf, d2bNo, d2bNoticeRow, d2bOrd, d2bOthbcBid, d2bPrices,
@@ -207,14 +208,16 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
     const seen = new Set<string>()
     const bids = mnuf.map(x => (othbc ? d2bOthbcBid : d2bCmpetBid)(x, r.bid_ntce_no, r.bid_ntce_ord))
       .filter(b => b.bizno && !seen.has(`${b.rank}/${b.bizno}`) && seen.add(`${b.rank}/${b.bizno}`))
+    const { prices, plnprc } = d2bPrices(bsic)
     if (bids.length) {
       // 순위가 나중에 붙으면 키(rank)가 바뀌어 예전 '순위 없음' 줄이 남는다 — 지우고 다시 넣는다
       const { error: delErr } = await supa.from('bid_result_bids').delete().eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord)
       if (delErr) throw delErr
-      const { error } = await supa.from('bid_result_bids').upsert(bids, { onConflict: 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno' })
+      // 줄은 1순위 앞뒤만 보관한다(bid-trim.ts). 참여 수·1순위·사정률은 아래에서 전체(bids)로 센다
+      const kept = trimBids(bids, bidFloor(plnprc, n.lwlt_rate, n.a_amount))
+      const { error } = await supa.from('bid_result_bids').upsert(kept, { onConflict: 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno' })
       if (error) throw error
     }
-    const { prices, plnprc } = d2bPrices(bsic)
     const winner = bids.filter(b => b.rank > 0).sort((a, b) => a.rank - b.rank)[0]
     const bssamt = n.bssamt ?? null
     // 개찰 직후엔 참가업체만 있고 금액이 비어 오기도 한다 — 그대로 계산하면 '1순위 없음'(win_y 없음)이 돼

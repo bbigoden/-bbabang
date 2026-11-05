@@ -94,32 +94,7 @@ export const previewText = (m: Pick<Msg, 'body' | 'image_url' | 'image_paths' | 
   return m.body
 }
 
-/**
- * 올리기 전에 사진을 줄인다 — 폰 사진 원본(2~5MB)을 그대로 올려 느린 망에서 목록·방이 한참 걸렸다.
- * Supabase 무료 요금제라 내려받을 때 줄여 주는 기능(이미지 변환)이 없어 올릴 때 줄여 둔다.
- * 긴 변을 maxSide 로 맞춰 JPEG 로 다시 굽고, 움직이는 GIF·이미 작은 사진·줄여도 안 작아지는 사진은 그대로 둔다.
- */
-export async function shrinkImage(file: File, maxSide: number, quality = 0.85): Promise<File> {
-  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file
-  try {
-    const bmp = await createImageBitmap(file)
-    const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height))
-    if (scale === 1 && file.size < 500 * 1024) { bmp.close(); return file }
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.round(bmp.width * scale)
-    canvas.height = Math.round(bmp.height * scale)
-    const g = canvas.getContext('2d')!
-    g.fillStyle = '#fff'   // 투명 PNG 를 JPEG 로 구우면 검게 나오지 않게
-    g.fillRect(0, 0, canvas.width, canvas.height)
-    g.drawImage(bmp, 0, 0, canvas.width, canvas.height)
-    bmp.close()
-    const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/jpeg', quality))
-    if (!blob || blob.size >= file.size) return file
-    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' })
-  } catch {
-    return file
-  }
-}
+export { shrinkImage } from '@/lib/shrink-image'
 
 /** 실패 안내 꼬리말 — 'TypeError: Failed to fetch' 같은 영어 원문 대신 할 일을 알려 준다 */
 export const whyFailed = (e: unknown) => {

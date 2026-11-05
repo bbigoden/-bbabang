@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { isD2b } from '@/lib/bid-notices'
+import { BID_KEEP_AROUND } from '@/lib/bid-trim'
 
 /**
  * 낙찰결과 한 건 펼침 — 예정가격이 어떻게 나왔고, 하한선이 어디였고, 누가 어디에 넣었는지.
@@ -23,6 +24,7 @@ export type ResultForDetail = {
   a_amount: number | null
   sajeong: number | null
   prices: { sno: number; price: number; drawn: boolean; picks: number }[] | null
+  prtcpt_cnum?: number | null
 }
 
 type Bid = { rank: number; bizno: string; company_nm: string | null; amount: number | null; rate: number | null; picks: number[] | null; rmrk: string | null }
@@ -113,6 +115,10 @@ export function ResultDetail({ r }: { r: ResultForDetail }) {
       <div>
         <div className="mb-1 flex items-center gap-2 text-xs text-gray-500">
           <span>업체별 투찰 (금액 순){bids ? ` · ${bids.length}곳` : ''}</span>
+          {/* 저장 용량 때문에 1순위 앞뒤 10곳만 보관한다(bid-trim.ts) */}
+          {bids && r.prtcpt_cnum != null && r.prtcpt_cnum > bids.length && (
+            <span className="text-gray-400">(참여 {r.prtcpt_cnum}곳 중 1순위 앞뒤 {BID_KEEP_AROUND}곳만 보관)</span>
+          )}
           {bids && shown.length < bids.length && (
             <button type="button" onClick={() => setAll(true)} className="text-blue-600 hover:underline dark:text-blue-400">
               전체 보기

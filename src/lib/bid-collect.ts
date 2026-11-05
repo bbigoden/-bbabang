@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDays, todayKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
 import { DOC_RGN, parseMfrc } from '@/lib/bid-notices'
+import { bidFloor, trimBids } from '@/lib/bid-trim'
 import {
   BID_INDUSTRY_CD, G2bError, g2bDt, g2bGet, toBidRow, toBsisPatch, toNoticeRow, toPrepar, toResultRow,
   type G2bService,
@@ -238,9 +239,11 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
       if (b) { report.bsis += await applyBsis(supa, [b]); n.a_amount = b.a_amount }
     }
 
-    if (bids.length) await upsert(supa, 'bid_result_bids', bids, 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno')
     const bssamt = p?.bssamt ?? n.bssamt ?? null
     const plnprc = p?.plnprc ?? null
+    // 분석 값(사정률·1순위)은 아래에서 전체로 계산하고, 줄은 1순위 앞뒤만 보관한다(bid-trim.ts)
+    const kept = trimBids(bids, bidFloor(plnprc, n.lwlt_rate, n.a_amount))
+    if (kept.length) await upsert(supa, 'bid_result_bids', kept, 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno')
     const norm = bssamt && plnprc && n.lwlt_rate
       ? normalize({ bssamt, plnprc, lwlt_rate: Number(n.lwlt_rate), a_amount: n.a_amount, amounts: bids.map(b => b.amount ?? 0).filter(a => a > 0) })
       : null
