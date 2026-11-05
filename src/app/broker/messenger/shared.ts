@@ -120,8 +120,31 @@ export const chatStoragePath = (v: string | null | undefined): string | null => 
 }
 
 // 서명 URL 은 화면 여러 곳(목록 프로필·대화·서랍)이 같은 경로를 쓰므로 모듈에 한 벌만 둔다.
-// 24시간 유효라 한 번 받은 것은 페이지를 떠날 때까지 다시 받지 않는다.
-const signed: Record<string, string> = {}
+// 24시간 유효라 한 번 받은 것은 폰에 적어 두고 앱을 다시 켜도 쓴다 — 주소가 같아야 폰이 이미 받은
+// 사진을 다시 내려받지 않는다. 앱을 켤 때마다 새 주소를 받아 같은 사진을 매번 다시 받았다(2026-11-05).
+// 남은 시간이 3시간 아래면 버리고 새로 받는다(오래 켜 둔 화면에서 사진이 깨지지 않게).
+const SIGN_SECONDS = 60 * 60 * 24
+const SIGN_STORE = 'oc-signed-v1'
+const SIGN_MIN_LEFT_MS = 3 * 3600_000
+const signedAt: Record<string, number> = {}   // 경로 → 만료 시각(ms)
+const signed: Record<string, string> = (() => {
+  const out: Record<string, string> = {}
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(SIGN_STORE) : null
+    const saved = raw ? (JSON.parse(raw) as Record<string, [string, number]>) : {}
+    const now = Date.now()
+    for (const [p, [url, exp]] of Object.entries(saved)) {
+      if (exp - now > SIGN_MIN_LEFT_MS) { out[p] = url; signedAt[p] = exp }
+    }
+  } catch { /* 저장소를 못 쓰는 폰이면 예전처럼 매번 받는다 */ }
+  return out
+})()
+const saveSigned = () => {
+  try {
+    localStorage.setItem(SIGN_STORE, JSON.stringify(
+      Object.fromEntries(Object.entries(signed).filter(([p]) => signedAt[p]).map(([p, u]) => [p, [u, signedAt[p]]]))))
+  } catch { /* 가득 찼거나 막힘 — 다음에 다시 받으면 된다 */ }
+}
 const pending = new Set<string>()
 const listeners = new Set<() => void>()
 
@@ -140,9 +163,11 @@ export function useSignedUrls(values: (string | null | undefined)[]): Record<str
     const paths = Array.from(new Set(key.split('|'))).filter(p => p && !signed[p] && !pending.has(p))
     if (paths.length === 0) return
     paths.forEach(p => pending.add(p))
-    createClient().storage.from(CHAT_BUCKET).createSignedUrls(paths, 60 * 60 * 24)
+    const exp = Date.now() + SIGN_SECONDS * 1000
+    createClient().storage.from(CHAT_BUCKET).createSignedUrls(paths, SIGN_SECONDS)
       .then(({ data }) => {
-        for (const r of data ?? []) if (r.signedUrl && r.path) signed[r.path] = r.signedUrl
+        for (const r of data ?? []) if (r.signedUrl && r.path) { signed[r.path] = r.signedUrl; signedAt[r.path] = exp }
+        saveSigned()
       })
       .finally(() => {
         paths.forEach(p => pending.delete(p))

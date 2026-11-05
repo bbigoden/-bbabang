@@ -100,30 +100,24 @@ export default function BrokerMessengerPage() {
     if (!office || !myId) return
     // 사무소 전체방(group)은 저절로 만들지 않는다 — 2026-11-02 사장님이 지우고 단체방으로 직접 만들기로 했다.
     // 이미 있는 사무소의 전체방은 그대로 보인다.
-    const [{ data: mine }, { data: all }] = await Promise.all([
-      supabase.from('office_chat_members').select('thread_id, last_read_at, pinned_at, muted').eq('broker_id', myId),
-      // RLS(oct_select)가 사무소 전체방 + 내가 멤버인 방만 돌려준다
-      supabase.from('office_chat_threads').select('*').eq('office_broker_id', office),
-    ])
+    // 방·내 읽음 행·마지막 메세지·안 읽은 수를 한 번에(office_chat_thread_list). 예전엔 방마다 2번씩
+    // 따로 물어 방이 늘수록 목록이 늦게 떴다(2026-11-05). RLS(oct_select)가 사무소 전체방 + 내가 멤버인 방만 돌려준다
+    const { data, error } = await supabase.rpc('office_chat_thread_list', { p_office: office, p_me: myId })
+    // 실패하면 지금 보이는 목록을 그대로 둔다(예전처럼 조용히) — 실시간·다시 열기에서 또 부른다
+    if (error) return undefined
+    type Row = { thread: Thread; my: MyRow | null; last: Pick<Msg, 'id' | 'body' | 'image_url' | 'image_paths' | 'file_url' | 'file_name' | 'deleted_at' | 'created_at'> | null; unread: number }
     const rows: Record<string, MyRow> = {}
-    for (const r of mine ?? []) rows[r.thread_id] = { last_read_at: r.last_read_at, pinned_at: r.pinned_at, muted: r.muted }
-    const list = (all ?? []) as Thread[]
-    setMyRows(rows)
-    setThreads(list)
-
     const pv: Record<string, Preview> = {}
     const uc: Record<string, number> = {}
-    await Promise.all(list.map(async t => {
-      const { data: last } = await supabase.from('office_chat_messages')
-        .select('id, body, image_url, image_paths, file_url, file_name, deleted_at, created_at')
-        .eq('thread_id', t.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
-      if (last) pv[t.id] = { id: last.id, text: previewText(last), at: last.created_at }
-      let cq = supabase.from('office_chat_messages').select('id', { count: 'exact', head: true })
-        .eq('thread_id', t.id).neq('sender_broker_id', myId)
-      if (rows[t.id]?.last_read_at) cq = cq.gt('created_at', rows[t.id].last_read_at!)
-      const { count } = await cq
-      uc[t.id] = count ?? 0
-    }))
+    const list: Thread[] = []
+    for (const r of (data ?? []) as Row[]) {
+      list.push(r.thread)
+      if (r.my) rows[r.thread.id] = r.my
+      if (r.last) pv[r.thread.id] = { id: r.last.id, text: previewText(r.last), at: r.last.created_at }
+      uc[r.thread.id] = r.unread ?? 0
+    }
+    setMyRows(rows)
+    setThreads(list)
     setPreviews(pv)
     setUnread(uc)
     return list

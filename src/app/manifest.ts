@@ -7,7 +7,9 @@ export default function manifest(): MetadataRoute.Manifest {
     description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
     // id 가 없으면 start_url 이 바뀔 때 폰이 다른 앱으로 보고 두 번 깔린다
     id: '/',
-    start_url: '/',
+    // 바로 첫 화면으로. '/' 로 열면 서버가 역할을 한 번 더 묻고 돌려보내 켤 때마다 한 번 더 기다렸다(2026-11-05).
+    // 중개사가 아닌 계정은 이 화면이 homePath 로 다시 보낸다
+    start_url: '/dashboard/broker',
     scope: '/',
     display: 'standalone',
     background_color: '#F9FAFB',

@@ -33,31 +33,23 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
       .filter(m => m.id === officeId || m.is_approved)
       .sort((a, b) => (a.id === officeId ? -1 : b.id === officeId ? 1 : 0))
   }
-  const 건수 = async (q: PromiseLike<{ count: number | null }>) => (await q).count ?? 0
-  const 매물 = (id: string | null, avail: boolean) => {
-    let q = supabase.from('broker_properties').select('id', { count: 'exact', head: true })
-      .eq('office_broker_id', officeId).is('deleted_at', null)
-    if (id) q = q.eq('broker_id', id)
-    if (avail) q = q.eq('status', 'available')
-    return 건수(q)
-  }
   const todayYmd = todayKST()
-  const [counts, total, totalAvail, ls, ps, newProps] = await Promise.all([
-    // 사람마다 '전체'·'거래가능' 을 차례로 물으면 왕복이 두 번 쌓인다(느린 폰 회선에서 약 2초) — 함께 보낸다
-    Promise.all(members.map(async m => [m.id, ...await Promise.all([매물(m.id, false), 매물(m.id, true)])] as const)),
-    매물(null, false),
-    매물(null, true),
+  const [cnt, ls, ps] = await Promise.all([
+    // 사람마다 전체·거래가능·오늘 등록 수를 한 번에 센다(office_board_counts). 예전엔 사람마다 2번 + 전체 3번
+    // 따로 물어 직원 7명이면 17번 — 폰에서 사무실 화면이 3초 넘게 걸렸다(2026-11-05)
+    supabase.rpc('office_board_counts', { p_office: officeId }),
     supabase.from('ad_listings').select('manager, bank_period').eq('broker_id', officeId)
       // 광고관리 [등록매물] 탭·뱅크 화면과 같은 잣대. 상태(서비스중 등)로 세면 '수정실패' 처럼
       // 등록매물에 있는 매물이 빠져 광고관리와 한 건 어긋났다(2026-10-29)
       .eq('bank_tab', '등록매물'),
     supabase.from('ad_posts').select('posted_at, ad_listings!inner(manager, broker_id)')
       .eq('ad_listings.broker_id', officeId).eq('status', 'posted').eq('channel', 'daangn'),
-    // 오늘 등록한 매물 — 하루치라 줄을 읽어 사람마다 나눈다
-    supabase.from('broker_properties').select('broker_id')
-      .eq('office_broker_id', officeId).is('deleted_at', null)
-      .gte('created_at', new Date(`${todayYmd}T00:00:00+09:00`).toISOString()).limit(1000),
   ])
+  const byBroker = new Map(((cnt.data ?? []) as { broker_id: string; total: number; avail: number; today: number }[])
+    .map(c => [c.broker_id, c]))
+  const counts = members.map(m => [m.id, byBroker.get(m.id)?.total ?? 0, byBroker.get(m.id)?.avail ?? 0] as const)
+  let total = 0, totalAvail = 0, totalToday = 0
+  for (const c of byBroker.values()) { total += c.total; totalAvail += c.avail; totalToday += c.today }
   const empty = (name: string): OfficeBoardRow => ({ name, props: 0, avail: 0, bank: 0, daangn: 0, daangnToday: 0 })
   const byName: Record<string, OfficeBoardRow> = {}
   // 대표·이사는 한 줄 '드래곤'으로 합친다(2026-10-28 사장님) — 같은 줄을 두 이름이 가리킨다
@@ -71,11 +63,11 @@ export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: strin
     r.avail += c[2]
     byName[m.profiles?.name ?? m.id] = r
   }
-  const sum: OfficeBoardRow = { ...empty('사무실 전체'), props: total, avail: totalAvail, propsToday: 0 }
-  for (const p of (newProps.data ?? []) as { broker_id: string }[]) {
-    sum.propsToday!++
-    const r = rows.find(x => x.ids?.includes(p.broker_id))
-    if (r) r.propsToday = (r.propsToday ?? 0) + 1
+  const sum: OfficeBoardRow = { ...empty('사무실 전체'), props: total, avail: totalAvail, propsToday: totalToday }
+  for (const [id, c] of byBroker) {
+    if (!c.today) continue
+    const r = rows.find(x => x.ids?.includes(id))
+    if (r) r.propsToday = (r.propsToday ?? 0) + c.today
   }
   // 뱅크 오늘 등록 — 등록기간('26.10.30 ~26.11.29')이 오늘 시작한 것(재등록 포함). 사무실 화면 영업부 말풍선과 같은 잣대(2026-10-30)
   const 오늘뱅크 = todayYmd.slice(2).replace(/-/g, '.')
