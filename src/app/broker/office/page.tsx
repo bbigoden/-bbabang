@@ -159,8 +159,6 @@ const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e
 const alive = (at: string | null | undefined, now: number) =>
   !!at && now - new Date(at).getTime() < ALIVE_MS
 
-/** 오늘(한국) 0시의 순간. 저장된 시각과 비교한다. */
-const todayStartIso = () => new Date(`${todayKST()}T00:00:00+09:00`).toISOString()
 
 const when = (at: string) => (ymdKST(at) === todayKST() ? hmKST(at) : `${ymdKST(at).slice(5)} ${hmKST(at)}`)
 
@@ -211,63 +209,23 @@ export default function OfficePage() {
   const 불러오는중 = useRef(false)
   const loadOnce = useCallback(async () => {
     if (!officeId) return
-    const since = todayStartIso()
-    const day = new Date(Date.now() - 24 * 3600_000).toISOString()
-
-    // 뱅크 등록기간은 '26.10.30 ~26.11.29' 처럼 적힌다 — 오늘 시작한 것이 오늘 뱅크에 올린 것(재등록 포함)
-    const 오늘뱅크 = todayKST().slice(2).replace(/-/g, '.')
-    // 사람·일지·Claude 쪽 조회도 같이 출발시킨다 — 앞 묶음을 기다렸다가 보내면 폰 3G 에서 왕복이 두세 번 쌓여
-    // 한 번 새로 보는 데 7초쯤 걸렸다(10-30 폰 속도 조사)
-    const 사장님만 = <T,>(q: PromiseLike<T>) => (isOwner ? q : Promise.resolve({ data: null, error: null }))
-    const 사람쪽 = Promise.all([
-      supabase.from('broker_profiles')
-        .select('id, user_id, is_owner, is_approved, profiles:profiles_visible(name)')
-        .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
-      // 오늘 것만 줄로 읽는다. 전체를 읽으면 1000줄에서 잘려 책상의 '지금까지 등록한 매물'이
-      // 현황판과 달랐다(2026-10-29 점검: 김용유 701 ↔ 1,627) — 전체 수는 loadBoard 가 건수로 센다
-      supabase.from('broker_properties').select('broker_id')
-        .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', `${todayKST()}T00:00:00+09:00`),
-      사장님만(supabase.from('claude_sessions')
-        .select('session_id, project, title, status, last_action, order_id, updated_at')
-        .eq('office_broker_id', officeId).gte('updated_at', day)
-        .order('updated_at', { ascending: false }).limit(20)),
-      // 오늘 업무일지 — 쓴 사람과 고친 시각만 본다. 내용엔 비밀번호 같은 것이 섞여 이 화면엔 옮기지 않는다
-      supabase.from('broker_diary').select('broker_id, sections_content, work_summary, content, updated_at').eq('date', todayKST()),
-      // 입찰 수집(서버 cron) 마지막 실행 — 에이전트실 끝 책상
-      사장님만(supabase.from('bid_sync').select('value').eq('key', 'last_run').maybeSingle()),
-    ])
-    const [ag, aj, bj, posts, nv, dg, ts, consult, bankToday, daangnToday] = await Promise.all([
-      supabase.from('ad_agents').select('*').eq('broker_id', officeId).maybeSingle(),
-      supabase.from('ad_jobs')
-        .select('id, kind, status, params, progress, error, requested_at, finished_at, requested_by')
-        .eq('broker_id', officeId)
-        .or(`status.in.(queued,running),requested_at.gte.${day}`)
-        .order('requested_at', { ascending: false }).limit(40),
-      supabase.from('bank_draft_jobs')
-        .select('id, property_id, status, progress, error, requested_at, finished_at, requested_by, broker_properties(address)')
-        .eq('office_broker_id', officeId)
-        .or(`status.in.(queued,running),requested_at.gte.${day}`)
-        .order('requested_at', { ascending: false }).limit(20),
-      // 채널마다 오늘 올린 수 — 홍보부 로봇마다 따로 적는다. 하루치라 줄이 많지 않다.
-      supabase.from('ad_posts').select('channel').gte('posted_at', since).limit(1000),
-      supabase.from('naver_articles').select('article_no', { count: 'exact', head: true }).gte('first_seen_at', since),
-      supabase.from('daangn_articles').select('article_no', { count: 'exact', head: true }).gte('first_seen_at', since),
-      supabase.from('office_tasks')
-        .select('id, assignee_broker_id, title, note, due_date, status, created_at, done_at')
-        .eq('office_broker_id', officeId)
-        .or(`status.eq.open,done_at.gte.${day}`)
-        .order('created_at', { ascending: false }).limit(100),
-      // 오늘 고객목록에 새로 등록된 고객(휴지통 제외) — 상담실 손님 수, 그리고 담당자마다 책상 말풍선에.
-      // 작성은 사장님이 다 해서 작성자(broker_id)가 아니라 담당자(assignee_ids)로 센다(2026-10-29)
-      supabase.from('broker_customers').select('assignee_ids')
-        .eq('office_broker_id', officeId).is('deleted_at', null).gte('created_at', since).limit(1000),
-      // 담당자(뱅크 '담당자' 이름)마다 오늘 뱅크에 올린 것·당근에 올린 것 — 영업부 말풍선에(2026-10-30 사장님).
-      // 뱅크는 '뱅크 가져오기' 때 받아 온 만큼만 안다(아침 9:30, 또는 버튼으로 다시)
-      supabase.from('ad_listings').select('manager').eq('broker_id', officeId)
-        .eq('bank_tab', '등록매물').like('bank_period', `${오늘뱅크}%`).limit(1000),
-      supabase.from('ad_posts').select('ad_listings!inner(manager, broker_id)')
-        .eq('ad_listings.broker_id', officeId).eq('channel', 'daangn').eq('status', 'posted').gte('posted_at', since).limit(1000),
-    ])
+    // 사무실 화면에 필요한 15가지를 한 번에(office_room_snapshot). 따로 물을 땐 폰이 화면을 그리느라
+    // 요청을 하나씩 늦게 내보내 2~3초 걸렸다(2026-11-05). 조건·권한(RLS)·한국 날짜는 함수 안에서 같다.
+    // 받은 것을 예전 조회 결과 모양({ data })으로 맞춰 아래 처리는 그대로 둔다.
+    const { data: snap, error: snapErr } = await supabase.rpc('office_room_snapshot', { p_office: officeId, p_owner: isOwner })
+    if (snapErr || !snap) return // 다음 새로 보기(20초)에서 다시 — 그동안 보이던 숫자는 그대로
+    type Snap = {
+      members: unknown[]; todayProps: { broker_id: string }[]; sessions: unknown[] | null; diaries: unknown[]
+      bidRun: unknown; agents: unknown; adJobs: unknown[]; bankJobs: unknown[]; postsByChannel: Record<string, number>
+      naverToday: number; daangnToday: number; tasks: unknown[]; consult: { assignee_ids: string[] | null }[]
+      bankToday: { manager: string | null }[]; daangnPosts: unknown[]
+    }
+    const S = snap as Snap
+    const ok = <T,>(data: T) => ({ data, error: null as { message?: string; code?: string } | null })
+    const ag = ok(S.agents), aj = ok(S.adJobs), bj = ok(S.bankJobs), ts = ok(S.tasks)
+    const consult = ok(S.consult), bankToday = ok(S.bankToday), daangnToday = ok(S.daangnPosts)
+    const nv = { count: S.naverToday }, dg = { count: S.daangnToday }
+    const 사람쪽 = Promise.resolve([ok(S.members), ok(S.todayProps), ok(S.sessions), ok(S.diaries), ok(S.bidRun === null ? null : { value: S.bidRun })] as const)
 
     setAgents((ag.data as Agents | null) ?? null)
     const jobs = dropSuperseded((aj.data as AdJob[] | null) ?? [], j => `${j.kind}|${JSON.stringify(j.params?.bankNos ?? null)}|${JSON.stringify(j.params?.channels ?? null)}`)
@@ -287,7 +245,7 @@ export default function OfficePage() {
         })))
     })
     setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
-    const 채널 = (ch: string) => ((posts.data ?? []) as { channel: string }[]).filter(p => p.channel === ch).length
+    const 채널 = (ch: string) => S.postsByChannel?.[ch] ?? 0
     setToday({
       cafe: 채널('cafe'), blog: 채널('blog'), daangnPost: 채널('daangn'),
       naver: nv.count ?? 0, daangn: dg.count ?? 0,
