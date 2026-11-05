@@ -508,7 +508,10 @@ function monOf(seat: Seat): Mon {
 function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
   rows: string[]; palette: Record<string, string>; x: number; y: number; blink?: string; delay?: number
 }) {
-  const rects: React.ReactNode[] = []
+  // 색마다 모양(path) 하나로 합친다 — 점 하나하나를 사각형으로 두면 사무실 화면에 7,400개가 넘게 쌓여
+  // 폰이 그리느라 1초 가까이 멈췄다(2026-11-05). 깜빡이는 눈만 움직여야 해서 사각형으로 남긴다.
+  const byColor = new Map<string, string[]>()
+  const eyes: React.ReactNode[] = []
   rows.forEach((row, r) => {
     let c = 0
     while (c < row.length) {
@@ -516,15 +519,20 @@ function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
       let w = 1
       while (c + w < row.length && row[c + w] === ch) w++
       if (ch !== '.' && palette[ch]) {
-        const eye = blink && (ch === 'E' || ch === 'K' || ch === 'C')
-        rects.push(<rect key={`${r}-${c}`} x={x + c} y={y + r} width={w} height={1} fill={palette[ch]}
-          className={eye ? 'pxo-eye' : undefined}
-          style={eye ? { ['--eye' as string]: palette[ch], ['--lid' as string]: blink, animationDelay: `${delay}s` } : undefined} />)
+        if (blink && (ch === 'E' || ch === 'K' || ch === 'C')) {
+          eyes.push(<rect key={`${r}-${c}`} x={x + c} y={y + r} width={w} height={1} fill={palette[ch]} className="pxo-eye"
+            style={{ ['--eye' as string]: palette[ch], ['--lid' as string]: blink, animationDelay: `${delay}s` }} />)
+        } else {
+          const fill = palette[ch]
+          const d = byColor.get(fill) ?? []
+          d.push(`M${x + c} ${y + r}h${w}v1h${-w}z`)
+          byColor.set(fill, d)
+        }
       }
       c += w
     }
   })
-  return <>{rects}</>
+  return <>{[...byColor].map(([fill, d]) => <path key={fill} d={d.join('')} fill={fill} />)}{eyes}</>
 }
 
 /** 자리마다 다른 수 — 깜빡임·움직임 때를 어긋내는 데 쓴다. */
