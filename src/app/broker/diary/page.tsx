@@ -1588,7 +1588,8 @@ export default function BrokerDiaryPage() {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* 줄바꿈 금지 — 좁아지면 > 만 다음 줄로 떨어졌다(11-05). 대신 왼쪽 제목·선택이 줄을 바꾼다. */}
+          <div className="flex items-center gap-2 shrink-0">
             {effectiveCanEdit && (
               <button onClick={openImport}
                 className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
