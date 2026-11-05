@@ -17,10 +17,25 @@ export interface BookingConfig {
   max_days: number
 }
 
-/** 링크를 어디에 붙였나(?from=) → 일정의 '들어온 곳' */
-export function sourceFromParam(from: string | null | undefined): 'insta_link' | 'kakao' | 'link' {
-  if (from === 'insta') return 'insta_link'
-  if (from === 'kakao') return 'kakao'
+export type BookingSource = 'insta_link' | 'kakao' | 'link'
+
+/**
+ * 인스타·카톡 앱 안에서 열었는지 — 앱 안 브라우저는 이름표(User-Agent)에 'Instagram'·'KAKAOTALK' 를 단다.
+ * 링크를 어디 붙였는지(?from=)로 가르면 인스타에 카톡용 링크를 붙이는 순간 통계가 틀려서(11-06 사장님) 이걸로 바꿨다.
+ */
+export function inAppSource(ua: string | null | undefined): BookingSource | null {
+  if (!ua) return null
+  if (/Instagram/i.test(ua)) return 'insta_link'
+  if (/KAKAOTALK/i.test(ua)) return 'kakao'
+  return null
+}
+
+/** 들어온 곳 — 앱 이름표가 먼저, 없으면 손님이 고른 것(insta|kakao), 그것도 없으면 'link' */
+export function bookingSource(ua: string | null | undefined, picked: string | null | undefined): BookingSource {
+  const auto = inAppSource(ua)
+  if (auto) return auto
+  if (picked === 'insta') return 'insta_link'
+  if (picked === 'kakao') return 'kakao'
   return 'link'
 }
 

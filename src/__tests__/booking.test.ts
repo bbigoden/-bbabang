@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { slotsFor, isBookable, bookableDays, normalizePhone, sourceFromParam, type BookingConfig } from '@/lib/booking'
+import { slotsFor, isBookable, bookableDays, normalizePhone, bookingSource, type BookingConfig } from '@/lib/booking'
 
 const cfg: BookingConfig = {
   title: 't', intro: null, products: [], open_time: '10:00:00', close_time: '12:00:00',
@@ -29,8 +29,10 @@ describe('booking', () => {
     expect(normalizePhone('01012345678')).toBe('010-1234-5678')
     expect(normalizePhone('02-123-4567')).toBe('02-123-4567')
     expect(normalizePhone('123')).toBeNull()
-    expect(sourceFromParam('insta')).toBe('insta_link')
-    expect(sourceFromParam('kakao')).toBe('kakao')
-    expect(sourceFromParam(null)).toBe('link')
+    expect(bookingSource('Mozilla/5.0 (iPhone) Instagram 300.0', 'kakao')).toBe('insta_link')
+    expect(bookingSource('Mozilla/5.0 (Linux; Android) KAKAOTALK 10.4.0', null)).toBe('kakao')
+    expect(bookingSource('Mozilla/5.0 (iPhone) Safari', 'insta')).toBe('insta_link')
+    expect(bookingSource('Mozilla/5.0 (iPhone) Safari', 'kakao')).toBe('kakao')
+    expect(bookingSource('Mozilla/5.0 (iPhone) Safari', null)).toBe('link')
   })
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { bookableDays, slotsFor, weekdayOf, type BookingConfig } from '@/lib/booking'
+import { bookableDays, slotsFor, weekdayOf, inAppSource, type BookingConfig } from '@/lib/booking'
 import { CalendarCheck, Check } from 'lucide-react'
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
@@ -14,7 +14,8 @@ function timeLabel(hm: string) {
 export function BookingForm({ slug }: { slug: string }) {
   const [cfg, setCfg] = useState<BookingConfig | null>(null)
   const [state, setState] = useState<'loading' | 'missing' | 'ready' | 'done'>('loading')
-  const [from, setFrom] = useState<string | null>(null)
+  const [from, setFrom] = useState<string | null>(null)        // 손님이 고른 들어온 곳(insta|kakao|etc)
+  const [autoSource, setAutoSource] = useState(true)            // 인스타·카톡 앱 안이면 묻지 않는다
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [product, setProduct] = useState('')
@@ -27,8 +28,7 @@ export function BookingForm({ slug }: { slug: string }) {
   const [err, setErr] = useState('')
 
   useEffect(() => {
-    // useSearchParams 는 Suspense 경계가 필요해 주소에서 바로 읽는다
-    setFrom(new URLSearchParams(window.location.search).get('from'))
+    setAutoSource(!!inAppSource(navigator.userAgent))
     fetch(`/api/booking/${encodeURIComponent(slug)}`)
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (d) { setCfg(d); setState('ready') } else setState('missing') })
@@ -141,6 +141,16 @@ export function BookingForm({ slug }: { slug: string }) {
           <textarea value={request} onChange={e => setRequest(e.target.value)} rows={3} placeholder="요청사항 (색감, 리본 문구, 예산 등)" className={inp} />
           {/* 로봇만 채우는 칸 — 사람에겐 안 보인다 */}
           <input value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" />
+          {!autoSource && (
+            <div>
+              <span className="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-400">어디서 보고 오셨어요? (선택)</span>
+              <div className="grid grid-cols-3 gap-2">
+                {[['insta', '인스타그램'], ['kakao', '카카오톡'], ['etc', '그 밖']].map(([k, l]) => (
+                  <button key={k} type="button" onClick={() => setFrom(from === k ? null : k)} className={chip(from === k)}>{l}</button>
+                ))}
+              </div>
+            </div>
+          )}
           <label className="flex items-start gap-2 rounded-xl bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
             <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4" />
             <span><b className="text-gray-800 dark:text-gray-200">개인정보 수집·이용 동의 (필수)</b><br />이름·연락처를 예약 확인과 연락에만 씁니다. 원하시면 언제든 지워 드려요.</span>

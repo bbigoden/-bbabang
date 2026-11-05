@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { sendPushToUser } from '@/lib/push-server'
-import { isBookable, normalizePhone, sourceFromParam, kstInstant, type BookingConfig, type BookingProduct } from '@/lib/booking'
+import { isBookable, normalizePhone, bookingSource, inAppSource, kstInstant, type BookingConfig, type BookingProduct } from '@/lib/booking'
 
 /**
  * 예약 링크 페이지(/b/<slug>)의 서버.
@@ -77,7 +77,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const product = products.find(p => p.name === productName)
   if (products.length && !product) return NextResponse.json({ error: '상품을 골라 주세요.' }, { status: 400 })
 
-  const source = sourceFromParam(str('from', 10))
+  const ua = req.headers.get('user-agent')
+  const picked = str('from', 10)
+  const source = bookingSource(ua, picked)
+  const how = inAppSource(ua) ? '앱 안에서 열림(자동)' : source !== 'link' ? '손님이 고름' : '알 수 없음'
   const title = product ? product.name : '예약'
   const { error } = await supa.from('office_events').insert({
     office_broker_id: cfg.office_broker_id,
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     customer_phone: phone,
     memo: request || null,
     source,
-    source_text: `예약 페이지에서 신청\n상품: ${title}${request ? `\n요청: ${request}` : ''}`,
+    source_text: `예약 페이지에서 신청 · 들어온 곳: ${how}\n상품: ${title}${request ? `\n요청: ${request}` : ''}`,
     status: 'pending',
   })
   if (error) {

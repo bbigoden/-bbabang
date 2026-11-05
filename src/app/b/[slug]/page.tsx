@@ -3,7 +3,7 @@ import { BookingForm } from './booking-form'
 import { loadBookingMeta } from './load'
 
 /**
- * 손님용 예약 페이지 — 로그인 없이 연다. 링크는 직원이 인스타 프로필·카톡 채널에 붙인다(?from=insta|kakao).
+ * 손님용 예약 페이지 — 로그인 없이 연다. 링크는 하나 — 인스타·카톡 앱 안에서 열리면 들어온 곳을 저절로 잡고, 아니면 손님에게 묻는다(booking.ts bookingSource).
  *
  * 공유 미리보기는 이 페이지 것으로 덮는다. 안 그러면 사이트 기본값(부소장 소개·옛 '빠방' 그림)이
  * 카톡 미리보기에 떠서 손님에게 중개사무소 도구가 보였다(11-05). 그림은 opengraph-image.tsx.

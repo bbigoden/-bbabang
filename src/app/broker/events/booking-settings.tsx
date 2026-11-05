@@ -54,11 +54,7 @@ export function BookingSettings({ officeId, myId, isOwner }: { officeId: string;
   if (!row) return <p className="py-8 text-center text-sm text-gray-500">아직 예약 페이지가 없어요.</p>
 
   const base = `${window.location.origin}/b/${row.slug}`
-  const links = [
-    { key: 'insta', label: '인스타 프로필용', url: `${base}?from=insta` },
-    { key: 'kakao', label: '카톡 채널용', url: `${base}?from=kakao` },
-    { key: 'link', label: '그 밖(문자 등)', url: base },
-  ]
+  const links = [{ key: 'link', label: '예약 링크 — 인스타·카톡·문자 어디든 이것 하나', url: base }]
   const copy = async (key: string, url: string) => {
     try { await navigator.clipboard.writeText(url) } catch { prompt('길게 눌러 복사하세요', url); return }
     setCopied(key); setTimeout(() => setCopied(c => (c === key ? '' : c)), 2000)
@@ -81,7 +77,7 @@ export function BookingSettings({ officeId, myId, isOwner }: { officeId: string;
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">링크 — 붙인 곳에 따라 ‘들어온 곳’이 따로 잡혀요</p>
+        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">인스타·카톡 앱 안에서 열면 ‘들어온 곳’이 저절로 잡히고, 그 밖에서 열면 손님에게 물어봐요</p>
         {links.map(l => (
           <div key={l.key} className="flex items-center gap-2 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
             <div className="min-w-0 flex-1">
