@@ -76,7 +76,8 @@ for (const round of [0, 1]) {
     const p0 = await page.evaluate(() => { window.__lt = []; return performance.now() })
     await page.click(`nav a[href="${href}"] >> visible=true`)
     await page.waitForTimeout(SETTLE_MS)
-    const data = reqs.filter(x => /supabase\.co\/(rest|storage)/.test(x.r.url()))
+    // 메신저 목록이 뒤에서 방을 미리 받아 두는 것(office_chat_room_open)은 화면을 기다리게 하지 않으니 빼고 센다
+    const data = reqs.filter(x => /supabase\.co\/(rest|storage)/.test(x.r.url()) && !x.r.url().includes('/rpc/office_chat_room_open'))
     const loaded = data.length ? Math.max(...data.map(x => (x.end || Date.now()) - t0)) : 0
     const busy = await page.evaluate(p0 => Math.round(window.__lt.filter(x => x.s >= p0).reduce((a, x) => a + x.d, 0)), p0)
     result[href] ??= {}

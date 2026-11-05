@@ -32,7 +32,7 @@
  */
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 
 export type SeatState = 'working' | 'waiting' | 'idle' | 'off'
 export type SeatKind = 'robot' | 'person' | 'claude'
@@ -1418,8 +1418,55 @@ function Decor({ room, guests }: { room: RoomBox; guests: number | null }) {
   return null
 }
 
+/**
+ * 바뀌지 않는 배경(복도·로비·바닥·소품·벽·문·이름판). 사람 숫자가 20초마다 새로 오거나 책상을 누를 때
+ * 배경까지 통째로 다시 그려 폰이 멈칫했다 — 손님 수(상담실)·소품 켜기가 바뀔 때만 다시 그린다(2026-11-05).
+ * decor=false 면 소품을 빼고 그린다 — 처음 열 때 방·사람을 먼저 띄우고 소품은 바로 다음에 붙인다.
+ */
+const Background = memo(function Background({ guests, decor }: { guests: number | null; decor: boolean }) {
+  return (
+    <>
+          {/* ── 복도 둘: 돌바닥 ── */}
+          {HALLS.map((h, i) => (
+            <g key={`hall-${i}`}>
+              <rect x={0} y={h.y} width={LOBBY.x} height={h.h} fill="url(#pxo-hall)" />
+              {decor && <Plant x={4} y={h.y + 6} />}
+              {decor && <Plant x={244} y={h.y + 6} />}
+            </g>
+          ))}
+          {decor && <Lobby />}
+
+          {/* ── 방: 바닥 → 소품 → 벽 → 문 → 이름판 ── */}
+          {ROOMS.map(r => <rect key={`f-${r.key}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={FLOOR_FILL[r.floor]} />)}
+          {decor && ROOMS.map(r => <Decor key={`d-${r.key}`} room={r} guests={guests} />)}
+          {ROOMS.map(r => (
+            <g key={`w-${r.key}`} fill="#6b7280">
+              <rect x={r.x} y={r.y + r.h - 1.5} width={r.w} height={3} />
+              <rect x={r.x + r.w - 1.5} y={r.y} width={3} height={r.h} />
+              {HALLS.some(h => r.y === h.y + h.h) && <rect x={r.x} y={r.y - 1.5} width={r.w} height={3} />}
+            </g>
+          ))}
+          <rect x={0} y={TOP} width={2} height={H - TOP} fill="#6b7280" />
+          {DOORS.map((d, i) => <rect key={i} x={d.x} y={d.y} width={d.w} height={d.h} fill="#cbb79a" />)}
+          {ROOMS.filter(r => r.key !== 'status').map(r => (
+            <g key={`l-${r.key}`}>
+              <rect x={r.x + 4} y={r.y + 3} width={textW(r.label, 4.6) + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
+              <text x={r.x + 6.5} y={r.y + 8.8} fontSize={4.6} fontWeight={800} fill={r.color}>{r.label}</text>
+            </g>
+          ))}
+    </>
+  )
+})
+
 export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout; loading?: boolean }) {
   const [picked, setPicked] = useState<string | null>(null)
+  // 소품은 첫 화면을 그린 다음에 — 두 프레임 뒤에 켠다
+  const [decorOn, setDecorOn] = useState(false)
+  useEffect(() => {
+    let b = 0
+    const a = requestAnimationFrame(() => { b = requestAnimationFrame(() => setDecorOn(true)) })
+    return () => { cancelAnimationFrame(a); cancelAnimationFrame(b) }
+  }, [])
   // 누르면 자세히 칸이 보이게 — 휴대폰에선 그 칸이 아래 메뉴줄에 가려 눌러도 바뀐 게 없어 보였다(2026-10-28 점검)
   const detailRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -1571,34 +1618,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
             </pattern>
           </defs>
 
-          {/* ── 복도 둘: 돌바닥 ── */}
-          {HALLS.map((h, i) => (
-            <g key={`hall-${i}`}>
-              <rect x={0} y={h.y} width={LOBBY.x} height={h.h} fill="url(#pxo-hall)" />
-              <Plant x={4} y={h.y + 6} />
-              <Plant x={244} y={h.y + 6} />
-            </g>
-          ))}
-          <Lobby />
-
-          {/* ── 방: 바닥 → 소품 → 벽 → 문 → 이름판 ── */}
-          {ROOMS.map(r => <rect key={`f-${r.key}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={FLOOR_FILL[r.floor]} />)}
-          {ROOMS.map(r => <Decor key={`d-${r.key}`} room={r} guests={layout.guests} />)}
-          {ROOMS.map(r => (
-            <g key={`w-${r.key}`} fill="#6b7280">
-              <rect x={r.x} y={r.y + r.h - 1.5} width={r.w} height={3} />
-              <rect x={r.x + r.w - 1.5} y={r.y} width={3} height={r.h} />
-              {HALLS.some(h => r.y === h.y + h.h) && <rect x={r.x} y={r.y - 1.5} width={r.w} height={3} />}
-            </g>
-          ))}
-          <rect x={0} y={TOP} width={2} height={H - TOP} fill="#6b7280" />
-          {DOORS.map((d, i) => <rect key={i} x={d.x} y={d.y} width={d.w} height={d.h} fill="#cbb79a" />)}
-          {ROOMS.filter(r => r.key !== 'status').map(r => (
-            <g key={`l-${r.key}`}>
-              <rect x={r.x + 4} y={r.y + 3} width={textW(r.label, 4.6) + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
-              <text x={r.x + 6.5} y={r.y + 8.8} fontSize={4.6} fontWeight={800} fill={r.color}>{r.label}</text>
-            </g>
-          ))}
+          <Background guests={layout.guests} decor={decorOn} />
 
           {layout.status && <StatusBoard status={layout.status} />}
           {/* 대표실 벽시계 */}
