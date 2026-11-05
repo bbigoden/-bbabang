@@ -735,9 +735,10 @@ export function ChatRoom(props: Props) {
                         </div>
                       )}
                     </div>
-                    <div className={cn('flex flex-shrink-0 flex-col pb-0.5 leading-tight', mine ? 'items-end' : 'items-start')}>
+                    <div className={cn('relative flex flex-shrink-0 flex-col pb-0.5 leading-tight', mine ? 'items-end' : 'items-start')}>
+                      {/* 띄워서 얹는다 — 흐름 안에 넣으면 마우스만 올려도 이 칸이 넓어지고 높아져 말풍선이 옆으로 밀리고 아랫줄이 내려갔다 */}
                       {!m.deleted_at && (
-                        <button onClick={() => setMenuMsg(m)} className="mb-0.5 hidden rounded p-0.5 text-gray-600 hover:bg-black/10 group-hover:block" aria-label="메세지 메뉴">
+                        <button onClick={() => setMenuMsg(m)} className={cn('absolute bottom-0.5 hidden rounded p-0.5 text-gray-600 hover:bg-black/10 group-hover:block', mine ? 'right-full mr-1' : 'left-full ml-1')} aria-label="메세지 메뉴">
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>
                       )}
