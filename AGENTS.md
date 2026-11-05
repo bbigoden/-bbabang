@@ -44,6 +44,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+# 폰 속도 — 화면을 고치면 `npm run perf:phone`
+
+사장님은 폰(PWA)으로 쓴다. PC 에서 빠르다고 폰에서 빠른 게 아니다. 2026-11-05 사무실·업무일지가 폰에서
+3~4초 걸렸는데 PC 로는 몰랐다. 원인은 기능마다 조회를 하나씩 덧붙인 것(사무실 15개, 현황판은 직원마다 2개,
+메신저 목록은 방마다 2개)과 픽셀 그림을 점마다 `<rect>` 로 그린 것(7,400개).
+
+- 화면을 고치거나 조회를 붙인 뒤 `npm run perf:phone` (로컬은 `-- http://localhost:3000`). 처음 열기 1.5초를 넘으면 종료 코드 1.
+- 한 화면에서 여러 번 묻게 되면 RPC 하나로 묶는다(`office_room_snapshot`·`office_board_counts`·`office_chat_thread_list`·`office_chat_room_open` 참고).
+  SECURITY INVOKER 로 만들어 RLS 를 그대로 받는다.
+- plpgsql/SQL 함수에서 오늘 날짜를 `with k as (...)` 표로 조인하지 말 것 — 색인을 못 써 1.8초 걸렸다. `declare` 변수로.
+- 행·사람·방 수만큼 요청이 늘어나는 코드(`list.map(async … supabase…)`)는 만들지 않는다.
+
 # 점검 워크플로우
 
 사용자가 "점검실시"·"점검22단계" 등 점검을 지시하면 [.claude/commands/inspect.md](.claude/commands/inspect.md)의

@@ -25,6 +25,7 @@
     "backup:db": "node scripts/db-backup.mjs",
     "push:test": "node scripts/push-test.mjs",
     "perf:web": "node scripts/perf-web-vitals.mjs",
+    "perf:phone": "node scripts/perf-phone.mjs",
     "test:all": "npm test && npm run test:integration && npm run test:contract && npm run test:a11y && npm run test:load && npm run test:smoke && npm run test:seo",
     "login:save": "node scripts/save-login.mjs"
   },
