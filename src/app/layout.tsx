@@ -18,7 +18,7 @@ import { LazyOverlays } from '@/components/lazy-overlays'
 // 글꼴은 그대로 쓰고, 받기 전엔 시스템 글꼴로 보였다가 바뀐다.
 const geist = Geist({ subsets: ['latin'], preload: false })
 
-const BASE_URL = 'https://bbabang.vercel.app'
+const BASE_URL = 'https://busojang.vercel.app'
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),

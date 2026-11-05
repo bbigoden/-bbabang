@@ -21,8 +21,24 @@ function toLogin(request: NextRequest) {
   return NextResponse.redirect(url)
 }
 
+/**
+ * 옛 주소 → 새 주소(2026-11-05 사장님: "한번에 다 바꿔"). 화면은 전부 busojang.vercel.app 으로 넘긴다.
+ * /api/ 는 넘기지 않는다 — DB 가 폰 알림을 옛 주소로 부르고(internal_config.internal_push_url),
+ * 서버끼리의 POST 는 넘겨받으면 따라오지 못한다.
+ */
+const OLD_HOST = 'bbabang.vercel.app'
+const NEW_HOST = 'busojang.vercel.app'
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  if (request.headers.get('host') === OLD_HOST && !pathname.startsWith('/api/')) {
+    const url = request.nextUrl.clone()
+    url.host = NEW_HOST
+    url.protocol = 'https:'
+    url.port = ''
+    return NextResponse.redirect(url, 308)
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
