@@ -209,6 +209,13 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
     const bids = mnuf.map(x => (othbc ? d2bOthbcBid : d2bCmpetBid)(x, r.bid_ntce_no, r.bid_ntce_ord))
       .filter(b => b.bizno && !seen.has(`${b.rank}/${b.bizno}`) && seen.add(`${b.rank}/${b.bizno}`))
     const { prices, plnprc } = d2bPrices(bsic)
+    // 순위확정 무렵 API 가 일부만(1,198곳 중 21곳) 주기도 했다 — 가진 것보다 적으면 덮지 않고 나중에 다시 본다
+    const { count: had } = await supa.from('bid_result_bids').select('bizno', { count: 'exact', head: true })
+      .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord)
+    if (bids.length < (had ?? 0)) {
+      await supa.from('bid_results').update({ detail_at: now }).eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).eq('rbid_no', '000')
+      return
+    }
     if (bids.length) {
       // 순위가 나중에 붙으면 키(rank)가 바뀌어 예전 '순위 없음' 줄이 남는다 — 지우고 다시 넣는다
       const { error: delErr } = await supa.from('bid_result_bids').delete().eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord)
