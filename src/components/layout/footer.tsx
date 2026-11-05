@@ -7,10 +7,12 @@ import { SUPPORT_EMAIL } from '@/lib/support'
 /**
  * 사이트 푸터 — 사업자정보·법적 표기·정책 링크.
  *
- * 사업자번호/중개업등록번호 등은 NEXT_PUBLIC_BUSINESS_* 환경변수에서 읽음.
- * 미설정 시 해당 항목 미표시 (운영 환경에서 설정).
+ * 두 줄로 줄였다(11-06 사장님): 로고·'중개사무소 업무 도구' 소개를 빼고, 사업자정보 한 줄 + 정책 링크·© 한 줄.
+ * 좌우 여백은 화면 본문과 같은 px-4 — 카드 왼쪽 끝과 글자 시작이 맞는다.
  *
- * BottomNav가 모바일에서 고정되므로 모바일에서는 padding으로 가려짐 방지.
+ * 사업자번호/중개업등록번호 등은 NEXT_PUBLIC_BUSINESS_* 환경변수에서 읽음. 미설정 시 해당 항목 미표시.
+ * 개인정보처리방침은 법상 눈에 띄게 — 굵게 둔다.
+ * BottomNav가 모바일에서 고정되므로 모바일에서는 아래 padding으로 가려짐 방지.
  */
 const HIDDEN_PATHS = [
   '/admin',
@@ -24,106 +26,37 @@ export function Footer() {
   const pathname = usePathname() ?? ''
   if (HIDDEN_PATHS.some(p => pathname.startsWith(p))) return null
 
-  // 환경변수 — 사용자가 운영 환경에서 설정. 누락 시 표시 안 함.
   const companyName = process.env.NEXT_PUBLIC_BUSINESS_NAME ?? '부소장'
   const ceoName = process.env.NEXT_PUBLIC_BUSINESS_CEO
   const bizNumber = process.env.NEXT_PUBLIC_BUSINESS_REG_NUMBER
   const officeRegNumber = process.env.NEXT_PUBLIC_OFFICE_REG_NUMBER
   const address = process.env.NEXT_PUBLIC_BUSINESS_ADDRESS
-  const contactEmail = SUPPORT_EMAIL
   const phone = process.env.NEXT_PUBLIC_BUSINESS_PHONE
 
+  const info: [string, React.ReactNode][] = [
+    ...(ceoName ? [['대표', ceoName] as [string, string]] : []),
+    ...(bizNumber ? [['사업자', bizNumber] as [string, string]] : []),
+    ...(officeRegNumber ? [['중개업', officeRegNumber] as [string, string]] : []),
+    ...(address ? [['주소', address] as [string, string]] : []),
+    ...(phone ? [['전화', <a key="t" href={`tel:${phone.replace(/-/g, '')}`} className="hover:underline">{phone}</a>] as [string, React.ReactNode]] : []),
+    ['문의', <a key="m" href={`mailto:${SUPPORT_EMAIL}`} className="hover:underline">{SUPPORT_EMAIL}</a>],
+  ]
+
   return (
-    <footer className="mt-12 border-t border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-500">
-      <div className="mx-auto max-w-6xl px-4 py-10 md:pb-10 pb-24">
-        <div className="grid gap-8 md:grid-cols-3">
-          {/* 회사·사업자 정보 */}
-          <div className="md:col-span-2">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icon.svg" alt="부소장 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
-              <span className="text-base font-bold text-gray-900 dark:text-white">
-                부소<span className="text-blue-600">장</span>
-              </span>
-              <span className="text-xs text-gray-500">중개사무소 업무 도구</span>
-            </div>
-            <dl className="space-y-1 text-xs leading-relaxed">
-              <div className="flex flex-wrap gap-x-2">
-                <dt className="font-medium text-gray-700 dark:text-gray-300">상호</dt>
-                <dd>{companyName}</dd>
-                {ceoName && (
-                  <>
-                    <dt className="font-medium text-gray-700 dark:text-gray-300">· 대표</dt>
-                    <dd>{ceoName}</dd>
-                  </>
-                )}
-              </div>
-              {bizNumber && (
-                <div className="flex flex-wrap gap-x-2">
-                  <dt className="font-medium text-gray-700 dark:text-gray-300">사업자등록번호</dt>
-                  <dd>{bizNumber}</dd>
-                </div>
-              )}
-              {officeRegNumber && (
-                <div className="flex flex-wrap gap-x-2">
-                  <dt className="font-medium text-gray-700 dark:text-gray-300">중개업등록번호</dt>
-                  <dd>{officeRegNumber}</dd>
-                </div>
-              )}
-              {address && (
-                <div className="flex flex-wrap gap-x-2">
-                  <dt className="font-medium text-gray-700 dark:text-gray-300">주소</dt>
-                  <dd>{address}</dd>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-x-2">
-                <dt className="font-medium text-gray-700 dark:text-gray-300">문의</dt>
-                <dd>
-                  <a href={`mailto:${contactEmail}`} className="hover:text-blue-600 hover:underline">
-                    {contactEmail}
-                  </a>
-                </dd>
-                {phone && (
-                  <>
-                    <dt className="font-medium text-gray-700 dark:text-gray-300">· 전화</dt>
-                    <dd>
-                      <a href={`tel:${phone.replace(/-/g, '')}`} className="hover:text-blue-600 hover:underline">
-                        {phone}
-                      </a>
-                    </dd>
-                  </>
-                )}
-              </div>
-            </dl>
-            {/* '통신판매중개자·매물 정보 보증' 문구는 고객 요청 매칭 시절 것이라 뺐다 — 지금은 사무소 업무 도구다(10-30 재점검) */}
-          </div>
-
-          {/* 정책·법적 링크 */}
-          <div>
-            <div className="mb-3 text-sm font-semibold text-gray-900 dark:text-white">정책·약관</div>
-            <ul className="space-y-1.5 text-xs">
-              {/* 미리받기 끔 — 매 화면 바닥에 그려져 폰 3G 에서 첫 조회와 회선을 나눠 썼다(10-30 폰 속도 조사) */}
-              <li>
-                <Link href="/terms" prefetch={false} className="hover:text-blue-600 hover:underline">
-                  이용약관
-                </Link>
-              </li>
-              <li>
-                <Link href="/privacy" prefetch={false} className="hover:text-blue-600 hover:underline font-semibold">
-                  개인정보처리방침
-                </Link>
-              </li>
-              <li>
-                <Link href="/support" prefetch={false} className="hover:text-blue-600 hover:underline">
-                  고객센터·신고
-                </Link>
-              </li>
-            </ul>
-          </div>
+    <footer className="mt-8 border-t border-gray-200 bg-gray-50 text-[11px] leading-relaxed text-gray-500 dark:border-gray-800 dark:bg-gray-950">
+      <div className="mx-auto max-w-6xl px-4 pt-4 pb-24 md:pb-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          <span className="font-bold text-gray-700 dark:text-gray-300">{companyName}</span>
+          {info.map(([k, v]) => (
+            <span key={k}><span className="text-gray-400">{k}</span> {v}</span>
+          ))}
         </div>
-
-        <div className="mt-8 border-t border-gray-200 pt-4 text-[11px] text-gray-500 dark:border-gray-800">
-          © {new Date().getFullYear()} {companyName}. All rights reserved.
+        {/* 미리받기 끔 — 매 화면 바닥에 그려져 폰 3G 에서 첫 조회와 회선을 나눠 썼다(10-30 폰 속도 조사) */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          <Link href="/terms" prefetch={false} className="hover:underline">이용약관</Link>
+          <Link href="/privacy" prefetch={false} className="font-semibold text-gray-700 hover:underline dark:text-gray-300">개인정보처리방침</Link>
+          <Link href="/support" prefetch={false} className="hover:underline">고객센터·신고</Link>
+          <span className="ml-auto text-gray-400">© {new Date().getFullYear()} {companyName}</span>
         </div>
       </div>
     </footer>
