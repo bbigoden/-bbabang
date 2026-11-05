@@ -158,7 +158,6 @@ export default function NotificationsPage() {
           icon={Bell}
           iconColor="text-blue-600"
           title="알림"
-          description="새 제안·메시지·공지 등 받은 알림을 모아봐요"
           actions={(unreadCount > 0 || readCount > 0) && (
             <div className="flex gap-2">
               {unreadCount > 0 && (

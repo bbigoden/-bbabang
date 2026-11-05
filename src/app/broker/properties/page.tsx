@@ -2961,7 +2961,6 @@ function BrokerPropertiesContent() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
             <p className="mt-0.5 text-sm text-gray-500">전체 {allCount}건 · 검색 {totalCount}건</p>
-            {!isMapView && <p className="mt-0.5 text-xs text-gray-500 md:hidden">모바일에선 표를 좌우로 스크롤할 수 있어요</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {/* 첫 화면에서 바로 보이는 등록 버튼 — 표 맨 아래에만 있어 2천 건을 내려야 찾았다(2026-10-25 점검) */}

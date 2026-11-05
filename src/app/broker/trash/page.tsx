@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
-import { ArrowLeft, Trash2, RotateCcw, AlertTriangle, Building2, Users } from 'lucide-react'
+import { ArrowLeft, Trash2, RotateCcw, Building2, Users } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 
 interface TrashProperty {
@@ -102,18 +102,6 @@ export default function TrashPage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Trash2 className="h-5 w-5 text-red-500" />휴지통
           </h1>
-        </div>
-
-        <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-          <p>
-            삭제된 매물·고객은 <b>30일 동안</b> 휴지통에 보관되고 자동으로 영구 삭제됩니다. 그 전엔 언제든 복원 가능합니다.
-            {!canPurge && <span className="block mt-1">영구삭제는 대표(사무소 운영자)만 할 수 있어요.</span>}
-            {/* 자료실에서 지운 것을 여기서 찾다 못 찾았다 — 자료실 휴지통은 따로 있다 */}
-            <span className="block mt-1">
-              자료실에서 지운 파일·폴더는 <Link href="/broker/resources?view=trash" className="font-semibold underline">자료실 휴지통</Link>에 있어요.
-            </span>
-          </p>
         </div>
 
         {/* 탭 */}

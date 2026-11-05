@@ -27,7 +27,6 @@ export default async function SettingsLayout({ children }: { children: React.Rea
       <div className="mx-auto max-w-5xl px-4 py-8">
         <PageHeader
           title="설정"
-          description="계정·알림·보안 등 모든 환경을 관리해요"
         />
         {isBroker ? (
           // broker는 root layout의 BrokerGlobalLayout이 좌측 사이드바를 표시 → settings 자체 사이드바 생략
