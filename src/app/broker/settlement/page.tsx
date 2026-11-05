@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { canManageOffice } from '@/lib/office-role'
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -264,7 +265,7 @@ export default function SettlementPage() {
     if (!userId) return
     const { data: me } = await supabase
       .from('broker_profiles')
-      .select('id, user_id, is_owner, parent_broker_id, default_settlement_rate, withhold_exempt, profiles:user_id(name)')
+      .select('id, user_id, is_owner, is_approved, permissions, parent_broker_id, default_settlement_rate, withhold_exempt, profiles:user_id(name)')
       .eq('user_id', userId)
       .maybeSingle()
     if (!me) { setLoading(false); return }
@@ -272,7 +273,9 @@ export default function SettlementPage() {
     if (!office) { setLoading(false); return }
 
     setMeBroker(me as any)
-    setIsOwner(!!me.is_owner)
+    // 대표 권한(대표·이사) — 정산 화면의 '사무소 보기'는 이사도 같다(2026-11-05)
+    const manager = canManageOffice(me)
+    setIsOwner(manager)
     setOfficeId(office)
 
     const { data: mems } = await supabase
@@ -284,7 +287,7 @@ export default function SettlementPage() {
     // 대표일 때만 퇴사자 목록 distinct 로드
     // = settlements에 등장한 assignee 중 현재 사무소 멤버(재직 직원)가 아닌 사람
     // 박세련·송영욱처럼 broker_id NULL(가입 전 퇴사)도 자동 포함
-    if (me.is_owner) {
+    if (manager) {
       const { data: es } = await supabase
         .from('office_settlement_settings')
         .select('monthly_expense, partner_split')

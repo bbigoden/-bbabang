@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { canManageOffice, isDirector } from '@/lib/office-role'
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { zip } from 'fflate'
 import { createClient } from '@/lib/supabase/client'
@@ -323,14 +324,15 @@ export default function BrokerResourcesPage() {
     // 30일 지난 내 휴지통은 비운다
     const cutoff = Date.now() - TRASH_DAYS * 86400000
     const old = [
-      ...rList.filter(r => r.deleted_at && (isOwner || r.uploader_broker_id === b.id) && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
-      ...fList.filter(f => f.deleted_at && (isOwner || f.uploader_broker_id === b.id) && new Date(f.deleted_at).getTime() < cutoff).map(f => fKey(f.id)),
+      ...rList.filter(r => r.deleted_at && (canManageOffice(b) || r.uploader_broker_id === b.id) && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
+      ...fList.filter(f => f.deleted_at && (canManageOffice(b) || f.uploader_broker_id === b.id) && new Date(f.deleted_at).getTime() < cutoff).map(f => fKey(f.id)),
     ]
     if (old.length > 0) void purge(old, rList, fList, b.id, oid, true)
   }
 
   // ── 권한·관계 ─────────────────────────────────────────
-  const isOwnerOfOffice = !!broker && officeBrokerId === broker.id
+  // 대표·이사(2026-11-05 이사=대표 권한) — DB office_res_can_* 와 같은 규칙
+  const isOwnerOfOffice = !!broker && (officeBrokerId === broker.id || isDirector(broker))
   const canManageId = (uploader: string | null) => isOwnerOfOffice || (!!uploader && uploader === broker?.id)
   const resById = useMemo(() => new Map(resources.map(r => [r.id, r])), [resources])
   const fileById = useMemo(() => new Map(files.map(f => [f.id, f])), [files])

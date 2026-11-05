@@ -24,6 +24,7 @@ import { pollWhileVisible } from '@/lib/poll-visible'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
 import { PixelOffice, type OfficeLayout, type Seat } from '@/components/broker/pixel-office'
 import { fetchOfficeBoard, DIRECTOR_ID } from '@/lib/office-board'
+import { canManageOffice } from '@/lib/office-role'
 
 /** 입찰 수집이 마지막으로 돈 기록(bid_sync.last_run) */
 interface BidRun { finishedAt: string; notices: number; results: number; details?: number; stoppedBy?: string }
@@ -169,7 +170,7 @@ export default function OfficePage() {
   const toast = useToast()
   const supabase = useMemo(() => createClient(), [])
 
-  const isOwner = broker?.is_owner !== false
+  const isOwner = canManageOffice(broker)   // 대표·이사
   const officeId = broker?.parent_broker_id ?? broker?.id ?? null
 
   const [now, setNow] = useState(() => Date.now())

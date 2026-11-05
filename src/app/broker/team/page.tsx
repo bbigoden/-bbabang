@@ -15,8 +15,21 @@ interface Employee {
   id: string
   user_id: string
   is_approved: boolean
+  permissions: Record<string, unknown> | null
   profiles: { name: string; email: string } | null
 }
+
+/**
+ * 사무소 안 등급 — 대표가 정한다(2026-11-05 사장님). permissions.grade 에 담는다.
+ * 대표는 is_owner 로 따로 정해지므로 여기서 고르는 건 이사·직원 둘. 값이 없으면 직원.
+ * 이사 = 대표와 같은 권한(lib/office-role.ts, supabase/migrations/director_same_as_owner.sql).
+ */
+type Grade = 'director' | 'staff'
+const GRADES: { key: Grade; label: string }[] = [
+  { key: 'director', label: '이사' },
+  { key: 'staff', label: '직원' },
+]
+const gradeOf = (e: Employee): Grade => (e.permissions?.grade === 'director' ? 'director' : 'staff')
 
 export default function BrokerTeamPage() {
   const supabase = createClient()
@@ -51,7 +64,7 @@ export default function BrokerTeamPage() {
     if (owner) {
       const { data: emps } = await supabase
         .from('broker_profiles')
-        .select('id, user_id, is_approved, profiles:profiles_visible(name, email)')
+        .select('id, user_id, is_approved, permissions, profiles:profiles_visible(name, email)')
         .eq('parent_broker_id', b.id)
 
       const list = (emps ?? []) as unknown as Employee[]
@@ -78,6 +91,19 @@ export default function BrokerTeamPage() {
       setPending(prev => prev.filter(e => e.id !== empId))
     }
     setApprovingId(null)
+  }
+
+  const [gradingId, setGradingId] = useState<string | null>(null)
+  const setGrade = async (emp: Employee, grade: Grade) => {
+    if (gradeOf(emp) === grade) return
+    setGradingId(emp.id)
+    // 다른 권한 값(can_see_others 등)은 그대로 두고 grade 만 바꾼다
+    const permissions = { ...(emp.permissions ?? {}), grade }
+    const { error } = await supabase.from('broker_profiles').update({ permissions }).eq('id', emp.id)
+    setGradingId(null)
+    if (error) { toast.error('등급 저장 실패: ' + error.message); return }
+    setApproved(prev => prev.map(e => (e.id === emp.id ? { ...e, permissions } : e)))
+    toast.success(`${emp.profiles?.name ?? '직원'} — ${GRADES.find(g => g.key === grade)!.label}(으)로 바꿨어요`)
   }
 
   const rejectEmployee = async (empId: string) => {
@@ -183,6 +209,9 @@ export default function BrokerTeamPage() {
             <Users className="h-4 w-4 text-gray-500" />
             <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">직원 ({approved.length}명)</h2>
           </div>
+          {approved.length > 0 && (
+            <p className="text-xs text-gray-500 mb-3">이사는 대표와 같은 권한으로 사무소 전체를 보고 고쳐요. 직원 승인·등급·사무소 정보만 대표가 해요.</p>
+          )}
           {approved.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
               <Users className="mx-auto h-8 w-8 text-gray-200 mb-3" />
@@ -200,6 +229,20 @@ export default function BrokerTeamPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{emp.profiles?.name ?? '—'}</div>
                       <div className="text-xs text-gray-500">{emp.profiles?.email}</div>
+                    </div>
+                    <div role="radiogroup" aria-label="등급" className="flex rounded-xl bg-gray-100 dark:bg-gray-800 p-0.5 flex-shrink-0">
+                      {GRADES.map(g => {
+                        const on = gradeOf(emp) === g.key
+                        return (
+                          <button key={g.key} role="radio" aria-checked={on}
+                            onClick={() => setGrade(emp, g.key)} disabled={gradingId === emp.id}
+                            className={cn('rounded-lg px-3 py-1 text-xs font-bold transition-colors disabled:opacity-50',
+                              on ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300')}>
+                            {g.label}
+                          </button>
+                        )
+                      })}
                     </div>
                     <button onClick={() => removeEmployee(emp.id)} aria-label="직원 제거" title="직원 제거"
                       className={cn('flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors')}>

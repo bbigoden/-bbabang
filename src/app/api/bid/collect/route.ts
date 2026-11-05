@@ -20,9 +20,9 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { data: bp } = await supabase.from('broker_profiles')
-    .select('bid_enabled, is_owner').eq('user_id', user.id).maybeSingle()
-  if (!bp?.bid_enabled || bp.is_owner === false) {
+  // 대표 + 이사(대표가 입찰을 켰을 때) — DB can_view_bids 와 같은 규칙
+  const { data: canView } = await supabase.rpc('can_view_bids')
+  if (!canView) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

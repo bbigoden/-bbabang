@@ -2,6 +2,7 @@
  * BrokerSidebar(데스크탑)와 BottomNav 모바일 드로어가 공유하는 broker 메뉴 정의.
  * 한 곳에서만 수정하면 두 UI에 동시 반영됨.
  */
+import { bidOf } from '@/lib/office-role'
 import {
   Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
@@ -30,10 +31,11 @@ export interface ItemDef {
 }
 
 /** 이 사무소에 보일 메뉴인가 — 사이드바·모바일 드로어가 같이 쓴다 */
-export function showItem(i: ItemDef, broker: { is_owner?: boolean | null; bid_enabled?: unknown } | null): boolean {
+export function showItem(i: ItemDef, broker: Parameters<typeof bidOf>[0]): boolean {
   const isOwner = broker?.is_owner !== false
   if (i.ownerOnly && !isOwner) return false
-  if (i.bidOnly && !broker?.bid_enabled) return false
+  // 입찰은 대표 + 이사(대표가 입찰을 켰을 때)
+  if (i.bidOnly && !bidOf(broker).enabled) return false
   return true
 }
 
@@ -49,7 +51,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'office',     href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen, needsOffice: true },
   { id: 'trash',      href: '/broker/trash', label: '휴지통', icon: Trash2, needsOffice: true },
-  { id: 'bid',        href: '/broker/bid', label: '입찰', icon: Gavel, ownerOnly: true, needsOffice: true, bidOnly: true },
+  { id: 'bid',        href: '/broker/bid', label: '입찰', icon: Gavel, needsOffice: true, bidOnly: true },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator, needsOffice: true },
   {
     id: 'settings', label: '설정', icon: Settings,

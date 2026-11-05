@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { canManageOffice } from '@/lib/office-role'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -87,8 +88,8 @@ export default function TrashPage() {
     setCusts(prev => prev.filter(c => c.id !== id))
   }
 
-  // 영구삭제는 대표(사무소 운영자)·솔로 중개사만. 소속 직원은 소프트 삭제(휴지통)까지만 가능.
-  const canPurge = auth.broker?.is_owner !== false
+  // 영구삭제는 대표·이사·솔로 중개사만. 직원은 소프트 삭제(휴지통)까지만 가능.
+  const canPurge = canManageOffice(auth.broker)
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950">

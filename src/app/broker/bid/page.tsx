@@ -1,5 +1,6 @@
 'use client'
 
+import { bidOf } from '@/lib/office-role'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -121,12 +122,14 @@ export default function BidPage() {
   const supabase = useMemo(() => createClient(), [])
   const toast = useToast()
   const { broker, loading: authLoading, refresh } = useAuth()
-  const enabled = !!broker?.bid_enabled && broker?.is_owner !== false
+  // 대표 + 이사(대표 설정을 그대로 본다, 지역·분야 바꾸기는 대표만)
+  const bid = bidOf(broker)
+  const enabled = bid.enabled
   // 우리 업체 소재지 — 지역제한 공고 중 들어갈 수 있는 것만 거르는 데 쓴다
-  const ourRegion = typeof broker?.bid_region === 'string' && broker.bid_region.trim() ? broker.bid_region.trim() : null
+  const ourRegion = typeof bid.region === 'string' && bid.region.trim() ? bid.region.trim() : null
   const [enterableOnly, setEnterableOnly] = useState(true)
   // 우리 주력분야 — 같은 면허(4992)라도 석공 공사가 하루 공고의 40% 가까이 섞여 나온다
-  const rawFields = broker?.bid_fields
+  const rawFields = bid.fields
   const ourFields = useMemo(() => (Array.isArray(rawFields) ? (rawFields as string[]) : []), [rawFields])
   const [fieldsOnly, setFieldsOnly] = useState(true)
   const [editingFields, setEditingFields] = useState(false)
@@ -276,6 +279,7 @@ export default function BidPage() {
 
   const toggleField = async (f: string) => {
     if (!broker) return
+    if (!bid.editable) { toast.error('주력분야는 대표 계정에서 바꿀 수 있어요'); return }
     const next = ourFields.includes(f) ? ourFields.filter(x => x !== f) : [...ourFields, f]
     const { error } = await supabase.from('broker_profiles').update({ bid_fields: next.length ? next : null }).eq('id', broker.id)
     if (error) { toast.error('주력분야를 저장하지 못했습니다'); return }
@@ -284,6 +288,7 @@ export default function BidPage() {
 
   const saveRegion = async () => {
     if (editingRegion == null || !broker) return
+    if (!bid.editable) { toast.error('소재지는 대표 계정에서 바꿀 수 있어요'); setEditingRegion(null); return }
     const v = editingRegion.trim().replace(/\s+/g, ' ') || null
     const { error } = await supabase.from('broker_profiles').update({ bid_region: v }).eq('id', broker.id)
     if (error) { toast.error('소재지를 저장하지 못했습니다'); return }

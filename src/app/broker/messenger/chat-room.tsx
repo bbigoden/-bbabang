@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback, Fragment } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
+import { isDirector } from '@/lib/office-role'
 import { useToast } from '@/components/toast'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { cn } from '@/lib/utils'
@@ -65,6 +67,7 @@ interface Props {
 
 export function ChatRoom(props: Props) {
   const { thread, title, myId, office, members, memberById, myRow } = props
+  const auth = useAuth()
   const supabase = useMemo(() => createClient(), [])
   const toast = useToast()
 
@@ -331,7 +334,8 @@ export function ChatRoom(props: Props) {
 
   // ── 지운 메세지 원본(대표만) ─────────────────────────────
   // 직원이 '모두에게서 삭제' 한 것도 대표 화면엔 원본을 흐리게 보여 준다. 읽기 권한은 DB 가 대표에게만 준다
-  const isOwner = myId === office
+  // 대표·이사(2026-11-05 이사=대표 권한). DB 규칙 ocdm_select 도 같다
+  const isOwner = myId === office || isDirector(auth.broker)
   const [deletedOrig, setDeletedOrig] = useState<Record<string, Msg | null>>({})
   const needDeleted = useMemo(() => isOwner
     ? messages.filter(m => m.deleted_at && !(m.id in deletedOrig)).map(m => m.id).sort().join(',')

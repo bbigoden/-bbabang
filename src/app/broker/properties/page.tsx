@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { splitAddressForAutoFill } from '@/lib/auto-fill-address'
 import { cn } from '@/lib/utils'
@@ -3411,7 +3412,7 @@ function BrokerPropertiesContent() {
                   settings={settings}
                   isAdminView={isAdminView}
                   canEdit={canEdit}
-                  isOwner={isOwner}
+                  isOwner={canManageOffice(broker)}
                   brokerSelfId={broker?.id ?? null}
                   isAdding={p.id === addingId || p.id === jumpId}
                   isAutoFilling={autoFillingId === p.id}

@@ -17,6 +17,7 @@
  * - refresh()로 명시적 재조회 가능
  */
 
+import { isDirector } from '@/lib/office-role'
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
@@ -224,7 +225,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 그사이 로그아웃이 시작됐으면 이전 사람 정보를 화면·캐시에 다시 넣지 않는다
     if (leaving) return
     const p = profileRes.data as Profile | null
-    const bp = brokerRes.data
+    const bp = brokerRes.data as BrokerProfile | null
+    // 이사는 대표와 같은 권한 — 입찰 설정은 대표 계정에 있으니 읽어 붙인다(office_bid)
+    if (bp && isDirector(bp) && bp.parent_broker_id) {
+      const { data: o } = await supabase.from('broker_profiles')
+        .select('bid_enabled, bid_region, bid_fields').eq('id', bp.parent_broker_id).maybeSingle()
+        .then(r => r, () => ({ data: null }))
+      if (o) bp.office_bid = o
+    }
     // 조회가 실패한 칸은 '없음'으로 덮어쓰지 않는다. 망이 잠깐 끊겨 broker=null 이 들어가면
     // 사무소 가드(매물·고객·업무일지…)가 멀쩡한 중개사를 빈 등록 양식으로 보냈고, 그 null 이 캐시에도 남았다.
     const profileFailed = !!profileRes.error

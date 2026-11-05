@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useId, useMemo, useDeferredValue } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Search, Users, Eye, MoreHorizontal, Lock } from 'lucide-react'
@@ -841,7 +842,7 @@ export default function BrokerCustomersPage() {
       case 'received_date': return <DateCell value={c.received_date} onSave={v => saveField(c.id, 'received_date', v || null)} readOnly={ro} />
       case 'contact':       return <TextCell value={c.contact} onSave={v => saveField(c.id, 'contact', v || null)} placeholder="연락처" readOnly={ro} />
       case 'assignee':
-        if (ro || !isOwner) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
+        if (ro || !canManageOffice(broker)) return <TextCell value={c.assignee} onSave={() => {}} placeholder="담당자" readOnly={true} />
         return <SelectCell value={c.assignee ?? ''} options={teamMembers} onSave={v => saveField(c.id, 'assignee', v || null)} placeholder="담당자" multi={settings.multi['assignee']} />
       case 'category':      return (settings.colTypes['category'] === 'text')
         ? <TextCell value={c.category} onSave={v => saveField(c.id, 'category', v)} placeholder="구분" readOnly={ro} />
@@ -1034,7 +1035,7 @@ export default function BrokerCustomersPage() {
             })}
           </select>
 
-          {isOwner && assignees.length > 1 && (
+          {canManageOffice(broker) && assignees.length > 1 && (
             <select aria-label="담당자 필터" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
               className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
               {assignees.map(a => (

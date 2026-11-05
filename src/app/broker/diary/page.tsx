@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, ChevronLeft, ChevronRight, Eye, MoreHorizontal, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
@@ -778,13 +779,16 @@ export default function BrokerDiaryPage() {
   const initEssential = async (u: any, b: any, prof: any, owner: boolean) => {
     setUser(u)
     setProfile(prof); setBroker(b)
-    setIsOwner(owner)
+    // isOwner = 대표 권한(대표·이사). 사무소 id 는 owner(대표 본인 여부)로 따로 구한다
+    const manager = canManageOffice(b)
+    setIsOwner(manager)
     if (!owner) {
       if (b.is_approved === false) { setAccessDenied(true); return }
     }
+    const officeId: string = owner ? b.id : (b.parent_broker_id ?? b.id)
 
     // 피커가 검색할 대상 범위(사무소) — office_broker_id 하나면 되므로 멤버 목록 조립이 필요 없다
-    setPickerOfficeId(owner ? b.id : (b.parent_broker_id ?? b.id))
+    setPickerOfficeId(officeId)
 
     // 직원: 대표 이름 — 담당자에 대표가 걸린 매물은 중개사메모를 직원도 본다(매물목록과 동일)
     if (owner) setOfficeOwnerName(prof?.name ?? '')
@@ -796,12 +800,13 @@ export default function BrokerDiaryPage() {
     // 대표: 직원 목록 + 퇴사자 목록 — 일지 고르는 칸에만 쓰이니 화면을 기다리게 하지 않는다.
     // 기다리면 직원 → 퇴사자(1,000행 넘어 두 번) 왕복이 줄을 서, 폰 느린 회선에서 일지·광고현황이
     // 약 6초 늦게 떴다(2026-10-29 점검).
-    if (owner) void (async () => {
+    // 이사도 같다 — 이사는 대표 + 다른 직원(자기 빼고) 일지를 고른다
+    if (manager) void (async () => {
       const { data: emps } = await supabase
         .from('broker_profiles')
         .select('id, profiles(name)')
-        .eq('parent_broker_id', b.id)
-        .eq('is_approved', true)
+        .or(`id.eq.${officeId},and(parent_broker_id.eq.${officeId},is_approved.eq.true)`)
+        .neq('id', b.id)
       if (emps) {
         const empList = emps.map((e: any) => ({ id: e.id, name: (e.profiles as any)?.name ?? '직원' }))
         setEmployees(empList)
@@ -817,11 +822,11 @@ export default function BrokerDiaryPage() {
         const [archAuthors1, archAuthors2] = await Promise.all([
           fetchAllPaged((from, to) => supabase.from('broker_diary_archive')
             .select('author_broker_id, author_name')
-            .eq('office_broker_id', b.id)
+            .eq('office_broker_id', officeId)
             .order('id').range(from, to)),
           fetchAllPaged((from, to) => supabase.from('broker_diary_customers_archive')
             .select('author_broker_id, author_name')
-            .eq('office_broker_id', b.id)
+            .eq('office_broker_id', officeId)
             .order('id').range(from, to)),
         ])
         const seen = new Set<string>()
