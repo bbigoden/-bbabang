@@ -24,7 +24,21 @@ interface BoardMember { id: string; profiles: { name: string | null } | null }
  * 매물장은 1000줄 넘게 읽지 않도록 건수만 센다.
  * 가상사무실 상황실 칠판과 업무일지 3번 광고현황이 같은 숫자를 쓴다.
  */
-export async function fetchOfficeBoard(supabase: SupabaseClient, officeId: string, members?: BoardMember[]): Promise<OfficeBoard> {
+// 같은 사무소 현황판을 몇 초 안에 또 세지 않는다 — 업무일지는 화면이 뜨며 현황판 칸이 한 번 더 그려져
+// 같은 숫자를 동시에 두 번 셌다(2026-11-05). 5초 안의 다시 묻기는 앞의 것을 같이 쓴다.
+const boardRecent = new Map<string, { at: number; p: Promise<OfficeBoard> }>()
+const BOARD_REUSE_MS = 5000
+
+export function fetchOfficeBoard(supabase: SupabaseClient, officeId: string, members?: BoardMember[]): Promise<OfficeBoard> {
+  const hit = boardRecent.get(officeId)
+  if (hit && Date.now() - hit.at < BOARD_REUSE_MS) return hit.p
+  const p = countOfficeBoard(supabase, officeId, members)
+  boardRecent.set(officeId, { at: Date.now(), p })
+  p.catch(() => boardRecent.delete(officeId))
+  return p
+}
+
+async function countOfficeBoard(supabase: SupabaseClient, officeId: string, members?: BoardMember[]): Promise<OfficeBoard> {
   if (!members) {
     const { data } = await supabase.from('broker_profiles')
       .select('id, is_approved, profiles:profiles_visible(name)')
