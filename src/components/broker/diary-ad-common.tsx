@@ -48,10 +48,12 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
     let gone = false
     setLoaded(false); setBoard(null); setBoardAt(null); setMemos([])
     void (async () => {
-      const [common, ms, ps] = await Promise.all([
+      // 오늘이면 지금 숫자를 처음부터 같이 센다 — 메모·공통칸을 받은 뒤에 세기 시작하면 폰에서 한 박자
+      // (0.3초쯤) 늦게 떴다(2026-11-05). 명단은 현황판이 직접 묻는다
+      const freshP = isToday ? fetchOfficeBoard(supabase, officeId) : null
+      const [common, ms] = await Promise.all([
         supabase.from('office_diary_common').select('ad_board, ad_board_at').eq('office_id', officeId).eq('date', date).maybeSingle(),
         supabase.from('office_diary_ad_memos').select('author_id, memo, updated_at').eq('office_id', officeId).eq('date', date),
-        supabase.from('broker_profiles').select('id, is_approved, profiles:profiles_visible(name)').or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`),
       ])
       if (gone) return
       const c = common.data as { ad_board: OfficeBoard | null; ad_board_at: string | null } | null
@@ -60,14 +62,10 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
       setMissing(isMissingTable(ms.error))
       const list = (ms.data as Memo[] | null) ?? []
       setMemos(list)
-      const people = (ps.data as unknown as { id: string; is_approved: boolean | null; profiles: { name: string | null } | null }[] | null) ?? []
       setLoaded(true)
-      // 오늘이면 지금 숫자로 새로 센다. 찍어 두는 건 대표·이사가 열 때만
-      if (isToday) {
-        // 위에서 받은 명단을 넘겨 다시 묻지 않는다(느린 폰 회선에서 왕복 하나 = 2초)
-        const members = people.filter(m => m.id === officeId || m.is_approved)
-          .sort((a, b) => (a.id === officeId ? -1 : b.id === officeId ? 1 : 0))
-        const fresh = await fetchOfficeBoard(supabase, officeId, ps.error ? undefined : members)
+      // 찍어 두는 건 대표·이사가 열 때만
+      if (freshP) {
+        const fresh = await freshP
         if (gone) return
         setBoard(fresh)
         if (isLead(myBrokerId) && !isMissingTable(common.error)) {

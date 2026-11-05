@@ -706,6 +706,9 @@ export default function BrokerDiaryPage() {
   // 날짜
   const [diaryDate, setDiaryDate] = useState(() => todayKST())
   const [diaryLoading, setDiaryLoading] = useState(false)
+  // 일지를 한 번이라도 다 불러왔는가 — 처음엔 diaryLoading 이 false 로 시작해, 불러오기 전에
+  // '일지에 없는 고객' 조회가 한 번 헛돌았다(2026-11-05 폰 속도 점검)
+  const [diaryReady, setDiaryReady] = useState(false)
 
   // 알림에서 ?date=YYYY-MM-DD&broker=BROKER_ID 로 진입 시 처리 (한 번만)
   const notifNavRef = useRef(false)
@@ -822,6 +825,13 @@ export default function BrokerDiaryPage() {
       // 그냥 받으면 그 뒤에만 기록이 있는 퇴사자가 목록에서 빠진다 → 페이지를 이어 받는다.
       // 실패해도 일지는 떠야 하므로(아래 피커 범위 설정까지 막히면 안 됨) 여기서 삼킨다.
       try {
+        // 겹치지 않는 사람만 한 번에(office_archive_authors) — 보관 표 1,300줄 넘게를 매번 받던 것(2026-11-05)
+        const { data: authors, error: authErr } = await supabase.rpc('office_archive_authors', { p_office: officeId })
+        if (!authErr && authors) {
+          setExEmployees((authors as { author_broker_id: string; author_name: string | null }[])
+            .map(a => ({ id: a.author_broker_id, name: a.author_name ?? '퇴사자' })))
+          return
+        }
         const [archAuthors1, archAuthors2] = await Promise.all([
           fetchAllPaged((from, to) => supabase.from('broker_diary_archive')
             .select('author_broker_id, author_name')
@@ -862,7 +872,7 @@ export default function BrokerDiaryPage() {
       // 실패해도 로딩 표시는 반드시 걷는다
       console.error('[diary] 일지 로드 실패:', e)
     } finally {
-      if (req === diaryReqRef.current) setDiaryLoading(false)
+      if (req === diaryReqRef.current) { setDiaryLoading(false); setDiaryReady(true) }
     }
   }
 
@@ -1484,7 +1494,7 @@ export default function BrokerDiaryPage() {
   const linkedKey = diaryCustomers.map(c => c.id).join(',')
   useEffect(() => {
     // 일지를 다 불러오기 전에 세면 이미 들어 있는 고객까지 '없다'로 잡혀 알림이 떴다 사라졌다(11-05).
-    if (!pickerOfficeId || !viewingName || viewingExEmployee || diaryLoading) { setDayUnlinked([]); return }
+    if (!pickerOfficeId || !viewingName || viewingExEmployee || diaryLoading || !diaryReady) { setDayUnlinked([]); return }
     let alive = true
     void (async () => {
       // 고객목록에서 지운 고객은 빼야 한다 — 같은 날 만들었다 지운 빈 줄이 '1명 없음'으로 떴다(11-05).
@@ -1500,7 +1510,7 @@ export default function BrokerDiaryPage() {
         && (c.assignee ?? '').split(',').map(x => x.trim()).includes(viewingName)))
     })()
     return () => { alive = false }
-  }, [pickerOfficeId, viewingName, viewingExEmployee, diaryDate, linkedKey, diaryLoading])
+  }, [pickerOfficeId, viewingName, viewingExEmployee, diaryDate, linkedKey, diaryLoading, diaryReady])
   const addDayUnlinked = async () => {
     if (!broker || dayUnlinked.length === 0) return
     const targetBrokerId = viewingBrokerId ?? broker.id
