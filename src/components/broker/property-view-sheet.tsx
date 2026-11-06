@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ListPlus, MapPin, X } from 'lucide-react'
 
 /** 폰에서 매물 하나를 펼쳐 보는 창에 필요한 칸만 */
 export interface PropertyView {
@@ -41,10 +41,12 @@ const STATUS_LABEL = { available: '거래가능', contracted: '계약완료', hi
  * 매물목록은 12칸 넘는 표라 375px 폰에서는 3칸만 보이고, 칸을 누르면 편집칸이 열린다 —
  * 매물 하나의 정보를 보려면 표를 옆으로 훑어야 했다(10-30 점검 모바일 사용자). 읽기만 하는 창이다.
  */
-export function PropertyViewSheet({ p, memoVisible, onClose, onLocation }: {
+export function PropertyViewSheet({ p, memoVisible, onClose, onLocation, onAddToList }: {
   p: PropertyView; memoVisible: boolean; onClose: () => void
   /** [입지 보기] — 표의 액션 칸이 폰에선 오른쪽 끝이라 이 창에도 둔다 */
   onLocation?: () => void
+  /** [리스트에 담기] — 폰에선 번호 칸에 [보기]·[담기] 둘이면 줄이 높아져 담기는 이 창에만 둔다(11-06) */
+  onAddToList?: () => void
 }) {
   // 사진을 누르면 화면 가득 크게 — 작은 썸네일로는 안이 안 보였다(11-05)
   const [zoom, setZoom] = useState<number | null>(null)
@@ -156,6 +158,12 @@ export function PropertyViewSheet({ p, memoVisible, onClose, onLocation }: {
           <button type="button" onClick={onLocation}
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
             <MapPin className="h-4 w-4" />입지 보기 (용도지역·토지·IC 거리)
+          </button>
+        )}
+        {onAddToList && (
+          <button type="button" onClick={onAddToList}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            <ListPlus className="h-4 w-4" />리스트에 담기
           </button>
         )}
         <p className="mt-4 text-xs text-gray-400">고치려면 창을 닫고 표의 칸을 누르세요.</p>

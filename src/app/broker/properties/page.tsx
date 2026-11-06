@@ -1110,7 +1110,7 @@ const PropertyRow = memo(function PropertyRow({
           className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:pointer-fine:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
         {onAddToList && (
           <button type="button" onClick={() => onAddToList(p)} title="손님 미팅용 리스트에 담기"
-            className="mt-1 block w-full select-none rounded bg-gray-100 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300">담기</button>
+            className="mt-1 hidden w-full select-none rounded bg-gray-100 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-200 sm:pointer-fine:block dark:bg-gray-800 dark:text-gray-300">담기</button>
         )}
       </td>
       {syncedOrder.map(key => {
@@ -2865,6 +2865,7 @@ function BrokerPropertiesContent() {
           onOpenProperty={seq => { setShowLists(false); setIsMapView(false); setSearchQuery(String(seq)) }} />
       )}
       {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)}
+        onAddToList={!isAdminView && listOfficeId ? () => { setListFor(viewProp.p); setViewProp(null) } : undefined}
         onLocation={viewProp.p.address?.trim() ? () => { setLocationOf({ address: viewProp.p.address, roomType: viewProp.p.room_type }); setViewProp(null) } : undefined} />}
       {locationOf && <LocationCardSheet address={locationOf.address} roomType={locationOf.roomType} onClose={() => setLocationOf(null)} />}
 
