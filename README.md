@@ -3,7 +3,7 @@
 부동산 역경매 플랫폼. 고객이 원하는 매물 조건을 등록하면 인증된 중개사들이 직접 매물을 제안.
 
 ## 라이브
-- 운영: https://bbabang.vercel.app
+- 운영: https://busojang.vercel.app (옛 주소 bbabang.vercel.app 은 화면만 넘기고 /api 는 그대로 받는다)
 
 ## 기술 스택
 - Next.js 16.2.6 (App Router + Turbopack)

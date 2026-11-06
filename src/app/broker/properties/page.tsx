@@ -133,7 +133,7 @@ const EMPTY_RANGES: Record<string, number | null> = {
 // 지도에서 좌표를 못 찾은 주소(정규화) → 기록 시각(ms). '지시푸 507-1504' 같은 엉터리 주소
 // ~70건을 지도 열 때마다 다시 묻느라 분당 상한(60회)까지 먹었다 — 7일간 건너뛴다.
 // 주소를 고치면 정규화 키가 바뀌어 다시 묻는다. 저장소가 막혀도 매번 다시 물을 뿐.
-const GEOCODE_FAIL_KEY = 'bbabang_geocode_fail'
+const GEOCODE_FAIL_KEY = 'busojang_geocode_fail'
 const GEOCODE_FAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000
 /** 지도 데이터를 다시 받지 않고 쓰는 시간. 지도↔목록을 오가는 동안만 아낀다. */
 const MAP_REUSE_MS = 3 * 60 * 1000

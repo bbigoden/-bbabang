@@ -21,7 +21,8 @@ import { checkRateLimit } from '@/lib/rate-limit'
  * env: PUBLICDATA_API_KEY(국세청), VWORLD_API_KEY(국토부), SUPABASE_SERVICE_ROLE_KEY
  */
 
-// VWorld 키는 발급 시 등록한 도메인과 함께 호출해야 한다
+// VWorld 키는 발급 시 등록한 도메인과 함께 호출해야 한다.
+// 키를 옛 주소로 받아 둬서 이 주소는 그대로 둔다 — busojang.vercel.app 으로 새 키를 받으면 둘 다 바꾼다
 const VWORLD_DOMAIN = 'bbabang.vercel.app'
 
 const normName = (s: string | null | undefined) => (s ?? '').replace(/\s/g, '')

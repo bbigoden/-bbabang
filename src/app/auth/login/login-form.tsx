@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Eye, EyeOff, Check } from 'lucide-react'
 import { homePath } from '@/lib/home-path'
 
-const STORAGE_KEY = 'bbabang_saved_email'
+const STORAGE_KEY = 'busojang_saved_email'
 
 /** 인증 메일을 연달아 보내면 Supabase 가 429 로 막는다 — 다시 보내기 버튼을 1분 쉬게 한다. */
 const RESEND_COOLDOWN_SEC = 60

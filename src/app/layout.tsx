@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: '%s | 부소장',
   },
   description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
-  keywords: '부동산, 중개사무소, 매물장, 고객장, 업무일지, 부소장, 빠방, 공인중개사',
+  keywords: '부동산, 중개사무소, 매물장, 고객장, 업무일지, 부소장, 공인중개사',
   authors: [{ name: '부소장' }],
   openGraph: {
     type: 'website',
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',
     images: [
       {
-        url: '/og-busojang.png',  // 이름을 바꿔야 카톡이 옛 '빠방' 그림을 버린다(og-image.svg 참고)
+        url: '/og-busojang.png',  // 이름을 바꿔야 카톡이 옛 그림을 버린다(og-image.svg 참고)
         width: 1200,
         height: 630,
         alt: '부소장 - 중개사무소 업무 도구',
@@ -88,12 +88,19 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full" suppressHydrationWarning>
       <head>
-        {/* FOUC 방지: hydration 전에 테마·글꼴 클래스 적용 */}
+        {/* FOUC 방지: hydration 전에 테마·글꼴 클래스 적용.
+            옛 이름(빠방) 저장값 bbabang_* 은 여기서 busojang_* 로 옮겨 담는다(2026-11-06) — 테마·글자 크기·
+            저장한 이메일·사이드바 접힘이 그대로 남는다. 다 옮겨지고 한참 지나면 이 옮기기는 지워도 된다 */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{
-              var t=localStorage.getItem('bbabang_theme')||'system';
-              var f=localStorage.getItem('bbabang_font_size')||'md';
+              var L=localStorage;
+              ['theme','font_size','saved_email','auth_ctx_v1','geocode_fail','broker_sidebar_collapsed'].forEach(function(k){
+                var o=L.getItem('bbabang_'+k);
+                if(o!==null){if(L.getItem('busojang_'+k)===null)L.setItem('busojang_'+k,o);L.removeItem('bbabang_'+k);}
+              });
+              var t=L.getItem('busojang_theme')||'system';
+              var f=L.getItem('busojang_font_size')||'md';
               var dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
               var r=document.documentElement;
               if(dark)r.classList.add('dark');
@@ -112,13 +119,13 @@ export default function RootLayout({
               {
                 '@type': 'WebSite',
                 name: '부소장',
-                alternateName: ['Busojang', '빠방'],
+                alternateName: ['Busojang'],
                 url: BASE_URL,
               },
               {
             '@type': 'Organization',
             name: '부소장',
-            alternateName: ['Busojang', '빠방'],
+            alternateName: ['Busojang'],
             url: BASE_URL,
             logo: `${BASE_URL}/icon-512.png`,
             description: '매물장·고객장·업무일지·광고관리·정산까지, 중개사무소 업무를 한 곳에서',

@@ -13,8 +13,8 @@ interface State {
 }
 
 const Ctx = createContext<State | null>(null)
-const THEME_KEY = 'bbabang_theme'
-const FONT_KEY = 'bbabang_font_size'
+const THEME_KEY = 'busojang_theme'
+const FONT_KEY = 'busojang_font_size'
 
 function applyTheme(theme: Theme) {
   if (typeof document === 'undefined') return

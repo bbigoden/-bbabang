@@ -12,7 +12,7 @@ import { useNotificationsCtx } from '@/lib/notifications-context'
 import { BROKER_ITEMS as ITEMS, showItem, type ItemDef } from './menu-items'
 import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
-const COLLAPSED_KEY = 'bbabang_broker_sidebar_collapsed'
+const COLLAPSED_KEY = 'busojang_broker_sidebar_collapsed'
 
 export function BrokerSidebar() {
   const pathname = usePathname() ?? ''

@@ -65,7 +65,7 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
-const CACHE_KEY = 'bbabang_auth_ctx_v1'
+const CACHE_KEY = 'busojang_auth_ctx_v1'
 
 function readCache(): { user: SupabaseUser; profile: Profile | null; broker: BrokerProfile | null } | null {
   if (typeof window === 'undefined') return null
