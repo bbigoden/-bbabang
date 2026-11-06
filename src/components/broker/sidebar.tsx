@@ -99,7 +99,7 @@ export function BrokerSidebar() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon.svg" alt="부소장 로고" width={28} height={28} className="h-7 w-7 rounded-lg" />
             <span className="text-base font-bold text-gray-900 dark:text-white">
-              부소<span className="text-blue-600">장</span>
+              부소<span className="text-blue-600 dark:text-blue-300">장</span>
             </span>
           </Link>
         )}

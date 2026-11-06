@@ -20,7 +20,8 @@ export function BrokerGlobalLayout({ children }: { children: React.ReactNode }) 
   const { profile, broker, loading } = useAuthOptional()
   const pathname = usePathname() ?? ''
 
-  if (loading) return <>{children}</>
+  // 손님용 예약 페이지(/b/)는 로그인한 직원이 열어도 부소장 옆 메뉴 없이 손님 화면 그대로(11-06 사장님)
+  if (loading || pathname.startsWith('/b/')) return <>{children}</>
 
   // 중개사 — 모든 viewport에서 사이드바 영역 (헤더는 별도 가드로 숨김)
   if (profile?.role === 'broker') {
