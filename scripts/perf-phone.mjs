@@ -84,6 +84,27 @@ for (const round of [0, 1]) {
     result[href][round] = { loaded, n: data.length, busy }
   }
 }
+// 폰 아래 메뉴에 없는 화면(더보기·버튼으로 들어가는 곳)은 주소로 바로 열어 잰다 — 새로고침 기준이라 위보다 불리하다
+const EXTRA = ['/broker/lists', '/broker/events', '/broker/settlement', '/broker/resources', '/broker/team', '/broker/trash', '/broker/naver', '/broker/ads']
+  .filter(h => !menus.includes(h))
+for (const href of EXTRA) {
+  for (const round of [0, 1]) {
+    reqs = []
+    const t0 = Date.now()
+    await page.goto(`${BASE}${href}`, { waitUntil: 'load', timeout: 90000 })
+    await page.evaluate(() => {
+      window.__lt = []
+      new PerformanceObserver(l => { for (const e of l.getEntries()) window.__lt.push({ s: e.startTime, d: e.duration }) }).observe({ type: 'longtask', buffered: true })
+    })
+    await page.waitForTimeout(SETTLE_MS)
+    const data = reqs.filter(x => /supabase\.co\/(rest|storage)/.test(x.r.url()))
+    const loaded = data.length ? Math.max(...data.map(x => (x.end || Date.now()) - t0)) : Date.now() - t0 - SETTLE_MS
+    const busy = await page.evaluate(() => Math.round(window.__lt.reduce((a, x) => a + x.d, 0)))
+    result[href] ??= {}
+    result[href][round] = { loaded, n: data.length, busy }
+  }
+  menus.push(href)
+}
 const over = []
 for (const href of menus) {
   const [a, b] = [result[href][0], result[href][1]]
