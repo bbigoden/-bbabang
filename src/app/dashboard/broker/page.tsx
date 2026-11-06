@@ -1,4 +1,4 @@
-﻿import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/layout/header'
 import { Card, CardBody } from '@/components/ui/card'
 import {
@@ -153,7 +153,7 @@ export default async function BrokerDashboardPage() {
                 { href: '/broker/properties?new=1', icon: Building2, title: '매물 등록', sub: '소재지만 적으면 끝' },
                 { href: '/broker/customers?new=1', icon: Users, title: '고객 등록', sub: '찾는 조건을 적어 두기' },
                 { href: '/broker/diary', icon: NotebookPen, title: '업무일지', sub: '오늘 한 일·상담' },
-                { href: '/broker/office', icon: LayoutDashboard, title: '사무실', sub: '직원·일꾼 한눈에' },
+                { href: '/broker/office', icon: LayoutDashboard, title: '웹사무실', sub: '직원·일꾼 한눈에' },
               ].map(a => (
                 <Link key={a.href} href={a.href}
                   className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 transition-all hover:border-blue-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">

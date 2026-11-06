@@ -609,7 +609,7 @@ export default function OfficePage() {
       {/* 제목·경고는 그림 틀 안에 — 그림이 화면 높이에 맞춰 가운데로 좁아져서, 밖에 두면 제목만 왼쪽 끝에 붙었다(11-06) */}
       <div className="mb-7">
         <PixelOffice layout={layout} loading={!loaded} header={<>
-          <PageHeader title="사무실"
+          <PageHeader title="웹사무실"
             description={<>
               {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : '직원·PC 일꾼이 지금 하는 일과 내 할 일'}
               {' · '}{loaded ? `${hmKST(now)} 기준, 20초마다 새로 봅니다(현황판은 5분마다)` : '불러오는 중…'}
