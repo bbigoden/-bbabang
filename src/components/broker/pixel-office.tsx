@@ -1017,7 +1017,7 @@ function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }
       <rect x={x + 14} y={y + 77.5} width={6} height={1.2} fill="#f8fafc" />
       <rect x={x + 24} y={y + 77.5} width={4} height={1.2} fill="#fde68a" />
       <text x={col.name} y={y + 7} fontSize={BIG} fill="#fef3c7">현황판</text>
-      <text x={x + w - 4} y={y + 7} fontSize={SMALL} textAnchor="end" fill="#a7c4ad">{status.at} 기준</text>
+      {/* 시각은 대표실 벽시계 하나만(11-07 사장님) — 현황판 'HH:MM 기준' 은 뺐다 */}
       {[['매물장(거래가능)', col.props], ['뱅크', col.bank], ['당근', col.daangn]].map(([t, cx]) => (
         <text key={t} x={cx} y={y + 13} fontSize={SMALL} textAnchor="end" fill="#a7c4ad">{t}</text>
       ))}
@@ -1074,7 +1074,8 @@ function Lobby() {
       <rect x={x + 79.5} y={y + 35.5} width={15} height={1} fill="#9ca3af" />
       <rect x={x + 79.5} y={y + 37.5} width={11} height={1} fill="#9ca3af" />
       <rect x={x + 86} y={y + 42} width={2} height={8} fill="#7c4a24" />
-      <Plant x={x + 4} y={y + 112} />
+      {/* 왼쪽 화분은 두 복도 입구 사이 벽 앞에 — 아래 복도가 로비로 들어오는 길목에 놓여 길을 막았다(11-07) */}
+      <Plant x={x + 4} y={y + 60} />
       <Plant x={x + w - 12} y={y + 112} />
       {/* 바깥벽과 유리 양문, 매트, 출입구 안내 */}
       <rect x={x + w - 1.5} y={y} width={3} height={doorY - y} fill="#6b7280" />
@@ -1092,6 +1093,8 @@ function Lobby() {
 }
 
 /** 밤(19~5시)이면 사무실이 조금 어두워진다 */
+/** 이만큼 아무도 안 만지면 움직임을 멈춘다 */
+const STILL_MS = 60_000
 const isNight = (clock: string) => { const h = Number(clock.slice(0, 2)); return h >= 19 || h < 5 }
 
 // ── 소품 ───────────────────────────────────────────────
@@ -1425,6 +1428,10 @@ function Decor({ room, guests }: { room: RoomBox; guests: number | null }) {
           <rect x={x + 24} y={y + 14} width={7} height={5} fill="#93c5fd" />
           <rect x={x + 40} y={y + 12} width={14} height={20} fill="#f1f5f9" />
           <rect x={x + 40} y={y + 21} width={14} height={1} fill="#94a3b8" />
+          {/* 탁자와 의자 넷 — 의자 없는 탁자만 있었다(11-07) */}
+          {[20, 34].flatMap(cx => [44.5, 65].map(cy => (
+            <rect key={`${cx}-${cy}`} x={x + cx} y={y + cy} width={6} height={4.5} fill="#374151" />
+          )))}
           <rect x={x + 16} y={y + 50} width={28} height={14} fill="#8b5a2b" />
           <Plant x={x + 62} y={y + 62} />
         </g>
@@ -1445,8 +1452,8 @@ const Background = memo(function Background({ guests, decor }: { guests: number 
           {HALLS.map((h, i) => (
             <g key={`hall-${i}`}>
               <rect x={0} y={h.y} width={LOBBY.x} height={h.h} fill="url(#pxo-hall)" />
+              {/* 화분은 막다른 복도 끝에만 — 복도 한가운데 화분은 지나다니는 길을 막았다(11-07 사장님) */}
               {decor && <Plant x={4} y={h.y + 6} />}
-              {decor && <Plant x={244} y={h.y + 6} />}
             </g>
           ))}
           {decor && <Lobby />}
@@ -1493,6 +1500,19 @@ export function PixelOffice({ layout, loading = false, header }: { layout: Offic
   const pick = (s: Seat) => () => setPicked(p => (p === s.key ? null : s.key))
   const night = isNight(layout.clock)
 
+  // 1분 동안 아무도 안 만지면 움직임을 멈춘다 — 움직임 120여 개가 돌면 가만히 켜 둔 폰이 10초에 5초를 일했다.
+  // 멈추면 거의 0. 숫자·말풍선은 그대로 20초마다 바뀌고, 닿거나 움직이면 바로 다시 움직인다(11-07 사장님 1안)
+  const [still, setStill] = useState(false)
+  useEffect(() => {
+    let last = Date.now()
+    const wake = () => { last = Date.now(); setStill(false) }
+    const opts = { passive: true, capture: true } as const
+    const evs = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'scroll', 'touchstart'] as const
+    evs.forEach(e => document.addEventListener(e, wake, opts))
+    const t = setInterval(() => { if (Date.now() - last > STILL_MS) setStill(true) }, 5000)
+    return () => { evs.forEach(e => document.removeEventListener(e, wake, opts)); clearInterval(t) }
+  }, [])
+
   // 방마다 자리를 놓는다. 넘치는 사람은 방 오른쪽 아래에 '+n'.
   const placed: { seat: Seat; x: number; y: number; big?: boolean }[] = []
   const empties: { key: string; x: number; y: number }[] = []
@@ -1520,8 +1540,9 @@ export function PixelOffice({ layout, loading = false, header }: { layout: Offic
   const away = new Set(walkers.map(w => w.seat.key))
 
   return (
-    <div className="pxo-fit">
+    <div className={still ? 'pxo-fit pxo-still' : 'pxo-fit'}>
       <style>{`
+        .pxo-still, .pxo-still * { animation-play-state: paused !important; }
         @keyframes pxo-type { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(.6px) } }
         .pxo-type { animation: pxo-type .5s steps(1) infinite; }
         @keyframes pxo-blink { 0%, 100% { opacity: 1 } 50% { opacity: .6 } }
