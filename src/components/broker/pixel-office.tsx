@@ -423,6 +423,21 @@ const SNORLAX = mon([
 ], { T: '#2f5d6b', C: '#f0e0c0', N: '#1f1f1f', W: '#ffffff' }, '#2f5d6b')
 const GUESTS = [PSYDUCK, SNORLAX]
 
+/** 로비 안내원 — 럭키. 분홍 몸에 흰 주머니(알) */
+const CHANSEY = mon([
+  '....PPPPPP....',
+  '..PPPPPPPPPP..',
+  '.PPPPPPPPPPPP.',
+  '.PPEPPPPPPEPP.',
+  'PPPPPPmmPPPPPP',
+  'PPPPWWWWWWPPPP',
+  'PPPWWWWWWWWPPP',
+  'PPPWWWNNWWWPPP',
+  '.PPWWWNNWWWPP.',
+  '..PPPPPPPPPP..',
+  '..PP......PP..',
+], { P: '#f9b4c8', E: '#1f1f1f', m: '#be185d', W: '#ffffff', N: '#fde68a' }, '#f9b4c8')
+
 /** 님피아 — 2026-10-27 사장님이 이예리 자리에 '이쁜 애로' 골라 줌. 리본 더듬이가 양옆으로 흐른다. */
 const SYLVEON = mon([
   '.CC........CC.',
@@ -763,7 +778,7 @@ function Pets({ x, y, pets }: { x: number; y: number; pets: string[] }) {
 // 미리 만들어 둔다. 걸음 두 장 × 방향 두 장을 켰다 껐다만 한다 — 아무것도 뒤집지 않는다.
 
 /** 오른쪽을 보는 청소부. C 모자 c 챙 H 머리 S 살 E 눈 U 작업복 A 앞치마 P 바지 K 신발 W 자루 M 걸레·빗자루 */
-/** 청소부 윗몸 (16칸) — 오른쪽 W 가 자루. 꼬부기는 등껍질, 피카츄는 귀 끝이 까맣다. */
+/** 청소부 윗몸 (16칸) — 오른쪽 W 가 자루. 꼬부기는 등껍질, 토게피는 알껍데기. */
 const JANITOR_BODIES: Record<string, string[]> = {
   squirtle: [
     '................',
@@ -780,20 +795,21 @@ const JANITOR_BODIES: Record<string, string[]> = {
     '..BBBYYYBBBW....',
     '...SSSSSSS.W....',
   ],
-  pikachu: [
-    '...N.....N......',
-    '...SN...NS......',
+  // 토게피 — 대표 캐릭터(피카츄)와 겹쳐 헷갈려 바꿨다(11-07 사장님). 머리 가시, 알껍데기 몸(빨강·파랑 무늬)
+  togepi: [
+    '....T.T.T.......',
+    '....TTTTT.......',
     '...SSSSSSS......',
     '..SSSSSSSSS.....',
-    '..SESSSSSES.....',
-    '..RSSSmSSSR.....',
+    '..SSESSSESS.....',
+    '..SBSSmSSBS.....',
     '...SSSSSSS......',
-    '...SSSSSSS...W..',
-    '..SSSSSSSSS..W..',
-    '..SSSSSSSSSSW...',
-    '...SSSSSSS..W...',
-    '...SSSSSSS.W....',
-    '...SSSSSSS.W....',
+    '..GrGGGGGbG..W..',
+    '.SGGGGrGGGGS.W..',
+    '.SGbGGGGGrGSW...',
+    '..GGGGbGGGG.W...',
+    '...GGrGGGG.W....',
+    '...GGGGGGG.W....',
   ],
 }
 /**
@@ -867,7 +883,7 @@ const JANITOR_ROUTES: { id: string; body: string; pal: Record<string, string>; p
   },
   {
     // 가운데·위층: 홍보부 → 아래 복도 → 로비 → 위 복도 → 에이전트실 → 되돌아 (빗자루)
-    id: 'j2', body: 'pikachu', pal: { S: '#f8d030', N: '#1f1f1f', R: '#e8504a', m: '#7a3b1f', P: '#f8d030', K: '#c8a020', M: '#f59e0b' },
+    id: 'j2', body: 'togepi', pal: { S: '#fbecc0', T: '#f3dc9a', G: '#ffffff', r: '#ef4444', b: '#3b82f6', B: '#f9a8d4', m: '#b45309', P: '#fbecc0', K: '#e2c88a', M: '#f59e0b' },
     pts: [[272, 208], [380, 208, 2.5], [400, 208], [400, 230], [552, 230], [552, 180, 3], [552, 120], [302, 120],
       [302, 92], [140, 92, 2.5], [356, 92, 2.5], [302, 92], [302, 120], [552, 120], [552, 230], [400, 230], [400, 208]],
   },
@@ -1048,12 +1064,14 @@ function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }
  * 로비 — 바깥 유리문으로 들어와 안내 데스크를 지나 두 복도로 갈라진다(2026-10-26 '로비 형식으로').
  * 위·아래 복도가 왼쪽에서 그대로 이어 들어오고, 오른쪽 바깥벽에 출입구가 있다.
  */
-function Lobby() {
+function Lobby({ night }: { night: boolean }) {
   const { x, y, w, h } = LOBBY
   const doorY = y + 50
   return (
     <g>
       <rect x={x} y={y} width={w} height={h} fill="url(#pxo-marble)" />
+      {/* 안내원(럭키) — 카운터 뒤에 앉아 윗몸만 보인다. 밤(19~5시)엔 퇴근(11-07 사장님 '안내데스크도 사람') */}
+      {!night && <Sprite rows={CHANSEY.rows} palette={CHANSEY.pal} x={x + 15} y={y + 23} />}
       {/* 안내 데스크 — 둥근 카운터, 종, 모니터 */}
       <rect x={x + 10} y={y + 34} width={34} height={4} fill="#c8955f" />
       <rect x={x + 10} y={y + 38} width={34} height={9} fill="#7c4a24" />
@@ -1445,7 +1463,7 @@ function Decor({ room, guests }: { room: RoomBox; guests: number | null }) {
  * 배경까지 통째로 다시 그려 폰이 멈칫했다 — 손님 수(상담실)·소품 켜기가 바뀔 때만 다시 그린다(2026-11-05).
  * decor=false 면 소품을 빼고 그린다 — 처음 열 때 방·사람을 먼저 띄우고 소품은 바로 다음에 붙인다.
  */
-const Background = memo(function Background({ guests, decor }: { guests: number | null; decor: boolean }) {
+const Background = memo(function Background({ guests, decor, night }: { guests: number | null; decor: boolean; night: boolean }) {
   return (
     <>
           {/* ── 복도 둘: 돌바닥 ── */}
@@ -1456,7 +1474,7 @@ const Background = memo(function Background({ guests, decor }: { guests: number 
               {decor && <Plant x={4} y={h.y + 6} />}
             </g>
           ))}
-          {decor && <Lobby />}
+          {decor && <Lobby night={night} />}
 
           {/* ── 방: 바닥 → 소품 → 벽 → 문 → 이름판 ── */}
           {ROOMS.map(r => <rect key={`f-${r.key}`} x={r.x} y={r.y} width={r.w} height={r.h} fill={FLOOR_FILL[r.floor]} />)}
@@ -1658,7 +1676,7 @@ export function PixelOffice({ layout, loading = false, header }: { layout: Offic
             </pattern>
           </defs>
 
-          <Background guests={layout.guests} decor={decorOn} />
+          <Background guests={layout.guests} decor={decorOn} night={night} />
 
           {layout.status && <StatusBoard status={layout.status} />}
           {/* 대표실 벽시계 */}
