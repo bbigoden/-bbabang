@@ -106,17 +106,18 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">미팅준비</h1>
+      {/* 제목은 한 줄, 그 아래 재직자·새 미팅을 같은 높이(44px)로 한 줄에 — 폰·PC 모두 카드 가장자리에 맞춘다(11-06) */}
+      <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">미팅준비</h1>
+      <div className="mb-5 flex items-center gap-2">
+        {canManage && members && (
+          <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="전체 재직자"
+            className="h-11 min-w-0 flex-1 sm:w-60 sm:flex-none" />
+        )}
         <button type="button" onClick={() => setMaking(true)}
-          className="flex shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+          className="ml-auto flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
           <Plus className="h-4 w-4" />새 미팅
         </button>
       </div>
-
-      {canManage && members && (
-        <div className="mb-4"><MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="전체 재직자" /></div>
-      )}
 
       {lists == null || members == null ? (
         <p className="py-16 text-center text-sm text-gray-500">불러오는 중…</p>

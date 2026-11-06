@@ -170,16 +170,18 @@ export function SheetHead({ title, sub, onClose }: { title: string; sub?: string
  * 재직자 드롭다운 — 나 먼저, 그다음 재직자. allLabel 을 주면 맨 앞에 '전체'.
  * 칩으로 늘어놓았다가 드롭다운으로 바꿨다(11-06 사장님 — 사람이 늘면 칩이 줄을 넘는다).
  */
-export function MemberSelect({ members, selfId, value, onChange, allLabel, label = '재직자' }: {
+export function MemberSelect({ members, selfId, value, onChange, allLabel, label = '재직자', className = 'w-full py-2.5' }: {
   members: { id: string; name: string }[]; selfId: string; value: string; onChange: (id: string) => void
   allLabel?: string
   label?: string
+  /** 크기·배치 — 기본은 칸 너비 가득 */
+  className?: string
 }) {
   const me = members.find(m => m.id === selfId)
   const others = members.filter(m => m.id !== selfId)
   return (
     <select value={value} onChange={e => onChange(e.target.value)} aria-label={label}
-      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:w-auto sm:min-w-44 dark:border-gray-800 dark:bg-gray-950">
+      className={`rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950 ${className}`}>
       {allLabel !== undefined && <option value="">{allLabel}</option>}
       {me && <option value={me.id}>{me.name} (나)</option>}
       {others.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
