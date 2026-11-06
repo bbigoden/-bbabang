@@ -26,3 +26,6 @@ export function formatDate(dateStr: string): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`
   return `${Math.floor(diff / 86400)}일 전`
 }
+
+// 표가 아직 DB 에 없을 때(마이그레이션 전) 나는 오류인지 — 그 기능만 조용히 빼고 화면은 띄운다
+export const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'

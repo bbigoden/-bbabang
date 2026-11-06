@@ -206,9 +206,7 @@ export function SignupForm({ redirectTo = null }: { redirectTo?: string | null }
       supabase.from('profiles').update({
         // 마케팅 수신 분리 동의 — 별도 체크박스 결과만 반영, 나머지는 DB 기본값
         notification_preferences: {
-          matches: true,
-          messages: true,
-          proposals: true,
+          office_chat: true,
           announcements: true,
           marketing: agreeMarketing,
         },

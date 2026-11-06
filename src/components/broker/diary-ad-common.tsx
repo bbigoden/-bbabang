@@ -18,9 +18,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fetchOfficeBoard, DIRECTOR_ID, type OfficeBoard } from '@/lib/office-board'
 import { todayKST, hmKST } from '@/lib/date-kst'
-import { cn } from '@/lib/utils'
+import { cn, isMissingTable } from '@/lib/utils'
 
-const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'
 const n = (v: number) => v.toLocaleString()
 
 interface Memo { author_id: string; memo: string; updated_at: string }

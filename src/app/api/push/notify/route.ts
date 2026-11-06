@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sendPushToUser } from '@/lib/push-server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { safeUrl } from '@/lib/push-safe-url'
 
 /**
  * 다른 사용자에게 푸시 알림 발송.
@@ -19,15 +20,6 @@ const TITLE_MAX = 60
 const BODY_MAX = 200
 
 /** 같은 사이트 경로만. '//'·'/\' 는 브라우저가 외부 주소로 읽고, 그 밖은 실제로 풀어 본 출처로 가린다. */
-function safeUrl(raw: unknown, origin: string): string {
-  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return '/'
-  try {
-    const u = new URL(raw, origin)
-    return u.origin === origin ? u.pathname + u.search + u.hash : '/'
-  } catch {
-    return '/'
-  }
-}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -54,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sent: 0, skipped: 'self' })
   }
 
-  // 화이트리스트 검증: chat_room/사무소/proposal 관계 있을 때만 허용 (P1-3)
+  // 화이트리스트 검증: 같은 사무소 사람에게만 허용 (can_notify_user, 10-30부터)
   const { data: allowedRelation } = await supabase.rpc('can_notify_user', {
     p_target_user_id: body.targetUserId,
   })

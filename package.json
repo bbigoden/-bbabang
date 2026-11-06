@@ -52,7 +52,6 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^6.0.2",
-    "@vitest/browser-playwright": "^4.1.6",
     "@vitest/coverage-v8": "^4.1.6",
     "autocannon": "^8.0.0",
     "axe-core": "^4.11.4",

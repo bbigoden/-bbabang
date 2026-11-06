@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendPushToUser } from '@/lib/push-server'
+import { safeUrl } from '@/lib/push-safe-url'
 
 /**
  * DB 트리거 전용 푸시 발송 엔드포인트 — 코드 안에 호출처가 없어도 지우면 안 된다.
@@ -25,15 +26,6 @@ function secretMatches(given: string | null, secret: string): boolean {
 }
 
 /** 같은 사이트 경로만. '//'·'/\' 는 브라우저가 외부 주소로 읽는다. */
-function safeUrl(raw: unknown, origin: string): string {
-  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return '/'
-  try {
-    const u = new URL(raw, origin)
-    return u.origin === origin ? u.pathname + u.search + u.hash : '/'
-  } catch {
-    return '/'
-  }
-}
 
 export async function POST(req: NextRequest) {
   const secret = process.env.INTERNAL_PUSH_SECRET

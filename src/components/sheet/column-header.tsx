@@ -10,16 +10,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, EyeOff, Lock, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useClickOutside } from '@/lib/use-click-outside'
 
-function useClickOutside(ref: React.RefObject<HTMLElement | null>, cb: () => void) {
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) cb()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [ref, cb])
-}
 
 export interface ColumnHeaderProps {
   label: string

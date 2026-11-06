@@ -26,6 +26,7 @@ import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
 import { PixelOffice, type OfficeLayout, type Seat } from '@/components/broker/pixel-office'
 import { fetchOfficeBoard, DIRECTOR_ID } from '@/lib/office-board'
 import { canManageOffice } from '@/lib/office-role'
+import { isMissingTable } from '@/lib/utils'
 
 /** 입찰 수집이 마지막으로 돈 기록(bid_sync.last_run) */
 interface BidRun { finishedAt: string; notices: number; results: number; details?: number; stoppedBy?: string }
@@ -155,7 +156,6 @@ const STATUS_CLS: Record<AdJob['status'], string> = {
 }
 
 /** 표가 아직 없을 때(장부 변경 전) Supabase 가 주는 오류. 화면은 그 칸만 '준비 전' 으로 둔다. */
-const isMissingTable = (e: { code?: string } | null) => e?.code === '42P01' || e?.code === 'PGRST205'
 
 const alive = (at: string | null | undefined, now: number) =>
   !!at && now - new Date(at).getTime() < ALIVE_MS

@@ -6,26 +6,8 @@ import Link from 'next/link'
 import { useNotificationsCtx } from '@/lib/notifications-context'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
+import { NOTIFICATION_ICON } from '@/lib/notification-icons'
 
-const TYPE_ICON: Record<string, string> = {
-  new_proposal: '📨',
-  proposal_accepted: '✅',
-  proposal_rejected: '❌',
-  new_message: '💬',
-  new_matching_property: '🏠',
-  new_matching_request: '📨',
-  announcement: '📢',
-  new_review: '⭐',
-  request_renewal_reminder: '⏰',
-  request_expired: '📁',
-  property_stale_reminder: '🏚️',
-  referral_signup: '🎁',
-  stage_changed: '🚀',
-  saved_search_match: '🔖',
-  property_price_changed: '💰',
-  deal_completed: '🎉',
-  admin_property_status_changed: '🛡️',
-}
 
 // userId prop은 호환성을 위해 받지만 NotificationsProvider가 AuthContext의 user를 사용한다.
 export function NotificationBell({ userId: _userId }: { userId?: string }) {
@@ -94,7 +76,7 @@ export function NotificationBell({ userId: _userId }: { userId?: string }) {
                     !n.is_read ? 'bg-blue-50/50' : ''
                   }`}
                 >
-                  <span className="mt-0.5 text-xl flex-shrink-0">{TYPE_ICON[n.type] ?? '🔔'}</span>
+                  <span className="mt-0.5 text-xl flex-shrink-0">{NOTIFICATION_ICON[n.type] ?? '🔔'}</span>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${!n.is_read ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                       {n.title}

@@ -95,6 +95,8 @@ const nextConfig: NextConfig = {
     const BROKER_ROUTES = brokerDirs.join('|')
     return [
       { source: '/brokers', destination: '/', permanent: true },
+      // 보안 설정은 계정 화면으로 합쳤다 — 옛 북마크용
+      { source: '/settings/security', destination: '/settings/account', permanent: true },
       // 사무소 소개는 첫 화면(/)이 됐다 — 고객 요청 매칭 화면을 걷어낸 뒤(2026-10-30)
       { source: '/office-intro', destination: '/', permanent: true },
       // 옛 전체 폼 매물 등록·수정 화면은 걷어냈다(앱 어디서도 안 이어졌고, 걷어낸 매칭 알림을 부르고 있었다) — 10-30 재점검

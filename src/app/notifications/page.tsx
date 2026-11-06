@@ -8,31 +8,13 @@ import { useNotificationsCtx, type Notification } from '@/lib/notifications-cont
 import { Header } from '@/components/layout/header'
 import { Bell, Check, CheckCheck, Trash2, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { NOTIFICATION_ICON } from '@/lib/notification-icons'
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/layout/page-header'
 import { Spinner } from '@/components/ui/spinner'
 
 const PAGE_SIZE = 30
 
-const TYPE_ICON: Record<string, string> = {
-  new_proposal: '📨',
-  proposal_accepted: '✅',
-  proposal_rejected: '❌',
-  new_message: '💬',
-  new_review: '⭐',
-  announcement: '📢',
-  new_matching_property: '🏠',
-  new_matching_request: '📨',
-  request_renewal_reminder: '⏰',
-  request_expired: '📁',
-  property_stale_reminder: '🏚️',
-  referral_signup: '🎁',
-  stage_changed: '🚀',
-  saved_search_match: '🔖',
-  property_price_changed: '💰',
-  deal_completed: '🎉',
-  admin_property_status_changed: '🛡️',
-}
 
 type Filter = 'all' | 'unread'
 
@@ -216,7 +198,7 @@ export default function NotificationsPage() {
                     onClick={() => handleClick(n)}
                     className="flex-1 min-w-0 flex items-start gap-3 py-4 pl-5 pr-2 text-left hover:bg-gray-50 transition-colors"
                   >
-                    <span className="mt-0.5 text-xl flex-shrink-0">{TYPE_ICON[n.type] ?? '🔔'}</span>
+                    <span className="mt-0.5 text-xl flex-shrink-0">{NOTIFICATION_ICON[n.type] ?? '🔔'}</span>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm ${!n.is_read ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                         {!n.is_read && <span className="sr-only">안 읽음 알림: </span>}
