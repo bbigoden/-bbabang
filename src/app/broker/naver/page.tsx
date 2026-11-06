@@ -1584,9 +1584,9 @@ export default function CollectPage() {
           {/* 가격 — 거래를 하나 골라야 뜻이 생긴다. 월세는 보증금과 월세가 따로다. */}
           <div className="flex items-start gap-2">
             <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">
+              {거래하나 === '월세' ? '보증금' : '가격'}
+            </span>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                {거래하나 === '월세' ? '보증금' : '가격'}
-              </span>
               {거래하나 ? (
                 <>
                   <범위칸 값={가격조건} 바꾸기={v => { set가격조건(v); setPage(1) }} 단위="만원" 폭="w-28" />
