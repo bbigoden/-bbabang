@@ -1425,75 +1425,79 @@ export default function CollectPage() {
         </div>
 
         <div className="mb-5 space-y-3 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">기간</span>
-            {/* 달력이 먼저다 — 기간을 정하는 것이 이 줄에서 하는 주된 일이고,
-                [오늘] 은 거기서 자주 쓰는 자리를 한 번에 잡는 지름길일 뿐이다.
-                매물목록·고객목록이 쓰는 그 달력 그대로다. 다른 곳은 한 날만 고르므로,
-                기간이 필요한 여기서만 두 날을 눌러 정한다. */}
-            <DateRangeCell
-              from={보는첫날} to={끝날}
-              onSave={기간잡기}
-              maxDays={한도}
-              min={addDays(todayKST(), -(KEEP_DAYS - 1))}
-              max={todayKST()}
-            />
-            <span className="text-xs text-gray-400 dark:text-gray-600">{날수(보는첫날, 끝날)}일
-              {/* 7일에 막힌 까닭을 말해 둔다. 모르면 공장을 볼 때도 7일만 보게 된다. */}
-              {/* 종류를 고른 뒤에도 얼마까지 늘릴 수 있는지 남겨 둔다. 안내가 사라지면 30일로
-                  늘리는 방법을 다시 찾지 못했다(점검 10/26). */}
-              {한도 === MAX_DAYS ? ` · 종류를 고르면 ${LONG_DAYS}일까지` : src.전체는7일 ? ` · 최대 ${LONG_DAYS}일` : ''}
-            </span>
-            {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
-                되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
-            {/* 옆 칩들처럼 다시 누르면 꺼진다 — 켜기 전 기간으로, 모르면 기본 3일로 돌아간다.
-                켜기만 되던 때는 3일로 돌아가려면 달력에서 두 날을 다시 골라야 했다(점검 11/03). */}
-            <Chip on={오늘만} onClick={() => {
-              if (!오늘만) { 오늘전기간.current = [첫날, 끝날]; 기간잡기(todayKST(), todayKST()); return }
-              const [a, b] = 오늘전기간.current ?? [addDays(todayKST(), -2), todayKST()]
-              오늘전기간.current = null
-              기간잡기(a === todayKST() && b === todayKST() ? addDays(todayKST(), -2) : a, b)
-            }}>
-              오늘
-            </Chip>
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">기간</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {/* 달력이 먼저다 — 기간을 정하는 것이 이 줄에서 하는 주된 일이고,
+                  [오늘] 은 거기서 자주 쓰는 자리를 한 번에 잡는 지름길일 뿐이다.
+                  매물목록·고객목록이 쓰는 그 달력 그대로다. 다른 곳은 한 날만 고르므로,
+                  기간이 필요한 여기서만 두 날을 눌러 정한다. */}
+              <DateRangeCell
+                from={보는첫날} to={끝날}
+                onSave={기간잡기}
+                maxDays={한도}
+                min={addDays(todayKST(), -(KEEP_DAYS - 1))}
+                max={todayKST()}
+              />
+              <span className="text-xs text-gray-400 dark:text-gray-600">{날수(보는첫날, 끝날)}일
+                {/* 7일에 막힌 까닭을 말해 둔다. 모르면 공장을 볼 때도 7일만 보게 된다. */}
+                {/* 종류를 고른 뒤에도 얼마까지 늘릴 수 있는지 남겨 둔다. 안내가 사라지면 30일로
+                    늘리는 방법을 다시 찾지 못했다(점검 10/26). */}
+                {한도 === MAX_DAYS ? ` · 종류를 고르면 ${LONG_DAYS}일까지` : src.전체는7일 ? ` · 최대 ${LONG_DAYS}일` : ''}
+              </span>
+              {/* 며칠치 칩은 [오늘] 하나만 둔다. 3일·7일은 달력에서 두 날을 누르면
+                  되는 일이라, 같은 일을 하는 버튼이 둘이면 자리만 차지한다. */}
+              {/* 옆 칩들처럼 다시 누르면 꺼진다 — 켜기 전 기간으로, 모르면 기본 3일로 돌아간다.
+                  켜기만 되던 때는 3일로 돌아가려면 달력에서 두 날을 다시 골라야 했다(점검 11/03). */}
+              <Chip on={오늘만} onClick={() => {
+                if (!오늘만) { 오늘전기간.current = [첫날, 끝날]; 기간잡기(todayKST(), todayKST()); return }
+                const [a, b] = 오늘전기간.current ?? [addDays(todayKST(), -2), todayKST()]
+                오늘전기간.current = null
+                기간잡기(a === todayKST() && b === todayKST() ? addDays(todayKST(), -2) : a, b)
+              }}>
+                오늘
+              </Chip>
+            </div>
           </div>
           {/* 칩은 제 줄로 — 기간 줄 끝에 이어 붙이면 폭에 따라 '사라진 것' 하나만 아랫줄로 떨어져
               줄이 들쭉날쭉했다(11-06). 아래 지역·종류 줄처럼 이름표를 단다. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">보기</span>
-            <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
-            {/* 네이버 '새 매물' 의 절반 넘게가 번호만 새로 받은 재등록다(11/02 실측 59%). */}
-            {source === 'naver' && (
-              <Chip on={재등록빼기} onClick={() => { set재등록빼기(v => !v); setPage(1) }}>재등록 빼기</Chip>
-            )}
-            {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
-                이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
-                켜지는 일(받아올 때 가려내기)까지 같이 맡는다. */}
-            {/* 당근은 늘어난 지도 칸만 열어 새 매물을 건지므로, 안 본 매물이 내려갔는지
-                알 길이 없다. 눌러도 늘 비는 칩은 없는 편이 낫다. */}
-            {source === 'naver' && (
-              <Chip on={goneOnly} onClick={() => {
-                if (!settings.track_gone) void saveSetting({ track_gone: true })
-                setGoneOnly(v => !v); setPage(1)
-              }}>사라진 것</Chip>
-            )}
-            {/* [매물수집] 은 짧은 '보기' 줄 끝에 둔다 — 기간 줄 끝이면 태블릿에서 혼자 아랫줄로 떨어졌다(11-06).
-                보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
-                탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
-                네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
-            <button
-              onClick={() => void requestCollect(source)}
-              disabled={!!jobs[source]}
-              title={agentOnline
-                ? `${src.label}에서 새 매물을 받아옵니다 (${src.takes})`
-                : AGENT_OFF_HINT}
-              className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
-                         px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
-                         disabled:opacity-60"
-            >
-              <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
-              {jobs[source] ?? '매물수집'}
-            </button>
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">보기</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
+              {/* 네이버 '새 매물' 의 절반 넘게가 번호만 새로 받은 재등록다(11/02 실측 59%). */}
+              {source === 'naver' && (
+                <Chip on={재등록빼기} onClick={() => { set재등록빼기(v => !v); setPage(1) }}>재등록 빼기</Chip>
+              )}
+              {/* **한 번만 누르게 한다.** 예전에는 설정에서 '사라진 매물 표시' 를 켜야
+                  이 칩이 나타나서, 사라진 것을 보려면 두 군데를 눌러야 했다. 이 칩이
+                  켜지는 일(받아올 때 가려내기)까지 같이 맡는다. */}
+              {/* 당근은 늘어난 지도 칸만 열어 새 매물을 건지므로, 안 본 매물이 내려갔는지
+                  알 길이 없다. 눌러도 늘 비는 칩은 없는 편이 낫다. */}
+              {source === 'naver' && (
+                <Chip on={goneOnly} onClick={() => {
+                  if (!settings.track_gone) void saveSetting({ track_gone: true })
+                  setGoneOnly(v => !v); setPage(1)
+                }}>사라진 것</Chip>
+              )}
+              {/* [매물수집] 은 짧은 '보기' 줄 끝에 둔다 — 기간 줄 끝이면 태블릿에서 혼자 아랫줄로 떨어졌다(11-06).
+                  보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
+                  탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
+                  네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
+              <button
+                onClick={() => void requestCollect(source)}
+                disabled={!!jobs[source]}
+                title={agentOnline
+                  ? `${src.label}에서 새 매물을 받아옵니다 (${src.takes})`
+                  : AGENT_OFF_HINT}
+                className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
+                           px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
+                           disabled:opacity-60"
+              >
+                <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
+                {jobs[source] ?? '매물수집'}
+              </button>
+            </div>
           </div>
           {/* **조건은 접어 둔다.** 줄이 일곱이면 폰에서 목록이 두 화면 뒤로 밀린다.
               접힌 채로도 무엇을 걸어 두었는지는 한 줄로 보인다 — 칩이 여기저기
@@ -1521,77 +1525,87 @@ export default function CollectPage() {
           </div>
 
           {조건열림 && <>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">지역</span>
-            {REGIONS.map(r => (
-              <Chip key={r.id} on={regions.includes(r.id)} onClick={() => toggle(regions, setRegions, r.id)}>
-                {r.name}
-              </Chip>
-            ))}
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">지역</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {REGIONS.map(r => (
+                <Chip key={r.id} on={regions.includes(r.id)} onClick={() => toggle(regions, setRegions, r.id)}>
+                  {r.name}
+                </Chip>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">종류</span>
-            {Object.keys(src.kinds).map(kind => (
-              <Chip key={kind} on={kinds.includes(kind)} onClick={() => toggle(kinds, setKinds, kind)}>
-                {kind}
-              </Chip>
-            ))}
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">종류</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {Object.keys(src.kinds).map(kind => (
+                <Chip key={kind} on={kinds.includes(kind)} onClick={() => toggle(kinds, setKinds, kind)}>
+                  {kind}
+                </Chip>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">거래</span>
-            {Object.entries(src.trades).map(([code, name]) => (
-              <Chip key={code} on={trades.includes(code)} onClick={() => toggle(trades, setTrades, code)}>
-                {name}
-              </Chip>
-            ))}
-            <div className="relative ml-auto">
-              <input
-                value={q}
-                onChange={e => { setQ(e.target.value); setPage(1) }}
-                placeholder="동 이름으로 좁히기"
-                className="h-9 w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-sm
-                           text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none
-                           dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-              />
-              {q && <SearchClear onClick={() => setQ('')} />}
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">거래</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {Object.entries(src.trades).map(([code, name]) => (
+                <Chip key={code} on={trades.includes(code)} onClick={() => toggle(trades, setTrades, code)}>
+                  {name}
+                </Chip>
+              ))}
+              <div className="relative ml-auto">
+                <input
+                  value={q}
+                  onChange={e => { setQ(e.target.value); setPage(1) }}
+                  placeholder="동 이름으로 좁히기"
+                  className="h-9 w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-sm
+                             text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none
+                             dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                />
+                {q && <SearchClear onClick={() => setQ('')} />}
+              </div>
             </div>
           </div>
 
           {/* 면적 — 목록에 보이는 그 값(전용·대지·공급·연면적 중 하나)으로 거른다. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">면적</span>
-            <범위칸 값={면적조건} 바꾸기={v => { set면적조건(v); setPage(1) }} 단위="평" 폭="w-20" />
-            {[['~30', '', '30'], ['30~60', '30', '60'], ['60~150', '60', '150'], ['150~', '150', '']].map(([이름, a, b]) => (
-              <Chip key={이름} size="xs"
-                on={면적조건.최소 === a && 면적조건.최대 === b}
-                // 켜진 칩을 다시 누르면 끈다 — 지역·종류 칩과 같다.
-                onClick={() => { const 켜짐 = 면적조건.최소 === a && 면적조건.최대 === b; set면적조건(켜짐 ? { 최소: '', 최대: '' } : { 최소: a, 최대: b }); setPage(1) }}>{이름}평</Chip>
-            ))}
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">면적</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <범위칸 값={면적조건} 바꾸기={v => { set면적조건(v); setPage(1) }} 단위="평" 폭="w-20" />
+              {[['~30', '', '30'], ['30~60', '30', '60'], ['60~150', '60', '150'], ['150~', '150', '']].map(([이름, a, b]) => (
+                <Chip key={이름} size="xs"
+                  on={면적조건.최소 === a && 면적조건.최대 === b}
+                  // 켜진 칩을 다시 누르면 끈다 — 지역·종류 칩과 같다.
+                  onClick={() => { const 켜짐 = 면적조건.최소 === a && 면적조건.최대 === b; set면적조건(켜짐 ? { 최소: '', 최대: '' } : { 최소: a, 최대: b }); setPage(1) }}>{이름}평</Chip>
+              ))}
+            </div>
           </div>
 
           {/* 가격 — 거래를 하나 골라야 뜻이 생긴다. 월세는 보증금과 월세가 따로다. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">
-              {거래하나 === '월세' ? '보증금' : '가격'}
-            </span>
-            {거래하나 ? (
-              <>
-                <범위칸 값={가격조건} 바꾸기={v => { set가격조건(v); setPage(1) }} 단위="만원" 폭="w-28" />
-                {(거래하나 === '매매'
-                  ? [['1억 이하', '', '10000'], ['1~3억', '10000', '30000'], ['3~10억', '30000', '100000'], ['10억~', '100000', '']]
-                  : [['1천 이하', '', '1000'], ['1~3천', '1000', '3000'], ['3천~1억', '3000', '10000'], ['1억~', '10000', '']]
-                ).map(([이름, a, b]) => (
-                  <Chip key={이름} size="xs"
-                    on={가격조건.최소 === a && 가격조건.최대 === b}
-                    // 켜진 칩을 다시 누르면 끈다 — 지역·종류 칩과 같다.
-                    onClick={() => { const 켜짐 = 가격조건.최소 === a && 가격조건.최대 === b; set가격조건(켜짐 ? { 최소: '', 최대: '' } : { 최소: a, 최대: b }); setPage(1) }}>{이름}</Chip>
-                ))}
-              </>
-            ) : (
-              <span className="text-xs text-gray-400 dark:text-gray-600">
-                거래를 하나 고르면 가격으로 좁힐 수 있습니다 — 매매가와 월세는 한 칸으로 못 거릅니다
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                {거래하나 === '월세' ? '보증금' : '가격'}
               </span>
-            )}
+              {거래하나 ? (
+                <>
+                  <범위칸 값={가격조건} 바꾸기={v => { set가격조건(v); setPage(1) }} 단위="만원" 폭="w-28" />
+                  {(거래하나 === '매매'
+                    ? [['1억 이하', '', '10000'], ['1~3억', '10000', '30000'], ['3~10억', '30000', '100000'], ['10억~', '100000', '']]
+                    : [['1천 이하', '', '1000'], ['1~3천', '1000', '3000'], ['3천~1억', '3000', '10000'], ['1억~', '10000', '']]
+                  ).map(([이름, a, b]) => (
+                    <Chip key={이름} size="xs"
+                      on={가격조건.최소 === a && 가격조건.최대 === b}
+                      // 켜진 칩을 다시 누르면 끈다 — 지역·종류 칩과 같다.
+                      onClick={() => { const 켜짐 = 가격조건.최소 === a && 가격조건.최대 === b; set가격조건(켜짐 ? { 최소: '', 최대: '' } : { 최소: a, 최대: b }); setPage(1) }}>{이름}</Chip>
+                  ))}
+                </>
+              ) : (
+                <span className="text-xs text-gray-400 dark:text-gray-600">
+                  거래를 하나 고르면 가격으로 좁힐 수 있습니다 — 매매가와 월세는 한 칸으로 못 거릅니다
+                </span>
+              )}
+            </div>
           </div>
 
           {거래하나 === '월세' && (
@@ -1608,11 +1622,13 @@ export default function CollectPage() {
           )}
 
           {/* 층 — 상가는 1층이냐 아니냐가 거의 다른 물건이다. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">층</span>
-            {Object.keys(층조건).map(k => (
-              <Chip key={k} on={층.includes(k)} onClick={() => { toggle(층, set층, k); setPage(1) }}>{k}</Chip>
-            ))}
+          <div className="flex items-start gap-2">
+            <span className="w-12 shrink-0 pt-1.5 text-sm text-gray-500 dark:text-gray-500">층</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {Object.keys(층조건).map(k => (
+                <Chip key={k} on={층.includes(k)} onClick={() => { toggle(층, set층, k); setPage(1) }}>{k}</Chip>
+              ))}
+            </div>
           </div>
 
           {/* 켜고 끄면 사무소 사람 모두에게 걸린다. 눌러야 나오면 있는 줄도 모른다. */}
