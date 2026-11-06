@@ -1097,7 +1097,7 @@ export default function BrokerCustomersPage() {
             className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
             <h3 className="mb-1 text-lg font-bold text-gray-900 dark:text-white">새 고객 등록</h3>
             <p className="mb-4 text-sm text-gray-500">찾는 조건만 적으면 등록돼요. 연락처·유입 같은 나머지 칸은 등록한 뒤 표에서 바로 채우면 저절로 저장돼요.</p>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="new-cust-request">찾는 조건 (요청사항) <span className="text-xs font-normal text-gray-400">Enter 로 등록 · 줄바꿈은 Shift+Enter</span></label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="new-cust-request">찾는 조건 (요청사항) {/* 폰 키보드엔 Shift+Enter 가 없어 PC 에서만 보인다(11-06 재점검) */}<span className="hidden text-xs font-normal text-gray-400 sm:inline">Enter 로 등록 · 줄바꿈은 Shift+Enter</span></label>
             <textarea id="new-cust-request" autoFocus rows={3} maxLength={2000} value={newCust.request}
               onChange={e => setNewCust(v => v && { ...v, request: e.target.value })}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void addRow() } }}

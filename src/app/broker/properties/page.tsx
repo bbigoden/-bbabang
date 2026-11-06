@@ -2610,14 +2610,14 @@ function BrokerPropertiesContent() {
                   return (
                   <div key={label}>
                   <div className="flex items-center gap-2">
-                    <span className="w-24 shrink-0 text-xs text-gray-600 dark:text-gray-400">{label}</span>
+                    <span className="w-20 shrink-0 text-xs text-gray-600 sm:w-24 dark:text-gray-400">{label}</span>
                     <input type="text" inputMode="decimal" value={min} onChange={e => setMin(only(e.target.value))} placeholder={`최소 (${unit})`}
-                      className="w-28 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                      className="min-w-0 flex-1 sm:w-28 sm:flex-none rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                     <span className="text-xs text-gray-400">~</span>
                     <input type="text" inputMode="decimal" value={max} onChange={e => setMax(only(e.target.value))} placeholder={`최대 (${unit})`}
-                      className="w-28 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+                      className="min-w-0 flex-1 sm:w-28 sm:flex-none rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                   </div>
-                  {swapped && <p className="mt-1 pl-[104px] text-[11px] text-red-500">최소가 최대보다 커요 — 두 칸을 바꿔 적어 주세요</p>}
+                  {swapped && <p className="mt-1 pl-[88px] text-[11px] text-red-500 sm:pl-[104px]">최소가 최대보다 커요 — 두 칸을 바꿔 적어 주세요</p>}
                   </div>
                   )
                 })}
