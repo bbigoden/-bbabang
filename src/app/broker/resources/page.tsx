@@ -12,11 +12,12 @@ import { useRouter } from 'next/navigation'
 import {
   FolderOpen, Folder, FolderPlus, FolderUp, Plus, FileText, FileSpreadsheet, FileImage, File as FileIcon, Palette,
   Download, Trash2, Upload, X, Search, LayoutGrid, List, ChevronRight, MoreVertical, Pencil, Copy,
-  StickyNote, ArrowUpDown, ArrowLeft, ArrowRight, Star, Clock, HardDrive, RotateCcw, FolderInput, Link2, Eye, Check, FileArchive,
+  StickyNote, ArrowUpDown, ArrowLeft, ArrowRight, Star, Clock, HardDrive, FolderInput, Link2, Eye, Check, FileArchive,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useToast } from '@/components/toast'
 import { PageHeader } from '@/components/layout/page-header'
+import { purgeResourceKeys, RESOURCE_TRASH_DAYS } from '@/lib/resource-trash'
 import { ImageLightbox } from '@/components/image-lightbox'
 
 // 구글드라이브처럼 쓰는 사무소 자료실.
@@ -25,6 +26,7 @@ import { ImageLightbox } from '@/components/image-lightbox'
 // 권한(DB 가 막는다): 대표=모든 권한(전부 보기·고치기·옮기기·지우기),
 // 직원=본인 것+대표 것만 보기, 고치기·옮기기·지우기는 본인 것만.
 // 지우기는 휴지통으로(deleted_at) — 30일 지나면 대표나 올린 사람이 다음에 열 때 영구삭제된다.
+// 휴지통(되살리기·영구삭제)은 바깥 휴지통 화면 '자료실' 탭에 있다(2026-11-06 합침, lib/resource-trash.ts).
 
 interface ResourceFile {
   id: string
@@ -54,14 +56,14 @@ interface Resource {
 }
 
 type Key = string // 'r:<id>' 폴더·메모 / 'f:<id>' 파일
-type Tab = 'drive' | 'recent' | 'starred' | 'trash'
+type Tab = 'drive' | 'recent' | 'starred'
 type ViewMode = 'grid' | 'list'
 type SortMode = 'custom' | 'recent' | 'name' | 'size'
 interface Incoming { file: File; rel: string } // rel: 폴더째 올릴 때 'A/B/파일.pdf'
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20MB per file
 const MAX_FILES = 300
-const TRASH_DAYS = 30
+const TRASH_DAYS = RESOURCE_TRASH_DAYS
 const LINK_DAYS = 7
 const BUCKET = 'office-resources'
 // '*' — 순서 칸(position)이 DB 에 아직 없어도 깨지지 않게
@@ -113,7 +115,7 @@ function readLocation(): { tab: Tab; folder: string | null } {
   if (typeof window === 'undefined') return { tab: 'drive', folder: null }
   const p = new URLSearchParams(window.location.search)
   const v = p.get('view')
-  const tab: Tab = v === 'recent' || v === 'starred' || v === 'trash' ? v : 'drive'
+  const tab: Tab = v === 'recent' || v === 'starred' ? v : 'drive'
   return { tab, folder: tab === 'drive' ? p.get('folder') : null }
 }
 
@@ -220,7 +222,6 @@ export default function BrokerResourcesPage() {
   const [stars, setStars] = useState<Set<Key>>(new Set())
   const [names, setNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
-  const [trashLoaded, setTrashLoaded] = useState(false) // 휴지통 파일을 받았는지
 
   const [tab, setTab] = useState<Tab>('drive')
   const [folderId, setFolderId] = useState<string | null>(null)
@@ -276,6 +277,7 @@ export default function BrokerResourcesPage() {
   useEffect(() => {
     setView(readPref<ViewMode>('resources:view', 'grid', ['grid', 'list']))
     setSort(readPref<SortMode>('resources:sort2', 'custom', ['custom', 'recent', 'name', 'size']))
+    if (new URLSearchParams(window.location.search).get('view') === 'trash') { router.replace('/broker/trash?tab=resources'); return }
     const loc = readLocation()
     setTab(loc.tab); setFolderId(loc.folder)
     // 창을 연 채 뒤로 가면 창은 그대로인데 위치만 바뀌어, 새 폴더가 엉뚱한 곳에 생겼다 — 창도 닫는다
@@ -304,7 +306,6 @@ export default function BrokerResourcesPage() {
     // 볼 수 있는 범위는 DB 규칙이 정한다(대표=전부, 직원=본인+대표).
     // 한 번에 1000행까지만 와서 넘으면 조용히 잘렸다 — 이어받는다.
     // 폴더·메모는 적어 휴지통 것도 같이 받는다(지운 폴더 안 것이 맨 위로 튀어나오지 않게).
-    // 파일은 많으니 휴지통 것은 휴지통을 열 때 받는다.
     const [rList, fList, { data: st }] = await Promise.all([
       fetchAllPaged<Resource>((from, to) => supabase.from('office_resources').select(SELECT_RESOURCE).eq('office_broker_id', oid)
         .order('created_at', { ascending: false }).order('id').range(from, to)),
@@ -314,7 +315,6 @@ export default function BrokerResourcesPage() {
     ]).catch(err => { toast.error(`자료실을 불러오지 못했습니다: ${err?.message ?? ''}`); return [[] as Resource[], [] as ResourceFile[], { data: [] as { resource_id: string | null; file_id: string | null }[] }] as const })
     setResources(rList)
     setFiles(fList)
-    setTrashLoaded(false) // 목록을 새로 받았으니 휴지통도 다시 받는다
     setStars(new Set((st ?? []).map((s: any) => (s.resource_id ? rKey(s.resource_id) : fKey(s.file_id)))))
     setLoading(false)
 
@@ -335,24 +335,10 @@ export default function BrokerResourcesPage() {
         ...rList.filter(r => r.deleted_at && (canManageOffice(b) || r.uploader_broker_id === b.id) && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
         ...oldFiles.filter(f => canManageOffice(b) || f.uploader_broker_id === b.id).map(f => fKey(f.id)),
       ]
-      if (old.length > 0) void purge(old, rList, [...fList, ...oldFiles], b.id, oid, true)
+      if (old.length > 0) void purge(old, rList, [...fList, ...oldFiles], b.id, oid)
     })()
   }
 
-  // 휴지통 파일은 휴지통을 처음 열 때 받는다
-  const loadTrash = async (oid: string) => {
-    try {
-      const trashed = await fetchAllPaged<ResourceFile>((from, to) => supabase.from('office_resource_files').select(SELECT_FILE)
-        .eq('office_broker_id', oid).not('deleted_at', 'is', null).order('sort_order').order('id').range(from, to))
-      setFiles(prev => { const have = new Set(prev.map(f => f.id)); return [...prev, ...trashed.filter(f => !have.has(f.id))] })
-      setTrashLoaded(true)
-    } catch (err: any) {
-      toast.error(`휴지통을 불러오지 못했습니다: ${err?.message ?? ''}`)
-    }
-  }
-  useEffect(() => {
-    if (tab === 'trash' && officeBrokerId && !loading && !trashLoaded) void loadTrash(officeBrokerId)
-  }, [tab, officeBrokerId, loading, trashLoaded])
 
   // ── 권한·관계 ─────────────────────────────────────────
   // 대표·이사(2026-11-05 이사=대표 권한) — DB office_res_can_* 와 같은 규칙
@@ -437,7 +423,7 @@ export default function BrokerResourcesPage() {
   let shownMemos: Resource[] = []
   let shownFiles: ResourceFile[] = []
   let showLocation = false
-  if (q && tab !== 'trash') {
+  if (q) {
     // 검색은 드라이브처럼 자료실 전체에서
     shownFolders = liveRes.filter(r => r.kind === 'folder' && (match(r.title) || match(r.description)))
     shownMemos = liveRes.filter(r => r.kind === 'memo' && (match(r.title) || match(r.description)))
@@ -458,13 +444,8 @@ export default function BrokerResourcesPage() {
   }
   if (tab !== 'recent') { shownFolders = sortRes(shownFolders); shownMemos = sortRes(shownMemos); shownFiles = sortFiles(shownFiles) }
 
-  // 휴지통: 내가 정리할 수 있는 것(대표는 전부) 중 맨 위 것만(지운 폴더 안 것은 폴더와 함께)
-  const trashRes = resources.filter(r => r.deleted_at && !ancestorTrashed(parentOfRes(r)) && canManageId(r.uploader_broker_id))
-  const trashFiles = files.filter(f => f.deleted_at && !ancestorTrashed(parentOfFile(f)) && canManageId(f.uploader_broker_id))
-  const trashKeys = [...trashRes.map(r => rKey(r.id)), ...trashFiles.map(f => fKey(f.id))]
 
-  const shownKeys: Key[] = tab === 'trash' ? trashKeys
-    : [...shownFolders.map(r => rKey(r.id)), ...shownMemos.map(r => rKey(r.id)), ...shownFiles.map(f => fKey(f.id))]
+  const shownKeys: Key[] = [...shownFolders.map(r => rKey(r.id)), ...shownMemos.map(r => rKey(r.id)), ...shownFiles.map(f => fKey(f.id))]
 
   // 보이는 사진 미리보기 주소를 한 번에 받는다(비공개 저장소라 서명 주소가 필요)
   const imagePaths = shownFiles.filter(isImage).map(f => f.storage_path).filter(p => !thumbs[p])
@@ -488,7 +469,7 @@ export default function BrokerResourcesPage() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input, textarea')) return
       if (e.key === 'Escape') setSelected(new Set())
-      if (e.key === 'Delete' && selected.size > 0 && tab !== 'trash') trashKeysAct([...selected])
+      if (e.key === 'Delete' && selected.size > 0) trashKeysAct([...selected])
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -595,7 +576,7 @@ export default function BrokerResourcesPage() {
   const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
   const isItemDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes(DRAG_TYPE)
   const onDragEnter = (e: React.DragEvent) => {
-    if (!hasFiles(e) || tab === 'trash') return
+    if (!hasFiles(e)) return
     e.preventDefault()
     dragDepth.current++
     setIsDragging(true)
@@ -606,7 +587,7 @@ export default function BrokerResourcesPage() {
     if (dragDepth.current === 0) setIsDragging(false)
   }
   const onDrop = (e: React.DragEvent) => {
-    if (!hasFiles(e) || tab === 'trash') return
+    if (!hasFiles(e)) return
     e.preventDefault()
     dragDepth.current = 0
     setIsDragging(false)
@@ -641,7 +622,7 @@ export default function BrokerResourcesPage() {
   })
 
   const dragProps = (k: Key) => ({
-    draggable: tab !== 'trash',
+    draggable: true,
     onDragStart: (e: React.DragEvent) => {
       const keys = selected.has(k) ? [...selected] : [k]
       dragKeys.current = keys
@@ -650,7 +631,6 @@ export default function BrokerResourcesPage() {
     },
     onDragEnd: () => { dragKeys.current = null; setDropTarget(null) },
     onTouchStart: () => {
-      if (tab === 'trash') return
       longPressed.current = false
       if (pressTimer.current) clearTimeout(pressTimer.current)
       pressTimer.current = setTimeout(() => {
@@ -769,60 +749,17 @@ export default function BrokerResourcesPage() {
     setSelected(new Set())
     if (memoView && rIds.includes(memoView.id)) setMemoView(null)
     if (folderId && (rIds.includes(folderId) || rIds.some(id => isInside(folderId, id)))) openFolder(null)
-    toast.success(`${mine.length}개를 자료실 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 되살릴 수 있어요.`)
+    toast.success(`${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 메뉴의 휴지통에서 되살릴 수 있어요.`)
   })
 
-  const restore = exclusive(async (keys: Key[]) => {
-    const rIds = keys.filter(k => k.startsWith('r:')).map(k => k.slice(2))
-    const fIds = keys.filter(k => k.startsWith('f:')).map(k => k.slice(2))
-    // 원래 있던 폴더가 지워졌으면 맨 위로 되살린다
-    const lost = (pid: string | null) => !!pid && (!resById.has(pid) || !!resById.get(pid)!.deleted_at || ancestorTrashed(pid))
-    const rPatch = rIds.map(id => ({ id, parent_id: lost(resById.get(id)?.parent_id ?? null) ? null : resById.get(id)?.parent_id ?? null }))
-    const fPatch = fIds.map(id => ({ id, resource_id: lost(fileById.get(id)?.resource_id ?? null) ? null : fileById.get(id)?.resource_id ?? null }))
-    const results = await Promise.all([
-      ...rPatch.map(p => supabase.from('office_resources').update({ deleted_at: null, parent_id: p.parent_id }).eq('id', p.id)),
-      ...fPatch.map(p => supabase.from('office_resource_files').update({ deleted_at: null, resource_id: p.resource_id }).eq('id', p.id)),
-    ])
-    const err = results.find(r => r.error)?.error
-    if (err) { toast.error(`되살리기 실패: ${err.message}`); return }
-    setResources(prev => prev.map(r => { const p = rPatch.find(x => x.id === r.id); return p ? { ...r, deleted_at: null, parent_id: p.parent_id } : r }))
-    setFiles(prev => prev.map(f => { const p = fPatch.find(x => x.id === f.id); return p ? { ...f, deleted_at: null, resource_id: p.resource_id } : f }))
-    setSelected(new Set())
-    toast.success(`${keys.length}개를 되살렸습니다.`)
-  })
-
-  // 영구삭제 — 폴더면 그 안의 것도 함께(대표는 전부, 직원은 본인 것). 직원이 못 지우는 남의 것은 DB 가 맨 위로 꺼내 놓는다.
-  const purge = exclusive(async (keys: Key[], rList: Resource[] = resources, fList: ResourceFile[] = files, me: string | undefined = broker?.id, office: string | null = officeBrokerId, quiet = false) => {
-    const rMap = new Map(rList.map(r => [r.id, r]))
-    const inside = (pid: string | null, anc: string) => {
-      for (let i = 0, cur = pid; cur && i < 50; i++) { if (cur === anc) return true; cur = rMap.get(cur)?.parent_id ?? null }
-      return false
-    }
-    const mineOk = (u: string | null) => office === me || (!!u && u === me)
-    const topR = keys.filter(k => k.startsWith('r:')).map(k => k.slice(2))
-    const rIds = new Set(topR)
-    rList.forEach(r => { if (mineOk(r.uploader_broker_id) && topR.some(t => inside(r.parent_id, t))) rIds.add(r.id) })
-    const fIds = new Set(keys.filter(k => k.startsWith('f:')).map(k => k.slice(2)))
-    fList.forEach(f => { if (mineOk(f.uploader_broker_id) && topR.some(t => inside(f.resource_id, t))) fIds.add(f.id) })
-    const paths = fList.filter(f => fIds.has(f.id)).map(f => f.storage_path)
-    if (paths.length) await supabase.storage.from(BUCKET).remove(paths)
-    const [a, b] = await Promise.all([
-      fIds.size ? supabase.from('office_resource_files').delete().in('id', [...fIds]) : Promise.resolve({ error: null }),
-      rIds.size ? supabase.from('office_resources').delete().in('id', [...rIds]) : Promise.resolve({ error: null }),
-    ])
-    const err = a.error || b.error
-    if (err) { if (!quiet) toast.error(`영구삭제 실패: ${err.message}`); return }
+  // 30일 지난 휴지통 비우기(조용히) — 휴지통 화면과 같은 규칙(lib/resource-trash.ts)
+  const purge = exclusive(async (keys: Key[], rList: Resource[], fList: ResourceFile[], me: string, office: string) => {
+    const { rIds, fIds, error } = await purgeResourceKeys(supabase, keys, rList, fList, u => office === me || isDirector(broker) || (!!u && u === me))
+    if (error) return
     // 지운 폴더 안에 있던 남의 것은 맨 위로
     setFiles(prev => prev.filter(f => !fIds.has(f.id)).map(f => (f.resource_id && rIds.has(f.resource_id) ? { ...f, resource_id: null } : f)))
     setResources(prev => prev.filter(r => !rIds.has(r.id)).map(r => (r.parent_id && rIds.has(r.parent_id) ? { ...r, parent_id: null } : r)))
-    setSelected(new Set())
-    if (!quiet) toast.success('영구삭제했습니다.')
   })
-
-  const confirmPurge = (keys: Key[]) => {
-    if (!confirm(`${keys.length}개를 영구삭제할까요? 되돌릴 수 없습니다.`)) return
-    void purge(keys)
-  }
 
   // ── 별표 ───────────────────────────────────────────
   const toggleStar = exclusive(async (keys: Key[]) => {
@@ -986,8 +923,7 @@ export default function BrokerResourcesPage() {
   const selecting = selected.size > 0
   const activate = (k: Key, open: () => void) => (e: React.MouseEvent | React.KeyboardEvent) => {
     if (longPressed.current) { longPressed.current = false; return }
-    // 휴지통에서는 누르면 고른다(열 수 없으니)
-    if (tab === 'trash' || selecting || ('ctrlKey' in e && (e.ctrlKey || e.metaKey))) { toggleSelect(k); return }
+    if (selecting || ('ctrlKey' in e && (e.ctrlKey || e.metaKey))) { toggleSelect(k); return }
     open()
   }
 
@@ -995,10 +931,6 @@ export default function BrokerResourcesPage() {
   const resMenu = (r: Resource): MenuItem[] => {
     const k = rKey(r.id)
     const mine = canManageId(r.uploader_broker_id)
-    if (tab === 'trash') return [
-      { label: '되살리기', icon: RotateCcw, onClick: () => restore([k]) },
-      { label: '영구삭제', icon: Trash2, onClick: () => confirmPurge([k]), danger: true },
-    ]
     return [
       r.kind === 'folder'
         ? { label: '열기', icon: FolderOpen, onClick: () => openFolder(r.id) }
@@ -1021,10 +953,6 @@ export default function BrokerResourcesPage() {
   const fileMenu = (f: ResourceFile): MenuItem[] => {
     const k = fKey(f.id)
     const mine = canManageId(f.uploader_broker_id)
-    if (tab === 'trash') return [
-      { label: '되살리기', icon: RotateCcw, onClick: () => restore([k]) },
-      { label: '영구삭제', icon: Trash2, onClick: () => confirmPurge([k]), danger: true },
-    ]
     return [
       ...(isPdf(f) || isImage(f) ? [{ label: '미리보기', icon: Eye, onClick: () => (isPdf(f) ? previewPdf(f) : openFile(f)) }] : []),
       { label: '다운로드', icon: Download, onClick: () => handleDownload(f) },
@@ -1049,7 +977,6 @@ export default function BrokerResourcesPage() {
     const p = pathOf(pid)
     return p.length ? p.map(r => r.title).join(' › ') : '내 자료실'
   }
-  const daysLeft = (d: string | null) => Math.max(0, Math.ceil(TRASH_DAYS - (Date.now() - new Date(d ?? 0).getTime()) / 86400000))
 
   const checkCircle = (k: Key) => (
     <button
@@ -1081,8 +1008,8 @@ export default function BrokerResourcesPage() {
         role="button"
         tabIndex={0}
         {...dragProps(k)}
-        {...(tab !== 'trash' ? dropProps(r.id) : {})}
-        onClick={activate(k, () => tab === 'trash' ? undefined : openFolder(r.id))}
+        {...dropProps(r.id)}
+        onClick={activate(k, () => openFolder(r.id))}
         onKeyDown={e => { if (e.key === 'Enter') activate(k, () => openFolder(r.id))(e) }}
         className={`group flex cursor-pointer select-none items-center gap-2.5 rounded-xl border [-webkit-touch-callout:none] bg-white py-2.5 pl-2.5 pr-1 hover:bg-blue-50/60 dark:bg-gray-900 dark:hover:bg-gray-800 ${tileRing(k, r.id)}`}
       >
@@ -1091,7 +1018,7 @@ export default function BrokerResourcesPage() {
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1 truncate text-sm font-semibold text-gray-900 dark:text-white"><span className="truncate">{r.title}</span>{starMark(k)}</p>
           <p className="truncate text-[11px] text-gray-500">
-            {tab === 'trash' ? `${daysLeft(r.deleted_at)}일 뒤 영구삭제` : `${n}개 · ${uploaderOf(r.uploader_broker_id)}${r.description ? ' · 메모' : ''}`}
+            {`${n}개 · ${uploaderOf(r.uploader_broker_id)}${r.description ? ' · 메모' : ''}`}
           </p>
         </div>
         <ItemMenu label={r.title} items={resMenu(r)} />
@@ -1120,7 +1047,7 @@ export default function BrokerResourcesPage() {
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1 truncate text-sm font-semibold text-gray-900 dark:text-white"><span className="truncate">{r.title}</span>{starMark(k)}</p>
             <p className="truncate text-[11px] text-gray-500">
-              {tab === 'trash' ? `${daysLeft(r.deleted_at)}일 뒤 영구삭제` : showLocation ? locationText(parentOfRes(r)) : `${uploaderOf(r.uploader_broker_id)} · ${formatDate(r.created_at)}`}
+              {showLocation ? locationText(parentOfRes(r)) : `${uploaderOf(r.uploader_broker_id)} · ${formatDate(r.created_at)}`}
             </p>
           </div>
           <ItemMenu label={r.title} items={resMenu(r)} />
@@ -1139,7 +1066,7 @@ export default function BrokerResourcesPage() {
         role="button"
         tabIndex={0}
         {...dragProps(k)}
-        onClick={activate(k, () => tab === 'trash' ? undefined : openFile(f))}
+        onClick={activate(k, () => openFile(f))}
         onKeyDown={e => { if (e.key === 'Enter') activate(k, () => openFile(f))(e) }}
         title={f.file_name}
         className={`group relative flex cursor-pointer select-none flex-col overflow-hidden rounded-xl border [-webkit-touch-callout:none] bg-white hover:shadow-sm dark:bg-gray-900 ${tileRing(k)}`}
@@ -1156,7 +1083,7 @@ export default function BrokerResourcesPage() {
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1 text-xs font-medium text-gray-800 dark:text-gray-200"><span className="truncate">{f.file_name}</span>{starMark(k)}</p>
             <p className="truncate text-[11px] text-gray-500">
-              {tab === 'trash' ? `${daysLeft(f.deleted_at)}일 뒤 영구삭제` : showLocation ? locationText(parentOfFile(f)) : `${uploaderOf(f.uploader_broker_id)} · ${formatDate(f.created_at)}`}
+              {showLocation ? locationText(parentOfFile(f)) : `${uploaderOf(f.uploader_broker_id)} · ${formatDate(f.created_at)}`}
             </p>
           </div>
           <ItemMenu label={f.file_name} items={fileMenu(f)} />
@@ -1171,7 +1098,7 @@ export default function BrokerResourcesPage() {
       role="button"
       tabIndex={0}
       {...dragProps(o.k)}
-      {...(o.dropId && tab !== 'trash' ? dropProps(o.dropId) : {})}
+      {...(o.dropId ? dropProps(o.dropId) : {})}
       onClick={activate(o.k, o.onOpen)}
       onKeyDown={e => { if (e.key === 'Enter') activate(o.k, o.onOpen)(e) }}
       className={`group flex cursor-pointer select-none items-center gap-3 border-b [-webkit-touch-callout:none] py-2 pl-3 pr-1 last:border-b-0 hover:bg-blue-50/50 dark:hover:bg-gray-800 ${selected.has(o.k) ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''} ${o.dropId && dropTarget === o.dropId ? 'ring-2 ring-inset ring-blue-500' : ''} border-gray-100 dark:border-gray-800`}
@@ -1192,9 +1119,9 @@ export default function BrokerResourcesPage() {
     dropId: r.kind === 'folder' ? r.id : undefined,
     icon: r.kind === 'folder' ? <Folder className="h-5 w-5 fill-blue-600/15 text-blue-600" /> : <StickyNote className="h-5 w-5 text-amber-500" />,
     name: r.title,
-    sub: tab === 'trash' ? `${daysLeft(r.deleted_at)}일 뒤 영구삭제` : showLocation ? locationText(parentOfRes(r)) : `${uploaderOf(r.uploader_broker_id)} · ${formatDate(r.created_at)}`,
+    sub: showLocation ? locationText(parentOfRes(r)) : `${uploaderOf(r.uploader_broker_id)} · ${formatDate(r.created_at)}`,
     meta: r.kind === 'folder' ? formatFileSize(folderSize(r.id)) : '메모',
-    onOpen: () => (tab === 'trash' ? undefined : r.kind === 'folder' ? openFolder(r.id) : setMemoView(r)),
+    onOpen: () => (r.kind === 'folder' ? openFolder(r.id) : setMemoView(r)),
     menu: resMenu(r),
   })
 
@@ -1204,10 +1131,9 @@ export default function BrokerResourcesPage() {
       k: fKey(f.id),
       icon: <kind.Icon className={`h-5 w-5 ${kind.color}`} />,
       name: f.file_name,
-      sub: tab === 'trash' ? `${daysLeft(f.deleted_at)}일 뒤 영구삭제`
-        : `${showLocation ? `${locationText(parentOfFile(f))} · ` : ''}${uploaderOf(f.uploader_broker_id)} · ${formatDate(f.created_at)}`,
+      sub: `${showLocation ? `${locationText(parentOfFile(f))} · ` : ''}${uploaderOf(f.uploader_broker_id)} · ${formatDate(f.created_at)}`,
       meta: formatFileSize(f.file_size),
-      onOpen: () => (tab === 'trash' ? undefined : openFile(f)),
+      onOpen: () => openFile(f),
       menu: fileMenu(f),
     })
   }
@@ -1242,7 +1168,6 @@ export default function BrokerResourcesPage() {
     { id: 'drive', label: '내 자료실', icon: HardDrive },
     { id: 'recent', label: '최근', icon: Clock },
     { id: 'starred', label: '별표', icon: Star },
-    { id: 'trash', label: '휴지통', icon: Trash2 },
   ]
 
   // 옮기기 창 — 폴더를 따라 들어가며 고른다
@@ -1303,9 +1228,13 @@ export default function BrokerResourcesPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'} ${t.id === 'drive' && dropTarget === 'root' ? 'bg-blue-50 dark:bg-blue-950' : ''}`}>
               <t.icon className="h-4 w-4" />
               {t.label}
-              {t.id === 'trash' && trashLoaded && trashKeys.length > 0 && <span className="rounded-full bg-gray-200 px-1.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300">{trashKeys.length}</span>}
             </button>
           ))}
+          {/* 휴지통은 메뉴의 휴지통 하나로 합쳤다 — 자료실에서 지운 것도 거기 '자료실' 탭에 있다 */}
+          <button role="tab" aria-selected={false} onClick={() => router.push('/broker/trash?tab=resources')}
+            className="-mb-px inline-flex flex-shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-3 text-sm sm:py-2 font-semibold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+            <Trash2 className="h-4 w-4" />휴지통
+          </button>
         </div>
 
         {/* 도구줄 — 고른 게 있으면 선택 도구로 바뀐다 */}
@@ -1317,19 +1246,12 @@ export default function BrokerResourcesPage() {
             <span className="mr-2 text-sm font-semibold text-blue-800 dark:text-blue-200">{selected.size}개 선택</span>
             <button onClick={() => setSelected(new Set(shownKeys))} className="rounded-full px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-white dark:text-blue-300 dark:hover:bg-gray-800">전체 선택</button>
             <div className="ml-auto flex flex-wrap items-center gap-0.5">
-              {tab === 'trash' ? (
-                <>
-                  <button onClick={() => restore(selKeys)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><RotateCcw className="h-4 w-4" />되살리기</button>
-                  <button onClick={() => confirmPurge(selKeys)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-800"><Trash2 className="h-4 w-4" />영구삭제</button>
-                </>
-              ) : (
-                <>
+              <>
                   <button onClick={() => downloadZip(selKeys, `자료실_${selected.size}개`)} title="zip으로 받기" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><Download className="h-4 w-4" /><span className="hidden sm:inline">받기</span></button>
                   {selAllMine && <button onClick={() => startMove(selKeys)} title="옮기기" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><FolderInput className="h-4 w-4" /><span className="hidden sm:inline">옮기기</span></button>}
                   <button onClick={() => toggleStar(selKeys)} title="별표" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"><Star className="h-4 w-4" /><span className="hidden sm:inline">별표</span></button>
                   {selAllMine && <button onClick={() => trashKeysAct(selKeys)} title="삭제" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-800"><Trash2 className="h-4 w-4" /><span className="hidden sm:inline">삭제</span></button>}
                 </>
-              )}
             </div>
           </div>
         ) : (
@@ -1350,7 +1272,7 @@ export default function BrokerResourcesPage() {
                 </button>
               )}
             </label>
-            {tab !== 'recent' && tab !== 'trash' && (
+            {tab !== 'recent' && (
               <button onClick={changeSort} title="정렬 바꾸기"
                 className="inline-flex h-11 flex-shrink-0 items-center gap-1 rounded-full px-3 text-xs font-semibold sm:h-9 text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
                 <ArrowUpDown className="h-3.5 w-3.5" />
@@ -1404,35 +1326,14 @@ export default function BrokerResourcesPage() {
         )}
         {(tab !== 'drive' || q) && (
           <h2 className="mb-3 px-1 text-lg font-semibold text-gray-900 dark:text-white">
-            {q ? `"${query}" 검색 결과` : tab === 'recent' ? '최근에 올라온 파일' : tab === 'starred' ? '별표한 자료' : '휴지통'}
+            {q ? `"${query}" 검색 결과` : tab === 'recent' ? '최근에 올라온 파일' : '별표한 자료'}
           </h2>
         )}
-        {tab === 'trash' && !q && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-gray-100 px-3.5 py-2.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-            <span className="flex-1">{isOwnerOfOffice ? '사무소에서 지운 것이 모두 보입니다.' : '내가 지운 것만 보입니다.'} {TRASH_DAYS}일이 지나면 영구삭제됩니다.</span>
-            {trashLoaded && trashKeys.length > 0 && (
-              <button onClick={() => confirmPurge(trashKeys)} className="rounded-full px-3 py-1 font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-900">휴지통 비우기</button>
-            )}
-          </div>
-        )}
-
         {tab === 'drive' && !q && !currentOk ? (
           <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center dark:border-gray-800 dark:bg-gray-900">
             <p className="text-sm font-semibold text-gray-500">폴더를 찾을 수 없어요 (휴지통에 있거나 볼 수 없는 폴더)</p>
             <button onClick={() => openFolder(null)} className="mt-3 text-sm font-semibold text-blue-600">내 자료실로 가기</button>
           </div>
-        ) : tab === 'trash' && !q ? (
-          !trashLoaded
-            ? <p className="py-16 text-center text-sm text-gray-500">휴지통을 불러오는 중…</p>
-            : trashKeys.length === 0
-            ? <p className="py-16 text-center text-sm text-gray-500">휴지통이 비어 있어요</p>
-            : (
-              <>
-                {section('폴더', trashRes.filter(r => r.kind === 'folder'), [], 'folder')}
-                {section('메모', trashRes.filter(r => r.kind === 'memo'), [], 'memo')}
-                {section('파일', [], trashFiles, 'file')}
-              </>
-            )
         ) : (
           <section aria-label={current ? `${current.title} 폴더` : '자료 목록'}>
             {tab === 'drive' && !q && current?.description && (
