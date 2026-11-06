@@ -13,6 +13,7 @@ import { useEscape } from '@/lib/use-escape'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
@@ -155,9 +156,13 @@ export default function EventsPage() {
 
   const load = async () => {
     setLoading(true)
+    // 일정은 이어받는다 — .limit(1000) 이면 1,000건을 넘는 순간 오래된 순 끝쪽, 곧 가장 최근·앞으로의
+    // 일정이 말없이 빠졌다(달력·시험 현황·단골 기록이 전부 이 목록을 본다). 쪽이 겹치지 않게 id 로도 줄 세운다.
+    const evAll = fetchAllPaged<Ev>((from, to) => supabase.from('office_events').select(EV_COLS).eq('office_broker_id', officeId!)
+      .order('starts_at', { ascending: true, nullsFirst: true }).order('id').range(from, to) as unknown as PromiseLike<{ data: Ev[] | null; error: unknown }>)
+      .then(data => ({ data, error: null as { message: string } | null }), (e: { message?: string }) => ({ data: null as Ev[] | null, error: { message: e?.message ?? String(e) } }))
     const [{ data: ev, error }, { data: fb }, { data: pages }] = await Promise.all([
-      supabase.from('office_events').select(EV_COLS).eq('office_broker_id', officeId!)
-        .order('starts_at', { ascending: true, nullsFirst: true }).limit(1000),
+      evAll,
       supabase.from('office_event_feedback').select(FB_COLS).eq('office_broker_id', officeId!)
         .order('created_at', { ascending: false }).limit(200),
       supabase.from('office_booking_pages').select('owner_broker_id, deposit_text').eq('office_broker_id', officeId!),
