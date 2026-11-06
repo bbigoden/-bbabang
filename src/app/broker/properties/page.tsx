@@ -1058,6 +1058,9 @@ interface PropertyRowProps {
   onLocation: (v: { address: string; roomType: string | null }) => void
   /** [담기] — 손님 미팅용 매물 리스트에 보낸다(useState 세터). 관리자 뷰에선 없다 */
   onAddToList?: (p: Property) => void
+  /** 여러 개 고르기 중일 때만 — 번호 칸이 체크칸이 된다(useState 세터 감싼 안정 함수) */
+  onPick?: (p: Property) => void
+  picked?: boolean
 }
 
 const PropertyRow = memo(function PropertyRow({
@@ -1065,7 +1068,7 @@ const PropertyRow = memo(function PropertyRow({
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, industryOpts, ownerName,
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
-  onDelete, onCopy, onView, onLocation, onAddToList,
+  onDelete, onCopy, onView, onLocation, onAddToList, onPick, picked,
 }: PropertyRowProps) {
   const toast = useToast()
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
@@ -1106,12 +1109,20 @@ const PropertyRow = memo(function PropertyRow({
         ) : <span className="block select-all leading-none">{p.seq_no ?? ''}</span>}
         {/* select-none — 칸 전체에 select-all 이 걸려 있을 땐 폰에서 [보기] 를 누르면 번호가 블록으로 잡혔다(11-05)
             넓은 화면에서도 손가락 화면이면 보인다 — 펼친 폴드는 640px 를 넘어 sm:hidden 에 숨었다(11-06). 마우스+넓은 화면만 숨김 */}
+        {/* 여러 개 고르기 중엔 보기·담기 대신 체크칸 하나 — 줄 높이가 그대로다 */}
+        {onPick ? (
+          <button type="button" onClick={() => onPick(p)} aria-pressed={!!picked} aria-label={`${p.seq_no ?? ''}번 고르기`}
+            className={`mt-1 flex w-full select-none items-center justify-center rounded py-1 ${picked ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-transparent dark:border-gray-700 dark:bg-gray-900'}`}>
+            <CheckCircle2 className="h-4 w-4" />
+          </button>
+        ) : <>
         <button type="button" onClick={() => onView({ p, memoVisible })}
           className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:pointer-fine:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
         {onAddToList && (
           <button type="button" onClick={() => onAddToList(p)} title="손님 미팅용 리스트에 담기"
             className="mt-1 hidden w-full select-none rounded bg-gray-100 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-200 sm:pointer-fine:block dark:bg-gray-800 dark:text-gray-300">담기</button>
         )}
+        </>}
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -2036,7 +2047,18 @@ function BrokerPropertiesContent() {
    */
   const [newProp, setNewProp] = useState<{ address: string; deal_type: string } | null>(null)
   const [viewProp, setViewProp] = useState<{ p: Property; memoVisible: boolean } | null>(null)
-  const [listFor, setListFor] = useState<Property | null>(null)  // [담기] 를 누른 매물
+  const [listFor, setListFor] = useState<Property[] | null>(null)  // [담기] 할 매물(한 건 또는 고른 여러 건)
+  const addOneToList = useCallback((p: Property) => setListFor([p]), [])
+  // 여러 개 고르기 — 미팅 매물을 한 번에 리스트로(11-06). 쪽을 넘겨도 고른 건 남는다
+  const [pickMode, setPickMode] = useState(false)
+  const [picked, setPicked] = useState<Record<string, Property>>({})
+  const togglePick = useCallback((p: Property) => setPicked(m => {
+    const n = { ...m }
+    if (n[p.id]) delete n[p.id]; else n[p.id] = p
+    return n
+  }), [])
+  const pickedList = Object.values(picked)
+  const endPick = () => { setPickMode(false); setPicked({}) }
   const [showLists, setShowLists] = useState(false)               // 상단 [리스트]
   const listOfficeId = scopeState && 'office' in scopeState ? scopeState.office : null
   const [locationOf, setLocationOf] = useState<{ address: string; roomType: string | null } | null>(null)
@@ -2332,7 +2354,8 @@ function BrokerPropertiesContent() {
         />
       )}
 
-      <div className="px-4 py-6">
+      {/* 고르기 중엔 아래 막대가 마지막 줄·쪽 넘김을 가리지 않게 여백 */}
+      <div className={`px-4 py-6 ${pickMode ? 'pb-32' : ''}`}>
         {/* 어드민 뷰 배너 */}
         {isAdminView && (
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
@@ -2396,6 +2419,14 @@ function BrokerPropertiesContent() {
               <button onClick={() => setShowLists(true)}
                 className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-2.5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 sm:px-3.5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
                 <ListChecks className="h-4 w-4" />리스트
+              </button>
+            )}
+            {!isAdminView && listOfficeId && broker?.id && !isMapView && (
+              <button onClick={() => pickMode ? endPick() : setPickMode(true)}
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-2.5 text-sm font-medium sm:px-3.5 ${pickMode
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'}`}>
+                <CheckCircle2 className="h-4 w-4" />{pickMode ? '고르기 끝' : '고르기'}
               </button>
             )}
           </div>
@@ -2667,7 +2698,9 @@ function BrokerPropertiesContent() {
                   p={p}
                   onView={setViewProp}
                   onLocation={setLocationOf}
-                  onAddToList={isAdminView ? undefined : setListFor}
+                  onAddToList={isAdminView ? undefined : addOneToList}
+                  onPick={pickMode ? togglePick : undefined}
+                  picked={pickMode && !!picked[p.id]}
                   adBadge={adBadges[p.id]}
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
@@ -2854,9 +2887,23 @@ function BrokerPropertiesContent() {
         )
       })()}
 
+      {/* 고르기 중 아래 막대 — 폰은 하단 메뉴 위에 띄운다 */}
+      {pickMode && (
+        <div className="fixed inset-x-0 z-40 flex justify-center px-4 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] md:bottom-6">
+          <div className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-gray-900 p-2 pl-4 text-white shadow-xl dark:bg-gray-800">
+            <span className="flex-1 text-sm font-semibold">{pickedList.length ? `${pickedList.length}개 골랐어요` : '번호 칸을 눌러 고르세요'}</span>
+            {pickedList.length > 0 && (
+              <button type="button" onClick={() => setPicked({})} className="rounded-xl px-3 py-2 text-sm text-gray-300 hover:bg-white/10">해제</button>
+            )}
+            <button type="button" disabled={!pickedList.length} onClick={() => setListFor(pickedList)}
+              className="rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-40">리스트에 담기</button>
+          </div>
+        </div>
+      )}
       {listFor && listOfficeId && broker?.id && (
         <AddToListSheet officeId={listOfficeId} selfId={broker.id} canManage={canManageOffice(broker)}
-          property={{ id: listFor.id, seq_no: listFor.seq_no ?? null, address: listFor.address }}
+          properties={listFor.map(p => ({ id: p.id, seq_no: p.seq_no ?? null, address: p.address }))}
+          onDone={pickMode ? endPick : undefined}
           onClose={() => setListFor(null)} />
       )}
       {showLists && listOfficeId && broker?.id && (
@@ -2866,7 +2913,7 @@ function BrokerPropertiesContent() {
             || (!!ownerName && (p.assignee ?? '').split(',').map(s => s.trim()).includes(ownerName))} />
       )}
       {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)}
-        onAddToList={!isAdminView && listOfficeId ? () => { setListFor(viewProp.p); setViewProp(null) } : undefined}
+        onAddToList={!isAdminView && listOfficeId ? () => { setListFor([viewProp.p]); setViewProp(null) } : undefined}
         onLocation={viewProp.p.address?.trim() ? () => { setLocationOf({ address: viewProp.p.address, roomType: viewProp.p.room_type }); setViewProp(null) } : undefined} />}
       {locationOf && <LocationCardSheet address={locationOf.address} roomType={locationOf.roomType} onClose={() => setLocationOf(null)} />}
 
