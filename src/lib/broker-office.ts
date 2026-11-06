@@ -150,7 +150,7 @@ export function verificationState(b: { is_verified?: boolean | null; verificatio
 
 /**
  * 인증 상태 안내 문구 — 등록 완료 화면·대시보드·설정 > 사무소가 같은 말을 쓰게 한 곳에 둔다.
- * 미인증이어도 막히는 건 인증 뱃지(와 준비중인 구인 공고)뿐이라, 기다리는 동안 쓸 수 있는 것도 같이 알린다.
+ * 미인증이어도 막히는 건 인증 뱃지뿐이라, 기다리는 동안 쓸 수 있는 것도 같이 알린다.
  * 검토에 며칠 걸리는지는 정해진 게 없어 적지 않는다.
  */
 export function verificationCopy(s: VerificationState): { tone: 'ok' | 'wait' | 'warn'; title: string; body: string } {

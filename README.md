@@ -1,6 +1,6 @@
 # 부소장 (Busojang)
 
-부동산 역경매 플랫폼. 고객이 원하는 매물 조건을 등록하면 인증된 중개사들이 직접 매물을 제안.
+공인중개사무소 업무 앱 — 매물장·고객장·업무일지·광고 관리(뱅크·카페·당근)·메신저·정산.
 
 ## 라이브
 - 운영: https://busojang.vercel.app (옛 주소 bbabang.vercel.app 은 화면만 넘기고 /api 는 그대로 받는다)
@@ -10,7 +10,7 @@
 - React 19
 - Supabase (Postgres 17, RLS, Auth, Storage, Realtime, Edge Functions)
 - Tailwind CSS v4
-- TypeScript, Vitest, Playwright, Storybook
+- TypeScript, Vitest, Playwright
 
 ## 환경변수
 `.env.local.example` 참조. 필수 키:
@@ -26,15 +26,13 @@
 - `npm run build` — 운영 빌드
 - `npm test` — 단위·컴포넌트 테스트
 - `npm run test:all` — 전체 테스트
-- `npm run storybook` — Storybook
 
 ## 배포
 - git push → Vercel 자동 배포
-- Vercel cron: error-alert (매일 18:00 KST — 관리자·사장님 폰 푸시, 받는 사람은 internal_config.error_alert_user_ids), expire-requests (매일 09:00 KST) 등 — vercel.json 참고
+- Vercel cron: error-alert (매일 18:00 KST — 관리자·사장님 폰 푸시, 받는 사람은 internal_config.error_alert_user_ids) 등 — vercel.json 참고
 
 ## 구조
 - `src/app/` — Next.js App Router 페이지·API
 - `src/components/` — 공용 UI 컴포넌트
 - `src/lib/` — 유틸·인증·외부 API 래퍼
 - `supabase/migrations/` — 로컬 DB 마이그레이션
-- `.storybook/` — Storybook 설정

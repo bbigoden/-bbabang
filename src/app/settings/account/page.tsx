@@ -326,7 +326,7 @@ export default function SettingsAccountPage() {
           {mfaFactorId
             ? <ShieldCheck className="h-4 w-4 text-green-500" />
             : <Shield className="h-4 w-4 text-gray-500" />}
-          2단계 인증 (2FA)
+          2단계 인증
           {mfaFactorId && (
             <span className="ml-1 rounded-full bg-green-100 dark:bg-green-900/30 px-2 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400">활성화</span>
           )}

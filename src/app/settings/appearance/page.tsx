@@ -66,7 +66,7 @@ export default function SettingsAppearancePage() {
             )
           })}
         </div>
-        <p className="mt-3 text-[11px] text-gray-500">설정은 이 디바이스에만 저장돼요</p>
+        <p className="mt-3 text-[11px] text-gray-500">설정은 이 기기에만 저장돼요</p>
       </div>
 
       <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">

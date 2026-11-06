@@ -101,7 +101,7 @@ export default function BrokerMessengerPage() {
     if (!office || !myId) return
     // 사무소 전체방(group)은 저절로 만들지 않는다 — 2026-11-02 사장님이 지우고 단체방으로 직접 만들기로 했다.
     // 이미 있는 사무소의 전체방은 그대로 보인다.
-    // 방·내 읽음 행·마지막 메세지·안 읽은 수를 한 번에(office_chat_thread_list). 예전엔 방마다 2번씩
+    // 방·내 읽음 행·마지막 메시지·안 읽은 수를 한 번에(office_chat_thread_list). 예전엔 방마다 2번씩
     // 따로 물어 방이 늘수록 목록이 늦게 떴다(2026-11-05). RLS(oct_select)가 사무소 전체방 + 내가 멤버인 방만 돌려준다
     const { data, error } = await supabase.rpc('office_chat_thread_list', { p_office: office, p_me: myId })
     // 실패하면 지금 보이는 목록을 그대로 둔다(예전처럼 조용히) — 실시간·다시 열기에서 또 부른다
@@ -312,12 +312,12 @@ export default function BrokerMessengerPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={auth.user} role="broker" />
       <div className="mx-auto max-w-6xl px-0 sm:px-4 sm:py-3">
-        <h1 className="sr-only">메세지</h1>
+        <h1 className="sr-only">메시지</h1>
         {/* 폰은 아래 메뉴바(4rem+안전영역)만큼 뺀다 — 밑에 붙던 푸터는 footer.tsx 에서 숨긴다 */}
         <div className="flex h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] overflow-hidden border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 sm:h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] sm:rounded-2xl md:h-[calc(100dvh-6.5rem)] sm:border">
 
           {/* 왼쪽 세로 메뉴(PC) — 카톡 PC 판처럼 */}
-          <nav className="hidden w-16 flex-shrink-0 flex-col items-center gap-2 bg-[#ececed] py-4 dark:bg-gray-950 md:flex" aria-label="메세지 메뉴">
+          <nav className="hidden w-16 flex-shrink-0 flex-col items-center gap-2 bg-[#ececed] py-4 dark:bg-gray-950 md:flex" aria-label="메시지 메뉴">
             <RailButton icon={User} label="친구" on={tab === 'friends'} onClick={() => setTab('friends')} />
             <RailButton icon={MessageCircle} label="채팅" on={tab === 'chats'} onClick={() => setTab('chats')} badge={totalUnread} />
             <RailButton icon={MoreHorizontal} label="더보기" on={tab === 'more'} onClick={() => setTab('more')} />
@@ -328,7 +328,7 @@ export default function BrokerMessengerPage() {
             <div className="flex items-center justify-between px-4 pb-2 pt-4">
               <h2 className="hidden text-lg font-bold text-gray-900 dark:text-white md:block">{tab === 'friends' ? '친구' : tab === 'chats' ? '채팅' : '더보기'}</h2>
               {/* 폰: 앱 아래 메뉴바와 두 줄이 되지 않게 친구·채팅·더보기는 위에 둔다 */}
-              <nav className="flex items-center gap-4 md:hidden" aria-label="메세지 메뉴">
+              <nav className="flex items-center gap-4 md:hidden" aria-label="메시지 메뉴">
                 <TopTab label="친구" on={tab === 'friends'} onClick={() => setTab('friends')} />
                 <TopTab label="채팅" on={tab === 'chats'} onClick={() => setTab('chats')} badge={totalUnread} />
                 <TopTab label="더보기" on={tab === 'more'} onClick={() => setTab('more')} />
@@ -358,7 +358,7 @@ export default function BrokerMessengerPage() {
                       <Avatar member={me} size={56} />
                       <span className="min-w-0">
                         <span className="block font-bold text-gray-900 dark:text-white">{me.name}</span>
-                        <span className="block truncate text-sm text-gray-500">{me.status || '상태메세지를 입력해 보세요'}</span>
+                        <span className="block truncate text-sm text-gray-500">{me.status || '상태메시지를 입력해 보세요'}</span>
                       </span>
                     </button>
                   )}
@@ -411,14 +411,14 @@ export default function BrokerMessengerPage() {
                     <Avatar member={me} size={56} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold text-gray-900 dark:text-white">{me.name}</span>
-                      <span className="block truncate text-sm text-gray-500">{me.status || '상태메세지 없음'}</span>
+                      <span className="block truncate text-sm text-gray-500">{me.status || '상태메시지 없음'}</span>
                     </span>
                     <span className="text-xs text-gray-500">프로필 편집</span>
                   </button>
                   <button onClick={toggleSound} role="switch" aria-checked={soundOn}
                     className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
                     {soundOn ? <Volume2 className="h-5 w-5 text-gray-500" /> : <VolumeX className="h-5 w-5 text-gray-500" />}
-                    <span className="flex-1">메세지 알림음 <span className="block text-xs text-gray-500">앱을 보고 있을 때 새 메세지가 오면 띵동</span></span>
+                    <span className="flex-1">메시지 알림음 <span className="block text-xs text-gray-500">앱을 보고 있을 때 새 메시지가 오면 띵동</span></span>
                     <span className={cn('relative h-6 w-11 rounded-full transition-colors', soundOn ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600')}>
                       <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', soundOn ? 'left-[22px]' : 'left-0.5')} />
                     </span>
@@ -428,7 +428,7 @@ export default function BrokerMessengerPage() {
                   </Link>
                   <p className="px-1 pt-2 text-xs leading-relaxed text-gray-500">
                     방마다 알림을 끄려면 채팅방 오른쪽 위 ☰ 를 눌러 &lsquo;알림 끄기&rsquo;를 고르세요.
-                    메세지를 길게 누르면(PC는 오른쪽 클릭) 공감·답장·공지·삭제를 할 수 있어요.
+                    메시지를 길게 누르면(PC는 오른쪽 클릭) 공감·답장·공지·삭제를 할 수 있어요.
                   </p>
                 </div>
               )}
@@ -620,7 +620,7 @@ function ProfileEditor({ me, office, onClose, onSaved }: { me: Member; office: s
             onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); setRemovePhoto(false) } e.target.value = '' }} />
           <p className="mt-3 font-bold text-gray-900 dark:text-white">{me.name}</p>
         </div>
-        <label className="mt-4 block text-xs text-gray-500">상태메세지
+        <label className="mt-4 block text-xs text-gray-500">상태메시지
           <input value={status} onChange={e => setStatus(e.target.value.slice(0, 60))} placeholder="예: 오늘 오후 현장 답사"
             className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" />
         </label>

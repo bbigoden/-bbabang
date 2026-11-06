@@ -7,7 +7,7 @@ import { isAuthRetryableFetchError, isAuthWeakPasswordError, type AuthError, typ
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { User, Building2, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatPhoneKR, validateSignup, SIGNUP_PASSWORD_MIN, NAME_MAX, type SignupErrors, type SignupField } from '@/lib/validation'
 import { isPasswordPwned, pwnedMessage } from '@/lib/password-check'

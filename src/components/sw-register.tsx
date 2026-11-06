@@ -42,7 +42,7 @@ export function ServiceWorkerRegister() {
     return () => document.removeEventListener('input', onInput, true)
   }, [])
 
-  // 알림을 눌렀을 때 SW 가 보내는 주소로 옮긴다. 같은 화면(메세지)이면 화면에 알려 방만 바꾼다
+  // 알림을 눌렀을 때 SW 가 보내는 주소로 옮긴다. 같은 화면(메시지)이면 화면에 알려 방만 바꾼다
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
     const onMessage = (e: MessageEvent) => {

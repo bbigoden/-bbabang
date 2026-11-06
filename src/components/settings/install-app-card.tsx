@@ -28,7 +28,7 @@ export function InstallAppCard() {
         </p>
       ) : (
         <>
-          <p className="mb-4 text-sm text-gray-500">홈 화면에서 바로 열고, 메세지 알림을 받아요</p>
+          <p className="mb-4 text-sm text-gray-500">홈 화면에서 바로 열고, 메시지 알림을 받아요</p>
           {path === 'prompt' ? (
             <button onClick={install} disabled={busy}
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">

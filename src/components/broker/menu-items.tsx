@@ -60,7 +60,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar, needsOffice: true },
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone, needsOffice: true },
   { id: 'events',     href: '/broker/events', label: '예약·일정', icon: CalendarCheck, needsOffice: true, eventsOnly: true },
-  { id: 'messenger',  href: '/broker/messenger', label: '메세지', icon: MessagesSquare, needsOffice: true },
+  { id: 'messenger',  href: '/broker/messenger', label: '메시지', icon: MessagesSquare, needsOffice: true },
   { id: 'office',     href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen, needsOffice: true },
   { id: 'trash',      href: '/broker/trash', label: '휴지통', icon: Trash2, needsOffice: true },

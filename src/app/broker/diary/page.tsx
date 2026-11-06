@@ -416,6 +416,7 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
   onCreateNew: () => void; onClose: () => void
 }) {
   const supabase = createClient()
+  const toast = useToast()
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -431,9 +432,11 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
       if (ownerName) q = q.ilike('assignee', `%${ownerName}%`)
       const term = sanitizeFilterTerm(search)
       if (term) q = q.or(`request.ilike.%${term}%,contact.ilike.%${term}%,client_name.ilike.%${term}%`)
-      const { data } = await q.order('created_at', { ascending: false }).limit(CUST_PICK_LIMIT)
+      const { data, error } = await q.order('created_at', { ascending: false }).limit(CUST_PICK_LIMIT)
       if (!alive) return
-      setRows((data ?? []) as Customer[])
+      // 실패하면 앞 목록이 결과처럼 남아 있었다(' OR 1=1 같은 말은 보안 필터가 막는다, 11-06 점검)
+      if (error) toast.error('검색하지 못했어요. 다른 말로 찾아 주세요.')
+      setRows(error ? [] : (data ?? []) as Customer[])
       setLoading(false)
     }, search ? 250 : 0)
     return () => { alive = false; clearTimeout(timer) }
@@ -600,7 +603,12 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
     const ok = await onSave(v)
     if (--inflightRef.current === 0) setSaving(false)
     setFailed(!ok)
+    // 저장됐다는 표시가 없어 저장됐는지 모른다는 말이 세 명에게서 나왔다(11-06 점검)
+    if (ok) { setJustSaved(true); clearTimeout(savedTimer.current); savedTimer.current = setTimeout(() => setJustSaved(false), 2500) }
   }
+  const [justSaved, setJustSaved] = useState(false)
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(savedTimer.current), [])
   const handleBlur = () => {
     focusedRef.current = false
     if (draft === (content ?? '')) { setFailed(false); return }
@@ -635,6 +643,7 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
           </span>
         )}
         {saving && <span className="text-xs text-gray-500 ml-2">저장 중...</span>}
+        {!saving && !failed && justSaved && <span className="text-xs text-green-600 ml-2">저장됨 ✓</span>}
         {!saving && failed && !readOnly && (
           <button onClick={() => void save(draft)} className="ml-2 text-xs font-medium text-red-500 hover:text-red-600 hover:underline">
             저장 안 됨 · 다시 저장

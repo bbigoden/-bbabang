@@ -67,7 +67,6 @@ const PAGES: Record<'public' | 'user' | 'broker' | 'admin', string[]> = {
     '/admin/announcements',
     '/admin/health',
     '/admin/stats',
-    '/admin/shorts',
     '/admin/audit',
   ],
 }

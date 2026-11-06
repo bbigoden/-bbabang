@@ -36,7 +36,7 @@ export function InstallGuide() {
         <img src="/icon-192.png?v=3" alt="" className="h-14 w-14 rounded-2xl" />
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">부소장 앱 설치</h1>
-          <p className="text-sm text-gray-500">홈 화면에서 바로 열고, 메세지 알림을 받아요</p>
+          <p className="text-sm text-gray-500">홈 화면에서 바로 열고, 메시지 알림을 받아요</p>
         </div>
       </div>
 

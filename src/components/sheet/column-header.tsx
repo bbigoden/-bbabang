@@ -7,7 +7,7 @@
  * 고정칼럼 자물쇠 표시, 클릭 시 옵션·이름변경·숨기기·삭제 메뉴, 옵션 추가/제거.
  * 세 페이지가 같은 컴포넌트를 import 해서 사용한다.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, EyeOff, Lock, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useClickOutside } from '@/lib/use-click-outside'

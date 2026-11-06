@@ -83,7 +83,7 @@ export function BottomNav() {
       { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
       { href: '/broker/diary', label: '일지', icon: ClipboardList, needsOffice: true },
       // 안 읽은 메시지 수가 더보기 서랍 안에 묻혀 폰에서는 배지가 안 보였다 — 탭으로 꺼낸다
-      { href: '/broker/messenger', label: '메세지', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
+      { href: '/broker/messenger', label: '메시지', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
       // 입찰을 켠 사무소의 대표에게만(사이드바 메뉴와 같은 조건). 더보기 9번째에 묻혀 있어
       // 폰으로 처음 쓰는 사람은 이 기능이 있는 줄도 몰랐다
       ...(bidOf(broker).enabled
@@ -132,7 +132,7 @@ export function BottomNav() {
   return (
     <>
       {/* 본문 가림 방지용 spacer */}
-      {/* 메세지는 화면에 꼭 맞춘 대화창이라 받침을 두면 화면 전체가 한 칸 밀린다 */}
+      {/* 메시지는 화면에 꼭 맞춘 대화창이라 받침을 두면 화면 전체가 한 칸 밀린다 */}
       {/* 중개사 화면은 사이드바 레이아웃(h-screen) 안에서 따로 스크롤하고 푸터가 메뉴바 자리를 띄운다 —
           여기서 또 받치면 창 전체가 한 칸 더 내려가 푸터 밑이 비었다(11-06) */}
       {!pathname.startsWith('/broker/messenger') && profile?.role !== 'broker' && <div className="md:hidden h-16" aria-hidden />}

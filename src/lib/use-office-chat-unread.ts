@@ -54,7 +54,7 @@ function start(brokerId: string) {
     timer = setTimeout(refresh, 400)
   }
 
-  // 남이 보낸 새 메세지면 알림음 — 알림 끈 방은 조용히
+  // 남이 보낸 새 메시지면 알림음 — 알림 끈 방은 조용히
   const ring = async (row: { thread_id?: string; sender_broker_id?: string | null }) => {
     if (!row.thread_id || !row.sender_broker_id || row.sender_broker_id === brokerId) return
     if (!shouldRingFor(row.thread_id)) return

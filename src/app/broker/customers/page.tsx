@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { useEscape } from '@/lib/use-escape'
 import { useEffect, useState, useRef, useCallback, useId, useMemo, useDeferredValue } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -75,112 +76,6 @@ interface Customer {
 
 
 
-// ── ColAdder (숨김 칼럼 복원 + 커스텀 칼럼 추가) ────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function ColAdder({ fixedCols, optionalCols, customCols, visible, onShow, onAddCustom, asHeaderButton }: {
-  fixedCols: ColDef[]
-  optionalCols: ColDef[]
-  customCols: Array<{ id: string; name: string }>
-  visible: string[]
-  onShow: (key: string) => void
-  onAddCustom: (name: string) => void
-  asHeaderButton?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const [style, setStyle] = useState<React.CSSProperties>({})
-  const [addingName, setAddingName] = useState('')
-  const [showInput, setShowInput] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(containerRef, () => { setOpen(false); setShowInput(false); setAddingName('') })
-
-  const hiddenOptional = optionalCols.filter(c => !visible.includes(c.key))
-  const hiddenCustom = customCols.filter(c => !visible.includes(c.id))
-
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, right: Math.max(4, window.innerWidth - r.right), minWidth: 180 })
-    }
-    setOpen(v => !v)
-  }
-
-  const addCustom = () => {
-    const v = addingName.trim()
-    if (!v) return
-    onAddCustom(v); setAddingName(''); setShowInput(false); setOpen(false)
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className={asHeaderButton
-          ? 'flex items-center gap-2 rounded-xl border border-blue-600 px-4 py-2.5 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer'
-          : 'flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none'
-        }>
-        {asHeaderButton ? <>헤더 추가</> : '+'}</div>
-      {open && (
-        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={style}
-          onClick={e => e.stopPropagation()}>
-
-          {/* 고정 칼럼 섹션 */}
-          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
-            <Lock className="h-2.5 w-2.5" />고정 칼럼
-          </div>
-          {fixedCols.map(col => (
-            <div key={col.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500">
-              <span className="text-[10px] text-gray-300">🔒</span>{col.label}
-            </div>
-          ))}
-
-          {/* 선택 칼럼 섹션 */}
-          {hiddenOptional.length > 0 && (
-            <>
-              <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">선택 칼럼</div>
-              {hiddenOptional.map(col => (
-                <button key={col.key} onClick={() => { onShow(col.key); setOpen(false) }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                  <span className="text-gray-300 font-bold">+</span>{col.label}
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* 내 칼럼 섹션 */}
-          {hiddenCustom.length > 0 && (
-            <>
-              <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">내 칼럼</div>
-              {hiddenCustom.map(col => (
-                <button key={col.id} onClick={() => { onShow(col.id); setOpen(false) }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                  <span className="text-gray-300 font-bold">+</span>{col.name}
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* 새 칼럼 만들기 */}
-          <div className="border-t border-gray-100 dark:border-gray-800">
-            {showInput ? (
-              <div className="flex items-center gap-1.5 px-2 py-2">
-                <input autoFocus value={addingName} onChange={e => setAddingName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') { setShowInput(false); setAddingName('') } }}
-                  placeholder="칼럼 이름 입력"
-                  className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0 placeholder-gray-300" />
-                <button onClick={addCustom} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">추가</button>
-              </div>
-            ) : (
-              <button onClick={() => setShowInput(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 transition-colors font-medium">
-                <Plus className="h-3.5 w-3.5" />새 칼럼 만들기
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── AddColBtn ─────────────────────────────────────────
 function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') => void }) {
@@ -263,7 +158,6 @@ function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visib
     ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false })),
   ]
   const rows = search ? all.filter(c => c.label.includes(search)) : all
-  const _hideAll = () => all.filter(c => !c.fixed && visible.includes(c.key)).forEach(c => onToggle(c.key))
 
   return (
     <div ref={containerRef} className="relative">
@@ -542,6 +436,7 @@ export default function BrokerCustomersPage() {
   const [newCust, setNewCust] = useState<{ request: string; category: string } | null>(null)
   const [addingNew, setAddingNew] = useState(false)  // 3G 에서 누른 뒤 몇 초 그대로라 — 버튼에 '등록 중…'
   const openNewCustomer = () => setNewCust({ request: '', category: '' })
+  useEscape(!!newCust, () => setNewCust(null))
   const addRow = async () => {
     if (!broker || !newCust || rowBusyRef.current) return
     const request = newCust.request.trim()
@@ -717,6 +612,13 @@ export default function BrokerCustomersPage() {
         c.request, c.contact, c.assignee, c.category, c.source, c.status, c.received_date,
       ]
       if (fields.some(f => f?.toLowerCase().includes(q))) return true
+      // 낱말 여러 개는 칸을 넘나들어도 모두 들어 있으면 찾는다 — '불당 상가' 가 0명이었다(11-06 점검)
+      const words = q.split(/\s+/)
+      if (words.length > 1) {
+        const hay = [...fields, ...Object.values(c.custom_fields ?? {}).filter(v => typeof v === 'string')]
+          .filter(Boolean).join(' ').toLowerCase()
+        if (words.every(w => hay.includes(w))) return true
+      }
       const qDigits = q.replace(/\D/g, '')
       if (qDigits.length >= 3 && qDigits.length === q.replace(/[\s-]/g, '').length
         && (c.contact ?? '').replace(/\D/g, '').includes(qDigits)) return true
@@ -1187,7 +1089,7 @@ export default function BrokerCustomersPage() {
             className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
             <h3 className="mb-1 text-lg font-bold text-gray-900 dark:text-white">새 고객 등록</h3>
             <p className="mb-4 text-sm text-gray-500">찾는 조건만 적으면 등록돼요. 연락처·유입 같은 나머지 칸은 등록한 뒤 표에서 바로 채우면 저절로 저장돼요.</p>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="new-cust-request">찾는 조건 (요청사항)</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300" htmlFor="new-cust-request">찾는 조건 (요청사항) <span className="text-xs font-normal text-gray-400">Enter 로 등록 · 줄바꿈은 Shift+Enter</span></label>
             <textarea id="new-cust-request" autoFocus rows={3} maxLength={2000} value={newCust.request}
               onChange={e => setNewCust(v => v && { ...v, request: e.target.value })}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void addRow() } }}

@@ -3,7 +3,7 @@
  */
 import {
   LayoutDashboard, Users, Building2, Flag,
-  Megaphone, BarChart3, AlertOctagon, Activity, Film, ScrollText,
+  Megaphone, BarChart3, AlertOctagon, Activity, ScrollText,
 } from 'lucide-react'
 
 export interface AdminItemDef {
@@ -20,7 +20,6 @@ export const ADMIN_ITEMS: AdminItemDef[] = [
   { id: 'users',         href: '/admin/users',         label: '사용자 관리',   icon: Users },
   { id: 'brokers',       href: '/admin/brokers',       label: '사무소 검수',   icon: Building2 },
   { id: 'stats',         href: '/admin/stats',         label: '통계·분석',     icon: BarChart3 },
-  { id: 'shorts',        href: '/admin/shorts',        label: '쇼츠 공장',     icon: Film },
   { id: 'audit',         href: '/admin/audit',         label: '활동 로그',     icon: ScrollText },
   { id: 'errors',        href: '/admin/errors',        label: '에러 로그',     icon: AlertOctagon },
   { id: 'health',        href: '/admin/health',        label: '시스템 상태',   icon: Activity },

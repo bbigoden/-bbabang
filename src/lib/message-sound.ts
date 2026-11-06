@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * 앱을 보고 있을 때 새 메세지 알림음.
+ * 앱을 보고 있을 때 새 메시지 알림음.
  * 앱이 닫혀 있거나 내려가 있으면 푸시 알림(휴대폰·PC 알림 소리)이 맡는다 — 여기는 화면이 떠 있을 때만.
  * 소리 파일 없이 WebAudio 로 '띵똥' 두 음을 낸다.
  */
@@ -31,7 +31,7 @@ export function setMessageSoundOn(on: boolean) {
   try { localStorage.setItem(KEY, on ? 'on' : 'off') } catch { /* noop */ }
 }
 
-/** 지금 화면에 펼쳐 둔 대화방 — 그 방 메세지는 눈으로 보고 있으니 울리지 않는다 */
+/** 지금 화면에 펼쳐 둔 대화방 — 그 방 메시지는 눈으로 보고 있으니 울리지 않는다 */
 export function setOpenOfficeThread(id: string | null) {
   openThreadId = id
 }

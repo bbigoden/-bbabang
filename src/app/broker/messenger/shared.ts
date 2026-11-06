@@ -88,7 +88,7 @@ export const imagesOf = (m: Msg): string[] =>
   m.image_paths?.length ? m.image_paths : m.image_url ? [m.image_url] : []
 
 export const previewText = (m: Pick<Msg, 'body' | 'image_url' | 'image_paths' | 'file_url' | 'file_name' | 'deleted_at'>) => {
-  if (m.deleted_at) return '삭제된 메세지입니다.'
+  if (m.deleted_at) return '삭제된 메시지입니다.'
   const n = m.image_paths?.length ?? (m.image_url ? 1 : 0)
   if (n > 1) return `사진 ${n}장`
   if (n === 1) return '사진'
@@ -226,7 +226,7 @@ export async function prefetchRooms(threadIds: string[]) {
 export function rememberRoom(threadId: string, room: RoomData) {
   roomCache.set(threadId, room)
 }
-/** 새 메세지가 오면 기억해 둔 방에도 붙인다 — 다음에 열 때 바로 보이게 */
+/** 새 메시지가 오면 기억해 둔 방에도 붙인다 — 다음에 열 때 바로 보이게 */
 export function rememberMsg(msg: Msg) {
   const r = roomCache.get(msg.thread_id)
   if (!r || msg.pending) return

@@ -289,9 +289,6 @@ export default function AdminUsersPage() {
   const flatOwners = role === 'owner'
     ? officeGroups.flatMap(g => g.owner ? [{ u: g.owner, officeName: g.officeName }] : [])
     : []
-  const _flatEmployees = role === 'employee'
-    ? officeGroups.flatMap(g => g.employees.map(e => ({ u: e, officeName: g.officeName })))
-    : []
 
   useEffect(() => {
     if (auth.profile?.role === 'admin') {

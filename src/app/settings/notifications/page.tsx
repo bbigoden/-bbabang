@@ -13,7 +13,7 @@ const DEFAULT_PREFS: Prefs = { announcements: true, office_chat: true }
 
 // 고객 요청·제안·채팅 알림은 2026-10-30 고객 화면과 함께 없앴다
 const CATEGORIES: Array<{ key: keyof Prefs; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: 'office_chat',   label: '메세지',       desc: '사무실 메세지가 오면 알림 — 방마다 끄기는 채팅방 ☰ → 알림 끄기', icon: MessageCircle },
+  { key: 'office_chat',   label: '메시지',       desc: '사무실 메시지가 오면 알림 — 방마다 끄기는 채팅방 ☰ → 알림 끄기', icon: MessageCircle },
   { key: 'announcements', label: '공지·이벤트',   desc: '부소장 공지·업데이트 소식',               icon: Megaphone },
 ]
 
@@ -129,8 +129,8 @@ export default function SettingsNotificationsPage() {
                 ? '알림이 꺼져 있어요. 아이폰 설정 → 알림 → 부소장에서 켜 주세요.'
                 : '브라우저 알림이 차단되어 있어요. 주소창 옆 자물쇠 → 알림 → 허용으로 변경해주세요.')}
               {pushSupported && pushPermission !== 'denied' && (pushSubscribed
-                ? '이 디바이스에서 알림을 받고 있어요'
-                : '허용하면 이 디바이스로 알림이 와요')}
+                ? '이 기기에서 알림을 받고 있어요'
+                : '허용하면 이 기기로 알림이 와요')}
             </p>
           </div>
           {pushSupported && pushPermission !== 'denied' && (
