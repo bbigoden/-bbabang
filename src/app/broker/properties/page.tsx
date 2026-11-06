@@ -8,7 +8,10 @@ import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { AddColBtn } from '@/components/sheet/add-col-button'
+import { ColVisibility } from '@/components/sheet/col-visibility'
 import { getOfficeMembers } from '@/lib/office-members'
+import { useClickOutside } from '@/lib/use-click-outside'
 import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { splitAddressForAutoFill } from '@/lib/auto-fill-address'
@@ -17,14 +20,13 @@ import { cn } from '@/lib/utils'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
-import { useClickOutside } from '@/lib/use-click-outside'
 import { CellTooltip } from '@/components/sheet/cells/cell-tooltip'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle,
+  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
@@ -897,143 +899,6 @@ function TooltipIcon({ text }: { text: string }) {
   )
 }
 
-
-// ── AddColBtn ─────────────────────────────────────────
-function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') => void }) {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [type, setType] = useState<'text' | 'select'>('text')
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const popupRef = useRef<HTMLDivElement>(null)
-  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (!btnRef.current?.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) {
-        setOpen(false); setName(''); setType('text')
-      }
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [open])
-  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
-
-  const handleOpen = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 210), zIndex: 9999 })
-    }
-    setOpen(v => !v)
-  }
-  const add = () => {
-    if (name.trim()) { onAdd(name.trim(), type); setName(''); setType('text'); setOpen(false) }
-  }
-
-  return (
-    <div className="relative">
-      {/* 이름표 없이 '+' 만 두었더니 매물 추가로 알고 눌렀다(2026-10-25 점검) */}
-      <button ref={btnRef} onClick={handleOpen} title="칼럼 추가" aria-label="칼럼 추가"
-        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">
-        +
-      </button>
-      {open && createPortal(
-        <div ref={popupRef} className="flex flex-col gap-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
-          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }}
-            placeholder="칼럼 이름 입력"
-            className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20 w-44" />
-          <div className="flex gap-1">
-            <button onClick={() => setType('text')}
-              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>
-              텍스트
-            </button>
-            <button onClick={() => setType('select')}
-              className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>
-              선택
-            </button>
-          </div>
-          <button onClick={add} disabled={!name.trim()}
-            className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40">추가</button>
-        </div>,
-        document.body
-      )}
-    </div>
-  )
-}
-
-// ── PropColVisibility ─────────────────────────────────────
-function PropColVisibility({ allFixed, customCols, visible, onToggle }: {
-  allFixed: ReadonlyArray<{ readonly key: string; readonly label: string }>
-  customCols: CustomColumn[]
-  visible: string[]
-  onToggle: (key: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const popupRef = useRef<HTMLDivElement>(null)
-  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (!btnRef.current?.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [open])
-
-  const handleOpen = () => {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 260), zIndex: 9999, width: 260 })
-    }
-    setOpen(v => !v)
-  }
-
-  const all = [
-    ...allFixed.map(c => ({ key: c.key, label: c.label })),
-    ...customCols.map(c => ({ key: c.id, label: c.name })),
-  ]
-  const rows = search ? all.filter(c => c.label.includes(search)) : all
-
-  return (
-    <div className="relative">
-      <button ref={btnRef} onClick={handleOpen} aria-label="더보기"
-        className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors">
-        <MoreHorizontal className="h-3.5 w-3.5" />
-      </button>
-      {open && createPortal(
-        <div ref={popupRef} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
-          <div className="relative p-2 border-b border-gray-100 dark:border-gray-800">
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="속성을 검색하세요" autoFocus
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20" />
-            {search && <SearchClear onClick={() => setSearch('')} />}
-          </div>
-          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
-            <span className="text-xs font-medium text-gray-500">표에 표시하기</span>
-          </div>
-          <div className="max-h-64 overflow-y-auto py-1">
-            {rows.map(c => (
-              <div key={c.key}
-                className="flex items-center justify-between px-3 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 cursor-pointer"
-                onClick={() => onToggle(c.key)}>
-                <span className={`text-xs font-medium ${visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`}>{c.label}</span>
-                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${visible.includes(c.key) ? 'text-gray-500' : 'text-gray-200'}`} />
-              </div>
-            ))}
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  )
-}
 
 // ── 광고 배지 ──────────────────────────────────────────
 // 이 매물이 지금 어디에 광고되고 있는지. 광고 대장(ad_listings)이 매물을 가리킬 때만 안다 —
@@ -2745,9 +2610,8 @@ function BrokerPropertiesContent() {
                 {!isAdminView && (
                   <SheetActionHeader width={110}>
                     <AddColBtn onAdd={addCustomColumn} />
-                    <PropColVisibility
-                      allFixed={ALL_COLUMNS}
-                      customCols={customColumns}
+                    <ColVisibility
+                      cols={[...ALL_COLUMNS.map(c => ({ key: c.key, label: c.label })), ...customColumns.map(c => ({ key: c.id, label: c.name }))]}
                       visible={settings.visible}
                       onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)}
                     />

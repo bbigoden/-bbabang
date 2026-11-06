@@ -4,16 +4,17 @@ import { useEscape } from '@/lib/use-escape'
 import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { AddColBtn } from '@/components/sheet/add-col-button'
+import { ColVisibility } from '@/components/sheet/col-visibility'
 import { getOfficeMembers } from '@/lib/office-members'
 import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, Eye, MoreHorizontal, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
 import { SearchClear } from '@/components/ui/search-clear'
 import { cn } from '@/lib/utils'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
 import { useSheetDirection } from '@/lib/use-sheet-direction'
-import { useClickOutside } from '@/lib/use-click-outside'
 import { ColumnHeader } from '@/components/sheet/column-header'
 import { EmptyRow } from '@/components/sheet/empty-row'
 import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-cell'
@@ -155,76 +156,6 @@ function dropSuggest(list: SectionDef[], content: Record<string, string>, date: 
 }
 
 
-
-// ── AddColBtn ─────────────────────────────────────────
-function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') => void }) {
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [type, setType] = useState<'text' | 'select'>('text')
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
-  useClickOutside(containerRef, () => { setOpen(false); setName(''); setType('text') })
-  useEffect(() => { if (open) inputRef.current?.focus() }, [open])
-  const handleOpen = () => {
-    if (!open && btnRef.current) { const r = btnRef.current.getBoundingClientRect(); setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 210), zIndex: 9999 }) }
-    setOpen(v => !v)
-  }
-  const add = () => { if (name.trim()) { onAdd(name.trim(), type); setName(''); setType('text'); setOpen(false) } }
-  return (
-    <div ref={containerRef} className="relative">
-      <button ref={btnRef} onClick={handleOpen} className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none">+</button>
-      {open && (
-        <div className="flex flex-col gap-2 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl p-2.5" style={popStyle}>
-          <input ref={inputRef} value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); if (e.key === 'Escape') { setOpen(false); setName('') } }} placeholder="칼럼 이름 입력" className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1 text-xs outline-none focus:border-blue-400 w-44" />
-          <div className="flex gap-1">
-            <button onClick={() => setType('text')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'text' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>텍스트</button>
-            <button onClick={() => setType('select')} className={`flex-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${type === 'select' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200'}`}>선택</button>
-          </div>
-          <button onClick={add} disabled={!name.trim()} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40">추가</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── ColVisibility ─────────────────────────────────────
-function ColVisibility({ fixedCols, optionalCols, customCols: _customCols, visible, onToggle }: {
-  fixedCols: ColDef[]; optionalCols: ColDef[]; customCols: Array<{ id: string; name: string }>; visible: string[]; onToggle: (key: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [popStyle, setPopStyle] = useState<React.CSSProperties>({})
-  useClickOutside(containerRef, () => setOpen(false))
-  const handleOpen = () => {
-    if (!open && btnRef.current) { const r = btnRef.current.getBoundingClientRect(); setPopStyle({ position: 'fixed', top: r.bottom + 4, left: Math.max(8, r.right - 260), zIndex: 9999, width: 260 }) }
-    setOpen(v => !v)
-  }
-  const all = [...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })), ...optionalCols.map(c => ({ key: c.key, label: c.label, fixed: false }))]
-  const rows = search ? all.filter(c => c.label.includes(search)) : all
-  return (
-    <div ref={containerRef} className="relative">
-      <button ref={btnRef} onClick={handleOpen} aria-label="더보기" className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-200 hover:text-gray-500 cursor-pointer transition-colors"><MoreHorizontal className="h-3.5 w-3.5" /></button>
-      {open && (
-        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={popStyle}>
-          <div className="relative p-2 border-b border-gray-100 dark:border-gray-800"><input value={search} onChange={e => setSearch(e.target.value)} placeholder="속성을 검색하세요" autoFocus className="w-full rounded-lg border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-1.5 text-xs focus:outline-none focus:border-blue-400" />{search && <SearchClear onClick={() => setSearch('')} />}</div>
-          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800"><span className="text-xs font-medium text-gray-500">표에 표시하기</span></div>
-          <div className="max-h-64 overflow-y-auto py-1">
-            {rows.map(c => (
-              <div key={c.key} className={`flex items-center justify-between px-3 py-1.5 bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800 ${c.fixed ? 'cursor-default' : 'cursor-pointer'}`} onClick={() => !c.fixed && onToggle(c.key)}>
-                <span className={`text-xs font-medium ${c.fixed || visible.includes(c.key) ? 'text-gray-700 dark:text-gray-300' : 'text-gray-500'}`}>{c.label}</span>
-                <Eye className={`h-3.5 w-3.5 flex-shrink-0 ${c.fixed || visible.includes(c.key) ? 'text-gray-500' : 'text-gray-200'}`} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // 피커가 쓰는 매물 컬럼 — 목록 표시에 필요한 최소한만 (images·description 등 무거운 건 제외)
 const PROP_PICK_COLS = 'id, seq_no, address, deal_type, room_type, price, monthly_rent'
@@ -1669,7 +1600,7 @@ export default function BrokerDiaryPage() {
                     })}
                     <SheetActionHeader>
                       <AddColBtn onAdd={addCustomCol} />
-                      <ColVisibility fixedCols={fixedCols} optionalCols={optionalCols} customCols={settings.customCols} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
+                      <ColVisibility cols={[...fixedCols.map(c => ({ key: c.key, label: c.label, fixed: true })), ...optionalCols.map(c => ({ key: c.key, label: c.label }))]} visible={settings.visible} onToggle={key => settings.visible.includes(key) ? hideCol(key) : showCol(key)} />
                     </SheetActionHeader>
                   </tr>
                 </thead>
