@@ -79,13 +79,13 @@ export function BottomNav() {
     const staff = !!broker && !canManageOffice(broker)
     items = [
       // 홈 대신 사무실(일꾼·직원·Claude 한 화면). 홈은 더보기 서랍 맨 위에 있다
-      ...(staff ? [] : [{ href: '/broker/office', label: '웹사무실', icon: LayoutDashboard, needsOffice: true }]),
+      ...(staff ? [] : [{ href: '/broker/office', label: '5층', icon: LayoutDashboard, needsOffice: true }]),
       // 사무소 메뉴는 menu-items 의 needsOffice 와 같은 뜻 — 등록 전엔 탭에도 자물쇠를 단다
       { href: '/broker/customers', label: '고객', icon: Users, needsOffice: true },
       { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
       { href: '/broker/diary', label: '일지', icon: ClipboardList, needsOffice: true },
       // 안 읽은 메시지 수가 더보기 서랍 안에 묻혀 폰에서는 배지가 안 보였다 — 탭으로 꺼낸다
-      { href: '/broker/messenger', label: '톡', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
+      { href: '/broker/messenger', label: '톡톡', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
       { href: '/broker/lists', label: '미팅', icon: ListChecks, needsOffice: true },
       // 입찰은 탭에서 뺐다(11-06 사장님) — 더보기 서랍에 있다. 대표·직원 탭이 같다
       { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
