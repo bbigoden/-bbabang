@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getColSettings, patchColSettings } from '@/lib/col-settings-store'
 
 export interface ColSettings {
   visible: string[]
@@ -26,18 +26,12 @@ export function useColSettings(
   const [settings, setSettings] = useState<ColSettings>(defaults)
   const [loaded, setLoaded] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const supabase = createClient()
 
   // Load from DB on mount (once brokerId is available)
   useEffect(() => {
     if (!brokerId) return
     ;(async () => {
-      const { data } = await supabase
-        .from('broker_profiles')
-        .select('col_settings')
-        .eq('id', brokerId)
-        .single()
-      const saved = data?.col_settings?.[page] as Partial<ColSettings> | undefined
+      const saved = (await getColSettings(brokerId))[page] as Partial<ColSettings> | undefined
       if (saved) {
         setSettings(prev => ({
           visible:    (saved.visible && saved.visible.length > 0) ? saved.visible : prev.visible,
@@ -61,18 +55,9 @@ export function useColSettings(
 
       if (brokerId) {
         if (debounceRef.current) clearTimeout(debounceRef.current)
-        debounceRef.current = setTimeout(async () => {
-          // Read existing col_settings first to avoid overwriting other pages
-          const { data } = await supabase
-            .from('broker_profiles')
-            .select('col_settings')
-            .eq('id', brokerId)
-            .single()
-          const existing = (data?.col_settings ?? {}) as Record<string, ColSettings>
-          await supabase
-            .from('broker_profiles')
-            .update({ col_settings: { ...existing, [page]: next } })
-            .eq('id', brokerId)
+        debounceRef.current = setTimeout(() => {
+          // 다른 화면·다른 키 설정을 덮지 않게 최신 값에 이 화면 것만 바꿔 넣는다
+          patchColSettings(brokerId, existing => ({ ...existing, [page]: next }))
         }, 800)
       }
 

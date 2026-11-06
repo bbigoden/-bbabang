@@ -14,7 +14,7 @@
  * scope에 같은 값으로 마이그레이션해서 읽음 (저장 시점부터 객체 형태로 새로 씀).
  */
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getColSettings, patchColSettings } from '@/lib/col-settings-store'
 
 export type AddDirection = 'up' | 'down'
 export type SheetScope = 'properties' | 'customers' | 'diary'
@@ -22,17 +22,11 @@ export type SheetScope = 'properties' | 'customers' | 'diary'
 export function useSheetDirection(brokerId: string | null, scope: SheetScope = 'properties') {
   const [direction, setDirection] = useState<AddDirection>('up')
   const [loaded, setLoaded] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
     if (!brokerId) return
     ;(async () => {
-      const { data } = await supabase
-        .from('broker_profiles')
-        .select('col_settings')
-        .eq('id', brokerId)
-        .single()
-      const shared = (data?.col_settings as Record<string, unknown> | null)?._shared as
+      const shared = (await getColSettings(brokerId))._shared as
         | { add_direction?: AddDirection | Record<string, AddDirection> }
         | undefined
       const raw = shared?.add_direction
@@ -52,29 +46,20 @@ export function useSheetDirection(brokerId: string | null, scope: SheetScope = '
   const updateDirection = async (next: AddDirection) => {
     setDirection(next)
     if (!brokerId) return
-    const { data } = await supabase
-      .from('broker_profiles')
-      .select('col_settings')
-      .eq('id', brokerId)
-      .single()
-    const existing = (data?.col_settings ?? {}) as Record<string, unknown>
+    await patchColSettings(brokerId, existing => {
     const sharedExisting = (existing._shared ?? {}) as Record<string, unknown>
     // 기존 add_direction이 string이면 무시하고 객체로 새로 쓰기. 객체면 머지.
     const prevDirMap = (typeof sharedExisting.add_direction === 'object' && sharedExisting.add_direction !== null)
       ? (sharedExisting.add_direction as Record<string, AddDirection>)
       : {}
-    await supabase
-      .from('broker_profiles')
-      .update({
-        col_settings: {
-          ...existing,
-          _shared: {
-            ...sharedExisting,
-            add_direction: { ...prevDirMap, [scope]: next },
-          },
-        },
-      })
-      .eq('id', brokerId)
+    return {
+      ...existing,
+      _shared: {
+        ...sharedExisting,
+        add_direction: { ...prevDirMap, [scope]: next },
+      },
+    }
+    })
   }
 
   return { direction, updateDirection, loaded }

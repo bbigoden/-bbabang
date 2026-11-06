@@ -71,7 +71,11 @@ function start(brokerId: string) {
       ring(payload.new as { thread_id?: string; sender_broker_id?: string | null })
     })
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'office_chat_messages' }, schedule)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'office_chat_members' }, schedule)
+    // 내 멤버 행(읽음 시각·초대·알림)만 받는다. 전체(*)를 받으면 단체방에서 누가 읽기만 해도
+    // 접속한 전원의 폰이 다시 셌다. 삭제는 실시간 필터가 걸리지 않아 따로 받는다(드물다).
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'office_chat_members', filter: `broker_id=eq.${brokerId}` }, schedule)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'office_chat_members', filter: `broker_id=eq.${brokerId}` }, schedule)
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'office_chat_members' }, schedule)
     .subscribe()
 
   // 폰에서 앱을 내렸다 올리면 그동안 실시간 연결이 끊겨 이벤트를 놓친다 — 돌아올 때 다시 센다

@@ -1794,8 +1794,9 @@ function BrokerPropertiesContent() {
     // 매물 조회를 기다리게 하지 않는다 — 느린 폰 회선에서 왕복 하나가 2초라,
     // 이름 → 직원 목록 → 매물 순으로 줄 세우면 매물이 4초 늦게 떴다(2026-10-29 점검).
     void (async () => {
-      const { data: prof } = await supabase.from('profiles').select('name').eq('id', u.id).single()
-      const myName = prof?.name as string | undefined
+      // 내 이름은 로그인 때 받아 둔 것을 쓴다(없을 때만 묻는다)
+      const myName = (auth.profile?.name
+        ?? (await supabase.from('profiles').select('name').eq('id', u.id).single()).data?.name) as string | undefined
       setSelfName(myName ?? '')
       if (owner) {
         setOwnerName(myName ?? '')  // 대표 본인 → 내 이름이 곧 대표 이름
@@ -1831,8 +1832,7 @@ function BrokerPropertiesContent() {
     // 행 데이터는 서버 페이지네이션 effect가 RPC로 가져온다
     officeIdRef.current = office
     setScopeState({ office })
-    void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
-      .eq('office_broker_id', office).then(({ count }) => setAllCount(count ?? 0))
+    // '전체' 건수는 아래 첫 쪽 조회가 끝날 때 센다 — 여기서 또 세면 같은 요청이 두 번 나간다
   }
 
   // ── 서버 페이지네이션 — 현재 페이지 분량만 RPC로 조회 ──────────
@@ -1870,6 +1870,8 @@ function BrokerPropertiesContent() {
   // 지금 properties 가 어느 검색어의 결과인지. ?focus= 가 검색을 걸어 두고 "결과가 왔는데도 없다" 를
   // 가려낼 때 쓴다 — 상태(loading)만 보면 검색어가 바뀐 렌더에서 옛 결과를 새 결과로 착각한다.
   const fetchedQueryRef = useRef<string | null>(null)
+  // '전체' 건수를 마지막으로 센 조건 — 쪽 넘기기마다 다시 세지 않게
+  const allCountKeyRef = useRef<typeof filterParams | null>(null)
 
   useEffect(() => {
     if (!scopeState) return
@@ -1893,8 +1895,10 @@ function BrokerPropertiesContent() {
       setProperties(늦게.length ? [...늦게, ...rows] : rows)
       setTotalCount(Number(data?.[0]?.total_count ?? 0))
       setLoading(false)
-      // '전체' 도 같은 시점에 다시 센다 — 다른 사람이 줄을 넣거나 지우면 전체가 멈춰 있어 검색이 전체보다 커 보였다
-      if (조건.p_office) {
+      // '전체' 도 같은 시점에 다시 센다 — 다른 사람이 줄을 넣거나 지우면 전체가 멈춰 있어 검색이 전체보다 커 보였다.
+      // 쪽만 넘길 때는 세지 않는다(조건이 그대로면 전체도 그대로).
+      if (조건.p_office && allCountKeyRef.current !== filterParams) {
+        allCountKeyRef.current = filterParams
         void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
           .eq('office_broker_id', 조건.p_office).is('deleted_at', null)
           .then(({ count }) => { if (!cancelled && count != null) setAllCount(count) })
@@ -1903,7 +1907,7 @@ function BrokerPropertiesContent() {
       if (rows.length === 0 && page > 1) setPage(1)
     })()
     return () => { cancelled = true }
-  }, [scopeState, page, pageSize, rpcParams])
+  }, [scopeState, page, pageSize, rpcParams, filterParams])
 
   // ── 광고 배지 — 지금 쪽에 뜬 매물의 광고만 한 번에 받는다 ──
   // 쪽이 바뀔 때만 다시 묻는다(칸을 고쳐도 id 묶음은 그대로라 안 나간다). 줄마다 묻지 않는다.

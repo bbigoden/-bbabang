@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 import { Spinner } from '@/components/ui/spinner'
-import { todayKST, addDays } from '@/lib/date-kst'
+import { todayKST, addDays, ymdKST } from '@/lib/date-kst'
 
 type Range = 7 | 30 | 90
 
@@ -64,7 +64,7 @@ export default function AdminStatsPage() {
     const brokerMap = new Map<string, number>()
     ;(profs ?? []).forEach(p => {
       if (!p.created_at) return
-      const d = p.created_at.slice(0, 10)
+      const d = ymdKST(p.created_at)  // UTC 로 자르면 한국 0~9시 가입이 전날로 잡힌다
       if (p.role === 'broker') brokerMap.set(d, (brokerMap.get(d) ?? 0) + 1)
       else userMap.set(d, (userMap.get(d) ?? 0) + 1)
     })
