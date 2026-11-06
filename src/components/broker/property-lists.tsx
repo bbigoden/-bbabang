@@ -133,7 +133,8 @@ function NewListForm({ officeId, owner, ownerName, onMade }: {
 
 /**
  * 매물 한 건을 리스트에 담는 창 — 줄의 [담기].
- * 리스트를 누르면 바로 담기고, 이미 담긴 리스트를 다시 누르면 뺀다.
+ * 체크는 표시만 하고 [완료] 를 눌러야 한꺼번에 담기·빼기(11-06 — 체크만 해도 바로 담기고 '담았어요' 가 떴다).
+ * X·바깥·Esc 로 닫으면 아무것도 바뀌지 않는다.
  */
 export function AddToListSheet({ officeId, selfId, canManage, property, onClose }: {
   officeId: string; selfId: string
@@ -145,12 +146,16 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
   const toast = useToast()
   const { members, names } = useMembers(officeId)
   const [lists, setLists] = useState<ListRow[] | null>(null)
-  const [inList, setInList] = useState<Set<string>>(new Set())
-  const [busyId, setBusyId] = useState<string | null>(null)
+  const [saved, setSaved] = useState<Set<string>>(new Set())    // DB 에 이미 담긴 리스트
+  const [picked, setPicked] = useState<Set<string>>(new Set())  // 지금 체크된 리스트
+  const [saving, setSaving] = useState(false)
   const [who, setWho] = useState(selfId)  // 드롭다운 — 누구 리스트에 보낼지
   const counts: Record<string, number> = {}
   for (const l of lists ?? []) counts[l.created_by] = (counts[l.created_by] ?? 0) + 1
   const shown = (lists ?? []).filter(l => l.created_by === who)
+  const adds = [...picked].filter(id => !saved.has(id))
+  const removes = [...saved].filter(id => !picked.has(id))
+  const dirty = adds.length + removes.length > 0
 
   useEffect(() => {
     let alive = true
@@ -161,36 +166,36 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
     ]).then(([ls, its]) => {
       if (!alive) return
       setLists(ls)
-      setInList(new Set(((its.data ?? []) as { list_id: string }[]).map(r => r.list_id)))
+      const ids = new Set(((its.data ?? []) as { list_id: string }[]).map(r => r.list_id))
+      setSaved(ids); setPicked(new Set(ids))
     }, () => { if (alive) { setLists([]); toast.error('리스트를 불러오지 못했어요') } })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officeId, property.id])
 
-  const toggle = async (l: ListRow) => {
-    if (busyId) return
-    setBusyId(l.id)
+  const toggle = (id: string) => setPicked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+
+  const save = async () => {
+    if (!dirty) { onClose(); return }
+    setSaving(true)
     const supabase = createClient()
-    const has = inList.has(l.id)
-    if (has) {
-      const { data, error } = await supabase.from('property_list_items').delete()
-        .eq('list_id', l.id).eq('property_id', property.id).select('list_id')
-      setBusyId(null)
-      if (error || !data?.length) { toast.error('뺄 권한이 없어요 — 담은 사람이나 리스트 만든 사람만 뺄 수 있어요'); return }
-      setInList(s => { const n = new Set(s); n.delete(l.id); return n })
-      setLists(ls => ls?.map(x => x.id === l.id ? { ...x, count: Math.max(0, x.count - 1) } : x) ?? ls)
-      toast.info(`'${l.name}' 에서 뺐어요`)
-    } else {
+    let failed = 0
+    if (adds.length) {
+      // 다른 사람이 이미 담아 둔 매물은 건너뛴다(남이 담은 줄은 안 보여 체크가 비어 있을 수 있다)
       const { error } = await supabase.from('property_list_items')
-        .insert({ list_id: l.id, property_id: property.id, added_by: selfId })
-      setBusyId(null)
-      // 23505 = 다른 사람이 이미 담아 둔 매물(남이 담은 줄은 안 보여 체크가 비어 있었다)
-      if (error && error.code !== '23505') { toast.error('담지 못했어요'); return }
-      if (error) { setInList(s => new Set(s).add(l.id)); toast.info(`'${l.name}' 에 이미 담겨 있어요`); return }
-      setInList(s => new Set(s).add(l.id))
-      setLists(ls => ls?.map(x => x.id === l.id ? { ...x, count: x.count + 1 } : x) ?? ls)
-      toast.success(`'${l.name}' 에 담았어요`)
+        .upsert(adds.map(list_id => ({ list_id, property_id: property.id, added_by: selfId })), { onConflict: 'list_id,property_id', ignoreDuplicates: true })
+      if (error) failed += adds.length
     }
+    if (removes.length) {
+      const { data, error } = await supabase.from('property_list_items').delete()
+        .eq('property_id', property.id).in('list_id', removes).select('list_id')
+      failed += error ? removes.length : removes.length - (data?.length ?? 0)
+    }
+    setSaving(false)
+    if (failed) { toast.error(`${failed}곳은 바꾸지 못했어요 — 남이 담은 매물은 담은 사람이나 리스트 만든 사람만 뺄 수 있어요`); return }
+    const parts = [adds.length ? `${adds.length}곳에 담았어요` : '', removes.length ? `${removes.length}곳에서 뺐어요` : ''].filter(Boolean)
+    toast.success(parts.join(' · '))
+    onClose()
   }
 
   return (
@@ -205,9 +210,10 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
           ))}
         </select>
         {(who === selfId || canManage) && (
-          <NewListForm officeId={officeId} owner={who} ownerName={who === selfId ? undefined : names[who]} onMade={async l => {
+          // 새 리스트는 바로 만들어지고 체크만 된다 — 이 매물은 [완료] 때 담긴다
+          <NewListForm officeId={officeId} owner={who} ownerName={who === selfId ? undefined : names[who]} onMade={l => {
             setLists(ls => [l, ...(ls ?? [])])
-            await toggle(l)
+            setPicked(s => new Set(s).add(l.id))
           }} />
         )}
       </div>
@@ -217,9 +223,9 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
               {who === selfId ? '아직 내 리스트가 없어요. 위에서 하나 만들어 담으세요.' : `${names[who] ?? ''}님이 만든 리스트가 없어요.`}
             </p>
           : shown.map(l => {
-            const on = inList.has(l.id)
+            const on = picked.has(l.id)
             return (
-              <button key={l.id} type="button" onClick={() => toggle(l)} disabled={busyId === l.id}
+              <button key={l.id} type="button" onClick={() => toggle(l.id)} disabled={saving}
                 className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:hover:bg-gray-800">
                 <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${on ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 dark:border-gray-700'}`}>
                   {on && <Check className="h-3.5 w-3.5" />}
@@ -234,8 +240,13 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
             )
           })}
       </div>
-      <div className="border-t border-gray-100 p-3 dark:border-gray-800">
-        <button type="button" onClick={onClose} className="w-full rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white dark:bg-gray-700">완료</button>
+      <div className="flex gap-2 border-t border-gray-100 p-3 dark:border-gray-800">
+        <button type="button" onClick={onClose} disabled={saving}
+          className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800">취소</button>
+        <button type="button" onClick={save} disabled={saving}
+          className="flex-[2] rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+          {saving ? '저장 중…' : dirty ? `완료 (${[adds.length ? `담기 ${adds.length}` : '', removes.length ? `빼기 ${removes.length}` : ''].filter(Boolean).join(' · ')})` : '완료'}
+        </button>
       </div>
     </Sheet>
   )
