@@ -16,7 +16,7 @@
  *  - 첫 문단 200자 안에 종류·면적·가격이 다 들어가야 한다 (AI 브리핑 인용 대상)
  *  - CTA는 글 끝에 한 번만
  */
-import { parseListing, m2ToPyeong, floorLabel, parkingLabel, type ParsedListing, type Category } from './cafe-post.ts'
+import { parseListing, m2ToPyeong, floorLabel, parkingLabel, locationFacts, factSentences, type ParsedListing, type Category } from './cafe-post.ts'
 
 const CHECK = '[확인 필요]'
 
@@ -214,27 +214,35 @@ function opening(p: ParsedListing, kw: BlogKeywords): string {
   return `${kw.main} 매물입니다. ${[a, price].filter(Boolean).join(', ')}으로 나와 있습니다. ${who}께 맞는 자리입니다.`
 }
 
-function sectionLocation(p: ParsedListing): string {
+type Facts = Record<string, string[]> | null
+
+function sectionLocation(p: ParsedListing, facts: Facts = null): string {
   const region = [p.city, p.gu, p.dong, riOf(p)].filter(Boolean).join(' ') || '해당 지역'
+  // 매물설명에 [입지] 창 문단이 붙어 있으면 공공 원본 사실로 '현장에서 확인' 문장을 바꾼다(11-06)
+  const 입지 = factSentences([...(facts?.['입지'] ?? []), ...(facts?.['토지'] ?? []), ...(facts?.['교통'] ?? [])])
+  const 상권 = factSentences(facts?.['상권'])
   if (isIndustrial(p.category)) {
     return [
-      `${region}에 있는 물건입니다. 인근 산업단지와 국도 접근성은 실제 이동 경로에 따라 체감이 달라지므로, 현장에서 진입 동선을 함께 확인해 드립니다.`,
+      입지 ? `${region}에 있는 물건입니다. ${입지}` : `${region}에 있는 물건입니다. 인근 산업단지와 국도 접근성은 실제 이동 경로에 따라 체감이 달라지므로, 현장에서 진입 동선을 함께 확인해 드립니다.`,
       '진입로 폭과 회차 공간은 차량 톤수에 따라 갈립니다. 어떤 차량이 드나드는지 알려주시면 실제로 들어갈 수 있는지 확인해 드리겠습니다.',
       '야간이나 주말에 출입이 필요하신 경우에는 건물 관리 방식에 따라 제약이 있을 수 있어 미리 확인해 드립니다.',
       p.moveIn === '즉시입주' ? '현재 비어 있어 계약 후 바로 사용하실 수 있습니다.' : '입주 시점은 협의가 필요합니다.',
     ].filter(Boolean).join(' ')
   }
   return [
-    `${region} 생활권에 자리한 물건입니다. 배후 세대와 주 이용층은 시간대별로 달라 현장에서 유동 동선을 함께 보시는 편이 정확합니다.`,
+    입지 ? `${region} 생활권에 자리한 물건입니다. ${입지}` : `${region} 생활권에 자리한 물건입니다. 배후 세대와 주 이용층은 시간대별로 달라 현장에서 유동 동선을 함께 보시는 편이 정확합니다.`,
     p.floor === '1' ? '1층이라 전면이 도로에 노출됩니다.'
       : `${floorLabel(p.floor) ?? ''}이라 임대료 부담이 1층보다 낮습니다.`.trim(),
     hasParkingLot(p) ? `주차는 ${parkingLabel(p.parking)} 기준입니다. 다만 건축물대장 기준이라 실제 배정 대수는 관리사무소 확인이 필요합니다.` : '건물 주차는 별도 확인이 필요합니다. 인근 공영주차장 위치를 함께 안내드립니다.',
-    '주변 상가 구성과 시간대별 이용층은 직접 보셔야 판단이 서는 부분이라, 방문 시 함께 걸어보시길 권해 드립니다.',
+    상권 || '주변 상가 구성과 시간대별 이용층은 직접 보셔야 판단이 서는 부분이라, 방문 시 함께 걸어보시길 권해 드립니다.',
   ].filter(Boolean).join(' ')
 }
 
-function sectionArea(p: ParsedListing): string {
+function sectionArea(p: ParsedListing, facts: Facts = null): string {
   const bits: string[] = []
+  // 대장에서 읽은 동별 면적·건물 높이·정화조 — [입지] 창 문단이 있을 때만
+  const 건물 = facts?.['건물'] ?? []
+  const 정화조 = 건물.find(l => /정화조|공공하수도/.test(l))
   if (p.exclusiveArea && p.supplyArea) {
     const rate = ((p.exclusiveArea / p.supplyArea) * 100).toFixed(0)
     bits.push(`공급 ${area(p.supplyArea)}에 전용 ${area(p.exclusiveArea)}로, 전용률은 약 ${rate}%입니다.`)
@@ -249,12 +257,16 @@ function sectionArea(p: ParsedListing): string {
       ? `계약전력은 ${p.power}입니다. 증설이 필요하시면 가능 여부를 함께 알아봐 드립니다.`
       : '계약전력은 확인이 필요합니다. 사용하실 장비를 알려주시면 함께 확인하겠습니다.')
     bits.push('셔터 규격과 호이스트 유무는 원문에 없어 현장에서 실측해 알려드리겠습니다.')
+    if (건물.length) bits.push(`건축물대장 기준으로 보면 ${factSentences(건물)}`)
   } else {
     bits.push(p.propertyKind
       ? `건축물 용도는 ${p.propertyKind}입니다. 준비하시는 업종이 이 용도로 인허가가 나는지 먼저 확인해 드립니다.`
       : '건축물 용도는 확인 후 안내드리겠습니다. 업종 인허가와 직결되는 부분입니다.')
     bits.push(p.bathrooms ? `화장실은 ${p.bathrooms}개입니다.` : '화장실 위치와 개수는 현장에서 확인해 드립니다.')
-    bits.push('정화조 용량과 후드·가스 인입 여부는 음식점 가능 여부를 가르는 항목이라, 원문에 없는 경우 임의로 판단하지 않고 확인 후 알려드립니다.')
+    if (건물.length) bits.push(`건축물대장 기준으로 ${factSentences(건물.filter(l => l !== 정화조))}`)
+    bits.push(정화조
+      ? `${정화조}(건축물대장). 후드·가스 인입 여부는 현장에서 확인해 알려드립니다.`
+      : '정화조 용량과 후드·가스 인입 여부는 음식점 가능 여부를 가르는 항목이라, 원문에 없는 경우 임의로 판단하지 않고 확인 후 알려드립니다.')
   }
   return bits.join(' ')
 }
@@ -375,6 +387,7 @@ export interface BlogPost {
 
 export function buildBlogPost(source: string, listingNoInput: string): BlogPost {
   const p = parseListing(source)
+  const facts = locationFacts(source)
   const no = listingNoInput.replace(/[^0-9]/g, '') || 'XXXXXXXXXX'
   const kw = buildKeywords(p)
   const ind = isIndustrial(p.category)
@@ -391,12 +404,12 @@ export function buildBlogPost(source: string, listingNoInput: string): BlogPost 
     `[사진: ${ind ? '마당과 회차 공간' : '건물 전체'}]`,
     '',
     `${kw.main}, ${ind ? '진입과 주변 여건은 어떤가요' : '어떤 자리인가요'}`,
-    sectionLocation(p),
+    sectionLocation(p, facts),
     '',
     `[사진: ${ind ? '진입로와 마당' : '앞 도로와 인도'}]`,
     '',
     `${ind ? '면적과 설비는 어디까지 확인됐나요' : '실제로 쓰는 면적은 얼마인가요'}`,
-    sectionArea(p),
+    sectionArea(p, facts),
     '',
     `[사진: 내부 전경]`,
     '',

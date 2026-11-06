@@ -1054,7 +1054,7 @@ interface PropertyRowProps {
   /** 폰에서 번호 칸 [보기] — 매물 한 건을 위아래로 읽는 창 (useState 세터라 memo 를 깨지 않는다) */
   onView: (v: { p: Property; memoVisible: boolean }) => void
   /** [입지] — 소재지로 토지·용도지역·건물·IC 거리를 한 장에 (useState 세터) */
-  onLocation: (address: string) => void
+  onLocation: (v: { address: string; roomType: string | null }) => void
 }
 
 const PropertyRow = memo(function PropertyRow({
@@ -1211,7 +1211,7 @@ const PropertyRow = memo(function PropertyRow({
           // 대표는 사무소 매물 전부, 직원은 자기 매물만 뱅크에 넣는다(2026-10-21 결정). DB(RLS)도 같은 규칙.
           extra={<>
             {/* 입지는 읽기만 하는 조회라 남의 매물에도 보인다 */}
-            {p.address?.trim() ? <LocationButton onClick={() => onLocation(p.address)} /> : null}
+            {p.address?.trim() ? <LocationButton onClick={() => onLocation({ address: p.address, roomType: p.room_type })} /> : null}
             {canEdit && isMine && p.status !== 'contracted' ? <BankDraftButton job={bankDraft} onClick={() => onBankDraft(p)} /> : null}
           </>} />
       )}
@@ -2029,7 +2029,7 @@ function BrokerPropertiesContent() {
    */
   const [newProp, setNewProp] = useState<{ address: string; deal_type: string } | null>(null)
   const [viewProp, setViewProp] = useState<{ p: Property; memoVisible: boolean } | null>(null)
-  const [locationAddr, setLocationAddr] = useState<string | null>(null)
+  const [locationOf, setLocationOf] = useState<{ address: string; roomType: string | null } | null>(null)
   const addingRef = useRef(false)
   const addedWhileLoadingRef = useRef<Property[]>([])
   // 3G 에서 누르고 몇 초 동안 화면이 그대로라 한 번 더 누르고 싶어졌다 — 버튼에 '등록 중…'
@@ -2649,7 +2649,7 @@ function BrokerPropertiesContent() {
                   key={p.id}
                   p={p}
                   onView={setViewProp}
-                  onLocation={setLocationAddr}
+                  onLocation={setLocationOf}
                   adBadge={adBadges[p.id]}
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
@@ -2837,8 +2837,8 @@ function BrokerPropertiesContent() {
       })()}
 
       {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)}
-        onLocation={viewProp.p.address?.trim() ? () => { setLocationAddr(viewProp.p.address); setViewProp(null) } : undefined} />}
-      {locationAddr && <LocationCardSheet address={locationAddr} onClose={() => setLocationAddr(null)} />}
+        onLocation={viewProp.p.address?.trim() ? () => { setLocationOf({ address: viewProp.p.address, roomType: viewProp.p.room_type }); setViewProp(null) } : undefined} />}
+      {locationOf && <LocationCardSheet address={locationOf.address} roomType={locationOf.roomType} onClose={() => setLocationOf(null)} />}
 
       {newPropModal}
 

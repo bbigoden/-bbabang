@@ -229,8 +229,42 @@ function categoryFromKind(t: string): Category | null {
   return null
 }
 
+/**
+ * 부소장 매물목록 [입지] 창이 만든 문단 — `■ 입지`(또는 `■ 토지`)로 시작해
+ * `※ 출처: 건축물대장·토지이용계획…` 줄로 끝난다. 사장님이 매물설명 끝에 붙여 뱅크에 올린다(11-06).
+ *
+ * 공공 원본(대장·토지이용계획·상가정보·카카오)에서 만든 사실만 담겨 있어 **글에 그대로 옮겨도 된다** —
+ * 사장님이 손으로 쓴 문장과 달리 부당광고 표현이 없다. 대신 판정에는 넣지 않는다:
+ * '학원 6곳'·'배후 아파트'·'주차 120대(건물 전체)' 가 업종·종류·주차 칸으로 잘못 읽힌다.
+ */
+const LOCATION_BLOCK = /■\s*(?:입지|토지)[\s\S]*?※\s*출처:\s*건축물대장·토지이용계획[^\n]*/
+
+export function withoutLocationBlock(src: string): string {
+  return src.replace(LOCATION_BLOCK, '')
+}
+
+/** [입지] 문단 → 소제목별 줄. 없으면 null */
+export function locationFacts(src: string): Record<string, string[]> | null {
+  const m = src.replace(/\r/g, '').match(LOCATION_BLOCK)
+  if (!m) return null
+  const out: Record<string, string[]> = {}
+  let cur: string | null = null
+  for (const line of m[0].split('\n')) {
+    const h = line.match(/^\s*■\s*(\S+)/)
+    if (h) { cur = h[1]; out[cur] = []; continue }
+    const b = line.match(/^\s*·\s*(.+)/)
+    if (b && cur) out[cur].push(b[1].trim())
+  }
+  return Object.values(out).some(v => v.length) ? out : null
+}
+
+/** 사실 줄을 문장으로 — 끝에 마침표만 붙인다(말을 지어 붙이지 않는다) */
+export function factSentences(lines: string[] | undefined): string {
+  return (lines ?? []).map(l => /\.$/.test(l) ? l : `${l}.`).join(' ')
+}
+
 export function parseListing(source: string): ParsedListing {
-  const src = source.replace(/ /g, ' ')
+  const src = withoutLocationBlock(source).replace(/ /g, ' ')
 
   const addressRaw = field(src, ['소재지', '소재\\s*지역', '주소', '위치'])
   const addr = parseAddress(addressRaw ?? src)
@@ -834,7 +868,7 @@ const SPOT_MARKS: Array<[RegExp, string]> = [...LOCATION_MARKS, ...CONDITION_MAR
  * 표 구간에서 끊는다.
  */
 function handwrittenBody(src: string): string {
-  const m = src.match(/(?:매물특징|상세설명)[\s\S]*/)
+  const m = withoutLocationBlock(src).match(/(?:매물특징|상세설명)[\s\S]*/)
   if (!m) return ''
   // 상세설명 다음에 오는 표 항목들. 여기서부터는 사람이 쓴 글이 아니다.
   const end = m[0].search(/\n\s*(매물사진|중개업소|핸드폰\s*번호|입주일|전송\s*정보|중개사\s*메모)/)
@@ -1288,7 +1322,13 @@ function buildDetails(p: ParsedListing, src = ''): string {
   // 문장은 글을 좋게 만들지 않는다.
   const seed = seedOf(p)
   const spots = marksIn(LOCATION_MARKS, ownWords(src))
-  const loc = spots.length
+  // [입지] 창 문단이 붙어 있으면 공공 원본 사실(배후 세대·IC 시간·건물 내 업소 등)을 그대로 쓴다.
+  // 예전엔 근거가 없어 "현장 안내 시 확인해 드리겠습니다" 로만 채웠다.
+  const facts = locationFacts(src)
+  const factLoc = facts ? factSentences([...(facts['입지'] ?? []), ...(facts['토지'] ?? []), ...(facts['상권'] ?? []), ...(facts['교통'] ?? [])]) : ''
+  const loc = factLoc
+    ? `**입지**\n${factLoc}${spots.length ? ` ${spots.join(', ')} 조건을 갖춘 자리입니다.` : ''}`
+    : spots.length
     // `○○동 생활권에 자리한 매물입니다` 는 아무 말도 안 하는 문장이고, 소재지는
     // 표와 요약에 이미 두 번 나온다. 근거 있는 부분부터 쓴다.
     ? `**입지**\n${spots.join(', ')} 조건을 갖춘 자리입니다. `
@@ -1313,6 +1353,7 @@ function buildDetails(p: ParsedListing, src = ''): string {
   // 주차 0대를 본문에서 굳이 안내하지 않는다. 표시광고 필수 항목이라 표에는 사실대로 적히고,
   // 세부 설명은 매물의 장점을 설명하는 자리다. 없는 것을 문장으로 강조할 이유가 없다.
   if (hasParking(p)) buildBits.push(`주차는 ${parkingLabel(p.parking)} 가능합니다`)
+  if (facts?.['건물']?.length) buildBits.push(factSentences(facts['건물']).replace(/\.$/, ''))
   const building = `**건물 및 공간 구성**\n${buildBits.length ? buildBits.join('. ') + '.' : '건물 구성과 내부 상태는 현장에서 직접 확인하실 수 있도록 안내드리겠습니다.'}`
 
   // 사장님이 `음식점 추천` 처럼 적어 두었으면 그것을 앞세운다. 종류에서 뽑은
