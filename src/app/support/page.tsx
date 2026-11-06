@@ -63,7 +63,7 @@ export default function SupportPage() {
               },
               {
                 q: '실수로 지운 매물·고객은 되살릴 수 있나요?',
-                a: '네. 지운 매물·고객은 휴지통에 30일 동안 보관돼 그 안에는 되살릴 수 있어요. 30일이 지나면 저절로 지워집니다.',
+                a: '네. 지운 매물·고객은 휴지통에 30일 동안 보관돼 그 안에는 되살릴 수 있어요. 30일이 지나면 저절로 삭제됩니다.',
               },
             ].map(({ q, a }) => (
               <div key={q} className="border-b border-gray-100 dark:border-gray-800 pb-4 last:border-0 last:pb-0">

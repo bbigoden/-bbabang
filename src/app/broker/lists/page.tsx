@@ -263,7 +263,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
   }
   const del = async () => {
     setMenu(false)
-    if (!confirm('미팅을 지울까요?')) return
+    if (!confirm('미팅을 삭제할까요?')) return
     // 바로 지우지 않고 휴지통으로(11-07 사장님) — 30일 뒤 매일 밤 비우기(purge_old_trash)가 지운다
     const { data, error } = await supabase.from('property_lists').update({ deleted_at: new Date().toISOString() }).eq('id', id).select('id')
     if (error || !data?.length) { toast.error('지울 권한이 없어요'); return }

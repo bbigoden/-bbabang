@@ -2954,7 +2954,7 @@ function BrokerPropertiesContent() {
               </p>
             )}
             <p className="text-sm text-gray-500 mb-6">
-              {deleteConfirm.type === 'column' ? '해당 칼럼의 모든 데이터가 삭제됩니다.' : (isOwner ? '휴지통에서 30일 안에 되살릴 수 있어요. 30일이 지나면 저절로 지워집니다.' : '30일 안에는 대표가 휴지통에서 되살릴 수 있어요. 30일이 지나면 저절로 지워집니다.')}
+              {deleteConfirm.type === 'column' ? '해당 칼럼의 모든 데이터가 삭제됩니다.' : (isOwner ? '휴지통에서 30일 안에 되살릴 수 있어요. 30일이 지나면 저절로 삭제됩니다.' : '30일 안에는 대표가 휴지통에서 되살릴 수 있어요. 30일이 지나면 저절로 삭제됩니다.')}
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}

@@ -545,7 +545,8 @@ export default function OfficePage() {
             key: 'bid', kind: 'robot', name: '입찰 수집', tint: 1, pin: true,
             state: stale ? 'off' : 'idle',
             say: !at ? '아직 받은 적 없음' : stale ? `${when(bidRun!.finishedAt)} 뒤로 멈춤`
-              : `${hmKST(bidRun!.finishedAt)} 받음\n공고 ${bidRun!.notices}·낙찰 ${bidRun!.results}`,
+              // 말풍선 한 줄은 14자 — '공고 1325·낙찰 2034' 가 넘어 '낙찰 20…' 으로 잘렸다(11-07)
+              : `${hmKST(bidRun!.finishedAt)} 받음\n공고${bidRun!.notices}·낙찰${bidRun!.results}`,
             note: '나라장터 도장·방수 공고와 낙찰결과를 서버가 3시간마다 받습니다'
               + (at ? ` · 마지막 ${when(bidRun!.finishedAt)} — 공고 ${bidRun!.notices}건 · 낙찰 ${bidRun!.results}건${bidRun!.details ? ` · 상세 ${bidRun!.details}건` : ''}${bidRun!.stoppedBy === 'limit' ? ' (오늘 한도에서 멈춤)' : ''}` : ''),
           } satisfies Seat
@@ -612,7 +613,8 @@ export default function OfficePage() {
           <PageHeader title="웹사무실"
             description={<>
               {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : '직원·PC 일꾼이 지금 하는 일과 내 할 일'}
-              {' · '}{loaded ? `${hmKST(now)} 기준, 20초마다 새로 봅니다(현황판은 5분마다)` : '불러오는 중…'}
+              {/* 지금 시각은 대표실 벽시계와 현황판에 이미 있다 — 제목에서는 뺀다(11-07) */}
+              {' · '}{loaded ? '20초마다 새로 봅니다(현황판은 5분마다)' : '불러오는 중…'}
             </>}
             actions={
               <button onClick={() => void load()} aria-label="지금 새로 보기"
@@ -797,7 +799,7 @@ function TaskList({ tasks, nameOf, canDelete, onChange }: {
   }
 
   const remove = async (t: Task) => {
-    if (!confirm(`'${t.title}' 할 일을 지울까요?`)) return
+    if (!confirm(`'${t.title}' 할 일을 삭제할까요?`)) return
     const { error } = await supabase.from('office_tasks').delete().eq('id', t.id)
     if (error) return toast.error(`지우지 못했습니다: ${error.message}`)
     onChange()

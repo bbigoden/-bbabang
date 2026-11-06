@@ -108,7 +108,7 @@ export default function NotificationsPage() {
 
   const removeRead = async () => {
     if (!auth.user || busy) return
-    if (!confirm('읽은 알림을 모두 지울까요?')) return
+    if (!confirm('읽은 알림을 모두 삭제할까요?')) return
     setBusy(true)
     const { error } = await supabase
       .from('notifications')

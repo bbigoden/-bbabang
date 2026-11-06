@@ -51,7 +51,7 @@ export function LongTextCell({
     // 편집을 시작하면 글 전체가 선택된다 — 그 상태에서 키 하나만 눌러도 메모가 통째로 지워져 저장됐다.
     // 내용이 있던 칸을 비워서 저장하려 하면 한 번 묻고, 아니라고 하면 원래 글로 되돌린다.
     if (draft.trim() === '' && (value ?? '').trim() !== '') {
-      if (!window.confirm('내용을 모두 지울까요? (지우면 되돌릴 수 없어요)')) {
+      if (!window.confirm('내용을 모두 삭제할까요? (삭제하면 되돌릴 수 없어요)')) {
         setDraft(value ?? '')
         setEditing(false)
         return
