@@ -210,24 +210,33 @@ export default function BidPage() {
     let alive = true
     type Row = { bid_ntce_no: string; bid_ntce_ord: string; mfrc_flds: string[] | null; lic_flds: LicFlds | null }
     const cols = 'bid_ntce_no, bid_ntce_ord, mfrc_flds, lic_flds'
-    void Promise.all([
-      // 면허 칸(lic_flds)이 생기기 전 공고는 4992 하나 — 주력분야가 안 겹치는 것만 서버에서 고른다
-      ...(ourLics.includes('4992') ? [fetchAllPaged<Row>((from, to) => supabase.from('bid_notices').select(cols)
-        .is('lic_flds', null).not('mfrc_flds', 'is', null).neq('mfrc_flds', '{}')
+    // 보안 규칙(RLS) 아래선 jsonb 포함(@>)·배열 겹침이 색인을 못 써 공고 표를 다 읽다 끊겼다(11-06).
+    //  - 4992 하나뿐인 법인(한결이엔씨): mfrc_flds 가 늘 4992 줄이라 예전처럼 서버에서 '안 겹치는 것'만 고른다(2.4만 건)
+    //  - 그 밖(아천환경개발): 과거 낙찰이 수백 건이라 그 공고들을 번호로 받아 여기서 가린다
+    const rows: Promise<Row[]> = ourLics.length === 1 && ourLics[0] === '4992'
+      ? fetchAllPaged<Row>((from, to) => supabase.from('bid_notices').select(cols)
+        .not('mfrc_flds', 'is', null).neq('mfrc_flds', '{}')
         .not('mfrc_flds', 'ov', `{${ourFields.join(',')}}`)
-        .range(from, to))] : []),
-      // 그 뒤 공고는 우리 면허 줄이 있는 것을 받아 여기서 가린다
-      ...ourLics.map(c => fetchAllPaged<Row>((from, to) => supabase.from('bid_notices').select(cols)
-        .contains('lic_flds', { [c]: [] }).range(from, to))),
-    ])
-      .then(lists => {
+        .range(from, to))
+      : (async () => {
+        const nos = [...new Set(history.map(h => h.bid_ntce_no))]
+        const out: Row[] = []
+        for (let i = 0; i < nos.length; i += 150) {
+          const { data, error } = await supabase.from('bid_notices').select(cols).in('bid_ntce_no', nos.slice(i, i + 150))
+          if (error) throw error
+          out.push(...((data as Row[]) ?? []))
+        }
+        return out
+      })()
+    void rows
+      .then(list => {
         if (!alive) return
-        const off = lists.flat().filter(r => fitsFields(fldsOf(r) ?? null, ourFields) === false)
+        const off = list.filter(r => fitsFields(fldsOf(r) ?? null, ourFields) === false)
         setOffFieldKeys(new Set(off.map(r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`)))
       })
       .catch(() => { /* 못 받으면 거르지 않고 그대로 쓴다 */ })
     return () => { alive = false }
-  }, [supabase, ourFields, ourLics, fldsOf, analysisReady])
+  }, [supabase, ourFields, ourLics, fldsOf, analysisReady, history])
   const fieldHistory = useMemo(
     () => history.filter(h => !offFieldKeys.has(`${h.bid_ntce_no}/${h.bid_ntce_ord}`)),
     [history, offFieldKeys],
