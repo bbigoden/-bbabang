@@ -46,7 +46,8 @@ export function mailText(text: string | null | undefined, html: string | null | 
 /** 네이버예약 메일이 맞나 — 지메일에 다른 메일이 섞여 와도 일정에 안 들어가게 */
 export function looksLikeNaverBooking(from: string, subject: string, body: string): boolean {
   const all = `${from}\n${subject}\n${body.slice(0, 3000)}`
-  return /네이버\s*예약|naver\s*booking|booking\.naver|smartplace|스마트플레이스/i.test(all) && /예약/.test(all)
+  // 예약번호가 있어야 한다 — 스크립트 이름이 '네이버예약'이라 구글 보안 알림('네이버예약의 액세스를 허용')이 들어온 적 있다
+  return /네이버|naver|smartplace|스마트플레이스/i.test(all) && /예약\s*번호/.test(body)
 }
 
 function label(body: string, names: string[], max = 60): string | null {

@@ -29,6 +29,7 @@ describe('네이버예약 메일 읽기', () => {
   it('html 메일과 다른 메일 거르기', () => {
     expect(mailText('', '<p>예약자명 : 이<b>름</b></p><br>x&nbsp;y')).toBe('예약자명 : 이름\nx y')
     expect(looksLikeNaverBooking('ad@shop.com', '할인 쿠폰', '이번 주 할인')).toBe(false)
+    expect(looksLikeNaverBooking('no-reply@accounts.google.com', '보안 알림', '일부 Google 계정 데이터에 대한 네이버예약의 액세스를 허용하셨습니다')).toBe(false)
     expect(looksLikeNaverBooking('naverbooking@navercorp.com', '[네이버 예약] 새 예약', body)).toBe(true)
   })
 })
