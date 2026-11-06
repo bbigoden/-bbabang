@@ -10,6 +10,7 @@ type OrdRow = {
   rng_end: number | null
   prtcpt_rgns?: string[] | null
   mfrc_flds?: string[] | null
+  lic_flds?: LicFlds | null
 }
 
 /**
@@ -28,6 +29,7 @@ export function latestOrd<T extends OrdRow>(rows: T[]): T[] {
     const withBase = sorted.find(r => r.bssamt != null)
     const withRgn = sorted.find(r => r.prtcpt_rgns != null)
     const withFld = sorted.find(r => r.mfrc_flds != null)
+    const withLic = sorted.find(r => r.lic_flds != null)
     out.push({
       ...last,
       ...(last.bssamt == null && withBase
@@ -35,6 +37,7 @@ export function latestOrd<T extends OrdRow>(rows: T[]): T[] {
         : {}),
       ...(last.prtcpt_rgns == null && withRgn ? { prtcpt_rgns: withRgn.prtcpt_rgns } : {}),
       ...(last.mfrc_flds == null && withFld ? { mfrc_flds: withFld.mfrc_flds } : {}),
+      ...(last.lic_flds == null && withLic ? { lic_flds: withLic.lic_flds } : {}),
     })
   }
   return out.sort((a, b) => (a.bid_close_at ?? '').localeCompare(b.bid_close_at ?? ''))
@@ -99,8 +102,41 @@ export function shortRegion(r: string): string {
     .replace(/^세종특별자치시/, '세종').replace(/특별시|광역시/, '')
 }
 
-/** 우리가 고를 수 있는 주력분야 — 4992 면허의 나라장터 표기 그대로 */
-export const BID_FIELDS = ['도장공사', '습식·방수공사', '석공사'] as const
+/**
+ * 우리 법인들이 가진 면허 — 코드와 나라장터 주력분야 표기 그대로(면허제한 조회의 indstrytyMfrcFldList).
+ * 한결이엔씨 4992, 아천환경개발 4989·4995·4996·5652 (2026-11-06). 석면해체는 주력분야가 없다.
+ */
+export const BID_LICENSES = [
+  { cd: '4992', name: '도장ㆍ습식ㆍ방수ㆍ석공사업', fields: ['도장공사', '습식·방수공사', '석공사'] },
+  { cd: '4989', name: '지반조성ㆍ포장공사업', fields: ['토공사', '포장공사', '보링·그라우팅·파일공사'] },
+  { cd: '4995', name: '구조물해체ㆍ비계공사업', fields: ['구조물해체·비계공사'] },
+  { cd: '4996', name: '상ㆍ하수도설비공사업', fields: ['상하수도설비공사'] },
+  { cd: '5652', name: '석면해체·제거업', fields: [] },
+] as const
+export const BID_INDUSTRY_CDS: string[] = BID_LICENSES.map(l => l.cd)
+
+/**
+ * 공고의 면허제한 줄 — {면허코드: 주력분야}. 빈 배열은 '지정 없음', null 은 모름(국방 공고는 API 에 없다).
+ * 이 칸이 생기기 전(2026-11-06) 공고는 4992 하나뿐이라 mfrc_flds 를 4992 로 본다.
+ */
+export type LicFlds = Record<string, string[] | null>
+export const licFldsOf = (n: { lic_flds?: LicFlds | null; mfrc_flds?: string[] | null }): LicFlds =>
+  n.lic_flds ?? { '4992': n.mfrc_flds ?? null }
+
+/** 입찰하는 법인 하나 — broker_profiles.bid_companies */
+export type BidCompany = { name: string; lics: string[]; fields: string[]; region: string | null }
+
+/**
+ * 이 법인 면허로 본 공고의 주력분야. 법인 면허가 하나도 없으면 undefined(이 법인 공고가 아니다).
+ * 면허 줄 중 하나라도 '지정 없음'이면 [] (누구나), 모르는 줄이 있으면 null, 아니면 줄들의 주력분야를 모은다.
+ */
+export function companyFlds(lf: LicFlds, lics: string[]): string[] | null | undefined {
+  const vals = lics.filter(c => c in lf).map(c => lf[c])
+  if (!vals.length) return undefined
+  if (vals.some(v => v != null && v.length === 0)) return []
+  if (vals.some(v => v == null)) return null
+  return [...new Set(vals.flat() as string[])]
+}
 
 /**
  * 공고의 주력분야가 우리 주력분야와 맞나. 공고가 주력분야를 안 정했으면(빈 배열) 누구나 된다.

@@ -15,7 +15,7 @@ import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR } from '@/lib/bid-floor'
 import type { CollectReport } from '@/lib/bid-collect'
-import { BID_FIELDS, DOC_RGN, canEnter, dutyOk, fieldsPass, fitsFields, isD2b, latestOrd, shortRegion } from '@/lib/bid-notices'
+import { BID_LICENSES, DOC_RGN, canEnter, companyFlds, dutyOk, fieldsPass, fitsFields, isD2b, latestOrd, licFldsOf, shortRegion, type BidCompany, type LicFlds } from '@/lib/bid-notices'
 import { explainStop } from '@/lib/bid-status'
 import dynamic from 'next/dynamic'
 import type { HistoryRow } from './analysis-panel'
@@ -27,7 +27,8 @@ const AnalysisPanel = dynamic(() => import('./analysis-panel').then(m => m.Analy
 const ResultDetail = dynamic(() => import('./result-detail').then(m => m.ResultDetail))
 
 /**
- * 입찰 — 도장·습식·방수·석공사업 공사 입찰공고와 낙찰가 분석.
+ * 입찰 — 우리 법인들(한결이엔씨 도장·방수, 아천환경개발 토공·포장 등) 면허의 공사 입찰공고와 낙찰가 분석.
+ * 맨 위에서 법인을 고르면 그 법인 면허·주력분야·소재지로 공고·낙찰결과·분석을 거른다.
  *
  * 사장님이 따로 하는 전문건설업 일이다. 입찰정보 사이트(비드비드·제이비드 등)에
  * 돈 내고 보던 것을 나라장터 공공데이터로 직접 받는다. 그 사이트들도 원본은 같다.
@@ -62,6 +63,7 @@ type Notice = {
   rgn_duty_rt: number | null
   rgn_duty_rgns: string[] | null
   mfrc_flds: string[] | null
+  lic_flds: LicFlds | null
 }
 
 type Result = {
@@ -115,6 +117,7 @@ function dday(iso: string | null): { text: string; urgent: boolean } | null {
 }
 
 const REGION_KEY = 'bid_regions_v1'
+const COMPANY_KEY = 'bid_company_v1'
 const RESULT_PAGE = 600
 const RESULT_COLS ='bid_ntce_no, bid_ntce_ord, rbid_no, name, dminstt_nm, openg_at, prtcpt_cnum, winner_nm, sucsf_amt, sucsf_rate, plnprc, sajeong, bssamt, lwlt_rate, a_amount, prices, dminstt_cd, rng'
 
@@ -124,14 +127,29 @@ export default function BidPage() {
   const toast = useToast()
   const { broker, loading: authLoading, refresh } = useAuth()
   // 대표 + 이사(대표 설정을 그대로 본다, 지역·분야 바꾸기는 대표만)
-  const bid = bidOf(broker)
+  // 법인 목록이 매 렌더 새로 만들어지지 않게 계정 정보가 바뀔 때만 다시 읽는다
+  const bid = useMemo(() => bidOf(broker), [broker])
   const enabled = bid.enabled
+  // 법인 고르기 — 고른 법인은 이 기기에 기억한다
+  const [companyIdx, setCompanyIdx] = useState(() => {
+    try { return Number(localStorage.getItem(COMPANY_KEY)) || 0 } catch { return 0 }
+  })
+  const ci = Math.max(0, Math.min(companyIdx, bid.companies.length - 1))
+  const company: BidCompany | undefined = bid.companies[ci]
+  useEffect(() => {
+    try { localStorage.setItem(COMPANY_KEY, String(companyIdx)) } catch { /* 사생활 보호 창 */ }
+  }, [companyIdx])
   // 우리 업체 소재지 — 지역제한 공고 중 들어갈 수 있는 것만 거르는 데 쓴다
-  const ourRegion = typeof bid.region === 'string' && bid.region.trim() ? bid.region.trim() : null
+  const ourRegion = company?.region ?? null
   const [enterableOnly, setEnterableOnly] = useState(true)
+  // 법인 면허 — 공고·낙찰을 이 면허 것만 보인다
+  const ourLics = useMemo(() => (company?.lics.length ? company.lics : ['4992']), [company])
+  const licKey = ourLics.join()
   // 우리 주력분야 — 같은 면허(4992)라도 석공 공사가 하루 공고의 40% 가까이 섞여 나온다
-  const rawFields = bid.fields
-  const ourFields = useMemo(() => (Array.isArray(rawFields) ? (rawFields as string[]) : []), [rawFields])
+  const ourFields = useMemo(() => company?.fields ?? [], [company])
+  // 이 법인 면허로 본 공고 주력분야. undefined 면 이 법인 공고가 아니다
+  const fldsOf = useCallback((n: { lic_flds?: LicFlds | null; mfrc_flds?: string[] | null }) => companyFlds(licFldsOf(n), ourLics), [ourLics])
+  const ourLicNames = BID_LICENSES.filter(l => ourLics.includes(l.cd))
   const [fieldsOnly, setFieldsOnly] = useState(true)
   const [editingFields, setEditingFields] = useState(false)
   const [editingRegion, setEditingRegion] = useState<string | null>(null)
@@ -142,9 +160,10 @@ export default function BidPage() {
   const [resultsLoaded, setResultsLoaded] = useState(false)
   // 낙찰결과는 빨리 열리게 최근 것부터 한 묶음씩. 같은 개찰 시각끼리 순서가 흔들리면 묶음 사이에 겹치거나 빠지므로 번호로도 줄 세운다
   const resultPage = useCallback((from: number) => supabase.from('bid_results').select(RESULT_COLS)
+    .overlaps('lic_cds', ourLics)
     .order('openg_at', { ascending: false, nullsFirst: false })
     .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no')
-    .range(from, from + RESULT_PAGE - 1), [supabase])
+    .range(from, from + RESULT_PAGE - 1), [supabase, ourLics])
   const [moreResults, setMoreResults] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const loadMoreResults = async () => {
@@ -187,15 +206,26 @@ export default function BidPage() {
     if (!ourFields.length) { setOffFieldKeys(new Set()); return }
     if (!analysisReady) return
     let alive = true
-    void fetchAllPaged<{ bid_ntce_no: string; bid_ntce_ord: string }>((from, to) => supabase.from('bid_notices')
-      .select('bid_ntce_no, bid_ntce_ord')
-      .not('mfrc_flds', 'is', null).neq('mfrc_flds', '{}')
-      .not('mfrc_flds', 'ov', `{${ourFields.join(',')}}`)
-      .range(from, to))
-      .then(rows => { if (alive) setOffFieldKeys(new Set(rows.map(r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`))) })
+    type Row = { bid_ntce_no: string; bid_ntce_ord: string; mfrc_flds: string[] | null; lic_flds: LicFlds | null }
+    const cols = 'bid_ntce_no, bid_ntce_ord, mfrc_flds, lic_flds'
+    void Promise.all([
+      // 면허 칸(lic_flds)이 생기기 전 공고는 4992 하나 — 주력분야가 안 겹치는 것만 서버에서 고른다
+      ...(ourLics.includes('4992') ? [fetchAllPaged<Row>((from, to) => supabase.from('bid_notices').select(cols)
+        .is('lic_flds', null).not('mfrc_flds', 'is', null).neq('mfrc_flds', '{}')
+        .not('mfrc_flds', 'ov', `{${ourFields.join(',')}}`)
+        .range(from, to))] : []),
+      // 그 뒤 공고는 우리 면허 줄이 있는 것을 받아 여기서 가린다
+      ...ourLics.map(c => fetchAllPaged<Row>((from, to) => supabase.from('bid_notices').select(cols)
+        .contains('lic_flds', { [c]: [] }).range(from, to))),
+    ])
+      .then(lists => {
+        if (!alive) return
+        const off = lists.flat().filter(r => fitsFields(fldsOf(r) ?? null, ourFields) === false)
+        setOffFieldKeys(new Set(off.map(r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`)))
+      })
       .catch(() => { /* 못 받으면 거르지 않고 그대로 쓴다 */ })
     return () => { alive = false }
-  }, [supabase, ourFields, analysisReady])
+  }, [supabase, ourFields, ourLics, fldsOf, analysisReady])
   const fieldHistory = useMemo(
     () => history.filter(h => !offFieldKeys.has(`${h.bid_ntce_no}/${h.bid_ntce_ord}`)),
     [history, offFieldKeys],
@@ -217,7 +247,7 @@ export default function BidPage() {
       // 목록을 띄운 뒤에 받는다 — 같이 받으면 폰 3G 에서 대역을 나눠 써 '불러오는 중'이 28초였다(10-30 점검)
       // 공고도 마감 전 것(150건 안팎)부터 — 기본이 '마감 전만'이다. 60일치 전체(1,450건)는 아래에서 이어 받는다
       const noticeQuery = (from: number, to: number) => supabase.from('bid_notices')
-        .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds, rgn_duty_rt, rgn_duty_rgns')
+        .select('bid_ntce_no, bid_ntce_ord, name, dminstt_cd, dminstt_nm, cntrct_mthd, lwlt_rate, presmpt_prce, site_region, bid_close_at, openg_at, detail_url, bssamt, rng_end, a_amount, prtcpt_rgns, mfrc_flds, lic_flds, rgn_duty_rt, rgn_duty_rgns')
         .gte('ntce_at', since).order('bid_close_at', { ascending: true }).range(from, to)
       const [n, s] = await Promise.all([
         fetchAllPaged<Notice>((from, to) => noticeQuery(from, to).gt('bid_close_at', new Date().toISOString())),
@@ -254,22 +284,27 @@ export default function BidPage() {
     return () => { alive = false }
   }, [openOnly, allNotices, loading])
   const [historyAsked, setHistoryAsked] = useState(false)
+  // 법인을 바꾸면 면허가 달라 낙찰결과·분석 재료를 다시 받는다
+  useEffect(() => {
+    setHistory([]); setAnalysisReady(false); setHistoryAsked(false)
+    setResults([]); setResultsLoaded(false); setOpened(null)
+  }, [licKey])
   useEffect(() => {
     if (historyAsked || loading || !(opened || tab === 'result')) return
     setHistoryAsked(true)
     // 2.4만 행 — 한 묶음씩 차례로 받으면 스무 번 왕복이라 넷씩 같이 받는다.
     // 정렬은 bid_results_list_order_idx 와 똑같이 둬야 묶음마다 전체를 다시 정렬하지 않는다(추천 계산은 순서와 상관없다)
     void fetchAllParallel<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>(
-      () => supabase.from('bid_results').select('bid_ntce_no', { count: 'exact', head: true }).not('sajeong', 'is', null),
+      () => supabase.from('bid_results').select('bid_ntce_no', { count: 'exact', head: true }).not('sajeong', 'is', null).overlaps('lic_cds', ourLics),
       (from, to) => supabase.from('bid_results')
         .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
-        .not('sajeong', 'is', null)
+        .not('sajeong', 'is', null).overlaps('lic_cds', ourLics)
         .order('openg_at', { ascending: false, nullsFirst: false }).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no')
         .range(from, to))
       .then(h => { setHistory(h); setAnalysisReady(true) })
       .catch(() => { setHistoryAsked(false); toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요') })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyAsked, loading, opened, tab, supabase])
+  }, [historyAsked, loading, opened, tab, supabase, ourLics])
 
   // 낙찰결과 탭은 열 때 받는다
   useEffect(() => {
@@ -284,23 +319,28 @@ export default function BidPage() {
     return () => { alive = false }
   }, [enabled, tab, resultsLoaded, resultPage])
 
+  /** 고른 법인 설정만 바꿔 저장한다 */
+  const saveCompany = async (patch: Partial<BidCompany>) => {
+    if (!broker || !company) return false
+    const next = bid.companies.map((c, i) => (i === ci ? { ...c, ...patch } : c))
+    const { error } = await supabase.from('broker_profiles').update({ bid_companies: next }).eq('id', broker.id)
+    if (error) return false
+    await refresh()
+    return true
+  }
+
   const toggleField = async (f: string) => {
-    if (!broker) return
     if (!bid.editable) { toast.error('주력분야는 대표 계정에서 바꿀 수 있어요'); return }
     const next = ourFields.includes(f) ? ourFields.filter(x => x !== f) : [...ourFields, f]
-    const { error } = await supabase.from('broker_profiles').update({ bid_fields: next.length ? next : null }).eq('id', broker.id)
-    if (error) { toast.error('주력분야를 저장하지 못했습니다'); return }
-    await refresh()
+    if (!await saveCompany({ fields: next })) toast.error('주력분야를 저장하지 못했습니다')
   }
 
   const saveRegion = async () => {
-    if (editingRegion == null || !broker) return
+    if (editingRegion == null) return
     if (!bid.editable) { toast.error('소재지는 대표 계정에서 바꿀 수 있어요'); setEditingRegion(null); return }
     const v = editingRegion.trim().replace(/\s+/g, ' ') || null
-    const { error } = await supabase.from('broker_profiles').update({ bid_region: v }).eq('id', broker.id)
-    if (error) { toast.error('소재지를 저장하지 못했습니다'); return }
+    if (!await saveCompany({ region: v })) { toast.error('소재지를 저장하지 못했습니다'); return }
     setEditingRegion(null)
-    await refresh()
   }
 
   const collect = async () => {
@@ -328,11 +368,12 @@ export default function BidPage() {
     const now = Date.now()
     const words = q.trim().split(/\s+/).filter(Boolean)
     return notices.filter(n =>
+      fldsOf(n) !== undefined &&
       (!openOnly || (n.bid_close_at && Date.parse(n.bid_close_at) > now)) &&
       (!enterableOnly || (canEnter(n.prtcpt_rgns, ourRegion, n.site_region) === true && dutyOk(n.rgn_duty_rt, n.rgn_duty_rgns, n.site_region, ourRegion) === true)) &&
-      (!fieldsOnly || fieldsPass(n.bid_ntce_no, n.mfrc_flds, ourFields)) &&
+      (!fieldsOnly || fieldsPass(n.bid_ntce_no, fldsOf(n) ?? null, ourFields)) &&
       words.every(w => `${n.name} ${n.dminstt_nm ?? ''} ${n.site_region ?? ''} ${n.bid_ntce_no}-${n.bid_ntce_ord}`.toUpperCase().includes(w.toUpperCase())))
-  }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, q])
+  }, [notices, openOnly, enterableOnly, ourRegion, fieldsOnly, ourFields, fldsOf, q])
 
   const regionCounts = useMemo(() => {
     const m = new Map<string, number>()
@@ -354,35 +395,35 @@ export default function BidPage() {
       .map(w => w.replace(/[,()%*\\]/g, '').replace(/^(R\d{2}[A-Z]{2}\d+)-\d{3}$/i, '$1')).filter(Boolean)
     if (tab !== 'result' || !words.length) { setSearched(null); return }
     const t = setTimeout(async () => {
-      let query = supabase.from('bid_results').select(RESULT_COLS)
+      let query = supabase.from('bid_results').select(RESULT_COLS).overlaps('lic_cds', ourLics)
       for (const w of words) query = query.or(`name.ilike.*${w}*,dminstt_nm.ilike.*${w}*,winner_nm.ilike.*${w}*,bid_ntce_no.ilike.*${w}*`)
       const { data } = await query.order('openg_at', { ascending: false, nullsFirst: false }).limit(300)
       setSearched((data as Result[]) ?? [])
     }, 300)
     return () => clearTimeout(t)
-  }, [q, tab, supabase])
+  }, [q, tab, supabase, ourLics])
 
   // 낙찰결과의 참가가능지역·주력분야는 공고 쪽에 있다 — 화면에 올린 낙찰의 공고만 따로 받아 붙인다.
   // 정정공고는 차수마다 줄이 있어 번호로 묶고, 값이 있는 가장 늦은 차수 것을 쓴다
-  const [resultMeta, setResultMeta] = useState<Map<string, { rgns: string[] | null; flds: string[] | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null }>>(new Map())
+  const [resultMeta, setResultMeta] = useState<Map<string, { rgns: string[] | null; lf: LicFlds | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null }>>(new Map())
   useEffect(() => {
     const nos = [...new Set([...results, ...(searched ?? [])].map(r => r.bid_ntce_no))]
     if (!nos.length) return
     let alive = true
     void (async () => {
-      const rows: { bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; site_region: string | null; rgn_duty_rt: number | null; rgn_duty_rgns: string[] | null }[] = []
+      const rows: { bid_ntce_no: string; bid_ntce_ord: string; prtcpt_rgns: string[] | null; mfrc_flds: string[] | null; lic_flds: LicFlds | null; site_region: string | null; rgn_duty_rt: number | null; rgn_duty_rgns: string[] | null }[] = []
       for (let i = 0; i < nos.length; i += 150) {
-        const { data } = await supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds, site_region, rgn_duty_rt, rgn_duty_rgns')
+        const { data } = await supabase.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, prtcpt_rgns, mfrc_flds, lic_flds, site_region, rgn_duty_rt, rgn_duty_rgns')
           .in('bid_ntce_no', nos.slice(i, i + 150))
         rows.push(...(data ?? []))
       }
       if (!alive) return
       rows.sort((a, b) => b.bid_ntce_ord.localeCompare(a.bid_ntce_ord))
-      const m = new Map<string, { rgns: string[] | null; flds: string[] | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null }>()
+      const m = new Map<string, { rgns: string[] | null; lf: LicFlds | null; site: string | null; dutyRt: number | null; dutyRgns: string[] | null }>()
       for (const r of rows) {
-        const cur = m.get(r.bid_ntce_no) ?? { rgns: null, flds: null, site: null, dutyRt: null, dutyRgns: null }
+        const cur = m.get(r.bid_ntce_no) ?? { rgns: null, lf: null, site: null, dutyRt: null, dutyRgns: null }
         m.set(r.bid_ntce_no, {
-          rgns: cur.rgns ?? r.prtcpt_rgns, flds: cur.flds ?? r.mfrc_flds, site: cur.site ?? r.site_region,
+          rgns: cur.rgns ?? r.prtcpt_rgns, lf: cur.lf ?? (r.lic_flds ?? (r.mfrc_flds != null ? licFldsOf(r) : null)), site: cur.site ?? r.site_region,
           dutyRt: cur.dutyRt ?? r.rgn_duty_rt, dutyRgns: cur.dutyRgns ?? r.rgn_duty_rgns,
         })
       }
@@ -399,9 +440,9 @@ export default function BidPage() {
     return base.filter(r => {
       const m = resultMeta.get(r.bid_ntce_no)
       return (!enterableOnly || (canEnter(m?.rgns, ourRegion, m?.site) === true && dutyOk(m?.dutyRt, m?.dutyRgns, m?.site, ourRegion) === true))
-        && (!fieldsOnly || fieldsPass(r.bid_ntce_no, m?.flds, ourFields))
+        && (!fieldsOnly || fieldsPass(r.bid_ntce_no, m?.lf ? companyFlds(m.lf, ourLics) ?? null : null, ourFields))
     })
-  }, [results, searched, q, resultMeta, enterableOnly, ourRegion, fieldsOnly, ourFields])
+  }, [results, searched, q, resultMeta, enterableOnly, ourRegion, fieldsOnly, ourFields, ourLics])
 
   // 되돌려 보기 — 그 공고 개찰 전까지의 낙찰만으로 공고 화면과 같은 추천을 내고, 그 금액이었으면 어떻게 됐을지.
   // 뒤에 개찰한 낙찰을 섞으면 답을 보고 맞히는 셈이라 뺀다
@@ -443,7 +484,15 @@ export default function BidPage() {
     <>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <PageHeader title="입찰" icon={Gavel} description="도장ㆍ습식ㆍ방수ㆍ석공사업 · 나라장터 · 국방전자조달" />
+        <PageHeader title="입찰" icon={Gavel} description={`${ourLicNames.map(l => l.name).join(' · ')} · 나라장터 · 국방전자조달`} />
+
+        {bid.companies.length > 1 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {bid.companies.map((c, i) => (
+              <Chip key={c.name} on={i === ci} onClick={() => setCompanyIdx(i)}>{c.name}</Chip>
+            ))}
+          </div>
+        )}
 
         <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
           {([['notice', '공고'], ['result', '낙찰결과']] as [Tab, string][]).map(([id, label]) => (
@@ -497,7 +546,7 @@ export default function BidPage() {
           {editingFields ? (
             <span className="flex flex-wrap items-center gap-1">
               우리 주력분야
-              {BID_FIELDS.map(f => (
+              {ourLicNames.flatMap(l => l.fields).map(f => (
                 <Chip key={f} size="xs" on={ourFields.includes(f)} onClick={() => void toggleField(f)}>{f.replace('공사', '')}</Chip>
               ))}
               <button type="button" onClick={() => setEditingFields(false)} className="font-medium text-blue-600 dark:text-blue-400">닫기</button>
@@ -611,7 +660,7 @@ export default function BidPage() {
                           {n.cntrct_mthd && ` · ${n.cntrct_mthd}`}
                         </span>
                         <RegionBadge rgns={n.prtcpt_rgns} ours={ourRegion} site={n.site_region} dutyRt={n.rgn_duty_rt} dutyRgns={n.rgn_duty_rgns} />
-                        <FieldBadge flds={n.mfrc_flds} ours={ourFields} d2b={isD2b(n.bid_ntce_no)} />
+                        <FieldBadge flds={fldsOf(n) ?? null} ours={ourFields} d2b={isD2b(n.bid_ntce_no)} />
                         {/* 폰에선 오른쪽 금액 칸이 제목 폭을 130px 로 줄였다 — 금액을 제목 밑으로 */}
                         <span className="mt-0.5 block text-xs font-semibold text-gray-900 sm:hidden dark:text-white">
                           {n.bssamt ? `기초 ${억(n.bssamt)}` : `추정 ${억(n.presmpt_prce)}`}

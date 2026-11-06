@@ -14,14 +14,12 @@
 const NOTICE_BASE = 'https://apis.data.go.kr/1230000/ad/BidPublicInfoService'
 const RESULT_BASE = 'https://apis.data.go.kr/1230000/as/ScsbidInfoService'
 
-/**
- * 사장님 면허 업종 — 도장ㆍ습식ㆍ방수ㆍ석공사업(4992).
- *
+/*
+ * 받는 면허는 bid-notices.ts 의 BID_LICENSES(법인 둘의 면허 다섯).
  * 이름(indstrytyNm)으로도 거를 수 있지만 **낙찰 목록에선 이름 필터가 거의 안 걸린다**
  * (1주일 1,563건 중 1,364건이 걸려 나왔다). 코드로 거르면 98건으로 맞게 줄어든다.
  * 공고 쪽은 둘 다 맞는다. 그래서 코드를 쓴다.
  */
-export const BID_INDUSTRY_CD = '4992'
 
 export type G2bService = 'notice' | 'result'
 

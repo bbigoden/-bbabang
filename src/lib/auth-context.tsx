@@ -229,7 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 이사는 대표와 같은 권한 — 입찰 설정은 대표 계정에 있으니 읽어 붙인다(office_bid)
     if (bp && isDirector(bp) && bp.parent_broker_id) {
       const { data: o } = await supabase.from('broker_profiles')
-        .select('bid_enabled, bid_region, bid_fields').eq('id', bp.parent_broker_id).maybeSingle()
+        .select('bid_enabled, bid_region, bid_fields, bid_companies').eq('id', bp.parent_broker_id).maybeSingle()
         .then(r => r, () => ({ data: null }))
       if (o) bp.office_bid = o
     }

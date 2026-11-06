@@ -1,3 +1,4 @@
+import type { BidCompany } from '@/lib/bid-notices'
 /**
  * 사무소 안 등급 — 대표 / 이사 / 직원.
  *
@@ -29,11 +30,25 @@ export const canManageOffice = (b: B) => isOfficeOwner(b) || isDirector(b)
 
 /**
  * 입찰 설정 — 대표 계정에 있다. 이사는 auth-context 가 붙여 둔 office_bid(대표 설정)를 본다.
+ * 법인마다 면허·주력분야·소재지가 따로다(bid_companies, 2026-11-06 한결이엔씨·아천환경개발).
+ * 그 칸이 비면 예전 한 법인 설정(bid_fields·bid_region, 면허 4992)으로 본다.
  * 지역·분야를 바꾸는 건 대표만(대표 계정 행을 고치는 일이라).
  */
-export function bidOf(b: (NonNullable<B> & { bid_enabled?: unknown; bid_region?: unknown; bid_fields?: unknown; office_bid?: unknown }) | null | undefined) {
-  if (!b) return { enabled: false, region: null as unknown, fields: null as unknown, editable: false }
-  if (isOfficeOwner(b)) return { enabled: !!b.bid_enabled, region: b.bid_region, fields: b.bid_fields, editable: true }
-  const o = isDirector(b) ? (b.office_bid as { bid_enabled?: unknown; bid_region?: unknown; bid_fields?: unknown } | undefined) : undefined
-  return { enabled: !!o?.bid_enabled, region: o?.bid_region ?? null, fields: o?.bid_fields ?? null, editable: false }
+type BidRow = { bid_enabled?: unknown; bid_region?: unknown; bid_fields?: unknown; bid_companies?: unknown }
+export function bidOf(b: (NonNullable<B> & BidRow & { office_bid?: unknown }) | null | undefined) {
+  if (!b) return { enabled: false, companies: [] as BidCompany[], editable: false }
+  const own = isOfficeOwner(b)
+  const o: BidRow | undefined = own ? b : isDirector(b) ? (b.office_bid as BidRow | undefined) : undefined
+  return { enabled: !!o?.bid_enabled, companies: o ? companiesOf(o) : [], editable: own }
+}
+
+function companiesOf(o: BidRow): BidCompany[] {
+  const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  const region = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  if (Array.isArray(o.bid_companies) && o.bid_companies.length) {
+    return o.bid_companies.map((c: Record<string, unknown>) => ({
+      name: typeof c.name === 'string' ? c.name : '우리 업체', lics: strs(c.lics), fields: strs(c.fields), region: region(c.region),
+    }))
+  }
+  return [{ name: '우리 업체', lics: ['4992'], fields: strs(o.bid_fields), region: region(o.bid_region) }]
 }

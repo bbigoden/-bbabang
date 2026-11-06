@@ -1,16 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDays, todayKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
-import { DOC_RGN, parseMfrc } from '@/lib/bid-notices'
+import { BID_INDUSTRY_CDS, DOC_RGN, parseMfrc, type LicFlds } from '@/lib/bid-notices'
 import { bidFloor, trimBids } from '@/lib/bid-trim'
 import { BACKFILL_FLOOR } from '@/lib/bid-floor'
 import {
-  BID_INDUSTRY_CD, G2bError, g2bDt, g2bGet, toBidRow, toBsisPatch, toNoticeRow, toPrepar, toResultRow,
+  G2bError, g2bDt, g2bGet, toBidRow, toBsisPatch, toNoticeRow, toPrepar, toResultRow,
   type G2bService,
 } from '@/lib/g2b'
 
 /**
- * 나라장터에서 도장·방수 공고와 낙찰결과를 받아 bid_* 표에 쌓는다.
+ * 나라장터에서 우리 면허(BID_LICENSES — 법인 둘의 면허 다섯) 공고와 낙찰결과를 받아 bid_* 표에 쌓는다.
+ * 목록은 면허 코드마다 따로 조회한다. 공고엔 면허별 주력분야(lic_flds), 낙찰엔 받아 온 면허(lic_cds)를 적는다.
  *
  * 한 번 돌 때 하는 일 (시간·한도가 남는 만큼):
  *  1. 최근 3일 공고·기초금액·참가가능지역, 최근 2주 개찰된 낙찰결과 — 목록은 한 번에 999건씩이라 몇 번이면 끝난다
@@ -56,6 +57,12 @@ const DETAIL_CONCURRENCY = 8
  */
 type Calls = { date: string; notice: number; result: number; spent?: string[] }
 type Backfill = { until: string; done: boolean }
+/**
+ * 면허를 새로 더하면(2026-11-06 아천환경개발 넷) 과거 채움은 이미 멀리 가 있다. 새 면허만 오늘부터
+ * 과거 채움이 닿은 데까지 따로 거슬러 받고, 따라잡으면 그 뒤로는 같이 간다.
+ * main_cds = 과거 채움이 같이 받는 면허, catch_up = 따라잡는 중인 면허와 닿은 날
+ */
+type CatchUp = { cds: string[]; until: string }
 
 export type CollectReport = {
   notices: number
@@ -65,6 +72,8 @@ export type CollectReport = {
   results: number
   details: number
   backfillUntil: string | null
+  /** 새 면허가 과거를 따라잡으며 닿은 날(따라잡았으면 null) */
+  catchUpUntil?: string | null
   calls: Calls
   stoppedBy: 'done' | 'time' | 'limit' | 'error'
   error?: string
@@ -102,6 +111,11 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   const backfill: Backfill = state.backfill ?? { until: addDays(today, -RECENT_DAYS), done: false }
   let rgnUntil = state.rgn3_until ?? addDays(today, -RECENT_DAYS)
   let licUntil = state.lic_until ?? addDays(today, -RECENT_DAYS)
+  let mainCds = state.main_cds ?? ['4992']
+  const newCds = BID_INDUSTRY_CDS.filter(c => !mainCds.includes(c))
+  let catchUp: CatchUp | null = newCds.length
+    ? (state.catch_up?.cds.join() === newCds.join() ? state.catch_up : { cds: newCds, until: today })
+    : null
 
   const report: CollectReport = {
     notices: 0, bsis: 0, results: 0, details: 0, backfillUntil: backfill.until,
@@ -170,10 +184,38 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     return out
   }
 
+  /** 면허 코드마다 목록을 받는다 — 줄마다 어느 면허로 왔는지(cd)를 붙여서 */
+  const listByCds = async (op: 'getScsbidListSttusCnstwkPPSSrch' | 'getBidPblancListInfoCnstwkPPSSrch', from: string, to: string, cds: string[]) => {
+    const out: { cd: string; x: Record<string, string> }[] = []
+    for (const cd of cds) {
+      const items = op === 'getScsbidListSttusCnstwkPPSSrch'
+        ? await listAll('result', op, from, to, { indstrytyCd: cd, inqryDiv: '2' })
+        : await listAll('notice', op, from, to, { indstrytyCd: cd })
+      out.push(...items.map(x => ({ cd, x })))
+    }
+    return out
+  }
+
   /** 개찰일 기간 하나의 낙찰 목록을 받아 넣는다. 조회구분 2 = 개찰일 (1 은 공고일) */
-  const syncResults = async (from: string, to: string) => {
-    const results = await listAll('result', 'getScsbidListSttusCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD, inqryDiv: '2' })
-    const rrows = dedupe(results.map(toResultRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`)
+  const syncResults = async (from: string, to: string, cds: string[]) => {
+    const got = await listByCds('getScsbidListSttusCnstwkPPSSrch', from, to, cds)
+    const byKey = new Map<string, ReturnType<typeof toResultRow> & { lic_cds: string[] }>()
+    for (const { cd, x } of got) {
+      const r = toResultRow(x)
+      const k = `${r.bid_ntce_no}/${r.bid_ntce_ord}/${r.rbid_no}`
+      byKey.set(k, { ...r, lic_cds: [...new Set([...(byKey.get(k)?.lic_cds ?? []), cd])] })
+    }
+    // 다른 면허로 먼저 받아 둔 낙찰이면 그 면허도 남긴다(한 공고가 두 면허에 열려 있기도 하다)
+    const nos = [...new Set([...byKey.values()].map(r => r.bid_ntce_no))]
+    for (let i = 0; i < nos.length; i += 200) {
+      const { data, error } = await supa.from('bid_results').select('bid_ntce_no, bid_ntce_ord, rbid_no, lic_cds').in('bid_ntce_no', nos.slice(i, i + 200))
+      if (error) throw error
+      for (const o of data ?? []) {
+        const r = byKey.get(`${o.bid_ntce_no}/${o.bid_ntce_ord}/${o.rbid_no}`)
+        if (r) r.lic_cds = [...new Set([...(o.lic_cds ?? []), ...r.lic_cds])].sort()
+      }
+    }
+    const rrows = [...byKey.values()]
     await upsert(supa, 'bid_results', rrows, 'bid_ntce_no,bid_ntce_ord,rbid_no')
     report.results += rrows.length
   }
@@ -183,8 +225,15 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
    * 참가가능지역은 과거 기간에도 받는다 — 낙찰결과·실험실의 '들어갈 수 있는 것만'이 지역을 몰라 경북·부산·제주
    * 공고를 그대로 보였다(10-30, 처음엔 최근 60일만 받았다).
    */
-  const syncWindow = async (from: string, to: string) => {
-    const notices = await listAll('notice', 'getBidPblancListInfoCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
+  const syncWindow = async (from: string, to: string, cds: string[]) => {
+    const got = await listByCds('getBidPblancListInfoCnstwkPPSSrch', from, to, cds)
+    const notices = got.map(g => g.x)
+    // 어느 면허 목록에서 나온 공고인가 — 면허제한 줄이 없는 공고도 그 면허 공고로 남긴다
+    const fromCds = new Map<string, string[]>()
+    for (const { cd, x } of got) {
+      const k = `${x.bidNtceNo}/${x.bidNtceOrd || '000'}`
+      fromCds.set(k, [...new Set([...(fromCds.get(k) ?? []), cd])])
+    }
     const nrows = dedupe(notices.map(toNoticeRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`)
     await upsert(supa, 'bid_notices', nrows, 'bid_ntce_no,bid_ntce_ord')
     report.notices += nrows.length
@@ -196,17 +245,17 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     // 주력분야(면허제한) — 하루 ~2,000줄. 같은 면허(4992)라도 석공 공사가 섞여 있어 이걸로 거른다.
     // 과거 기간에도 받는다 — 분석에 쓰는 과거 낙찰에서 석공 공사를 빼려면 그 공고의 주력분야가 있어야 한다
     const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
-    report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to)
+    report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to, fromCds)
 
     // 기초금액은 업종으로 못 거른다 — 공사 전체(1주 ~2,400건)를 받아 우리 공고만 남긴다
     const bsis = await listAll('notice', 'getBidPblancListInfoCnstwkBsisAmount', from, to)
     report.bsis += await applyBsis(supa, bsis.map(toBsisPatch))
 
-    await syncResults(from, to)
+    await syncResults(from, to, cds)
   }
 
   /** 낙찰 한 건의 예가·투찰·하한율·A값을 채운다 */
-  const fillDetail = async (r: { bid_ntce_no: string; bid_ntce_ord: string; rbid_no: string }) => {
+  const fillDetail = async (r: { bid_ntce_no: string; bid_ntce_ord: string; rbid_no: string; lic_cds: string[] | null }) => {
     const key = { bidNtceNo: r.bid_ntce_no, bidNtceOrd: r.bid_ntce_ord }
     // 서로 기다릴 일이 없는 조회는 한꺼번에 보낸다
     const [prepar, compt, { data: n0 }, old] = await Promise.all([
@@ -235,7 +284,9 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     const n = { lwlt_rate: n0?.lwlt_rate ?? null, a_amount: n0?.a_amount ?? null, bssamt: n0?.bssamt ?? null }
     if (nRes) {
       const row = nRes.items.map(toNoticeRow).find(x => x.bid_ntce_ord === r.bid_ntce_ord)
-      if (row) { await upsert(supa, 'bid_notices', [row], 'bid_ntce_no,bid_ntce_ord'); report.notices++ }
+      // 과거 채움이 못 본 공고 — 면허는 낙찰을 받아 온 면허로, 주력분야는 모름(null)으로 둔다
+      const lic_flds: LicFlds = Object.fromEntries((r.lic_cds ?? ['4992']).map(c => [c, null]))
+      if (row) { await upsert(supa, 'bid_notices', [{ ...row, lic_flds }], 'bid_ntce_no,bid_ntce_ord'); report.notices++ }
       n.lwlt_rate = row?.lwlt_rate ?? null
     }
     if (bRes) {
@@ -277,15 +328,15 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
 
   try {
     // 1. 최근
-    await syncWindow(addDays(today, -RECENT_DAYS), today)
-    await syncResults(addDays(today, -RECENT_RESULT_DAYS), today)
+    await syncWindow(addDays(today, -RECENT_DAYS), today, BID_INDUSTRY_CDS)
+    await syncResults(addDays(today, -RECENT_RESULT_DAYS), today, BID_INDUSTRY_CDS)
 
     // 참가 조건(참가가능지역·지역의무공동도급) — 이미 받아 둔 공고(과거 채움이 닿은 데까지)에 다시 붙인다(한 주에 조회 ~20번).
     // 조건을 새로 알아볼 때마다 처음부터 다시 돈다: 10-30 '공고서참조'(rgn2_until), 같은 날 지역의무공동도급(rgn3_until)
     while (rgnUntil > backfill.until) {
       const to = addDays(rgnUntil, -1)
       const from = addDays(rgnUntil, -WINDOW_DAYS)
-      const notices = await listAll('notice', 'getBidPblancListInfoCnstwkPPSSrch', from, to, { indstrytyCd: BID_INDUSTRY_CD })
+      const notices = (await listByCds('getBidPblancListInfoCnstwkPPSSrch', from, to, mainCds)).map(g => g.x)
       await upsert(supa, 'bid_notices', dedupe(notices.map(toNoticeRow), r => `${r.bid_ntce_no}/${r.bid_ntce_ord}`), 'bid_ntce_no,bid_ntce_ord')
       const rgns = await listAll('notice', 'getBidPblancListInfoPrtcptPsblRgn', from, to)
       report.rgns = (report.rgns ?? 0) + await applyRgns(supa, rgns, from, to, docRgnKeys(notices))
@@ -304,7 +355,7 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     // 2·3. 상세를 먼저 채우고, 밀린 상세가 없으면 과거로 한 주 더
     while (true) {
       const { data: todo, error } = await supa.from('bid_results')
-        .select('bid_ntce_no, bid_ntce_ord, rbid_no')
+        .select('bid_ntce_no, bid_ntce_ord, rbid_no, lic_cds')
         .is('detail_at', null).not('bid_ntce_no', 'like', '%-%')  // 국방(D2B) 낙찰은 d2b-collect 가 채운다
         .order('openg_at', { ascending: false, nullsFirst: false }).limit(DETAIL_BATCH)
       if (error) throw error
@@ -322,10 +373,19 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
         }
         continue
       }
+      // 새 면허가 과거 채움을 따라잡는 중이면 그것부터 한 주
+      if (catchUp && catchUp.until > backfill.until) {
+        const to = addDays(catchUp.until, -1)
+        const from = addDays(catchUp.until, -WINDOW_DAYS)
+        await syncWindow(from, to, catchUp.cds)
+        catchUp.until = from
+        continue
+      }
+      if (catchUp) { mainCds = [...mainCds, ...catchUp.cds]; catchUp = null }
       if (backfill.done) break
       const to = addDays(backfill.until, -1)
       const from = addDays(backfill.until, -WINDOW_DAYS)
-      await syncWindow(from, to)
+      await syncWindow(from, to, mainCds)
       backfill.until = from
       if (from <= BACKFILL_FLOOR) backfill.done = true
       report.backfillUntil = backfill.until
@@ -346,16 +406,18 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   }
 
   report.finishedAt = new Date().toISOString()
-  await writeState(supa, { calls, backfill, rgn3_until: rgnUntil, lic_until: licUntil, last_run: report })
+  if (catchUp && catchUp.until <= backfill.until) { mainCds = [...mainCds, ...catchUp.cds]; catchUp = null }
+  report.catchUpUntil = catchUp?.until ?? null
+  await writeState(supa, { calls, backfill, rgn3_until: rgnUntil, lic_until: licUntil, main_cds: mainCds, catch_up: catchUp, last_run: report })
   return report
 }
 
 // ── 상태 ──────────────────────────────────────────────────
 
-type State = { calls?: Calls; backfill?: Backfill; rgn3_until?: string; lic_until?: string; last_run?: CollectReport }
+type State = { calls?: Calls; backfill?: Backfill; rgn3_until?: string; lic_until?: string; main_cds?: string[]; catch_up?: CatchUp | null; last_run?: CollectReport }
 
 async function readState(supa: SupabaseClient): Promise<State> {
-  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn3_until', 'lic_until'])
+  const { data } = await supa.from('bid_sync').select('key, value').in('key', ['calls', 'backfill', 'rgn3_until', 'lic_until', 'main_cds', 'catch_up'])
   return Object.fromEntries((data ?? []).map(r => [r.key, r.value])) as State
 }
 
@@ -437,27 +499,38 @@ async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], 
 }
 
 /**
- * 주력분야를 그 기간에 공고된 우리 공고에 붙인다. 면허제한 줄 중 우리 면허(…/4992) 줄의 주력분야만 본다
- * — 다른 업종으로도 들어갈 수 있게 열린 공고는 그 업종 줄이 따로 온다. 줄이 없으면 '지정 없음'.
+ * 면허별 주력분야를 그 기간에 공고된 우리 공고에 붙인다(lic_flds). 면허제한 줄 중 우리 면허 줄만 본다
+ * — 다른 업종으로도 들어갈 수 있게 열린 공고는 그 업종 줄이 따로 온다. 줄이 없는 면허는 '지정 없음'([]).
+ * 공고가 어느 면허 공고인지는 이미 적힌 면허 + 이번에 받은 면허 목록(fromCds) + 우리 면허 줄로 정한다.
+ * mfrc_flds 는 4992 줄 그대로 둔다(이 칸이 생기기 전 공고는 그걸로 본다).
  */
-async function applyLics(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string): Promise<number> {
-  const byKey = new Map<string, string[]>()
+async function applyLics(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string, fromCds?: Map<string, string[]>): Promise<number> {
+  const byKey = new Map<string, Record<string, string[]>>()
   for (const x of items) {
-    if (!(x.lcnsLmtNm ?? '').endsWith(`/${BID_INDUSTRY_CD}`)) continue
+    const cd = (x.lcnsLmtNm ?? '').split('/').pop() ?? ''
+    if (!BID_INDUSTRY_CDS.includes(cd)) continue
     const k = `${x.bidNtceNo}/${x.bidNtceOrd || '000'}`
-    byKey.set(k, [...(byKey.get(k) ?? []), ...parseMfrc(x.indstrytyMfrcFldList)])
+    const m = byKey.get(k) ?? {}
+    m[cd] = [...new Set([...(m[cd] ?? []), ...parseMfrc(x.indstrytyMfrcFldList)])]
+    byKey.set(k, m)
   }
   // 국방(D2B) 공고는 번호에 '-' 가 있다 — 나라장터 지역·면허 줄로 덮으면 안 된다(d2b.ts)
   const { data, error } = await supa.from('bid_notices')
-    .select('bid_ntce_no, bid_ntce_ord, name')
+    .select('bid_ntce_no, bid_ntce_ord, name, lic_flds')
     .gte('ntce_at', `${from}T00:00:00+09:00`).lte('ntce_at', `${to}T23:59:59+09:00`).not('bid_ntce_no', 'like', '%-%')
   if (error) throw error
   const now = new Date().toISOString()
-  const rows = (data ?? []).map(n => ({
-    ...n,
-    mfrc_flds: [...new Set(byKey.get(`${n.bid_ntce_no}/${n.bid_ntce_ord}`) ?? [])],
-    updated_at: now,
-  }))
+  const rows = (data ?? []).map(({ lic_flds, ...n }) => {
+    const k = `${n.bid_ntce_no}/${n.bid_ntce_ord}`
+    const lines = byKey.get(k) ?? {}
+    const cds = new Set([...Object.keys((lic_flds as LicFlds | null) ?? { '4992': null }), ...(fromCds?.get(k) ?? []), ...Object.keys(lines)])
+    return {
+      ...n,
+      mfrc_flds: lines['4992'] ?? [],
+      lic_flds: Object.fromEntries([...cds].sort().map(c => [c, lines[c] ?? []])),
+      updated_at: now,
+    }
+  })
   await upsert(supa, 'bid_notices', rows, 'bid_ntce_no,bid_ntce_ord')
   return rows.length
 }

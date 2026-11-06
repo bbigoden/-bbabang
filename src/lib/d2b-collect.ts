@@ -3,7 +3,7 @@ import { addDays, todayKST, ymdKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
 import { BACKFILL_FLOOR } from '@/lib/bid-collect'
 import { bidFloor, trimBids } from '@/lib/bid-trim'
-import { BID_INDUSTRY_CD } from '@/lib/g2b'
+import { BID_INDUSTRY_CDS, type LicFlds } from '@/lib/bid-notices'
 import {
   D2bError, d2bCmpetBid, d2bCodes, d2bDate, d2bGet, d2bKeyOf, d2bNo, d2bNoticeRow, d2bOrd, d2bOthbcBid, d2bPrices,
   type D2bRaw,
@@ -12,8 +12,8 @@ import {
 /**
  * 국방전자조달(D2B) 시설공사를 bid_* 표에 쌓는다 — 나라장터 수집(bid-collect.ts)과 같은 일을 D2B 에서.
  *
- *  1. 마감 전 공고(공개수의협상·경쟁입찰) 중 공사만 골라 상세를 한 번 받고, 면허에 4992 가 있는 것만 넣는다.
- *     4992 가 아닌 공사는 번호를 기억해 다시 묻지 않는다(하루 공사 공고 ~20건)
+ *  1. 마감 전 공고(공개수의협상·경쟁입찰) 중 공사만 골라 상세를 한 번 받고, 면허에 우리 면허(BID_LICENSES)가 있는 것만 넣는다.
+ *     우리 면허가 아닌 공사는 번호를 기억해 다시 묻지 않는다(하루 공사 공고 ~20건)
  *  2. 최근 2주 결과 목록 → 우리 공고면 낙찰 줄을 만든다. 공고를 아직 못 본(오래된) 것은 공고 상세로 면허를 본다
  *  3. 결과마다 참가업체·복수예비가격을 받아 나라장터와 같은 값(사정률·1순위 y)을 채운다
  *  4. 남는 시간엔 과거 결과로 한 주씩 거슬러 간다(2023-01-01 까지)
@@ -29,7 +29,8 @@ export type D2bReport = {
   error?: string
 }
 
-type D2bState = { skip: string[]; backfill: string | null; done: boolean }
+/** cds: 이 상태를 만들 때의 우리 면허. 면허가 늘면 건너뛴 번호·과거 채움을 처음부터 다시 한다 */
+type D2bState = { skip: string[]; backfill: string | null; done: boolean; cds?: string }
 
 const PER_SECOND = 8
 const RECENT_RESULT_DAYS = 14
@@ -37,7 +38,7 @@ const WINDOW_DAYS = 7
 const DETAIL_BATCH = 12
 // 공개수의는 개찰 뒤 한참 있다가 순위가 붙는다(11/03 개찰 → 11/05 순위확정). 1순위가 없으면 이 간격으로 다시 본다
 const RECHECK_HOURS = 3
-/** 4992 아닌 공사 번호는 이만큼만 기억한다(오래된 것부터 버린다) */
+/** 우리 면허 아닌 공사 번호는 이만큼만 기억한다(오래된 것부터 버린다) */
 const SKIP_KEEP = 4000
 
 class StopError extends Error {}
@@ -46,7 +47,9 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
   const deadline = Date.now() + opts.timeBudgetMs
   const today = todayKST()
   const { data: st } = await supa.from('bid_sync').select('value').eq('key', 'd2b').maybeSingle()
-  const state: D2bState = { skip: [], backfill: null, done: false, ...(st?.value as Partial<D2bState> | undefined) }
+  const saved = st?.value as Partial<D2bState> | undefined
+  const cds = BID_INDUSTRY_CDS.join()
+  const state: D2bState = { skip: [], backfill: null, done: false, ...(saved?.cds === cds || (!saved?.cds && cds === '4992') ? saved : {}), cds }
   const skip = new Set(state.skip)
   const report: D2bReport = { notices: 0, results: 0, details: 0, calls: 0, backfillUntil: state.backfill, stoppedBy: 'done' }
 
@@ -81,18 +84,19 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
       if (out.length >= total || !items.length) return out
     }
   }
+  /** 이미 넣은 공고 → 그 공고의 우리 면허 */
   const existing = async (nos: string[]) => {
-    const have = new Set<string>()
+    const have = new Map<string, string[]>()
     for (let i = 0; i < nos.length; i += 200) {
-      const { data, error } = await supa.from('bid_notices').select('bid_ntce_no, bid_ntce_ord').in('bid_ntce_no', nos.slice(i, i + 200))
+      const { data, error } = await supa.from('bid_notices').select('bid_ntce_no, bid_ntce_ord, lic_flds').in('bid_ntce_no', nos.slice(i, i + 200))
       if (error) throw error
-      for (const n of data ?? []) have.add(`${n.bid_ntce_no}/${n.bid_ntce_ord}`)
+      for (const n of data ?? []) have.set(`${n.bid_ntce_no}/${n.bid_ntce_ord}`, Object.keys((n.lic_flds as LicFlds | null) ?? { '4992': null }))
     }
     return have
   }
 
-  /** 공고 상세를 받아 4992 면 넣는다. 넣었으면 true */
-  const takeNotice = async (kind: 'othbc' | 'cmpet', x: D2bRaw, ntceAt: string): Promise<boolean> => {
+  /** 공고 상세를 받아 우리 면허가 있으면 넣는다. 넣었으면 그 면허들, 아니면 null */
+  const takeNotice = async (kind: 'othbc' | 'cmpet', x: D2bRaw, ntceAt: string): Promise<string[] | null> => {
     const k = `${d2bNo(x.pblancNo, x.cntrwkNo)}/${d2bOrd(x.pblancOdr)}`
     const { items } = kind === 'othbc'
       ? await call('BidPblancInfoService', 'getFcltyOthbcVltrnNtatPlanDetail', {
@@ -104,14 +108,17 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
       })
     const d = items[0]
     // 상세가 안 나오면(경쟁입찰 공고구분을 짐작으로 넣은 지난 공고) 기억하지 않고 다음에 다시 본다
-    if (!d) return false
-    if (!d2bCodes(d.lcnsLmttList).includes(BID_INDUSTRY_CD)) { skip.add(k); return false }
+    if (!d) return null
+    const ours = d2bCodes(d.lcnsLmttList).filter(c => BID_INDUSTRY_CDS.includes(c))
+    if (!ours.length) { skip.add(k); return null }
     // 공개수의 상세엔 공고번호·차수·개찰이 빠지기도 한다 — 목록 값으로 채운다
     const row = d2bNoticeRow({ ...x, ...d, pblancNo: x.pblancNo, pblancOdr: x.pblancOdr, cntrwkNo: x.cntrwkNo, opengDt: d.opengDt || x.opengDt }, ntceAt)
-    const { error } = await supa.from('bid_notices').upsert(row, { onConflict: 'bid_ntce_no,bid_ntce_ord' })
+    // 주력분야는 국방 API 에 없다 — 면허만 적고 주력분야는 모름(null)
+    const lic_flds: LicFlds = Object.fromEntries(ours.map(c => [c, null]))
+    const { error } = await supa.from('bid_notices').upsert({ ...row, lic_flds }, { onConflict: 'bid_ntce_no,bid_ntce_ord' })
     if (error) throw error
     report.notices++
-    return true
+    return ours
   }
 
   /** 마감 전 공고 */
@@ -157,13 +164,15 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
       const no = d2bNo(x.pblancNo, x.cntrwkNo), ord = d2bOrd(x.pblancOdr)
       const k = `${no}/${ord}`
       if (skip.has(k)) continue
-      if (!have.has(k)) {
+      let lic_cds = have.get(k)
+      if (!lic_cds) {
         // 공고를 처음 본다(지난 공고) — 공고일을 몰라 개찰 1주 전으로 둔다
         const openIso = x.opengDt ? new Date(`${x.opengDt.slice(0, 4)}-${x.opengDt.slice(4, 6)}-${x.opengDt.slice(6, 8)}T00:00:00+09:00`) : new Date()
-        if (!await takeNotice(kind, x, new Date(openIso.getTime() - 7 * 86_400_000).toISOString())) continue
+        lic_cds = await takeNotice(kind, x, new Date(openIso.getTime() - 7 * 86_400_000).toISOString()) ?? undefined
+        if (!lic_cds) continue
       }
       rows.push({
-        bid_ntce_no: no, bid_ntce_ord: ord, rbid_no: '000',
+        bid_ntce_no: no, bid_ntce_ord: ord, rbid_no: '000', lic_cds,
         name: (x.cntrwkNm ?? '').trim(), dminstt_cd: x.pblancNo.slice(0, 3), dminstt_nm: x.ornt || null,
         openg_at: x.opengDt ? new Date(`${x.opengDt.slice(0, 4)}-${x.opengDt.slice(4, 6)}-${x.opengDt.slice(6, 8)}T${x.opengDt.slice(8, 10) || '00'}:${x.opengDt.slice(10, 12) || '00'}:00+09:00`).toISOString() : null,
       })
