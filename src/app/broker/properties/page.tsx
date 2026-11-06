@@ -2862,7 +2862,8 @@ function BrokerPropertiesContent() {
       {showLists && listOfficeId && broker?.id && (
         <PropertyListsSheet officeId={listOfficeId} selfId={broker.id} canManage={canManageOffice(broker)}
           onClose={() => setShowLists(false)}
-          onOpenProperty={seq => { setShowLists(false); setIsMapView(false); setSearchQuery(String(seq)) }} />
+          canSeeMemo={p => canManageOffice(broker) || p.broker_id === broker.id
+            || (!!ownerName && (p.assignee ?? '').split(',').map(s => s.trim()).includes(ownerName))} />
       )}
       {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)}
         onAddToList={!isAdminView && listOfficeId ? () => { setListFor(viewProp.p); setViewProp(null) } : undefined}

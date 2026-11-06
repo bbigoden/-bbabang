@@ -6,6 +6,10 @@ import { createClient } from '@/lib/supabase/client'
 import { getOfficeMembers } from '@/lib/office-members'
 import { useToast } from '@/components/toast'
 import { useEscape } from '@/lib/use-escape'
+import { PropertyViewSheet, type PropertyView } from '@/components/broker/property-view-sheet'
+
+// [보기] 창에 필요한 칸 + 메모 열람 판정용 broker_id
+const VIEW_COLS = 'broker_id, seq_no, address, deal_type, room_type, status, price, monthly_rent, management_fee, premium, size_pyeong, area_unit, area_supplied, floor, total_floors, move_in_date, rooms_bathrooms, approval_date, parking, direction, brief_memo, memo, assignee, received_date, images'
 
 /**
  * 매물 리스트 (2026-11-06)
@@ -53,8 +57,12 @@ function useMembers(officeId: string | null) {
   return { members, names }
 }
 
-function Sheet({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
-  useEscape(true, onClose)
+function Sheet({ label, onClose, paused, children }: {
+  label: string; onClose: () => void; children: React.ReactNode
+  /** 위에 [보기] 창이 떠 있으면 Esc 는 그 창만 닫는다 */
+  paused?: boolean
+}) {
+  useEscape(!paused, onClose)
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={label} onClick={e => e.stopPropagation()}
@@ -249,13 +257,13 @@ function copyText(name: string, items: ItemRow[]) {
 }
 
 /** 상단 [리스트] — 리스트들을 보고, 하나를 열어 담긴 매물을 확인·빼기·복사 */
-export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpenProperty }: {
+export function PropertyListsSheet({ officeId, selfId, canManage, onClose, canSeeMemo }: {
   officeId: string; selfId: string
   /** 대표·이사 — 남이 만든 리스트도 지우고 뺄 수 있다 */
   canManage: boolean
   onClose: () => void
-  /** 담긴 매물 번호를 누르면 목록에서 그 매물을 찾는다 */
-  onOpenProperty?: (seqNo: number) => void
+  /** 담긴 매물을 누르면 그 자리에서 [보기] 창 — 중개사메모를 보여도 되는지(매물목록과 같은 규칙) */
+  canSeeMemo: (p: { broker_id: string; assignee: string | null }) => boolean
 }) {
   const toast = useToast()
   const { members, names } = useMembers(officeId)
@@ -284,6 +292,15 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
   }, [toast])
 
   const mayEdit = (l: ListRow) => canManage || l.created_by === selfId
+
+  // 담긴 매물 [보기] — 매물목록으로 갔다가 보기를 또 누르고 돌아오는 왕복을 없앤다(11-06). 닫으면 리스트 그대로.
+  const [viewing, setViewing] = useState<{ p: PropertyView; memoVisible: boolean } | null>(null)
+  const viewItem = async (it: ItemRow) => {
+    const { data, error } = await createClient().from('broker_properties').select(VIEW_COLS).eq('id', it.property_id).single()
+    if (error || !data) { toast.error('매물을 불러오지 못했어요'); return }
+    const row = data as unknown as PropertyView & { broker_id: string }
+    setViewing({ p: { ...row, images: row.images ?? [] }, memoVisible: canSeeMemo(row) })
+  }
 
   const removeItem = async (it: ItemRow) => {
     if (!open) return
@@ -324,7 +341,8 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
 
   if (open) {
     return (
-      <Sheet label={open.name} onClose={onClose}>
+      <>
+      <Sheet label={open.name} onClose={onClose} paused={!!viewing}>
         <SheetHead title={open.name} sub={`${names[open.created_by] || '—'} 만듦 · ${items?.length ?? open.count}건`} onClose={onClose} onBack={() => setOpen(null)} />
         <div className="flex-1 overflow-y-auto">
           {items == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
@@ -334,10 +352,11 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
               const canRemove = mayEdit(open) || it.added_by === selfId
               return (
                 <div key={it.property_id} className="flex items-start gap-3 border-b border-gray-50 px-4 py-3 dark:border-gray-800">
-                  <button type="button" disabled={!p?.seq_no || !onOpenProperty} onClick={() => p?.seq_no && onOpenProperty?.(p.seq_no)}
-                    className="w-12 shrink-0 rounded-md bg-gray-100 py-1 text-center text-xs font-semibold tabular-nums text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300">
+                  <button type="button" disabled={!p || !!p.deleted_at} onClick={() => viewItem(it)} aria-label={`${p?.seq_no ?? ''}번 매물 보기`}
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left disabled:cursor-default">
+                  <span className="w-12 shrink-0 rounded-md bg-gray-100 py-1 text-center text-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                     {p?.seq_no ?? '—'}
-                  </button>
+                  </span>
                   <div className="min-w-0 flex-1">
                     {!p || p.deleted_at ? <p className="text-sm text-gray-500">지워진 매물</p> : (
                       <>
@@ -350,6 +369,7 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
                       </>
                     )}
                   </div>
+                  </button>
                   {canRemove && (
                     <button type="button" onClick={() => removeItem(it)} aria-label="리스트에서 빼기" title="리스트에서 빼기"
                       className="-m-1 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800">
@@ -379,6 +399,9 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
           </button>
         </div>
       </Sheet>
+      {/* 리스트 창 위에 겹쳐 뜬다(나중에 그려야 위) — 닫으면 리스트가 그대로 있다 */}
+      {viewing && <PropertyViewSheet p={viewing.p} memoVisible={viewing.memoVisible} onClose={() => setViewing(null)} />}
+      </>
     )
   }
 
