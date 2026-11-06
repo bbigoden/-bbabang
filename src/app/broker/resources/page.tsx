@@ -465,7 +465,7 @@ export default function BrokerResourcesPage() {
     return () => { cancelled = true }
   }, [imageKey])
 
-  // Esc 로 선택 해제, Delete 로 휴지통
+  // Esc 로 선택 해제, Delete 로 삭제
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input, textarea')) return
@@ -735,7 +735,7 @@ export default function BrokerResourcesPage() {
   const trashKeysAct = exclusive(async (keys: Key[]) => {
     const mine = keys.filter(canManageKey)
     if (mine.length === 0) { toast.error('직원은 본인이 올린 것만 지울 수 있습니다.'); return }
-    if (mine.length < keys.length) toast.info('직원은 본인이 올린 것만 지울 수 있어 그것만 휴지통으로 옮겼습니다.')
+    if (mine.length < keys.length) toast.info('직원은 본인이 올린 것만 삭제할 수 있어 그것만 삭제했습니다.')
     const now = new Date().toISOString()
     const rIds = mine.filter(k => k.startsWith('r:')).map(k => k.slice(2))
     const fIds = mine.filter(k => k.startsWith('f:')).map(k => k.slice(2))
@@ -750,9 +750,7 @@ export default function BrokerResourcesPage() {
     setSelected(new Set())
     if (memoView && rIds.includes(memoView.id)) setMemoView(null)
     if (folderId && (rIds.includes(folderId) || rIds.some(id => isInside(folderId, id)))) openFolder(null)
-    toast.success(isOwnerOfOffice
-      ? `${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 메뉴의 휴지통에서 되살릴 수 있어요.`
-      : `${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에는 대표가 되살릴 수 있어요.`)
+    toast.success(`${mine.length}개를 삭제했습니다.`)
   })
 
   // 30일 지난 휴지통 비우기(조용히) — 휴지통 화면과 같은 규칙(lib/resource-trash.ts)

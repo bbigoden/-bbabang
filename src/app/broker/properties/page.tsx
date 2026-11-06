@@ -2946,16 +2946,15 @@ function BrokerPropertiesContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 p-6 shadow-xl mx-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              {deleteConfirm.type === 'property' ? '이 매물을 휴지통으로 옮길까요?' : `'${deleteConfirm.label}' 칼럼을 삭제할까요?`}
+              {deleteConfirm.type === 'property' ? '이 매물을 삭제할까요?' : `'${deleteConfirm.label}' 칼럼을 삭제할까요?`}
             </h3>
             {deleteTarget && (
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 break-all">
+              <p className={`text-sm text-gray-700 dark:text-gray-300 break-all ${deleteConfirm.type === 'column' ? 'mb-2' : 'mb-6'}`}>
                 {[deleteTarget.seq_no != null ? `#${deleteTarget.seq_no}` : null, deleteTarget.address || '소재지 없음'].filter(Boolean).join(' ')}
               </p>
             )}
-            <p className="text-sm text-gray-500 mb-6">
-              {deleteConfirm.type === 'column' ? '해당 칼럼의 모든 데이터가 삭제됩니다.' : (isOwner ? '휴지통에서 30일 안에 되살릴 수 있어요. 30일이 지나면 저절로 삭제됩니다.' : '30일 안에는 대표가 휴지통에서 되살릴 수 있어요. 30일이 지나면 저절로 삭제됩니다.')}
-            </p>
+            {/* 휴지통·대표 복원 안내는 하지 않는다(11-07 사장님) */}
+            {deleteConfirm.type === 'column' && <p className="text-sm text-gray-500 mb-6">해당 칼럼의 모든 데이터가 삭제됩니다.</p>}
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
                 className="flex-1 rounded-xl border border-gray-200 dark:border-gray-800 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950">취소</button>
