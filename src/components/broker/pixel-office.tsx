@@ -509,9 +509,13 @@ function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
   rows: string[]; palette: Record<string, string>; x: number; y: number; blink?: string; delay?: number
 }) {
   // 색마다 모양(path) 하나로 합친다 — 점 하나하나를 사각형으로 두면 사무실 화면에 7,400개가 넘게 쌓여
-  // 폰이 그리느라 1초 가까이 멈췄다(2026-11-05). 깜빡이는 눈만 움직여야 해서 사각형으로 남긴다.
+  // 폰이 그리느라 1초 가까이 멈췄다(2026-11-05).
+  // 깜빡임: 눈 자리는 밑에 눈꺼풀(피부색)로 칠하고, 그 위의 눈을 잠깐 숨긴다. 예전엔 눈 칸마다 색을 바꾸는
+  // 움직임이 따로 돌아 사무실에만 134개 — 가만히 둬도 10초에 2초씩 다시 그렸다(2026-11-06). 이제 그림 하나에 하나.
+  // (덮개를 위에 띄우면 확대된 화면에서 눈 테두리가 비쳤다 — 그래서 눈을 숨기는 쪽으로 한다)
   const byColor = new Map<string, string[]>()
-  const eyes: React.ReactNode[] = []
+  const eyes = new Map<string, string[]>()
+  const add = (m: Map<string, string[]>, fill: string, seg: string) => { const d = m.get(fill) ?? []; d.push(seg); m.set(fill, d) }
   rows.forEach((row, r) => {
     let c = 0
     while (c < row.length) {
@@ -519,20 +523,23 @@ function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
       let w = 1
       while (c + w < row.length && row[c + w] === ch) w++
       if (ch !== '.' && palette[ch]) {
+        const seg = `M${x + c} ${y + r}h${w}v1h${-w}z`
         if (blink && (ch === 'E' || ch === 'K' || ch === 'C')) {
-          eyes.push(<rect key={`${r}-${c}`} x={x + c} y={y + r} width={w} height={1} fill={palette[ch]} className="pxo-eye"
-            style={{ ['--eye' as string]: palette[ch], ['--lid' as string]: blink, animationDelay: `${delay}s` }} />)
-        } else {
-          const fill = palette[ch]
-          const d = byColor.get(fill) ?? []
-          d.push(`M${x + c} ${y + r}h${w}v1h${-w}z`)
-          byColor.set(fill, d)
-        }
+          add(byColor, blink, seg)
+          add(eyes, palette[ch], seg)
+        } else add(byColor, palette[ch], seg)
       }
       c += w
     }
   })
-  return <>{[...byColor].map(([fill, d]) => <path key={fill} d={d.join('')} fill={fill} />)}{eyes}</>
+  return <>
+    {[...byColor].map(([fill, d]) => <path key={fill} d={d.join('')} fill={fill} />)}
+    {eyes.size > 0 && (
+      <g className="pxo-eye" style={{ animationDelay: `${delay}s` }}>
+        {[...eyes].map(([fill, d]) => <path key={fill} d={d.join('')} fill={fill} />)}
+      </g>
+    )}
+  </>
 }
 
 /** 자리마다 다른 수 — 깜빡임·움직임 때를 어긋내는 데 쓴다. */
@@ -1529,7 +1536,7 @@ export function PixelOffice({ layout, loading = false, header }: { layout: Offic
         .pxo-sparkle { animation: pxo-sparkle 1s steps(3) infinite; }
         @keyframes pxo-steam { 0% { transform: translateY(0); opacity: .8 } 100% { transform: translateY(-5px); opacity: 0 } }
         .pxo-steam { animation: pxo-steam 2s linear infinite; }
-        @keyframes pxo-eye { 0%, 95% { fill: var(--eye) } 96%, 100% { fill: var(--lid) } }
+        @keyframes pxo-eye { 0%, 95% { opacity: 1 } 96%, 100% { opacity: 0 } }
         .pxo-eye { animation: pxo-eye 4.5s steps(1) infinite; }
         @keyframes pxo-code { 0% { opacity: 0 } 30%, 80% { opacity: 1 } 100% { opacity: 0 } }
         .pxo-code { animation: pxo-code 1.2s steps(3) infinite; }
