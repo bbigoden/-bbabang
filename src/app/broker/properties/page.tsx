@@ -26,7 +26,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin,
+  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin, ListChecks,
 } from 'lucide-react'
 import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
@@ -48,6 +48,7 @@ import { PropertyTextHistoryButton } from '@/components/sheet/property-text-hist
 import { PropertyViewSheet } from '@/components/broker/property-view-sheet'
 import { LocationCardSheet } from '@/components/broker/location-card-sheet'
 import { chipClass } from '@/components/ui/chip'
+import { AddToListSheet, PropertyListsSheet } from '@/components/broker/property-lists'
 
 // 지도 뷰(카카오 핀·묶음·우측 패널)는 지도를 열 때만 받는다 — 목록만 보는 폰은 이 코드를 안 받는다
 const PropertiesMapView = dynamic(() => import('@/components/broker/properties-map-view').then(m => m.PropertiesMapView), {
@@ -1055,6 +1056,8 @@ interface PropertyRowProps {
   onView: (v: { p: Property; memoVisible: boolean }) => void
   /** [입지] — 소재지로 토지·용도지역·건물·IC 거리를 한 장에 (useState 세터) */
   onLocation: (v: { address: string; roomType: string | null }) => void
+  /** [담기] — 손님 미팅용 매물 리스트에 보낸다(useState 세터). 관리자 뷰에선 없다 */
+  onAddToList?: (p: Property) => void
 }
 
 const PropertyRow = memo(function PropertyRow({
@@ -1062,7 +1065,7 @@ const PropertyRow = memo(function PropertyRow({
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, industryOpts, ownerName,
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
-  onDelete, onCopy, onView, onLocation,
+  onDelete, onCopy, onView, onLocation, onAddToList,
 }: PropertyRowProps) {
   const toast = useToast()
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
@@ -1105,6 +1108,10 @@ const PropertyRow = memo(function PropertyRow({
             넓은 화면에서도 손가락 화면이면 보인다 — 펼친 폴드는 640px 를 넘어 sm:hidden 에 숨었다(11-06). 마우스+넓은 화면만 숨김 */}
         <button type="button" onClick={() => onView({ p, memoVisible })}
           className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:pointer-fine:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
+        {onAddToList && (
+          <button type="button" onClick={() => onAddToList(p)} title="손님 미팅용 리스트에 담기"
+            className="mt-1 block w-full select-none rounded bg-gray-100 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300">담기</button>
+        )}
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
@@ -2029,6 +2036,9 @@ function BrokerPropertiesContent() {
    */
   const [newProp, setNewProp] = useState<{ address: string; deal_type: string } | null>(null)
   const [viewProp, setViewProp] = useState<{ p: Property; memoVisible: boolean } | null>(null)
+  const [listFor, setListFor] = useState<Property | null>(null)  // [담기] 를 누른 매물
+  const [showLists, setShowLists] = useState(false)               // 상단 [리스트]
+  const listOfficeId = scopeState && 'office' in scopeState ? scopeState.office : null
   const [locationOf, setLocationOf] = useState<{ address: string; roomType: string | null } | null>(null)
   const addingRef = useRef(false)
   const addedWhileLoadingRef = useRef<Property[]>([])
@@ -2381,6 +2391,13 @@ function BrokerPropertiesContent() {
                 <Map className="h-4 w-4" />지도
               </button>
             </div>
+            {/* 손님 미팅용 매물 묶음 — 줄의 [담기] 로 모은다(11-06) */}
+            {!isAdminView && listOfficeId && broker?.id && (
+              <button onClick={() => setShowLists(true)}
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-2.5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 sm:px-3.5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+                <ListChecks className="h-4 w-4" />리스트
+              </button>
+            )}
           </div>
         </div>
 
@@ -2650,6 +2667,7 @@ function BrokerPropertiesContent() {
                   p={p}
                   onView={setViewProp}
                   onLocation={setLocationOf}
+                  onAddToList={isAdminView ? undefined : setListFor}
                   adBadge={adBadges[p.id]}
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
@@ -2836,6 +2854,16 @@ function BrokerPropertiesContent() {
         )
       })()}
 
+      {listFor && listOfficeId && broker?.id && (
+        <AddToListSheet officeId={listOfficeId} selfId={broker.id} canManage={canManageOffice(broker)}
+          property={{ id: listFor.id, seq_no: listFor.seq_no ?? null, address: listFor.address }}
+          onClose={() => setListFor(null)} />
+      )}
+      {showLists && listOfficeId && broker?.id && (
+        <PropertyListsSheet officeId={listOfficeId} selfId={broker.id} canManage={canManageOffice(broker)}
+          onClose={() => setShowLists(false)}
+          onOpenProperty={seq => { setShowLists(false); setIsMapView(false); setSearchQuery(String(seq)) }} />
+      )}
       {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)}
         onLocation={viewProp.p.address?.trim() ? () => { setLocationOf({ address: viewProp.p.address, roomType: viewProp.p.room_type }); setViewProp(null) } : undefined} />}
       {locationOf && <LocationCardSheet address={locationOf.address} roomType={locationOf.roomType} onClose={() => setLocationOf(null)} />}
