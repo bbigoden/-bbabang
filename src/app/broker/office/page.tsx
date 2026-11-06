@@ -274,9 +274,9 @@ export default function OfficePage() {
       const [ms, props, ss, dys, br] = await 사람쪽
       setBidRun(((br as { data: { value: BidRun } | null }).data?.value) ?? null)
       const 쓴일지: Record<string, string> = {}
-      for (const d of (dys.data ?? []) as { broker_id: string; sections_content: Record<string, unknown> | null; work_summary: string | null; content: string | null; updated_at: string }[]) {
+      for (const d of (dys.data ?? []) as { broker_id: string; sections_content: Record<string, unknown> | null; content: string | null; updated_at: string }[]) {
         // 날짜를 열기만 해도 빈 줄이 생긴다 — 무엇이라도 적었을 때만 '썼다'
-        const 글 = [...Object.values(d.sections_content ?? {}), d.work_summary, d.content].some(v => typeof v === 'string' && v.trim())
+        const 글 = [...Object.values(d.sections_content ?? {}), d.content].some(v => typeof v === 'string' && v.trim())
         if (글) 쓴일지[d.broker_id] = d.updated_at
       }
       setDiaries(쓴일지)
