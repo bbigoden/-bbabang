@@ -505,61 +505,34 @@ function monOf(seat: Seat): Mon {
  * 글자 지도를 사각형으로. 이웃한 같은 색은 한 줄로 묶어 사각형 수를 줄인다.
  * blink 를 주면 눈(E·K·C)을 그 색(눈꺼풀=피부색)으로 잠깐 덮어 깜빡이게 한다. delay 로 사람마다 때를 어긋낸다.
  */
-// 그림 한 장(작은 SVG 이미지)으로 구운 것 — 같은 글자 지도·색이면 다시 만들지 않는다.
-// 서버와 폰에서 같은 글자가 나오는 순수 계산이라 화면 맞추기(hydration)가 어긋나지 않는다.
-const spriteImgCache = new Map<string, { href: string; w: number; h: number }>()
-function bakeSprite(rows: string[], palette: Record<string, string>, skip: (ch: string) => boolean) {
-  const key = `${rows.join('/')}|${Object.entries(palette).map(([k, v]) => `${k}${v}`).join(',')}|${skip('E') ? 1 : 0}`
-  const hit = spriteImgCache.get(key)
-  if (hit) return hit
+function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
+  rows: string[]; palette: Record<string, string>; x: number; y: number; blink?: string; delay?: number
+}) {
+  // 색마다 모양(path) 하나로 합친다 — 점 하나하나를 사각형으로 두면 사무실 화면에 7,400개가 넘게 쌓여
+  // 폰이 그리느라 1초 가까이 멈췄다(2026-11-05). 깜빡이는 눈만 움직여야 해서 사각형으로 남긴다.
   const byColor = new Map<string, string[]>()
+  const eyes: React.ReactNode[] = []
   rows.forEach((row, r) => {
     let c = 0
     while (c < row.length) {
       const ch = row[c]
       let w = 1
       while (c + w < row.length && row[c + w] === ch) w++
-      if (ch !== '.' && palette[ch] && !skip(ch)) {
-        const d = byColor.get(palette[ch]) ?? []
-        d.push(`M${c} ${r}h${w}v1h${-w}z`)
-        byColor.set(palette[ch], d)
+      if (ch !== '.' && palette[ch]) {
+        if (blink && (ch === 'E' || ch === 'K' || ch === 'C')) {
+          eyes.push(<rect key={`${r}-${c}`} x={x + c} y={y + r} width={w} height={1} fill={palette[ch]} className="pxo-eye"
+            style={{ ['--eye' as string]: palette[ch], ['--lid' as string]: blink, animationDelay: `${delay}s` }} />)
+        } else {
+          const fill = palette[ch]
+          const d = byColor.get(fill) ?? []
+          d.push(`M${x + c} ${y + r}h${w}v1h${-w}z`)
+          byColor.set(fill, d)
+        }
       }
       c += w
     }
   })
-  const w = Math.max(1, ...rows.map(r => r.length))
-  const h = rows.length
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" shape-rendering="crispEdges">`
-    + [...byColor].map(([fill, d]) => `<path fill="${fill}" d="${d.join('')}"/>`).join('') + '</svg>'
-  const baked = { href: `data:image/svg+xml,${encodeURIComponent(svg)}`, w, h }
-  spriteImgCache.set(key, baked)
-  return baked
-}
-
-function Sprite({ rows, palette, x, y, blink, delay = 0 }: {
-  rows: string[]; palette: Record<string, string>; x: number; y: number; blink?: string; delay?: number
-}) {
-  // 처음엔 점마다 <rect>(사무실에 7,400개) → 색마다 <path>(2,000개) 로 줄였다(2026-11-05).
-  // 그래도 폰이 처음 열 때 그림 그리느라 0.6~0.7초 멈춰서, 그림마다 이미지 한 장으로 굽는다(2026-11-06).
-  // 테두리용으로 같은 그림을 여러 번 겹쳐 그리는 것도 같은 한 장이라 폰이 한 번만 해석한다.
-  // 깜빡이는 눈만 움직여야 해서 사각형으로 남긴다.
-  const isEye = (ch: string) => !!blink && (ch === 'E' || ch === 'K' || ch === 'C')
-  const img = bakeSprite(rows, palette, isEye)
-  const eyes: React.ReactNode[] = []
-  if (blink) rows.forEach((row, r) => {
-    let c = 0
-    while (c < row.length) {
-      const ch = row[c]
-      let w = 1
-      while (c + w < row.length && row[c + w] === ch) w++
-      if (palette[ch] && isEye(ch)) {
-        eyes.push(<rect key={`${r}-${c}`} x={x + c} y={y + r} width={w} height={1} fill={palette[ch]} className="pxo-eye"
-          style={{ ['--eye' as string]: palette[ch], ['--lid' as string]: blink, animationDelay: `${delay}s` }} />)
-      }
-      c += w
-    }
-  })
-  return <><image href={img.href} x={x} y={y} width={img.w} height={img.h} preserveAspectRatio="none" />{eyes}</>
+  return <>{[...byColor].map(([fill, d]) => <path key={fill} d={d.join('')} fill={fill} />)}{eyes}</>
 }
 
 /** 자리마다 다른 수 — 깜빡임·움직임 때를 어긋내는 데 쓴다. */
