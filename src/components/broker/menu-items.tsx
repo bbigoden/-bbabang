@@ -2,7 +2,7 @@
  * BrokerSidebar(데스크탑)와 BottomNav 모바일 드로어가 공유하는 broker 메뉴 정의.
  * 한 곳에서만 수정하면 두 UI에 동시 반영됨.
  */
-import { bidOf } from '@/lib/office-role'
+import { bidOf, canManageOffice } from '@/lib/office-role'
 import {
   Home, Users, Building2, ClipboardList,
   FolderOpen, Calculator, UserCog, Settings, Trash2,
@@ -24,6 +24,8 @@ export interface ItemDef {
   label: string
   icon: React.ComponentType<{ className?: string }>
   ownerOnly?: boolean
+  /** 대표 권한(대표·이사)만 — 휴지통(11-06 사장님: "휴지통은 대표만") */
+  managerOnly?: boolean
   needsOffice?: boolean
   /** 입찰을 켠 사무소(broker_profiles.bid_enabled)에만 보인다. 사장님의 건설업 일이라 다른 사무소엔 숨긴다 */
   bidOnly?: boolean
@@ -45,6 +47,7 @@ export function canUseEvents(broker: Parameters<typeof bidOf>[0]): boolean {
 export function showItem(i: ItemDef, broker: Parameters<typeof bidOf>[0]): boolean {
   const isOwner = broker?.is_owner !== false
   if (i.ownerOnly && !isOwner) return false
+  if (i.managerOnly && !canManageOffice(broker)) return false
   // 입찰은 대표 + 이사(대표가 입찰을 켰을 때)
   if (i.bidOnly && !bidOf(broker).enabled) return false
   if (i.eventsOnly && !canUseEvents(broker)) return false
@@ -63,7 +66,7 @@ export const BROKER_ITEMS: ItemDef[] = [
   { id: 'messenger',  href: '/broker/messenger', label: '메시지', icon: MessagesSquare, needsOffice: true },
   { id: 'office',     href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen, needsOffice: true },
-  { id: 'trash',      href: '/broker/trash', label: '휴지통', icon: Trash2, needsOffice: true },
+  { id: 'trash',      href: '/broker/trash', label: '휴지통', icon: Trash2, needsOffice: true, managerOnly: true },
   { id: 'bid',        href: '/broker/bid', label: '입찰', icon: Gavel, needsOffice: true, bidOnly: true },
   { id: 'settlement', href: '/broker/settlement', label: '정산', icon: Calculator, needsOffice: true },
   {

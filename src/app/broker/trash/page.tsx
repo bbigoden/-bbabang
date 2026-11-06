@@ -44,6 +44,8 @@ export default function TrashPage() {
   useEffect(() => {
     if (auth.loading) return
     if (!auth.user || !auth.broker) { router.push('/auth/login'); return }
+    // 휴지통은 대표 권한(대표·이사)만 — 메뉴에도 안 보인다(11-06)
+    if (!canManageOffice(auth.broker)) { router.replace('/dashboard/broker'); return }
     load()
   }, [auth.loading, auth.user?.id, auth.broker?.id])
 

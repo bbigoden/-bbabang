@@ -749,7 +749,9 @@ export default function BrokerResourcesPage() {
     setSelected(new Set())
     if (memoView && rIds.includes(memoView.id)) setMemoView(null)
     if (folderId && (rIds.includes(folderId) || rIds.some(id => isInside(folderId, id)))) openFolder(null)
-    toast.success(`${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 메뉴의 휴지통에서 되살릴 수 있어요.`)
+    toast.success(isOwnerOfOffice
+      ? `${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에 메뉴의 휴지통에서 되살릴 수 있어요.`
+      : `${mine.length}개를 휴지통으로 옮겼습니다. ${TRASH_DAYS}일 안에는 대표가 되살릴 수 있어요.`)
   })
 
   // 30일 지난 휴지통 비우기(조용히) — 휴지통 화면과 같은 규칙(lib/resource-trash.ts)
@@ -1218,7 +1220,7 @@ export default function BrokerResourcesPage() {
           }
         />
 
-        {/* 탭: 내 자료실 / 최근 / 별표 / 휴지통 */}
+        {/* 탭: 내 자료실 / 최근 / 별표 — 휴지통은 메뉴의 휴지통(대표만) '자료실' 탭 */}
         <div className="mb-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" role="tablist">
           {tabs.map(t => (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => go(t.id)}
@@ -1230,11 +1232,6 @@ export default function BrokerResourcesPage() {
               {t.label}
             </button>
           ))}
-          {/* 휴지통은 메뉴의 휴지통 하나로 합쳤다 — 자료실에서 지운 것도 거기 '자료실' 탭에 있다 */}
-          <button role="tab" aria-selected={false} onClick={() => router.push('/broker/trash?tab=resources')}
-            className="-mb-px inline-flex flex-shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 py-3 text-sm sm:py-2 font-semibold text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
-            <Trash2 className="h-4 w-4" />휴지통
-          </button>
         </div>
 
         {/* 도구줄 — 고른 게 있으면 선택 도구로 바뀐다 */}
