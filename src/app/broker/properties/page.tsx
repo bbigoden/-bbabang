@@ -1222,9 +1222,10 @@ const PropertyRow = memo(function PropertyRow({
             >{광고남음 ? '광고 남음' : adBadge.label === '광고중' ? '광고 중' : adBadge.label}</Link>
           </>
         ) : <span className="block select-all leading-none">{p.seq_no ?? ''}</span>}
-        {/* select-none — 칸 전체에 select-all 이 걸려 있을 땐 폰에서 [보기] 를 누르면 번호가 블록으로 잡혔다(11-05) */}
+        {/* select-none — 칸 전체에 select-all 이 걸려 있을 땐 폰에서 [보기] 를 누르면 번호가 블록으로 잡혔다(11-05)
+            넓은 화면에서도 손가락 화면이면 보인다 — 펼친 폴드는 640px 를 넘어 sm:hidden 에 숨었다(11-06). 마우스+넓은 화면만 숨김 */}
         <button type="button" onClick={() => onView({ p, memoVisible })}
-          className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
+          className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:pointer-fine:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
       </td>
       {syncedOrder.map(key => {
         const fixedCol = ALL_COLUMNS.find(c => c.key === key)
