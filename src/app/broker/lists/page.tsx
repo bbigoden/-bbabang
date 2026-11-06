@@ -263,9 +263,11 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
   }
   const del = async () => {
     setMenu(false)
-    if (!confirm(`'${list.name}' 미팅을 지울까요? 매물은 매물목록에 그대로 남습니다.`)) return
-    const { data, error } = await supabase.from('property_lists').delete().eq('id', id).select('id')
+    if (!confirm(`'${list.name}' 미팅을 휴지통으로 보낼까요? 30일 안에 대표가 되살릴 수 있습니다.`)) return
+    // 바로 지우지 않고 휴지통으로(11-07 사장님) — 30일 뒤 매일 밤 비우기(purge_old_trash)가 지운다
+    const { data, error } = await supabase.from('property_lists').update({ deleted_at: new Date().toISOString() }).eq('id', id).select('id')
     if (error || !data?.length) { toast.error('지울 권한이 없어요'); return }
+    toast.success('휴지통으로 보냈어요')
     setActiveListId(selfId, null)
     router.push('/broker/lists')
   }

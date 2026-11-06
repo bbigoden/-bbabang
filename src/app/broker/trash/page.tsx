@@ -6,18 +6,23 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
+import { getOfficeMembers } from '@/lib/office-members'
 import {
   purgeResourceKeys, restoreResourceKeys, trashTop, RESOURCE_TRASH_DAYS, type TrashFile, type TrashResource,
 } from '@/lib/resource-trash'
 import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
-import { Trash2, RotateCcw, Building2, Users, FolderOpen, Folder, StickyNote, File as FileIcon } from 'lucide-react'
+import { Trash2, RotateCcw, Building2, Users, FolderOpen, ListChecks, Folder, StickyNote, File as FileIcon } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 
 interface TrashProperty {
   id: string; broker_id: string; address: string; deal_type: string; room_type: string
   price: number; monthly_rent: number | null; deleted_at: string
+}
+interface TrashMeeting {
+  id: string; name: string; created_by: string; deleted_at: string
+  property_list_items: { count: number }[]
 }
 interface TrashCustomer {
   id: string; broker_id: string; client_name: string; contact: string | null
@@ -30,7 +35,7 @@ export default function TrashPage() {
   const supabase = createClient()
   const toast = useToast()
   // 자료실 휴지통도 여기 하나로(2026-11-06) — 자료실의 [휴지통]·예전 주소 ?view=trash 는 ?tab=resources 로 온다
-  const [tab, setTab] = useState<'properties' | 'customers' | 'resources'>('properties')
+  const [tab, setTab] = useState<'properties' | 'customers' | 'meetings' | 'resources'>('properties')
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('tab') === 'resources') setTab('resources')
   }, [])
@@ -38,6 +43,8 @@ export default function TrashPage() {
   const [resFiles, setResFiles] = useState<TrashFile[]>([])
   const [props, setProps] = useState<TrashProperty[]>([])
   const [custs, setCusts] = useState<TrashCustomer[]>([])
+  const [meets, setMeets] = useState<TrashMeeting[]>([])
+  const [names, setNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -55,9 +62,13 @@ export default function TrashPage() {
     // 자료실은 지운 폴더 안의 것까지 함께 지우려고 사무소 자료 전체(폴더·파일 수십 개, 칸 몇 개)를 받는다
     const b = auth.broker!
     const office = b.is_owner !== false ? b.id : (b.parent_broker_id ?? b.id)
-    const [{ data: p }, { data: c }, rl, fl] = await Promise.all([
+    const [{ data: p }, { data: c }, { data: m }, ppl, rl, fl] = await Promise.all([
       supabase.rpc('get_trash_properties'),
       supabase.rpc('get_trash_customers'),
+      // 미팅준비(11-07) — 표 SELECT 가 사무소 사람 전부라 함수 없이 바로 읽는다
+      supabase.from('property_lists').select('id, name, created_by, deleted_at, property_list_items(count)')
+        .eq('office_broker_id', office).not('deleted_at', 'is', null).order('deleted_at', { ascending: false }),
+      getOfficeMembers(office).catch(() => []),
       fetchAllPaged<TrashResource>((from, to) => supabase.from('office_resources')
         .select('id, uploader_broker_id, kind, parent_id, title, deleted_at').eq('office_broker_id', office)
         .order('id').range(from, to)).catch(() => [] as TrashResource[]),
@@ -67,6 +78,8 @@ export default function TrashPage() {
     ])
     setProps((p as any[]) ?? [])
     setCusts((c as any[]) ?? [])
+    setMeets((m as unknown as TrashMeeting[]) ?? [])
+    setNames(Object.fromEntries(ppl.map(x => [x.id, x.name ?? ''])))
     setResList(rl)
     setResFiles(fl)
     setLoading(false)
@@ -109,6 +122,23 @@ export default function TrashPage() {
     setBusy(null)
     if (error) { toast.error(`영구삭제 실패: ${error.message}`); return }
     setCusts(prev => prev.filter(c => c.id !== id))
+  }
+
+  const restoreMeeting = async (id: string) => {
+    setBusy(id)
+    const { data, error } = await supabase.from('property_lists').update({ deleted_at: null }).eq('id', id).select('id')
+    setBusy(null)
+    if (error || !data?.length) { toast.error(`복원 실패: ${error?.message ?? '권한 없음'}`); return }
+    toast.success('미팅준비로 되살렸습니다.')
+    setMeets(prev => prev.filter(x => x.id !== id))
+  }
+  const purgeMeeting = async (id: string) => {
+    if (!confirm('영구 삭제하시겠어요?\n복구할 수 없습니다.')) return
+    setBusy(id)
+    const { data, error } = await supabase.from('property_lists').delete().eq('id', id).select('id')
+    setBusy(null)
+    if (error || !data?.length) { toast.error(`영구삭제 실패: ${error?.message ?? '권한 없음'}`); return }
+    setMeets(prev => prev.filter(x => x.id !== id))
   }
 
   // 영구삭제는 대표·이사·솔로 중개사만. 직원은 소프트 삭제(휴지통)까지만 가능.
@@ -161,6 +191,10 @@ export default function TrashPage() {
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === 'customers' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
             <Users className="h-4 w-4" />고객 {custs.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{custs.length}</span>}
           </button>
+          <button onClick={() => setTab('meetings')}
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === 'meetings' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
+            <ListChecks className="h-4 w-4" />미팅 {meets.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{meets.length}</span>}
+          </button>
           <button onClick={() => setTab('resources')}
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition-colors ${tab === 'resources' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
             <FolderOpen className="h-4 w-4" />자료실 {resItems.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{resItems.length}</span>}
@@ -190,6 +224,35 @@ export default function TrashPage() {
                     <RotateCcw className="h-3.5 w-3.5" />복원
                   </button>
                   <button onClick={() => purgeRes(x.key, x.isFolder)} disabled={busy === x.key}
+                    className="flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2.5 sm:py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
+                    <Trash2 className="h-3.5 w-3.5" />영구삭제
+                  </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : tab === 'meetings' ? (
+          meets.length === 0 ? (
+            <EmptyState variant="full" icon={Trash2} message="휴지통이 비어있습니다." />
+          ) : (
+            <ul className="space-y-2">
+              {meets.map(x => (
+                <li key={x.id} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <ListChecks className="h-5 w-5 text-gray-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-gray-900 dark:text-white break-words">{x.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{names[x.created_by] ?? ''} · 매물 {x.property_list_items?.[0]?.count ?? 0}건</p>
+                    <p className="text-xs text-amber-700 mt-1">{daysLeft(x.deleted_at)}일 후 영구 삭제</p>
+                  </div>
+                  </div>
+                  <div className="flex shrink-0 items-center justify-end gap-6 sm:gap-2">
+                  <button onClick={() => restoreMeeting(x.id)} disabled={busy === x.id}
+                    className="flex items-center gap-1 rounded-lg border border-blue-300 px-3 py-2.5 sm:py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 disabled:opacity-50">
+                    <RotateCcw className="h-3.5 w-3.5" />복원
+                  </button>
+                  <button onClick={() => purgeMeeting(x.id)} disabled={busy === x.id}
                     className="flex items-center gap-1 rounded-lg border border-red-300 px-3 py-2.5 sm:py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
                     <Trash2 className="h-3.5 w-3.5" />영구삭제
                   </button>

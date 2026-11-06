@@ -53,13 +53,13 @@ const toList = (r: RawList): MeetingList => {
 
 export async function loadLists(officeId: string): Promise<MeetingList[]> {
   const { data, error } = await createClient().from('property_lists').select(LIST_COLS)
-    .eq('office_broker_id', officeId).order('created_at', { ascending: false })
+    .eq('office_broker_id', officeId).is('deleted_at', null).order('created_at', { ascending: false })
   if (error) throw error
   return ((data ?? []) as unknown as RawList[]).map(toList)
 }
 
 export async function loadList(id: string): Promise<MeetingList | null> {
-  const { data } = await createClient().from('property_lists').select(LIST_COLS).eq('id', id).maybeSingle()
+  const { data } = await createClient().from('property_lists').select(LIST_COLS).eq('id', id).is('deleted_at', null).maybeSingle()
   return data ? toList(data as unknown as RawList) : null
 }
 
