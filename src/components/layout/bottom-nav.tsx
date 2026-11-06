@@ -83,7 +83,7 @@ export function BottomNav() {
       { href: '/broker/properties', label: '매물', icon: Building2, needsOffice: true },
       { href: '/broker/diary', label: '일지', icon: ClipboardList, needsOffice: true },
       // 안 읽은 메시지 수가 더보기 서랍 안에 묻혀 폰에서는 배지가 안 보였다 — 탭으로 꺼낸다
-      { href: '/broker/messenger', label: '메시지', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
+      { href: '/broker/messenger', label: '부소장톡', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
       // 입찰을 켠 사무소의 대표에게만(사이드바 메뉴와 같은 조건). 더보기 9번째에 묻혀 있어
       // 폰으로 처음 쓰는 사람은 이 기능이 있는 줄도 몰랐다
       ...(bidOf(broker).enabled

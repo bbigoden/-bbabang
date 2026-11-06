@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * 예약·일정 — 여러 곳(네이버예약·카톡 채널·인스타)으로 들어온 예약을 한 줄로 모은다.
+ * 예약관리 — 여러 곳(네이버예약·카톡 채널·인스타)으로 들어온 예약을 한 줄로 모은다.
  *
  * 첫 시험은 꽃집도 하는 직원(이예리) 1명, 사장님은 지켜보며 불편한 곳을 찾는다(2026-11-05).
  * 잘 되면 이름만 바꿔 부동산 일정(현장 안내·상담)으로 쓴다 — 그래서 업종 전용 칸이 없다.
@@ -411,7 +411,7 @@ export default function EventsPage() {
       <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
         <Header />
         <section className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-gray-500">
-          예약·일정은 아직 시험 중인 기능이에요.
+          예약관리는 아직 시험 중인 기능이에요.
         </section>
       </div>
     )
@@ -432,7 +432,7 @@ export default function EventsPage() {
       <section className="mx-auto max-w-3xl px-4 py-6">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <h1 className="mr-auto flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
-            <CalendarCheck className="h-5 w-5 text-blue-600" />예약·일정
+            <CalendarCheck className="h-5 w-5 text-blue-600" />예약관리
           </h1>
           <button onClick={() => setLinkOpen(true)}
             className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">

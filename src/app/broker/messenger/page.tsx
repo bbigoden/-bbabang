@@ -312,7 +312,7 @@ export default function BrokerMessengerPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header user={auth.user} role="broker" />
       <div className="mx-auto max-w-6xl px-0 sm:px-4 sm:py-3">
-        <h1 className="sr-only">메시지</h1>
+        <h1 className="sr-only">부소장톡</h1>
         {/* 폰은 아래 메뉴바(4rem+안전영역)만큼 뺀다 — 밑에 붙던 푸터는 footer.tsx 에서 숨긴다 */}
         <div className="flex h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] overflow-hidden border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 sm:h-[calc(100dvh-5.5rem-env(safe-area-inset-bottom))] sm:rounded-2xl md:h-[calc(100dvh-6.5rem)] sm:border">
 

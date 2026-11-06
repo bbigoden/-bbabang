@@ -13,7 +13,7 @@ const DEFAULT_PREFS: Prefs = { announcements: true, office_chat: true }
 
 // 고객 요청·제안·채팅 알림은 2026-10-30 고객 화면과 함께 없앴다
 const CATEGORIES: Array<{ key: keyof Prefs; label: string; desc: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: 'office_chat',   label: '메시지',       desc: '사무실 메시지가 오면 알림 — 방마다 끄기는 채팅방 ☰ → 알림 끄기', icon: MessageCircle },
+  { key: 'office_chat',   label: '부소장톡',     desc: '부소장톡 메시지가 오면 알림 — 방마다 끄기는 채팅방 ☰ → 알림 끄기', icon: MessageCircle },
   { key: 'announcements', label: '공지·이벤트',   desc: '부소장 공지·업데이트 소식',               icon: Megaphone },
 ]
 
