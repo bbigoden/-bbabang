@@ -1030,8 +1030,8 @@ export default function BrokerCustomersPage() {
         })()}
 
         {/* 필터 */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
+        <div className="mb-3 flex flex-nowrap items-center gap-2">
+          <div className="relative flex-1 min-w-0 sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="전체 검색..."
               className="w-full rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pl-8 pr-8 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20" />
@@ -1039,7 +1039,7 @@ export default function BrokerCustomersPage() {
           </div>
 
           <select aria-label="월별 필터" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
-            className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+            className="shrink-0 max-w-[34%] sm:max-w-none rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
             {months.map(m => {
               const label = m === '전체'
                 ? '월별 전체'
@@ -1050,7 +1050,7 @@ export default function BrokerCustomersPage() {
 
           {canManageOffice(broker) && assignees.length > 1 && (
             <select aria-label="담당자 필터" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
-              className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
+              className="shrink-0 max-w-[34%] sm:max-w-none rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
               {assignees.map(a => (
                 <option key={a} value={a}>
                   {a === '전체' ? '담당자 전체' : `${a} (${assigneeCounts[a]})`}
