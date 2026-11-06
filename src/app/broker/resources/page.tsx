@@ -2,9 +2,11 @@
 
 import { canManageOffice, isDirector } from '@/lib/office-role'
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { zip } from 'fflate'
 import { createClient } from '@/lib/supabase/client'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
+import { mapLimit } from '@/lib/map-limit'
 import { useAuth } from '@/lib/auth-context'
+import { getOfficeMembers } from '@/lib/office-members'
 import { Header } from '@/components/layout/header'
 import { useRouter } from 'next/navigation'
 import {
@@ -218,6 +220,7 @@ export default function BrokerResourcesPage() {
   const [stars, setStars] = useState<Set<Key>>(new Set())
   const [names, setNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [trashLoaded, setTrashLoaded] = useState(false) // 휴지통 파일을 받았는지
 
   const [tab, setTab] = useState<Tab>('drive')
   const [folderId, setFolderId] = useState<string | null>(null)
@@ -298,37 +301,58 @@ export default function BrokerResourcesPage() {
     const oid = isOwner ? b.id : (b.parent_broker_id ?? b.id)
     setOfficeBrokerId(oid)
 
-    // 볼 수 있는 범위는 DB 규칙이 정한다(대표=전부, 직원=본인+대표). 휴지통 것도 같이 받는다.
-    const [{ data: rs }, { data: fs }, { data: st }] = await Promise.all([
-      supabase.from('office_resources').select(SELECT_RESOURCE).eq('office_broker_id', oid).order('created_at', { ascending: false }),
-      supabase.from('office_resource_files').select(SELECT_FILE).eq('office_broker_id', oid).order('sort_order'),
+    // 볼 수 있는 범위는 DB 규칙이 정한다(대표=전부, 직원=본인+대표).
+    // 한 번에 1000행까지만 와서 넘으면 조용히 잘렸다 — 이어받는다.
+    // 폴더·메모는 적어 휴지통 것도 같이 받는다(지운 폴더 안 것이 맨 위로 튀어나오지 않게).
+    // 파일은 많으니 휴지통 것은 휴지통을 열 때 받는다.
+    const [rList, fList, { data: st }] = await Promise.all([
+      fetchAllPaged<Resource>((from, to) => supabase.from('office_resources').select(SELECT_RESOURCE).eq('office_broker_id', oid)
+        .order('created_at', { ascending: false }).order('id').range(from, to)),
+      fetchAllPaged<ResourceFile>((from, to) => supabase.from('office_resource_files').select(SELECT_FILE).eq('office_broker_id', oid)
+        .is('deleted_at', null).order('sort_order').order('id').range(from, to)),
       supabase.from('office_resource_stars').select('resource_id, file_id').eq('broker_id', b.id),
-    ])
-    const rList = (rs ?? []) as Resource[]
-    const fList = (fs ?? []) as ResourceFile[]
+    ]).catch(err => { toast.error(`자료실을 불러오지 못했습니다: ${err?.message ?? ''}`); return [[] as Resource[], [] as ResourceFile[], { data: [] as { resource_id: string | null; file_id: string | null }[] }] as const })
     setResources(rList)
     setFiles(fList)
+    setTrashLoaded(false) // 목록을 새로 받았으니 휴지통도 다시 받는다
     setStars(new Set((st ?? []).map((s: any) => (s.resource_id ? rKey(s.resource_id) : fKey(s.file_id)))))
     setLoading(false)
 
-    void (async () => {
-      const { data: people } = await supabase
-        .from('broker_profiles')
-        .select('id, profiles(name)')
-        .or(`id.eq.${oid},parent_broker_id.eq.${oid}`)
+    // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members)
+    void getOfficeMembers(oid).then(ms => {
       const map: Record<string, string> = {}
-      for (const p of (people ?? []) as any[]) if (p.profiles?.name) map[p.id] = p.profiles.name
+      for (const m of ms) if (m.name) map[m.id] = m.name
       setNames(map)
-    })()
+    }, () => {})
 
-    // 30일 지난 내 휴지통은 비운다
-    const cutoff = Date.now() - TRASH_DAYS * 86400000
-    const old = [
-      ...rList.filter(r => r.deleted_at && (canManageOffice(b) || r.uploader_broker_id === b.id) && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
-      ...fList.filter(f => f.deleted_at && (canManageOffice(b) || f.uploader_broker_id === b.id) && new Date(f.deleted_at).getTime() < cutoff).map(f => fKey(f.id)),
-    ]
-    if (old.length > 0) void purge(old, rList, fList, b.id, oid, true)
+    // 30일 지난 내 휴지통은 비운다 — 휴지통 파일은 안 받았으니 30일 넘은 것만 따로 묻는다
+    void (async () => {
+      const cutoff = Date.now() - TRASH_DAYS * 86400000
+      const oldFiles = await fetchAllPaged<ResourceFile>((from, to) => supabase.from('office_resource_files').select(SELECT_FILE)
+        .eq('office_broker_id', oid).not('deleted_at', 'is', null).lt('deleted_at', new Date(cutoff).toISOString())
+        .order('id').range(from, to)).catch(() => [] as ResourceFile[])
+      const old = [
+        ...rList.filter(r => r.deleted_at && (canManageOffice(b) || r.uploader_broker_id === b.id) && new Date(r.deleted_at).getTime() < cutoff).map(r => rKey(r.id)),
+        ...oldFiles.filter(f => canManageOffice(b) || f.uploader_broker_id === b.id).map(f => fKey(f.id)),
+      ]
+      if (old.length > 0) void purge(old, rList, [...fList, ...oldFiles], b.id, oid, true)
+    })()
   }
+
+  // 휴지통 파일은 휴지통을 처음 열 때 받는다
+  const loadTrash = async (oid: string) => {
+    try {
+      const trashed = await fetchAllPaged<ResourceFile>((from, to) => supabase.from('office_resource_files').select(SELECT_FILE)
+        .eq('office_broker_id', oid).not('deleted_at', 'is', null).order('sort_order').order('id').range(from, to))
+      setFiles(prev => { const have = new Set(prev.map(f => f.id)); return [...prev, ...trashed.filter(f => !have.has(f.id))] })
+      setTrashLoaded(true)
+    } catch (err: any) {
+      toast.error(`휴지통을 불러오지 못했습니다: ${err?.message ?? ''}`)
+    }
+  }
+  useEffect(() => {
+    if (tab === 'trash' && officeBrokerId && !loading && !trashLoaded) void loadTrash(officeBrokerId)
+  }, [tab, officeBrokerId, loading, trashLoaded])
 
   // ── 권한·관계 ─────────────────────────────────────────
   // 대표·이사(2026-11-05 이사=대표 권한) — DB office_res_can_* 와 같은 규칙
@@ -832,8 +856,14 @@ export default function BrokerResourcesPage() {
     if (i < 0 || j < 0 || j >= list.length) return
     const next = [...list];
     [next[i], next[j]] = [next[j], next[i]]
-    const changed = next.map((x, idx) => ({ id: x.id, position: idx + 1 })).filter(x => resById.get(x.id)?.position !== x.position)
-    const results = await Promise.all(changed.map(c => supabase.from('office_resources').update({ position: c.position }).eq('id', c.id)))
+    // 순서가 비어 있는 뒤쪽 것은 어차피 정해 둔 것 뒤에 만든 순서로 서니 그대로 둔다 —
+    // 처음 한 번 바꿀 때 목록 전체를 한 줄씩 고쳐 쓰던 것을 바꾼 자리까지만으로 줄였다.
+    const upto = Math.max(i, j)
+    const changed = next
+      .map((x, idx) => ({ id: x.id, position: idx + 1, idx }))
+      .filter(x => (x.idx <= upto || resById.get(x.id)?.position != null) && resById.get(x.id)?.position !== x.position)
+      .map(({ id, position }) => ({ id, position }))
+    const results = await mapLimit(changed, 4, c => supabase.from('office_resources').update({ position: c.position }).eq('id', c.id))
     const err = results.find(x => x.error)?.error
     if (err) { toast.error(`순서 바꾸기 실패: ${err.message}`); return }
     setResources(prev => prev.map(x => { const c = changed.find(y => y.id === x.id); return c ? { ...x, position: c.position } : x }))
@@ -936,6 +966,8 @@ export default function BrokerResourcesPage() {
         data[e.path] = [new Uint8Array(await res.arrayBuffer()), { level: 0 }]
         setProgress({ label: '압축 준비', done: ++done, total: withFile.length })
       }
+      // 압축 도구는 받기를 누를 때만 불러온다(처음 열기 무게를 줄이려고)
+      const { zip } = await import('fflate')
       const out: Uint8Array = await new Promise((res, rej) => zip(data, (err, d) => (err ? rej(err) : res(d))))
       const a = document.createElement('a')
       a.href = URL.createObjectURL(new Blob([out as BlobPart], { type: 'application/zip' }))
@@ -1271,7 +1303,7 @@ export default function BrokerResourcesPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'} ${t.id === 'drive' && dropTarget === 'root' ? 'bg-blue-50 dark:bg-blue-950' : ''}`}>
               <t.icon className="h-4 w-4" />
               {t.label}
-              {t.id === 'trash' && trashKeys.length > 0 && <span className="rounded-full bg-gray-200 px-1.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300">{trashKeys.length}</span>}
+              {t.id === 'trash' && trashLoaded && trashKeys.length > 0 && <span className="rounded-full bg-gray-200 px-1.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300">{trashKeys.length}</span>}
             </button>
           ))}
         </div>
@@ -1378,7 +1410,7 @@ export default function BrokerResourcesPage() {
         {tab === 'trash' && !q && (
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-gray-100 px-3.5 py-2.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
             <span className="flex-1">{isOwnerOfOffice ? '사무소에서 지운 것이 모두 보입니다.' : '내가 지운 것만 보입니다.'} {TRASH_DAYS}일이 지나면 영구삭제됩니다.</span>
-            {trashKeys.length > 0 && (
+            {trashLoaded && trashKeys.length > 0 && (
               <button onClick={() => confirmPurge(trashKeys)} className="rounded-full px-3 py-1 font-semibold text-red-600 hover:bg-white dark:hover:bg-gray-900">휴지통 비우기</button>
             )}
           </div>
@@ -1390,7 +1422,9 @@ export default function BrokerResourcesPage() {
             <button onClick={() => openFolder(null)} className="mt-3 text-sm font-semibold text-blue-600">내 자료실로 가기</button>
           </div>
         ) : tab === 'trash' && !q ? (
-          trashKeys.length === 0
+          !trashLoaded
+            ? <p className="py-16 text-center text-sm text-gray-500">휴지통을 불러오는 중…</p>
+            : trashKeys.length === 0
             ? <p className="py-16 text-center text-sm text-gray-500">휴지통이 비어 있어요</p>
             : (
               <>

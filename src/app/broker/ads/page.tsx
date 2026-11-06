@@ -96,6 +96,17 @@ type Listing = {
   ad_posts: Post[]
 }
 
+/** 작업 지켜보기가 ad_jobs 에서 받아 오는 한 줄 — 수집·발행·재등록·내리기가 나눠 쓴다. */
+type 작업줄 = {
+  id: string
+  kind: string
+  status: string
+  progress: string | null
+  params: { bankNos?: string[]; channels?: string[] } | null
+  result: unknown
+  error: string | null
+}
+
 /** 광고가 가리키는 부소장 매물 — 칩에 쓰는 칸만 받는다. */
 type LinkedProperty = {
   id: string
@@ -829,7 +840,8 @@ export default function AdsPage() {
   >('all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = usePageSize('ads')
-  const [agentSeenAt, setAgentSeenAt] = useState<string | null>(null)
+  // undefined = 아직 안 물어봄. 그동안 'PC 프로그램 꺼짐' 이 보여 오해했다(11-06 점검, 매물수집 화면과 같은 방식)
+  const [agentSeenAt, setAgentSeenAt] = useState<string | null | undefined>(undefined)
   const [syncing, setSyncing] = useState(false)
   const [syncProgress, setSyncProgress] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
@@ -1071,6 +1083,11 @@ export default function AdsPage() {
    * 누를 때만이 아니라 **화면을 새로 열 때도** 쓴다. 그래야 걸어 두고 새로고침해도
    * 진행이 이어져 보인다. 매물수집 화면과 같은 잣대다.
    */
+  // 지켜보기는 한 번에 하나만. 실제로 묻는 일은 아래 '작업 지켜보기' 하나가 맡는다 — 예전엔
+  // 수집만 2초마다 따로 물었고, 멈출 손잡이가 클로저 안에만 있어 화면을 떠나도 계속 묻다
+  // 다시 들어올 때마다 하나씩 더 쌓였다(2026-11-06 점검).
+  const 수집지켜봄 = useRef<{ jobId: string; 놓아줄때: number; 시한: number } | null>(null)
+  const [syncJobId, setSyncJobId] = useState<string | null>(null)
   function watchSync(jobId: string) {
     setSyncing(true); setSyncProgress(prev => prev ?? '가져오는 중…')
     // 끝날 때까지 지켜본다. 매물수집 화면과 같은 잣대를 쓴다.
@@ -1079,51 +1096,52 @@ export default function AdsPage() {
     // 수집은 한 시간 넘게 차례를 기다린다. 누른 때부터 세면 멀쩡히 줄 서 있는 것을
     // 두고 '너무 오래 걸립니다' 라고 겁을 준다. 다만 프로그램이 꺼져 있으면 영영
     // 차례가 안 오므로 지켜보는 것 자체는 두 시간에서 놓아준다.
-    const 놓아줄때 = Date.now() + 2 * 60 * 60_000
-    let 시한 = Date.now() + 30 * 60_000
-    const 끝 = () => { poll(); setSyncing(false); setSyncProgress(null) }
-    const poll = pollWhileVisible(async () => {
-      const { data } = await supabase.from('ad_jobs')
-        .select('status, progress, result, error').eq('id', jobId).maybeSingle()
-      // 작업 기록이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이
-      // 지켜보기가 영영 안 끝나고 버튼도 잠긴 채로 남는다.
-      if (!data) {
-        if (Date.now() > 시한) { 끝(); toast.error('가져오기 상태를 알 수 없습니다. 다시 눌러 주세요.') }
-        return
+    수집지켜봄.current = { jobId, 놓아줄때: Date.now() + 2 * 60 * 60_000, 시한: Date.now() + 30 * 60_000 }
+    setSyncJobId(jobId)
+  }
+  /** 작업 지켜보기가 받아 온 수집 한 건을 본다. data 가 없으면 기록이 사라졌거나 못 읽은 것. */
+  async function 수집살핌(jobId: string, data: 작업줄 | undefined) {
+    const w = 수집지켜봄.current
+    if (!w || w.jobId !== jobId) return
+    const 끝 = () => { 수집지켜봄.current = null; setSyncJobId(null); setSyncing(false); setSyncProgress(null) }
+    // 작업 기록이 사라졌거나 못 읽었을 때도 시한은 봐야 한다. 그냥 돌아가면 이
+    // 지켜보기가 영영 안 끝나고 버튼도 잠긴 채로 남는다.
+    if (!data) {
+      if (Date.now() > w.시한) { 끝(); toast.error('가져오기 상태를 알 수 없습니다. 다시 눌러 주세요.') }
+      return
+    }
+    if (data.status === 'done') {
+      끝()
+      const r = data.result as
+        { collected?: number; 당근사라짐?: number; 당근미연결?: number } | null
+      toast.success(r?.collected ? `뱅크에서 ${r.collected}건을 받아왔습니다.` : '가져오기를 마쳤습니다.')
+      // 당근에서 손으로 지운 광고를 대장이 모른 채 '게시중' 으로 들고 있던 것.
+      if (r?.당근사라짐) toast.success(`당근에서 사라진 광고 ${r.당근사라짐}건을 내림으로 표시했습니다.`)
+      // **대장과 안 이어진 당근 광고.** 이게 제일 위험하다 — 대장이 '광고 없음'
+      // 으로 아니까, 그 매물의 뱅크 등록이 끝나도 내릴 대상에 안 들어간다.
+      if (r?.당근미연결) {
+        toast.error(`부소장 매물과 이어지지 않은 당근 광고가 ${r.당근미연결}건 있습니다. `
+          + '이어 두지 않으면 [광고종료] 를 눌러도 당근에서는 안 내려갑니다.')
       }
-      if (data.status === 'done') {
+      load()
+    } else if (data.status === 'failed' || data.status === 'canceled') {
+      끝()
+      setSyncError(data.error ?? '알 수 없는 오류')
+      toast.error(`가져오지 못했습니다: ${data.error ?? '알 수 없는 오류'}`)
+    } else if (data.status === 'queued') {
+      w.시한 = Date.now() + 30 * 60_000        // 아직 차례가 아니다. 시한은 실행부터 센다
+      if (Date.now() > w.놓아줄때) {
         끝()
-        const r = data.result as
-          { collected?: number; 당근사라짐?: number; 당근미연결?: number } | null
-        toast.success(r?.collected ? `뱅크에서 ${r.collected}건을 받아왔습니다.` : '가져오기를 마쳤습니다.')
-        // 당근에서 손으로 지운 광고를 대장이 모른 채 '게시중' 으로 들고 있던 것.
-        if (r?.당근사라짐) toast.success(`당근에서 사라진 광고 ${r.당근사라짐}건을 내림으로 표시했습니다.`)
-        // **대장과 안 이어진 당근 광고.** 이게 제일 위험하다 — 대장이 '광고 없음'
-        // 으로 아니까, 그 매물의 뱅크 등록이 끝나도 내릴 대상에 안 들어간다.
-        if (r?.당근미연결) {
-          toast.error(`부소장 매물과 이어지지 않은 당근 광고가 ${r.당근미연결}건 있습니다. `
-            + '이어 두지 않으면 [광고종료] 를 눌러도 당근에서는 안 내려갑니다.')
-        }
-        load()
-      } else if (data.status === 'failed' || data.status === 'canceled') {
-        끝()
-        setSyncError(data.error ?? '알 수 없는 오류')
-        toast.error(`가져오지 못했습니다: ${data.error ?? '알 수 없는 오류'}`)
-      } else if (data.status === 'queued') {
-        시한 = Date.now() + 30 * 60_000        // 아직 차례가 아니다. 시한은 실행부터 센다
-        if (Date.now() > 놓아줄때) {
-          끝()
-          toast.error('가져오기가 아직 차례를 못 받았습니다. PC 프로그램이 켜져 있는지 봐 주세요.')
-        } else {
-          setSyncProgress('차례 기다리는 중')
-        }
-      } else if (Date.now() > 시한) {
-        끝()
-        toast.error('시간이 너무 오래 걸립니다. PC 창을 확인해 주세요.')
+        toast.error('가져오기가 아직 차례를 못 받았습니다. PC 프로그램이 켜져 있는지 봐 주세요.')
       } else {
-        setSyncProgress(data.progress ?? null)
+        setSyncProgress('차례 기다리는 중')
       }
-    }, 2000)
+    } else if (Date.now() > w.시한) {
+      끝()
+      toast.error('시간이 너무 오래 걸립니다. PC 창을 확인해 주세요.')
+    } else {
+      setSyncProgress(data.progress ?? null)
+    }
   }
 
   /**
@@ -1207,29 +1225,23 @@ export default function AdsPage() {
     setRenewWatch(true)
   }
 
-  /** 재등록이 끝나면 목록을 새로 받아 남은 날짜를 갱신한다. */
-  useEffect(() => {
-    if (!renewWatch) return
-    const stop = pollWhileVisible(async () => {
-      const { data } = await supabase.from('ad_jobs')
-        .select('id').eq('kind', 'renew').in('status', ['queued', 'running']).limit(1)
-      if (data && data.length) return
-      setRenewWatch(false)
-      const { data: last } = await supabase.from('ad_jobs')
-        .select('status, error, result').eq('kind', 'renew')
-        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-      if (last?.status === 'failed') toast.error(`재등록하지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
-      else if (last?.status === 'done') {
-        const n = (last.result as { renewed?: number } | null)?.renewed
-        toast.success(n ? `${n}건을 재등록했습니다.` : '재등록을 마쳤습니다.')
-        // 새 기간은 뱅크에서 다시 받아야 화면에 보인다
-        requestSync()
-        return
-      }
-      load()
-    }, 3000)
-    return stop
-  }, [renewWatch])
+  /** 재등록이 끝나면 목록을 새로 받아 남은 날짜를 갱신한다. 작업 지켜보기가 부른다. */
+  async function 재등록살핌(남음: boolean) {
+    if (남음) return
+    setRenewWatch(false)
+    const { data: last } = await supabase.from('ad_jobs')
+      .select('status, error, result').eq('kind', 'renew')
+      .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+    if (last?.status === 'failed') toast.error(`재등록하지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
+    else if (last?.status === 'done') {
+      const n = (last.result as { renewed?: number } | null)?.renewed
+      toast.success(n ? `${n}건을 재등록했습니다.` : '재등록을 마쳤습니다.')
+      // 새 기간은 뱅크에서 다시 받아야 화면에 보인다
+      requestSync()
+      return
+    }
+    load()
+  }
 
   /**
    * 체크한 매물을 카페에 올린다.
@@ -1501,45 +1513,38 @@ export default function AdsPage() {
   }
 
   /**
-   * 발행 줄을 지켜본다.
+   * 발행 줄을 지켜본다. 작업 지켜보기가 대기·실행 중인 발행만 골라 넘겨 준다.
    *
    * **하나가 끝날 때마다** 목록을 새로 받고 결과를 알린다. 카페는 글 사이를
    * 30~90분 띄우므로, 줄이 다 빌 때까지 기다렸다 한 번에 갱신하면 몇 시간 동안
    * 올라간 글이 칸에 안 보인다.
    */
-  useEffect(() => {
-    if (!publishWatch) return
-    let 전건수 = -1
-    const stop = pollWhileVisible(async () => {
-      const { data } = await supabase.from('ad_jobs')
-        .select('status, progress, params').eq('kind', 'publish').in('status', ['queued', 'running'])
-        .order('requested_at', { ascending: true })
-      const 줄 = (data ?? []) as Array<{ status: 'queued' | 'running'; progress: string | null
-        params: { bankNos?: string[]; channels?: string[] } | null }>
-      // 칸마다 몇 번째인지. 돌고 있는 것을 맨 앞으로 친다.
-      const 차례 = [...줄].sort((a, b) => (a.status === 'running' ? -1 : 0) - (b.status === 'running' ? -1 : 0))
-      const 칸 = new Map<string, { 상태: 'queued' | 'running'; 앞: number }>()
-      차례.forEach((j, i) => {
-        for (const no of j.params?.bankNos ?? []) for (const ch of j.params?.channels ?? []) {
-          const k = `${no}:${ch}`
-          if (!칸.has(k)) 칸.set(k, { 상태: j.status, 앞: i })
-        }
-      })
-      set줄선칸(칸)
-      if (줄.length < 전건수 || (전건수 < 0 && !줄.length)) { await 발행결과알림(); load() }
-      전건수 = 줄.length
-      if (줄.length) {
-        // 돌고 있는 것을 먼저 보여 준다. 없으면 맨 앞에 선 것(미뤄 둔 시각).
-        const 지금것 = 줄.find(j => j.status === 'running') ?? 줄[0]
-        const 뒤 = 줄.length - 1
-        setPublishProgress(`${지금것.progress ?? '올리는 중…'}${뒤 ? ` · 뒤에 ${뒤}건 줄 서 있음` : ''}`)
-        return
+  // 지난번에 본 줄 길이. 지켜보기를 새로 시작할 때는 -1(아직 안 봄)
+  const 발행전건수 = useRef(-1)
+  async function 발행살핌(줄: 작업줄[]) {
+    // 칸마다 몇 번째인지. 돌고 있는 것을 맨 앞으로 친다.
+    const 차례 = [...줄].sort((a, b) => (a.status === 'running' ? -1 : 0) - (b.status === 'running' ? -1 : 0))
+    const 칸 = new Map<string, { 상태: 'queued' | 'running'; 앞: number }>()
+    차례.forEach((j, i) => {
+      for (const no of j.params?.bankNos ?? []) for (const ch of j.params?.channels ?? []) {
+        const k = `${no}:${ch}`
+        if (!칸.has(k)) 칸.set(k, { 상태: j.status as 'queued' | 'running', 앞: i })
       }
-      setPublishWatch(false); setPublishProgress(null)
-    }, 3000)
-    return stop
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [publishWatch])
+    })
+    set줄선칸(칸)
+    const 전건수 = 발행전건수.current
+    if (줄.length < 전건수 || (전건수 < 0 && !줄.length)) { await 발행결과알림(); load() }
+    발행전건수.current = 줄.length
+    if (줄.length) {
+      // 돌고 있는 것을 먼저 보여 준다. 없으면 맨 앞에 선 것(미뤄 둔 시각).
+      const 지금것 = 줄.find(j => j.status === 'running') ?? 줄[0]
+      const 뒤 = 줄.length - 1
+      setPublishProgress(`${지금것.progress ?? '올리는 중…'}${뒤 ? ` · 뒤에 ${뒤}건 줄 서 있음` : ''}`)
+      return
+    }
+    발행전건수.current = -1
+    setPublishWatch(false); setPublishProgress(null)
+  }
 
   /**
    * 뱅크에서 내린 매물의 다른 채널 광고도 내린다.
@@ -1598,28 +1603,66 @@ export default function AdsPage() {
   }
 
   /**
-   * 내리기가 끝나면 화면을 갱신한다.
+   * 내리기가 끝나면 화면을 갱신한다. 작업 지켜보기가 부른다.
    *
    * "내려야 함"은 표시광고법이 걸린 숫자라, 실제로 내려갔는지가 화면에 바로
    * 보여야 한다. 작업이 남아 있는 동안만 짧게 확인한다.
    */
+  async function 내리기살핌(남음: boolean) {
+    if (남음) return          // 아직 진행 중
+    setTakedownWatch(false)
+    const { data: last } = await supabase.from('ad_jobs')
+      .select('status, error').eq('kind', 'takedown')
+      .order('requested_at', { ascending: false }).limit(1).maybeSingle()
+    if (last?.status === 'failed') toast.error(`내리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
+    else if (last?.status === 'done') toast.success('광고를 내렸습니다.')
+    load()
+  }
+
+  /**
+   * 작업 지켜보기 — 수집·발행·재등록·내리기를 한 번에 묻는다.
+   *
+   * 예전엔 수집(2초)·발행·재등록·내리기(각 3초)가 따로 ad_jobs 를 물어, 발행을 걸어 둔 채
+   * 재등록·내리기·가져오기가 겹치면 1초에 한두 번씩 몇 시간 동안 쿼리가 나갔다(2026-11-06 점검).
+   * 이제 지켜볼 것이 있는 동안만, 화면이 보일 때만 3초마다 한 번 — 대기·실행 중인 작업과
+   * 지켜보는 수집 한 건(끝났는지 봐야 하므로 상태를 안 가린다)을 받아 종류별로 나눠 준다.
+   * 끝난 결과를 알리는 '마지막 작업' 조회는 그 지켜보기가 끝날 때 한 번만 나간다.
+   */
+  async function 작업살핌() {
+    const kinds = [
+      ...(syncJobId ? ['sync'] : []), ...(publishWatch ? ['publish'] : []),
+      ...(renewWatch ? ['renew'] : []), ...(takedownWatch ? ['takedown'] : []),
+    ]
+    if (!kinds.length) return
+    const 수집id = syncJobId
+    const q = supabase.from('ad_jobs').select('id, kind, status, progress, params, result, error').in('kind', kinds)
+    const { data, error } = await (수집id
+      ? q.or(`status.in.(queued,running),id.eq.${수집id}`)
+      : q.in('status', ['queued', 'running'])
+    ).order('requested_at', { ascending: true })
+    const 줄 = (data ?? []) as 작업줄[]
+    if (수집id) await 수집살핌(수집id, error ? undefined : 줄.find(j => j.id === 수집id))
+    // 못 읽었으면 끝난 것으로 치지 않는다 — 빈 줄로 보면 재등록·내리기가 끝났다고 알리고 멈춘다
+    if (error) return
+    const 진행 = 줄.filter(j => j.status === 'queued' || j.status === 'running')
+    if (publishWatch) await 발행살핌(진행.filter(j => j.kind === 'publish'))
+    if (renewWatch) await 재등록살핌(진행.some(j => j.kind === 'renew'))
+    if (takedownWatch) await 내리기살핌(진행.some(j => j.kind === 'takedown'))
+  }
+  // 도는 타이머는 하나라, 매번 최신 화면 값(지켜보는 종류·load 등)을 보도록 손잡이로 부른다
+  const 작업살핌손잡이 = useRef(작업살핌)
+  useEffect(() => { 작업살핌손잡이.current = 작업살핌 })
+  const 살피는중 = useRef(false)
+  const 지켜볼것 = !!syncJobId || publishWatch || renewWatch || takedownWatch
   useEffect(() => {
-    if (!takedownWatch) return
-    const stop = pollWhileVisible(async () => {
-      const { data } = await supabase.from('ad_jobs')
-        .select('status, error').eq('kind', 'takedown')
-        .in('status', ['queued', 'running']).limit(1)
-      if (data && data.length) return          // 아직 진행 중
-      setTakedownWatch(false)
-      const { data: last } = await supabase.from('ad_jobs')
-        .select('status, error').eq('kind', 'takedown')
-        .order('requested_at', { ascending: false }).limit(1).maybeSingle()
-      if (last?.status === 'failed') toast.error(`내리지 못했습니다: ${last.error ?? '알 수 없는 오류'}`)
-      else if (last?.status === 'done') toast.success('광고를 내렸습니다.')
-      load()
+    if (!지켜볼것) return
+    return pollWhileVisible(() => {
+      // 앞의 묻기가 아직 안 끝났으면 건너뛴다 — 같은 끝남을 두 번 알리지 않게
+      if (살피는중.current) return
+      살피는중.current = true
+      void 작업살핌손잡이.current().finally(() => { 살피는중.current = false })
     }, 3000)
-    return stop
-  }, [takedownWatch])
+  }, [지켜볼것])
 
   // 지금 고른 탭에 들어가는 매물인지 — 담당자별 건수도 같은 잣대로 세야
   // 드롭다운 숫자와 화면에 뜨는 건수가 어긋나지 않는다.
@@ -1867,15 +1910,15 @@ export default function AdsPage() {
               // 없고 전부 뱅크에서 처리할 것들이라, 탭만 늘어나 눈이 흩어진다.
               // (수집은 계속한다 — 등록매물 건수를 뱅크와 맞추고, 그 매물들이
               //  카페에 올라가지 못하게 막는 근거가 된다.)
-              ['all', `등록매물 ${countOf('등록매물')}`,
+              ['all', `등록매물 ${loading ? '…' : countOf('등록매물')}`,
                 '뱅크 등록매물 탭 그대로입니다'],
-              ['live', `광고 중 ${liveCount}`, '뱅크와 상관없이 카페나 당근에 광고가 살아 있는 매물'],
-              ['past', `광고만 남음 ${goneButLive.length}`,
+              ['live', `광고 중 ${loading ? '…' : liveCount}`, '뱅크와 상관없이 카페나 당근에 광고가 살아 있는 매물'],
+              ['past', `광고만 남음 ${loading ? '…' : goneButLive.length}`,
                 '뱅크에서는 끝났는데 카페·당근 광고가 아직 남은 매물입니다.'
                 + ' 내리거나, 계속 광고할 것이면 뱅크에 다시 등록해 주세요'],
-              ['expiring', `종료예정 ${expiring.length}`,
+              ['expiring', `종료예정 ${loading ? '…' : expiring.length}`,
                 '뱅크 등록이 곧 30일을 채우는 매물입니다. 재등록하면 계속 광고합니다'],
-              ['takedown', `못 내림 ${takedownCount}`,
+              ['takedown', `못 내림 ${loading ? '…' : takedownCount}`,
                 '↓ 를 눌렀는데 아직 안 내려간 매물. 표시광고법상 즉시 내려야 합니다'],
             ] as [string, string, string?][]).map(([key, label, hint]) => (
               <button
@@ -2009,7 +2052,7 @@ export default function AdsPage() {
             </span>
             {오늘올림 >= DAILY_CAP && ' — 오늘은 여기까지'}
           </span>
-          <AgentStatus online={agentOnline} />
+          {agentSeenAt !== undefined && <AgentStatus online={agentOnline} />}
           {syncError && <span className="text-red-600 dark:text-red-400">마지막 시도 실패: {syncError}</span>}
         </div>
 

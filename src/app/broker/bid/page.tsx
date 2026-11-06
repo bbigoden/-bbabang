@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
+import { fetchAllParallel } from '@/lib/fetch-all-parallel'
 import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { SearchClear } from '@/components/ui/search-clear'
@@ -12,7 +13,8 @@ import { Chip } from '@/components/ui/chip'
 import { useToast } from '@/components/toast'
 import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
-import { BACKFILL_FLOOR, type CollectReport } from '@/lib/bid-collect'
+import { BACKFILL_FLOOR } from '@/lib/bid-floor'
+import type { CollectReport } from '@/lib/bid-collect'
 import { BID_FIELDS, DOC_RGN, canEnter, dutyOk, fieldsPass, fitsFields, isD2b, latestOrd, shortRegion } from '@/lib/bid-notices'
 import { explainStop } from '@/lib/bid-status'
 import dynamic from 'next/dynamic'
@@ -256,9 +258,15 @@ export default function BidPage() {
   useEffect(() => {
     if (historyAsked || loading || !(opened || tab === 'result')) return
     setHistoryAsked(true)
-    void fetchAllPaged<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>((from, to) => supabase.from('bid_results')
-      .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
-      .not('sajeong', 'is', null).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no').range(from, to))
+    // 2.4만 행 — 한 묶음씩 차례로 받으면 스무 번 왕복이라 넷씩 같이 받는다.
+    // 정렬은 bid_results_list_order_idx 와 똑같이 둬야 묶음마다 전체를 다시 정렬하지 않는다(추천 계산은 순서와 상관없다)
+    void fetchAllParallel<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>(
+      () => supabase.from('bid_results').select('bid_ntce_no', { count: 'exact', head: true }).not('sajeong', 'is', null),
+      (from, to) => supabase.from('bid_results')
+        .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
+        .not('sajeong', 'is', null)
+        .order('openg_at', { ascending: false, nullsFirst: false }).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no')
+        .range(from, to))
       .then(h => { setHistory(h); setAnalysisReady(true) })
       .catch(() => { setHistoryAsked(false); toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요') })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -770,7 +778,7 @@ function RegionBadge({ rgns, ours, site, dutyRt, dutyRgns }: {
 /** 주력분야 한 줄. 우리 주력분야가 아니면 빨갛게 */
 function FieldBadge({ flds, ours, d2b }: { flds: string[] | null; ours: string[]; d2b?: boolean }) {
   if (flds == null) return d2b && ours.length
-    ? <span className="block text-xs text-amber-600 dark:text-amber-400">주력분야 공고문 확인 — 국방 API 에 없습니다</span>
+    ? <span className="block text-xs text-amber-600 dark:text-amber-400">주력분야 공고문 확인 — 국방전자조달 목록에는 안 나와요</span>
     : null
   const ok = fitsFields(flds, ours)
   return (

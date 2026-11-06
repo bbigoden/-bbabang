@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { pollWhileVisible } from '@/lib/poll-visible'
 
 export default function PendingPage() {
   const router = useRouter()
@@ -53,7 +54,8 @@ export default function PendingPage() {
     }
 
     checkApproval()
-    const interval = setInterval(checkApproval, 5000)
+    // 승인은 아래 실시간 구독이 바로 잡는다. 이건 구독이 끊겼을 때 대비 — 화면이 보일 때만 30초마다
+    const stopPoll = pollWhileVisible(checkApproval, 30000)
 
     // Realtime: broker_profiles 변경 즉시 감지
     ;(async () => {
@@ -82,7 +84,7 @@ export default function PendingPage() {
 
     return () => {
       cancelled = true
-      clearInterval(interval)
+      stopPoll()
       if (channelRef) supabase.removeChannel(channelRef)
     }
   }, [router, supabase, goDashboard])

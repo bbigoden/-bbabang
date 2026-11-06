@@ -142,7 +142,8 @@ export default function AdminPage() {
     if (ownerIds.length > 0) {
       const { data: emps } = await supabase
         .from('broker_profiles')
-        .select('*, profiles:profiles_visible(name, email, phone)')
+        // 직원 줄에 쓰는 칸만(EmployeeRow·대표별 묶기)
+        .select('id, parent_broker_id, is_approved, created_at, profiles:profiles_visible(name, email, phone)')
         .in('parent_broker_id', ownerIds)
         .order('created_at', { ascending: false })
       const map = new Map<string, any[]>()
@@ -192,7 +193,8 @@ export default function AdminPage() {
   const loadBrokerProperties = async () => {
     const { data } = await supabase
       .from('broker_properties')
-      .select('*, broker_profiles(office_name, profiles(name))')
+      // 사무소 모달의 매물 목록·매물 상세 모달에 쓰는 칸만
+      .select('id, broker_id, address, deal_type, room_type, price, monthly_rent, size_pyeong, floor, total_floors, status, options, images, description, memo, created_at, broker_profiles(office_name, profiles(name))')
       .order('created_at', { ascending: false })
       .limit(100)
     setBrokerProperties(data ?? [])

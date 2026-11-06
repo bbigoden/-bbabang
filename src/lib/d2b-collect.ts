@@ -201,22 +201,41 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
           .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord)
       }
     }
-    const [mnuf, bsic] = await Promise.all([
+    const [mnuf, bsic, old] = await Promise.all([
       listAll('BidResultInfoService', othbc ? 'getFcltyOthbcVltrnNtatResultMnufList' : 'getFcltyCmpetBidResultMnufList', p),
       listAll('BidResultInfoService', othbc ? 'getFcltyOthbcVltrnNtatResultBsicList' : 'getFcltyCmpetBidResultBsicList', p),
+      supa.from('bid_result_bids').select('rbid_no, rank, bizno, company_nm, amount, rate, picks, rmrk')
+        .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord),
     ])
+    if (old.error) throw old.error
     const seen = new Set<string>()
     const bids = mnuf.map(x => (othbc ? d2bOthbcBid : d2bCmpetBid)(x, r.bid_ntce_no, r.bid_ntce_ord))
       .filter(b => b.bizno && !seen.has(`${b.rank}/${b.bizno}`) && seen.add(`${b.rank}/${b.bizno}`))
     const { prices, plnprc } = d2bPrices(bsic)
     if (bids.length) {
-      // 순위가 나중에 붙으면 키(rank)가 바뀌어 예전 '순위 없음' 줄이 남는다 — 지우고 다시 넣는다
-      const { error: delErr } = await supa.from('bid_result_bids').delete().eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord)
-      if (delErr) throw delErr
       // 줄은 1순위 앞뒤만 보관한다(bid-trim.ts). 참여 수·1순위·사정률은 아래에서 전체(bids)로 센다
       const kept = trimBids(bids, bidFloor(plnprc, n.lwlt_rate, n.a_amount))
-      const { error } = await supa.from('bid_result_bids').upsert(kept, { onConflict: 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno' })
-      if (error) throw error
+      // 예전엔 매번 다 지우고 다시 넣어 하루 수십만 줄이 지워졌다 늘었다 했다(살아 있는 줄의 7배).
+      // 이제 이미 있는 줄과 견줘 바뀐·새 줄만 넣고, 없어진 줄만 지운다.
+      // 순위가 나중에 붙으면 키(rank)가 바뀌어 예전 '순위 없음' 줄이 남는다 — 그게 '없어진 줄'로 지워진다
+      const keyOf = (b: { rbid_no: string; rank: number; bizno: string }) => `${b.rbid_no}/${b.rank}/${b.bizno}`
+      const sig = (b: { company_nm: string | null; amount: number | string | null; rate: number | string | null; picks: number[] | null; rmrk: string | null }) =>
+        JSON.stringify([b.company_nm ?? null, b.amount == null ? null : Number(b.amount), b.rate == null ? null : Number(b.rate), b.picks ?? [], b.rmrk ?? null])
+      const before = new Map((old.data ?? []).map(o => [keyOf(o), sig(o)]))
+      const keptKeys = new Set(kept.map(keyOf))
+      const changed = kept.filter(b => before.get(keyOf(b)) !== sig(b))
+      const gone = (old.data ?? []).filter(o => !keptKeys.has(keyOf(o)))
+      if (gone.length) {
+        const q = (s: string) => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+        const { error: delErr } = await supa.from('bid_result_bids').delete()
+          .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord)
+          .or(gone.map(o => `and(rbid_no.eq.${q(o.rbid_no)},rank.eq.${o.rank},bizno.eq.${q(o.bizno)})`).join(','))
+        if (delErr) throw delErr
+      }
+      if (changed.length) {
+        const { error } = await supa.from('bid_result_bids').upsert(changed, { onConflict: 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno' })
+        if (error) throw error
+      }
     }
     const winner = bids.filter(b => b.rank > 0).sort((a, b) => a.rank - b.rank)[0]
     const bssamt = n.bssamt ?? null

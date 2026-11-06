@@ -1,11 +1,14 @@
 'use client'
 
+import { useEscape } from '@/lib/use-escape'
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense, memo } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { getOfficeMembers } from '@/lib/office-members'
 import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { splitAddressForAutoFill } from '@/lib/auto-fill-address'
@@ -21,7 +24,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, LocateFixed, Upload, CheckCircle2, AlertCircle,
+  Plus, Search, ImagePlus, X, Lock, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, MoreHorizontal, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
@@ -30,17 +33,29 @@ import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { EmptyRow } from '@/components/sheet/empty-row'
 import { ImageLightbox } from '@/components/image-lightbox'
 import { useColSettings, ColSettings } from '@/lib/use-col-settings'
-import { useKakaoMapSdk } from '@/lib/use-kakao-map'
 import { geocodeAddress } from '@/lib/geocode'
+import type { MapRow } from '@/components/broker/properties-map-view'
+import { mapLimit } from '@/lib/map-limit'
+import { pollWhileVisible } from '@/lib/poll-visible'
 import { findDuplicateProperty } from '@/lib/dup-check'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
-import { PROPERTY_STATUS_META } from '@/lib/property-status'
 import { Spinner } from '@/components/ui/spinner'
 import { SearchClear } from '@/components/ui/search-clear'
 import { PropertyTextHistoryButton } from '@/components/sheet/property-text-history'
 import { PropertyViewSheet } from '@/components/broker/property-view-sheet'
 import { chipClass } from '@/components/ui/chip'
+
+// 지도 뷰(카카오 핀·묶음·우측 패널)는 지도를 열 때만 받는다 — 목록만 보는 폰은 이 코드를 안 받는다
+const PropertiesMapView = dynamic(() => import('@/components/broker/properties-map-view').then(m => m.PropertiesMapView), {
+  ssr: false,
+  loading: () => (
+    <div className="relative flex flex-col items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm h-[560px] md:h-[calc(100vh-220px)] md:min-h-[640px]">
+      <Loader2 className="h-7 w-7 animate-spin text-blue-600 mb-2" />
+      <p className="text-sm text-gray-500">지도 불러오는 중...</p>
+    </div>
+  ),
+})
 
 interface Property {
   id: string
@@ -78,10 +93,6 @@ interface Property {
   lng: number | null
 }
 
-// 지도 뷰 행 — map_office_properties 가 핀·우측 패널·[목록에서 열기]에 쓰는 칸만 준다
-type MapRow = Pick<Property,
-  'id' | 'seq_no' | 'address' | 'deal_type' | 'room_type' | 'status' | 'price' | 'monthly_rent'
-  | 'size_pyeong' | 'floor' | 'total_floors' | 'brief_memo' | 'images' | 'lat' | 'lng'>
 
 interface CustomColumn {
   id: string
@@ -89,23 +100,11 @@ interface CustomColumn {
   type?: 'text' | 'select'
 }
 
-const _STATUS_OPTS = ['available', 'contracted', 'hidden'] as const
-const _STATUS_LABEL: Record<string, string> = {
-  available: PROPERTY_STATUS_META.available.label,
-  contracted: PROPERTY_STATUS_META.contracted.label,
-  hidden: PROPERTY_STATUS_META.hidden.label,
-}
-const _STATUS_COLOR: Record<string, string> = {
-  available: 'bg-green-100 text-green-700',
-  contracted: 'bg-gray-100 text-gray-600',
-  hidden: 'bg-yellow-100 text-yellow-700',
-}
 const DEAL_TYPES = ['매매', '전세', '월세']  // 신규 등록 페이지(new/page.tsx)와 일치
 const ROOM_TYPES = ALL_ROOM_TYPES
 const DIRECTION_OPTS = ['남향', '북향', '동향', '서향', '남동향', '남서향', '북동향', '북서향']
 // 업종 기본 선택지 — 헤더 메뉴에서 각자 늘리고 줄일 수 있다
 const INDUSTRY_OPTS = ['공실', '식당', '카페', '주점', '편의점', '뷰티샵', '학원', '병원', '약국', '사무실', '공방', '기타']
-const _PARKING_OPTS = ['주차가능', '주차불가', '협의']
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
 // 매물장 데이터는 search_office_properties RPC가 서버에서 필터·검색·정렬·페이지 처리.
@@ -118,10 +117,6 @@ const DEAL_TYPE_COLOR_MAP: Record<string, string> = {
   분양: 'bg-pink-100 text-pink-700',
   분양권: 'bg-rose-100 text-rose-700',
 }
-// 지도용 거래형태 hex 색
-const DEAL_TYPE_HEX_MAP: Record<string, string> = {
-  매매: '#14274e', 전세: '#7c3aed', 월세: '#ea580c', 분양: '#db2777', 분양권: '#e11d48',
-}
 
 // 범위 필터 디바운스 초기값 — 디바운스가 만드는 것과 같은 모양으로 시작해야
 // 진입 300ms 뒤 첫 디바운스가 "같은 값"으로 걸러져 목록 RPC 가 두 번 나가지 않는다
@@ -130,47 +125,8 @@ const EMPTY_RANGES: Record<string, number | null> = {
   pyeongMin: null, pyeongMax: null, floorMin: null, floorMax: null,
 }
 
-// 지도에서 좌표를 못 찾은 주소(정규화) → 기록 시각(ms). '지시푸 507-1504' 같은 엉터리 주소
-// ~70건을 지도 열 때마다 다시 묻느라 분당 상한(60회)까지 먹었다 — 7일간 건너뛴다.
-// 주소를 고치면 정규화 키가 바뀌어 다시 묻는다. 저장소가 막혀도 매번 다시 물을 뿐.
-const GEOCODE_FAIL_KEY = 'busojang_geocode_fail'
-const GEOCODE_FAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000
 /** 지도 데이터를 다시 받지 않고 쓰는 시간. 지도↔목록을 오가는 동안만 아낀다. */
 const MAP_REUSE_MS = 3 * 60 * 1000
-function loadGeocodeFails(): Record<string, number> {
-  try {
-    const raw = JSON.parse(localStorage.getItem(GEOCODE_FAIL_KEY) || '{}')
-    const now = Date.now()
-    const fresh: Record<string, number> = {}
-    for (const [k, t] of Object.entries(raw)) {
-      if (typeof t === 'number' && now - t < GEOCODE_FAIL_TTL_MS) fresh[k] = t
-    }
-    return fresh
-  } catch {
-    return {}
-  }
-}
-function saveGeocodeFails(fails: Record<string, number>) {
-  try { localStorage.setItem(GEOCODE_FAIL_KEY, JSON.stringify(fails)) } catch { /* 기억 못 해도 다음에 다시 물을 뿐 */ }
-}
-
-// 지도 배경 지오코딩 — '못 찾는 주소'(200 + lat null)와 일시 오류(429 분당 상한·502·네트워크)를 가른다.
-// geocodeAddress 는 둘 다 null 이라, 그대로 쓰면 멀쩡한 주소가 한 번 막혔다고 7일 빠진다.
-async function geocodeForMap(address: string): Promise<{ lat: number; lng: number } | null | 'error'> {
-  try {
-    const res = await fetch('/api/geocode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address }),
-    })
-    if (!res.ok) return 'error'
-    const data = await res.json()
-    if (typeof data?.lat === 'number' && typeof data?.lng === 'number') return { lat: data.lat, lng: data.lng }
-    return null
-  } catch {
-    return 'error'
-  }
-}
 
 // 고정 칼럼만 (지울 수 없음, 숨길 수는 있음)
 const ALL_COLUMNS = [
@@ -203,7 +159,6 @@ const LEGACY_INDUSTRY_KEY = 'col_1793434493650'
 const industryOf = (p: { custom_fields: Record<string, string> | null }) =>
   p.custom_fields?.industry ?? p.custom_fields?.[LEGACY_INDUSTRY_KEY] ?? ''
 const FIXED_COLS: ColKey[] = ALL_COLUMNS.map(c => c.key)
-const _DEFAULT_VISIBLE: ColKey[] = [...FIXED_COLS]
 
 // 초기 커스텀 칼럼 (기본값 없음)
 const DEFAULT_CUSTOM_COLS: CustomColumn[] = []
@@ -730,21 +685,21 @@ function ImageCell({ images, onSave, onView }: {
   const handleAdd = (e: React.ChangeEvent<HTMLInputElement>) => addFiles(Array.from(e.target.files ?? []))
 
   const uploadFiles = async (files: File[]) => {
-    const uploaded: string[] = []
-    if (!files.length) return uploaded
+    if (!files.length) return [] as string[]
     const { data } = await supabase.auth.getUser()
     const uid = data.user?.id ?? 'unknown'
-    for (const original of files) {
+    // 한 장씩 차례로 올리면 5장에 5배 걸렸다 — 3장씩 함께(더 많이 하면 폰이 줄이는 동안 메모리가 모자란다).
+    // 순서는 고른 순서 그대로, 못 올린 장은 빠진다.
+    const urls = await mapLimit(files, 3, async original => {
       // 원본(장당 1~4MB)을 그대로 올려 저장 한도를 며칠 만에 채울 뻔했다 — 올리기 전에 줄인다
       const file = await shrinkImage(original, PROPERTY_PHOTO_SIDE, PROPERTY_PHOTO_QUALITY)
       const ext = file.name.split('.').pop()
       const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
       const { error } = await supabase.storage.from('property-images').upload(path, file, { upsert: false })
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('property-images').getPublicUrl(path)
-        uploaded.push(publicUrl)
-      }
-    }
+      if (error) return null
+      return supabase.storage.from('property-images').getPublicUrl(path).data.publicUrl
+    })
+    const uploaded = urls.filter((u): u is string => !!u)
     return uploaded
   }
 
@@ -942,98 +897,6 @@ function TooltipIcon({ text }: { text: string }) {
   )
 }
 
-// ── ColumnHeader (헤더 클릭 설정) ────────────────────────
-
-// ── ColAdder (숨김 복원 + 새 칼럼) ───────────────────────
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function PropColAdder({ hiddenFixed, customCols, visibleCustom, onShowFixed, onShowCustom, onAddCustom, asHeaderButton }: {
-  hiddenFixed: Array<{ key: string; label: string }>
-  customCols: CustomColumn[]
-  visibleCustom: string[]
-  onShowFixed: (key: string) => void
-  onShowCustom: (id: string) => void
-  onAddCustom: (name: string) => void
-  asHeaderButton?: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const [style, setStyle] = useState<React.CSSProperties>({})
-  const [showInput, setShowInput] = useState(false)
-  const [addingName, setAddingName] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLDivElement>(null)
-  useClickOutside(containerRef, () => { setOpen(false); setShowInput(false); setAddingName('') })
-
-  const hiddenCustom = customCols.filter(c => !visibleCustom.includes(c.id))
-
-  const handleOpen = () => {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setStyle({ position: 'fixed', zIndex: 9999, top: r.bottom + 2, right: Math.max(4, window.innerWidth - r.right), minWidth: 200 })
-    }
-    setOpen(v => !v)
-  }
-
-  const addCustom = () => {
-    const v = addingName.trim()
-    if (!v) return
-    onAddCustom(v); setAddingName(''); setShowInput(false); setOpen(false)
-  }
-
-  return (
-    <div ref={containerRef} className="relative">
-      <div ref={btnRef} onClick={handleOpen}
-        className={asHeaderButton
-          ? 'flex items-center gap-2 rounded-xl border border-blue-600 px-4 py-2.5 text-sm font-bold text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer'
-          : 'flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-blue-50 hover:text-blue-500 cursor-pointer transition-colors text-sm font-bold leading-none'
-        }>
-        {asHeaderButton ? <>헤더 추가</> : '+'}</div>
-      {open && (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl overflow-hidden" style={style}
-          onClick={e => e.stopPropagation()}>
-          {/* 고정 칼럼 섹션 */}
-          <div className="px-3 py-1.5 flex items-center gap-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-800">
-            <Lock className="h-2.5 w-2.5" />고정 칼럼
-          </div>
-          {hiddenFixed.length > 0 ? hiddenFixed.map(col => (
-            <button key={col.key} onClick={() => { onShowFixed(col.key); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-              <span className="text-gray-300 font-bold">+</span>{col.label}
-            </button>
-          )) : (
-            <div className="px-3 py-1.5 text-xs text-gray-500">모두 표시 중</div>
-          )}
-
-          {/* 내 칼럼 섹션 */}
-          <div className="border-t border-gray-100 dark:border-gray-800 px-3 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider">내 칼럼</div>
-          {hiddenCustom.map(col => (
-            <button key={col.id} onClick={() => { onShowCustom(col.id); setOpen(false) }}
-              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-              <span className="text-gray-300 font-bold">+</span>{col.name}
-            </button>
-          ))}
-
-          {/* 새 칼럼 만들기 */}
-          <div className="border-t border-gray-100 dark:border-gray-800">
-            {showInput ? (
-              <div className="flex items-center gap-1.5 px-2 py-2">
-                <input autoFocus value={addingName} onChange={e => setAddingName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addCustom(); if (e.key === 'Escape') { setShowInput(false); setAddingName('') } }}
-                  placeholder="칼럼 이름 입력"
-                  className="flex-1 rounded-lg border border-blue-400 px-2 py-1 text-xs outline-none min-w-0 placeholder-gray-300" />
-                <button onClick={addCustom} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700">추가</button>
-              </div>
-            ) : (
-              <button onClick={() => setShowInput(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 transition-colors font-medium">
-                <Plus className="h-3.5 w-3.5" />새 칼럼 만들기
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── AddColBtn ─────────────────────────────────────────
 function AddColBtn({ onAdd }: { onAdd: (name: string, type: 'text' | 'select') => void }) {
@@ -1506,10 +1369,8 @@ function BrokerPropertiesContent() {
   const officeIdRef = useRef<string>('')  // saveField(useCallback deps 없음)에서 최신 사무소 범위 참조용
   const [officeAddress, setOfficeAddress] = useState<string | null>(null)  // 지도 초기 중심용 사무소 주소
   const [totalCount, setTotalCount] = useState(0)   // 필터·검색 반영 총 건수
-  const [allCount, setAllCount] = useState(0)       // 필터 무관 전체 건수 (헤더 표시)
+  const [allCount, setAllCount] = useState<number | null>(null)  // 필터 무관 전체 건수 (헤더 표시). 세기 전엔 null — '전체 0건' 이 잠깐 보였다(11-06 점검)
   const [mapRows, setMapRows] = useState<MapRow[]>([])  // 지도 뷰 전용 — 열 때만 전체 로드
-  // 지도에 몇 건이 찍혔나 — 전체는 1,995건인데 핀이 ~975건이라 빠진 줄 몰랐다
-  const [mapStat, setMapStat] = useState<{ placed: number; total: number; pending: number; failed: number } | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
   const [mapLoading, setMapLoading] = useState(false)    // 지도 행 받는 중 (안 받았을 때 '매물 없음'이 먼저 뜨지 않게)
   const [canEdit] = useState(true)
@@ -1591,16 +1452,7 @@ function BrokerPropertiesContent() {
   const [pageSize, setPageSize] = usePageSize('properties')
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [isMapView, setIsMapView] = useState(false)
-  // 카카오 SDK(스크립트 4개)는 지도를 처음 열 때 받는다 — 목록만 보는 사람은 안 받는다
-  const { status: mapStatus, errorReason: mapErr, ready: mapReady } = useKakaoMapSdk(isMapView)
-  const mapContainerRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<any>(null)
-  const markersRef = useRef<any[]>([])         // 카카오 Marker 인스턴스들
-  const clustererRef = useRef<any>(null)        // MarkerClusterer
-  const myLocOverlayRef = useRef<any>(null)     // 현 위치 파란 점 오버레이
   const [jumpId, setJumpId] = useState<string | null>(null)  // 지도 패널 → 목록 이동 시 강조할 행
-  // 지도 마커 클릭 시 우측 사이드바(네이버 부동산 식)에 표시할 매물 그룹
-  const [mapPanel, setMapPanel] = useState<{ address: string; items: MapRow[] } | null>(null)
   // 카카오 geocoder 결과 캐시 (effect 재실행·검색 변경 시에도 유지) — OVER_QUERY_LIMIT 회피
   const geocodeCacheRef = useRef<Record<string, { lat: number; lng: number } | null>>({})
   const savedCoordIdsRef = useRef<Set<string>>(new Set())
@@ -1738,7 +1590,6 @@ function BrokerPropertiesContent() {
   }, [auth.loading, auth.user?.id, auth.broker?.id])
   useEffect(() => { setPage(1) }, [filterDealType, filterRoomTypes, filterStatus, filterAssignees, filterIndustries, debouncedRanges, searchQuery, pageSize])
 
-  // 카카오맵 SDK는 useKakaoMapSdk 훅에서 로드
 
 
   const init = async () => {
@@ -1800,12 +1651,9 @@ function BrokerPropertiesContent() {
       setSelfName(myName ?? '')
       if (owner) {
         setOwnerName(myName ?? '')  // 대표 본인 → 내 이름이 곧 대표 이름
-        const { data: emps } = await supabase
-          .from('broker_profiles')
-          .select('profiles(name)')
-          .eq('parent_broker_id', b.id)
-          .eq('is_approved', true)
-        const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
+        // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members) — 고객·일지에서 넘어오면 다시 묻지 않는다
+        const emps = await getOfficeMembers(b.id).catch(() => [])
+        const empNames = emps.filter(e => !e.isOwner && e.approved).map(e => e.name).filter(Boolean)
         setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
       } else {
         setTeamMembers(myName ? [myName] : [])
@@ -1901,7 +1749,8 @@ function BrokerPropertiesContent() {
         allCountKeyRef.current = filterParams
         void supabase.from('broker_properties').select('id', { count: 'exact', head: true })
           .eq('office_broker_id', 조건.p_office).is('deleted_at', null)
-          .then(({ count }) => { if (!cancelled && count != null) setAllCount(count) })
+          // 전체 수는 조건과 상관없으니 조건이 바뀌어도 버리지 않는다 — 버리면 '전체 0건' 에 멈춰 있었다
+          .then(({ count }) => { if (count != null) setAllCount(count) })
       }
       // 필터 변경 등으로 현재 페이지가 범위를 벗어나면 1페이지로
       if (rows.length === 0 && page > 1) setPage(1)
@@ -1964,10 +1813,10 @@ function BrokerPropertiesContent() {
     return m
   }, [bankDraftRows])
   const bankDraftActive = bankDraftRows.some(j => BANK_DRAFT_ACTIVE.has(j.status))
+  // 앱을 내려 둔 동안은 묻지 않는다 — 폰은 하루 종일 켜 두므로 숨어서도 20초마다 쿼리가 나갔다
   useEffect(() => {
     if (!bankDraftActive) return
-    const id = setInterval(() => setBankDraftTick(t => t + 1), 20_000)
-    return () => clearInterval(id)
+    return pollWhileVisible(() => setBankDraftTick(t => t + 1), 20_000)
   }, [bankDraftActive])
   // 뱅크 임시저장 일꾼이 켜져 있나 — PC 가 20초마다 ad_agents.bank_draft_seen_at 을 찍는다.
   // 대기 중인 요청이 있는데 일꾼이 꺼져 있으면 위에 알린다. 직원이 눌렀는데 돌기만 하던 일이 있었다.
@@ -1979,10 +1828,11 @@ function BrokerPropertiesContent() {
       const { data } = await supabase.from('ad_agents').select('bank_draft_seen_at').maybeSingle()
       if (alive) setBankWorkerSeenAt((data as { bank_draft_seen_at?: string | null } | null)?.bank_draft_seen_at ?? null)
     }
+    // bankDraftTick 을 deps 에 두면 20초마다 처음부터 다시 돌아(바로 한 번 + 새 15초 타이머) 두 배로 물었다
     tick()
-    const id = setInterval(tick, 15_000)
-    return () => { alive = false; clearInterval(id) }
-  }, [bankDraftActive, supabase, bankDraftTick])
+    const stop = pollWhileVisible(tick, 15_000)
+    return () => { alive = false; stop() }
+  }, [bankDraftActive, supabase])
   const bankWorkerOffline = bankDraftActive && !(bankWorkerSeenAt && Date.now() - new Date(bankWorkerSeenAt).getTime() < 60_000)
 
   // 뱅크 확인창 열기. 도로명으로 적힌 소재지는 지번을 찾아 바꿔 보여 주고, 요청할 때 소재지에 저장한다
@@ -2328,7 +2178,7 @@ function BrokerPropertiesContent() {
     // 새 행을 현재 페이지에 즉시 표시 (스크롤 effect가 페이지 이동을 처리)
     setProperties(prev => [data, ...prev])
     setTotalCount(c => c + 1)
-    setAllCount(c => c + 1)
+    setAllCount(c => c == null ? c : c + 1)
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
@@ -2366,7 +2216,7 @@ function BrokerPropertiesContent() {
       }
       setProperties(prev => prev.filter(p => p.id !== deleteConfirm.id))
       setTotalCount(c => Math.max(0, c - 1))
-      setAllCount(c => Math.max(0, c - 1))
+      setAllCount(c => c == null ? c : Math.max(0, c - 1))
     } else if (deleteConfirm.type === 'column') {
       const id = deleteConfirm.id
       const updated = customColumns.filter(c => c.id !== id)
@@ -2393,7 +2243,7 @@ function BrokerPropertiesContent() {
     if (error || !data) return
     setProperties(prev => [data, ...prev])
     setTotalCount(c => c + 1)
-    setAllCount(c => c + 1)
+    setAllCount(c => c == null ? c : c + 1)
     setAddingId(data.id)
     setPage(1)
     setTimeout(() => setAddingId(null), 2000)
@@ -2402,360 +2252,12 @@ function BrokerPropertiesContent() {
   // 필터·검색은 search_office_properties RPC가 서버에서 처리 (동일한 부분 문자열 매칭).
   // 지도 뷰는 mapRows(필터 반영 전체), 시트는 properties(현재 페이지)를 쓴다.
 
-  // 지도 뷰 렌더링 — Marker(SVG 핀) + MarkerClusterer + 클릭 시 정보 오버레이
-  useEffect(() => {
-    if (!isMapView || !mapReady) return
-    let cancelled = false
-
-    const renderMap = () => {
-      if (cancelled || !mapContainerRef.current) return
-      // 컨테이너가 아직 layout 안 됐으면 다음 프레임에 재시도 (race condition 방지)
-      const rect = mapContainerRef.current.getBoundingClientRect()
-      if (rect.width === 0 || rect.height === 0) {
-        requestAnimationFrame(renderMap)
-        return
-      }
-
-      const kakao = (window as any).kakao
-
-      // 지도 인스턴스 최초 생성
-      if (!mapInstanceRef.current) {
-        mapInstanceRef.current = new kakao.maps.Map(mapContainerRef.current, {
-          center: new kakao.maps.LatLng(36.815, 127.114), // 폴백 좌표 — 아래에서 사무소 주소로 재중심
-          level: 6,
-        })
-        // 사무소 주소 기준 초기 중심 — 매물이 있으면 어차피 setBounds가 덮어쓰지만,
-        // 매물 없는 신규 사무소도 자기 동네에서 시작해야 한다 (지오코딩 실패 시 폴백 유지)
-        if (officeAddress) {
-          // JS SDK addressSearch는 라이브에서 CORS로 실패 — 매물 좌표와 동일하게 /api/geocode 사용
-          // 핀이 먼저 꽂혀 화면을 맞췄으면 건드리지 않는다 (이제 핀을 기다림 없이 바로 꽂으므로 이 응답이 더 늦을 수 있다)
-          geocodeAddress(officeAddress).then(coords => {
-            if (coords && mapInstanceRef.current && markersRef.current.length === 0) {
-              mapInstanceRef.current.setCenter(new kakao.maps.LatLng(coords.lat, coords.lng))
-            }
-          })
-        }
-        kakao.maps.event.addListener(mapInstanceRef.current, 'click', () => {
-          setMapPanel(null)
-        })
-      } else {
-        // 컨테이너 사이즈 변경(검색·뷰 전환) 후 타일·마커가 안 그려지는 문제 방지
-        mapInstanceRef.current.relayout()
-      }
-
-      const map = mapInstanceRef.current
-
-      // 기존 마커·정보창 정리
-      if (clustererRef.current) { clustererRef.current.clear() }
-      else {
-        clustererRef.current = new kakao.maps.MarkerClusterer({
-          map,
-          averageCenter: true,
-          minLevel: 4, // 줌 4 이상에서 클러스터링 — 동네·읍면 단위 축소 시에도 겹침 해소
-          disableClickZoom: false,
-          gridSize: 60,
-          styles: [{
-            width: '40px', height: '40px',
-            background: '#14274e', color: '#fff',
-            borderRadius: '20px', textAlign: 'center', lineHeight: '40px',
-            fontSize: '13px', fontWeight: '700',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-            border: '2px solid #fff',
-          }],
-        })
-      }
-      markersRef.current = []
-
-      const targets = mapRows.filter(p => p.address)
-      if (targets.length === 0) { setMapStat(null); return }
-      // 주소에 천안·아산이 있는데 좌표가 그 바깥이면 주소 변환이 틀린 것이다(지번만 적힌 '아산시 680-125' 등)
-      const inRegion = (addr: string, lat: number, lng: number) =>
-        !/천안|아산/.test(addr) || (lat > 36.55 && lat < 37.1 && lng > 126.75 && lng < 127.4)
-
-      // 거래형태가 "매매, 월세" 같은 멀티면 첫 번째 값 기준 색
-      const pickPrimaryDeal = (d: string) => (d ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
-
-      const fmtAmount = (v: number) => {
-        if (v >= 10000) {
-          const uk = Math.floor(v / 10000)
-          const man = v % 10000
-          return uk + '억' + (man > 0 ? ' ' + man.toLocaleString() + '만' : '')
-        }
-        return v.toLocaleString() + '만'
-      }
-      const fmtPrice = (p: MapRow) => {
-        const isWolse = (p.deal_type ?? '').includes('월세')
-        if (isWolse) {
-          // 월세: 보증금/월세 형식 (예: "500/60만")
-          const dep = p.price != null ? p.price.toLocaleString() : '?'
-          const mo = p.monthly_rent != null ? p.monthly_rent.toLocaleString() : '?'
-          return `${dep}/${mo}만`
-        }
-        if (p.price == null) return '미정'
-        return fmtAmount(p.price)
-      }
-      // SVG 핀(알약 모양) data URI 생성 — 모바일 가독성 위해 컴팩트하게
-      const makePillIcon = (dealType: string, price: string, color: string) => {
-        const label = `${dealType} ${price}`
-        const charCount = [...label].length
-        const width = Math.max(52, Math.min(120, charCount * 7 + 14))
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="26" viewBox="0 0 ${width} 26"><rect x="1" y="1" width="${width-2}" height="18" rx="9" ry="9" fill="${color}" stroke="white" stroke-width="1.5"/><text x="${width/2}" y="13.5" font-size="10" font-weight="600" text-anchor="middle" fill="white" font-family="-apple-system, BlinkMacSystemFont, sans-serif">${label}</text><path d="M${width/2-4} 18 L${width/2} 24 L${width/2+4} 18 Z" fill="${color}"/></svg>`
-        return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 26 }
-      }
-
-      // 그룹(같은 좌표 다호수) 핀 — 카운트만 강조
-      const makeGroupPillIcon = (count: number) => {
-        const label = `매물 ${count}건`
-        const charCount = [...label].length
-        const width = Math.max(60, charCount * 7 + 16)
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="28" viewBox="0 0 ${width} 28"><rect x="1" y="1" width="${width-2}" height="20" rx="10" ry="10" fill="#111827" stroke="white" stroke-width="1.5"/><text x="${width/2}" y="14.5" font-size="11" font-weight="700" text-anchor="middle" fill="white" font-family="-apple-system, BlinkMacSystemFont, sans-serif">${label}</text><path d="M${width/2-4} 20 L${width/2} 26 L${width/2+4} 20 Z" fill="#111827"/></svg>`
-        return { url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg), width, height: 28 }
-      }
-
-      // 주소 정규화 — 같은 건물 다른 호수는 카카오가 어차피 같은 좌표 반환하므로 호수 부분을 제거해
-      // 캐시 hit율을 높이고 카카오 OVER_QUERY_LIMIT을 회피한다.
-      // 예: "충청남도 천안시 서북구 불당동 1479-2 404호" → "충청남도 천안시 서북구 불당동 1479-2"
-      const normalizeAddr = (a: string): string => {
-        // 끝에 호수(예: "1412호", "404-1호", "A동1412호")가 있을 때만 처리
-        // 행정동("쌍용2동", "다대1동")이 끝나는 주소는 그대로 — 호수 없으면 건드리지 않음
-        const hoMatch = a.match(/[0-9A-Za-z\-]*\d[0-9A-Za-z\-]*호\s*$/i)
-        if (!hoMatch || hoMatch.index === undefined) return a.trim()
-        // 호수 부분 제거
-        let r = a.slice(0, hoMatch.index).trim()
-        // 호수 앞에 남은 건물 동수(영문/숫자) 추가 제거 — 한글 행정동은 영문·숫자 패턴이라 안전
-        r = r.replace(/\s+[0-9A-Za-z\-]+동\s*$/, '')
-        return r.replace(/\s+/g, ' ').trim()
-      }
-
-      // 같은 좌표(소수 5자리 ≈ 1m 정밀도) 매물을 한 핀으로 묶는다 — 같은 건물의 다른 호수는
-      // 카카오 geocoder가 동일 좌표를 반환하므로 마커가 겹쳐 1개만 보이는 문제 발생
-      type Geocoded = { prop: MapRow; lat: number; lng: number }
-      const groups: Record<string, { list: Geocoded[]; marker: any }> = {}
-      const groupKey = (lat: number, lng: number) => `${lat.toFixed(5)}_${lng.toFixed(5)}`
-
-      // 그룹 하나 → 핀 하나
-      const makeMarker = (group: Geocoded[]) => {
-        const pos = new kakao.maps.LatLng(group[0].lat, group[0].lng)
-
-        // 마커 아이콘: 단일=색깔 pill / 그룹=검정 카운트 pill
-        let icon: { url: string; width: number; height: number }
-        if (group.length === 1) {
-          const g = group[0]
-          const primaryDeal = pickPrimaryDeal(g.prop.deal_type)
-          // 계약완료 매물은 회색 핀 — 지도만 보고 안내해도 가능/완료가 구분되게
-          const color = g.prop.status === 'contracted' ? '#9ca3af' : (DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151')
-          icon = makePillIcon(primaryDeal, fmtPrice(g.prop), color)
-        } else {
-          icon = makeGroupPillIcon(group.length)
-        }
-        const markerImage = new kakao.maps.MarkerImage(
-          icon.url,
-          new kakao.maps.Size(icon.width, icon.height),
-          { offset: new kakao.maps.Point(icon.width / 2, icon.height) }
-        )
-        const marker = new kakao.maps.Marker({ position: pos, image: markerImage })
-
-        // 클릭 시 React 우측 사이드바 패널에 매물 리스트 표시
-        // 헤더 주소는 동·호수 제거한 건물 단위 (group 매물이 같은 건물 다른 호수일 때 정확)
-        const addr = group.length > 1
-          ? normalizeAddr(group[0].prop.address ?? '')
-          : (group[0].prop.address ?? '')
-        // 같은 건물 다호수는 동(문자)·호수(숫자) 오름차순으로 — 등록순이면 호수가 뒤죽박죽
-        const unitOf = (a: string) => {
-          const ho = a.match(/(\d+)[0-9\-]*호\s*$/)
-          const dong = a.match(/([0-9A-Za-z\-]+)동\s*\S*호\s*$/)
-          return { dong: dong?.[1] ?? '', ho: ho ? parseInt(ho[1], 10) : Number.MAX_SAFE_INTEGER }
-        }
-        const items = group.map(g => g.prop).sort((x, y) => {
-          const ux = unitOf(x.address ?? ''), uy = unitOf(y.address ?? '')
-          return ux.dong.localeCompare(uy.dong) || ux.ho - uy.ho
-        })
-        kakao.maps.event.addListener(marker, 'click', () => {
-          setMapPanel({ address: addr, items })
-        })
-        return marker
-      }
-
-      // 핀 전체가 보이게 맞춘다
-      const fitToMarkers = () => {
-        const markers = [...markersRef.current]
-        if (markers.length === 0) return
-        const bounds = new kakao.maps.LatLngBounds()
-        markers.forEach(m => bounds.extend(m.getPosition()))
-        if (markers.length === 1) {
-          // 줌 3으로 줌인 — clusterer minLevel(4)과 충돌 방지
-          map.setLevel(3)
-          map.setCenter(markers[0].getPosition())
-        } else {
-          map.setBounds(bounds)
-        }
-        // 컨테이너 사이즈 변경 직후 타일 누락 방지 — relayout + 한 번 더 중심 보정
-        requestAnimationFrame(() => {
-          if (cancelled) return
-          map.relayout()
-          if (markers.length === 1) map.setCenter(markers[0].getPosition())
-          else map.setBounds(bounds)
-        })
-      }
-
-      // DB에도 저장 — 다음 지도 로드부터는 카카오 호출 안 함 (then 을 불러야 요청이 나간다)
-      // 받아 둔 지도 데이터는 lat 이 빈 채 다시 쓰이므로, 한 번 저장한 매물은 다시 안 쓴다.
-      const saveCoords = (prop: MapRow, coords: { lat: number; lng: number }) => {
-        if (savedCoordIdsRef.current.has(prop.id)) return
-        savedCoordIdsRef.current.add(prop.id)
-        void supabase.from('broker_properties').update({ lat: coords.lat, lng: coords.lng }).eq('id', prop.id).then(() => {})
-      }
-
-      // 1) 좌표를 아는 매물로 바로 핀을 꽂는다 — DB lat/lng(백필·등록·자동채움 시 채워짐)
-      //    또는 이번 화면에서 이미 찾아 둔 주소(geocodeCacheRef).
-      // 2) 나머지는 지도를 막지 않고 뒤에서 /api/geocode — 찾는 대로 기존 클러스터에 더한다.
-      //    예전엔 전부 끝나야 핀을 그려서, 매번 실패하는 엉터리 주소 ~70건 때문에 몇 초씩 빈 지도였다.
-      const cache = geocodeCacheRef.current
-      const fails = loadGeocodeFails()
-      const needsGeocode: Record<string, MapRow[]> = {}  // 정규화 주소 → 매물들 (같은 건물은 한 번만 묻는다)
-      const addToGroup = (g: Geocoded) => {
-        const key = groupKey(g.lat, g.lng)
-        if (!groups[key]) groups[key] = { list: [], marker: null }
-        groups[key].list.push(g)
-      }
-      let placed = 0
-      let failed = 0
-      for (const prop of targets) {
-        if (prop.lat != null && prop.lng != null) {
-          if (inRegion(prop.address, prop.lat, prop.lng)) { addToGroup({ prop, lat: prop.lat, lng: prop.lng }); placed++ }
-          else failed++
-          continue
-        }
-        const key = normalizeAddr(prop.address)
-        if (key in cache) {
-          const coords = cache[key]
-          if (coords && inRegion(prop.address, coords.lat, coords.lng)) {
-            placed++
-            addToGroup({ prop, lat: coords.lat, lng: coords.lng })
-            saveCoords(prop, coords)
-          } else failed++
-        } else if (!(key in fails)) {
-          if (!needsGeocode[key]) needsGeocode[key] = []
-          needsGeocode[key].push(prop)
-        } else failed++
-      }
-      let pending = Object.values(needsGeocode).reduce((a, l) => a + l.length, 0)
-      setMapStat({ placed, total: mapRows.length, pending, failed: failed + (mapRows.length - targets.length) })
-
-      const clusterer = clustererRef.current
-      for (const grp of Object.values(groups)) {
-        grp.marker = makeMarker(grp.list)
-        markersRef.current.push(grp.marker)
-      }
-      clusterer.addMarkers(markersRef.current)
-      fitToMarkers()
-      const fittedInitially = markersRef.current.length > 0
-
-      // 뒤늦게 찾은 매물(같은 좌표들)을 클러스터에 더한다 — 그 좌표 핀만 새로 만들어 갈아 끼우고,
-      // 다시 묶기(redraw)는 한 프레임에 한 번. 전체 핀(~1,900개)을 다시 만들지 않는다.
-      let redrawQueued = false
-      const addLate = (found: Geocoded[]) => {
-        const key = groupKey(found[0].lat, found[0].lng)
-        const old = groups[key]?.marker ?? null
-        found.forEach(addToGroup)
-        const grp = groups[key]
-        grp.marker = makeMarker(grp.list)
-        if (old) {
-          clusterer.removeMarker(old, true)
-          markersRef.current[markersRef.current.indexOf(old)] = grp.marker
-        } else {
-          markersRef.current.push(grp.marker)
-        }
-        clusterer.addMarker(grp.marker, true)
-        if (!redrawQueued) {
-          redrawQueued = true
-          requestAnimationFrame(() => {
-            redrawQueued = false
-            if (!cancelled) clusterer.redraw()
-          })
-        }
-      }
-
-      // 동시 호출 수 제한 — /api/geocode 는 분당 60회 상한
-      const queue = Object.keys(needsGeocode)
-      const CONCURRENT = 4
-      let inFlight = 0
-      let cursor = 0
-
-      const processOne = (key: string) => {
-        inFlight++
-        geocodeForMap(needsGeocode[key][0].address).then(coords => {
-          inFlight--
-          // 일시 오류(분당 상한 등)는 캐시·기억하지 않는다 — 다음에 다시 묻는다
-          if (coords !== 'error') {
-            cache[key] = coords
-            if (!coords) { fails[key] = Date.now(); saveGeocodeFails(fails) }
-          }
-          if (cancelled) return  // 지도를 닫았거나 다른 조건으로 다시 그리는 중 — 옛 클러스터를 건드리지 않는다
-          const 몇 = needsGeocode[key].length
-          pending -= 몇
-          if (coords && coords !== 'error' && inRegion(needsGeocode[key][0].address, coords.lat, coords.lng)) {
-            const found = needsGeocode[key].map(prop => ({ prop, lat: coords.lat, lng: coords.lng }))
-            found.forEach(g => saveCoords(g.prop, coords))
-            addLate(found)
-            placed += 몇
-          } else failed += 몇
-          setMapStat({ placed, total: mapRows.length, pending, failed: failed + (mapRows.length - targets.length) })
-          if (cursor >= queue.length && inFlight === 0) {
-            // 처음에 꽂을 핀이 하나도 없었으면 다 찾은 뒤 한 번만 맞춘다 — 도중에 화면이 튀지 않게
-            if (!fittedInitially) fitToMarkers()
-            return
-          }
-          schedule()
-        })
-      }
-
-      const schedule = () => {
-        while (!cancelled && inFlight < CONCURRENT && cursor < queue.length) {
-          processOne(queue[cursor++])
-        }
-      }
-      schedule()
-    }
-
-    requestAnimationFrame(renderMap)
-    return () => { cancelled = true }
-  }, [isMapView, mapReady, mapRows, officeAddress])
-
-  // 지도 뷰가 닫히면 인스턴스 무효화 — 다음 진입 시 새 컨테이너에 새 instance 생성 강제
-  // (기존: 옛 DOM에 binding된 instance를 relayout만 했더니 타일이 안 그려지는 케이스 있었음)
-  useEffect(() => {
-    if (isMapView) return
-    mapInstanceRef.current = null
-    clustererRef.current = null
-    markersRef.current = []
-    myLocOverlayRef.current = null
-  }, [isMapView])
-
-  // 현 위치로 이동 (임장 중 모바일용) — 파란 점 오버레이 표시
-  const goToMyLocation = () => {
-    if (!navigator.geolocation) { toast.error('이 기기는 위치 정보를 지원하지 않아요'); return }
-    navigator.geolocation.getCurrentPosition(pos => {
-      const kakao = (window as any).kakao
-      const map = mapInstanceRef.current
-      if (!map || !kakao) return
-      const ll = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude)
-      map.setLevel(4)
-      map.setCenter(ll)
-      if (myLocOverlayRef.current) myLocOverlayRef.current.setMap(null)
-      const el = document.createElement('div')
-      el.style.cssText = 'width:14px;height:14px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.3)'
-      myLocOverlayRef.current = new kakao.maps.CustomOverlay({ position: ll, content: el, zIndex: 5 })
-      myLocOverlayRef.current.setMap(map)
-    }, () => toast.error('현재 위치를 가져오지 못했어요. 위치 권한을 확인해주세요.'))
-  }
 
   // 지도 패널 → 목록으로 이동. mapRows는 목록과 같은 정렬·필터의 전체 집합이므로
   // 행 순번으로 페이지를 계산할 수 있다.
   const jumpToList = (id: string) => {
     const idx = mapRows.findIndex(r => r.id === id)
     if (idx >= 0) setPage(Math.floor(idx / pageSize) + 1)
-    setMapPanel(null)
     setIsMapView(false)
     setJumpId(id)
   }
@@ -2864,6 +2366,7 @@ function BrokerPropertiesContent() {
 
   // 새 매물 — 소재지부터 받는다. 목록을 다 받기 전에도 띄운다 — 홈 [매물 등록] 을 누르면 폰 3G 에서
   // 목록(10초 남짓)을 다 받을 때까지 창이 안 떴다(10-30 재점검)
+  useEscape(!!newProp, () => setNewProp(null))
   const newPropModal = newProp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
           onClick={() => setNewProp(null)}>
@@ -2964,7 +2467,7 @@ function BrokerPropertiesContent() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{isAdminView ? `${adminViewBrokerName}의 매물목록` : '매물목록'}</h1>
-            <p className="mt-0.5 text-sm text-gray-500">전체 {allCount}건 · 검색 {totalCount}건</p>
+            <p className="mt-0.5 text-sm text-gray-500">전체 {allCount ?? '…'}건 · 검색 {totalCount}건</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {/* 첫 화면에서 바로 보이는 등록 버튼 — 표 맨 아래에만 있어 2천 건을 내려야 찾았다(2026-10-25 점검) */}
@@ -3116,191 +2619,18 @@ function BrokerPropertiesContent() {
           </div>
         )}
 
-        {/* 지도 뷰 */}
+        {/* 지도 뷰 — 코드는 지도를 열 때 받는다 */}
         {isMapView && (
-          <div className="relative rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm h-[560px] md:h-[calc(100vh-220px)] md:min-h-[640px]">
-            <div ref={mapContainerRef} className="w-full h-full" />
-            {/* 로딩/에러 오버레이 */}
-            {mapStatus === 'error' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-gray-900 z-10 px-6 text-center">
-                <div className="text-4xl mb-3">🗺️</div>
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">지도를 불러올 수 없어요</p>
-                <p className="text-xs text-gray-500 max-w-md leading-relaxed">
-                  {mapErr === 'no-key'
-                    ? 'NEXT_PUBLIC_KAKAO_MAP_KEY 환경변수가 비어있어요. Vercel 환경변수 설정을 확인해주세요.'
-                    : '카카오 디벨로퍼스 콘솔에서 현재 도메인(이 페이지의 URL)이 [JavaScript 키 → 플랫폼 → Web]에 등록돼 있는지 확인해주세요.'}
-                </p>
-              </div>
-            )}
-            {/* 좌표 없는 매물의 주소 변환은 뒤에서 하므로 지도를 가리지 않는다 — 가리는 건 SDK·매물을 받는 동안만 */}
-            {mapStatus !== 'error' && (!mapReady || mapLoading) && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10">
-                <Loader2 className="h-7 w-7 animate-spin text-blue-600 mb-2" />
-                <p className="text-sm text-gray-500">{!mapReady ? '지도 불러오는 중...' : '매물 불러오는 중...'}</p>
-              </div>
-            )}
-            {/* 범례 */}
-            {mapReady && !mapLoading && (
-              <div className="absolute bottom-4 left-4 flex gap-2 z-10">
-                {[['매매','#14274e'],['전세','#7c3aed'],['월세','#ea580c'],['계약완료','#9ca3af']].map(([label, color]) => (
-                  <span key={label} style={{ background: color }} className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white shadow">
-                    {label}
-                  </span>
-                ))}
-              </div>
-            )}
-            {/* 현 위치 버튼 */}
-            {mapReady && !mapLoading && (
-              <button
-                type="button"
-                onClick={goToMyLocation}
-                aria-label="현 위치로 이동"
-                title="현 위치로 이동"
-                className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 shadow-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <LocateFixed className="h-5 w-5" />
-              </button>
-            )}
-            {/* 몇 건이 찍혔나 — 빠진 매물이 있다는 걸 알게 */}
-            {mapReady && !mapLoading && mapStat && (
-              <div className="absolute left-3 top-3 z-10 rounded-lg bg-white/95 dark:bg-gray-900/95 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 shadow border border-gray-200 dark:border-gray-700">
-                지도에 {mapStat.placed.toLocaleString()} / {mapStat.total.toLocaleString()}건
-                {mapStat.pending > 0 && <span className="text-blue-600"> · 위치 찾는 중 {mapStat.pending.toLocaleString()}</span>}
-                {mapStat.failed > 0 && <span className="text-gray-500" title="소재지가 비었거나 지번이 없어 위치를 못 찾은 매물입니다. 목록에서 소재지를 고치면 다음에 찍힙니다."> · 위치 못 찾음 {mapStat.failed.toLocaleString()}</span>}
-              </div>
-            )}
-            {/* 검색 결과 없음 */}
-            {mapReady && !mapLoading && mapRows.filter(p => p.address).length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10">
-                <p className="text-sm text-gray-500">주소가 있는 매물이 없습니다</p>
-              </div>
-            )}
-
-            {/* 우측 매물 패널 (네이버 부동산 식) — 모바일은 풀시트, 데스크톱은 우측 고정 */}
-            {mapPanel && (
-              <>
-                {/* 모바일 backdrop */}
-                <button
-                  type="button"
-                  aria-label="패널 닫기"
-                  onClick={() => setMapPanel(null)}
-                  className="absolute inset-0 z-20 bg-black/40 md:hidden"
-                />
-                <div className="absolute inset-y-0 right-0 z-30 flex w-full max-w-[420px] md:w-[380px] flex-col bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
-                  {/* 헤더 */}
-                  <div className="flex items-start gap-2 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex-shrink-0">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-500 mb-0.5">{mapPanel.items.length > 1 ? '같은 건물' : '매물 위치'}</p>
-                      <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight break-words">{mapPanel.address || '주소 없음'}</p>
-                      <p className="mt-1 text-xs text-gray-500">매물 <span className="font-bold text-blue-600">{mapPanel.items.length}</span>건</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setMapPanel(null)}
-                      aria-label="닫기"
-                      className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-white"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
-
-                  {/* 매물 리스트 */}
-                  <div className="flex-1 overflow-y-auto">
-                    {mapPanel.items.map(p => {
-                      const primaryDeal = (p.deal_type ?? '').split(',').map(s => s.trim()).filter(Boolean)[0] ?? ''
-                      const color = DEAL_TYPE_HEX_MAP[primaryDeal] ?? '#374151'
-                      const isWolse = (p.deal_type ?? '').includes('월세')
-                      const priceText = isWolse
-                        ? `${p.price != null ? p.price.toLocaleString() : '?'}/${p.monthly_rent != null ? p.monthly_rent.toLocaleString() : '?'}만`
-                        : (p.price == null ? '미정' : (p.price >= 10000 ? Math.floor(p.price / 10000) + '억' + (p.price % 10000 > 0 ? ' ' + (p.price % 10000).toLocaleString() + '만' : '') : p.price.toLocaleString() + '만'))
-                      return (
-                        // 버튼 중첩(a11y 위반)을 피해 아이템은 div, 사진 열기는 썸네일 버튼에만
-                        <div
-                          key={p.id}
-                          onClick={() => {
-                            if (p.images && p.images.length > 0) {
-                              setLightbox({ images: p.images, index: 0 })
-                            }
-                          }}
-                          className="w-full cursor-pointer text-left border-b border-gray-100 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex gap-3"
-                        >
-                          {/* 사진 썸네일 */}
-                          {p.images?.[0] ? (
-                            <button
-                              type="button"
-                              aria-label="사진 보기"
-                              onClick={e => { e.stopPropagation(); setLightbox({ images: p.images, index: 0 }) }}
-                              className="h-20 w-20 flex-shrink-0 rounded-lg overflow-hidden"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={p.images[0]}
-                                alt=""
-                                className="h-full w-full object-cover bg-gray-100 dark:bg-gray-800"
-                                loading="lazy"
-                              />
-                            </button>
-                          ) : (
-                            <div className="h-20 w-20 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-300">
-                              <ImagePlus className="h-6 w-6" />
-                            </div>
-                          )}
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span style={{ background: color }} className="rounded-md px-2 py-0.5 text-[10px] font-bold text-white">
-                                {p.deal_type}
-                              </span>
-                              {p.status === 'contracted' && (
-                                <span className="rounded-md bg-gray-400 px-2 py-0.5 text-[10px] font-bold text-white">계약완료</span>
-                              )}
-                              <span style={{ color }} className="text-base font-black truncate">
-                                {priceText}
-                              </span>
-                              {p.seq_no != null && (
-                                <span className="ml-auto flex-shrink-0 rounded bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 text-[10px] font-bold text-gray-600 dark:text-gray-300">
-                                  #{p.seq_no}
-                                </span>
-                              )}
-                            </div>
-                            {/* 동·호수 — 그룹 안에서 어떤 매물인지 식별 */}
-                            {(() => {
-                              const addr = p.address ?? ''
-                              const hoMatch = addr.match(/[0-9A-Za-z\-]*\d[0-9A-Za-z\-]*호\s*$/i)
-                              if (!hoMatch || hoMatch.index === undefined) return null
-                              const unit = addr.slice(0, hoMatch.index).match(/\s+[0-9A-Za-z\-]+동\s*$/)
-                              const unitText = (unit ? unit[0].trim() + ' ' : '') + hoMatch[0].trim()
-                              return <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-0.5">{unitText}</div>
-                            })()}
-                            <div className="text-xs text-gray-500 dark:text-gray-500">
-                              {p.room_type}
-                              {p.size_pyeong ? ` · ${p.size_pyeong}평` : ''}
-                              {p.floor != null ? ` · ${p.floor}층${p.total_floors ? `/${p.total_floors}` : ''}` : ''}
-                            </div>
-                            {p.brief_memo && (
-                              <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{p.brief_memo}</p>
-                            )}
-                            <div className="mt-1.5 flex items-center justify-between gap-2">
-                              {p.images && p.images.length > 0
-                                ? <p className="text-[10px] text-blue-500">사진 {p.images.length}장 · 클릭해서 보기</p>
-                                : <span />}
-                              <button
-                                type="button"
-                                onClick={e => { e.stopPropagation(); jumpToList(p.id) }}
-                                className="flex-shrink-0 rounded-md border border-gray-200 dark:border-gray-700 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-                              >
-                                목록에서 열기
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <PropertiesMapView
+            mapRows={mapRows}
+            mapLoading={mapLoading}
+            officeAddress={officeAddress}
+            supabase={supabase}
+            geocodeCacheRef={geocodeCacheRef}
+            savedCoordIdsRef={savedCoordIdsRef}
+            onOpenImages={images => setLightbox({ images, index: 0 })}
+            onJumpToList={jumpToList}
+          />
         )}
 
         {/* 테이블 */}

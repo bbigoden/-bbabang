@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { todayKST, hmKST, ymdKST } from '@/lib/date-kst'
+import { fetchAllPaged } from '@/lib/fetch-all-paged'
+import { getOfficeMembers } from '@/lib/office-members'
 import type { BoardRow } from '@/components/broker/pixel-office'
 
 /**
@@ -28,6 +30,8 @@ interface BoardMember { id: string; profiles: { name: string | null } | null }
 // 같은 숫자를 동시에 두 번 셌다(2026-11-05). 5초 안의 다시 묻기는 앞의 것을 같이 쓴다.
 const boardRecent = new Map<string, { at: number; p: Promise<OfficeBoard> }>()
 const BOARD_REUSE_MS = 5000
+/** office_board_counts 가 담당자별 광고 수(kind)까지 주는 새 함수인지 — 한 번 확인되면 브라우저 셈을 건너뛴다 */
+let rpcHasAdCounts = false
 
 export function fetchOfficeBoard(supabase: SupabaseClient, officeId: string, members?: BoardMember[]): Promise<OfficeBoard> {
   const hit = boardRecent.get(officeId)
@@ -39,31 +43,31 @@ export function fetchOfficeBoard(supabase: SupabaseClient, officeId: string, mem
 }
 
 async function countOfficeBoard(supabase: SupabaseClient, officeId: string, members?: BoardMember[]): Promise<OfficeBoard> {
-  if (!members) {
-    const { data } = await supabase.from('broker_profiles')
-      .select('id, is_approved, profiles:profiles_visible(name)')
-      .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`)
-    members = ((data as unknown as (BoardMember & { is_approved: boolean | null })[] | null) ?? [])
-      .filter(m => m.id === officeId || m.is_approved)
-      .sort((a, b) => (a.id === officeId ? -1 : b.id === officeId ? 1 : 0))
-  }
+  // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members, 대표가 맨 앞)
+  const membersP = members ? Promise.resolve(members) : getOfficeMembers(officeId).then(
+    ms => ms.filter(m => m.approved).map(m => ({ id: m.id, profiles: { name: m.name } }) as BoardMember), () => [] as BoardMember[])
   const todayYmd = todayKST()
-  const [cnt, ls, ps] = await Promise.all([
-    // 사람마다 전체·거래가능·오늘 등록 수를 한 번에 센다(office_board_counts). 예전엔 사람마다 2번 + 전체 3번
-    // 따로 물어 직원 7명이면 17번 — 폰에서 사무실 화면이 3초 넘게 걸렸다(2026-11-05)
-    supabase.rpc('office_board_counts', { p_office: officeId }),
-    supabase.from('ad_listings').select('manager, bank_period').eq('broker_id', officeId)
-      // 광고관리 [등록매물] 탭·뱅크 화면과 같은 잣대. 상태(서비스중 등)로 세면 '수정실패' 처럼
-      // 등록매물에 있는 매물이 빠져 광고관리와 한 건 어긋났다(2026-10-29)
-      .eq('bank_tab', '등록매물'),
-    supabase.from('ad_posts').select('posted_at, ad_listings!inner(manager, broker_id)')
-      .eq('ad_listings.broker_id', officeId).eq('status', 'posted').eq('channel', 'daangn'),
-  ])
-  const byBroker = new Map(((cnt.data ?? []) as { broker_id: string; total: number; avail: number; today: number }[])
-    .map(c => [c.broker_id, c]))
+  // 사람마다 전체·거래가능·오늘 등록 수를 한 번에 센다(office_board_counts). 예전엔 사람마다 2번 + 전체 3번
+  // 따로 물어 직원 7명이면 17번 — 폰에서 사무실 화면이 3초 넘게 걸렸다(2026-11-05)
+  // 2026-11-06 부터 담당자마다 뱅크·당근 수도 같이 센다(kind 칸, supabase/migrations/office_board_counts_ads_20261106.sql).
+  // 예전엔 당근 게시중 광고를 날짜 없이 전부 받아 브라우저에서 셌다.
+  // DB 함수가 아직 옛것이면 브라우저 셈이 필요하다. 처음엔 둘을 함께 보내(예전과 같은 왕복) 새 함수인 걸
+  // 한 번 확인하면 그다음부터는 브라우저 셈을 보내지 않는다 — 줄 세우면 한 왕복이 더 늦었다.
+  const 브라우저셈 = rpcHasAdCounts ? null : countAdsInBrowser(supabase, officeId, todayYmd)
+  const [cnt, ms] = await Promise.all([supabase.rpc('office_board_counts', { p_office: officeId }), membersP])
+  members = ms
+  const 받은 = (cnt.data ?? []) as CountRow[]
+  const 새함수 = 받은.some(c => 'kind' in c)
+  if (새함수) rpcHasAdCounts = true
+  const byBroker = new Map(받은.filter(c => !새함수 || c.kind === 'broker').map(c => [c.broker_id!, c]))
+  const 담당별 = 새함수
+    ? 받은.filter(c => c.kind === 'manager').map(c => ({
+      manager: c.manager ?? null, bank: c.bank ?? 0, bankToday: c.bank_today ?? 0, daangn: c.daangn ?? 0, daangnToday: c.daangn_today ?? 0,
+    }))
+    : await (브라우저셈 ?? countAdsInBrowser(supabase, officeId, todayYmd))
   const counts = members.map(m => [m.id, byBroker.get(m.id)?.total ?? 0, byBroker.get(m.id)?.avail ?? 0] as const)
   let total = 0, totalAvail = 0, totalToday = 0
-  for (const c of byBroker.values()) { total += c.total; totalAvail += c.avail; totalToday += c.today }
+  for (const c of byBroker.values()) { total += c.total ?? 0; totalAvail += c.avail ?? 0; totalToday += c.today ?? 0 }
   const empty = (name: string): OfficeBoardRow => ({ name, props: 0, avail: 0, bank: 0, daangn: 0, daangnToday: 0 })
   const byName: Record<string, OfficeBoardRow> = {}
   // 대표·이사는 한 줄 '드래곤'으로 합친다(2026-10-28 사장님) — 같은 줄을 두 이름이 가리킨다
@@ -81,24 +85,17 @@ async function countOfficeBoard(supabase: SupabaseClient, officeId: string, memb
   for (const [id, c] of byBroker) {
     if (!c.today) continue
     const r = rows.find(x => x.ids?.includes(id))
-    if (r) r.propsToday = (r.propsToday ?? 0) + c.today
+    if (r) r.propsToday = (r.propsToday ?? 0) + (c.today ?? 0)
   }
-  // 뱅크 오늘 등록 — 등록기간('26.10.30 ~26.11.29')이 오늘 시작한 것(재등록 포함). 사무실 화면 영업부 말풍선과 같은 잣대(2026-10-30)
-  const 오늘뱅크 = todayYmd.slice(2).replace(/-/g, '.')
-  for (const l of (ls.data ?? []) as { manager: string | null; bank_period: string | null }[]) {
-    const r = l.manager ? byName[l.manager] : undefined
+  // 담당자 이름으로 줄을 찾아 더한다. 빈 담당자·명단에 없는 이름은 전체에만 들어간다(아래 '없음' 줄)
+  for (const a of 담당별) {
+    const r = a.manager ? byName[a.manager] : undefined
     for (const t of [sum, r]) {
       if (!t) continue
-      t.bank++
-      if (l.bank_period?.startsWith(오늘뱅크)) t.bankToday = (t.bankToday ?? 0) + 1
-    }
-  }
-  for (const p of (ps.data ?? []) as unknown as { posted_at: string | null; ad_listings: { manager: string | null } }[]) {
-    const r = p.ad_listings.manager ? byName[p.ad_listings.manager] : undefined
-    for (const t of [sum, r]) {
-      if (!t) continue
-      t.daangn++
-      if (p.posted_at && ymdKST(p.posted_at) === todayYmd) t.daangnToday++
+      t.bank += a.bank
+      if (a.bankToday) t.bankToday = (t.bankToday ?? 0) + a.bankToday
+      t.daangn += a.daangn
+      t.daangnToday += a.daangnToday
     }
   }
   // 줄 순서 — 드래곤 맨 위, 나머지는 매물장 많은 순(2026-10-29 사장님)
@@ -112,4 +109,46 @@ async function countOfficeBoard(supabase: SupabaseClient, officeId: string, memb
   rest.daangnToday = sum.daangnToday - rows.reduce((s, r) => s + r.daangnToday, 0)
   if (rest.bank > 0 || rest.daangn > 0) shown.push(rest)
   return { rows: shown, total: sum, at: hmKST(new Date().toISOString()), byId: Object.fromEntries(counts.map(c => [c[0], c[1]])) }
+}
+
+/** office_board_counts 한 줄. kind 가 없으면 아직 적용 전 함수(broker 줄만 온다) */
+interface CountRow {
+  kind?: 'broker' | 'manager'
+  broker_id: string | null
+  manager?: string | null
+  total: number | null; avail: number | null; today: number | null
+  bank?: number | null; bank_today?: number | null; daangn?: number | null; daangn_today?: number | null
+}
+interface ManagerAds { manager: string | null; bank: number; bankToday: number; daangn: number; daangnToday: number }
+
+/**
+ * office_board_counts 가 뱅크·당근을 아직 안 세 줄 때(마이그레이션 적용 전) 브라우저에서 센다.
+ * 1,000줄을 넘으면 PostgREST 가 말없이 잘라 숫자가 틀려진다 — 페이지를 이어 받는다(2026-11-06 점검).
+ * 마이그레이션이 적용되면 안 불린다 — 그때 지워도 된다.
+ */
+async function countAdsInBrowser(supabase: SupabaseClient, officeId: string, todayYmd: string): Promise<ManagerAds[]> {
+  const [ls, ps] = await Promise.all([
+    fetchAllPaged((from, to) => supabase.from('ad_listings').select('manager, bank_period').eq('broker_id', officeId)
+      // 광고관리 [등록매물] 탭·뱅크 화면과 같은 잣대. 상태(서비스중 등)로 세면 '수정실패' 처럼
+      // 등록매물에 있는 매물이 빠져 광고관리와 한 건 어긋났다(2026-10-29)
+      .eq('bank_tab', '등록매물').order('id').range(from, to)).catch(() => []),
+    fetchAllPaged((from, to) => supabase.from('ad_posts').select('posted_at, ad_listings!inner(manager, broker_id)')
+      .eq('ad_listings.broker_id', officeId).eq('status', 'posted').eq('channel', 'daangn').order('id').range(from, to))
+      .catch(() => []),
+  ])
+  const by = new Map<string | null, ManagerAds>()
+  const at = (m: string | null) => by.get(m) ?? by.set(m, { manager: m, bank: 0, bankToday: 0, daangn: 0, daangnToday: 0 }).get(m)!
+  // 뱅크 오늘 등록 — 등록기간('26.10.30 ~26.11.29')이 오늘 시작한 것(재등록 포함). 사무실 화면 영업부 말풍선과 같은 잣대(2026-10-30)
+  const 오늘뱅크 = todayYmd.slice(2).replace(/-/g, '.')
+  for (const l of ls as { manager: string | null; bank_period: string | null }[]) {
+    const a = at(l.manager)
+    a.bank++
+    if (l.bank_period?.startsWith(오늘뱅크)) a.bankToday++
+  }
+  for (const p of ps as unknown as { posted_at: string | null; ad_listings: { manager: string | null } }[]) {
+    const a = at(p.ad_listings.manager)
+    a.daangn++
+    if (p.posted_at && ymdKST(p.posted_at) === todayYmd) a.daangnToday++
+  }
+  return [...by.values()]
 }

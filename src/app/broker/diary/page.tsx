@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { getOfficeMembers } from '@/lib/office-members'
 import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -810,23 +811,18 @@ export default function BrokerDiaryPage() {
 
     // 직원: 대표 이름 — 담당자에 대표가 걸린 매물은 중개사메모를 직원도 본다(매물목록과 동일)
     if (owner) setOfficeOwnerName(prof?.name ?? '')
-    else if (b.parent_broker_id) void (async () => {
-      const { data } = await supabase.from('broker_profiles').select('profiles(name)').eq('id', b.parent_broker_id).single()
-      setOfficeOwnerName((data?.profiles as any)?.name ?? '')
-    })()
+    else if (b.parent_broker_id) void getOfficeMembers(b.parent_broker_id).then(
+      ms => setOfficeOwnerName(ms.find(m => m.isOwner)?.name ?? ''), () => {})
 
     // 대표: 직원 목록 — 일지 고르는 칸에만 쓰이니 화면을 기다리게 하지 않는다.
     // 기다리면 직원 → 퇴사자(1,000행 넘어 두 번) 왕복이 줄을 서, 폰 느린 회선에서 일지·광고현황이
     // 약 6초 늦게 떴다(2026-10-29 점검).
     // 이사도 같다 — 이사는 대표 + 다른 직원(자기 빼고) 일지를 고른다
     if (manager) void (async () => {
-      const { data: emps } = await supabase
-        .from('broker_profiles')
-        .select('id, profiles(name)')
-        .or(`id.eq.${officeId},and(parent_broker_id.eq.${officeId},is_approved.eq.true)`)
-        .neq('id', b.id)
+      // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members)
+      const emps = await getOfficeMembers(officeId).catch(() => null)
       if (emps) {
-        const empList = emps.map((e: any) => ({ id: e.id, name: (e.profiles as any)?.name ?? '직원' }))
+        const empList = emps.filter(e => e.approved && e.id !== b.id).map(e => ({ id: e.id, name: e.name ?? '직원' }))
         setEmployees(empList)
         setTeamMembers([prof?.name, ...empList.map(e => e.name)].filter(Boolean) as string[])
       } else {

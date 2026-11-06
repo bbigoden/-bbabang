@@ -208,6 +208,8 @@ export default function OfficePage() {
   // 앞 새로 보기가 아직 오는 중이면 다음 것을 겹쳐 보내지 않는다 — 폰 3G 에서 겹친 요청이 서로 끊겨
   // (HEAD ERR_ABORTED) 숫자가 몇 분씩 옛것으로 남았다(11-03 점검)
   const 불러오는중 = useRef(false)
+  /** 받아 둔 매물 이름(bank_no → 이름). listingNames 와 같은 것을 새로 보기 사이에 들고 있는다 */
+  const 이름캐시 = useRef<Record<string, { short: string; full: string; 확인중: boolean }>>({})
   const loadOnce = useCallback(async () => {
     if (!officeId) return
     // 사무실 화면에 필요한 15가지를 한 번에(office_room_snapshot). 따로 물을 땐 폰이 화면을 그리느라
@@ -232,10 +234,14 @@ export default function OfficePage() {
     const jobs = dropSuperseded((aj.data as AdJob[] | null) ?? [], j => `${j.kind}|${JSON.stringify(j.params?.bankNos ?? null)}|${JSON.stringify(j.params?.channels ?? null)}`)
     setAdJobs(jobs)
     // 돌거나 줄 선 광고 작업의 매물 이름 — '성월리 상가'(동네 + 종류). 번지·호수는 말풍선에 안 적는다(번지로 시작하면 읍면동)
+    // 이름은 번호마다 한 번만 묻는다 — 작업이 줄 서 있는 동안 20초마다 같은 이름을 다시 받았다(2026-11-06 점검).
+    // '확인중' 은 뱅크에서 풀리면 바뀌므로 그것만 다시 본다.
     const 번호들 = [...new Set(jobs
-      .flatMap(j => (j.params?.bankNos as string[] | undefined) ?? []).map(String))].slice(0, 100)
+      .flatMap(j => (j.params?.bankNos as string[] | undefined) ?? []).map(String))]
+      .filter(no => { const c = 이름캐시.current[no]; return !c || c.확인중 }).slice(0, 100)
     if (번호들.length) void supabase.from('ad_listings').select('bank_no, region, address_detail, property_kind, bank_status').in('bank_no', 번호들).then(({ data: ls }) => {
-      setListingNames(Object.fromEntries(((ls ?? []) as { bank_no: string; region: string | null; address_detail: string | null; property_kind: string | null; bank_status: string | null }[])
+      if (!ls) return
+      이름캐시.current = { ...이름캐시.current, ...Object.fromEntries(((ls ?? []) as { bank_no: string; region: string | null; address_detail: string | null; property_kind: string | null; bank_status: string | null }[])
         .map(l => {
           const 동 = l.region?.split(' ').pop()
           // 상세주소가 '성월리 …' 처럼 동네로 시작할 때만 동네를 뺀다 — '103동 508호' 는 동네가 없어 어느 단지인지 몰랐다(11-04)
@@ -243,7 +249,8 @@ export default function OfficePage() {
           const short = [(동네로시작 ? l.address_detail!.split(' ')[0] : null) || 동, l.property_kind?.replace(/점포$/, '')].filter(Boolean).join(' ')
           const full = [동네로시작 ? null : 동, l.address_detail].filter(Boolean).join(' ') || short
           return [l.bank_no, { short, full, 확인중: /^확인중/.test(l.bank_status ?? '') }]
-        })))
+        })) }
+      setListingNames(이름캐시.current)
     })
     setBankJobs(dropSuperseded((bj.data as unknown as BankJob[] | null) ?? [], j => j.property_id))
     const 채널 = (ch: string) => S.postsByChannel?.[ch] ?? 0
@@ -274,9 +281,10 @@ export default function OfficePage() {
       const [ms, props, ss, dys, br] = await 사람쪽
       setBidRun(((br as { data: { value: BidRun } | null }).data?.value) ?? null)
       const 쓴일지: Record<string, string> = {}
-      for (const d of (dys.data ?? []) as { broker_id: string; sections_content: Record<string, unknown> | null; content: string | null; updated_at: string }[]) {
-        // 날짜를 열기만 해도 빈 줄이 생긴다 — 무엇이라도 적었을 때만 '썼다'
-        const 글 = [...Object.values(d.sections_content ?? {}), d.content].some(v => typeof v === 'string' && v.trim())
+      for (const d of (dys.data ?? []) as { broker_id: string; wrote?: boolean; sections_content?: Record<string, unknown> | null; content?: string | null; updated_at: string }[]) {
+        // 날짜를 열기만 해도 빈 줄이 생긴다 — 무엇이라도 적었을 때만 '썼다'.
+        // 11-06 부터 DB(office_room_snapshot)가 원문 대신 썼는지(wrote)만 보낸다 — 옛 함수면 원문으로 판정
+        const 글 = d.wrote ?? [...Object.values(d.sections_content ?? {}), d.content].some(v => typeof v === 'string' && v.trim())
         if (글) 쓴일지[d.broker_id] = d.updated_at
       }
       setDiaries(쓴일지)

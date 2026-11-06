@@ -44,6 +44,8 @@ export function Avatar({ member, name, size = 40, className }: { member?: Member
   )
 }
 
+// Msg(shared.ts) 칸 그대로 — Msg 에 칸을 더하면 여기도 더할 것
+const MSG_COLS = 'id, thread_id, sender_broker_id, body, image_url, image_paths, file_url, file_name, reply_to_id, deleted_at, bot_name, edited_at, mention_ids, created_at'
 type ReactMap = Record<string, Record<string, string[]>> // message → 공감 키 → broker id 들
 
 interface Props {
@@ -71,7 +73,7 @@ export function ChatRoom(props: Props) {
   const supabase = useMemo(() => createClient(), [])
   const toast = useToast()
 
-  // 펼쳐 둔 방의 메세지는 알림음을 내지 않는다
+  // 펼쳐 둔 방의 메시지는 알림음을 내지 않는다
   useEffect(() => {
     setOpenOfficeThread(thread.id)
     return () => setOpenOfficeThread(null)
@@ -89,7 +91,7 @@ export function ChatRoom(props: Props) {
 
   const [draft, setDraft] = useState('')
   const [replyTo, setReplyTo] = useState<Msg | null>(null)
-  const [editing, setEditing] = useState<Msg | null>(null) // 고치는 중인 내 메세지 — 입력칸에 본문을 올려 고친다
+  const [editing, setEditing] = useState<Msg | null>(null) // 고치는 중인 내 메시지 — 입력칸에 본문을 올려 고친다
   const [mentionQ, setMentionQ] = useState<{ at: number; q: string } | null>(null) // '@' 뒤에 쓰는 중인 이름
   const [sending, setSending] = useState(false)
   const [attachOpen, setAttachOpen] = useState(false)
@@ -103,7 +105,7 @@ export function ChatRoom(props: Props) {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [newBelow, setNewBelow] = useState(0) // 위로 올려 보는 중 새로 온 메시지 수
   const [farFromBottom, setFarFromBottom] = useState(false) // 맨 아래로 버튼
-  const [unreadFrom, setUnreadFrom] = useState<string | null>(null) // '여기까지 읽었습니다' 아래 첫 메세지
+  const [unreadFrom, setUnreadFrom] = useState<string | null>(null) // '여기까지 읽었습니다' 아래 첫 메시지
   const [dragging, setDragging] = useState(false)
   const [staged, setStaged] = useState<File[]>([]) // 사진·파일은 바로 보내지 않고 한 번 보여준다(카톡처럼)
 
@@ -192,7 +194,7 @@ export function ChatRoom(props: Props) {
     if (room) { applyRoom(room, mode); return }
     // 한 번에 받기가 안 되면 예전처럼 나눠서 받는다
     const [{ data }, { data: mem }] = await Promise.all([
-      supabase.from('office_chat_messages').select('*').eq('thread_id', thread.id).order('created_at', { ascending: false }).limit(PAGE),
+      supabase.from('office_chat_messages').select(MSG_COLS).eq('thread_id', thread.id).order('created_at', { ascending: false }).limit(PAGE),
       supabase.from('office_chat_members').select('broker_id, last_read_at').eq('thread_id', thread.id),
     ])
     const rows = ((data ?? []) as Msg[]).reverse()
@@ -230,7 +232,7 @@ export function ChatRoom(props: Props) {
   const loadOlder = async () => {
     const first = messages[0]
     if (!first) return
-    const { data } = await supabase.from('office_chat_messages').select('*').eq('thread_id', thread.id)
+    const { data } = await supabase.from('office_chat_messages').select(MSG_COLS).eq('thread_id', thread.id)
       .lt('created_at', first.created_at).order('created_at', { ascending: false }).limit(PAGE)
     const rows = ((data ?? []) as Msg[]).reverse()
     keepScrollRef.current = scrollRef.current ? scrollRef.current.scrollHeight - scrollRef.current.scrollTop : null
@@ -244,9 +246,9 @@ export function ChatRoom(props: Props) {
     setSearchOpen(false); setSideOpen(false); setDrawer(null)
     if (!messagesRef.current.some(m => m.id === target.id)) {
       const [before, after] = await Promise.all([
-        supabase.from('office_chat_messages').select('*').eq('thread_id', thread.id)
+        supabase.from('office_chat_messages').select(MSG_COLS).eq('thread_id', thread.id)
           .lt('created_at', target.created_at).order('created_at', { ascending: false }).limit(30),
-        supabase.from('office_chat_messages').select('*').eq('thread_id', thread.id)
+        supabase.from('office_chat_messages').select(MSG_COLS).eq('thread_id', thread.id)
           .gte('created_at', target.created_at).order('created_at', { ascending: true }).limit(PAGE),
       ])
       const rows = [...((before.data ?? []) as Msg[]).reverse(), ...((after.data ?? []) as Msg[])]
@@ -272,7 +274,7 @@ export function ChatRoom(props: Props) {
   }, [messages, thread.notice_message_id, extra])
   useEffect(() => {
     if (!needIds) return
-    supabase.from('office_chat_messages').select('*').in('id', needIds.split(','))
+    supabase.from('office_chat_messages').select(MSG_COLS).in('id', needIds.split(','))
       .then(({ data }) => setExtra(prev => {
         const next = { ...prev }
         for (const m of (data ?? []) as Msg[]) next[m.id] = m
@@ -335,7 +337,7 @@ export function ChatRoom(props: Props) {
       el.scrollTop = el.scrollHeight - keepScrollRef.current
       keepScrollRef.current = null
     } else if (jumpUnreadRef.current) {
-      // 안 읽은 첫 메세지를 화면 위쪽(공지 아래)에. 남은 게 한 화면이 안 되면 자연히 맨 아래에 닿는다
+      // 안 읽은 첫 메시지를 화면 위쪽(공지 아래)에. 남은 게 한 화면이 안 되면 자연히 맨 아래에 닿는다
       const target = document.getElementById(`msg-unread-${jumpUnreadRef.current}`)
       jumpUnreadRef.current = null
       if (target) el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top - (notice ? 88 : 8)
@@ -347,7 +349,7 @@ export function ChatRoom(props: Props) {
   }, [messages, highlight])
 
   // 맨 아래를 보던 중이면 사진·공감이 늦게 붙거나 키보드가 올라와도 맨 아래에 붙어 있는다
-  // (공감은 메세지보다 늦게 받아 와서, 방을 열면 마지막 메세지·공감이 입력창 뒤로 잘려 있었다)
+  // (공감은 메시지보다 늦게 받아 와서, 방을 열면 마지막 메시지·공감이 입력창 뒤로 잘려 있었다)
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -374,7 +376,7 @@ export function ChatRoom(props: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }
 
-  // ── 지운 메세지 원본(대표만) ─────────────────────────────
+  // ── 지운 메시지 원본(대표만) ─────────────────────────────
   // 직원이 '모두에게서 삭제' 한 것도 대표 화면엔 원본을 흐리게 보여 준다. 읽기 권한은 DB 가 대표에게만 준다
   // 대표·이사(2026-11-05 이사=대표 권한). DB 규칙 ocdm_select 도 같다
   const isOwner = myId === office || isDirector(auth.broker)
@@ -483,7 +485,7 @@ export function ChatRoom(props: Props) {
     if (!error && data) return data as Msg
     // 저장은 됐는데 응답만 끊긴 경우 — 다시 보내기가 같은 번호로 또 넣다 '중복'으로 막히면 이미 있는 것을 쓴다
     if (error?.code === '23505') {
-      const { data: got } = await supabase.from('office_chat_messages').select('*').eq('id', m.id).maybeSingle()
+      const { data: got } = await supabase.from('office_chat_messages').select(MSG_COLS).eq('id', m.id).maybeSingle()
       if (got) return got as Msg
     }
     throw error ?? new Error('전송 실패')
@@ -527,7 +529,7 @@ export function ChatRoom(props: Props) {
     setExtra(prev => prev[m.id] ? { ...prev, [m.id]: { ...prev[m.id], ...patch } } : prev)
     cancelEdit()
   }
-  // 카톡처럼 보낸 지 24시간 안의 내 글자 메세지만
+  // 카톡처럼 보낸 지 24시간 안의 내 글자 메시지만
   const canEdit = (m: Msg) => m.sender_broker_id === myId && !m.bot_name && !m.deleted_at && !m.pending && !!m.body
     && imagesOf(m).length === 0 && !m.file_url && Date.now() - new Date(m.created_at).getTime() < 24 * 3600 * 1000
 
@@ -627,7 +629,7 @@ export function ChatRoom(props: Props) {
 
   const deleteMsg = async (m: Msg) => {
     setMenuMsg(null)
-    if (!window.confirm('모두에게서 삭제할까요? 대화방의 모든 사람에게서 사라지고 "삭제된 메세지입니다"로 남아요.')) return
+    if (!window.confirm('모두에게서 삭제할까요? 대화방의 모든 사람에게서 사라지고 "삭제된 메시지입니다"로 남아요.')) return
     // 첨부는 지우지 않는다 — 원본은 대표가 볼 수 있게 office_chat_deleted_messages 로 옮겨진다
     const { error } = await supabase.rpc('delete_office_chat_message', { p_id: m.id })
     if (error) { toast.error(`지우지 못했어요. ${whyFailed(error)}`); return }
@@ -743,7 +745,7 @@ export function ChatRoom(props: Props) {
           </div>
         )}
         {!loading && messages.length === 0 && (
-          <p className="py-16 text-center text-sm text-gray-600 dark:text-gray-400">첫 메세지를 보내 보세요</p>
+          <p className="py-16 text-center text-sm text-gray-600 dark:text-gray-400">첫 메시지를 보내 보세요</p>
         )}
         {messages.map((m, i) => {
           const prev = messages[i - 1]
@@ -801,7 +803,7 @@ export function ChatRoom(props: Props) {
                           onOpenImages={(images, index) => setLightbox({ images, index })} />
                       ) : m.deleted_at ? (
                         <div className={cn('flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm text-gray-500', mine ? 'bg-[#fee500]/70' : 'bg-white/80 dark:bg-gray-800')}>
-                          <Trash2 className="h-3.5 w-3.5" /> 삭제된 메세지입니다.
+                          <Trash2 className="h-3.5 w-3.5" /> 삭제된 메시지입니다.
                         </div>
                       ) : imgs.length > 0 ? (
                         <PhotoGrid paths={imgs} urls={urls} onOpen={idx => {
@@ -835,7 +837,7 @@ export function ChatRoom(props: Props) {
                     <div className={cn('relative flex flex-shrink-0 flex-col pb-0.5 leading-tight', mine ? 'items-end' : 'items-start')}>
                       {/* 띄워서 얹는다 — 흐름 안에 넣으면 마우스만 올려도 이 칸이 넓어지고 높아져 말풍선이 옆으로 밀리고 아랫줄이 내려갔다 */}
                       {!m.deleted_at && !m.pending && (
-                        <button onClick={() => setMenuMsg(m)} className={cn('absolute bottom-0.5 hidden rounded p-0.5 text-gray-600 hover:bg-black/10 group-hover:block', mine ? 'right-full mr-1' : 'left-full ml-1')} aria-label="메세지 메뉴">
+                        <button onClick={() => setMenuMsg(m)} className={cn('absolute bottom-0.5 hidden rounded p-0.5 text-gray-600 hover:bg-black/10 group-hover:block', mine ? 'right-full mr-1' : 'left-full ml-1')} aria-label="메시지 메뉴">
                           <MoreHorizontal className="h-3.5 w-3.5" />
                         </button>
                       )}
@@ -877,7 +879,7 @@ export function ChatRoom(props: Props) {
 
       {newBelow > 0 ? (
         <button onClick={toBottom} className="absolute bottom-20 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-gray-900/80 px-3 py-1.5 text-xs text-white shadow">
-          <ArrowDown className="h-3.5 w-3.5" /> 새 메세지 {newBelow}개
+          <ArrowDown className="h-3.5 w-3.5" /> 새 메시지 {newBelow}개
         </button>
       ) : (farFromBottom || detached) && (
         // 카톡처럼 오른쪽 아래 동그란 '맨 아래로'
@@ -906,7 +908,7 @@ export function ChatRoom(props: Props) {
         <div className="flex items-center gap-2 border-t border-gray-200 bg-white px-3 py-2 dark:border-gray-800 dark:bg-gray-900">
           <Pencil className="h-4 w-4 flex-shrink-0 text-gray-500" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">메세지 수정</p>
+            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">메시지 수정</p>
             <p className="truncate text-xs text-gray-500">{editing.body}</p>
           </div>
           <button onClick={cancelEdit} className="rounded p-1 text-gray-400 hover:bg-gray-100" aria-label="수정 취소"><X className="h-4 w-4" /></button>
@@ -963,7 +965,7 @@ export function ChatRoom(props: Props) {
             const files = Array.from(e.clipboardData.files)
             if (files.length) { e.preventDefault(); stage(files) }
           }}
-          placeholder={editing ? '고칠 내용 입력' : '메세지 입력'}
+          placeholder={editing ? '고칠 내용 입력' : '메시지 입력'}
           // 전역 포커스 테두리(globals.css *:focus-visible)가 누를 때마다 네모 테두리를 씌웠다 — 이 칸은 늘 글을 쓰는 곳이라 뺀다
           style={{ outline: 'none', borderRadius: 16 }}
           className="max-h-[120px] min-h-[36px] flex-1 resize-none rounded-2xl bg-gray-100 px-3 py-2 text-[15px] outline-none dark:bg-gray-800 dark:text-gray-100"
@@ -974,7 +976,7 @@ export function ChatRoom(props: Props) {
         </button>
       </div>
 
-      {/* 메세지 메뉴(길게 누르기·우클릭) */}
+      {/* 메시지 메뉴(길게 누르기·우클릭) */}
       {phoneSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={() => setPhoneSheet(null)} role="dialog" aria-modal="true" aria-label="전화번호">
           <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
@@ -1011,7 +1013,7 @@ export function ChatRoom(props: Props) {
       })()}
       {menuMsg && (
         // 폰은 카톡처럼 화면 가운데에 띄운다 — 아래에 붙이면 기기에 따라 아래 칸(복사·삭제)이 화면 밖으로 잘렸다
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onPointerDown={() => { menuArmed.current = true }} onClick={() => { if (menuArmed.current) setMenuMsg(null) }} role="dialog" aria-modal="true" aria-label="메세지 메뉴">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onPointerDown={() => { menuArmed.current = true }} onClick={() => { if (menuArmed.current) setMenuMsg(null) }} role="dialog" aria-modal="true" aria-label="메시지 메뉴">
           <div className="max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white dark:bg-gray-900" onClick={e => e.stopPropagation()}>
             <div className="flex justify-around border-b border-gray-100 px-2 py-3 dark:border-gray-800">
               {REACTIONS.map(r => {
@@ -1190,7 +1192,7 @@ function FileBubble({ name, url, mine }: { name: string | null | undefined; url:
   )
 }
 
-/** 대표 화면의 지운 메세지 — 원본을 흐리게, 위에 '삭제됨 · 대표만 보여요' */
+/** 대표 화면의 지운 메시지 — 원본을 흐리게, 위에 '삭제됨 · 대표만 보여요' */
 function DeletedOriginal({ orig, mine, urls, onPhone, tagNames, onOpenImages }: {
   orig: Msg; mine: boolean; urls: Record<string, string>; onPhone: (phone: string) => void; tagNames: string[]
   onOpenImages: (images: string[], index: number) => void
@@ -1249,7 +1251,7 @@ function SearchBar({ threadId, nameOf, onPick, onClose }: {
     const t = setTimeout(async () => {
       // ilike 의 % _ \ 는 글자 그대로 찾게 막는다
       const safe = term.replace(/[\\%_]/g, c => '\\' + c)
-      const { data } = await supabase.from('office_chat_messages').select('*').eq('thread_id', threadId)
+      const { data } = await supabase.from('office_chat_messages').select(MSG_COLS).eq('thread_id', threadId)
         .is('deleted_at', null).ilike('body', `%${safe}%`).order('created_at', { ascending: false }).limit(50)
       setHits((data ?? []) as Msg[])
     }, 250)
@@ -1291,7 +1293,7 @@ function Drawer({ kind, threadId, nameOf, onClose, onJump, onOpenImages }: {
 
   useEffect(() => {
     setRows(null)
-    let q = supabase.from('office_chat_messages').select('*').eq('thread_id', threadId).is('deleted_at', null)
+    let q = supabase.from('office_chat_messages').select(MSG_COLS).eq('thread_id', threadId).is('deleted_at', null)
     if (kind === 'photo') q = q.or('image_url.not.is.null,image_paths.not.is.null')
     else if (kind === 'file') q = q.not('file_url', 'is', null)
     else q = q.ilike('body', '%http%')

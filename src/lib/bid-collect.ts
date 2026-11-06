@@ -3,6 +3,7 @@ import { addDays, todayKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
 import { DOC_RGN, parseMfrc } from '@/lib/bid-notices'
 import { bidFloor, trimBids } from '@/lib/bid-trim'
+import { BACKFILL_FLOOR } from '@/lib/bid-floor'
 import {
   BID_INDUSTRY_CD, G2bError, g2bDt, g2bGet, toBidRow, toBsisPatch, toNoticeRow, toPrepar, toResultRow,
   type G2bService,
@@ -31,8 +32,8 @@ const DAILY_LIMIT = 9_800
  * 상세가 한도를 다 먹은 날엔 새로 개찰된 낙찰 목록(하루 1~2번)조차 못 받았다.
  */
 const DETAIL_LIMIT = 9_000
-/** 과거 데이터는 여기까지만 거슬러 올라간다 */
-export const BACKFILL_FLOOR = '2023-01-01'
+// 화면도 쓰는 값이라 bid-floor 로 옮겼다. 다른 수집 코드(d2b-collect)가 여기서 가져가므로 그대로 내보낸다.
+export { BACKFILL_FLOOR }
 const RECENT_DAYS = 3
 /**
  * 낙찰은 '개찰일'로 받는다. 공고 뒤 1~2주에 개찰하므로 최근 낙찰은 2주를 늘 다시 본다.
@@ -208,12 +209,16 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
   const fillDetail = async (r: { bid_ntce_no: string; bid_ntce_ord: string; rbid_no: string }) => {
     const key = { bidNtceNo: r.bid_ntce_no, bidNtceOrd: r.bid_ntce_ord }
     // 서로 기다릴 일이 없는 조회는 한꺼번에 보낸다
-    const [prepar, compt, { data: n0 }] = await Promise.all([
+    const [prepar, compt, { data: n0 }, old] = await Promise.all([
       call('result', 'getOpengResultListInfoCnstwkPreparPcDetail', { numOfRows: 30, pageNo: 1, inqryDiv: 2, ...key }, DETAIL_LIMIT),
       call('result', 'getOpengResultListInfoOpengCompt', { numOfRows: 999, pageNo: 1, ...key }, DETAIL_LIMIT),
       supa.from('bid_notices').select('lwlt_rate, a_amount, bssamt')
         .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).maybeSingle(),
+      // 이미 있는 투찰 줄 — 아래에서 바뀐 줄만 쓰려고 같이 받는다
+      supa.from('bid_result_bids').select('rank, bizno, company_nm, amount, rate, picks, rmrk')
+        .eq('bid_ntce_no', r.bid_ntce_no).eq('bid_ntce_ord', r.bid_ntce_ord).eq('rbid_no', r.rbid_no),
     ])
+    if (old.error) throw old.error
     const p = toPrepar(prepar.items.filter(x => (x.rbidNo || '000') === r.rbid_no))
     const bids = dedupe(
       compt.items.filter(x => (x.rbidNo || '000') === r.rbid_no).map(x => toBidRow(x, r.rbid_no)).filter(b => b.bizno),
@@ -243,7 +248,13 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     const plnprc = p?.plnprc ?? null
     // 분석 값(사정률·1순위)은 아래에서 전체로 계산하고, 줄은 1순위 앞뒤만 보관한다(bid-trim.ts)
     const kept = trimBids(bids, bidFloor(plnprc, n.lwlt_rate, n.a_amount))
-    if (kept.length) await upsert(supa, 'bid_result_bids', kept, 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno')
+    // 예전엔 받을 때마다 남길 줄을 전부 다시 써서, 값이 같아도 줄마다 새 판이 생겼다(죽은 줄이 쌓임).
+    // 이미 있는 줄과 견줘 새 줄·바뀐 줄만 쓴다. 지우는 일은 예전처럼 하지 않는다.
+    const sig = (b: { company_nm?: string | null; amount?: number | string | null; rate?: number | string | null; picks?: number[] | null; rmrk?: string | null }) =>
+      JSON.stringify([b.company_nm ?? null, b.amount == null ? null : Number(b.amount), b.rate == null ? null : Number(b.rate), b.picks ?? [], b.rmrk ?? null])
+    const before = new Map((old.data ?? []).map(o => [`${o.rank}/${o.bizno}`, sig(o)]))
+    const changed = kept.filter(b => before.get(`${b.rank}/${b.bizno}`) !== sig(b))
+    if (changed.length) await upsert(supa, 'bid_result_bids', changed, 'bid_ntce_no,bid_ntce_ord,rbid_no,rank,bizno')
     const norm = bssamt && plnprc && n.lwlt_rate
       ? normalize({ bssamt, plnprc, lwlt_rate: Number(n.lwlt_rate), a_amount: n.a_amount, amounts: bids.map(b => b.amount ?? 0).filter(a => a > 0) })
       : null

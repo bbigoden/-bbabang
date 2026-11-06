@@ -4,6 +4,7 @@ import { useEscape } from '@/lib/use-escape'
 import { useEffect, useState, useRef, useCallback, useId, useMemo, useDeferredValue } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { getOfficeMembers } from '@/lib/office-members'
 import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -290,15 +291,12 @@ export default function BrokerCustomersPage() {
     const myName = prof?.name
     if (owner) {
       // 직원 이름은 고객 조회와 함께 보낸다 — 기다렸다가 고객을 부르면 폰 3G 에서 왕복 하나(약 2초)가 더 쌓였다(10-30)
-      void supabase
-        .from('broker_profiles')
-        .select('profiles(name)')
-        .eq('parent_broker_id', b.id)
-        .eq('is_approved', true)
-        .then(({ data: emps }) => {
-          const empNames = (emps ?? []).map((e: any) => e.profiles?.name).filter(Boolean)
+      // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members) — 매물·일지에서 넘어오면 다시 묻지 않는다
+      void getOfficeMembers(b.id)
+        .then(ms => {
+          const empNames = ms.filter(m => !m.isOwner && m.approved).map(m => m.name).filter(Boolean)
           setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
-        })
+        }, () => setTeamMembers(myName ? [myName] : []))
     } else {
       setTeamMembers(myName ? [myName] : [])
     }

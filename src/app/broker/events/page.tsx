@@ -9,6 +9,7 @@
  * 대표 화면에만 '시험 현황' 칸이 하나 더 있다(채널별 건수·금액, 놓친 예약, 불편 신고).
  */
 
+import { useEscape } from '@/lib/use-escape'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -44,6 +45,9 @@ interface Ev {
   photos: string[] | null
 }
 interface Feedback { id: string; author_broker_id: string | null; event_id: string | null; body: string; resolved: boolean; created_at: string }
+// 목록에 받는 칸 — Ev·Feedback 에 칸을 더하면 여기도 더할 것('*' 는 안 쓰는 칸까지 받았다)
+const EV_COLS = 'id, office_broker_id, owner_broker_id, starts_at, title, memo, amount, paid_amount, customer_name, customer_phone, source, source_text, status, confirmed_at, created_at, photos'
+const FB_COLS = 'id, author_broker_id, event_id, body, resolved, created_at'
 
 const SOURCE_LABEL: Record<Source, string> = {
   manual: '직접 입력', naver: '네이버예약', kakao: '카톡 채널', insta_link: '인스타 링크', insta_dm: '인스타 DM', link: '예약 링크',
@@ -152,9 +156,9 @@ export default function EventsPage() {
   const load = async () => {
     setLoading(true)
     const [{ data: ev, error }, { data: fb }, { data: pages }] = await Promise.all([
-      supabase.from('office_events').select('*').eq('office_broker_id', officeId!)
+      supabase.from('office_events').select(EV_COLS).eq('office_broker_id', officeId!)
         .order('starts_at', { ascending: true, nullsFirst: true }).limit(1000),
-      supabase.from('office_event_feedback').select('*').eq('office_broker_id', officeId!)
+      supabase.from('office_event_feedback').select(FB_COLS).eq('office_broker_id', officeId!)
         .order('created_at', { ascending: false }).limit(200),
       supabase.from('office_booking_pages').select('owner_broker_id, deposit_text').eq('office_broker_id', officeId!),
     ])
@@ -593,6 +597,7 @@ function Btn({ onClick, tone, children }: { onClick: () => void; tone: 'blue' | 
 }
 
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useEscape(true, onClose)
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
       <div role="dialog" aria-label={title} onClick={e => e.stopPropagation()}

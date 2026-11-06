@@ -42,6 +42,8 @@ interface Settlement {
   memo: string | null
   created_by: string | null
 }
+// Settlement 칸 그대로 — 칸을 더하면 여기도 더할 것('*' 는 안 쓰는 칸까지 받았다)
+const SETTLEMENT_COLS = 'id, office_broker_id, assignee_broker_id, contract_date, contract_address, seller, buyer, assignee_name, settlement_rate, seller_fee, buyer_fee, vat_override, seller_payment_date, buyer_payment_date, record_month, withhold_exempt, memo, created_by'
 
 interface Member {
   id: string
@@ -341,7 +343,7 @@ export default function SettlementPage() {
     const data = await fetchAllPaged<Settlement>((from, to) => {
       let q = supabase
         .from('settlements')
-        .select('*')
+        .select(SETTLEMENT_COLS)
         .eq('office_broker_id', officeId)
       if (!allMode) {
         q = q.eq('record_month', month)
@@ -496,7 +498,7 @@ export default function SettlementPage() {
         buyer_fee: 0,
         created_by: meBroker.id,
       })
-      .select('*')
+      .select(SETTLEMENT_COLS)
       .single()
     if (error) { toast.error('추가 실패: ' + error.message); return }
     setRows(prev => [...prev, data as Settlement])
@@ -536,7 +538,7 @@ export default function SettlementPage() {
         memo: '매도칸=사무실 수익 · 매수칸=−경비 · 정산비=동업자 비율',
         created_by: meBroker.id,
       })
-      .select('*')
+      .select(SETTLEMENT_COLS)
       .single()
     if (error) { toast.error('분배 등록 실패: ' + error.message); return }
     setRows(prev => [...prev, data as Settlement])
