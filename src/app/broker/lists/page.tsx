@@ -130,7 +130,7 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
       ) : (
         <div className="space-y-6">
           {ready.length > 0 && <Section title="준비 중" lists={ready} names={names} thumbs={thumbs} />}
-          {done.length > 0 && <Section title="미팅 끝" lists={done} names={names} thumbs={thumbs} muted />}
+          {done.length > 0 && <Section title="미팅종료" lists={done} names={names} thumbs={thumbs} muted />}
         </div>
       )}
 
@@ -259,7 +259,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
     if (error) { toast.error('바꾸지 못했어요'); return }
     setList(l => l && { ...l, status })
     if (status === 'done') setActiveListId(selfId, null)
-    toast.success(status === 'done' ? '미팅 끝으로 옮겼어요' : '다시 준비 중으로')
+    toast.success(status === 'done' ? '미팅종료로 옮겼어요' : '다시 준비 중으로')
   }
   const del = async () => {
     setMenu(false)
@@ -291,7 +291,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="truncate text-xl font-bold text-gray-900 dark:text-white">{list.name}</h1>
-            {list.status === 'done' && <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800">미팅 끝</span>}
+            {list.status === 'done' && <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-gray-800">미팅종료</span>}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-gray-500">
             {when && <span className="flex items-center gap-1"><CalendarClock className="h-4 w-4" />{when}</span>}
@@ -310,7 +310,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
               <div className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
                 <MenuItem icon={Pencil} label="정보 고치기" onClick={() => { setMenu(false); setEditing(true) }} />
                 {list.status === 'ready'
-                  ? <MenuItem icon={CheckCircle2} label="미팅 끝으로" onClick={() => setStatus('done')} />
+                  ? <MenuItem icon={CheckCircle2} label="미팅종료" onClick={() => setStatus('done')} />
                   : <MenuItem icon={RotateCcw} label="다시 준비 중으로" onClick={() => setStatus('ready')} />}
                 <MenuItem icon={Trash2} label="미팅 지우기" danger onClick={del} />
               </div>

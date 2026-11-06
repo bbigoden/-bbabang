@@ -331,7 +331,7 @@ export function ListLine({ l, ownerName, active, onClick, right }: {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className={`truncate text-sm font-semibold ${l.status === 'done' ? 'text-gray-500' : 'text-gray-900 dark:text-white'}`}>{l.name}</span>
-          {l.status === 'done' && <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800">미팅 끝</span>}
+          {l.status === 'done' && <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800">미팅종료</span>}
         </span>
         <span className="mt-0.5 block truncate text-xs text-gray-500">
           {[when, who, ownerName].filter(Boolean).join(' · ') || '날짜·손님 없음'}
