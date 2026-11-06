@@ -183,6 +183,10 @@ export async function lookupBuilding(body: AutoFillBody, deps: LookupDeps): Prom
     // 동(棟)이 지정되면 세움터 API의 dongNm 파라미터로 직접 필터 → 페이지 fetching 대폭 감소
     const dongParam: Record<string, string> = dongFilter ? { dongNm: dongFilter } : {}
 
+    // 전유공용면적은 표제부 결과와 상관없이 같은 주소로 묻는다 — 먼저 띄워 두고 표제부와 같이 기다린다.
+    // 차례로 물으면 등록 버튼이 3.7초 걸렸다(11-06 점검). 실패는 아래 await 에서 그대로 던진다.
+    const exposFirst = callSeum(deps.seumKey, 'getBrExposPubuseAreaInfo', { ...addr, ...dongParam, regstrKindCd: '4' })
+    exposFirst.catch(() => {})
     try {
       let title = await callSeum(deps.seumKey, 'getBrTitleInfo', { ...addr, ...dongParam, regstrKindCd: '4' }, true)
       if (title.length === 0) title = await callSeum(deps.seumKey, 'getBrTitleInfo', { ...addr, ...dongParam }, true)
@@ -220,7 +224,7 @@ export async function lookupBuilding(body: AutoFillBody, deps: LookupDeps): Prom
       let areaSuppliedM2 = 0  // 공급 = 전용 + 주거공용
       let yongdoNm = ''
 
-      let expos = await callSeum(deps.seumKey, 'getBrExposPubuseAreaInfo', { ...addr, ...dongParam, regstrKindCd: '4' })
+      let expos = await exposFirst
       if (expos.length === 0) expos = await callSeum(deps.seumKey, 'getBrExposPubuseAreaInfo', { ...addr, ...dongParam })
 
       if (expos.length > 0) {

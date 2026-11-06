@@ -107,6 +107,24 @@ self.addEventListener('fetch', (event) => {
   // 6) 그 외 (페이지 chunk, /api/*, 동적 자원): respondWith 없이 통과 (브라우저 기본)
 })
 
+// ── 캐시 크기 상한 ───────────────────────────────────────
+// 배포마다 _next/static 에 새 해시 파일이 생기는데 VERSION 은 손으로만 올려서, 그 사이 옛 파일이
+// 폰 저장소에 끝없이 쌓였다(11-06 점검). 넣은 순서(오래된 것부터)로 상한을 넘는 만큼 지운다.
+// 사전 캐시(오프라인 화면·아이콘)는 지우지 않는다.
+const CACHE_MAX = { [STATIC_CACHE]: 400, [IMAGE_CACHE]: 300 }
+const trimming = new Set()
+async function trimCache(cacheName) {
+  const max = CACHE_MAX[cacheName]
+  if (!max || trimming.has(cacheName)) return
+  trimming.add(cacheName)
+  try {
+    const cache = await caches.open(cacheName)
+    const keys = (await cache.keys()).filter((r) => !PRECACHE.includes(new URL(r.url).pathname))
+    const extra = keys.length - max
+    for (let i = 0; i < extra; i++) await cache.delete(keys[i])
+  } catch {} finally { trimming.delete(cacheName) }
+}
+
 // ── 캐시 전략 ────────────────────────────────────────────
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request)
@@ -115,7 +133,7 @@ async function cacheFirst(request, cacheName) {
     const res = await fetch(request)
     if (res.ok) {
       const cache = await caches.open(cacheName)
-      cache.put(request, res.clone())
+      cache.put(request, res.clone()).then(() => trimCache(cacheName)).catch(() => {})
     }
     return res
   } catch {
@@ -127,7 +145,7 @@ async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName)
   const cached = await cache.match(request)
   const fetchPromise = fetch(request)
-    .then((res) => { if (res.ok) cache.put(request, res.clone()); return res })
+    .then((res) => { if (res.ok) cache.put(request, res.clone()).then(() => trimCache(cacheName)).catch(() => {}); return res })
     .catch(() => cached)
   return cached || fetchPromise
 }

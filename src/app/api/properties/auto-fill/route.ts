@@ -5,6 +5,9 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { mapPurposeToRoomType } from '@/lib/property-types'
 import { lookupBuilding, type AutoFillBody } from '@/lib/building-lookup'
 
+// 세움터는 한 번에 20초까지 기다리고 재시도한다 — 기본 시간 제한에 걸려 잘리지 않게(11-06 점검)
+export const maxDuration = 60
+
 // 봇/외부 클라이언트용: Authorization: Bearer <access_token> 헤더로 인증
 async function getUserFromBearer(req: NextRequest) {
   const auth = req.headers.get('authorization') ?? ''
