@@ -145,6 +145,10 @@ const FIXED_COLS = 9
  * [전체](올리기·내리기)는 넓은 화면에서만 오른쪽에 붙인다 — 1366 폭에서 그 칸이 잘려 안내의
  * "줄마다 ↓" 를 찾을 수 없었다(11-03 점검). 폰은 붙이면 가운데가 너무 좁아 밀어서 본다.
  */
+const 탭설명: Record<string, string> = {
+  live: '카페·블로그·당근 중 한 곳이라도 광고가 살아 있는 매물입니다. 한 매물이 여러 채널에 있으면 채널 숫자를 더한 것이 이보다 큽니다.',
+  takedown: '↓(내리기)를 눌렀는데 아직 어느 채널에서 안 내려간 매물을 모읍니다. 표시광고법상 바로 내려야 해서 따로 봅니다.',
+}
 const STICKY_LEFT = 'sticky left-0 z-10 shadow-[inset_-1px_0_0_rgb(229,231,235)] dark:shadow-[inset_-1px_0_0_rgb(31,41,55)]'
 const STICKY_RIGHT = 'sm:sticky sm:right-0 sm:z-10 sm:shadow-[inset_1px_0_0_rgb(229,231,235)] dark:sm:shadow-[inset_1px_0_0_rgb(31,41,55)]'
 
@@ -1930,6 +1934,12 @@ export default function AdsPage() {
 
           
         </div>
+
+        {/* 탭이 무엇을 세는지 — 광고만 남음·종료예정은 위 안내가 말하고, 나머지는 툴팁에만 있어
+            '못 내림' 이 무슨 뜻인지, 282 가 356 의 일부인지 알 수 없었다(11-03 점검) */}
+        {탭설명[tab] && !(tab === 'takedown' && takedownCount > 0) && (
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">{탭설명[tab]}</p>
+        )}
 
         {/* [광고 중] 안에서만 보이는 채널 칩. 숫자는 탭과 같은 잣대로 센다. */}
         {tab === 'live' && (
