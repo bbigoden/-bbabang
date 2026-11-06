@@ -303,6 +303,14 @@ export default function BrokerResourcesPage() {
     const oid = isOwner ? b.id : (b.parent_broker_id ?? b.id)
     setOfficeBrokerId(oid)
 
+    // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members). 자료와 같이 묻는다 — 자료를 다 받은 뒤에 물으면
+    // 폰에서 한 번 더 기다려 처음 열기가 1.8초까지 갔다(11-07 perf:phone)
+    void getOfficeMembers(oid).then(ms => {
+      const map: Record<string, string> = {}
+      for (const m of ms) if (m.name) map[m.id] = m.name
+      setNames(map)
+    }, () => {})
+
     // 볼 수 있는 범위는 DB 규칙이 정한다(대표=전부, 직원=본인+대표).
     // 한 번에 1000행까지만 와서 넘으면 조용히 잘렸다 — 이어받는다.
     // 폴더·메모는 적어 휴지통 것도 같이 받는다(지운 폴더 안 것이 맨 위로 튀어나오지 않게).
@@ -317,13 +325,6 @@ export default function BrokerResourcesPage() {
     setFiles(fList)
     setStars(new Set((st ?? []).map((s: any) => (s.resource_id ? rKey(s.resource_id) : fKey(s.file_id)))))
     setLoading(false)
-
-    // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members)
-    void getOfficeMembers(oid).then(ms => {
-      const map: Record<string, string> = {}
-      for (const m of ms) if (m.name) map[m.id] = m.name
-      setNames(map)
-    }, () => {})
 
     // 30일 지난 내 휴지통은 비운다 — 휴지통 파일은 안 받았으니 30일 넘은 것만 따로 묻는다
     void (async () => {
