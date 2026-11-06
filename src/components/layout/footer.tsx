@@ -37,7 +37,8 @@ export function Footer() {
     // 푸터가 없어도 폰 하단 메뉴바만큼은 띄운다 — 중개사 화면은 메뉴바 쪽 받침이 없어(bottom-nav.tsx)
     // 이게 없으면 마지막 줄이 메뉴바 밑에 가린다. 다른 계정은 메뉴바가 제 받침을 둔다
     return profile?.role === 'broker'
-      ? <div aria-hidden className="h-[calc(4rem+env(safe-area-inset-bottom))] md:hidden" />
+      // shrink-0 필수 — 사이드바 레이아웃의 세로 flex 안이라, 내용 없는 칸은 0으로 줄어 마지막 줄이 가렸다(11-06)
+      ? <div aria-hidden className="h-[calc(4rem+env(safe-area-inset-bottom))] shrink-0 md:hidden" />
       : null
   }
 

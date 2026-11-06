@@ -31,7 +31,9 @@ export function BrokerGlobalLayout({ children }: { children: React.ReactNode }) 
     // 바깥 칸에 relative — 없으면 표 안의 sr-only 같은 absolute 요소가 이 칸 밖(페이지 기준)으로 삐져나가
     // 폰에서 페이지가 4배 넓게 잡히고 화면이 통째로 축소됐다.
     return (
-      <div className="relative flex h-screen overflow-hidden">
+      // 높이는 실제 보이는 높이(100dvh) — 100vh 는 폰 브라우저 주소창까지 친 높이라 바닥이 화면 밖으로 나갔다.
+      // dvh 를 모르는 옛 브라우저는 인라인 값을 버리고 h-screen 으로 돈다(11-06)
+      <div className="relative flex h-screen overflow-hidden" style={{ height: '100dvh' }}>
         <BrokerSidebar />
         <div className="flex-1 min-w-0 flex flex-col overflow-y-auto bg-gray-50 dark:bg-gray-950">
           {locked ? <OfficeLocked label={locked} /> : children}
