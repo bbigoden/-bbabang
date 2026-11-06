@@ -1,6 +1,5 @@
 'use client'
 
-import { bidOf } from '@/lib/office-role'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -10,7 +9,7 @@ import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 import {
   Home, Bell, User, Building2,
   MoreHorizontal, X, ChevronDown, LogOut, Lock,
-  LayoutDashboard, Flag, Users, ClipboardList, Gavel, MessagesSquare, Download,
+  LayoutDashboard, Flag, Users, ClipboardList, MessagesSquare, Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isStandaloneApp } from '@/lib/pwa-install'
@@ -84,11 +83,7 @@ export function BottomNav() {
       { href: '/broker/diary', label: '일지', icon: ClipboardList, needsOffice: true },
       // 안 읽은 메시지 수가 더보기 서랍 안에 묻혀 폰에서는 배지가 안 보였다 — 탭으로 꺼낸다
       { href: '/broker/messenger', label: '부소장톡', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
-      // 입찰을 켠 사무소의 대표에게만(사이드바 메뉴와 같은 조건). 더보기 9번째에 묻혀 있어
-      // 폰으로 처음 쓰는 사람은 이 기능이 있는 줄도 몰랐다
-      ...(bidOf(broker).enabled
-        ? [{ href: '/broker/bid', label: '입찰', icon: Gavel }]
-        : []),
+      // 입찰은 탭에서 뺐다(11-06 사장님) — 더보기 서랍에 있다. 대표·직원 탭이 같다
       { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
     ]
   } else if (role === 'admin') {
