@@ -36,13 +36,21 @@ async function loadLists(officeId: string): Promise<ListRow[]> {
     .map(r => ({ id: r.id, name: r.name, created_by: r.created_by, created_at: r.created_at, count: r.property_list_items?.[0]?.count ?? 0 }))
 }
 
-function useMemberNames(officeId: string | null) {
-  const [names, setNames] = useState<Record<string, string>>({})
+/**
+ * 재직자(대표 + 승인된 직원)만. 사무소를 탈퇴한 직원은 parent 가 비어 여기 안 잡힌다 —
+ * 그 사람 리스트는 화면에서 빠진다(사장님 11-06: 퇴직자는 필요 없고 기록도 안 남겨도 됨).
+ */
+function useMembers(officeId: string | null) {
+  const [members, setMembers] = useState<{ id: string; name: string }[] | null>(null)
   useEffect(() => {
     if (!officeId) return
-    getOfficeMembers(officeId).then(ms => setNames(Object.fromEntries(ms.map(m => [m.id, m.name ?? '']))), () => {})
+    getOfficeMembers(officeId).then(
+      ms => setMembers(ms.filter(m => m.approved).map(m => ({ id: m.id, name: m.name || '이름 없음' }))),
+      () => setMembers([]),
+    )
   }, [officeId])
-  return names
+  const names: Record<string, string> = Object.fromEntries((members ?? []).map(m => [m.id, m.name]))
+  return { members, names }
 }
 
 function Sheet({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
@@ -119,10 +127,14 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
   onClose: () => void
 }) {
   const toast = useToast()
-  const names = useMemberNames(officeId)
+  const { members, names } = useMembers(officeId)
   const [lists, setLists] = useState<ListRow[] | null>(null)
   const [inList, setInList] = useState<Set<string>>(new Set())
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [who, setWho] = useState(selfId)  // 드롭다운 — 누구 리스트에 보낼지
+  const counts: Record<string, number> = {}
+  for (const l of lists ?? []) counts[l.created_by] = (counts[l.created_by] ?? 0) + 1
+  const shown = (lists ?? []).filter(l => l.created_by === who)
 
   useEffect(() => {
     let alive = true
@@ -168,16 +180,27 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
   return (
     <Sheet label="리스트에 담기" onClose={onClose}>
       <SheetHead title="리스트에 담기" sub={`#${property.seq_no ?? ''} ${property.address}`} onClose={onClose} />
-      <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-        <NewListForm officeId={officeId} selfId={selfId} onMade={async l => {
-          setLists(ls => [l, ...(ls ?? [])])
-          await toggle(l)
-        }} />
+      <div className="space-y-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        {/* 누구 리스트에 보낼지 — 재직자만. 나를 고르면 새 리스트도 만들 수 있다 */}
+        <select value={who} onChange={e => setWho(e.target.value)} aria-label="누구 리스트에 담을지"
+          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950">
+          {(members ?? []).map(m => (
+            <option key={m.id} value={m.id}>{m.id === selfId ? `${m.name} (나)` : m.name} 리스트{counts[m.id] ? ` · ${counts[m.id]}개` : ''}</option>
+          ))}
+        </select>
+        {who === selfId && (
+          <NewListForm officeId={officeId} selfId={selfId} onMade={async l => {
+            setLists(ls => [l, ...(ls ?? [])])
+            await toggle(l)
+          }} />
+        )}
       </div>
       <div className="flex-1 overflow-y-auto">
-        {lists == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
-          : lists.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">아직 리스트가 없어요. 위에서 하나 만들어 담으세요.</p>
-          : lists.map(l => {
+        {lists == null || members == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
+          : shown.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">
+              {who === selfId ? '아직 내 리스트가 없어요. 위에서 하나 만들어 담으세요.' : `${names[who] ?? ''}님이 만든 리스트가 없어요.`}
+            </p>
+          : shown.map(l => {
             const on = inList.has(l.id)
             return (
               <button key={l.id} type="button" onClick={() => toggle(l)} disabled={busyId === l.id}
@@ -188,7 +211,7 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">{l.name}</span>
                   <span className="block text-xs text-gray-500">
-                    {names[l.created_by] || '—'} · {canManage || l.created_by === selfId ? `${l.count}건` : `내가 담은 ${l.count}건`}
+                    {canManage || l.created_by === selfId ? `${l.count}건` : `내가 담은 ${l.count}건`}
                   </span>
                 </span>
               </button>
@@ -235,10 +258,13 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
   onOpenProperty?: (seqNo: number) => void
 }) {
   const toast = useToast()
-  const names = useMemberNames(officeId)
+  const { members, names } = useMembers(officeId)
   const [lists, setLists] = useState<ListRow[] | null>(null)
   const [open, setOpen] = useState<ListRow | null>(null)
   const [items, setItems] = useState<ItemRow[] | null>(null)
+  const [who, setWho] = useState('')  // 대표·이사 드롭다운 — '' 는 전체
+  // 퇴직자 리스트는 뺀다 — 재직자 목록에 없는 사람이 만든 것
+  const shown = (lists ?? []).filter(l => names[l.created_by] !== undefined && (!who || l.created_by === who))
 
   useEffect(() => {
     let alive = true
@@ -309,7 +335,7 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
                           {p.room_type} · {p.deal_type} {priceText(p)}{p.size_pyeong ? ` · ${p.size_pyeong}${p.area_unit || '평'}` : ''}{p.floor != null ? ` · ${p.floor}층` : ''}
                           {p.status === 'contracted' && <span className="ml-1 font-semibold text-red-600">· 계약완료</span>}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-gray-400">{names[it.added_by] || '—'} 담음</p>
+                        <p className="mt-0.5 text-[11px] text-gray-400">{names[it.added_by] ?? '퇴직자'} 담음</p>
                       </>
                     )}
                   </div>
@@ -342,13 +368,20 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
   return (
     <Sheet label="매물 리스트" onClose={onClose}>
       <SheetHead title="매물 리스트" sub="미팅 전에 매물을 한 묶음으로 — 줄마다 [담기] 로 보냅니다" onClose={onClose} />
-      <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+      <div className="space-y-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        {canManage && (
+          <select value={who} onChange={e => setWho(e.target.value)} aria-label="누구 리스트를 볼지"
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950">
+            <option value="">전체 재직자</option>
+            {(members ?? []).map(m => <option key={m.id} value={m.id}>{m.id === selfId ? `${m.name} (나)` : m.name}</option>)}
+          </select>
+        )}
         <NewListForm officeId={officeId} selfId={selfId} onMade={l => { setLists(ls => [l, ...(ls ?? [])]); toast.success(`'${l.name}' 을 만들었어요`) }} />
       </div>
       <div className="flex-1 overflow-y-auto">
-        {lists == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
-          : lists.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">아직 리스트가 없어요</p>
-          : lists.map(l => (
+        {lists == null || members == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
+          : shown.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">아직 리스트가 없어요</p>
+          : shown.map(l => (
             <button key={l.id} type="button" onClick={() => openList(l)}
               className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
               <span className="min-w-0 flex-1">
