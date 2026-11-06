@@ -280,21 +280,34 @@ export default function SettlementPage() {
     setIsOwner(manager)
     setOfficeId(office)
 
-    const { data: mems } = await supabase
-      .from('broker_profiles')
-      .select('id, user_id, is_owner, parent_broker_id, default_settlement_rate, withhold_exempt, is_approved, profiles:user_id(name)')
-      .or(`id.eq.${office},parent_broker_id.eq.${office}`)
+    // 동료·비용 설정·퇴사자 분포는 서로 기다릴 필요가 없어 한 번에 보낸다(3G 에서 차례로 기다리면 한 번에 0.5초씩 늘었다)
+    const [{ data: mems }, esRes, dist] = await Promise.all([
+      supabase
+        .from('broker_profiles')
+        .select('id, user_id, is_owner, parent_broker_id, default_settlement_rate, withhold_exempt, is_approved, profiles:user_id(name)')
+        .or(`id.eq.${office},parent_broker_id.eq.${office}`),
+      manager
+        ? supabase.from('office_settlement_settings').select('monthly_expense, partner_split').eq('office_broker_id', office).maybeSingle()
+        : Promise.resolve({ data: null }),
+      // 전건 조회 — 1000행 넘으면 조용히 잘리므로 페이지네이션 필수
+      manager
+        ? fetchAllPaged<{ assignee_broker_id: string | null; assignee_name: string | null; contract_address: string | null }>((from, to) =>
+            supabase
+              .from('settlements')
+              .select('assignee_broker_id, assignee_name, contract_address')
+              .eq('office_broker_id', office)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).catch(() => null)
+        : Promise.resolve(null),
+    ])
     setMembers((mems ?? []).filter((m: any) => m.is_owner || m.is_approved) as any)
 
-    // 대표일 때만 퇴사자 목록 distinct 로드
+    // 대표일 때만 퇴사자 목록
     // = settlements에 등장한 assignee 중 현재 사무소 멤버(재직 직원)가 아닌 사람
     // 박세련·송영욱처럼 broker_id NULL(가입 전 퇴사)도 자동 포함
     if (manager) {
-      const { data: es } = await supabase
-        .from('office_settlement_settings')
-        .select('monthly_expense, partner_split')
-        .eq('office_broker_id', office)
-        .maybeSingle()
+      const es = esRes.data as { monthly_expense: number | null; partner_split: number | null } | null
       setExpenseSettings({
         monthly_expense: Number(es?.monthly_expense ?? 4000000),
         partner_split: Number(es?.partner_split ?? 0.5),
@@ -304,15 +317,6 @@ export default function SettlementPage() {
       const memberNames = new Set<string>(
         (mems ?? []).map((m: any) => m.profiles?.name).filter(Boolean)
       )
-      // 전건 조회 — 1000행 넘으면 조용히 잘리므로 페이지네이션 필수
-      const dist = await fetchAllPaged<{ assignee_broker_id: string | null; assignee_name: string | null; contract_address: string | null }>((from, to) =>
-        supabase
-          .from('settlements')
-          .select('assignee_broker_id, assignee_name, contract_address')
-          .eq('office_broker_id', office)
-          .order('id', { ascending: true })
-          .range(from, to)
-      ).catch(() => null)
       if (dist) {
         const seen = new Set<string>()
         const exList: Array<{ key: string; name: string }> = []
