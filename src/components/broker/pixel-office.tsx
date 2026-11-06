@@ -830,7 +830,12 @@ function walkKeyframes(name: string, pts: Pt[], speed: number) {
     if (stay && i < loop.length - 1) { t += stay; marks.push({ at: t, x, y, left }) }
   }
   const pct = (a: number) => `${((a / t) * 100).toFixed(2)}%`
-  const move = marks.map(m => `${pct(m.at)} { transform: translate(${m.x}px, ${m.y}px) }`).join(' ')
+  // 구간마다 2칸씩 톡톡 — linear 로 미끄러지면 매 화면마다 사무실 그림 전체를 다시 그렸다(11-07)
+  const move = marks.map((m, i) => {
+    const next = marks[i + 1]
+    const n = next ? Math.max(1, Math.round(Math.hypot(next.x - m.x, next.y - m.y) / 2)) : 1
+    return `${pct(m.at)} { transform: translate(${m.x}px, ${m.y}px); animation-timing-function: steps(${n}, end) }`
+  }).join(' ')
   // 방향은 다음 구간이 정한다 — 출발점의 방향을 그 구간 내내 쓴다
   const face = (wantLeft: boolean) => marks.map((m, i) => {
     const next = marks[i + 1] ?? marks[0]
@@ -898,7 +903,7 @@ function Janitor({ route }: { route: (typeof JANITOR_ROUTES)[number] }) {
   return (
     <g className="pxo-jan" style={{ pointerEvents: 'none' }}>
       <style>{css}</style>
-      <g style={{ animation: `pxo-${route.id} ${dur} linear infinite` }}>
+      <g style={{ animation: `pxo-${route.id} ${dur} infinite` }}>
         {/* 1.25배 — 앉은 사람(1.3배)과 키가 엇비슷하게 */}
         <g transform="scale(1.25)">
           {[false, true].map(left => (
@@ -1526,43 +1531,45 @@ export function PixelOffice({ layout, loading = false, header }: { layout: Offic
         @keyframes pxo-look { 0%, 58% { transform: translateX(0) } 60%, 72% { transform: translateX(-.7px) } 74%, 86% { transform: translateX(.7px) } 88%, 100% { transform: translateX(0) } }
         .pxo-look { animation: pxo-look 7s steps(1) infinite; }
         @keyframes pxo-hover { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-.8px) } }
-        .pxo-hover { animation: pxo-hover 2.4s ease-in-out infinite; }
+        .pxo-hover { animation: pxo-hover 2.4s steps(1) infinite; }
         @keyframes pxo-hop { 0%, 82% { transform: translateY(0) } 86% { transform: translateY(-2px) } 90% { transform: translateY(0) } 93% { transform: translateY(-1px) } 96%, 100% { transform: translateY(0) } }
         .pxo-hop { animation: pxo-hop 5s steps(1) infinite; }
         @keyframes pxo-wave { 0%, 49% { transform: translateY(0) } 50%, 100% { transform: translateY(-1px) } }
         .pxo-wave { animation: pxo-wave .35s steps(1) infinite; }
-        @keyframes pxo-fish { 0% { transform: translateX(0) scaleX(1) } 45% { transform: translateX(12px) scaleX(1) } 50% { transform: translateX(12px) scaleX(-1) } 95% { transform: translateX(0) scaleX(-1) } 100% { transform: translateX(0) scaleX(1) } }
-        .pxo-fish { transform-box: fill-box; transform-origin: center; animation: pxo-fish 9s linear infinite; }
+        @keyframes pxo-fish { 0% { transform: translateX(0) scaleX(1); animation-timing-function: steps(12) } 45% { transform: translateX(12px) scaleX(1); animation-timing-function: steps(1) } 50% { transform: translateX(12px) scaleX(-1); animation-timing-function: steps(12) } 95% { transform: translateX(0) scaleX(-1); animation-timing-function: steps(1) } 100% { transform: translateX(0) scaleX(1) } }
+        .pxo-fish { transform-box: fill-box; transform-origin: center; animation: pxo-fish 9s infinite; }
         .pxo-sweep-a { animation: pxo-step .5s steps(1) infinite; }
         .pxo-sweep-b { animation: pxo-step .5s steps(1) infinite reverse; }
         @keyframes pxo-sparkle { 0%, 100% { opacity: 0 } 30%, 60% { opacity: 1 } }
         .pxo-sparkle { animation: pxo-sparkle 1s steps(3) infinite; }
         @keyframes pxo-steam { 0% { transform: translateY(0); opacity: .8 } 100% { transform: translateY(-5px); opacity: 0 } }
-        .pxo-steam { animation: pxo-steam 2s linear infinite; }
+        .pxo-steam { animation: pxo-steam 2s steps(5) infinite; }
         @keyframes pxo-eye { 0%, 95% { opacity: 1 } 96%, 100% { opacity: 0 } }
         .pxo-eye { animation: pxo-eye 4.5s steps(1) infinite; }
         @keyframes pxo-code { 0% { opacity: 0 } 30%, 80% { opacity: 1 } 100% { opacity: 0 } }
         .pxo-code { animation: pxo-code 1.2s steps(3) infinite; }
         @keyframes pxo-pop { 0% { transform: translateY(2px); opacity: 0 } 15%, 85% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(-2px); opacity: 0 } }
-        .pxo-pop { animation: pxo-pop 4s ease-out infinite; }
+        .pxo-pop { animation: pxo-pop 4s steps(1) infinite; }
         @keyframes pxo-colon { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
         .pxo-colon { animation: pxo-colon 1s steps(1) infinite; }
         @keyframes pxo-paper { 0%, 80% { transform: translateY(0); opacity: 0 } 85% { opacity: 1 } 100% { transform: translateY(4px); opacity: 1 } }
         .pxo-paper { animation: pxo-paper 9s steps(6) infinite; }
+        /* 움직임은 모두 칸(steps)으로 — 부드럽게 미끄러지는 것이 하나라도 있으면 브라우저가 1초에 60번 그림 전체를
+           다시 그려, 가만히 둔 사무실이 느린 폰에서 10초에 7초를 일했다(11-07). 픽셀 그림이라 칸으로 움직여야 맞기도 하다 */
         /* 이현영 고양이 — 치즈는 폴짝 뛰었다 흰 고양이에게 머리 비비기, 흰 고양이는 마주 비비고 기지개. 9초 한 바퀴 */
         @keyframes pxo-cat-a { 0%, 26% { transform: none } 29% { transform: translateY(-4px) } 32% { transform: translate(1px, -5px) } 35%, 55% { transform: none }
           60%, 70% { transform: translateX(3px) rotate(8deg) } 75%, 100% { transform: none } }
         @keyframes pxo-cat-b { 0%, 52% { transform: none } 58%, 70% { transform: translateX(-3px) rotate(-8deg) } 74% { transform: none }
           80%, 88% { transform: scale(1.14, .84) } 92%, 100% { transform: none } }
         .pxo-cat-a, .pxo-cat-b { transform-box: fill-box; transform-origin: 50% 100%; }
-        .pxo-cat-a { animation: pxo-cat-a 9s ease-in-out infinite; }
-        .pxo-cat-b { animation: pxo-cat-b 9s ease-in-out infinite; }
+        .pxo-cat-a { animation: pxo-cat-a 9s steps(2) infinite; }
+        .pxo-cat-b { animation: pxo-cat-b 9s steps(2) infinite; }
         /* 앞발 — 치즈는 손 흔들기, 흰 고양이는 발 핥기(세수) */
         @keyframes pxo-paw { 0%, 9% { opacity: 0 } 10%, 22% { opacity: 1 } 23%, 100% { opacity: 0 } }
         .pxo-paw { animation: pxo-paw 9s steps(1) infinite; }
         /* 머리 비빌 때 커다란 하트 */
         @keyframes pxo-love { 0%, 59% { opacity: 0; transform: translateY(1px) } 62%, 68% { opacity: 1; transform: translateY(-1px) } 72%, 100% { opacity: 0; transform: translateY(-3px) } }
-        .pxo-love { animation: pxo-love 9s ease-out infinite; }
+        .pxo-love { animation: pxo-love 9s steps(2) infinite; }
         @keyframes pxo-step { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
         .pxo-step-a { animation: pxo-step .4s steps(1) infinite; }
         .pxo-step-b { animation: pxo-step .4s steps(1) infinite reverse; }

@@ -434,19 +434,24 @@ export default function OfficePage() {
   const offSay = (at: string | null | undefined) => (at ? `꺼짐 · ${when(at)} 마지막` : '꺼짐')
   const adNote = agents?.note ?? '대기 중'
   const bankRunning = bankJobs.find(j => j.status === 'running')
+  const 밤 = (h => h >= 19 || h < 5)(Number(hmKST(now).slice(0, 2)))
   const people: Seat[] = members.map((m, i) => {
     const 이름 = m.profiles?.name ?? ''
     const s = { today: todayProps[m.id] ?? 0, total: totalProps[m.id], customers: todayCustomers[m.id] ?? 0,
       bank: todayBank[이름] ?? 0, daangn: todayDaangn[이름] ?? 0 }
     const open = (tasks ?? []).filter(t => t.assignee_broker_id === m.id && t.status === 'open').length
+    const 한일 = s.today + s.customers + s.bank + s.daangn > 0 || !!diaries[m.id]
+    // 밤(그림이 어두워지는 19~5시)에 오늘 한 일이 없으면 퇴근 — 빈 의자. 자정에도 아홉 명이 다 앉아 있었다(11-07).
+    // 보고 있는 본인은 늘 앉혀 둔다
+    const 퇴근 = 밤 && !한일 && m.id !== broker?.id
     return {
       key: m.id, kind: 'person', tint: i, mon: STAFF_MON[m.id] ?? NAME_MON[m.profiles?.name ?? ''], pets: NAME_PETS[m.profiles?.name ?? ''], name: m.profiles?.name ?? '이름 없음',
       role: m.id === officeId ? '대표' : '직원',
       // 사람은 PC 처럼 신호를 보내지 않는다 — 오늘 등록한 것이 있으면 일한 것으로 본다.
-      state: s.today + s.customers + s.bank + s.daangn > 0 || diaries[m.id] ? 'working' : 'idle',
+      state: 퇴근 ? 'off' : 한일 ? 'working' : 'idle',
       // 한 일만 줄로 적는다 — 고객 → 매물 → 뱅크 → 당근 → 업무일지 순(2026-10-30 사장님).
       // 숫자는 1건부터, 업무일지는 썼을 때만(2026-10-26)
-      say: [s.customers ? `고객 ${s.customers}명 등록` : '', s.today ? `매물 ${s.today}건 등록` : '',
+      say: 퇴근 ? null : [s.customers ? `고객 ${s.customers}명 등록` : '', s.today ? `매물 ${s.today}건 등록` : '',
         s.bank ? `뱅크 ${s.bank}건 등록` : '', s.daangn ? `당근 ${s.daangn}건 올림` : '',
         diaries[m.id] ? '업무일지 등록' : '', open ? `할 일 ${open}건` : '']
         .filter(Boolean).join('\n') || null,
