@@ -1611,7 +1611,7 @@ export default function BrokerDiaryPage() {
               <button onClick={() => changeDate(-1)} aria-label="이전 날짜" className="flex items-center justify-center h-9 w-8 sm:w-9 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
               <div className="flex h-9 items-center rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 sm:px-3 hover:border-blue-300 transition-colors">
                 <DateCell value={diaryDate} onSave={v => { if (v) setDiaryDate(v) }}
-                  triggerClassName="min-h-0 rounded-none px-0 py-0 text-sm font-medium text-gray-500 dark:text-gray-400 tabular-nums hover:bg-transparent hover:text-blue-600" />
+                  triggerClassName="min-h-0 rounded-none px-0 py-0 text-sm font-medium text-gray-500 dark:text-gray-500 tabular-nums hover:bg-transparent hover:text-blue-600" />
               </div>
               <button onClick={() => changeDate(1)} aria-label="다음 날짜" className="flex items-center justify-center h-9 w-8 sm:w-9 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
             </div>

@@ -1456,25 +1456,9 @@ export default function CollectPage() {
             }}>
               오늘
             </Chip>
-            {/* 보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
-                탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
-                네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
-            <button
-              onClick={() => void requestCollect(source)}
-              disabled={!!jobs[source]}
-              title={agentOnline
-                ? `${src.label}에서 새 매물을 받아옵니다 (${src.takes})`
-                : AGENT_OFF_HINT}
-              className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
-                         px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
-                         disabled:opacity-60"
-            >
-              <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
-              {jobs[source] ?? '매물수집'}
-            </button>
           </div>
-          {/* 칩은 제 줄로 — 기간 줄 끝에 이어 붙이면 폭에 따라 '사라진 것' 하나만 아랫줄로 떨어지고
-              [매물수집] 이 그 옆 오른쪽 끝에 붙어 줄이 들쭉날쭉했다(11-06). 아래 지역·종류 줄처럼 이름표를 단다. */}
+          {/* 칩은 제 줄로 — 기간 줄 끝에 이어 붙이면 폭에 따라 '사라진 것' 하나만 아랫줄로 떨어져
+              줄이 들쭉날쭉했다(11-06). 아래 지역·종류 줄처럼 이름표를 단다. */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-12 shrink-0 text-sm text-gray-500 dark:text-gray-500">보기</span>
             <Chip on={unseenOnly} onClick={() => { setUnseenOnly(v => !v); setPage(1) }}>안 본 것만</Chip>
@@ -1493,6 +1477,23 @@ export default function CollectPage() {
                 setGoneOnly(v => !v); setPage(1)
               }}>사라진 것</Chip>
             )}
+            {/* [매물수집] 은 짧은 '보기' 줄 끝에 둔다 — 기간 줄 끝이면 태블릿에서 혼자 아랫줄로 떨어졌다(11-06).
+                보고 있는 탭의 것만 받는다. 그래서 이름에 곳을 붙일 필요가 없다 —
+                탭이 이미 어느 곳인지 말하고 있다. 다만 안에서는 곳마다 따로 돌아,
+                네이버를 걸어 두고 당근 탭으로 옮겨 거기서 또 걸 수 있다. */}
+            <button
+              onClick={() => void requestCollect(source)}
+              disabled={!!jobs[source]}
+              title={agentOnline
+                ? `${src.label}에서 새 매물을 받아옵니다 (${src.takes})`
+                : AGENT_OFF_HINT}
+              className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
+                         px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
+                         disabled:opacity-60"
+            >
+              <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
+              {jobs[source] ?? '매물수집'}
+            </button>
           </div>
           {/* **조건은 접어 둔다.** 줄이 일곱이면 폰에서 목록이 두 화면 뒤로 밀린다.
               접힌 채로도 무엇을 걸어 두었는지는 한 줄로 보인다 — 칩이 여기저기
