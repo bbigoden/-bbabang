@@ -4,6 +4,10 @@
   ],
   "crons": [
     {
+      "path": "/api/cron/events-morning",
+      "schedule": "0 23 * * *"
+    },
+    {
       "path": "/api/cron/error-alert",
       "schedule": "0 9 * * *"
     },

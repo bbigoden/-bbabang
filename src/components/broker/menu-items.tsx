@@ -52,14 +52,14 @@ export function showItem(i: ItemDef, broker: Parameters<typeof bidOf>[0]): boole
 }
 
 export const BROKER_ITEMS: ItemDef[] = [
-  // 차례는 사장님이 정했다(11/03) — 매일 쓰는 것부터, 입찰·정산·설정은 아래로.
+  // 차례는 사장님이 정했다(11/03, 예약·일정은 11/06 광고관리 밑으로) — 매일 쓰는 것부터, 입찰·정산·설정은 아래로.
   { id: 'dashboard',  href: '/dashboard/broker', label: '홈', icon: Home },
   { id: 'customers',  href: '/broker/customers', label: '고객목록', icon: Users, needsOffice: true },
   { id: 'properties', href: '/broker/properties', label: '매물목록', icon: Building2, needsOffice: true },
   { id: 'diary',      href: '/broker/diary', label: '업무일지', icon: ClipboardList, needsOffice: true },
-  { id: 'events',     href: '/broker/events', label: '예약·일정', icon: CalendarCheck, needsOffice: true, eventsOnly: true },
   { id: 'naver',      href: '/broker/naver', label: '매물수집', icon: Radar, needsOffice: true },
   { id: 'ads',        href: '/broker/ads', label: '광고관리', icon: Megaphone, needsOffice: true },
+  { id: 'events',     href: '/broker/events', label: '예약·일정', icon: CalendarCheck, needsOffice: true, eventsOnly: true },
   { id: 'messenger',  href: '/broker/messenger', label: '메세지', icon: MessagesSquare, needsOffice: true },
   { id: 'office',     href: '/broker/office', label: '사무실', icon: LayoutDashboard, needsOffice: true },
   { id: 'resources',  href: '/broker/resources', label: '자료실', icon: FolderOpen, needsOffice: true },

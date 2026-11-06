@@ -41,6 +41,7 @@ interface Ev {
   status: Status
   confirmed_at: string | null
   created_at: string
+  photos: string[] | null
 }
 interface Feedback { id: string; author_broker_id: string | null; event_id: string | null; body: string; resolved: boolean; created_at: string }
 
@@ -88,11 +89,13 @@ function whenLabel(iso: string | null): string {
   if (!iso) return '날짜 미정'
   return `${dayLabel(ymdKST(iso))} ${timeLabel(hmKST(iso))}`
 }
-/** 확정 안내 문구 — 손님이 처음 연락한 카톡·DM에 붙여 넣는다(알림톡 대신, 무료) */
-function confirmText(e: Ev): string {
+/** 확정 안내 문구 — 손님이 처음 연락한 카톡·DM에 붙여 넣는다(알림톡 대신, 무료). 예약금 안내가 있으면 뒤에 붙인다 */
+function confirmText(e: Ev, deposit?: string | null): string {
   const who = e.customer_name ? `${e.customer_name}님, ` : ''
-  return `${who}${whenLabel(e.starts_at)} ${e.title} 예약 확정되었습니다. 감사합니다.`
+  const base = `${who}${whenLabel(e.starts_at)} ${e.title} 예약 확정되었습니다. 감사합니다.`
+  return deposit && e.paid_amount == null ? `${base}\n\n${deposit}` : base
 }
+const phoneKey = (p: string | null) => (p ?? '').replace(/\D/g, '')
 function hoursSince(iso: string): number {
   return (Date.now() - new Date(iso).getTime()) / 3_600_000
 }
@@ -133,6 +136,8 @@ export default function EventsPage() {
   const [fbText, setFbText] = useState('')
   const [linkOpen, setLinkOpen] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [deposits, setDeposits] = useState<Record<string, string>>({})   // 담당 → 예약금 안내
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({}) // 저장 경로 → 잠깐 열리는 주소
 
   useEffect(() => {
     if (auth.loading) return
@@ -146,16 +151,28 @@ export default function EventsPage() {
 
   const load = async () => {
     setLoading(true)
-    const [{ data: ev, error }, { data: fb }] = await Promise.all([
+    const [{ data: ev, error }, { data: fb }, { data: pages }] = await Promise.all([
       supabase.from('office_events').select('*').eq('office_broker_id', officeId!)
         .order('starts_at', { ascending: true, nullsFirst: true }).limit(1000),
       supabase.from('office_event_feedback').select('*').eq('office_broker_id', officeId!)
         .order('created_at', { ascending: false }).limit(200),
+      supabase.from('office_booking_pages').select('owner_broker_id, deposit_text').eq('office_broker_id', officeId!),
     ])
     if (error) toast.error(`불러오기 실패: ${error.message}`)
     const list = (ev ?? []) as Ev[]
     setEvents(list)
     setFeedback((fb ?? []) as Feedback[])
+    const dm: Record<string, string> = {}
+    for (const p of (pages ?? []) as { owner_broker_id: string; deposit_text: string | null }[]) if (p.deposit_text) dm[p.owner_broker_id] = p.deposit_text
+    setDeposits(dm)
+    // 손님 사진 — 한 번에 묶어 잠깐 열리는 주소를 받는다(비공개 보관함)
+    const paths = list.flatMap(e => e.photos ?? [])
+    if (paths.length) {
+      const { data: signed } = await supabase.storage.from('booking-photos').createSignedUrls(paths, 3600)
+      const pm: Record<string, string> = {}
+      for (const x of signed ?? []) if (x.path && x.signedUrl) pm[x.path] = x.signedUrl
+      setPhotoUrls(pm)
+    }
     // 대표는 누구 예약인지 봐야 한다
     if (isOwner) {
       const ids = [...new Set([...list.map(e => e.owner_broker_id), ...((fb ?? []) as Feedback[]).map(f => f.author_broker_id)].filter(Boolean))] as string[]
@@ -178,6 +195,23 @@ export default function EventsPage() {
       .sort((a, c) => (c.starts_at ?? c.created_at).localeCompare(a.starts_at ?? a.created_at))
     return { pending, upcoming, past }
   }, [events, today])
+
+  // ── 단골 — 같은 번호의 예약을 시간순으로(취소 빼고) ──
+  const history = useMemo(() => {
+    const m: Record<string, Ev[]> = {}
+    for (const e of events) {
+      const k = phoneKey(e.customer_phone)
+      if (k.length < 9 || e.status === 'canceled') continue
+      ;(m[k] ??= []).push(e)
+    }
+    for (const k in m) m[k].sort((a, c) => (a.starts_at ?? a.created_at).localeCompare(c.starts_at ?? c.created_at))
+    return m
+  }, [events])
+  const regular = (e: Ev): { nth: number; last: Ev } | null => {
+    const h = history[phoneKey(e.customer_phone)]
+    const i = h ? h.findIndex(x => x.id === e.id) : -1
+    return i > 0 ? { nth: i + 1, last: h[i - 1] } : null
+  }
 
   // ── 달력 ── 날짜는 전부 한국 기준 문자열로 센다(AGENTS.md)
   const byDay = useMemo(() => {
@@ -232,7 +266,7 @@ export default function EventsPage() {
   const setStatus = async (e: Ev, status: Status) => {
     const patch: Partial<Ev> = { status }
     if (status === 'done') {
-      const v = prompt('받은 금액(원)을 적어 주세요. 모르면 비워 두세요.', e.amount != null ? String(e.amount) : '')
+      const v = prompt('받은 금액(원)을 적어 주세요. 모르면 비워 두세요.', e.amount != null ? String(e.amount) : e.paid_amount != null ? String(e.paid_amount) : '')
       if (v === null) return
       patch.paid_amount = v.trim() ? Number(v.replace(/[^\d]/g, '')) : null
     }
@@ -243,14 +277,24 @@ export default function EventsPage() {
     if (status === 'confirmed') copy(data as Ev)
   }
 
+  /** 예약금 받음 — 받은 금액(paid_amount)에 적는다. 완료 때 다시 물을 때 기본값이 된다 */
+  const markDeposit = async (e: Ev) => {
+    const v = prompt('받은 예약금(원)을 적어 주세요. 지우면 안 받은 것으로 돌아가요.', e.paid_amount != null ? String(e.paid_amount) : '')
+    if (v === null) return
+    const paid_amount = v.trim() ? Number(v.replace(/[^\d]/g, '')) : null
+    const { data, error } = await supabase.from('office_events').update({ paid_amount }).eq('id', e.id).select('*').single()
+    if (error) { toast.error(`저장 실패: ${error.message}`); return }
+    setEvents(prev => prev.map(x => (x.id === e.id ? (data as Ev) : x)))
+  }
+
   const copy = async (e: Ev) => {
     try {
-      await navigator.clipboard.writeText(confirmText(e))
+      await navigator.clipboard.writeText(confirmText(e, deposits[e.owner_broker_id ?? '']))
       setCopied(e.id)
       setTimeout(() => setCopied(c => (c === e.id ? null : c)), 2000)
       toast.success('안내 문구를 복사했어요 — 손님 카톡·DM에 붙여 넣으세요')
     } catch {
-      prompt('아래 문구를 길게 눌러 복사하세요', confirmText(e))
+      prompt('아래 문구를 길게 눌러 복사하세요', confirmText(e, deposits[e.owner_broker_id ?? '']))
     }
   }
 
@@ -283,6 +327,7 @@ export default function EventsPage() {
   const renderCard = (e: Ev, i: number, arr: Ev[], withDay: boolean) => {
               const newDay = withDay && e.starts_at && (i === 0 || ymdKST(arr[i - 1].starts_at ?? '') !== ymdKST(e.starts_at))
               const late = e.status === 'pending' && hoursSince(e.created_at) >= MISSED_HOURS
+              const reg = regular(e)
               return (
                 <li key={e.id}>
                   {newDay && (
@@ -300,6 +345,7 @@ export default function EventsPage() {
                           )}
                           {late && <span className="font-semibold text-red-600">{Math.floor(hoursSince(e.created_at))}시간째 확인 안 함</span>}
                           {isOwner && e.owner_broker_id && names[e.owner_broker_id] && <span className="text-gray-400">· {names[e.owner_broker_id]}</span>}
+                          {reg && <span className="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/40 dark:text-violet-300">단골 · {reg.nth}번째</span>}
                         </div>
                         <p className="mt-1 font-semibold text-gray-900 dark:text-white">{whenLabel(e.starts_at)}</p>
                         <p className="text-sm text-gray-800 dark:text-gray-200 break-words">{e.title}{e.amount != null && <span className="ml-1 text-gray-500">· {won(e.amount)}</span>}</p>
@@ -309,7 +355,19 @@ export default function EventsPage() {
                             <a href={`tel:${e.customer_phone.replace(/[^\d+]/g, '')}`} className="flex items-center gap-0.5 text-blue-600"><Phone className="h-3.5 w-3.5" />{e.customer_phone}</a>
                           )}
                           {e.status === 'done' && e.paid_amount != null && <span className="text-green-700">받은 금액 {won(e.paid_amount)}</span>}
+                          {(e.status === 'pending' || e.status === 'confirmed') && e.paid_amount != null && <span className="text-green-700">예약금 {won(e.paid_amount)} 받음</span>}
                         </p>
+                        {reg && <p className="mt-0.5 text-xs text-violet-700 dark:text-violet-300">지난번 {reg.last.starts_at ? dayLabel(ymdKST(reg.last.starts_at)) : ''} {reg.last.title}</p>}
+                        {(e.photos?.length ?? 0) > 0 && (
+                          <div className="mt-1.5 flex gap-1.5">
+                            {e.photos!.map(p => photoUrls[p] ? (
+                              <a key={p} href={photoUrls[p]} target="_blank" rel="noreferrer" className="block h-14 w-14 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={photoUrls[p]} alt="손님 사진" className="h-full w-full object-cover" />
+                              </a>
+                            ) : <span key={p} className="flex h-14 w-14 items-center justify-center rounded-lg bg-gray-100 text-[10px] text-gray-400 dark:bg-gray-800">사진</span>)}
+                          </div>
+                        )}
                         {e.memo && <p className="mt-1 whitespace-pre-wrap text-xs text-gray-500">{e.memo}</p>}
                         {e.source_text && (
                           <details className="mt-1 text-xs text-gray-500">
@@ -326,6 +384,7 @@ export default function EventsPage() {
                         <Btn onClick={() => setStatus(e, 'confirmed')} tone="blue"><Check className="h-3.5 w-3.5" />확정</Btn>
                       </>}
                       {e.status === 'confirmed' && <>
+                        <Btn onClick={() => markDeposit(e)} tone="gray">{e.paid_amount != null ? '예약금 고치기' : '예약금 받음'}</Btn>
                         <Btn onClick={() => copy(e)} tone="gray">{copied === e.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}안내 문구</Btn>
                         <Btn onClick={() => setStatus(e, 'canceled')} tone="gray">취소</Btn>
                         <Btn onClick={() => setStatus(e, 'no_show')} tone="gray">노쇼</Btn>

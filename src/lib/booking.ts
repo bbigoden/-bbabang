@@ -2,7 +2,7 @@
  * 예약 링크 페이지(/b/<slug>) 규칙 — 손님 화면과 접수 서버(/api/booking/<slug>)가 같이 쓴다.
  * 날짜·시각은 전부 한국 기준 문자열(YYYY-MM-DD, HH:MM)로 센다(AGENTS.md).
  */
-import { todayKST, addDays } from '@/lib/date-kst'
+import { todayKST, addDays, ymdKST, hmKST } from '@/lib/date-kst'
 
 export interface BookingProduct { name: string; price: number | null }
 export interface BookingConfig {
@@ -15,6 +15,10 @@ export interface BookingConfig {
   closed_weekdays: number[]
   lead_hours: number
   max_days: number
+  closed_dates?: string[]     // 하루 단위로 막은 날(YYYY-MM-DD)
+  slot_capacity?: number | null  // 한 시각에 받을 최대 건수(없으면 제한 없음)
+  full?: string[]             // 서버가 채워 주는 '꽉 찬 시각' — 'YYYY-MM-DD HH:MM'
+  deposit_text?: string | null  // 예약금 안내(접수 화면·확정 문구에 붙는다)
 }
 
 export type BookingSource = 'insta_link' | 'kakao' | 'link'
@@ -47,6 +51,11 @@ export function weekdayOf(ymd: string): number {
 }
 
 /** 한국 시각 YYYY-MM-DD + HH:MM → 그 순간 */
+/** 한국 오늘 + n일 */
+export function addDaysKST(n: number, now = new Date()): string {
+  return addDays(todayKST(now), n)
+}
+
 export function kstInstant(ymd: string, hm: string): Date {
   return new Date(`${ymd}T${hm}:00+09:00`)
 }
@@ -58,12 +67,13 @@ export function bookableDays(c: BookingConfig, now = new Date()): string[] {
   for (let i = 0; i <= c.max_days; i++) {
     const d = addDays(today, i)
     if (c.closed_weekdays.includes(weekdayOf(d))) continue
+    if (c.closed_dates?.includes(d)) continue
     if (slotsFor(c, d, now).length) out.push(d)
   }
   return out
 }
 
-/** 그날 고를 수 있는 시각들 — 영업시간 안, slot 간격, 지금+lead_hours 이후 */
+/** 그날 고를 수 있는 시각들 — 영업시간 안, slot 간격, 지금+lead_hours 이후, 꽉 찬 시각 빼고 */
 export function slotsFor(c: BookingConfig, ymd: string, now = new Date()): string[] {
   const start = toMin(c.open_time.slice(0, 5))
   const end = toMin(c.close_time.slice(0, 5))
@@ -71,7 +81,7 @@ export function slotsFor(c: BookingConfig, ymd: string, now = new Date()): strin
   const out: string[] = []
   for (let t = start; t < end; t += c.slot_minutes) {
     const hm = toHM(t)
-    if (kstInstant(ymd, hm).getTime() >= earliest) out.push(hm)
+    if (kstInstant(ymd, hm).getTime() >= earliest && !c.full?.includes(`${ymd} ${hm}`)) out.push(hm)
   }
   return out
 }
@@ -82,6 +92,7 @@ export function isBookable(c: BookingConfig, ymd: string, hm: string, now = new 
   const today = todayKST(now)
   if (ymd < today || ymd > addDays(today, c.max_days)) return false
   if (c.closed_weekdays.includes(weekdayOf(ymd))) return false
+  if (c.closed_dates?.includes(ymd)) return false
   return slotsFor(c, ymd, now).includes(hm)
 }
 
@@ -92,4 +103,18 @@ export function normalizePhone(v: string): string | null {
   if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
   if (d.length === 10) return d.startsWith('02') ? `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}` : `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`
   return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`
+}
+
+/**
+ * 꽉 찬 시각 — 이미 잡힌 예약(확인 필요·확정) 시각을 세어 slot_capacity 이상인 것.
+ * starts 는 저장된 시각(timestamptz 문자열). 한국 날짜·시각으로 센다.
+ */
+export function fullSlots(capacity: number | null | undefined, starts: string[]): string[] {
+  if (!capacity) return []
+  const n = new Map<string, number>()
+  for (const s of starts) {
+    const k = `${ymdKST(s)} ${hmKST(s)}`
+    n.set(k, (n.get(k) ?? 0) + 1)
+  }
+  return [...n].filter(([, v]) => v >= capacity).map(([k]) => k)
 }

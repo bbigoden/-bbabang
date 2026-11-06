@@ -2,7 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { sendPushToUser } from '@/lib/push-server'
-import { isBookable, normalizePhone, bookingSource, inAppSource, kstInstant, type BookingConfig, type BookingProduct } from '@/lib/booking'
+import { randomUUID } from 'crypto'
+import { isBookable, normalizePhone, bookingSource, inAppSource, kstInstant, fullSlots, addDaysKST, type BookingConfig, type BookingProduct } from '@/lib/booking'
 
 /**
  * 예약 링크 페이지(/b/<slug>)의 서버.
@@ -14,7 +15,21 @@ import { isBookable, normalizePhone, bookingSource, inAppSource, kstInstant, typ
  */
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{2,39}$/
-const PUBLIC_COLS = 'title, intro, products, open_time, close_time, slot_minutes, closed_weekdays, lead_hours, max_days'
+const PUBLIC_COLS = 'title, intro, products, open_time, close_time, slot_minutes, closed_weekdays, lead_hours, max_days, closed_dates, slot_capacity, deposit_text'
+const MAX_PHOTOS = 3
+const MAX_PHOTO_BYTES = 1_500_000   // 손님 폰에서 줄여 보낸다(booking-form) — 그래도 큰 건 거절
+const PHOTO_RE = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/
+
+type Supa = NonNullable<ReturnType<typeof service>>
+/** 정원이 있으면 받는 기간 안의 잡힌 예약(확인 필요·확정) 시각을 세어 꽉 찬 시각을 돌려준다 */
+async function loadFull(supa: Supa, ownerId: string, capacity: number | null, maxDays: number): Promise<string[]> {
+  if (!capacity) return []
+  const { data } = await supa.from('office_events').select('starts_at')
+    .eq('owner_broker_id', ownerId).in('status', ['pending', 'confirmed'])
+    .gte('starts_at', new Date().toISOString())
+    .lt('starts_at', kstInstant(addDaysKST(maxDays + 1), '00:00').toISOString())
+  return fullSlots(capacity, (data ?? []).map(r => r.starts_at as string).filter(Boolean))
+}
 
 function service() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -33,9 +48,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ slug
   }
   const supa = service()
   if (!supa) return NextResponse.json({ error: 'config' }, { status: 500 })
-  const { data } = await supa.from('office_booking_pages').select(PUBLIC_COLS).eq('slug', slug).eq('active', true).maybeSingle()
+  const { data } = await supa.from('office_booking_pages').select(`owner_broker_id, ${PUBLIC_COLS}`).eq('slug', slug).eq('active', true).maybeSingle()
   if (!data) return NextResponse.json({ error: 'not_found' }, { status: 404 })
-  return NextResponse.json(data, { headers: { 'Cache-Control': 'no-store' } })
+  const { owner_broker_id, ...pub } = data as Record<string, unknown> & { owner_broker_id: string; slot_capacity: number | null; max_days: number }
+  const full = await loadFull(supa, owner_broker_id, pub.slot_capacity as number | null, pub.max_days as number)
+  return NextResponse.json({ ...pub, full }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -70,12 +87,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   if (!page) return NextResponse.json({ error: 'not_found' }, { status: 404 })
   const cfg = page as unknown as BookingConfig & { office_broker_id: string; owner_broker_id: string }
 
+  cfg.full = await loadFull(supa, cfg.owner_broker_id, cfg.slot_capacity ?? null, cfg.max_days)
   if (!isBookable(cfg, date, time)) {
     return NextResponse.json({ error: '고를 수 없는 날짜·시간이에요. 다시 골라 주세요.' }, { status: 400 })
   }
   const products = (Array.isArray(cfg.products) ? cfg.products : []) as BookingProduct[]
   const product = products.find(p => p.name === productName)
   if (products.length && !product) return NextResponse.json({ error: '상품을 골라 주세요.' }, { status: 400 })
+
+  // 참고 사진 — 넣기 전에 올리고, 넣기가 실패하면 지운다
+  const rawPhotos = Array.isArray(b.photos) ? (b.photos as unknown[]).slice(0, MAX_PHOTOS) : []
+  const photos: string[] = []
+  for (const raw of rawPhotos) {
+    const m = typeof raw === 'string' ? PHOTO_RE.exec(raw) : null
+    if (!m) return NextResponse.json({ error: '사진을 읽지 못했어요. 다른 사진으로 해 주세요.' }, { status: 400 })
+    const buf = Buffer.from(m[2], 'base64')
+    if (buf.length > MAX_PHOTO_BYTES) return NextResponse.json({ error: '사진이 너무 커요.' }, { status: 400 })
+    const path = `${cfg.office_broker_id}/${cfg.owner_broker_id}/${randomUUID()}.${m[1] === 'jpeg' ? 'jpg' : m[1]}`
+    const { error: upErr } = await supa.storage.from('booking-photos').upload(path, buf, { contentType: `image/${m[1]}` })
+    if (upErr) {
+      console.error('[booking] photo upload failed', upErr)
+      if (photos.length) await supa.storage.from('booking-photos').remove(photos)
+      return NextResponse.json({ error: '사진을 올리지 못했어요. 사진 없이 다시 해 주세요.' }, { status: 500 })
+    }
+    photos.push(path)
+  }
 
   const ua = req.headers.get('user-agent')
   const picked = str('from', 10)
@@ -92,11 +128,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     customer_phone: phone,
     memo: request || null,
     source,
+    photos,
     source_text: `예약 페이지에서 신청 · 들어온 곳: ${how}\n상품: ${title}${request ? `\n요청: ${request}` : ''}`,
     status: 'pending',
   })
   if (error) {
     console.error('[booking] insert failed', error)
+    if (photos.length) await supa.storage.from('booking-photos').remove(photos)
     return NextResponse.json({ error: '접수하지 못했어요. 잠시 뒤에 다시 해 주세요.' }, { status: 500 })
   }
 

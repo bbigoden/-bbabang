@@ -2,10 +2,24 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { bookableDays, slotsFor, weekdayOf, inAppSource, type BookingConfig } from '@/lib/booking'
-import { CalendarCheck, Check } from 'lucide-react'
+import { CalendarCheck, Check, ImagePlus, X } from 'lucide-react'
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 const won = (n: number | null) => (n == null ? '' : `${n.toLocaleString()}원`)
+/** 손님 폰 사진을 긴 변 1280px JPEG 로 줄인다 — 원본(수 MB)을 그대로 보내면 느리고 서버 한도를 넘는다 */
+async function shrink(file: File): Promise<string> {
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url })
+    const k = Math.min(1, 1280 / Math.max(img.width, img.height))
+    const c = document.createElement('canvas')
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k)
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+    return c.toDataURL('image/jpeg', 0.8)
+  } finally { URL.revokeObjectURL(url) }
+}
+const MAX_PHOTOS = 3
+
 function timeLabel(hm: string) {
   const [h, m] = hm.split(':').map(Number)
   return `${h < 12 ? '오전' : '오후'} ${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')}`
@@ -23,6 +37,7 @@ export function BookingForm({ slug }: { slug: string }) {
   const [phone, setPhone] = useState('')
   const [request, setRequest] = useState('')
   const [consent, setConsent] = useState(false)
+  const [photos, setPhotos] = useState<string[]>([])
   const [website, setWebsite] = useState('')   // 로봇 걸러내기용 숨은 칸
   const [sending, setSending] = useState(false)
   const [err, setErr] = useState('')
@@ -49,7 +64,7 @@ export function BookingForm({ slug }: { slug: string }) {
       const r = await fetch(`/api/booking/${encodeURIComponent(slug)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, time, product, name, phone, request, consent, from, website }),
+        body: JSON.stringify({ date, time, product, name, phone, request, consent, from, website, photos }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setErr(d.error || '접수하지 못했어요. 잠시 뒤에 다시 해 주세요.'); return }
@@ -81,6 +96,7 @@ export function BookingForm({ slug }: { slug: string }) {
             {m}월 {d}일({WEEK[weekdayOf(date)]}) {timeLabel(time)}{product ? ` · ${product}` : ''}
           </p>
           <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">확인 후 <b>{phone}</b>(으)로 연락드릴게요.</p>
+          {cfg.deposit_text && <p className="mt-3 whitespace-pre-wrap rounded-xl bg-gray-50 p-3 text-left text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">{cfg.deposit_text}</p>}
         </div>
       </main>
     )
@@ -139,6 +155,30 @@ export function BookingForm({ slug }: { slug: string }) {
           <input value={name} onChange={e => setName(e.target.value)} placeholder="이름" autoComplete="name" className={inp} />
           <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="휴대폰 번호" type="tel" inputMode="tel" autoComplete="tel" className={inp} />
           <textarea value={request} onChange={e => setRequest(e.target.value)} rows={3} placeholder="요청사항 (색감, 리본 문구, 예산 등)" className={inp} />
+          <div>
+            <span className="mb-1.5 block text-xs font-semibold text-gray-600 dark:text-gray-400">원하는 느낌의 사진 (선택, {MAX_PHOTOS}장까지)</span>
+            <div className="flex gap-2">
+              {photos.map((p, i) => (
+                <div key={i} className="relative h-20 w-20 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p} alt="" className="h-full w-full object-cover" />
+                  <button type="button" aria-label="사진 빼기" onClick={() => setPhotos(photos.filter((_, j) => j !== i))}
+                    className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white"><X className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 text-xs text-gray-500 dark:border-gray-600">
+                  <ImagePlus className="mb-1 h-5 w-5" />사진
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={async e => {
+                    const files = [...(e.target.files ?? [])].slice(0, MAX_PHOTOS - photos.length)
+                    e.target.value = ''
+                    try { const add = await Promise.all(files.map(shrink)); setPhotos(prev => [...prev, ...add].slice(0, MAX_PHOTOS)) }
+                    catch { setErr('사진을 읽지 못했어요. 다른 사진으로 해 주세요.') }
+                  }} />
+                </label>
+              )}
+            </div>
+          </div>
           {/* 로봇만 채우는 칸 — 사람에겐 안 보인다 */}
           <input value={website} onChange={e => setWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" />
           {!autoSource && (

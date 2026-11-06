@@ -1,19 +1,21 @@
 'use client'
 
 /**
- * 예약 링크 페이지 설정 — 링크 복사(인스타용·카톡용) + 상품·영업시간·쉬는 날 고치기.
+ * 예약 링크 페이지 설정 — 링크 복사 + 상품·영업시간·쉬는 날·막은 날짜·시간당 정원·예약금 안내 고치기.
  * 직원은 자기 페이지, 대표는 사무소의 페이지(시험 중엔 이예리 꽃집 하나)를 연다.
  */
 import { useEffect, useState } from 'react'
+import { todayKST } from '@/lib/date-kst'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/toast'
-import { Copy, Check, ExternalLink } from 'lucide-react'
+import { Copy, Check, ExternalLink, X } from 'lucide-react'
 
 interface PageRow {
   id: string; owner_broker_id: string; slug: string; title: string; intro: string | null
   products: { name: string; price: number | null }[]
   open_time: string; close_time: string; slot_minutes: number; closed_weekdays: number[]
   lead_hours: number; max_days: number; active: boolean
+  closed_dates: string[]; slot_capacity: number | null; deposit_text: string | null
 }
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 const inp = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-white'
@@ -36,6 +38,7 @@ export function BookingSettings({ officeId, myId, isOwner }: { officeId: string;
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState('')
   const [productText, setProductText] = useState('')
+  const [newClosed, setNewClosed] = useState('')
 
   useEffect(() => {
     (async () => {
@@ -68,6 +71,9 @@ export function BookingSettings({ officeId, myId, isOwner }: { officeId: string;
       title: row.title.trim(), intro: row.intro?.trim() || null, products: textToProducts(productText),
       open_time: row.open_time, close_time: row.close_time, slot_minutes: row.slot_minutes,
       closed_weekdays: row.closed_weekdays, lead_hours: row.lead_hours, max_days: row.max_days, active: row.active,
+      // 지난 막은 날은 저장하며 버린다
+      closed_dates: row.closed_dates.filter(d => d >= todayKST()), slot_capacity: row.slot_capacity,
+      deposit_text: row.deposit_text?.trim().slice(0, 300) || null,
     }).eq('id', row.id)
     setSaving(false)
     if (error) { toast.error(`저장 실패: ${error.message}`); return }
@@ -124,6 +130,34 @@ export function BookingSettings({ officeId, myId, isOwner }: { officeId: string;
           })}
         </div>
       </div>
+      <div>
+        <span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">막은 날짜 — 명절·개인 사정·물량 꽉 찬 날</span>
+        <div className="flex gap-2">
+          <input type="date" min={todayKST()} value={newClosed} onChange={e => setNewClosed(e.target.value)} className={inp} />
+          <button type="button" disabled={!newClosed} onClick={() => {
+            if (!row.closed_dates.includes(newClosed)) setRow({ ...row, closed_dates: [...row.closed_dates, newClosed].sort() })
+            setNewClosed('')
+          }} className="shrink-0 rounded-lg border border-gray-300 px-3 text-sm font-semibold text-gray-700 disabled:opacity-40 dark:border-gray-600 dark:text-gray-300">막기</button>
+        </div>
+        {row.closed_dates.filter(d => d >= todayKST()).length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {row.closed_dates.filter(d => d >= todayKST()).map(d => (
+              <span key={d} className="flex items-center gap-1 rounded-full bg-gray-700 py-1 pl-2.5 pr-1 text-xs font-semibold text-white">
+                {Number(d.slice(5, 7))}/{Number(d.slice(8))}
+                <button type="button" aria-label="막기 풀기" onClick={() => setRow({ ...row, closed_dates: row.closed_dates.filter(x => x !== d) })} className="rounded-full p-0.5 hover:bg-white/20"><X className="h-3 w-3" /></button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">한 시간대에 받을 최대 예약 — 다 차면 손님 화면에서 그 시간이 사라져요</span>
+        <select value={row.slot_capacity ?? ''} onChange={e => setRow({ ...row, slot_capacity: e.target.value ? Number(e.target.value) : null })} className={inp}>
+          <option value="">제한 없음</option>
+          {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}건</option>)}
+        </select></label>
+      <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">예약금 안내 — 손님 접수 화면과 [확정] 복사 문구에 붙어요 (비우면 안 붙음)</span>
+        <textarea rows={2} maxLength={300} value={row.deposit_text ?? ''} onChange={e => setRow({ ...row, deposit_text: e.target.value })}
+          placeholder="예) 예약금 1만원: 농협 000-0000-0000-00 (예금주) — 입금 확인 후 확정돼요" className={inp} /></label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block"><span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-400">지금부터 몇 시간 뒤부터</span>
           <input type="number" min={0} max={168} value={row.lead_hours} onChange={e => setRow({ ...row, lead_hours: Math.max(0, Math.min(168, Number(e.target.value) || 0)) })} className={inp} /></label>
