@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Check, Copy, Plus, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Check, Copy, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getOfficeMembers } from '@/lib/office-members'
 import { useToast } from '@/components/toast'
@@ -303,6 +303,17 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
     toast.info('리스트를 지웠어요')
   }
 
+  // 이름 바꾸기 — 만든 사람과 대표·이사(DB 정책 property_lists_update)
+  const renameList = async (l: ListRow) => {
+    const next = prompt('리스트 이름', l.name)?.trim().slice(0, 40)
+    if (!next || next === l.name) return
+    const { data, error } = await createClient().from('property_lists').update({ name: next }).eq('id', l.id).select('id')
+    if (error || !data?.length) { toast.error('이름을 바꿀 권한이 없어요 — 만든 사람이나 대표·이사만 바꿀 수 있어요'); return }
+    setLists(ls => ls?.map(x => x.id === l.id ? { ...x, name: next } : x) ?? ls)
+    setOpen(o => o && o.id === l.id ? { ...o, name: next } : o)
+    toast.success('이름을 바꿨어요')
+  }
+
   const copy = async () => {
     if (!open || !items) return
     try {
@@ -354,6 +365,12 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, onOpe
             <button type="button" onClick={() => deleteList(open)} aria-label="리스트 지우기"
               className="flex items-center justify-center rounded-xl border border-gray-200 px-3 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-800">
               <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          {mayEdit(open) && (
+            <button type="button" onClick={() => renameList(open)} aria-label="리스트 이름 바꾸기" title="이름 바꾸기"
+              className="flex items-center justify-center rounded-xl border border-gray-200 px-3 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
+              <Pencil className="h-4 w-4" />
             </button>
           )}
           <button type="button" onClick={copy} disabled={!items?.length}
