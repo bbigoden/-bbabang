@@ -230,8 +230,10 @@ function ProposedPropertiesCell({ propIds, propertyMap, canSeeMemo, onOpen, onRe
 }
 
 // ── PropertyPicker ────────────────────────────────────
-function PropertyPicker({ officeId, selectedIds, onConfirm, onClose }: {
+function PropertyPicker({ officeId, selectedIds, memoScope, onConfirm, onClose }: {
   officeId: string | null; selectedIds: string[]
+  /** null = 대표·이사(모든 메모 검색). 직원이면 본인 id·대표 이름 — 메모를 볼 수 있는 매물만 메모로 찾는다 */
+  memoScope: { selfId: string; ownerName: string } | null
   onConfirm: (ids: string[]) => void; onClose: () => void
 }) {
   const supabase = createClient()
@@ -266,9 +268,17 @@ function PropertyPicker({ officeId, selectedIds, onConfirm, onClose }: {
         const conds = [`address.ilike.%${w}%`, `deal_type.ilike.%${w}%`, `room_type.ilike.%${w}%`]
         // seq_no는 정수 컬럼 — 자릿수가 크면 오버플로로 쿼리가 깨지므로 제외
         if (digits && digits === w && digits.length <= 9) conds.push(`seq_no.eq.${digits}`)
-        // 중개사메모의 가게 이름('완미족발')으로도 찾게(11-06). 숫자만 친 말은 메모에 안 건다 —
-        // 남의 매물 메모에 적힌 임차인 전화번호를 검색으로 떠볼 수 없게.
-        if (digits !== w) conds.push(`memo.ilike.%${w}%`)
+        // 중개사메모의 가게 이름('완미족발')으로도 찾게(11-06). 숫자만 친 말은 메모에 안 건다(전화번호 떠보기 방지).
+        // 대표·이사는 모든 메모, 직원은 메모를 볼 수 있는 매물(본인 것·담당자에 대표)에서만 — 직원끼리는 못 찾는다.
+        if (digits !== w) {
+          if (!memoScope) conds.push(`memo.ilike.%${w}%`)
+          else {
+            const who: string[] = []
+            if (memoScope.selfId) who.push(`broker_id.eq.${memoScope.selfId}`)
+            if (memoScope.ownerName) who.push(`assignee.ilike.%${memoScope.ownerName}%`)
+            if (who.length) conds.push(`and(memo.ilike.%${w}%,or(${who.join(',')}))`)
+          }
+        }
         q = q.or(conds.join(','))
       }
       const { data } = await q.order('created_at', { ascending: false }).limit(PROP_PICK_LIMIT)
@@ -277,7 +287,7 @@ function PropertyPicker({ officeId, selectedIds, onConfirm, onClose }: {
       setLoading(false)
     }, search ? 250 : 0)
     return () => { alive = false; clearTimeout(timer) }
-  }, [search, officeId])
+  }, [search, officeId, memoScope?.selfId, memoScope?.ownerName])
 
   // 선택된 것 먼저, 그 뒤 검색 결과(중복 제외)
   const pinnedIds = new Set(pinned.map(p => p.id))
@@ -1686,6 +1696,7 @@ export default function BrokerDiaryPage() {
           <PropertyPicker
             officeId={pickerOfficeId}
             selectedIds={row?.proposed_property_ids ?? []}
+            memoScope={isOwner ? null : { selfId: broker?.id ?? '', ownerName: officeOwnerName }}
             onConfirm={ids => saveProposedProperties(propertyPickerLinkId, ids)}
             onClose={() => setPropertyPickerLinkId(null)}
           />
