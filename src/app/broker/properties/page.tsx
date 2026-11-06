@@ -26,7 +26,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin, ClipboardList,
+  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin,
 } from 'lucide-react'
 import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
@@ -2460,14 +2460,6 @@ function BrokerPropertiesContent() {
                 <Map className="h-4 w-4" />지도
               </button>
             </div>
-            {/* 손님 미팅 리스트 — 별도 화면(11-06 개편). 담는 중이 없을 때 여기서 고른다 */}
-            {!isAdminView && listOfficeId && broker?.id && (
-              // 폰에선 아이콘만 — 글자까지 넣으면 상단 버튼이 두 줄로 밀렸다(11-06 폰 확인)
-              <Link href="/broker/lists" aria-label="미팅준비" title="미팅준비"
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 sm:px-3.5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
-                <ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">미팅준비</span>
-              </Link>
-            )}
           </div>
         </div>
 
