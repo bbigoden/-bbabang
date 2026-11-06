@@ -713,7 +713,8 @@ export default function BrokerCustomersPage() {
   }, [])
   const sourceDist = (() => {
     const map: Record<string, number> = {}
-    filtered.forEach(c => { if (c.source) map[c.source] = (map[c.source] ?? 0) + 1 })
+    // 유입이 빈 고객은 '없음' 칸 — 빠지면 가운데 숫자가 다른 카드와 달랐다(11-06 재점검)
+    filtered.forEach(c => { const k = c.source?.trim() || '없음'; map[k] = (map[k] ?? 0) + 1 })
     return distribute(map, wideStats ? 12 : 10)
   })()
 

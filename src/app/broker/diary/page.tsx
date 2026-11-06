@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { useEscape } from '@/lib/use-escape'
 import { useEffect, useState, useRef, useCallback, useId } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -328,11 +329,12 @@ function PropertyPicker({ officeId, selectedIds, onConfirm, onClose }: {
     const timer = setTimeout(async () => {
       const term = sanitizeFilterTerm(search)
       let q = supabase.from('broker_properties').select(PROP_PICK_COLS).eq('office_broker_id', officeId)
-      if (term) {
-        const digits = term.replace(/[^0-9]/g, '')
-        const conds = [`address.ilike.%${term}%`, `deal_type.ilike.%${term}%`, `room_type.ilike.%${term}%`]
+      // 낱말마다 따로 건다(모두 맞아야) — '불당 월세' 처럼 주소·거래형태에 나뉜 말도 찾게(11-06 재점검)
+      for (const w of term.split(' ').filter(Boolean)) {
+        const digits = w.replace(/[^0-9]/g, '')
+        const conds = [`address.ilike.%${w}%`, `deal_type.ilike.%${w}%`, `room_type.ilike.%${w}%`]
         // seq_no는 정수 컬럼 — 자릿수가 크면 오버플로로 쿼리가 깨지므로 제외
-        if (digits && digits.length <= 9) conds.push(`seq_no.eq.${digits}`)
+        if (digits && digits === w && digits.length <= 9) conds.push(`seq_no.eq.${digits}`)
         q = q.or(conds.join(','))
       }
       const { data } = await q.order('created_at', { ascending: false }).limit(PROP_PICK_LIMIT)
@@ -418,6 +420,7 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
 }) {
   const supabase = createClient()
   const toast = useToast()
+  useEscape(true, onClose)
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -431,8 +434,11 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
     const timer = setTimeout(async () => {
       let q = supabase.from('broker_customers').select(CUST_PICK_COLS).eq('office_broker_id', officeId)
       if (ownerName) q = q.ilike('assignee', `%${ownerName}%`)
-      const term = sanitizeFilterTerm(search)
-      if (term) q = q.or(`request.ilike.%${term}%,contact.ilike.%${term}%,client_name.ilike.%${term}%`)
+      // 낱말마다 조건을 따로 걸어 모두 맞는 고객을 찾는다(.or 를 여러 번 = 그리고) — '불당 월세' 가
+      // 한 덩어리로만 찾아져 0건이었다. 고객목록 검색과 같은 결과가 나와야 한다(11-06 재점검).
+      for (const w of sanitizeFilterTerm(search).split(' ').filter(Boolean)) {
+        q = q.or(`request.ilike.%${w}%,contact.ilike.%${w}%,client_name.ilike.%${w}%`)
+      }
       const { data, error } = await q.order('created_at', { ascending: false }).limit(CUST_PICK_LIMIT)
       if (!alive) return
       // 실패하면 앞 목록이 결과처럼 남아 있었다(' OR 1=1 같은 말은 보안 필터가 막는다, 11-06 점검)
@@ -732,7 +738,9 @@ export default function BrokerDiaryPage() {
     if (!dateParam && !brokerParam) return
     if (!broker) return  // broker 로드 후에야 본인 매칭 가능
     notifNavRef.current = true
-    if (dateParam) setDiaryDate(dateParam)
+    // 진짜 있는 날짜만 받는다 — ?date=abc 면 'NaN/NaN/NaN' 일지가 열리고 저장하면 영문 DB 오류가 떴다(11-06 재점검)
+    const d = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(dateParam + 'T00:00:00Z') : null
+    if (d && !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === dateParam) setDiaryDate(dateParam!)
     if (brokerParam && isOwner && brokerParam !== broker.id) {
       // 대표가 직원 일지 알림 클릭 → 그 직원 일지 보기
       setViewingBrokerId(brokerParam)

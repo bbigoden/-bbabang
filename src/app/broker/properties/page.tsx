@@ -1423,7 +1423,9 @@ function BrokerPropertiesContent() {
         priceMin: num(filterPriceMin), priceMax: num(filterPriceMax),
         rentMin: num(filterRentMin), rentMax: num(filterRentMax),
         pyeongMin: num(filterPyeongMin), pyeongMax: num(filterPyeongMax),
-        floorMin: num(filterFloorMin), floorMax: num(filterFloorMax),
+        // 층은 DB 정수 칸이라 너무 큰 수는 영문 오류가 떴다(11-06 재점검) — 200층 넘으면 200으로 본다
+        floorMin: num(filterFloorMin) == null ? null : Math.min(num(filterFloorMin)!, 200),
+        floorMax: num(filterFloorMax) == null ? null : Math.min(num(filterFloorMax)!, 200),
       }
       // 값이 같으면 이전 객체 유지 — 새 객체면 rpcParams 가 다시 만들어져 같은 RPC 가 또 나간다
       setDebouncedRanges(prev => JSON.stringify(prev) === JSON.stringify(next) ? prev : next)
