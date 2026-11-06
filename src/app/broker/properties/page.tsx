@@ -26,7 +26,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin, ListChecks,
+  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin, ClipboardList,
 } from 'lucide-react'
 import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
@@ -48,7 +48,7 @@ import { PropertyTextHistoryButton } from '@/components/sheet/property-text-hist
 import { PropertyViewSheet } from '@/components/broker/property-view-sheet'
 import { LocationCardSheet } from '@/components/broker/location-card-sheet'
 import { chipClass } from '@/components/ui/chip'
-import { AddToListSheet, PropertyListsSheet } from '@/components/broker/property-lists'
+import { ActiveListBar, ListPickerSheet, loadList, useActiveListId, useMembers, type MeetingList } from '@/components/broker/property-lists'
 
 // 지도 뷰(카카오 핀·묶음·우측 패널)는 지도를 열 때만 받는다 — 목록만 보는 폰은 이 코드를 안 받는다
 const PropertiesMapView = dynamic(() => import('@/components/broker/properties-map-view').then(m => m.PropertiesMapView), {
@@ -1056,11 +1056,12 @@ interface PropertyRowProps {
   onView: (v: { p: Property; memoVisible: boolean }) => void
   /** [입지] — 소재지로 토지·용도지역·건물·IC 거리를 한 장에 (useState 세터) */
   onLocation: (v: { address: string; roomType: string | null }) => void
-  /** [담기] — 손님 미팅용 매물 리스트에 보낸다(useState 세터). 관리자 뷰에선 없다 */
+  /** [담기] — 담는 중인 미팅 리스트에 넣고 빼기(안정 함수). 담는 중이 없으면 리스트 고르기. 관리자 뷰에선 없다 */
   onAddToList?: (p: Property) => void
-  /** 여러 개 고르기 중일 때만 — 번호 칸이 체크칸이 된다(useState 세터 감싼 안정 함수) */
-  onPick?: (p: Property) => void
-  picked?: boolean
+  /** 담는 중인 미팅 리스트가 있다 */
+  listActive?: boolean
+  /** 이 매물이 담는 중인 리스트에 들어 있다 */
+  inList?: boolean
 }
 
 const PropertyRow = memo(function PropertyRow({
@@ -1068,7 +1069,7 @@ const PropertyRow = memo(function PropertyRow({
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, industryOpts, ownerName,
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
-  onDelete, onCopy, onView, onLocation, onAddToList, onPick, picked,
+  onDelete, onCopy, onView, onLocation, onAddToList, listActive, inList,
 }: PropertyRowProps) {
   const toast = useToast()
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
@@ -1109,17 +1110,28 @@ const PropertyRow = memo(function PropertyRow({
         ) : <span className="block select-all leading-none">{p.seq_no ?? ''}</span>}
         {/* select-none — 칸 전체에 select-all 이 걸려 있을 땐 폰에서 [보기] 를 누르면 번호가 블록으로 잡혔다(11-05)
             넓은 화면에서도 손가락 화면이면 보인다 — 펼친 폴드는 640px 를 넘어 sm:hidden 에 숨었다(11-06). 마우스+넓은 화면만 숨김 */}
-        {/* 여러 개 고르기 중엔 보기·담기 대신 체크칸 하나 — 줄 높이가 그대로다 */}
-        {onPick ? (
-          <button type="button" onClick={() => onPick(p)} aria-pressed={!!picked} aria-label={`${p.seq_no ?? ''}번 고르기`}
-            className={`mt-1 flex w-full select-none items-center justify-center rounded py-1 ${picked ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-transparent dark:border-gray-700 dark:bg-gray-900'}`}>
-            <CheckCircle2 className="h-4 w-4" />
-          </button>
+        {/* 담는 중인 미팅 리스트가 있으면 [보기]·[담기] 를 아이콘 둘로 한 줄에 — 줄 높이가 그대로다(11-06).
+            없으면 폰은 [보기] 하나, 마우스 화면은 [담기] 하나(누르면 담을 리스트 고르기). */}
+        {listActive && onAddToList ? (
+          <div className="mt-1 flex gap-1">
+            <button type="button" onClick={() => onView({ p, memoVisible })} aria-label={`${p.seq_no ?? ''}번 보기`}
+              className="flex flex-1 select-none items-center justify-center rounded bg-blue-50 py-1 text-blue-700 sm:pointer-fine:hidden dark:bg-blue-950/40 dark:text-blue-300">
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+            <button type="button" onClick={() => onAddToList(p)} aria-pressed={!!inList}
+              aria-label={inList ? `${p.seq_no ?? ''}번 리스트에서 빼기` : `${p.seq_no ?? ''}번 리스트에 담기`} title={inList ? '담김 — 누르면 뺍니다' : '담는 중인 리스트에 담기'}
+              className={`flex flex-1 select-none items-center justify-center gap-0.5 rounded py-1 text-[11px] font-semibold ${inList
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300'}`}>
+              {inList ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              <span className="hidden sm:pointer-fine:inline">{inList ? '담김' : '담기'}</span>
+            </button>
+          </div>
         ) : <>
         <button type="button" onClick={() => onView({ p, memoVisible })}
           className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:pointer-fine:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
         {onAddToList && (
-          <button type="button" onClick={() => onAddToList(p)} title="손님 미팅용 리스트에 담기"
+          <button type="button" onClick={() => onAddToList(p)} title="손님 미팅 리스트에 담기"
             className="mt-1 hidden w-full select-none rounded bg-gray-100 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-200 sm:pointer-fine:block dark:bg-gray-800 dark:text-gray-300">담기</button>
         )}
         </>}
@@ -2047,20 +2059,54 @@ function BrokerPropertiesContent() {
    */
   const [newProp, setNewProp] = useState<{ address: string; deal_type: string } | null>(null)
   const [viewProp, setViewProp] = useState<{ p: Property; memoVisible: boolean } | null>(null)
-  const [listFor, setListFor] = useState<Property[] | null>(null)  // [담기] 할 매물(한 건 또는 고른 여러 건)
-  const addOneToList = useCallback((p: Property) => setListFor([p]), [])
-  // 여러 개 고르기 — 미팅 매물을 한 번에 리스트로(11-06). 쪽을 넘겨도 고른 건 남는다
-  const [pickMode, setPickMode] = useState(false)
-  const [picked, setPicked] = useState<Record<string, Property>>({})
-  const togglePick = useCallback((p: Property) => setPicked(m => {
-    const n = { ...m }
-    if (n[p.id]) delete n[p.id]; else n[p.id] = p
-    return n
-  }), [])
-  const pickedList = Object.values(picked)
-  const endPick = () => { setPickMode(false); setPicked({}) }
-  const [showLists, setShowLists] = useState(false)               // 상단 [리스트]
+  // ── 미팅 리스트 '담는 중' (11-06 개편) ──
+  // 리스트를 한 번 골라 두면 줄의 [담기] 한 번으로 바로 들어가고 다시 누르면 빠진다. 고른 리스트는 이 기기에 기억.
   const listOfficeId = scopeState && 'office' in scopeState ? scopeState.office : null
+  const [activeListId, setActiveListId] = useActiveListId(isAdminView ? null : broker?.id)
+  const [activeList, setActiveList] = useState<MeetingList | null>(null)
+  const [activeIds, setActiveIds] = useState<Set<string>>(new Set())  // 담는 중 리스트에 든 매물(내가 볼 수 있는 것)
+  const [pickListFor, setPickListFor] = useState<{ p: Property | null } | null>(null)  // 리스트 고르기 창 — p 가 있으면 고른 뒤 담는다
+  const { names: memberNames } = useMembers(listOfficeId)
+  useEffect(() => {
+    if (!activeListId) { setActiveList(null); setActiveIds(new Set()); return }
+    let alive = true
+    Promise.all([
+      loadList(activeListId),
+      supabase.from('property_list_items').select('property_id').eq('list_id', activeListId),
+    ]).then(([l, its]) => {
+      if (!alive) return
+      // 지워졌거나 미팅이 끝난 리스트면 담는 중을 푼다
+      if (!l || l.status === 'done') { setActiveListId(null); return }
+      setActiveList(l)
+      setActiveIds(new Set(((its.data ?? []) as { property_id: string }[]).map(r => r.property_id)))
+    })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeListId])
+
+  const putInList = async (l: MeetingList, p: Property, wasIn: boolean) => {
+    if (wasIn) {
+      const { data, error } = await supabase.from('property_list_items').delete().eq('list_id', l.id).eq('property_id', p.id).select('list_id')
+      if (error || !data?.length) { toast.error('뺄 권한이 없어요 — 담은 사람이나 리스트 만든 사람만 뺄 수 있어요'); return }
+      setActiveIds(s => { const n = new Set(s); n.delete(p.id); return n })
+      setActiveList(x => x && x.id === l.id ? { ...x, count: Math.max(0, x.count - 1) } : x)
+      toast.info(`${p.seq_no ?? ''}번을 뺐어요`)
+      return
+    }
+    const { error } = await supabase.from('property_list_items')
+      .upsert({ list_id: l.id, property_id: p.id, added_by: broker.id, sort_order: l.count + 1 }, { onConflict: 'list_id,property_id', ignoreDuplicates: true })
+    if (error) { toast.error('담지 못했어요'); return }
+    setActiveIds(s => new Set(s).add(p.id))
+    setActiveList(x => x && x.id === l.id ? { ...x, count: x.count + 1 } : x)
+    toast.success(`${p.seq_no ?? ''}번 → ${l.name}`)
+  }
+  // 줄에 넘기는 함수는 늘 같아야 한다(memo 줄이 전부 다시 그려지지 않게) — 최신 상태는 ref 로 읽는다
+  const addToListRef = useRef<(p: Property) => void>(() => {})
+  addToListRef.current = (p: Property) => {
+    if (!activeList) { setPickListFor({ p }); return }
+    void putInList(activeList, p, activeIds.has(p.id))
+  }
+  const onAddToList = useCallback((p: Property) => addToListRef.current(p), [])
   const [locationOf, setLocationOf] = useState<{ address: string; roomType: string | null } | null>(null)
   const addingRef = useRef(false)
   const addedWhileLoadingRef = useRef<Property[]>([])
@@ -2355,7 +2401,7 @@ function BrokerPropertiesContent() {
       )}
 
       {/* 고르기 중엔 아래 막대가 마지막 줄·쪽 넘김을 가리지 않게 여백 */}
-      <div className={`px-4 py-6 ${pickMode ? 'pb-32' : ''}`}>
+      <div className={`px-4 py-6 ${activeList ? 'pb-32' : ''}`}>
         {/* 어드민 뷰 배너 */}
         {isAdminView && (
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
@@ -2414,20 +2460,12 @@ function BrokerPropertiesContent() {
                 <Map className="h-4 w-4" />지도
               </button>
             </div>
-            {/* 손님 미팅용 매물 묶음 — 줄의 [담기] 로 모은다(11-06) */}
+            {/* 손님 미팅 리스트 — 별도 화면(11-06 개편). 담는 중이 없을 때 여기서 고른다 */}
             {!isAdminView && listOfficeId && broker?.id && (
-              <button onClick={() => setShowLists(true)}
+              <Link href="/broker/lists"
                 className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-2.5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 sm:px-3.5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
-                <ListChecks className="h-4 w-4" />리스트
-              </button>
-            )}
-            {!isAdminView && listOfficeId && broker?.id && !isMapView && (
-              <button onClick={() => pickMode ? endPick() : setPickMode(true)}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-2.5 text-sm font-medium sm:px-3.5 ${pickMode
-                  ? 'border-blue-600 bg-blue-600 text-white'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'}`}>
-                <CheckCircle2 className="h-4 w-4" />{pickMode ? '고르기 끝' : '고르기'}
-              </button>
+                <ClipboardList className="h-4 w-4" />미팅 리스트
+              </Link>
             )}
           </div>
         </div>
@@ -2698,9 +2736,9 @@ function BrokerPropertiesContent() {
                   p={p}
                   onView={setViewProp}
                   onLocation={setLocationOf}
-                  onAddToList={isAdminView ? undefined : addOneToList}
-                  onPick={pickMode ? togglePick : undefined}
-                  picked={pickMode && !!picked[p.id]}
+                  onAddToList={isAdminView || !listOfficeId ? undefined : onAddToList}
+                  listActive={!!activeList}
+                  inList={activeIds.has(p.id)}
                   adBadge={adBadges[p.id]}
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
@@ -2887,33 +2925,26 @@ function BrokerPropertiesContent() {
         )
       })()}
 
-      {/* 고르기 중 아래 막대 — 폰은 하단 메뉴 위에 띄운다 */}
-      {pickMode && (
-        <div className="fixed inset-x-0 z-40 flex justify-center px-4 bottom-[calc(env(safe-area-inset-bottom)+4.5rem)] md:bottom-6">
-          <div className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-gray-900 p-2 pl-4 text-white shadow-xl dark:bg-gray-800">
-            <span className="flex-1 text-sm font-semibold">{pickedList.length ? `${pickedList.length}개 골랐어요` : '번호 칸을 눌러 고르세요'}</span>
-            {pickedList.length > 0 && (
-              <button type="button" onClick={() => setPicked({})} className="rounded-xl px-3 py-2 text-sm text-gray-300 hover:bg-white/10">해제</button>
-            )}
-            <button type="button" disabled={!pickedList.length} onClick={() => setListFor(pickedList)}
-              className="rounded-xl bg-blue-600 px-3.5 py-2 text-sm font-semibold hover:bg-blue-700 disabled:opacity-40">리스트에 담기</button>
-          </div>
-        </div>
+      {/* 담는 중 막대 — 폰은 하단 메뉴 위 */}
+      {activeList && !isMapView && (
+        <ActiveListBar list={activeList} ownerName={memberNames[activeList.created_by]}
+          onChange={() => setPickListFor({ p: null })} onClear={() => setActiveListId(null)} />
       )}
-      {listFor && listOfficeId && broker?.id && (
-        <AddToListSheet officeId={listOfficeId} selfId={broker.id} canManage={canManageOffice(broker)}
-          properties={listFor.map(p => ({ id: p.id, seq_no: p.seq_no ?? null, address: p.address }))}
-          onDone={pickMode ? endPick : undefined}
-          onClose={() => setListFor(null)} />
-      )}
-      {showLists && listOfficeId && broker?.id && (
-        <PropertyListsSheet officeId={listOfficeId} selfId={broker.id} canManage={canManageOffice(broker)}
-          onClose={() => setShowLists(false)}
-          canSeeMemo={p => canManageOffice(broker) || p.broker_id === broker.id
-            || (!!ownerName && (p.assignee ?? '').split(',').map(s => s.trim()).includes(ownerName))} />
+      {pickListFor && listOfficeId && broker?.id && (
+        <ListPickerSheet officeId={listOfficeId} selfId={broker.id} canManage={canManageOffice(broker)}
+          activeId={activeListId} onClose={() => setPickListFor(null)}
+          onPick={l => {
+            const p = pickListFor.p
+            setPickListFor(null)
+            setActiveListId(l.id)
+            setActiveList(l)
+            // 고른 뒤 바로 담는다 — 새 리스트면 담긴 게 없고, 있던 리스트는 아래 effect 가 담긴 목록을 다시 받는다
+            if (p) void putInList(l, p, false)
+          }} />
       )}
       {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)}
-        onAddToList={!isAdminView && listOfficeId ? () => { setListFor([viewProp.p]); setViewProp(null) } : undefined}
+        onAddToList={!isAdminView && listOfficeId ? () => { onAddToList(viewProp.p); setViewProp(null) } : undefined}
+        addLabel={activeList ? (activeIds.has(viewProp.p.id) ? `${activeList.name}에서 빼기` : `${activeList.name}에 담기`) : undefined}
         onLocation={viewProp.p.address?.trim() ? () => { setLocationOf({ address: viewProp.p.address, roomType: viewProp.p.room_type }); setViewProp(null) } : undefined} />}
       {locationOf && <LocationCardSheet address={locationOf.address} roomType={locationOf.roomType} onClose={() => setLocationOf(null)} />}
 

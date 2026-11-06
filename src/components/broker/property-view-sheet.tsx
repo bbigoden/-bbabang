@@ -41,12 +41,14 @@ const STATUS_LABEL = { available: '거래가능', contracted: '계약완료', hi
  * 매물목록은 12칸 넘는 표라 375px 폰에서는 3칸만 보이고, 칸을 누르면 편집칸이 열린다 —
  * 매물 하나의 정보를 보려면 표를 옆으로 훑어야 했다(10-30 점검 모바일 사용자). 읽기만 하는 창이다.
  */
-export function PropertyViewSheet({ p, memoVisible, onClose, onLocation, onAddToList }: {
+export function PropertyViewSheet({ p, memoVisible, onClose, onLocation, onAddToList, addLabel }: {
   p: PropertyView; memoVisible: boolean; onClose: () => void
   /** [입지 보기] — 표의 액션 칸이 폰에선 오른쪽 끝이라 이 창에도 둔다 */
   onLocation?: () => void
   /** [리스트에 담기] — 폰에선 번호 칸에 [보기]·[담기] 둘이면 줄이 높아져 담기는 이 창에만 둔다(11-06) */
   onAddToList?: () => void
+  /** 담기 버튼 글 — 담는 중인 미팅 리스트가 있으면 'OO에 담기' / 'OO에서 빼기' */
+  addLabel?: string
 }) {
   // 사진을 누르면 화면 가득 크게 — 작은 썸네일로는 안이 안 보였다(11-05)
   const [zoom, setZoom] = useState<number | null>(null)
@@ -163,7 +165,7 @@ export function PropertyViewSheet({ p, memoVisible, onClose, onLocation, onAddTo
         {onAddToList && (
           <button type="button" onClick={onAddToList}
             className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-            <ListPlus className="h-4 w-4" />리스트에 담기
+            <ListPlus className="h-4 w-4" />{addLabel ?? '미팅 리스트에 담기'}
           </button>
         )}
         <p className="mt-4 text-xs text-gray-400">고치려면 창을 닫고 표의 칸을 누르세요.</p>

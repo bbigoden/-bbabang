@@ -1,55 +1,92 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Check, Copy, Pencil, Plus, Trash2, X } from 'lucide-react'
+import Link from 'next/link'
+import { CalendarClock, Check, ChevronRight, ClipboardList, Plus, Search, User, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getOfficeMembers } from '@/lib/office-members'
 import { useToast } from '@/components/toast'
 import { useEscape } from '@/lib/use-escape'
-import { PropertyViewSheet, type PropertyView } from '@/components/broker/property-view-sheet'
-
-// [보기] 창에 필요한 칸 + 메모 열람 판정용 broker_id
-const VIEW_COLS = 'broker_id, seq_no, address, deal_type, room_type, status, price, monthly_rent, management_fee, premium, size_pyeong, area_unit, area_supplied, floor, total_floors, move_in_date, rooms_bathrooms, approval_date, parking, direction, brief_memo, memo, assignee, received_date, images'
 
 /**
- * 매물 리스트 (2026-11-06)
+ * 미팅 리스트 (2026-11-06 개편)
  *
  * 이사가 손님 미팅에 가면서 자기 매물과 직원들이 보내 준 매물을 하나하나 모아 갔다.
- * 누가 리스트를 만들어 두면 사무소 사람 누구나 매물목록 줄의 [담기] 로 거기에 보낸다.
- * 리스트 이름·삭제는 만든 사람과 대표·이사만(DB 정책 property_lists_20261106.sql).
+ * 리스트 = 미팅 하나(날짜·손님·상태). 리스트를 한 번 '담는 중' 으로 골라 두면 매물목록 줄의
+ * [담기] 한 번으로 바로 들어간다 — 담을 때마다 창을 열고 고르던 3~4번 누르기를 없앴다.
+ * 이름은 사무소 모두에게 보이고(보낼 곳을 골라야 하니), 담긴 내용은 만든 사람과 대표·이사만 본다.
+ * 권한은 DB 정책(property_lists_*.sql)이 지킨다.
  */
 
-interface ListRow { id: string; name: string; created_by: string; created_at: string; count: number }
-interface ItemRow {
-  property_id: string
-  added_by: string
-  p: {
-    seq_no: number | null; address: string; deal_type: string; room_type: string
-    price: number | null; monthly_rent: number | null; size_pyeong: string | null
-    area_unit: string | null; floor: number | null; status: string; deleted_at: string | null
-  } | null
+export interface MeetingList {
+  id: string
+  name: string
+  created_by: string
+  created_at: string
+  meeting_at: string | null
+  status: 'ready' | 'done'
+  customer_id: string | null
+  customer: { client_name: string | null; contact: string | null } | null
+  count: number
 }
 
-async function loadLists(officeId: string): Promise<ListRow[]> {
-  const { data, error } = await createClient().from('property_lists')
-    .select('id, name, created_by, created_at, property_list_items(count)')
-    .eq('office_broker_id', officeId)
-    .order('created_at', { ascending: false })
-  if (error) throw error
-  return ((data ?? []) as unknown as (Omit<ListRow, 'count'> & { property_list_items: { count: number }[] })[])
-    .map(r => ({ id: r.id, name: r.name, created_by: r.created_by, created_at: r.created_at, count: r.property_list_items?.[0]?.count ?? 0 }))
+const LIST_COLS = 'id, name, created_by, created_at, meeting_at, status, customer_id, customer:broker_customers(client_name, contact), property_list_items(count)'
+
+type RawList = Omit<MeetingList, 'count'> & { property_list_items: { count: number }[] }
+const toList = (r: RawList): MeetingList => {
+  const { property_list_items, ...rest } = r
+  return { ...rest, count: property_list_items?.[0]?.count ?? 0 }
 }
+
+export async function loadLists(officeId: string): Promise<MeetingList[]> {
+  const { data, error } = await createClient().from('property_lists').select(LIST_COLS)
+    .eq('office_broker_id', officeId).order('created_at', { ascending: false })
+  if (error) throw error
+  return ((data ?? []) as unknown as RawList[]).map(toList)
+}
+
+export async function loadList(id: string): Promise<MeetingList | null> {
+  const { data } = await createClient().from('property_lists').select(LIST_COLS).eq('id', id).maybeSingle()
+  return data ? toList(data as unknown as RawList) : null
+}
+
+/** 준비중 먼저(미팅 가까운 순), 끝난 건 뒤로(최근 순) */
+export function sortLists(ls: MeetingList[]) {
+  const t = (l: MeetingList) => (l.meeting_at ? Date.parse(l.meeting_at) : Number.MAX_SAFE_INTEGER)
+  return [...ls].sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'ready' ? -1 : 1
+    return a.status === 'ready' ? t(a) - t(b) : t(b) - t(a)
+  })
+}
+
+/** '11/7(금) 오후 2:00' — 한국 시각 */
+export function meetingLabel(iso: string | null) {
+  if (!iso) return null
+  const d = new Date(iso)
+  const p = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric', minute: '2-digit' })
+    .formatToParts(d)
+  const g = (k: string) => p.find(x => x.type === k)?.value ?? ''
+  return `${g('month')}/${g('day')}(${g('weekday')}) ${g('dayPeriod')} ${g('hour')}:${g('minute')}`
+}
+
+/** datetime-local 칸 값('2026-11-07T14:00') ↔ 저장값. 한국 시각으로 읽고 쓴다 */
+function toLocalInput(iso: string | null) {
+  if (!iso) return ''
+  const s = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+  return s.replace(' ', 'T')
+}
+const fromLocalInput = (v: string) => (v ? new Date(`${v}:00+09:00`).toISOString() : null)
 
 /**
  * 재직자(대표 + 승인된 직원)만. 사무소를 탈퇴한 직원은 parent 가 비어 여기 안 잡힌다 —
  * 그 사람 리스트는 화면에서 빠진다(사장님 11-06: 퇴직자는 필요 없고 기록도 안 남겨도 됨).
  */
-function useMembers(officeId: string | null) {
-  const [members, setMembers] = useState<{ id: string; name: string }[] | null>(null)
+export function useMembers(officeId: string | null) {
+  const [members, setMembers] = useState<{ id: string; name: string; isOwner: boolean }[] | null>(null)
   useEffect(() => {
     if (!officeId) return
     getOfficeMembers(officeId).then(
-      ms => setMembers(ms.filter(m => m.approved).map(m => ({ id: m.id, name: m.name || '이름 없음' }))),
+      ms => setMembers(ms.filter(m => m.approved).map(m => ({ id: m.id, name: m.name || '이름 없음', isOwner: m.isOwner }))),
       () => setMembers([]),
     )
   }, [officeId])
@@ -57,30 +94,54 @@ function useMembers(officeId: string | null) {
   return { members, names }
 }
 
-function Sheet({ label, onClose, paused, children }: {
+// ── 담는 중 리스트 — 이 기기에서만 기억한다(사람마다·기기마다 다를 수 있는 편의) ──
+const activeKey = (brokerId: string) => `busojang_active_list_v1:${brokerId}`
+const ACTIVE_EVENT = 'busojang-active-list'
+
+export function setActiveListId(brokerId: string, id: string | null) {
+  try {
+    if (id) localStorage.setItem(activeKey(brokerId), id)
+    else localStorage.removeItem(activeKey(brokerId))
+  } catch { /* 저장소가 막힌 창 — 이번 화면에서만 기억 */ }
+  window.dispatchEvent(new CustomEvent(ACTIVE_EVENT, { detail: { brokerId, id } }))
+}
+
+export function useActiveListId(brokerId: string | null | undefined): [string | null, (id: string | null) => void] {
+  const [id, setId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!brokerId) return
+    try { setId(localStorage.getItem(activeKey(brokerId))) } catch { setId(null) }
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ brokerId: string; id: string | null }>).detail
+      if (d?.brokerId === brokerId) setId(d.id)
+    }
+    window.addEventListener(ACTIVE_EVENT, on)
+    return () => window.removeEventListener(ACTIVE_EVENT, on)
+  }, [brokerId])
+  const set = useCallback((next: string | null) => { if (brokerId) setActiveListId(brokerId, next) }, [brokerId])
+  return [id, set]
+}
+
+// ── 창 틀 ──
+export function Sheet({ label, onClose, paused, children }: {
   label: string; onClose: () => void; children: React.ReactNode
-  /** 위에 [보기] 창이 떠 있으면 Esc 는 그 창만 닫는다 */
+  /** 위에 다른 창이 떠 있으면 Esc 는 그 창만 닫는다 */
   paused?: boolean
 }) {
   useEscape(!paused, onClose)
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={label} onClick={e => e.stopPropagation()}
-        className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:max-w-md sm:rounded-2xl dark:bg-gray-900">
+        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:max-w-md sm:rounded-2xl dark:bg-gray-900">
         {children}
       </div>
     </div>
   )
 }
 
-function SheetHead({ title, sub, onClose, onBack }: { title: string; sub?: string; onClose: () => void; onBack?: () => void }) {
+export function SheetHead({ title, sub, onClose }: { title: string; sub?: string; onClose: () => void }) {
   return (
-    <div className="flex items-start gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-      {onBack && (
-        <button type="button" onClick={onBack} aria-label="뒤로" className="-m-1.5 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-      )}
+    <div className="flex items-start gap-2 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-base font-bold text-gray-900 dark:text-white">{title}</h3>
         {sub && <p className="mt-0.5 truncate text-xs text-gray-500">{sub}</p>}
@@ -92,176 +153,266 @@ function SheetHead({ title, sub, onClose, onBack }: { title: string; sub?: strin
   )
 }
 
-/**
- * 새 리스트 이름 칸 — 담기 창과 리스트 창이 같이 쓴다.
- * owner = 누구 리스트로 만들지. 대표·이사가 드롭다운에서 직원을 골랐으면 그 직원 것(11-06 — 대표 것으로 만들어졌다).
- */
-function NewListForm({ officeId, owner, ownerName, onMade }: {
-  officeId: string; owner: string
-  /** 남의 이름으로 만들 때만 — 칸 안내에 'OO님 리스트' 로 보인다 */
-  ownerName?: string
-  onMade: (l: ListRow) => void
+/** 사람 칩 — 전체/나/재직자. allLabel 을 주면 맨 앞에 '전체' */
+export function MemberChips({ members, selfId, value, onChange, allLabel }: {
+  members: { id: string; name: string }[]; selfId: string; value: string; onChange: (id: string) => void; allLabel?: string
 }) {
-  const toast = useToast()
-  const [name, setName] = useState('')
-  const [busy, setBusy] = useState(false)
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const n = name.trim()
-    if (!n || busy) return
-    setBusy(true)
-    const { data, error } = await createClient().from('property_lists')
-      .insert({ office_broker_id: officeId, created_by: owner, name: n.slice(0, 40) })
-      .select('id, name, created_by, created_at').single()
-    setBusy(false)
-    if (error || !data) { toast.error('리스트를 만들지 못했어요'); return }
-    setName('')
-    onMade({ ...(data as Omit<ListRow, 'count'>), count: 0 })
+  const me = members.find(m => m.id === selfId)
+  const others = members.filter(m => m.id !== selfId)
+  const chip = (id: string, label: string) => (
+    <button key={id || 'all'} type="button" onClick={() => onChange(id)} aria-pressed={value === id}
+      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${value === id
+        ? 'border-blue-600 bg-blue-600 text-white'
+        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'}`}>
+      {label}
+    </button>
+  )
+  return (
+    <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+      {allLabel !== undefined && chip('', allLabel)}
+      {me && chip(me.id, '나')}
+      {others.map(m => chip(m.id, m.name))}
+    </div>
+  )
+}
+
+/** 손님 고르기 — 고객목록에서 이름·연락처·요청으로 찾는다 */
+function CustomerPick({ officeId, value, onChange }: {
+  officeId: string
+  value: { id: string; label: string } | null
+  onChange: (v: { id: string; label: string } | null) => void
+}) {
+  const [q, setQ] = useState('')
+  const [rows, setRows] = useState<{ id: string; client_name: string | null; contact: string | null; request: string | null }[]>([])
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    const t = setTimeout(async () => {
+      let qb = createClient().from('broker_customers').select('id, client_name, contact, request').eq('office_broker_id', officeId)
+      const w = q.trim().replace(/[,()%]/g, ' ').trim()
+      if (w) qb = qb.or(`client_name.ilike.%${w}%,contact.ilike.%${w}%,request.ilike.%${w}%`)
+      const { data } = await qb.order('created_at', { ascending: false }).limit(20)
+      if (alive) setRows((data ?? []) as typeof rows)
+    }, q ? 250 : 0)
+    return () => { alive = false; clearTimeout(t) }
+  }, [q, open, officeId])
+
+  if (value) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm dark:border-gray-800">
+        <User className="h-4 w-4 shrink-0 text-gray-400" />
+        <span className="min-w-0 flex-1 truncate">{value.label}</span>
+        <button type="button" onClick={() => onChange(null)} aria-label="손님 빼기" className="text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+      </div>
+    )
   }
   return (
-    <form onSubmit={submit} className="flex gap-2">
-      <input value={name} onChange={e => setName(e.target.value)} maxLength={40}
-        placeholder={ownerName ? `${ownerName}님 새 리스트 이름` : '새 리스트 이름 (예: 11/7 김사장님 미팅)'} aria-label="새 리스트 이름"
-        className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950" />
-      <button type="submit" disabled={!name.trim() || busy}
-        className="flex shrink-0 items-center gap-1 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
-        <Plus className="h-4 w-4" />만들기
-      </button>
-    </form>
+    <div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input value={q} onChange={e => setQ(e.target.value)} onFocus={() => setOpen(true)}
+          placeholder="고객목록에서 찾기 (이름·연락처·요청)" aria-label="손님 찾기"
+          className="w-full rounded-xl border border-gray-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950" />
+      </div>
+      {open && (
+        <div className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-gray-100 dark:border-gray-800">
+          {rows.length === 0 ? <p className="px-3 py-3 text-xs text-gray-500">맞는 고객이 없어요</p> : rows.map(r => (
+            <button key={r.id} type="button" onClick={() => { onChange({ id: r.id, label: [r.client_name, r.contact].filter(Boolean).join(' · ') || '이름 없는 고객' }); setOpen(false); setQ('') }}
+              className="block w-full border-b border-gray-50 px-3 py-2 text-left last:border-0 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
+              <span className="block truncate text-sm text-gray-900 dark:text-white">{[r.client_name, r.contact].filter(Boolean).join(' · ') || '이름 없는 고객'}</span>
+              {r.request && <span className="block truncate text-xs text-gray-500">{r.request}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
 /**
- * 매물 한 건을 리스트에 담는 창 — 줄의 [담기].
- * 체크는 표시만 하고 [완료] 를 눌러야 한꺼번에 담기·빼기(11-06 — 체크만 해도 바로 담기고 '담았어요' 가 떴다).
- * X·바깥·Esc 로 닫으면 아무것도 바뀌지 않는다.
+ * 미팅 리스트 만들기·고치기 — 이름, 누구 리스트(대표·이사만 고름), 미팅 날짜·시간, 손님.
  */
-export function AddToListSheet({ officeId, selfId, canManage, properties, onClose, onDone }: {
-  officeId: string; selfId: string
-  /** 대표·이사 — 남의 리스트 건수도 다 보인다. 아니면 '내가 담은 n건' */
-  canManage: boolean
-  /** 한 건이면 담긴 곳이 체크돼 나오고 빼기도 된다. 여러 건(고르기)이면 담기만 */
-  properties: { id: string; seq_no: number | null; address: string }[]
+export function ListFormSheet({ officeId, selfId, canManage, members, initial, defaultOwner, onSaved, onClose }: {
+  officeId: string; selfId: string; canManage: boolean
+  members: { id: string; name: string }[]
+  /** 있으면 고치기 */
+  initial?: MeetingList
+  /** 새로 만들 때 기본 주인 — 대표·이사가 칩에서 고른 사람 */
+  defaultOwner?: string
+  onSaved: (l: MeetingList) => void
   onClose: () => void
-  /** [완료] 로 저장했을 때 — 고르기를 풀 때 쓴다 */
-  onDone?: () => void
 }) {
-  const single = properties.length === 1
-  const property = properties[0]
   const toast = useToast()
-  const { members, names } = useMembers(officeId)
-  const [lists, setLists] = useState<ListRow[] | null>(null)
-  const [saved, setSaved] = useState<Set<string>>(new Set())    // DB 에 이미 담긴 리스트
-  const [picked, setPicked] = useState<Set<string>>(new Set())  // 지금 체크된 리스트
-  const [saving, setSaving] = useState(false)
-  const [who, setWho] = useState(selfId)  // 드롭다운 — 누구 리스트에 보낼지
-  const counts: Record<string, number> = {}
-  for (const l of lists ?? []) counts[l.created_by] = (counts[l.created_by] ?? 0) + 1
-  const shown = (lists ?? []).filter(l => l.created_by === who)
-  const adds = [...picked].filter(id => !saved.has(id))
-  const removes = [...saved].filter(id => !picked.has(id))
-  const dirty = adds.length + removes.length > 0
+  const [name, setName] = useState(initial?.name ?? '')
+  const [owner, setOwner] = useState(initial?.created_by ?? defaultOwner ?? selfId)
+  const [when, setWhen] = useState(toLocalInput(initial?.meeting_at ?? null))
+  const [cust, setCust] = useState<{ id: string; label: string } | null>(
+    initial?.customer_id ? { id: initial.customer_id, label: [initial.customer?.client_name, initial.customer?.contact].filter(Boolean).join(' · ') || '연결된 고객' } : null)
+  const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    let alive = true
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const n = name.trim().slice(0, 40)
+    if (!n) { toast.error('리스트 이름을 적어 주세요'); return }
+    setBusy(true)
+    const row = { name: n, created_by: owner, meeting_at: fromLocalInput(when), customer_id: cust?.id ?? null }
     const supabase = createClient()
-    Promise.all([
-      loadLists(officeId),
-      // 여러 건이면 '이미 담긴 곳' 이 매물마다 달라 체크로 못 보인다 — 담기만 한다
-      single ? supabase.from('property_list_items').select('list_id').eq('property_id', property.id) : Promise.resolve({ data: [] }),
-    ]).then(([ls, its]) => {
-      if (!alive) return
-      setLists(ls)
-      const ids = new Set(((its.data ?? []) as { list_id: string }[]).map(r => r.list_id))
-      setSaved(ids); setPicked(new Set(ids))
-    }, () => { if (alive) { setLists([]); toast.error('리스트를 불러오지 못했어요') } })
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officeId, property.id, single])
-
-  const toggle = (id: string) => setPicked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
-
-  const save = async () => {
-    if (!dirty) { onClose(); return }
-    setSaving(true)
-    const supabase = createClient()
-    let failed = 0
-    if (adds.length) {
-      // 다른 사람이 이미 담아 둔 매물은 건너뛴다(남이 담은 줄은 안 보여 체크가 비어 있을 수 있다)
-      const { error } = await supabase.from('property_list_items')
-        .upsert(adds.flatMap(list_id => properties.map(p => ({ list_id, property_id: p.id, added_by: selfId }))), { onConflict: 'list_id,property_id', ignoreDuplicates: true })
-      if (error) failed += adds.length
-    }
-    if (removes.length) {
-      const { data, error } = await supabase.from('property_list_items').delete()
-        .eq('property_id', property.id).in('list_id', removes).select('list_id')
-      failed += error ? removes.length : removes.length - (data?.length ?? 0)
-    }
-    setSaving(false)
-    if (failed) { toast.error(`${failed}곳은 바꾸지 못했어요 — 남이 담은 매물은 담은 사람이나 리스트 만든 사람만 뺄 수 있어요`); return }
-    const parts = [adds.length ? `${single ? '' : `매물 ${properties.length}개를 `}${adds.length}곳에 담았어요` : '', removes.length ? `${removes.length}곳에서 뺐어요` : ''].filter(Boolean)
-    toast.success(parts.join(' · '))
-    onDone?.()
-    onClose()
+    const res = initial
+      ? await supabase.from('property_lists').update(row).eq('id', initial.id).select(LIST_COLS).single()
+      : await supabase.from('property_lists').insert({ ...row, office_broker_id: officeId }).select(LIST_COLS).single()
+    setBusy(false)
+    if (res.error || !res.data) { toast.error(initial ? '고치지 못했어요' : '만들지 못했어요'); return }
+    onSaved(toList(res.data as unknown as RawList))
   }
 
   return (
-    <Sheet label="리스트에 담기" onClose={onClose}>
-      <SheetHead title="리스트에 담기" onClose={onClose}
-        sub={single ? `#${property.seq_no ?? ''} ${property.address}` : `매물 ${properties.length}개 — ${properties.map(p => p.seq_no ?? '').slice(0, 8).join(', ')}${properties.length > 8 ? ' …' : ''}`} />
-      <div className="space-y-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-        {/* 누구 리스트에 보낼지 — 재직자만. 나를 고르면 새 리스트도 만들 수 있다 */}
-        <select value={who} onChange={e => setWho(e.target.value)} aria-label="누구 리스트에 담을지"
-          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950">
-          {(members ?? []).map(m => (
-            <option key={m.id} value={m.id}>{m.id === selfId ? `${m.name} (나)` : m.name} 리스트{counts[m.id] ? ` · ${counts[m.id]}개` : ''}</option>
-          ))}
-        </select>
-        {(who === selfId || canManage) && (
-          // 새 리스트는 바로 만들어지고 체크만 된다 — 이 매물은 [완료] 때 담긴다
-          <NewListForm officeId={officeId} owner={who} ownerName={who === selfId ? undefined : names[who]} onMade={l => {
-            setLists(ls => [l, ...(ls ?? [])])
-            setPicked(s => new Set(s).add(l.id))
-          }} />
-        )}
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {lists == null || members == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
-          : shown.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">
-              {who === selfId ? '아직 내 리스트가 없어요. 위에서 하나 만들어 담으세요.' : `${names[who] ?? ''}님이 만든 리스트가 없어요.`}
-            </p>
-          : shown.map(l => {
-            const on = picked.has(l.id)
-            return (
-              <button key={l.id} type="button" onClick={() => toggle(l.id)} disabled={saving}
-                className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:hover:bg-gray-800">
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${on ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300 dark:border-gray-700'}`}>
-                  {on && <Check className="h-3.5 w-3.5" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">{l.name}</span>
-                  <span className="block text-xs text-gray-500">
-                    {canManage || l.created_by === selfId ? `${l.count}건` : `내가 담은 ${l.count}건`}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
-      </div>
-      <div className="flex gap-2 border-t border-gray-100 p-3 dark:border-gray-800">
-        <button type="button" onClick={onClose} disabled={saving}
-          className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800">취소</button>
-        <button type="button" onClick={save} disabled={saving}
-          className="flex-[2] rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
-          {saving ? '저장 중…' : dirty ? `완료 (${[adds.length ? `담기 ${adds.length}` : '', removes.length ? `빼기 ${removes.length}` : ''].filter(Boolean).join(' · ')})` : '완료'}
-        </button>
-      </div>
+    <Sheet label={initial ? '미팅 리스트 고치기' : '새 미팅 리스트'} onClose={onClose}>
+      <SheetHead title={initial ? '미팅 리스트 고치기' : '새 미팅 리스트'} onClose={onClose} />
+      <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-gray-500">리스트 이름</span>
+            <input autoFocus value={name} onChange={e => setName(e.target.value)} maxLength={40} placeholder="곱창집 미팅"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950" />
+          </label>
+          {canManage && (
+            <div>
+              <span className="mb-1.5 block text-xs font-semibold text-gray-500">누구 리스트</span>
+              <MemberChips members={members} selfId={selfId} value={owner} onChange={setOwner} />
+            </div>
+          )}
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-gray-500">미팅 날짜·시간 <span className="font-normal">(선택)</span></span>
+            <input type="datetime-local" value={when} onChange={e => setWhen(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950" />
+          </label>
+          <div>
+            <span className="mb-1.5 block text-xs font-semibold text-gray-500">손님 <span className="font-normal">(선택)</span></span>
+            <CustomerPick officeId={officeId} value={cust} onChange={setCust} />
+          </div>
+        </div>
+        <div className="flex gap-2 border-t border-gray-100 p-3 dark:border-gray-800">
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-800">취소</button>
+          <button type="submit" disabled={busy} className="flex-[2] rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
+            {busy ? '저장 중…' : initial ? '저장' : '만들기'}
+          </button>
+        </div>
+      </form>
     </Sheet>
   )
 }
 
+/** 리스트 한 줄 — 모음 화면·고르기 창이 같이 쓴다 */
+export function ListLine({ l, ownerName, active, onClick, right }: {
+  l: MeetingList; ownerName?: string; active?: boolean; onClick: () => void; right?: React.ReactNode
+}) {
+  const when = meetingLabel(l.meeting_at)
+  const who = l.customer?.client_name || (l.customer_id ? '손님 연결됨' : null)
+  return (
+    <button type="button" onClick={onClick}
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${l.status === 'done' ? 'bg-gray-100 text-gray-400 dark:bg-gray-800' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300'}`}>
+        <ClipboardList className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5">
+          <span className={`truncate text-sm font-semibold ${l.status === 'done' ? 'text-gray-500' : 'text-gray-900 dark:text-white'}`}>{l.name}</span>
+          {l.status === 'done' && <span className="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800">미팅 끝</span>}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-gray-500">
+          {[when, who, ownerName].filter(Boolean).join(' · ') || '날짜·손님 없음'}
+        </span>
+      </span>
+      {right ?? (active ? <Check className="h-4 w-4 shrink-0 text-blue-600" /> : <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />)}
+    </button>
+  )
+}
+
+/**
+ * 담을 리스트 고르기 — 고르면 '담는 중' 이 된다. 리스트 이름은 모두에게 보인다(남의 리스트에 보내야 하니).
+ * 끝난 미팅은 접어 둔다.
+ */
+export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick, onClose }: {
+  officeId: string; selfId: string; canManage: boolean
+  activeId: string | null
+  onPick: (l: MeetingList) => void
+  onClose: () => void
+}) {
+  const toast = useToast()
+  const { members, names } = useMembers(officeId)
+  const [lists, setLists] = useState<MeetingList[] | null>(null)
+  const [who, setWho] = useState(selfId)
+  const [making, setMaking] = useState(false)
+  useEffect(() => {
+    let alive = true
+    loadLists(officeId).then(ls => { if (alive) setLists(sortLists(ls)) }, () => { if (alive) { setLists([]); toast.error('리스트를 불러오지 못했어요') } })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [officeId])
+  const shown = (lists ?? []).filter(l => l.created_by === who && l.status === 'ready')
+
+  if (making && members) {
+    return <ListFormSheet officeId={officeId} selfId={selfId} canManage={canManage} members={members}
+      defaultOwner={canManage ? who : selfId} onClose={() => setMaking(false)} onSaved={l => { setMaking(false); onPick(l) }} />
+  }
+  return (
+    <Sheet label="담을 리스트 고르기" onClose={onClose}>
+      <SheetHead title="담을 리스트 고르기" sub="고르면 매물목록 [담기] 한 번으로 바로 들어갑니다" onClose={onClose} />
+      <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        {members && <MemberChips members={members} selfId={selfId} value={who} onChange={setWho} />}
+      </div>
+      <div className="min-h-[30vh] flex-1 divide-y divide-gray-50 overflow-y-auto dark:divide-gray-800">
+        {lists == null || members == null ? <p className="py-10 text-center text-sm text-gray-500">불러오는 중…</p>
+          : shown.length === 0 ? (
+            <p className="px-6 py-10 text-center text-sm text-gray-500">
+              {who === selfId ? '준비 중인 내 미팅 리스트가 없어요' : `${names[who] ?? ''}님의 준비 중인 리스트가 없어요`}
+            </p>
+          ) : shown.map(l => <ListLine key={l.id} l={l} active={l.id === activeId} onClick={() => onPick(l)} />)}
+      </div>
+      {(who === selfId || canManage) && (
+        <div className="border-t border-gray-100 p-3 dark:border-gray-800">
+          <button type="button" onClick={() => setMaking(true)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+            <Plus className="h-4 w-4" />{who === selfId ? '새 미팅 리스트' : `${names[who] ?? ''}님 새 미팅 리스트`}
+          </button>
+        </div>
+      )}
+    </Sheet>
+  )
+}
+
+/** 매물목록 아래 '담는 중' 막대 — 폰은 하단 메뉴 위 */
+export function ActiveListBar({ list, ownerName, onChange, onClear }: {
+  list: MeetingList; ownerName?: string; onChange: () => void; onClear: () => void
+}) {
+  const when = meetingLabel(list.meeting_at)
+  return (
+    <div className="fixed inset-x-0 z-40 flex justify-center px-3 bottom-[calc(env(safe-area-inset-bottom)+4.25rem)] md:bottom-5">
+      <div className="flex w-full max-w-lg items-center gap-1 rounded-2xl bg-gray-900 py-1.5 pl-3 pr-1.5 text-white shadow-xl dark:bg-gray-800">
+        <ClipboardList className="h-4 w-4 shrink-0 text-blue-300" />
+        <Link href={`/broker/lists?id=${list.id}`} className="min-w-0 flex-1 px-1.5 py-1">
+          <span className="block truncate text-sm font-semibold">{list.name} <span className="font-normal text-gray-400">에 담는 중</span></span>
+          <span className="block truncate text-[11px] text-gray-400">
+            {[ownerName, when ? <><CalendarClock className="mr-0.5 inline h-3 w-3" />{when}</> : null, `${list.count}건`].filter(Boolean).map((x, i) => <span key={i}>{i > 0 && ' · '}{x}</span>)}
+          </span>
+        </Link>
+        <button type="button" onClick={onChange} className="shrink-0 rounded-xl px-2.5 py-2 text-xs font-semibold text-gray-200 hover:bg-white/10">바꾸기</button>
+        <button type="button" onClick={onClear} aria-label="담기 그만" title="담기 그만" className="shrink-0 rounded-xl p-2 text-gray-400 hover:bg-white/10"><X className="h-4 w-4" /></button>
+      </div>
+    </div>
+  )
+}
+
+// ── 손님용 글 ──
+export interface ItemProp {
+  id: string
+  seq_no: number | null; address: string; deal_type: string; room_type: string
+  price: number | null; monthly_rent: number | null; size_pyeong: string | null
+  area_unit: string | null; floor: number | null; status: string; deleted_at: string | null
+}
 const 만 = (n: number | null | undefined) => (n ? `${n.toLocaleString('ko-KR')}만` : null)
-function priceText(p: NonNullable<ItemRow['p']>) {
+export function priceText(p: Pick<ItemProp, 'deal_type' | 'price' | 'monthly_rent'>) {
   if (p.deal_type === '월세') return `${만(p.price) ?? '—'}/${만(p.monthly_rent) ?? '—'}`
   return 만(p.price) ?? '—'
 }
@@ -273,194 +424,14 @@ export function shortAddress(addr: string) {
   const kept = last >= 0 ? parts.slice(0, last + 1) : parts.slice(0, 3)
   return kept.filter(w => !/^(충청남도|충남|충청북도|충북|경기도|경기)$/.test(w)).join(' ')
 }
-function copyText(name: string, items: ItemRow[]) {
-  const lines = items.filter(i => i.p && !i.p.deleted_at).map((i, n) => {
+export function customerText(l: MeetingList, items: { p: ItemProp | null; note: string | null }[]) {
+  const when = meetingLabel(l.meeting_at)
+  const lines = items.filter(i => i.p && !i.p.deleted_at && i.p.status !== 'contracted').map((i, n) => {
     const p = i.p!
     const area = p.size_pyeong ? `${p.size_pyeong}${p.area_unit || '평'}` : null
     const floor = p.floor != null ? `${p.floor}층` : null
-    return `${n + 1}. ${shortAddress(p.address)} · ${p.room_type} · ${p.deal_type} ${priceText(p)}${area ? ` · ${area}` : ''}${floor ? ` · ${floor}` : ''}`
+    const head = `${n + 1}. ${shortAddress(p.address)} · ${p.room_type} · ${p.deal_type} ${priceText(p)}${area ? ` · ${area}` : ''}${floor ? ` · ${floor}` : ''}`
+    return i.note?.trim() ? `${head}\n   - ${i.note.trim()}` : head
   })
-  return [`[${name}]`, ...lines].join('\n')
-}
-
-/** 상단 [리스트] — 리스트들을 보고, 하나를 열어 담긴 매물을 확인·빼기·복사 */
-export function PropertyListsSheet({ officeId, selfId, canManage, onClose, canSeeMemo }: {
-  officeId: string; selfId: string
-  /** 대표·이사 — 남이 만든 리스트도 지우고 뺄 수 있다 */
-  canManage: boolean
-  onClose: () => void
-  /** 담긴 매물을 누르면 그 자리에서 [보기] 창 — 중개사메모를 보여도 되는지(매물목록과 같은 규칙) */
-  canSeeMemo: (p: { broker_id: string; assignee: string | null }) => boolean
-}) {
-  const toast = useToast()
-  const { members, names } = useMembers(officeId)
-  const [lists, setLists] = useState<ListRow[] | null>(null)
-  const [open, setOpen] = useState<ListRow | null>(null)
-  const [items, setItems] = useState<ItemRow[] | null>(null)
-  const [who, setWho] = useState('')  // 대표·이사 드롭다운 — '' 는 전체
-  // 퇴직자 리스트는 뺀다 — 재직자 목록에 없는 사람이 만든 것
-  const shown = (lists ?? []).filter(l => names[l.created_by] !== undefined && (!who || l.created_by === who))
-
-  useEffect(() => {
-    let alive = true
-    // 담긴 내용은 만든 사람과 대표·이사만 본다 — 남의 리스트는 [담기] 창에서 이름만 보인다
-    loadLists(officeId).then(ls => { if (alive) setLists(canManage ? ls : ls.filter(l => l.created_by === selfId)) }, () => { if (alive) { setLists([]); toast.error('리스트를 불러오지 못했어요') } })
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [officeId])
-
-  const openList = useCallback(async (l: ListRow) => {
-    setOpen(l); setItems(null)
-    const { data, error } = await createClient().from('property_list_items')
-      .select('property_id, added_by, p:broker_properties(seq_no, address, deal_type, room_type, price, monthly_rent, size_pyeong, area_unit, floor, status, deleted_at)')
-      .eq('list_id', l.id).order('added_at', { ascending: true })
-    if (error) { toast.error('매물을 불러오지 못했어요'); setItems([]); return }
-    setItems((data ?? []) as unknown as ItemRow[])
-  }, [toast])
-
-  const mayEdit = (l: ListRow) => canManage || l.created_by === selfId
-
-  // 담긴 매물 [보기] — 매물목록으로 갔다가 보기를 또 누르고 돌아오는 왕복을 없앤다(11-06). 닫으면 리스트 그대로.
-  const [viewing, setViewing] = useState<{ p: PropertyView; memoVisible: boolean } | null>(null)
-  const viewItem = async (it: ItemRow) => {
-    const { data, error } = await createClient().from('broker_properties').select(VIEW_COLS).eq('id', it.property_id).single()
-    if (error || !data) { toast.error('매물을 불러오지 못했어요'); return }
-    const row = data as unknown as PropertyView & { broker_id: string }
-    setViewing({ p: { ...row, images: row.images ?? [] }, memoVisible: canSeeMemo(row) })
-  }
-
-  const removeItem = async (it: ItemRow) => {
-    if (!open) return
-    const { data, error } = await createClient().from('property_list_items').delete()
-      .eq('list_id', open.id).eq('property_id', it.property_id).select('list_id')
-    if (error || !data?.length) { toast.error('뺄 권한이 없어요 — 담은 사람이나 리스트 만든 사람만 뺄 수 있어요'); return }
-    setItems(xs => xs?.filter(x => x.property_id !== it.property_id) ?? xs)
-    setLists(ls => ls?.map(x => x.id === open.id ? { ...x, count: Math.max(0, x.count - 1) } : x) ?? ls)
-  }
-
-  const deleteList = async (l: ListRow) => {
-    if (!confirm(`'${l.name}' 리스트를 지울까요? 담긴 매물은 매물목록에 그대로 남습니다.`)) return
-    const { data, error } = await createClient().from('property_lists').delete().eq('id', l.id).select('id')
-    if (error || !data?.length) { toast.error('지울 권한이 없어요 — 만든 사람이나 대표·이사만 지울 수 있어요'); return }
-    setLists(ls => ls?.filter(x => x.id !== l.id) ?? ls)
-    setOpen(null)
-    toast.info('리스트를 지웠어요')
-  }
-
-  // 이름 바꾸기 — 만든 사람과 대표·이사(DB 정책 property_lists_update)
-  const renameList = async (l: ListRow) => {
-    const next = prompt('리스트 이름', l.name)?.trim().slice(0, 40)
-    if (!next || next === l.name) return
-    const { data, error } = await createClient().from('property_lists').update({ name: next }).eq('id', l.id).select('id')
-    if (error || !data?.length) { toast.error('이름을 바꿀 권한이 없어요 — 만든 사람이나 대표·이사만 바꿀 수 있어요'); return }
-    setLists(ls => ls?.map(x => x.id === l.id ? { ...x, name: next } : x) ?? ls)
-    setOpen(o => o && o.id === l.id ? { ...o, name: next } : o)
-    toast.success('이름을 바꿨어요')
-  }
-
-  const copy = async () => {
-    if (!open || !items) return
-    try {
-      await navigator.clipboard.writeText(copyText(open.name, items))
-      toast.success('복사했어요 — 카톡에 붙여 넣으세요')
-    } catch { toast.error('복사하지 못했어요') }
-  }
-
-  if (open) {
-    return (
-      <>
-      <Sheet label={open.name} onClose={onClose} paused={!!viewing}>
-        <SheetHead title={open.name} sub={`${names[open.created_by] || '—'} 만듦 · ${items?.length ?? open.count}건`} onClose={onClose} onBack={() => setOpen(null)} />
-        <div className="flex-1 overflow-y-auto">
-          {items == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
-            : items.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">담긴 매물이 없어요. 매물목록 번호 칸의 [담기] 로 보내세요.</p>
-            : items.map(it => {
-              const p = it.p
-              const canRemove = mayEdit(open) || it.added_by === selfId
-              return (
-                <div key={it.property_id} className="flex items-start gap-3 border-b border-gray-50 px-4 py-3 dark:border-gray-800">
-                  <button type="button" disabled={!p || !!p.deleted_at} onClick={() => viewItem(it)} aria-label={`${p?.seq_no ?? ''}번 매물 보기`}
-                    className="flex min-w-0 flex-1 items-start gap-3 text-left disabled:cursor-default">
-                  <span className="w-12 shrink-0 rounded-md bg-gray-100 py-1 text-center text-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                    {p?.seq_no ?? '—'}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    {!p || p.deleted_at ? <p className="text-sm text-gray-500">지워진 매물</p> : (
-                      <>
-                        <p className="break-words text-sm font-medium text-gray-900 dark:text-white">{p.address}</p>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {p.room_type} · {p.deal_type} {priceText(p)}{p.size_pyeong ? ` · ${p.size_pyeong}${p.area_unit || '평'}` : ''}{p.floor != null ? ` · ${p.floor}층` : ''}
-                          {p.status === 'contracted' && <span className="ml-1 font-semibold text-red-600">· 계약완료</span>}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-gray-400">{names[it.added_by] ?? '퇴직자'} 담음</p>
-                      </>
-                    )}
-                  </div>
-                  </button>
-                  {canRemove && (
-                    <button type="button" onClick={() => removeItem(it)} aria-label="리스트에서 빼기" title="리스트에서 빼기"
-                      className="-m-1 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-800">
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-        </div>
-        <div className="flex gap-2 border-t border-gray-100 p-3 dark:border-gray-800">
-          {mayEdit(open) && (
-            <button type="button" onClick={() => deleteList(open)} aria-label="리스트 지우기"
-              className="flex items-center justify-center rounded-xl border border-gray-200 px-3 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:border-gray-800">
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-          {mayEdit(open) && (
-            <button type="button" onClick={() => renameList(open)} aria-label="리스트 이름 바꾸기" title="이름 바꾸기"
-              className="flex items-center justify-center rounded-xl border border-gray-200 px-3 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
-              <Pencil className="h-4 w-4" />
-            </button>
-          )}
-          <button type="button" onClick={copy} disabled={!items?.length}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
-            <Copy className="h-4 w-4" />손님용 글 복사
-          </button>
-        </div>
-      </Sheet>
-      {/* 리스트 창 위에 겹쳐 뜬다(나중에 그려야 위) — 닫으면 리스트가 그대로 있다 */}
-      {viewing && <PropertyViewSheet p={viewing.p} memoVisible={viewing.memoVisible} onClose={() => setViewing(null)} />}
-      </>
-    )
-  }
-
-  return (
-    <Sheet label="매물 리스트" onClose={onClose}>
-      <SheetHead title="매물 리스트" sub="미팅 전에 매물을 한 묶음으로 — 줄마다 [담기] 로 보냅니다" onClose={onClose} />
-      <div className="space-y-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-        {canManage && (
-          <select value={who} onChange={e => setWho(e.target.value)} aria-label="누구 리스트를 볼지"
-            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950">
-            <option value="">전체 재직자</option>
-            {(members ?? []).map(m => <option key={m.id} value={m.id}>{m.id === selfId ? `${m.name} (나)` : m.name}</option>)}
-          </select>
-        )}
-        {/* 드롭다운이 '전체' 면 내 리스트, 사람을 골랐으면 그 사람 리스트로 만든다 */}
-        <NewListForm officeId={officeId} owner={who || selfId} ownerName={who && who !== selfId ? names[who] : undefined}
-          onMade={l => { setLists(ls => [l, ...(ls ?? [])]); toast.success(`'${l.name}' 을 만들었어요`) }} />
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        {lists == null || members == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
-          : shown.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">아직 리스트가 없어요</p>
-          : shown.map(l => (
-            <button key={l.id} type="button" onClick={() => openList(l)}
-              className="flex w-full items-center gap-3 border-b border-gray-50 px-4 py-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-gray-900 dark:text-white">{l.name}</span>
-                <span className="block text-xs text-gray-500">{names[l.created_by] || '—'} 만듦</span>
-              </span>
-              <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-gray-600 dark:bg-gray-800 dark:text-gray-300">{l.count}건</span>
-            </button>
-          ))}
-      </div>
-    </Sheet>
-  )
+  return [`[${l.name}]${when ? ` ${when}` : ''}`, '', ...lines].join('\n')
 }
