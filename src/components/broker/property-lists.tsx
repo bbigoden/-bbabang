@@ -92,8 +92,16 @@ function SheetHead({ title, sub, onClose, onBack }: { title: string; sub?: strin
   )
 }
 
-/** 새 리스트 이름 칸 — 담기 창과 리스트 창이 같이 쓴다 */
-function NewListForm({ officeId, selfId, onMade }: { officeId: string; selfId: string; onMade: (l: ListRow) => void }) {
+/**
+ * 새 리스트 이름 칸 — 담기 창과 리스트 창이 같이 쓴다.
+ * owner = 누구 리스트로 만들지. 대표·이사가 드롭다운에서 직원을 골랐으면 그 직원 것(11-06 — 대표 것으로 만들어졌다).
+ */
+function NewListForm({ officeId, owner, ownerName, onMade }: {
+  officeId: string; owner: string
+  /** 남의 이름으로 만들 때만 — 칸 안내에 'OO님 리스트' 로 보인다 */
+  ownerName?: string
+  onMade: (l: ListRow) => void
+}) {
   const toast = useToast()
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -103,7 +111,7 @@ function NewListForm({ officeId, selfId, onMade }: { officeId: string; selfId: s
     if (!n || busy) return
     setBusy(true)
     const { data, error } = await createClient().from('property_lists')
-      .insert({ office_broker_id: officeId, created_by: selfId, name: n.slice(0, 40) })
+      .insert({ office_broker_id: officeId, created_by: owner, name: n.slice(0, 40) })
       .select('id, name, created_by, created_at').single()
     setBusy(false)
     if (error || !data) { toast.error('리스트를 만들지 못했어요'); return }
@@ -113,7 +121,7 @@ function NewListForm({ officeId, selfId, onMade }: { officeId: string; selfId: s
   return (
     <form onSubmit={submit} className="flex gap-2">
       <input value={name} onChange={e => setName(e.target.value)} maxLength={40}
-        placeholder="새 리스트 이름 (예: 11/7 김사장님 미팅)" aria-label="새 리스트 이름"
+        placeholder={ownerName ? `${ownerName}님 새 리스트 이름` : '새 리스트 이름 (예: 11/7 김사장님 미팅)'} aria-label="새 리스트 이름"
         className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950" />
       <button type="submit" disabled={!name.trim() || busy}
         className="flex shrink-0 items-center gap-1 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-40">
@@ -196,8 +204,8 @@ export function AddToListSheet({ officeId, selfId, canManage, property, onClose 
             <option key={m.id} value={m.id}>{m.id === selfId ? `${m.name} (나)` : m.name} 리스트{counts[m.id] ? ` · ${counts[m.id]}개` : ''}</option>
           ))}
         </select>
-        {who === selfId && (
-          <NewListForm officeId={officeId} selfId={selfId} onMade={async l => {
+        {(who === selfId || canManage) && (
+          <NewListForm officeId={officeId} owner={who} ownerName={who === selfId ? undefined : names[who]} onMade={async l => {
             setLists(ls => [l, ...(ls ?? [])])
             await toggle(l)
           }} />
@@ -416,7 +424,9 @@ export function PropertyListsSheet({ officeId, selfId, canManage, onClose, canSe
             {(members ?? []).map(m => <option key={m.id} value={m.id}>{m.id === selfId ? `${m.name} (나)` : m.name}</option>)}
           </select>
         )}
-        <NewListForm officeId={officeId} selfId={selfId} onMade={l => { setLists(ls => [l, ...(ls ?? [])]); toast.success(`'${l.name}' 을 만들었어요`) }} />
+        {/* 드롭다운이 '전체' 면 내 리스트, 사람을 골랐으면 그 사람 리스트로 만든다 */}
+        <NewListForm officeId={officeId} owner={who || selfId} ownerName={who && who !== selfId ? names[who] : undefined}
+          onMade={l => { setLists(ls => [l, ...(ls ?? [])]); toast.success(`'${l.name}' 을 만들었어요`) }} />
       </div>
       <div className="flex-1 overflow-y-auto">
         {lists == null || members == null ? <p className="py-8 text-center text-sm text-gray-500">불러오는 중…</p>
