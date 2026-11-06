@@ -999,8 +999,11 @@ function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }
   const lh = Math.min(9, 66 / lines.length)
   const col = { name: x + 5, props: x + 60, bank: x + 88, daangn: x + 110 }
   const n = (v: number) => v.toLocaleString()
+  // 글자는 큰 것(BIG)·작은 것(SMALL) 두 가지, 굵기 하나. 크기·굵기가 열다섯 가지쯤 섞여 있어
+  // 사무실 화면을 처음 열 때 글자 배치에만 0.1초 넘게 들었다(2026-11-06). 줄 맞춤은 그대로.
+  const BIG = 3.8, SMALL = 2.9
   return (
-    <g style={{ pointerEvents: 'none' }}>
+    <g style={{ pointerEvents: 'none' }} fontWeight={700}>
       {/* 나무 테·칠판·분필 받침 */}
       <rect x={x - 2} y={y - 2} width={w + 4} height={82} fill="#7c4a24" />
       <rect x={x} y={y} width={w} height={78} fill="#2f4a3a" />
@@ -1008,27 +1011,27 @@ function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }
       <rect x={x + 10} y={y + 78.5} width={40} height={1.5} fill="#a16207" />
       <rect x={x + 14} y={y + 77.5} width={6} height={1.2} fill="#f8fafc" />
       <rect x={x + 24} y={y + 77.5} width={4} height={1.2} fill="#fde68a" />
-      <text x={col.name} y={y + 7} fontSize={4.4} fontWeight={800} fill="#fef3c7">현황판</text>
-      <text x={x + w - 4} y={y + 7} fontSize={2.8} textAnchor="end" fill="#a7c4ad">{status.at} 기준</text>
+      <text x={col.name} y={y + 7} fontSize={BIG} fill="#fef3c7">현황판</text>
+      <text x={x + w - 4} y={y + 7} fontSize={SMALL} textAnchor="end" fill="#a7c4ad">{status.at} 기준</text>
       {[['매물장(거래가능)', col.props], ['뱅크', col.bank], ['당근', col.daangn]].map(([t, cx]) => (
-        <text key={t} x={cx} y={y + 13} fontSize={2.9} fontWeight={700} textAnchor="end" fill="#a7c4ad">{t}</text>
+        <text key={t} x={cx} y={y + 13} fontSize={SMALL} textAnchor="end" fill="#a7c4ad">{t}</text>
       ))}
       {lines.map((r, i) => {
         const total = r === status.total
         const ty = y + 20 + i * lh + (total ? 2 : 0)
         const fill = total ? '#fde68a' : '#f1f5f0'
         return (
-          <g key={r.name} fontWeight={total ? 800 : 700}>
+          <g key={r.name}>
             {total && <rect x={x + 3} y={ty - lh + 1.6} width={w - 6} height={0.5} fill="#8fb99a" />}
-            <text x={col.name} y={ty} fontSize={3.8} fill={fill}>{cut(r.name, 6)}</text>
-            <text x={col.props} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>
-              {n(r.props)}<tspan fontSize={2.9} fill="#a7c4ad">({n(r.avail)})</tspan>
+            <text x={col.name} y={ty} fontSize={BIG} fill={fill}>{cut(r.name, 6)}</text>
+            <text x={col.props} y={ty} fontSize={BIG} textAnchor="end" fill={fill}>
+              {n(r.props)}<tspan fontSize={SMALL} fill="#a7c4ad">({n(r.avail)})</tspan>
             </text>
-            <text x={col.bank} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>{n(r.bank)}</text>
-            <text x={col.daangn} y={ty} fontSize={3.8} textAnchor="end" fill={fill}>{n(r.daangn)}</text>
-            {!!r.propsToday && <text x={col.props + 1.5} y={ty} fontSize={3} fill="#86efac">+{r.propsToday}</text>}
-            {!!r.bankToday && <text x={col.bank + 1.5} y={ty} fontSize={3} fill="#86efac">+{r.bankToday}</text>}
-            {r.daangnToday > 0 && <text x={col.daangn + 1.5} y={ty} fontSize={3} fill="#86efac">+{r.daangnToday}</text>}
+            <text x={col.bank} y={ty} fontSize={BIG} textAnchor="end" fill={fill}>{n(r.bank)}</text>
+            <text x={col.daangn} y={ty} fontSize={BIG} textAnchor="end" fill={fill}>{n(r.daangn)}</text>
+            {!!r.propsToday && <text x={col.props + 1.5} y={ty} fontSize={SMALL} fill="#86efac">+{r.propsToday}</text>}
+            {!!r.bankToday && <text x={col.bank + 1.5} y={ty} fontSize={SMALL} fill="#86efac">+{r.bankToday}</text>}
+            {r.daangnToday > 0 && <text x={col.daangn + 1.5} y={ty} fontSize={SMALL} fill="#86efac">+{r.daangnToday}</text>}
           </g>
         )
       })}
