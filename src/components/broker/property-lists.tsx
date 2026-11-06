@@ -254,7 +254,7 @@ export function ListFormSheet({ officeId, selfId, canManage, members, initial, d
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     const n = name.trim().slice(0, 40)
-    if (!n) { toast.error('리스트 이름을 적어 주세요'); return }
+    if (!n) { toast.error('미팅 이름을 적어 주세요'); return }
     setBusy(true)
     const row = { name: n, created_by: owner, meeting_at: fromLocalInput(when), customer_id: cust?.id ?? null }
     const supabase = createClient()
@@ -267,18 +267,18 @@ export function ListFormSheet({ officeId, selfId, canManage, members, initial, d
   }
 
   return (
-    <Sheet label={initial ? '미팅 리스트 고치기' : '새 미팅 리스트'} onClose={onClose}>
-      <SheetHead title={initial ? '미팅 리스트 고치기' : '새 미팅 리스트'} onClose={onClose} />
+    <Sheet label={initial ? '미팅 고치기' : '새 미팅'} onClose={onClose}>
+      <SheetHead title={initial ? '미팅 고치기' : '새 미팅'} onClose={onClose} />
       <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold text-gray-500">리스트 이름</span>
+            <span className="mb-1.5 block text-xs font-semibold text-gray-500">미팅 이름</span>
             <input autoFocus value={name} onChange={e => setName(e.target.value)} maxLength={40} placeholder="곱창집 미팅"
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950" />
           </label>
           {canManage && (
             <div>
-              <span className="mb-1.5 block text-xs font-semibold text-gray-500">누구 리스트</span>
+              <span className="mb-1.5 block text-xs font-semibold text-gray-500">누구 미팅</span>
               <MemberChips members={members} selfId={selfId} value={owner} onChange={setOwner} />
             </div>
           )}
@@ -346,7 +346,7 @@ export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick,
   const [making, setMaking] = useState(false)
   useEffect(() => {
     let alive = true
-    loadLists(officeId).then(ls => { if (alive) setLists(sortLists(ls)) }, () => { if (alive) { setLists([]); toast.error('리스트를 불러오지 못했어요') } })
+    loadLists(officeId).then(ls => { if (alive) setLists(sortLists(ls)) }, () => { if (alive) { setLists([]); toast.error('미팅을 불러오지 못했어요') } })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officeId])
@@ -357,8 +357,8 @@ export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick,
       defaultOwner={canManage ? who : selfId} onClose={() => setMaking(false)} onSaved={l => { setMaking(false); onPick(l) }} />
   }
   return (
-    <Sheet label="담을 리스트 고르기" onClose={onClose}>
-      <SheetHead title="담을 리스트 고르기" sub="고르면 매물목록 [담기] 한 번으로 바로 들어갑니다" onClose={onClose} />
+    <Sheet label="담을 미팅 고르기" onClose={onClose}>
+      <SheetHead title="담을 미팅 고르기" sub="고르면 매물목록 [담기] 한 번으로 바로 들어갑니다" onClose={onClose} />
       <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         {members && <MemberChips members={members} selfId={selfId} value={who} onChange={setWho} />}
       </div>
@@ -366,7 +366,7 @@ export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick,
         {lists == null || members == null ? <p className="py-10 text-center text-sm text-gray-500">불러오는 중…</p>
           : shown.length === 0 ? (
             <p className="px-6 py-10 text-center text-sm text-gray-500">
-              {who === selfId ? '준비 중인 내 미팅 리스트가 없어요' : `${names[who] ?? ''}님의 준비 중인 리스트가 없어요`}
+              {who === selfId ? '준비 중인 내 미팅이 없어요' : `${names[who] ?? ''}님의 준비 중인 미팅이 없어요`}
             </p>
           ) : shown.map(l => <ListLine key={l.id} l={l} active={l.id === activeId} onClick={() => onPick(l)} />)}
       </div>
@@ -374,7 +374,7 @@ export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick,
         <div className="border-t border-gray-100 p-3 dark:border-gray-800">
           <button type="button" onClick={() => setMaking(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-            <Plus className="h-4 w-4" />{who === selfId ? '새 미팅 리스트' : `${names[who] ?? ''}님 새 미팅 리스트`}
+            <Plus className="h-4 w-4" />{who === selfId ? '새 미팅' : `${names[who] ?? ''}님 새 미팅`}
           </button>
         </div>
       )}

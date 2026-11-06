@@ -95,7 +95,7 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
         if (img && (m[r.list_id] ??= []).length < 4) m[r.list_id].push(img)
       }
       setThumbs(m)
-    }, () => { if (alive) { setLists([]); toast.error('리스트를 불러오지 못했어요') } })
+    }, () => { if (alive) { setLists([]); toast.error('미팅을 불러오지 못했어요') } })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officeId])
@@ -108,7 +108,7 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
     <div className="mx-auto max-w-2xl px-4 py-6">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">미팅 리스트</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">미팅준비</h1>
           <p className="mt-0.5 text-sm text-gray-500">손님 미팅에 들고 갈 매물 묶음</p>
         </div>
         <button type="button" onClick={() => setMaking(true)}
@@ -126,7 +126,7 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
       ) : visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-14 text-center dark:border-gray-700 dark:bg-gray-900">
           <ClipboardList className="mx-auto h-8 w-8 text-gray-300" />
-          <p className="mt-3 font-semibold text-gray-800 dark:text-gray-100">첫 미팅 리스트를 만들어 보세요</p>
+          <p className="mt-3 font-semibold text-gray-800 dark:text-gray-100">첫 미팅을 만들어 보세요</p>
           <p className="mt-1 text-sm text-gray-500">미팅을 만들고 매물목록에서 [담기]만 누르면 모입니다.</p>
         </div>
       ) : (
@@ -213,8 +213,8 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
   if (list === null) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-sm text-gray-500">지워졌거나 볼 수 없는 리스트예요.</p>
-        <Link href="/broker/lists" className="mt-3 inline-block text-sm font-semibold text-blue-600">미팅 리스트로</Link>
+        <p className="text-sm text-gray-500">지워졌거나 볼 수 없는 미팅이에요.</p>
+        <Link href="/broker/lists" className="mt-3 inline-block text-sm font-semibold text-blue-600">미팅준비로</Link>
       </div>
     )
   }
@@ -265,7 +265,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
   }
   const del = async () => {
     setMenu(false)
-    if (!confirm(`'${list.name}' 리스트를 지울까요? 매물은 매물목록에 그대로 남습니다.`)) return
+    if (!confirm(`'${list.name}' 미팅을 지울까요? 매물은 매물목록에 그대로 남습니다.`)) return
     const { data, error } = await supabase.from('property_lists').delete().eq('id', id).select('id')
     if (error || !data?.length) { toast.error('지울 권한이 없어요'); return }
     setActiveListId(selfId, null)
@@ -287,7 +287,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
     <div className="mx-auto max-w-2xl px-4 pb-32 pt-4">
       {/* 머리 */}
       <div className="mb-4 flex items-start gap-2">
-        <Link href="/broker/lists" aria-label="미팅 리스트로" className="-ml-1.5 mt-0.5 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
+        <Link href="/broker/lists" aria-label="미팅준비로" className="-ml-1.5 mt-0.5 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
@@ -314,7 +314,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
                 {list.status === 'ready'
                   ? <MenuItem icon={CheckCircle2} label="미팅 끝으로" onClick={() => setStatus('done')} />
                   : <MenuItem icon={RotateCcw} label="다시 준비 중으로" onClick={() => setStatus('ready')} />}
-                <MenuItem icon={Trash2} label="리스트 지우기" danger onClick={del} />
+                <MenuItem icon={Trash2} label="미팅 지우기" danger onClick={del} />
               </div>
             )}
           </div>
@@ -372,7 +372,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
                     {mayEdit && (
                       <div className="flex shrink-0 flex-col items-center justify-between">
                         <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="위로" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-20 dark:hover:bg-gray-800"><ArrowUp className="h-4 w-4" /></button>
-                        <button type="button" onClick={() => remove(it)} aria-label="리스트에서 빼기" className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"><X className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => remove(it)} aria-label="미팅에서 빼기" className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"><X className="h-4 w-4" /></button>
                         <button type="button" onClick={() => move(idx, 1)} disabled={idx === items.length - 1} aria-label="아래로" className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 disabled:opacity-20 dark:hover:bg-gray-800"><ArrowDown className="h-4 w-4" /></button>
                       </div>
                     )}

@@ -1119,7 +1119,7 @@ const PropertyRow = memo(function PropertyRow({
               <Eye className="h-3.5 w-3.5" />
             </button>
             <button type="button" onClick={() => onAddToList(p)} aria-pressed={!!inList}
-              aria-label={inList ? `${p.seq_no ?? ''}번 리스트에서 빼기` : `${p.seq_no ?? ''}번 리스트에 담기`} title={inList ? '담김 — 누르면 뺍니다' : '담는 중인 리스트에 담기'}
+              aria-label={inList ? `${p.seq_no ?? ''}번 미팅에서 빼기` : `${p.seq_no ?? ''}번 미팅에 담기`} title={inList ? '담김 — 누르면 뺍니다' : '담는 중인 미팅에 담기'}
               className={`flex flex-1 select-none items-center justify-center gap-0.5 rounded py-1 text-[11px] font-semibold ${inList
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300'}`}>
@@ -1131,7 +1131,7 @@ const PropertyRow = memo(function PropertyRow({
         <button type="button" onClick={() => onView({ p, memoVisible })}
           className="mt-1 block w-full select-none rounded bg-blue-50 py-1 text-[11px] font-semibold text-blue-700 sm:pointer-fine:hidden dark:bg-blue-950/40 dark:text-blue-300">보기</button>
         {onAddToList && (
-          <button type="button" onClick={() => onAddToList(p)} title="손님 미팅 리스트에 담기"
+          <button type="button" onClick={() => onAddToList(p)} title="미팅준비에 담기"
             className="mt-1 hidden w-full select-none rounded bg-gray-100 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-200 sm:pointer-fine:block dark:bg-gray-800 dark:text-gray-300">담기</button>
         )}
         </>}
@@ -2087,7 +2087,7 @@ function BrokerPropertiesContent() {
   const putInList = async (l: MeetingList, p: Property, wasIn: boolean) => {
     if (wasIn) {
       const { data, error } = await supabase.from('property_list_items').delete().eq('list_id', l.id).eq('property_id', p.id).select('list_id')
-      if (error || !data?.length) { toast.error('뺄 권한이 없어요 — 담은 사람이나 리스트 만든 사람만 뺄 수 있어요'); return }
+      if (error || !data?.length) { toast.error('뺄 권한이 없어요 — 담은 사람이나 미팅 만든 사람만 뺄 수 있어요'); return }
       setActiveIds(s => { const n = new Set(s); n.delete(p.id); return n })
       setActiveList(x => x && x.id === l.id ? { ...x, count: Math.max(0, x.count - 1) } : x)
       toast.info(`${p.seq_no ?? ''}번을 뺐어요`)
@@ -2463,9 +2463,9 @@ function BrokerPropertiesContent() {
             {/* 손님 미팅 리스트 — 별도 화면(11-06 개편). 담는 중이 없을 때 여기서 고른다 */}
             {!isAdminView && listOfficeId && broker?.id && (
               // 폰에선 아이콘만 — 글자까지 넣으면 상단 버튼이 두 줄로 밀렸다(11-06 폰 확인)
-              <Link href="/broker/lists" aria-label="미팅 리스트" title="미팅 리스트"
+              <Link href="/broker/lists" aria-label="미팅준비" title="미팅준비"
                 className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 sm:px-3.5 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
-                <ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">미팅 리스트</span>
+                <ClipboardList className="h-4 w-4" /><span className="hidden sm:inline">미팅준비</span>
               </Link>
             )}
           </div>

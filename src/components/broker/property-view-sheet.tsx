@@ -165,7 +165,7 @@ export function PropertyViewSheet({ p, memoVisible, onClose, onLocation, onAddTo
         {onAddToList && (
           <button type="button" onClick={onAddToList}
             className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-            <ListPlus className="h-4 w-4" />{addLabel ?? '미팅 리스트에 담기'}
+            <ListPlus className="h-4 w-4" />{addLabel ?? '미팅준비에 담기'}
           </button>
         )}
         <p className="mt-4 text-xs text-gray-400">고치려면 창을 닫고 표의 칸을 누르세요.</p>
