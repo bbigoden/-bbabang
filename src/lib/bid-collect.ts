@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDays, todayKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
-import { BID_INDUSTRY_CDS, DOC_RGN, parseMfrc, type LicFlds } from '@/lib/bid-notices'
+import { BID_INDUSTRY_CDS, DOC_RGN, licKey, parseMfrc, type LicFlds } from '@/lib/bid-notices'
 import { bidFloor, trimBids } from '@/lib/bid-trim'
 import { BACKFILL_FLOOR } from '@/lib/bid-floor'
 import {
@@ -215,7 +215,7 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
         if (r) r.lic_cds = [...new Set([...(o.lic_cds ?? []), ...r.lic_cds])].sort()
       }
     }
-    const rrows = [...byKey.values()]
+    const rrows = [...byKey.values()].map(r => ({ ...r, lic_cds: [...r.lic_cds].sort(), lic_key: licKey(r.lic_cds) }))
     await upsert(supa, 'bid_results', rrows, 'bid_ntce_no,bid_ntce_ord,rbid_no')
     report.results += rrows.length
   }

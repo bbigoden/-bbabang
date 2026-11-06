@@ -15,7 +15,7 @@ import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR } from '@/lib/bid-floor'
 import type { CollectReport } from '@/lib/bid-collect'
-import { BID_LICENSES, DOC_RGN, canEnter, companyFlds, dutyOk, fieldsPass, fitsFields, isD2b, latestOrd, licFldsOf, shortRegion, type BidCompany, type LicFlds } from '@/lib/bid-notices'
+import { BID_LICENSES, DOC_RGN, canEnter, companyFlds, dutyOk, fieldsPass, fitsFields, isD2b, latestOrd, licFldsOf, licKeysFor, shortRegion, type BidCompany, type LicFlds } from '@/lib/bid-notices'
 import { explainStop } from '@/lib/bid-status'
 import dynamic from 'next/dynamic'
 import type { HistoryRow } from './analysis-panel'
@@ -145,6 +145,8 @@ export default function BidPage() {
   // 법인 면허 — 공고·낙찰을 이 면허 것만 보인다
   const ourLics = useMemo(() => (company?.lics.length ? company.lics : ['4992']), [company])
   const licKey = ourLics.join()
+  // 낙찰결과는 lic_key 글자로 거른다(색인을 쓴다 — bid-notices.ts licKey)
+  const ourKeys = useMemo(() => licKeysFor(ourLics), [ourLics])
   // 우리 주력분야 — 같은 면허(4992)라도 석공 공사가 하루 공고의 40% 가까이 섞여 나온다
   const ourFields = useMemo(() => company?.fields ?? [], [company])
   // 이 법인 면허로 본 공고 주력분야. undefined 면 이 법인 공고가 아니다
@@ -160,10 +162,10 @@ export default function BidPage() {
   const [resultsLoaded, setResultsLoaded] = useState(false)
   // 낙찰결과는 빨리 열리게 최근 것부터 한 묶음씩. 같은 개찰 시각끼리 순서가 흔들리면 묶음 사이에 겹치거나 빠지므로 번호로도 줄 세운다
   const resultPage = useCallback((from: number) => supabase.from('bid_results').select(RESULT_COLS)
-    .overlaps('lic_cds', ourLics)
+    .in('lic_key', ourKeys)
     .order('openg_at', { ascending: false, nullsFirst: false })
     .order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no')
-    .range(from, from + RESULT_PAGE - 1), [supabase, ourLics])
+    .range(from, from + RESULT_PAGE - 1), [supabase, ourKeys])
   const [moreResults, setMoreResults] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const loadMoreResults = async () => {
@@ -300,13 +302,13 @@ export default function BidPage() {
       () => supabase.from('bid_results').select('bid_ntce_no', { count: 'exact', head: true }).not('sajeong', 'is', null),
       (from, to) => supabase.from('bid_results')
         .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
-        .not('sajeong', 'is', null).overlaps('lic_cds', ourLics)
+        .not('sajeong', 'is', null).in('lic_key', ourKeys)
         .order('openg_at', { ascending: false, nullsFirst: false }).order('bid_ntce_no').order('bid_ntce_ord').order('rbid_no')
         .range(from, to))
       .then(h => { setHistory(h); setAnalysisReady(true) })
       .catch(() => { setHistoryAsked(false); toast.error('분석 재료(과거 낙찰)를 불러오지 못했습니다 — 공고 목록은 그대로 볼 수 있어요') })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyAsked, loading, opened, tab, supabase, ourLics])
+  }, [historyAsked, loading, opened, tab, supabase, ourKeys])
 
   // 낙찰결과 탭은 열 때 받는다
   useEffect(() => {
@@ -397,13 +399,13 @@ export default function BidPage() {
       .map(w => w.replace(/[,()%*\\]/g, '').replace(/^(R\d{2}[A-Z]{2}\d+)-\d{3}$/i, '$1')).filter(Boolean)
     if (tab !== 'result' || !words.length) { setSearched(null); return }
     const t = setTimeout(async () => {
-      let query = supabase.from('bid_results').select(RESULT_COLS).overlaps('lic_cds', ourLics)
+      let query = supabase.from('bid_results').select(RESULT_COLS).in('lic_key', ourKeys)
       for (const w of words) query = query.or(`name.ilike.*${w}*,dminstt_nm.ilike.*${w}*,winner_nm.ilike.*${w}*,bid_ntce_no.ilike.*${w}*`)
       const { data } = await query.order('openg_at', { ascending: false, nullsFirst: false }).limit(300)
       setSearched((data as Result[]) ?? [])
     }, 300)
     return () => clearTimeout(t)
-  }, [q, tab, supabase, ourLics])
+  }, [q, tab, supabase, ourKeys])
 
   // 낙찰결과의 참가가능지역·주력분야는 공고 쪽에 있다 — 화면에 올린 낙찰의 공고만 따로 받아 붙인다.
   // 정정공고는 차수마다 줄이 있어 번호로 묶고, 값이 있는 가장 늦은 차수 것을 쓴다

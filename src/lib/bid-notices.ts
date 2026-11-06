@@ -123,6 +123,23 @@ export type LicFlds = Record<string, string[] | null>
 export const licFldsOf = (n: { lic_flds?: LicFlds | null; mfrc_flds?: string[] | null }): LicFlds =>
   n.lic_flds ?? { '4992': n.mfrc_flds ?? null }
 
+/**
+ * 낙찰결과를 면허로 거르는 글자(bid_results.lic_key) — 면허를 정렬해 쉼표로 잇는다('4989', '4989,4996').
+ * 보안 규칙(RLS) 아래선 배열 겹침(&&)이 색인을 못 써 표를 다 읽었다. 글자 같음(in)은 색인을 쓴다
+ */
+export const licKey = (cds: string[]) => [...new Set(cds)].sort().join(',')
+
+/** 이 면허들 중 하나라도 든 lic_key 전부 — 우리 면허 다섯의 조합(최대 31개) */
+export function licKeysFor(lics: string[]): string[] {
+  const all = [...BID_INDUSTRY_CDS].sort()
+  const out: string[] = []
+  for (let m = 1; m < 1 << all.length; m++) {
+    const cds = all.filter((_, i) => m & (1 << i))
+    if (cds.some(c => lics.includes(c))) out.push(cds.join(','))
+  }
+  return out
+}
+
 /** 입찰하는 법인 하나 — broker_profiles.bid_companies */
 export type BidCompany = { name: string; lics: string[]; fields: string[]; region: string | null }
 

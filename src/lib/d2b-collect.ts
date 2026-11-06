@@ -3,7 +3,7 @@ import { addDays, todayKST, ymdKST } from '@/lib/date-kst'
 import { normalize, rangeOf } from '@/lib/bid-analysis'
 import { BACKFILL_FLOOR } from '@/lib/bid-collect'
 import { bidFloor, trimBids } from '@/lib/bid-trim'
-import { BID_INDUSTRY_CDS, type LicFlds } from '@/lib/bid-notices'
+import { BID_INDUSTRY_CDS, licKey, type LicFlds } from '@/lib/bid-notices'
 import {
   D2bError, d2bCmpetBid, d2bCodes, d2bDate, d2bGet, d2bKeyOf, d2bNo, d2bNoticeRow, d2bOrd, d2bOthbcBid, d2bPrices,
   type D2bRaw,
@@ -172,7 +172,7 @@ export async function collectD2b(supa: SupabaseClient, opts: { timeBudgetMs: num
         if (!lic_cds) continue
       }
       rows.push({
-        bid_ntce_no: no, bid_ntce_ord: ord, rbid_no: '000', lic_cds,
+        bid_ntce_no: no, bid_ntce_ord: ord, rbid_no: '000', lic_cds: [...lic_cds].sort(), lic_key: licKey(lic_cds),
         name: (x.cntrwkNm ?? '').trim(), dminstt_cd: x.pblancNo.slice(0, 3), dminstt_nm: x.ornt || null,
         openg_at: x.opengDt ? new Date(`${x.opengDt.slice(0, 4)}-${x.opengDt.slice(4, 6)}-${x.opengDt.slice(6, 8)}T${x.opengDt.slice(8, 10) || '00'}:${x.opengDt.slice(10, 12) || '00'}:00+09:00`).toISOString() : null,
       })
