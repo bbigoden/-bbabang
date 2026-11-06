@@ -435,15 +435,15 @@ export default function EventsPage() {
             <CalendarCheck className="h-5 w-5 text-blue-600" />예약관리
           </h1>
           <button onClick={() => setLinkOpen(true)}
-            className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+            className="flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             <Link2 className="h-4 w-4" />예약 링크
           </button>
           <button onClick={() => { setFbOpen({ eventId: null }); setFbText('') }}
-            className="flex items-center gap-1 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 dark:bg-gray-900">
+            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 dark:bg-gray-900">
             <MessageSquareWarning className="h-4 w-4" />불편 신고
           </button>
           <button onClick={() => setForm({ ...emptyForm(), date: tab === 'calendar' ? selDay : todayKST() })}
-            className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             <Plus className="h-4 w-4" />새 예약
           </button>
         </div>

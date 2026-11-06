@@ -2440,7 +2440,7 @@ function BrokerPropertiesContent() {
           {/* 첫 화면에서 바로 보이는 등록 버튼 — 표 맨 아래에만 있어 2천 건을 내려야 찾았다(2026-10-25 점검) */}
           {!isAdminView && canEdit && (
             <button onClick={() => setNewProp({ address: '', deal_type: '' })}
-              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3 sm:px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
               <Plus className="h-4 w-4" />매물 등록
             </button>
           )}
