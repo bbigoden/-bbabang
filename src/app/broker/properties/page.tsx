@@ -1093,10 +1093,10 @@ function BankDraftButton({ job, onClick }: { job?: BankDraftJob; onClick: () => 
     : '뱅크에 임시 저장 — PC 프로그램이 등록 화면을 채워 둡니다. 최종 등록은 뱅크에서 직접.'
   return (
     <button type="button" onClick={onClick} title={끝} aria-label="뱅크 임시저장" tabIndex={-1}
-      className={`flex h-6 items-center justify-center gap-0.5 rounded px-1 transition-colors ${job?.status === 'done' ? 'text-green-500 hover:bg-green-50' : job?.status === 'failed' ? 'text-red-400 hover:bg-red-50' : 'text-gray-400 hover:bg-blue-50 hover:text-blue-500'}`}>
+      className={`flex h-6 shrink-0 items-center justify-center gap-0.5 rounded px-1 transition-colors ${job?.status === 'done' ? 'text-green-500 hover:bg-green-50' : job?.status === 'failed' ? 'text-red-400 hover:bg-red-50' : 'text-gray-400 hover:bg-blue-50 hover:text-blue-500'}`}>
       {job?.status === 'done' ? <CheckCircle2 className="h-3.5 w-3.5" /> : job?.status === 'failed' ? <AlertCircle className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
       {/* 밖(뱅크)으로 데이터를 보내는 버튼인데 그림만 있어 무엇인지 몰랐다(11-06 점검) */}
-      <span className="text-[10px] font-medium">뱅크</span>
+      <span className="whitespace-nowrap text-[10px] font-medium">뱅크</span>
     </button>
   )
 }
@@ -2740,7 +2740,7 @@ function BrokerPropertiesContent() {
                   return null
                 })}
                 {!isAdminView && (
-                  <SheetActionHeader width={88}>
+                  <SheetActionHeader width={110}>
                     <AddColBtn onAdd={addCustomColumn} />
                     <PropColVisibility
                       allFixed={ALL_COLUMNS}
