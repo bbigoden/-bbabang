@@ -14,7 +14,7 @@ import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import { ImageLightbox } from '@/components/image-lightbox'
-import { PropertyViewSheet, type PropertyView } from '@/components/broker/property-view-sheet'
+import { PhoneText, PropertyViewSheet, type PropertyView } from '@/components/broker/property-view-sheet'
 import type { MapRow } from '@/components/broker/properties-map-view'
 import {
   ListFormSheet, MemberSelect, customerLabel, customerText, loadList, loadLists, meetingLabel, priceText,
@@ -296,7 +296,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-gray-500">
             {when && <span className="flex items-center gap-1"><CalendarClock className="h-4 w-4" />{when}</span>}
             {customerLabel(list) && (
-              <span className="flex items-center gap-1"><User className="h-4 w-4" />{customerLabel(list)}</span>
+              <span className="flex items-center gap-1"><User className="h-4 w-4" /><PhoneText text={customerLabel(list)!} /></span>
             )}
             <span>{names[list.created_by] ?? ''}</span>
           </div>

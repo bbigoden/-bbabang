@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import {
-  Megaphone, Search, CircleCheck, TriangleAlert, Download, ArrowUp, ArrowDown, X,
+  Search, CircleCheck, TriangleAlert, Download, ArrowUp, ArrowDown, X,
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
@@ -1786,10 +1786,7 @@ export default function AdsPage() {
     <>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <PageHeader
-          icon={Megaphone}
-          title="광고관리"
-        />
+        <PageHeader title="광고관리" />
 
         {/* 매물 연결을 못 받은 채 띄운 목록이다(load 의 PGRST200). 조용히 빼면 아래 빨간 배너가
             사라져도 '내릴 것이 없다' 로 읽힌다 — 흐리게라도 적어 둔다. */}

@@ -11,7 +11,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { SearchClear } from '@/components/ui/search-clear'
 import { Chip } from '@/components/ui/chip'
 import { useToast } from '@/components/toast'
-import { Gavel, Download, ChevronDown, ExternalLink } from 'lucide-react'
+import { Download, ChevronDown, ExternalLink } from 'lucide-react'
 import { ymdKST, hmKST, todayKST } from '@/lib/date-kst'
 import { BACKFILL_FLOOR } from '@/lib/bid-floor'
 import type { CollectReport } from '@/lib/bid-collect'
@@ -486,7 +486,7 @@ export default function BidPage() {
       <>
         <Header />
         <main className="mx-auto max-w-7xl px-4 py-6">
-          <PageHeader title="입찰" icon={Gavel} />
+          <PageHeader title="입찰" />
           <p className="text-sm text-gray-500">이 사무소에는 입찰이 켜져 있지 않습니다.</p>
         </main>
       </>
@@ -497,7 +497,7 @@ export default function BidPage() {
     <>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <PageHeader title="입찰" icon={Gavel} description={`${ourLicNames.map(l => l.name).join(' · ')} · 나라장터 · 국방전자조달`} />
+        <PageHeader title="입찰" description={`${ourLicNames.map(l => l.name).join(' · ')} · 나라장터 · 국방전자조달`} />
 
         {bid.companies.length > 1 && (
           <div className="mb-3 flex flex-wrap gap-2">

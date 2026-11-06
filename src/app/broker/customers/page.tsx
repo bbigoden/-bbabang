@@ -694,17 +694,17 @@ export default function BrokerCustomersPage() {
       <div className="px-4 py-6">
 
         {/* 헤더 */}
-        <div className="mb-5 flex items-center justify-between">
-          <div>
+        <div className="mb-5 flex items-start justify-between gap-2">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">고객목록</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+            <p className="mt-0.5 text-sm text-gray-500">
               {allLoaded ? `전체 ${customers.length}명 · 검색 ${filtered.length}명` : `고객 불러오는 중… (지금 ${customers.length}명까지)`}
             </p>
           </div>
           {/* 표 맨 아래까지 내려가야 보이던 '고객 등록'을 제목 줄에도 둔다 (매물목록의 '+ 매물 등록' 과 같은 자리) */}
           {canEdit && (
             <button type="button" onClick={openNewCustomer}
-              className="flex items-center gap-1.5 rounded-xl bg-[#14274e] px-3 py-2 text-sm font-semibold text-white hover:bg-[#0f1d3a]">
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
               <Plus className="h-4 w-4" />고객 등록
             </button>
           )}

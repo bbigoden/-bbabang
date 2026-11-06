@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { SearchClear } from '@/components/ui/search-clear'
 import { useToast } from '@/components/toast'
-import { Radar, ChevronDown, Download } from 'lucide-react'
+import { ChevronDown, Download } from 'lucide-react'
 import { PROPERTY_KINDS, TRADE_TYPES, REGIONS, kindOf } from '@/lib/naver-land'
 import { DAANGN_KINDS, DAANGN_TRADES, daangnKindOf } from '@/lib/daangn-land'
 import { sendAndForget } from '@/lib/send-and-forget'
@@ -1366,7 +1366,7 @@ export default function CollectPage() {
     <>
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <PageHeader title="매물수집" icon={Radar} />
+        <PageHeader title="매물수집" />
 
         {/* 곳을 가른다. 올라오는 매물의 성격이 달라 한 목록에 섞으면 둘 다 못 훑는다. */}
         <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">

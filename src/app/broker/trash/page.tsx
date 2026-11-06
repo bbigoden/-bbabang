@@ -3,7 +3,6 @@
 import { canManageOffice, isDirector } from '@/lib/office-role'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
@@ -11,8 +10,9 @@ import {
   purgeResourceKeys, restoreResourceKeys, trashTop, RESOURCE_TRASH_DAYS, type TrashFile, type TrashResource,
 } from '@/lib/resource-trash'
 import { Header } from '@/components/layout/header'
+import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
-import { ArrowLeft, Trash2, RotateCcw, Building2, Users, FolderOpen, Folder, StickyNote, File as FileIcon } from 'lucide-react'
+import { Trash2, RotateCcw, Building2, Users, FolderOpen, Folder, StickyNote, File as FileIcon } from 'lucide-react'
 import { EmptyState } from '@/components/empty-state'
 
 interface TrashProperty {
@@ -148,15 +148,8 @@ export default function TrashPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header />
-      <section className="mx-auto max-w-5xl px-4 py-8">
-        <div className="mb-4 flex items-center gap-2">
-          <Link href="/dashboard/broker" aria-label="사무소 대시보드" className="flex h-9 w-9 items-center justify-center rounded-xl text-gray-500 hover:bg-white dark:bg-gray-900">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-red-500" />휴지통
-          </h1>
-        </div>
+      <section className="mx-auto max-w-5xl px-4 py-6">
+        <PageHeader title="휴지통" />
 
         {/* 탭 */}
         <div className="mb-4 flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">

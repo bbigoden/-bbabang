@@ -31,6 +31,21 @@ export interface PropertyView {
   images: string[]
 }
 
+// 010-1234-5678 · 01012345678 · 041-123-4567 · 1588-1234 처럼 적힌 번호
+const PHONE_RE = /(0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}|1[5-9]\d{2}-?\d{4})/g
+
+/**
+ * 글 속 전화번호를 눌러 바로 걸 수 있게(11-06 사장님: 미팅 가서 폰으로 보다가 번호를 옮겨 적어 걸었다).
+ * 메모·설명은 자유 글이라 번호만 골라 tel: 링크로 바꾼다.
+ */
+export function PhoneText({ text }: { text: string }) {
+  const parts = text.split(PHONE_RE)
+  return <>{parts.map((s, i) => i % 2 === 1
+    ? <a key={i} href={`tel:${s.replace(/[^\d]/g, '')}`} onClick={e => e.stopPropagation()}
+        className="font-semibold text-blue-600 underline underline-offset-2 dark:text-blue-300">{s}</a>
+    : s)}</>
+}
+
 // 0 은 '아직 안 적음'(새 줄 기본값)이다 — '0만 / —' 처럼 0원으로 읽혔다(10-30 재점검)
 const 만 = (n: number | null | undefined) => (n ? `${n.toLocaleString('ko-KR')}만` : null)
 const STATUS_LABEL = { available: '거래가능', contracted: '계약완료', hidden: '숨김' } as const
@@ -140,20 +155,20 @@ export function PropertyViewSheet({ p, memoVisible, onClose, onLocation, onAddTo
           {rows.filter(([, v]) => v).map(([k, v]) => (
             <div key={k} className="contents">
               <dt className="text-gray-500">{k}</dt>
-              <dd className="break-words text-gray-900 dark:text-gray-100">{v}</dd>
+              <dd className="break-words text-gray-900 dark:text-gray-100"><PhoneText text={v!} /></dd>
             </div>
           ))}
         </dl>
         {p.brief_memo && (
           <div className="mt-4">
             <p className="mb-1 text-xs font-semibold text-gray-500">매물설명</p>
-            <p className="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-200">{p.brief_memo}</p>
+            <p className="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-200"><PhoneText text={p.brief_memo} /></p>
           </div>
         )}
         {memoVisible && p.memo && (
           <div className="mt-4">
             <p className="mb-1 text-xs font-semibold text-gray-500">중개사메모 (나에게만 보임)</p>
-            <p className="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-200">{p.memo}</p>
+            <p className="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-200"><PhoneText text={p.memo} /></p>
           </div>
         )}
         {onLocation && (

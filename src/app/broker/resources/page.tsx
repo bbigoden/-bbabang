@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useToast } from '@/components/toast'
-import { PageHeader } from '@/components/layout/page-header'
+import { PageHeader, PRIMARY_BTN } from '@/components/layout/page-header'
 import { purgeResourceKeys, RESOURCE_TRASH_DAYS } from '@/lib/resource-trash'
 import { ImageLightbox } from '@/components/image-lightbox'
 
@@ -1185,22 +1185,17 @@ export default function BrokerResourcesPage() {
       <Header user={auth.user} role="broker" />
       <input ref={fileRef} type="file" multiple onChange={onFilePick} className="hidden" />
       <input ref={dirRef} type="file" multiple onChange={onFilePick} className="hidden" {...({ webkitdirectory: '', directory: '' } as any)} />
-      <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mx-auto max-w-6xl px-4 py-6">
         <PageHeader
-          icon={FolderOpen}
-          iconColor="text-blue-600"
           title="자료실"
           actions={
             <div ref={newRef} className="relative">
-              <button
-                onClick={() => setNewOpen(o => !o)}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-2xl bg-white px-4 py-3 text-sm font-bold sm:py-2.5 text-gray-800 shadow-md ring-1 ring-gray-100 hover:bg-blue-50 dark:bg-gray-900 dark:text-gray-100 dark:ring-gray-800"
-              >
-                <Plus className="h-5 w-5 text-blue-600" />
+              <button onClick={() => setNewOpen(o => !o)} className={PRIMARY_BTN}>
+                <Plus className="h-4 w-4" />
                 새로 만들기
               </button>
               {newOpen && (
-                <div className="absolute right-0 top-12 z-30 w-52 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
+                <div className="absolute right-0 top-11 z-30 w-52 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-gray-800 dark:bg-gray-900">
                   {[
                     { label: '새 폴더', icon: FolderPlus, onClick: () => openDialog('folder') },
                     { label: '파일 올리기', icon: Upload, onClick: () => { setNewOpen(false); fileRef.current?.click() } },

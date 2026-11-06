@@ -24,10 +24,8 @@ export default async function SettingsLayout({ children }: { children: React.Rea
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
-      <div className="mx-auto max-w-5xl px-4 py-8">
-        <PageHeader
-          title="설정"
-        />
+      <div className="mx-auto max-w-5xl px-4 py-6">
+        <PageHeader title="설정" />
         {isBroker ? (
           // broker는 root layout의 BrokerGlobalLayout이 좌측 사이드바를 표시 → settings 자체 사이드바 생략
           <div className="min-w-0">{children}</div>

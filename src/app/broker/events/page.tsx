@@ -21,7 +21,7 @@ import { canUseEvents } from '@/components/broker/menu-items'
 import { BookingSettings } from './booking-settings'
 import { todayKST, ymdKST, hmKST, addDays } from '@/lib/date-kst'
 import {
-  CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Plus, Copy, Check, X, Phone, MessageSquareWarning, BarChart3, Pencil, AlertTriangle, Link2,
+  CalendarDays, ChevronLeft, ChevronRight, Plus, Copy, Check, X, Phone, MessageSquareWarning, BarChart3, Pencil, AlertTriangle, Link2,
 } from 'lucide-react'
 
 type Source = 'manual' | 'naver' | 'kakao' | 'insta_link' | 'insta_dm' | 'link'
@@ -431,9 +431,7 @@ export default function EventsPage() {
       <Header />
       <section className="mx-auto max-w-3xl px-4 py-6">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <h1 className="mr-auto flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
-            <CalendarCheck className="h-5 w-5 text-blue-600" />예약관리
-          </h1>
+          <h1 className="mr-auto text-2xl font-bold text-gray-900 dark:text-white">예약관리</h1>
           <button onClick={() => setLinkOpen(true)}
             className="flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
             <Link2 className="h-4 w-4" />예약 링크

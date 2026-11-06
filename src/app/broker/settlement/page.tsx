@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/header'
 import { useToast } from '@/components/toast'
 import { Card, CardBody } from '@/components/ui/card'
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, Plus, Download, Trash2,
+  ChevronLeft, ChevronRight, Plus, Download, Trash2,
 } from 'lucide-react'
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
@@ -618,11 +618,8 @@ export default function SettlementPage() {
 
       <div className="px-4 py-6">
         {/* 헤더 */}
-        <div className="mb-4 flex items-center gap-3">
-          <button onClick={() => router.back()} aria-label="뒤로 가기" title="뒤로" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h1 className="text-xl font-black text-gray-900 dark:text-white">정산</h1>
+        <div className="mb-4 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">정산</h1>
           <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
             {isOwner ? '사무소 보기' : '직원 보기'}
           </span>

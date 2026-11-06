@@ -157,11 +157,8 @@ export default function BrokerTeamPage() {
   return (
     <div className="bg-gray-50 dark:bg-gray-950">
       <Header user={user} role="broker" />
-      <div className="mx-auto max-w-2xl px-4 py-8">
-
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">직원</h1>
-        </div>
+      <div className="mx-auto max-w-2xl px-4 py-6">
+        <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">직원</h1>
 
         {broker && (
           <div className="mb-6">

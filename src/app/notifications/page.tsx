@@ -135,10 +135,8 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Header />
 
-      <div className="mx-auto max-w-5xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-6">
         <PageHeader
-          icon={Bell}
-          iconColor="text-blue-600"
           title="알림"
           actions={(unreadCount > 0 || readCount > 0) && (
             <div className="flex gap-2">

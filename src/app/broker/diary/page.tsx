@@ -1505,7 +1505,7 @@ export default function BrokerDiaryPage() {
         {/* 날짜 헤더 — 제목과 조작칸이 한 줄에 다 들어가면 양 끝으로, 모자라면 조작칸이 통째로 아랫줄로 */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="flex items-center gap-3 flex-wrap min-w-0">
-            <h1 className="text-lg sm:text-2xl font-black text-gray-900 dark:text-white">{formatDateHeader(diaryDate)} 업무일지</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{formatDateHeader(diaryDate)} 업무일지</h1>
             {viewingExEmployee && (
               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
                 퇴사자 일지 · 읽기 전용
