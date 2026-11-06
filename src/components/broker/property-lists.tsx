@@ -26,11 +26,24 @@ export interface MeetingList {
   meeting_at: string | null
   status: 'ready' | 'done'
   customer_id: string | null
-  customer: { client_name: string | null; contact: string | null } | null
+  customer: { client_name: string | null; contact: string | null; request: string | null } | null
   count: number
 }
 
-const LIST_COLS = 'id, name, created_by, created_at, meeting_at, status, customer_id, customer:broker_customers(client_name, contact), property_list_items(count)'
+/**
+ * 손님 표시 — 이름·연락처, 둘 다 없으면 요청 앞부분. 고객목록엔 이름 없이 연락처만 적힌 고객이 많아
+ * 이름만 보면 '손님 연결됨' 으로만 나왔다(11-06). 볼 권한이 없는 고객이면 '손님 연결됨'.
+ */
+export function customerLabel(l: Pick<MeetingList, 'customer' | 'customer_id'>): string | null {
+  if (!l.customer_id) return null
+  const c = l.customer
+  const s = [c?.client_name?.trim(), c?.contact?.trim()].filter(Boolean).join(' · ')
+  if (s) return s
+  const req = c?.request?.trim()
+  return req ? (req.length > 20 ? `${req.slice(0, 20)}…` : req) : '손님 연결됨'
+}
+
+const LIST_COLS = 'id, name, created_by, created_at, meeting_at, status, customer_id, customer:broker_customers(client_name, contact, request), property_list_items(count)'
 
 type RawList = Omit<MeetingList, 'count'> & { property_list_items: { count: number }[] }
 const toList = (r: RawList): MeetingList => {
@@ -153,26 +166,24 @@ export function SheetHead({ title, sub, onClose }: { title: string; sub?: string
   )
 }
 
-/** 사람 칩 — 전체/나/재직자. allLabel 을 주면 맨 앞에 '전체' */
-export function MemberChips({ members, selfId, value, onChange, allLabel }: {
-  members: { id: string; name: string }[]; selfId: string; value: string; onChange: (id: string) => void; allLabel?: string
+/**
+ * 재직자 드롭다운 — 나 먼저, 그다음 재직자. allLabel 을 주면 맨 앞에 '전체'.
+ * 칩으로 늘어놓았다가 드롭다운으로 바꿨다(11-06 사장님 — 사람이 늘면 칩이 줄을 넘는다).
+ */
+export function MemberSelect({ members, selfId, value, onChange, allLabel, label = '재직자' }: {
+  members: { id: string; name: string }[]; selfId: string; value: string; onChange: (id: string) => void
+  allLabel?: string
+  label?: string
 }) {
   const me = members.find(m => m.id === selfId)
   const others = members.filter(m => m.id !== selfId)
-  const chip = (id: string, label: string) => (
-    <button key={id || 'all'} type="button" onClick={() => onChange(id)} aria-pressed={value === id}
-      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${value === id
-        ? 'border-blue-600 bg-blue-600 text-white'
-        : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'}`}>
-      {label}
-    </button>
-  )
   return (
-    <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
-      {allLabel !== undefined && chip('', allLabel)}
-      {me && chip(me.id, '나')}
-      {others.map(m => chip(m.id, m.name))}
-    </div>
+    <select value={value} onChange={e => onChange(e.target.value)} aria-label={label}
+      className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 sm:w-auto sm:min-w-44 dark:border-gray-800 dark:bg-gray-950">
+      {allLabel !== undefined && <option value="">{allLabel}</option>}
+      {me && <option value={me.id}>{me.name} (나)</option>}
+      {others.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+    </select>
   )
 }
 
@@ -248,7 +259,7 @@ export function ListFormSheet({ officeId, selfId, canManage, members, initial, d
   const [owner, setOwner] = useState(initial?.created_by ?? defaultOwner ?? selfId)
   const [when, setWhen] = useState(toLocalInput(initial?.meeting_at ?? null))
   const [cust, setCust] = useState<{ id: string; label: string } | null>(
-    initial?.customer_id ? { id: initial.customer_id, label: [initial.customer?.client_name, initial.customer?.contact].filter(Boolean).join(' · ') || '연결된 고객' } : null)
+    initial?.customer_id ? { id: initial.customer_id, label: customerLabel(initial) ?? '연결된 고객' } : null)
   const [busy, setBusy] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
@@ -279,7 +290,7 @@ export function ListFormSheet({ officeId, selfId, canManage, members, initial, d
           {canManage && (
             <div>
               <span className="mb-1.5 block text-xs font-semibold text-gray-500">누구 미팅</span>
-              <MemberChips members={members} selfId={selfId} value={owner} onChange={setOwner} />
+              <MemberSelect members={members} selfId={selfId} value={owner} onChange={setOwner} label="누구 미팅" />
             </div>
           )}
           <label className="block">
@@ -308,7 +319,7 @@ export function ListLine({ l, ownerName, active, onClick, right }: {
   l: MeetingList; ownerName?: string; active?: boolean; onClick: () => void; right?: React.ReactNode
 }) {
   const when = meetingLabel(l.meeting_at)
-  const who = l.customer?.client_name || (l.customer_id ? '손님 연결됨' : null)
+  const who = customerLabel(l)
   return (
     <button type="button" onClick={onClick}
       className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors ${active ? 'bg-blue-50 dark:bg-blue-950/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
@@ -360,7 +371,7 @@ export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick,
     <Sheet label="담을 미팅 고르기" onClose={onClose}>
       <SheetHead title="담을 미팅 고르기" sub="고르면 매물목록 [담기] 한 번으로 바로 들어갑니다" onClose={onClose} />
       <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-        {members && <MemberChips members={members} selfId={selfId} value={who} onChange={setWho} />}
+        {members && <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} label="누구 미팅에 담을지" />}
       </div>
       <div className="min-h-[30vh] flex-1 divide-y divide-gray-50 overflow-y-auto dark:divide-gray-800">
         {lists == null || members == null ? <p className="py-10 text-center text-sm text-gray-500">불러오는 중…</p>

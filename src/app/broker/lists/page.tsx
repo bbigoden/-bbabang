@@ -17,7 +17,7 @@ import { ImageLightbox } from '@/components/image-lightbox'
 import { PropertyViewSheet, type PropertyView } from '@/components/broker/property-view-sheet'
 import type { MapRow } from '@/components/broker/properties-map-view'
 import {
-  ListFormSheet, MemberChips, customerText, loadList, loadLists, meetingLabel, priceText,
+  ListFormSheet, MemberSelect, customerLabel, customerText, loadList, loadLists, meetingLabel, priceText,
   setActiveListId, sortLists, useMembers, type ItemProp, type MeetingList,
 } from '@/components/broker/property-lists'
 
@@ -106,11 +106,8 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">미팅준비</h1>
-          <p className="mt-0.5 text-sm text-gray-500">손님 미팅에 들고 갈 매물 묶음</p>
-        </div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">미팅준비</h1>
         <button type="button" onClick={() => setMaking(true)}
           className="flex shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
           <Plus className="h-4 w-4" />새 미팅
@@ -118,7 +115,7 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
       </div>
 
       {canManage && members && (
-        <div className="mb-4"><MemberChips members={members} selfId={selfId} value={who} onChange={setWho} allLabel="전체" /></div>
+        <div className="mb-4"><MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="전체 재직자" /></div>
       )}
 
       {lists == null || members == null ? (
@@ -164,7 +161,7 @@ function Section({ title, lists, names, thumbs, muted }: {
               </div>
               <div className="mt-1.5 space-y-0.5 text-xs text-gray-500">
                 {when && <p className="flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" />{when}</p>}
-                {(l.customer?.client_name || l.customer_id) && <p className="flex items-center gap-1"><User className="h-3.5 w-3.5" />{l.customer?.client_name || '손님 연결됨'}</p>}
+                {customerLabel(l) && <p className="flex items-center gap-1"><User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{customerLabel(l)}</span></p>}
                 <p>{names[l.created_by]}</p>
               </div>
               {imgs.length > 0 && (
@@ -297,8 +294,8 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-gray-500">
             {when && <span className="flex items-center gap-1"><CalendarClock className="h-4 w-4" />{when}</span>}
-            {(list.customer?.client_name || list.customer_id) && (
-              <span className="flex items-center gap-1"><User className="h-4 w-4" />{[list.customer?.client_name || '손님 연결됨', list.customer?.contact].filter(Boolean).join(' · ')}</span>
+            {customerLabel(list) && (
+              <span className="flex items-center gap-1"><User className="h-4 w-4" />{customerLabel(list)}</span>
             )}
             <span>{names[list.created_by] ?? ''}</span>
           </div>
