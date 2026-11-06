@@ -266,6 +266,9 @@ function PropertyPicker({ officeId, selectedIds, onConfirm, onClose }: {
         const conds = [`address.ilike.%${w}%`, `deal_type.ilike.%${w}%`, `room_type.ilike.%${w}%`]
         // seq_no는 정수 컬럼 — 자릿수가 크면 오버플로로 쿼리가 깨지므로 제외
         if (digits && digits === w && digits.length <= 9) conds.push(`seq_no.eq.${digits}`)
+        // 중개사메모의 가게 이름('완미족발')으로도 찾게(11-06). 숫자만 친 말은 메모에 안 건다 —
+        // 남의 매물 메모에 적힌 임차인 전화번호를 검색으로 떠볼 수 없게.
+        if (digits !== w) conds.push(`memo.ilike.%${w}%`)
         q = q.or(conds.join(','))
       }
       const { data } = await q.order('created_at', { ascending: false }).limit(PROP_PICK_LIMIT)
@@ -300,7 +303,7 @@ function PropertyPicker({ officeId, selectedIds, onConfirm, onClose }: {
         <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800">
           <div className="relative">
             <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="매물번호, 주소, 유형 검색..." className="w-full rounded-xl border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
+              placeholder="매물번호, 주소, 유형, 메모 검색..." className="w-full rounded-xl border border-gray-200 dark:border-gray-800 pl-3 pr-8 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20" />
             {search && <SearchClear onClick={() => setSearch('')} />}
           </div>
           {/* 전건을 받지 않으므로 상한에 걸리면 반드시 알린다 */}
