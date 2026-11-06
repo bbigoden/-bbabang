@@ -88,7 +88,7 @@ export function BottomNav() {
       { href: '/broker/messenger', label: '톡톡', icon: MessagesSquare, badge: chatUnread, needsOffice: true },
       { href: '/broker/lists', label: '미팅', icon: ListChecks, needsOffice: true },
       // 입찰은 탭에서 뺐다(11-06 사장님) — 더보기 서랍에 있다. 대표·직원 탭이 같다
-      { action: 'more', label: '더보기', icon: MoreHorizontal, badge: unread },
+      { action: 'more', label: '전체', icon: MoreHorizontal, badge: unread },
     ]
   } else if (role === 'admin') {
     items = [
