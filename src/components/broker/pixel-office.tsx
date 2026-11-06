@@ -1458,7 +1458,8 @@ const Background = memo(function Background({ guests, decor }: { guests: number 
   )
 })
 
-export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout; loading?: boolean }) {
+/** header — 제목·경고. 그림과 같은 폭 틀 안에 둬야 왼쪽 끝이 맞는다(2026-11-06 '매물수집처럼 제목 정렬') */
+export function PixelOffice({ layout, loading = false, header }: { layout: OfficeLayout; loading?: boolean; header?: React.ReactNode }) {
   const [picked, setPicked] = useState<string | null>(null)
   // 소품은 첫 화면을 그린 다음에 — 두 프레임 뒤에 켠다
   const [decorOn, setDecorOn] = useState(false)
@@ -1561,6 +1562,7 @@ export function PixelOffice({ layout, loading = false }: { layout: OfficeLayout;
         /* 움직임 줄이기(prefers-reduced-motion)는 따르지 않는다 — 삼성 절전 모드가 이걸 켜서 폰에서 사무실이 통째로 멈췄다(2026-10-29) */
       `}</style>
 
+      {header}
       <p className="mb-1 text-[11px] text-gray-500 lg:hidden">← 사무실을 옆으로 밀어 다른 방도 보세요 →</p>
       <div className="relative overflow-x-auto border-4 border-gray-800 dark:border-gray-600">
         {loading && (

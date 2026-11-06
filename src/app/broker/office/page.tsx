@@ -15,8 +15,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Users, AlertTriangle, RotateCcw, CheckCircle2, Circle, Trash2,
-  RefreshCw,
+  RefreshCw, LayoutDashboard,
 } from 'lucide-react'
+import { PageHeader } from '@/components/layout/page-header'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
@@ -597,33 +598,31 @@ export default function OfficePage() {
   return (
     // 사무실 그림은 화면 폭 끝까지(2026-10-26 '꽉 차게'), 그 아래 목록은 읽기 좋은 폭으로
     <div className="w-full px-4 py-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">사무실</h1>
-          <p className="mt-0.5 text-xs text-gray-500">
-            {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : '직원·PC 일꾼이 지금 하는 일과 내 할 일'}
-            {' · '}{loaded ? `${hmKST(now)} 기준, 20초마다 새로 봅니다(현황판은 5분마다)` : '불러오는 중…'}
-          </p>
-        </div>
-        <button onClick={() => void load()} aria-label="지금 새로 보기"
-          className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
-          <RefreshCw className="h-4 w-4" />
-        </button>
-      </div>
-
-      {loaded && alerts.length > 0 && (
-        <div className="mb-5 space-y-1.5 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
-          {alerts.map(a => (
-            <p key={a} className="flex items-start gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
-              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />{a}
-            </p>
-          ))}
-        </div>
-      )}
-
-      {/* ── 픽셀 사무실 ─────────────────────────────── */}
+      {/* 제목·경고는 그림 틀 안에 — 그림이 화면 높이에 맞춰 가운데로 좁아져서, 밖에 두면 제목만 왼쪽 끝에 붙었다(11-06) */}
       <div className="mb-7">
-        <PixelOffice layout={layout} loading={!loaded} />
+        <PixelOffice layout={layout} loading={!loaded} header={<>
+          <PageHeader title="사무실" icon={LayoutDashboard}
+            description={<>
+              {isOwner ? '직원·PC 일꾼·Claude 가 지금 하는 일' : '직원·PC 일꾼이 지금 하는 일과 내 할 일'}
+              {' · '}{loaded ? `${hmKST(now)} 기준, 20초마다 새로 봅니다(현황판은 5분마다)` : '불러오는 중…'}
+            </>}
+            actions={
+              <button onClick={() => void load()} aria-label="지금 새로 보기"
+                className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            } />
+
+          {loaded && alerts.length > 0 && (
+            <div className="mb-5 space-y-1.5 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40">
+              {alerts.map(a => (
+                <p key={a} className="flex items-start gap-2 text-sm font-semibold text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />{a}
+                </p>
+              ))}
+            </div>
+          )}
+        </>} />
       </div>
 
       <div className="mx-auto max-w-7xl">
