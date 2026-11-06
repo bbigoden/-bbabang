@@ -295,7 +295,9 @@ export default function BidPage() {
     // 2.4만 행 — 한 묶음씩 차례로 받으면 스무 번 왕복이라 넷씩 같이 받는다.
     // 정렬은 bid_results_list_order_idx 와 똑같이 둬야 묶음마다 전체를 다시 정렬하지 않는다(추천 계산은 순서와 상관없다)
     void fetchAllParallel<HistoryRow & { bid_ntce_no: string; bid_ntce_ord: string; openg_at: string | null }>(
-      () => supabase.from('bid_results').select('bid_ntce_no', { count: 'exact', head: true }).not('sajeong', 'is', null).overlaps('lic_cds', ourLics),
+      // 개수는 면허로 거르지 않는다 — 보안 규칙(RLS) 아래선 배열 겹침(&&)이 색인을 못 써 2.6만 줄을 다 읽다 8초에 끊겼다.
+      // 몇 묶음 받을지만 정하는 숫자라 많게 잡혀도 빈 묶음이 올 뿐이다
+      () => supabase.from('bid_results').select('bid_ntce_no', { count: 'exact', head: true }).not('sajeong', 'is', null),
       (from, to) => supabase.from('bid_results')
         .select('bid_ntce_no, bid_ntce_ord, dminstt_cd, dminstt_nm, bssamt, sajeong, win_y, rng, openg_at')
         .not('sajeong', 'is', null).overlaps('lic_cds', ourLics)
