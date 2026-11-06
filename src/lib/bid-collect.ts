@@ -523,7 +523,10 @@ async function applyLics(supa: SupabaseClient, items: Record<string, string>[], 
   const rows = (data ?? []).map(({ lic_flds, ...n }) => {
     const k = `${n.bid_ntce_no}/${n.bid_ntce_ord}`
     const lines = byKey.get(k) ?? {}
-    const cds = new Set([...Object.keys((lic_flds as LicFlds | null) ?? { '4992': null }), ...(fromCds?.get(k) ?? []), ...Object.keys(lines)])
+    // 면허 칸이 빈 공고: 이번에 목록으로 받았으면 방금 들어온 것(그 목록 면허로 정한다), 아니면 이 칸이 생기기 전 4992 공고.
+    // 방금 들어온 것까지 4992 로 보면 석면·상수도 공고가 한결이엔씨에 섞였다(11-06)
+    const known = (lic_flds as LicFlds | null) ?? (fromCds?.has(k) ? {} : { '4992': null })
+    const cds = new Set([...Object.keys(known), ...(fromCds?.get(k) ?? []), ...Object.keys(lines)])
     return {
       ...n,
       mfrc_flds: lines['4992'] ?? [],
