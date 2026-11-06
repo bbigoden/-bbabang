@@ -171,7 +171,7 @@ export function DateCell({
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
 
   if (readOnly) return (
-    <div className={cn("w-full px-1 py-0.5 text-xs min-h-[22px]", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}>
+    <div className={cn("w-full px-1 py-0.5 text-xs min-h-[22px]", value ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500")}>
       {value || '—'}
     </div>
   )
@@ -192,7 +192,7 @@ export function DateCell({
   return (
     <div className="relative w-full">
       <div ref={btnRef} onClick={handleOpen}
-        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400", triggerClassName)}
+        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500", triggerClassName)}
        >
         {value || '날짜'}
       </div>

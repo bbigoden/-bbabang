@@ -48,7 +48,7 @@ export function TextCell({
 
   if (readOnly) return (
     <div
-      className={cn("w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}
+      className={cn("w-full px-1 py-0.5 text-xs min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500")}
     >
       {value || placeholder}
     </div>
@@ -77,7 +77,7 @@ export function TextCell({
         onClick={() => { setDraft(value ?? ''); setEditing(true); setHovered(false) }}
         onMouseEnter={() => { if (value) setHovered(true) }}
         onMouseLeave={() => setHovered(false)}
-        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-500 dark:text-gray-400")}
+        className={cn("w-full cursor-pointer rounded px-1 py-0.5 text-xs hover:bg-blue-50 min-h-[22px] overflow-hidden whitespace-nowrap text-ellipsis", value ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500")}
       >
         {value || placeholder}
       </div>

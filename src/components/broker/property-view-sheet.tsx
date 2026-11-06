@@ -15,6 +15,7 @@ export interface PropertyView {
   management_fee: number | null
   premium: number | null
   size_pyeong: string | null
+  area_unit?: string | null
   area_supplied: number | null
   floor: number | null
   total_floors: string | null
@@ -59,7 +60,9 @@ export function PropertyViewSheet({ p, memoVisible, onClose }: { p: PropertyView
   const price = p.deal_type === '월세'
     ? (만(p.price) || 만(p.monthly_rent) ? `${만(p.price) ?? '—'} / ${만(p.monthly_rent) ?? '—'}` : null)
     : 만(p.price)
-  const area = [p.size_pyeong ? `전용 ${p.size_pyeong}` : null, p.area_supplied ? `공급 ${p.area_supplied}` : null].filter(Boolean).join(' · ')
+  // 단위가 없어 평인지 ㎡인지 몰랐다(11-06 점검) — 저장된 단위(지금은 전부 평)를 붙인다
+  const unit = p.area_unit || '평'
+  const area = [p.size_pyeong ? `전용 ${p.size_pyeong}${unit}` : null, p.area_supplied ? `공급 ${p.area_supplied}${unit}` : null].filter(Boolean).join(' · ')
   const floor = [p.floor != null ? `${p.floor}층` : null, p.total_floors ? `총 ${p.total_floors}층` : null].filter(Boolean).join(' / ')
   const rows: [string, string | null][] = [
     ['거래형태', p.deal_type || null],

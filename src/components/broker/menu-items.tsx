@@ -73,7 +73,7 @@ export const BROKER_ITEMS: ItemDef[] = [
       { href: '/settings/office',        label: '사무소', icon: Building2, ownerOnly: true, needsOffice: true },
       { href: '/broker/team',            label: '직원', icon: UserCog, ownerOnly: true, needsOffice: true },
       { href: '/settings/appearance',    label: '화면',   icon: Palette },
-      { href: '/settings/notifications', label: '알림',   icon: Bell },
+      { href: '/settings/notifications', label: '알림 설정', icon: Bell },  // 메뉴 아래 '알림'(받은 알림 목록)과 이름이 같아 헷갈렸다(11-06 점검)
     ],
   },
 ]

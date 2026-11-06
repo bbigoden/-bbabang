@@ -1093,8 +1093,10 @@ function BankDraftButton({ job, onClick }: { job?: BankDraftJob; onClick: () => 
     : '뱅크에 임시 저장 — PC 프로그램이 등록 화면을 채워 둡니다. 최종 등록은 뱅크에서 직접.'
   return (
     <button type="button" onClick={onClick} title={끝} aria-label="뱅크 임시저장" tabIndex={-1}
-      className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${job?.status === 'done' ? 'text-green-500 hover:bg-green-50' : job?.status === 'failed' ? 'text-red-400 hover:bg-red-50' : 'text-gray-300 hover:bg-blue-50 hover:text-blue-400'}`}>
+      className={`flex h-6 items-center justify-center gap-0.5 rounded px-1 transition-colors ${job?.status === 'done' ? 'text-green-500 hover:bg-green-50' : job?.status === 'failed' ? 'text-red-400 hover:bg-red-50' : 'text-gray-400 hover:bg-blue-50 hover:text-blue-500'}`}>
       {job?.status === 'done' ? <CheckCircle2 className="h-3.5 w-3.5" /> : job?.status === 'failed' ? <AlertCircle className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+      {/* 밖(뱅크)으로 데이터를 보내는 버튼인데 그림만 있어 무엇인지 몰랐다(11-06 점검) */}
+      <span className="text-[10px] font-medium">뱅크</span>
     </button>
   )
 }
@@ -2598,24 +2600,40 @@ function BrokerPropertiesContent() {
                   ['월세', '만원', filterRentMin, setFilterRentMin, filterRentMax, setFilterRentMax],
                   ['평수', '평', filterPyeongMin, setFilterPyeongMin, filterPyeongMax, setFilterPyeongMax],
                   ['층수', '층', filterFloorMin, setFilterFloorMin, filterFloorMax, setFilterFloorMax],
-                ] as [string, string, string, (v: string) => void, string, (v: string) => void][]).map(([label, unit, min, setMin, max, setMax]) => (
-                  <div key={label} className="flex items-center gap-2">
+                ] as [string, string, string, (v: string) => void, string, (v: string) => void][]).map(([label, unit, min, setMin, max, setMax]) => {
+                  // 숫자만 받는다 — 'abc' 가 말없이 무시되고, 최소가 최대보다 커도 0건만 나왔다(11-06 점검)
+                  const only = (v: string) => v.replace(/[^0-9.,]/g, '')
+                  const lo = parseFloat(min.replace(/,/g, '')), hi = parseFloat(max.replace(/,/g, ''))
+                  const swapped = !isNaN(lo) && !isNaN(hi) && lo > hi
+                  return (
+                  <div key={label}>
+                  <div className="flex items-center gap-2">
                     <span className="w-24 shrink-0 text-xs text-gray-600 dark:text-gray-400">{label}</span>
-                    <input type="text" inputMode="decimal" value={min} onChange={e => setMin(e.target.value)} placeholder={`최소 (${unit})`}
+                    <input type="text" inputMode="decimal" value={min} onChange={e => setMin(only(e.target.value))} placeholder={`최소 (${unit})`}
                       className="w-28 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                     <span className="text-xs text-gray-400">~</span>
-                    <input type="text" inputMode="decimal" value={max} onChange={e => setMax(e.target.value)} placeholder={`최대 (${unit})`}
+                    <input type="text" inputMode="decimal" value={max} onChange={e => setMax(only(e.target.value))} placeholder={`최대 (${unit})`}
                       className="w-28 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                   </div>
-                ))}
+                  {swapped && <p className="mt-1 pl-[104px] text-[11px] text-red-500">최소가 최대보다 커요 — 두 칸을 바꿔 적어 주세요</p>}
+                  </div>
+                  )
+                })}
               </div>
             </div>
-            {activeFilterCount > 0 && (
-              <button onClick={resetFilters}
-                className="text-xs text-red-500 hover:text-red-600 font-medium">
-                필터 초기화
+            {/* 폰에선 필터 판이 화면 두 장이라 결과가 판 아래에 묻혀 안 보였다(11-06 점검) — 닫고 결과 보기 */}
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setShowFilter(false)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+                결과 {totalCount}건 보기
               </button>
-            )}
+              {activeFilterCount > 0 && (
+                <button onClick={resetFilters}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium">
+                  필터 초기화
+                </button>
+              )}
+            </div>
           </div>
         )}
 

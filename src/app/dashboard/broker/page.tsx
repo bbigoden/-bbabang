@@ -156,13 +156,14 @@ export default async function BrokerDashboardPage() {
                 { href: '/broker/office', icon: LayoutDashboard, title: '사무실', sub: '직원·일꾼 한눈에' },
               ].map(a => (
                 <Link key={a.href} href={a.href}
-                  className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 transition-all hover:border-blue-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 sm:p-4 transition-all hover:border-blue-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-900">
                   <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
                     <a.icon className="h-5 w-5" />
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-bold text-gray-900 dark:text-white">{a.title}</span>
-                    <span className="block truncate text-xs text-gray-500">{a.sub}</span>
+                    {/* 폰 반 칸에선 한 줄로 자르면 늘 "소재지만 적…" 으로 잘렸다(11-06 점검) — 두 줄까지 보인다 */}
+                    <span className="block text-xs leading-snug text-gray-500">{a.sub}</span>
                   </span>
                 </Link>
               ))}

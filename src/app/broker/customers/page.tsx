@@ -594,6 +594,7 @@ export default function BrokerCustomersPage() {
   }, [customers])
   const assignees = ['전체', ...Object.keys(assigneeCounts).sort()]
 
+  const [statsOpen, setStatsOpen] = useState(false)
   const deferredSearch = useDeferredValue(search)
   const filtered = useMemo(() => customers.filter(c => {
     if (monthFilter !== '전체' && (!c.received_date || !c.received_date.startsWith(monthFilter))) return false
@@ -684,20 +685,21 @@ export default function BrokerCustomersPage() {
     return [...top, ['기타', restSum]]
   }
   // 도넛은 현재 필터(월/담당자/검색)에 맞춘 filtered 기준으로 계산.
-  // 공동담당("오혜진, 권세현")은 개별로 분리하지 않고 "공동담당" 한 슬라이스로 묶음
-  // → 슬라이스 합계 = 실제 고객 수가 유지됨 (중복 카운트 방지).
+  // 담당자는 사람마다 센다 — 공동담당("오혜진, 권세현")은 두 사람 모두에게 하나씩. 예전엔 '공동담당'
+  // 한 칸으로 묶어 김용유가 도넛 2·필터 741 로 달라 보였다(11-06 점검). 그래서 칸 합은 고객 수보다
+  // 클 수 있고, 가운데 숫자는 고객 수(filtered.length)를 보인다. 담당자·구분이 빈 고객은 '없음'·'미정' 칸.
   const assigneeDist = (() => {
     const map: Record<string, number> = {}
     filtered.forEach(c => {
-      if (!c.assignee) return
-      const key = c.assignee.includes(',') ? '공동담당' : c.assignee.trim()
-      map[key] = (map[key] ?? 0) + 1
+      const names = (c.assignee ?? '').split(',').map(n => n.trim()).filter(Boolean)
+      if (!names.length) names.push('없음')
+      for (const n of names) map[n] = (map[n] ?? 0) + 1
     })
     return distribute(map)
   })()
   const categoryDist = (() => {
     const map: Record<string, number> = {}
-    filtered.forEach(c => { if (c.category) map[c.category] = (map[c.category] ?? 0) + 1 })
+    filtered.forEach(c => { const k = c.category?.trim() || '미정'; map[k] = (map[k] ?? 0) + 1 })
     return distribute(map)
   })()
   // 유입은 PC 12칸·폰 10칸까지 따로 보인다 — 8칸이면 톡톡·워킹이 '기타'에 묻혔다(11-05).
@@ -825,7 +827,13 @@ export default function BrokerCustomersPage() {
           return (
             // 다 받기 전엔 첫 200명 기준 숫자라 흐리게 두고 '불러오는 중'을 덮는다 — 폰 3G 에서 200·공동담당 70 을
             // 진짜 숫자로 읽었다(10-30 재점검). 맨 위 작은 글자만으로는 스크롤해 내려와 있으면 안 보였다.
-            <div className="relative mb-5" aria-busy={!allLoaded}>
+            <>
+            {/* 폰에선 카드 4개가 고객 표를 한 화면 반 아래로 밀었다(11-06 점검) — 접어 두고 누르면 편다 */}
+            <button type="button" onClick={() => setStatsOpen(v => !v)}
+              className="mb-3 w-full rounded-xl border border-gray-100 bg-white px-4 py-2 text-left text-xs font-semibold text-gray-600 sm:hidden dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+              {statsOpen ? '통계 접기 ▴' : `통계 보기 ▾ · 이번 달 신규 ${newThisMonth}명`}
+            </button>
+            <div className={cn('relative mb-5', !statsOpen && 'hidden sm:block')} aria-busy={!allLoaded}>
             {!allLoaded && (
               <div className="absolute inset-0 z-10 flex items-center justify-center">
                 <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-600 shadow dark:bg-gray-900/90 dark:text-gray-300">고객 불러오는 중…</span>
@@ -857,7 +865,7 @@ export default function BrokerCustomersPage() {
                     <div className="relative flex-shrink-0" style={{ width: 64, height: 64 }}>
                       <DonutChart data={assigneeDist} colors={ASSIGNEE_COLORS} total={aTotal} />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-500">{aTotal}</span>
+                        <span className="text-[11px] font-bold text-gray-600 dark:text-gray-500">{filtered.length}</span>
                       </div>
                     </div>
                     <div className={`flex-1 min-w-0 ${assigneeDist.length > 4 ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'space-y-1.5'}`}>
@@ -926,6 +934,7 @@ export default function BrokerCustomersPage() {
               </div>
             </div>
             </div>
+            </>
           )
         })()}
 

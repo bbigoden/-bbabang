@@ -65,7 +65,7 @@ function SingleSelectCell({
     <div className="max-w-full overflow-hidden">
       <div
         className={`rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-full ${
-          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'bg-gray-50 text-gray-500'
+          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : '!font-normal text-gray-400 dark:text-gray-500'
         }`}
       >
         {value || placeholder || '—'}
@@ -90,7 +90,7 @@ function SingleSelectCell({
         ref={btnRef}
         onClick={handleOpen}
         className={`cursor-pointer rounded px-2 py-0.5 text-xs font-semibold whitespace-nowrap overflow-hidden text-ellipsis inline-block max-w-full hover:opacity-80 ${
-          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : 'text-gray-500 dark:text-gray-400'
+          value ? (colorMap?.[value] ?? 'bg-gray-100 text-gray-600') : '!font-normal text-gray-400 dark:text-gray-500'
         }`}
       >
         {value || placeholder || '—'}
@@ -176,7 +176,7 @@ function MultiSelectCell({
     <div className={containerCls}>
       {selected.length > 0
         ? renderChips(selected)
-        : <div className="rounded px-2 py-0.5 text-xs font-semibold bg-gray-50 dark:bg-gray-950 text-gray-500 dark:text-gray-400">{placeholder || '—'}</div>
+        : <div className="rounded px-2 py-0.5 text-xs text-gray-400 dark:text-gray-500">{placeholder || '—'}</div>
       }
     </div>
   )
@@ -201,7 +201,7 @@ function MultiSelectCell({
       >
         {selected.length > 0
           ? renderChips(selected, false, true)
-          : <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{placeholder || '—'}</span>
+          : <span className="text-xs text-gray-400 dark:text-gray-500">{placeholder || '—'}</span>
         }
       </div>
       {open && (
