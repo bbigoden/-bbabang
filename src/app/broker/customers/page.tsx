@@ -70,6 +70,10 @@ const COL_COLORS: Record<string, Record<string, string>> = {
   source: SOURCE_COLORS, status: STATUS_COLORS, category: CATEGORY_COLORS,
 }
 
+// 표에 쓰는 칸만 받는다 — 상담내용·관심물건(일지 칸)·assignee_ids·updated_at 등까지 '*' 로 900명분을 받아
+// 폰 3G 에서 늘어졌다(11-06 점검). [복사] 는 원본 한 줄을 따로 통째로 받아 넣는다.
+const CUST_LIST_COLS = 'id, broker_id, client_name, contact, received_date, assignee, category, source, status, request, created_at, custom_fields'
+
 interface Customer {
   id: string; client_name: string; contact: string | null; received_date: string | null
   assignee: string | null; category: string; source: string | null; status: string
@@ -215,7 +219,7 @@ export default function BrokerCustomersPage() {
     // 이름의 특수문자는 or() 문법(콤마·괄호·점·따옴표)과 LIKE(%·_·\)를 깨므로 와일드카드(*)로 바꿔 넓게만 잡는다.
     const namePat = myName?.trim() ? `*${myName.replace(/[^\p{L}\p{N}]+/gu, '*')}*`.replace(/\*+/g, '*') : ''
     const custQuery = (from: number, to: number) => {
-      let q = supabase.from('broker_customers').select('*').eq('office_broker_id', office)
+      let q = supabase.from('broker_customers').select(CUST_LIST_COLS).eq('office_broker_id', office)
       if (!owner) q = namePat ? q.or(`broker_id.eq.${b.id},assignee.ilike.${namePat}`) : q.eq('broker_id', b.id)
       return q.order('received_date', { ascending: false }).order('created_at', { ascending: false })
         .order('id', { ascending: false })  // 동률 시 페이지 경계 안정화 (중복/누락 방지)
@@ -351,9 +355,12 @@ export default function BrokerCustomersPage() {
     if (!broker || rowBusyRef.current) return
     rowBusyRef.current = true
     try {
-      const { id: _id, created_at: _ca, updated_at: _ua, ...rest } = c as Customer & { updated_at?: string }
-      const { data, error } = await supabase.from('broker_customers').insert(rest).select().single()
-      if (error || !data) return
+      // 목록엔 표에 쓰는 칸만 있어 상담내용 등이 빠지므로 원본을 통째로 다시 받아 복사한다
+      const { data: full, error: readErr } = await supabase.from('broker_customers').select('*').eq('id', c.id).maybeSingle()
+      if (readErr || !full) { toast.error('복사하지 못했습니다. 다시 눌러 주세요.'); return }
+      const { id: _id, created_at: _ca, updated_at: _ua, deleted_at: _da, ...rest } = full as Record<string, unknown>
+      const { data, error } = await supabase.from('broker_customers').insert(rest).select(CUST_LIST_COLS).single()
+      if (error || !data) { toast.error(`복사하지 못했습니다: ${error?.message ?? '알 수 없는 오류'}`); return }
       setCustomers(prev => [data, ...prev])
       setAddingId(data.id); setTimeout(() => setAddingId(null), 2000)
     } finally { rowBusyRef.current = false }
