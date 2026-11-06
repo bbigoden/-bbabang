@@ -778,7 +778,7 @@ export function ChatRoom(props: Props) {
                   <div className="w-10 flex-shrink-0">
                     {showHead && m.bot_name && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src="/dragon-bot.png" alt="" aria-hidden className="h-10 w-10 rounded-[38%] bg-black object-cover" />
+                      <img src="/dragon-bot.png?v=2" alt="" aria-hidden className="h-10 w-10 rounded-[38%] bg-black object-cover" />
                     )}
                     {showHead && !m.bot_name && (
                       <button onClick={() => m.sender_broker_id && props.onOpenProfile(m.sender_broker_id)} aria-label={`${nameOf(m.sender_broker_id)} 프로필`}>
