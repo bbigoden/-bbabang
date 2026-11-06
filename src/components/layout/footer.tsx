@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { SUPPORT_EMAIL } from '@/lib/support'
+import { useAuthOptional } from '@/lib/auth-context'
 
 /**
  * 사이트 푸터 — 사업자정보·법적 표기·정책 링크.
@@ -22,9 +23,23 @@ const HIDDEN_PATHS = [
   '/b/', // 손님용 예약 페이지 — 부소장 이름이 하나도 보이면 안 된다(11-06 사장님)
 ]
 
+/**
+ * 푸터를 그리는 화면 — 홈·사무실과 약관 화면들만(11-06 사장님). 일하는 화면마다 바닥에 붙어 있으면
+ * 스크롤이 쓸데없이 길어진다. 개인정보처리방침은 홈에서 찾을 수 있으면 된다.
+ */
+const SHOW_PATHS = ['/', '/dashboard/broker', '/broker/office', '/terms', '/privacy', '/support']
+
 export function Footer() {
   const pathname = usePathname() ?? ''
+  const { profile } = useAuthOptional()
   if (HIDDEN_PATHS.some(p => pathname.startsWith(p))) return null
+  if (!SHOW_PATHS.includes(pathname)) {
+    // 푸터가 없어도 폰 하단 메뉴바만큼은 띄운다 — 중개사 화면은 메뉴바 쪽 받침이 없어(bottom-nav.tsx)
+    // 이게 없으면 마지막 줄이 메뉴바 밑에 가린다. 다른 계정은 메뉴바가 제 받침을 둔다
+    return profile?.role === 'broker'
+      ? <div aria-hidden className="h-[calc(4rem+env(safe-area-inset-bottom))] md:hidden" />
+      : null
+  }
 
   const companyName = process.env.NEXT_PUBLIC_BUSINESS_NAME ?? '부소장'
   const ceoName = process.env.NEXT_PUBLIC_BUSINESS_CEO
