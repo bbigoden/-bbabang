@@ -106,7 +106,7 @@ export function BookingForm({ slug }: { slug: string }) {
     <main className="min-h-screen bg-gray-50 px-4 pb-16 pt-8 dark:bg-gray-950">
       <div className="mx-auto max-w-md space-y-3">
         <header className="px-1 pb-1">
-          <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white"><CalendarCheck className="h-5 w-5 text-blue-600" />{cfg.title}</h1>
+          <h1 className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white"><CalendarCheck className="h-5 w-5 text-blue-600 dark:text-blue-300" />{cfg.title}</h1>
           {cfg.intro && <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400">{cfg.intro}</p>}
         </header>
 
