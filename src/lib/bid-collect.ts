@@ -245,7 +245,8 @@ export async function collectBids(supa: SupabaseClient, opts: { timeBudgetMs?: n
     // 주력분야(면허제한) — 하루 ~2,000줄. 같은 면허(4992)라도 석공 공사가 섞여 있어 이걸로 거른다.
     // 과거 기간에도 받는다 — 분석에 쓰는 과거 낙찰에서 석공 공사를 빼려면 그 공고의 주력분야가 있어야 한다
     const lics = await listAll('notice', 'getBidPblancListInfoLicenseLimit', from, to)
-    report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to, fromCds)
+    // 면허 다섯을 다 조회한 기간이면 어느 면허 공고인지 이번 목록으로 다 안다 — 전에 적힌 면허는 보지 않는다
+    report.lics = (report.lics ?? 0) + await applyLics(supa, lics, from, to, fromCds, cds.length === BID_INDUSTRY_CDS.length)
 
     // 기초금액은 업종으로 못 거른다 — 공사 전체(1주 ~2,400건)를 받아 우리 공고만 남긴다
     const bsis = await listAll('notice', 'getBidPblancListInfoCnstwkBsisAmount', from, to)
@@ -504,7 +505,7 @@ async function applyRgns(supa: SupabaseClient, items: Record<string, string>[], 
  * 공고가 어느 면허 공고인지는 이미 적힌 면허 + 이번에 받은 면허 목록(fromCds) + 우리 면허 줄로 정한다.
  * mfrc_flds 는 4992 줄 그대로 둔다(이 칸이 생기기 전 공고는 그걸로 본다).
  */
-async function applyLics(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string, fromCds?: Map<string, string[]>): Promise<number> {
+async function applyLics(supa: SupabaseClient, items: Record<string, string>[], from: string, to: string, fromCds?: Map<string, string[]>, allCds = false): Promise<number> {
   const byKey = new Map<string, Record<string, string[]>>()
   for (const x of items) {
     const cd = (x.lcnsLmtNm ?? '').split('/').pop() ?? ''
@@ -524,8 +525,9 @@ async function applyLics(supa: SupabaseClient, items: Record<string, string>[], 
     const k = `${n.bid_ntce_no}/${n.bid_ntce_ord}`
     const lines = byKey.get(k) ?? {}
     // 면허 칸이 빈 공고: 이번에 목록으로 받았으면 방금 들어온 것(그 목록 면허로 정한다), 아니면 이 칸이 생기기 전 4992 공고.
-    // 방금 들어온 것까지 4992 로 보면 석면·상수도 공고가 한결이엔씨에 섞였다(11-06)
-    const known = (lic_flds as LicFlds | null) ?? (fromCds?.has(k) ? {} : { '4992': null })
+    // 방금 들어온 것까지 4992 로 보면 석면·상수도 공고가 한결이엔씨에 섞였다(11-06). 그때 잘못 적힌 것도
+    // 면허 다섯을 다 조회한 기간(allCds)에선 이번 목록만 믿어 바로잡힌다
+    const known = allCds && fromCds?.has(k) ? {} : (lic_flds as LicFlds | null) ?? (fromCds?.has(k) ? {} : { '4992': null })
     const cds = new Set([...Object.keys(known), ...(fromCds?.get(k) ?? []), ...Object.keys(lines)])
     return {
       ...n,
