@@ -25,7 +25,6 @@ import type { ResultForDetail } from './result-detail'
 // 공고를 펼치거나 탭을 바꿀 때만 쓰는 패널은 그때 받는다 — 폰 3G 에서 첫 화면 프로그램을 줄인다(10-30 점검)
 const AnalysisPanel = dynamic(() => import('./analysis-panel').then(m => m.AnalysisPanel))
 const ResultDetail = dynamic(() => import('./result-detail').then(m => m.ResultDetail))
-const LabPanel = dynamic(() => import('./lab-panel').then(m => m.LabPanel))
 
 /**
  * 입찰 — 도장·습식·방수·석공사업 공사 입찰공고와 낙찰가 분석.
@@ -92,7 +91,7 @@ const VERDICT: Record<Verdict, { label: string; cls: string }> = {
   below: { label: '하한 미달', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
 }
 
-type Tab = 'notice' | 'result' | 'lab'
+type Tab = 'notice' | 'result'
 
 const won = (n: number | null) => (n == null ? '-' : n.toLocaleString('ko-KR'))
 const 억 = (n: number | null) => {
@@ -447,7 +446,7 @@ export default function BidPage() {
         <PageHeader title="입찰" icon={Gavel} description="도장ㆍ습식ㆍ방수ㆍ석공사업 · 나라장터 · 국방전자조달" />
 
         <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
-          {([['notice', '공고'], ['result', '낙찰결과'], ['lab', '실험실']] as [Tab, string][]).map(([id, label]) => (
+          {([['notice', '공고'], ['result', '낙찰결과']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => { setTab(id); setOpened(null) }}
@@ -523,7 +522,7 @@ export default function BidPage() {
           )}
         </div>
 
-        {tab !== 'lab' && <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+        <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
           {tab === 'notice' && <Chip on={openOnly} onClick={() => setOpenOnly(v => !v)}>마감 전만</Chip>}
             {ourRegion && (
               <Chip on={enterableOnly} onClick={() => setEnterableOnly(v => !v)}
@@ -573,11 +572,9 @@ export default function BidPage() {
               {collecting ? '받는 중…' : '가져오기'}
             </button>
           </div>
-        </div>}
+        </div>
 
-        {tab === 'lab' ? (
-          <LabPanel ourRegion={ourRegion} ourFields={ourFields} />
-        ) : loading || (tab === 'result' && !resultsLoaded) ? (
+        {loading || (tab === 'result' && !resultsLoaded) ? (
           <p className="py-10 text-center text-sm text-gray-400">불러오는 중…</p>
         ) : tab === 'notice' ? (
           shownNotices.length === 0 ? (

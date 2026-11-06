@@ -88,7 +88,7 @@ export function winCurve(hist: NormalizedHistory[], min = GRID_MIN, max = GRID_M
  * smooth 는 그 평균 낙찰 건수다.
  */
 export function bestPoint(curve: CurvePoint[], window = 5): CurvePoint & { smooth: number } {
-  // 앞뒤 window 칸 합을 밀어 가며 센다 — 실험실이 공고 수천 건마다 부르므로 칸마다 다시 더하지 않는다
+  // 앞뒤 window 칸 합을 밀어 가며 센다 — 공고 수천 건마다 부를 수 있어 칸마다 다시 더하지 않는다
   let best = { ...curve[0], smooth: -1 }
   let s = 0
   for (let j = 0; j <= Math.min(curve.length - 1, window); j++) s += curve[j].wins
