@@ -178,101 +178,6 @@ await test('비인증 profiles INSERT → 거부', async () => {
   assert(status === 401 || status === 403, `예상 거부인데 ${status}`)
 })
 
-await test('비인증 request_posts INSERT → 거부', async () => {
-  const { status } = await supaRest('/request_posts', {
-    method: 'POST',
-    body: { deal_type: '매매', room_type: '아파트', city: '서울특별시', district: '강남구', min_price: 10000, max_price: 50000 },
-  })
-  assert(status === 401 || status === 403, `예상 거부인데 ${status}`)
-})
-
-await test('비인증 proposals INSERT → 거부', async () => {
-  const { status } = await supaRest('/proposals', {
-    method: 'POST',
-    body: { request_id: '00000000-0000-0000-0000-000000000001', price: 10000, property_address: '서울', description: '테스트' },
-  })
-  assert(status === 401 || status === 403, `예상 거부인데 ${status}`)
-})
-
-await test('비인증 reviews INSERT → 거부', async () => {
-  const { status } = await supaRest('/reviews', {
-    method: 'POST',
-    body: { broker_id: '00000000-0000-0000-0000-000000000001', rating: 5 },
-  })
-  assert(status === 401 || status === 403, `예상 거부인데 ${status}`)
-})
-
-await test('비인증 chat_messages INSERT → 거부', async () => {
-  const { status } = await supaRest('/chat_messages', {
-    method: 'POST',
-    body: { room_id: '00000000-0000-0000-0000-000000000001', content: '해킹', message_type: 'text' },
-  })
-  assert(status === 401 || status === 403, `예상 거부인데 ${status}`)
-})
-
-// ══════════════════════════════════════════════════════════════════════════════
-// T4. CRUD — 요청(request_posts) 생성·조회·삭제
-// ══════════════════════════════════════════════════════════════════════════════
-section('T4. CRUD — 요청 등록/조회/삭제')
-
-let createdRequestId = null
-
-if (!userToken) {
-  log('⏭️', 'CRUD 테스트 SKIP — 사용자 로그인 필요')
-  skip += 4
-} else {
-  await test('요청 등록 (INSERT)', async () => {
-    const { status, data } = await supaRest('/request_posts', {
-      method: 'POST',
-      token: userToken,
-      body: {
-        deal_type: '전세',
-        room_type: '아파트',
-        city: '서울특별시',
-        district: '강남구',
-        min_price: 30000,
-        max_price: 50000,
-        description: '[통합테스트] 자동 삭제됩니다',
-      },
-    })
-    assert(status === 201, `상태 ${status}: ${JSON.stringify(data)}`)
-    assert(Array.isArray(data) && data.length > 0, 'ID 없음')
-    createdRequestId = data[0].id
-  })
-
-  await test('등록된 요청 조회 (SELECT)', async () => {
-    assert(createdRequestId, '이전 단계 실패')
-    const { status, data } = await supaRest(`/request_posts?id=eq.${createdRequestId}&select=*`, { token: userToken })
-    assert(status === 200, `상태 ${status}`)
-    assert(Array.isArray(data) && data.length === 1, '조회 실패')
-    assert(data[0].district === '강남구', '지역 불일치')
-    assert(data[0].min_price === 30000, '가격 불일치')
-  })
-
-  await test('요청 수정 (UPDATE)', async () => {
-    assert(createdRequestId, '이전 단계 실패')
-    const { status, data } = await supaRest(`/request_posts?id=eq.${createdRequestId}`, {
-      method: 'PATCH',
-      token: userToken,
-      body: { district: '서초구', max_price: 60000 },
-    })
-    assert(status === 200, `상태 ${status}`)
-    assert(Array.isArray(data) && data[0].district === '서초구', '수정 미반영')
-  })
-
-  await test('요청 삭제 (DELETE)', async () => {
-    assert(createdRequestId, '이전 단계 실패')
-    const { status } = await supaRest(`/request_posts?id=eq.${createdRequestId}`, {
-      method: 'DELETE',
-      token: userToken,
-    })
-    assert(status === 200 || status === 204, `상태 ${status}`)
-    // 삭제 확인
-    const { data: check } = await supaRest(`/request_posts?id=eq.${createdRequestId}&select=id`, { token: userToken })
-    assert(!Array.isArray(check) || check.length === 0, '삭제 후에도 존재')
-  })
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
 // T5. CRUD — 프로필 수정·원복
 // ══════════════════════════════════════════════════════════════════════════════
@@ -371,8 +276,7 @@ section('T8. 데이터 무결성')
 
 if (!brokerToken) {
   log('⏭️', 'T8 broker_profiles SKIP — 중개사 로그인 필요')
-  log('⏭️', 'T8 proposals 참조 무결성 SKIP — 중개사 로그인 필요')
-  skip += 2
+  skip += 1
 } else {
   await test('broker_profiles — user_id 필드 존재 확인', async () => {
     const { status, data } = await supaRest('/broker_profiles?select=id,user_id&limit=1', { token: brokerToken })
@@ -382,20 +286,6 @@ if (!brokerToken) {
     }
   })
 
-  await test('proposals — request_id 참조 무결성 (없는 ID 거부)', async () => {
-    const { status } = await supaRest('/proposals', {
-      method: 'POST',
-      token: brokerToken,
-      body: {
-        request_id: '00000000-0000-0000-0000-999999999999',
-        price: 10000,
-        property_address: '테스트',
-        description: '참조 무결성 테스트',
-      },
-    })
-    assert(status === 409 || status === 422 || status === 400 || status === 403,
-      `외래키 위반이 허용됨: ${status}`)
-  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

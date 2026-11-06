@@ -47,6 +47,7 @@ next-env.d.ts
 # Claude Code worktrees & local settings
 .claude/worktrees/
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # 임시 파일
 *.tmp

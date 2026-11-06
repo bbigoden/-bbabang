@@ -39,24 +39,6 @@ export const COMMERCIAL_SUBTYPES = [
   '의료(상가)', '교육(상가)', '운동(상가)',
 ]
 
-export const CUSTOMER_PROPERTY_CATEGORIES: PropertyCategory[] = [
-  { label: '주거', types: RESIDENTIAL_TYPES },
-  {
-    label: '비주거',
-    types: ['상가', ...NON_RESIDENTIAL_TYPES.filter(t => !COMMERCIAL_SUBTYPES.includes(t))],
-  },
-]
-
-/**
- * 저장된 매물 유형 값들을 고객용 칩 값으로 정규화.
- * 세부 상가 유형(판매(상가) 등)으로 저장된 기존/공동중개 요청을 '상가'로 합쳐,
- * 고객 요청 수정 페이지에서 칩이 정상적으로 선택 표시되도록 한다.
- */
-export function toCustomerRoomTypes(types: string[]): string[] {
-  const mapped = types.map(t => (COMMERCIAL_SUBTYPES.includes(t) ? '상가' : t))
-  return Array.from(new Set(mapped))
-}
-
 /**
  * 세움터 건축물대장의 "용도" 텍스트 → 부소장 19종 분류로 매핑.
  * 매칭 우선순위 주의: 위에서부터 순서대로 체크되므로, 더 구체적인 키워드를 먼저 둠.

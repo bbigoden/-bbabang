@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatPrice, maskAddress, formatDate } from '@/lib/utils'
+import { formatPrice, formatDate } from '@/lib/utils'
 
 // ── formatPrice ──────────────────────────────────────────────────────────────
 
@@ -15,28 +15,6 @@ describe('formatPrice', () => {
   it('15000 → 1억 5,000만', () => expect(formatPrice(15000)).toBe('1억 5,000만'))
   it('23500 → 2억 3,500만', () => expect(formatPrice(23500)).toBe('2억 3,500만'))
   it('100000 → 10억', () => expect(formatPrice(100000)).toBe('10억'))
-})
-
-// ── maskAddress ───────────────────────────────────────────────────────────────
-
-describe('maskAddress', () => {
-  it('null → 빈 문자열', () => expect(maskAddress(null)).toBe(''))
-  it('undefined → 빈 문자열', () => expect(maskAddress(undefined)).toBe(''))
-  it('빈 문자열 → 빈 문자열', () => expect(maskAddress('')).toBe(''))
-  it('동 수준까지만', () =>
-    expect(maskAddress('서울특별시 강남구 역삼동 123-4')).toBe('서울특별시 강남구 역삼동'))
-  it('아파트 동·호수 제거', () =>
-    expect(maskAddress('서울특별시 서초구 서초동 1234 래미안서초 101동 1001호')).toBe('서울특별시 서초구 서초동'))
-  it('읍 수준', () =>
-    expect(maskAddress('경기도 성남시 분당구 판교읍 1234')).toBe('경기도 성남시 분당구 판교읍'))
-  it('면 수준', () =>
-    expect(maskAddress('충청남도 공주시 유구면 1번지')).toBe('충청남도 공주시 유구면'))
-  it('리 수준', () =>
-    expect(maskAddress('전라북도 완주군 구이면 덕천리 100')).toBe('전라북도 완주군 구이면 덕천리'))
-  it('가 수준 (서울 종로)', () =>
-    expect(maskAddress('서울특별시 종로구 창신1가 123')).toBe('서울특별시 종로구 창신1가'))
-  it('동/읍/면/리/가 없으면 첫 토큰', () =>
-    expect(maskAddress('특수지역')).toBe('특수지역'))
 })
 
 // ── formatDate ────────────────────────────────────────────────────────────────

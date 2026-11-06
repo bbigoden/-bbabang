@@ -128,66 +128,8 @@ if (!loginResult) {
     assert(!isNaN(Date.parse(row.created_at)), 'created_at ISO 날짜 아님')
   })
 
-  // ── T2. request_posts ──────────────────────────────────────────────────────
-  section('T2. request_posts 스키마 검증')
-
-  await test('request_posts — 필수 필드 존재', async () => {
-    const { status, data } = await supaRest('/request_posts?select=*&limit=1&order=created_at.desc', token)
-    assert(status === 200, `HTTP ${status}`)
-    if (!Array.isArray(data) || data.length === 0) {
-      console.log('    (데이터 없음 — 스킵)')
-      return
-    }
-    const row = data[0]
-    hasFields(row,
-      ['id', 'user_id', 'deal_type', 'room_type', 'city', 'district', 'min_price', 'max_price', 'status', 'created_at'],
-      ['min_size', 'max_size', 'min_monthly', 'max_monthly', 'move_in_date', 'description', 'updated_at']
-    )
-  })
-
-  await test('request_posts — status 값 범위', async () => {
-    const { data } = await supaRest('/request_posts?select=status&limit=20&order=created_at.desc', token)
-    const valid = new Set(['open', 'closed', 'matched'])
-    for (const row of (data ?? [])) {
-      assert(valid.has(row.status), `비정상 status: ${row.status}`)
-    }
-  })
-
-  await test('request_posts — price 숫자 타입', async () => {
-    const { data } = await supaRest('/request_posts?select=min_price,max_price&limit=5', token)
-    for (const row of (data ?? [])) {
-      if (row.min_price != null) isType(row.min_price, 'number', 'min_price')
-      if (row.max_price != null) isType(row.max_price, 'number', 'max_price')
-    }
-  })
-
-  // ── T3. proposals ──────────────────────────────────────────────────────────
-  section('T3. proposals 스키마 검증')
-
-  await test('proposals — 필수 필드 존재', async () => {
-    const { status, data } = await supaRest('/proposals?select=*&limit=1&order=created_at.desc', token)
-    assert(status === 200, `HTTP ${status}`)
-    if (!Array.isArray(data) || data.length === 0) {
-      console.log('    (데이터 없음 — 스킵)')
-      return
-    }
-    const row = data[0]
-    hasFields(row,
-      ['id', 'request_id', 'broker_id', 'price', 'property_address', 'status', 'created_at'],
-      ['description', 'updated_at']
-    )
-  })
-
-  await test('proposals — status 값 범위', async () => {
-    const { data } = await supaRest('/proposals?select=status&limit=20', token)
-    const valid = new Set(['pending', 'accepted', 'rejected', 'cancelled'])
-    for (const row of (data ?? [])) {
-      assert(valid.has(row.status), `비정상 status: ${row.status}`)
-    }
-  })
-
-  // ── T4. broker_properties ─────────────────────────────────────────────────
-  section('T4. broker_properties 스키마 검증')
+  // ── T2. broker_properties ─────────────────────────────────────────────────
+  section('T2. broker_properties 스키마 검증')
 
   await test('broker_properties — 필수 필드 존재', async () => {
     const { status, data } = await supaRest('/broker_properties?select=*&limit=1', token)
@@ -230,30 +172,12 @@ if (!loginResult) {
     }
   })
 
-  // ── T5. 관계(JOIN) 응답 형태 ──────────────────────────────────────────────
-  section('T5. 관계(JOIN) 응답 검증')
-
-  await test('request_posts + profiles JOIN', async () => {
-    const { status, data } = await supaRest('/request_posts?select=id,profiles(id,name)&limit=1', token)
-    assert(status === 200, `HTTP ${status}`)
-    if (Array.isArray(data) && data.length > 0) {
-      assert('profiles' in data[0], 'profiles JOIN 필드 없음')
-    }
-  })
-
-  await test('proposals + broker_profiles JOIN', async () => {
-    const { status, data } = await supaRest('/proposals?select=id,broker_profiles(id,office_name)&limit=1', token)
-    assert(status === 200, `HTTP ${status}`)
-    if (Array.isArray(data) && data.length > 0) {
-      assert('broker_profiles' in data[0], 'broker_profiles JOIN 필드 없음')
-    }
-  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// T6. 공개 엔드포인트 (토큰 없이도 가능한 것)
+// T3. 공개 엔드포인트 (토큰 없이도 가능한 것)
 // ══════════════════════════════════════════════════════════════════════════════
-section('T6. 공개 엔드포인트 스키마')
+section('T3. 공개 엔드포인트 스키마')
 
 await test('broker_profiles — 공개 조회 가능', async () => {
   const { status, data } = await supaRest('/broker_profiles?select=id,office_name,district,is_verified,rating,review_count&limit=1')
@@ -262,16 +186,6 @@ await test('broker_profiles — 공개 조회 가능', async () => {
     hasFields(data[0], ['id'], ['office_name', 'district', 'is_verified', 'rating', 'review_count'])
     if (data[0].rating != null) isType(data[0].rating, 'number', 'rating')
     if (data[0].review_count != null) isType(data[0].review_count, 'number', 'review_count')
-  }
-})
-
-await test('reviews — 공개 조회 가능', async () => {
-  const { status, data } = await supaRest('/reviews?select=id,broker_id,rating,content,created_at&limit=1')
-  assert(status === 200, `HTTP ${status}`)
-  if (Array.isArray(data) && data.length > 0) {
-    hasFields(data[0], ['id', 'broker_id', 'rating'], ['content', 'created_at'])
-    isType(data[0].rating, 'number', 'rating')
-    assert(data[0].rating >= 1 && data[0].rating <= 5, `rating 범위 초과: ${data[0].rating}`)
   }
 })
 

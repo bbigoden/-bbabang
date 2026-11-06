@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 
 // ── Button ────────────────────────────────────────────────────────────────────
@@ -60,45 +59,6 @@ describe('Button', () => {
     render(<Button disabled onClick={() => { clicked = true }}>클릭</Button>)
     await user.click(screen.getByRole('button'))
     expect(clicked).toBe(false)
-  })
-})
-
-// ── Badge ─────────────────────────────────────────────────────────────────────
-
-describe('Badge', () => {
-  it('텍스트 렌더', () => {
-    render(<Badge>공개</Badge>)
-    expect(screen.getByText('공개')).toBeInTheDocument()
-  })
-
-  it('variant=success → 초록', () => {
-    render(<Badge variant="success">승인</Badge>)
-    expect(screen.getByText('승인')).toHaveClass('bg-green-100', 'text-green-700')
-  })
-
-  it('variant=danger → 빨강', () => {
-    render(<Badge variant="danger">거절</Badge>)
-    expect(screen.getByText('거절')).toHaveClass('bg-red-100', 'text-red-700')
-  })
-
-  it('variant=warning → 노랑', () => {
-    render(<Badge variant="warning">검토중</Badge>)
-    expect(screen.getByText('검토중')).toHaveClass('bg-yellow-100')
-  })
-
-  it('variant=info → 파랑', () => {
-    render(<Badge variant="info">안내</Badge>)
-    expect(screen.getByText('안내')).toHaveClass('bg-blue-100')
-  })
-
-  it('기본 variant → 회색', () => {
-    render(<Badge>기본</Badge>)
-    expect(screen.getByText('기본')).toHaveClass('bg-gray-100')
-  })
-
-  it('className prop 적용', () => {
-    render(<Badge className="font-black">테스트</Badge>)
-    expect(screen.getByText('테스트')).toHaveClass('font-black')
   })
 })
 

@@ -74,8 +74,8 @@ for (const [name, path] of publicPages) {
 section('2. 인증 보호 — 비로그인 시 리다이렉트')
 
 const protectedPages = [
-  ['대시보드(유저)', '/dashboard/user'],
-  ['프로필', '/profile'],
+  ['알림', '/notifications'],
+  ['설정', '/settings'],
   ['중개사 대시보드', '/dashboard/broker'],
   ['중개사 매물목록', '/broker/properties'],
 ]

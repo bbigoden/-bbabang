@@ -28,7 +28,7 @@
 **12. 배포 파이프라인** — push 후 Vercel `list_deployments`로 **commit SHA·READY 직접 확인** (매 push마다). **함수 리전(v4)**: 동적 라우트 응답의 `x-vercel-id` 가 `icn1::icn1` 인지(10/14까지 `icn1::iad1` — 서버가 미국에서 서울 DB 를 불러 화면마다 태평양 왕복). vercel.json `regions: ["icn1"]`
 **13. 모바일/PWA** — sw.js VERSION, 안드로이드+iOS 아이콘 자산(AGENTS.md 체크리스트), 오프라인 fallback. **푸시 도달**: `npm run push:test` (기본 대상 t2=김용유 대표 실계정 — 다른 직원에게 보내지 말 것, PUSH_TEST_PASSWORD env 필요) → 410/404=만료 구독 정리. 퇴사자 구독 잔존 SQL 확인. 수신 확인은 사장님 육안.
 **14. 데이터 정합성** — null 필드 감사(문자열 메서드 크래시 후보 — TS가 못 잡음), 마이그레이션 파일 ↔ 원격 적용 대조
-**15. 자동 테스트** — `npm test` exit code 실측(vitest 96개) + **핵심 흐름 E2E** `npm run inspect:e2e` (요청 등록→제안→확인→채팅, 테스트 계정 전용·자동 정리, tests/e2e/)
+**15. 자동 테스트** — `npm test` exit code 실측(vitest 96개)
 **16. 빌드 품질** — `npm run build` + `npx tsc --noEmit` + `npx eslint src/` 전부 exit code 실측, 데드코드·고아 lib
 **17. UI/UX** — `npm run inspect:visual` 98캡처(백그라운드 ~17분), report.json의 findingsWith* 카운트로 집계. textTruncation은 의도적 truncate 위주라 참고만. **주의: /admin/**은 layout이 항상 다크(bg-gray-950)지만 html.dark가 없어 dark: variant 미작동 — inspect:visual은 라이트 전용.**
 **18. 보안 침투/운영** — RLS 양성·음성 테스트(멤버/비멤버/anon 3종), XSS 가드(JSON-LD는 `.replace(/</g,'\\u003c')` 확인), CSP·X-Frame 헤더, anon SELECT 컬럼 감사

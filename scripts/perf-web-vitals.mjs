@@ -5,7 +5,7 @@
 import { chromium } from '@playwright/test'
 
 const BASE = process.env.PERF_BASE_URL || 'https://busojang.vercel.app'
-const PAGES = ['/', '/explore/requests', '/auth/login', '/regions', '/search']
+const PAGES = ['/', '/auth/login', '/auth/signup', '/terms']
 const RUNS = 2 // 콜드/웜 각 1회 — 중앙값 대신 두 값 모두 표기
 
 async function measure(page, url) {
