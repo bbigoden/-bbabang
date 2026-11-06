@@ -26,7 +26,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle,
+  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin,
 } from 'lucide-react'
 import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
@@ -46,6 +46,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { SearchClear } from '@/components/ui/search-clear'
 import { PropertyTextHistoryButton } from '@/components/sheet/property-text-history'
 import { PropertyViewSheet } from '@/components/broker/property-view-sheet'
+import { LocationCardSheet } from '@/components/broker/location-card-sheet'
 import { chipClass } from '@/components/ui/chip'
 
 // 지도 뷰(카카오 핀·묶음·우측 패널)는 지도를 열 때만 받는다 — 목록만 보는 폰은 이 코드를 안 받는다
@@ -966,6 +967,17 @@ function BankDraftButton({ job, onClick }: { job?: BankDraftJob; onClick: () => 
   )
 }
 
+/** [입지] 버튼 — 소재지로 토지·용도지역·건물·정화조·IC 거리를 한 장에 본다(공장·창고·상가 상담용) */
+function LocationButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} title="입지 — 용도지역·토지·건물·정화조·IC 거리·주변 점포 수" aria-label="입지 보기" tabIndex={-1}
+      className="flex h-6 shrink-0 items-center justify-center gap-0.5 rounded px-1 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500">
+      <MapPin className="h-3.5 w-3.5" />
+      <span className="whitespace-nowrap text-[10px] font-medium">입지</span>
+    </button>
+  )
+}
+
 /**
  * 광고 대장 줄들 → 매물별 배지.
  *
@@ -1041,6 +1053,8 @@ interface PropertyRowProps {
   onCopy: (p: Property) => void
   /** 폰에서 번호 칸 [보기] — 매물 한 건을 위아래로 읽는 창 (useState 세터라 memo 를 깨지 않는다) */
   onView: (v: { p: Property; memoVisible: boolean }) => void
+  /** [입지] — 소재지로 토지·용도지역·건물·IC 거리를 한 장에 (useState 세터) */
+  onLocation: (address: string) => void
 }
 
 const PropertyRow = memo(function PropertyRow({
@@ -1048,7 +1062,7 @@ const PropertyRow = memo(function PropertyRow({
   isAdminView, canEdit, isOwner, brokerSelfId,
   isAdding, isAutoFilling, teamMembers, industryOpts, ownerName,
   saveField, onStatusChange, autoFillRow, saveCustomField, setLightbox,
-  onDelete, onCopy, onView,
+  onDelete, onCopy, onView, onLocation,
 }: PropertyRowProps) {
   const toast = useToast()
   // 직원은 본인 매물만 편집·복사·삭제 가능. 대표/관리자뷰는 전체 가능.
@@ -1195,7 +1209,11 @@ const PropertyRow = memo(function PropertyRow({
       {!isAdminView && (
         <SheetActionCell canEdit={canEdit && isMine} onCopy={() => onCopy(p)} onDelete={() => onDelete(p.id)}
           // 대표는 사무소 매물 전부, 직원은 자기 매물만 뱅크에 넣는다(2026-10-21 결정). DB(RLS)도 같은 규칙.
-          extra={canEdit && isMine && p.status !== 'contracted' ? <BankDraftButton job={bankDraft} onClick={() => onBankDraft(p)} /> : null} />
+          extra={<>
+            {/* 입지는 읽기만 하는 조회라 남의 매물에도 보인다 */}
+            {p.address?.trim() ? <LocationButton onClick={() => onLocation(p.address)} /> : null}
+            {canEdit && isMine && p.status !== 'contracted' ? <BankDraftButton job={bankDraft} onClick={() => onBankDraft(p)} /> : null}
+          </>} />
       )}
     </tr>
   )
@@ -2011,6 +2029,7 @@ function BrokerPropertiesContent() {
    */
   const [newProp, setNewProp] = useState<{ address: string; deal_type: string } | null>(null)
   const [viewProp, setViewProp] = useState<{ p: Property; memoVisible: boolean } | null>(null)
+  const [locationAddr, setLocationAddr] = useState<string | null>(null)
   const addingRef = useRef(false)
   const addedWhileLoadingRef = useRef<Property[]>([])
   // 3G 에서 누르고 몇 초 동안 화면이 그대로라 한 번 더 누르고 싶어졌다 — 버튼에 '등록 중…'
@@ -2630,6 +2649,7 @@ function BrokerPropertiesContent() {
                   key={p.id}
                   p={p}
                   onView={setViewProp}
+                  onLocation={setLocationAddr}
                   adBadge={adBadges[p.id]}
                   syncedOrder={syncedOrder}
                   customColumns={customColumns}
@@ -2816,7 +2836,9 @@ function BrokerPropertiesContent() {
         )
       })()}
 
-      {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)} />}
+      {viewProp && <PropertyViewSheet p={viewProp.p} memoVisible={viewProp.memoVisible} onClose={() => setViewProp(null)}
+        onLocation={viewProp.p.address?.trim() ? () => { setLocationAddr(viewProp.p.address); setViewProp(null) } : undefined} />}
+      {locationAddr && <LocationCardSheet address={locationAddr} onClose={() => setLocationAddr(null)} />}
 
       {newPropModal}
 
