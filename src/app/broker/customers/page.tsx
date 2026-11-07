@@ -25,7 +25,6 @@ import { SheetActionCell, SheetActionHeader } from '@/components/sheet/action-ce
 import { TextCell } from '@/components/sheet/cells/text-cell'
 import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
-import { ArrowUp, ArrowDown } from 'lucide-react'
 import { todayKST } from '@/lib/date-kst'
 import { SOURCE_OPTIONS, SOURCE_COLORS } from '@/lib/customer-sources'
 import { useOfficeSources } from '@/lib/use-office-sources'
@@ -154,7 +153,7 @@ export default function BrokerCustomersPage() {
   const { settings, update, loaded } = useColSettings('customers', broker?.id ?? null, DEFAULT_COL_SETTINGS)
   // 유입 선택지는 사무실 공통 — 대표만 머리글에서 고친다(use-office-sources.ts)
   const { sourceOptions, saveSourceOptions } = useOfficeSources(broker ? (broker.is_owner !== false ? broker.id : (broker.parent_broker_id ?? broker.id)) : null, isOwner)
-  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'customers')
+  const { direction } = useSheetDirection(broker?.id ?? null, 'customers')
 
   useEffect(() => {
     if (auth.loading) return
@@ -945,24 +944,6 @@ export default function BrokerCustomersPage() {
                     <SheetActionCell canEdit={canEdit} onCopy={() => duplicateCustomer(c)} onDelete={() => setDeleteConfirm(c.id)} />
                   </tr>
                 ))}
-                {canEdit && (
-                  <tr>
-                    <td colSpan={activeCols.length + 1} className="border-t border-gray-100 dark:border-gray-800">
-                      <div className="flex items-center divide-x divide-gray-100">
-                        <button onClick={openNewCustomer}
-                          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-600 dark:text-gray-500 hover:bg-gray-50/80 transition-colors">
-                          <Plus className="h-3.5 w-3.5" />고객 등록
-                        </button>
-                        <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
-                          title={direction === 'up' ? '새 행이 위로 쌓임 (클릭하면 아래로)' : '새 행이 아래로 쌓임 (클릭하면 위로)'}
-                          className="flex items-center gap-1 px-3 py-2 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
-                          {direction === 'up' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
-                          {direction === 'up' ? '위로 쌓기' : '아래로 쌓기'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>

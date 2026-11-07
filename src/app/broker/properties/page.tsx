@@ -27,7 +27,7 @@ import { SelectCell } from '@/components/sheet/cells/select-cell'
 import { DateCell } from '@/components/sheet/cells/date-cell'
 import { LongTextCell } from '@/components/sheet/cells/long-text-cell'
 import {
-  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, ArrowUp, ArrowDown, Upload, CheckCircle2, AlertCircle, MapPin,
+  Plus, Search, ImagePlus, X, HelpCircle, SlidersHorizontal, ArrowLeft, Eye, Map, List, Loader2, Wand2, Upload, CheckCircle2, AlertCircle, MapPin,
 } from 'lucide-react'
 import { planBankDraft, splitRoadAddress } from '@/lib/bank-draft-plan'
 import { checkPropertyField } from '@/lib/property-field-check'
@@ -1426,7 +1426,7 @@ function BrokerPropertiesContent() {
   // 업종 선택지는 사무소 공통 — 대표 칼럼 설정에 있는 목록을 직원도 그대로 쓴다. 고치는 건 대표만(직원은 대표 행을 못 고친다).
   const [officeIndustryOpts, setOfficeIndustryOpts] = useState<string[] | null>(null)
   const industryOpts = isOwner ? (settings.options['industry'] ?? INDUSTRY_OPTS) : (officeIndustryOpts ?? INDUSTRY_OPTS)
-  const { direction, updateDirection } = useSheetDirection(broker?.id ?? null, 'properties')
+  const { direction } = useSheetDirection(broker?.id ?? null, 'properties')
 
   // 신규 고정칼럼(매물상태) 자동 마이그레이션 — 기존 사용자의 DB에 저장된 visible/order에 없으면 추가
   const statusMigratedRef = useRef(false)
@@ -2754,24 +2754,6 @@ function BrokerPropertiesContent() {
                   onBankDraft={openBankDraft}
                 />
               ))}
-              {!isAdminView && canEdit && (
-                <tr>
-                  <td colSpan={syncedOrder.filter(k => settings.visible.includes(k)).length + 2} className="border-t border-gray-100 dark:border-gray-800">
-                    <div className="flex items-center divide-x divide-gray-100">
-                      <button onClick={() => setNewProp({ address: '', deal_type: '' })}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-500 hover:text-gray-600 dark:text-gray-500 hover:bg-gray-50/80 transition-colors">
-                        <Plus className="h-3.5 w-3.5" />매물 등록
-                      </button>
-                      <button onClick={() => updateDirection(direction === 'up' ? 'down' : 'up')}
-                        title={direction === 'up' ? '새 행이 위로 쌓임 (클릭하면 아래로)' : '새 행이 아래로 쌓임 (클릭하면 위로)'}
-                        className="flex items-center gap-1 px-3 py-2 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
-                        {direction === 'up' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
-                        {direction === 'up' ? '위로 쌓기' : '아래로 쌓기'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
