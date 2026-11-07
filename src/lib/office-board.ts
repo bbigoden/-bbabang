@@ -81,7 +81,7 @@ async function countOfficeBoard(supabase: SupabaseClient, officeId: string, memb
     r.avail += c[2]
     byName[m.profiles?.name ?? m.id] = r
   }
-  const sum: OfficeBoardRow = { ...empty('사무실 전체'), props: total, avail: totalAvail, propsToday: totalToday }
+  const sum: OfficeBoardRow = { ...empty('전체'), props: total, avail: totalAvail, propsToday: totalToday }
   for (const [id, c] of byBroker) {
     if (!c.today) continue
     const r = rows.find(x => x.ids?.includes(id))
