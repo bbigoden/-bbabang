@@ -278,8 +278,8 @@ export function ListFormSheet({ officeId, selfId, canManage, members, initial, d
   }
 
   return (
-    <Sheet label={initial ? '미팅 고치기' : '새 미팅'} onClose={onClose}>
-      <SheetHead title={initial ? '미팅 고치기' : '새 미팅'} onClose={onClose} />
+    <Sheet label={initial ? '미팅 고치기' : '미팅 등록'} onClose={onClose}>
+      <SheetHead title={initial ? '미팅 고치기' : '미팅 등록'} onClose={onClose} />
       <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           <label className="block">
@@ -387,7 +387,7 @@ export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick,
         <div className="border-t border-gray-100 p-3 dark:border-gray-800">
           <button type="button" onClick={() => setMaking(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-            <Plus className="h-4 w-4" />{mine ? '새 미팅' : `${names[who] ?? ''}님 새 미팅`}
+            <Plus className="h-4 w-4" />{mine ? '미팅 등록' : `${names[who] ?? ''}님 미팅 등록`}
           </button>
         </div>
       )}

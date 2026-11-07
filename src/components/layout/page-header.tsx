@@ -17,7 +17,7 @@ interface PageHeaderProps {
   className?: string
 }
 
-/** 제목 줄 오른쪽 주 버튼(매물 등록·고객 등록·새 미팅…) */
+/** 제목 줄 오른쪽 주 버튼(매물 등록·고객 등록·미팅 등록…) */
 export const PRIMARY_BTN = 'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50'
 
 export function PageHeader({ title, description, actions, className }: PageHeaderProps) {

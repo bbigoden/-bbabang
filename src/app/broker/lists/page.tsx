@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PageHeader, PRIMARY_BTN } from '@/components/layout/page-header'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -106,18 +107,18 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      {/* 제목은 한 줄, 그 아래 재직자·새 미팅을 같은 높이(44px)로 한 줄에 — 폰·PC 모두 카드 가장자리에 맞춘다(11-06) */}
-      <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">미팅준비</h1>
-      <div className="mb-5 flex items-center gap-2">
-        {canManage && members && (
-          <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="담당자"
-            className="h-11 min-w-0 flex-1 sm:w-60 sm:flex-none" />
-        )}
-        <button type="button" onClick={() => setMaking(true)}
-          className="ml-auto flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700">
-          <Plus className="h-4 w-4" />새 미팅
+      {/* 제목 오른쪽 위에 [미팅 등록] — 고객목록 [고객 등록]·매물목록 [매물 등록] 과 같은 자리·같은 크기(11-07 사장님) */}
+      <PageHeader title="미팅준비" actions={
+        <button type="button" onClick={() => setMaking(true)} className={PRIMARY_BTN}>
+          <Plus className="h-4 w-4" />미팅 등록
         </button>
-      </div>
+      } />
+      {canManage && members && (
+        <div className="mb-5">
+          <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="담당자"
+            className="h-11 w-full sm:w-60" />
+        </div>
+      )}
 
       {lists == null || members == null ? (
         <p className="py-16 text-center text-sm text-gray-500">불러오는 중…</p>
