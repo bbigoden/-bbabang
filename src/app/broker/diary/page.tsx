@@ -1585,7 +1585,7 @@ export default function BrokerDiaryPage() {
           </div>
           {effectiveCanEdit && dayUnlinked.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-500/10 dark:text-amber-300">
-              <span>이 날 고객목록에 등록한 {viewingName} 담당 고객 {dayUnlinked.length}명이 아직 일지에 없어요</span>
+              <span>이날 등록된 담당고객 {dayUnlinked.length}명이 아직 일지에 없어요</span>
               <button type="button" onClick={() => void addDayUnlinked()}
                 className="rounded-md bg-amber-600 px-2 py-1 font-semibold text-white hover:bg-amber-700">일지에 넣기</button>
             </div>
