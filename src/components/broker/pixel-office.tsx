@@ -1032,14 +1032,15 @@ function StatusBoard({ status }: { status: NonNullable<OfficeLayout['status']> }
       <rect x={x + 10} y={y + 78.5} width={40} height={1.5} fill="#a16207" />
       <rect x={x + 14} y={y + 77.5} width={6} height={1.2} fill="#f8fafc" />
       <rect x={x + 24} y={y + 77.5} width={4} height={1.2} fill="#fde68a" />
-      <text x={col.name} y={y + 7} fontSize={BIG} fill="#fef3c7">현황판</text>
-      {/* 시각은 대표실 벽시계 하나만(11-07 사장님) — 현황판 'HH:MM 기준' 은 뺐다 */}
+      {/* 제목과 칸 이름을 한 줄로 — 업무일지 광고현황의 '담당 · 매물장 · 뱅크 · 당근' 줄처럼(11-07 사장님).
+          시각은 대표실 벽시계 하나만(11-07 사장님) — 현황판 'HH:MM 기준' 은 뺐다 */}
+      <text x={col.name} y={y + 8} fontSize={BIG} fill="#fef3c7">현황판</text>
       {[['매물장(거래가능)', col.props], ['뱅크', col.bank], ['당근', col.daangn]].map(([t, cx]) => (
-        <text key={t} x={cx} y={y + 13} fontSize={SMALL} textAnchor="end" fill="#a7c4ad">{t}</text>
+        <text key={t} x={cx} y={y + 8} fontSize={SMALL} textAnchor="end" fill="#a7c4ad">{t}</text>
       ))}
       {lines.map((r, i) => {
         const total = r === status.total
-        const ty = y + 20 + i * lh + (total ? 2 : 0)
+        const ty = y + 16 + i * lh + (total ? 2 : 0)
         const fill = total ? '#fde68a' : '#f1f5f0'
         return (
           <g key={r.name}>
