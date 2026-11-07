@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { SearchBox, SELECT_BOX } from '@/components/ui/controls'
+import { SearchBox, SELECT_BOX, TAB_BAR, tabClass } from '@/components/ui/controls'
+import { cn } from '@/lib/utils'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -1898,7 +1899,7 @@ export default function AdsPage() {
 
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {/* 탭 이름은 꺾지 않고, 폰에서 넘치면 탭 줄만 옆으로 민다 */}
-          <div className="flex max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+          <div className={cn(TAB_BAR, 'mb-1 w-full')}>
             {([
               // 왼쪽에서 오른쪽으로 **일이 흘러가는 순서**다 —
               // 가진 매물 → 지금 광고 중 → 뱅크는 끝났는데 광고가 남음 → 곧 끝남 → 못 내림.
@@ -1924,11 +1925,7 @@ export default function AdsPage() {
                 // 안 풀면 탭을 눌러도 목록이 그대로라 고장 난 것처럼 보인다.
                 onClick={() => { setTab(key as typeof tab); if (좁혀보기 === '계약') set좁혀보기('') }}
                 title={hint}
-                className={`whitespace-nowrap px-3 py-2 text-sm first:rounded-l-lg last:rounded-r-lg ${
-                  tab === key
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
-                }`}
+                className={tabClass(tab === key)}
               >{label}</button>
             ))}
           </div>

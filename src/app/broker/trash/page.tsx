@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { canManageOffice, isDirector } from '@/lib/office-role'
+import { TAB_BAR, tabClass, TAB_COUNT } from '@/components/ui/controls'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -182,22 +183,22 @@ export default function TrashPage() {
         <PageHeader title="휴지통" />
 
         {/* 탭 */}
-        <div className="mb-4 flex rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-1">
+        <div className={TAB_BAR}>
           <button onClick={() => setTab('properties')}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1 text-sm font-semibold transition-colors ${tab === 'properties' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
-            <Building2 className="h-4 w-4" />매물 {props.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{props.length}</span>}
+            className={tabClass(tab === 'properties')}>
+            <Building2 className="h-4 w-4" />매물 {props.length > 0 && <span className={TAB_COUNT}>{props.length}</span>}
           </button>
           <button onClick={() => setTab('customers')}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1 text-sm font-semibold transition-colors ${tab === 'customers' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
-            <Users className="h-4 w-4" />고객 {custs.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{custs.length}</span>}
+            className={tabClass(tab === 'customers')}>
+            <Users className="h-4 w-4" />고객 {custs.length > 0 && <span className={TAB_COUNT}>{custs.length}</span>}
           </button>
           <button onClick={() => setTab('meetings')}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1 text-sm font-semibold transition-colors ${tab === 'meetings' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
-            <ListChecks className="h-4 w-4" />미팅 {meets.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{meets.length}</span>}
+            className={tabClass(tab === 'meetings')}>
+            <ListChecks className="h-4 w-4" />미팅 {meets.length > 0 && <span className={TAB_COUNT}>{meets.length}</span>}
           </button>
           <button onClick={() => setTab('resources')}
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-1 text-sm font-semibold transition-colors ${tab === 'resources' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}>
-            <FolderOpen className="h-4 w-4" />자료실 {resItems.length > 0 && <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-xs">{resItems.length}</span>}
+            className={tabClass(tab === 'resources')}>
+            <FolderOpen className="h-4 w-4" />자료실 {resItems.length > 0 && <span className={TAB_COUNT}>{resItems.length}</span>}
           </button>
         </div>
 

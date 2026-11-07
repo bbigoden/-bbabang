@@ -1,7 +1,8 @@
 'use client'
 
 import { bidOf } from '@/lib/office-role'
-import { SearchBox } from '@/components/ui/controls'
+import { SearchBox, TAB_BAR, tabClass } from '@/components/ui/controls'
+import { cn } from '@/lib/utils'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -507,16 +508,12 @@ export default function BidPage() {
           </div>
         )}
 
-        <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
+        <div className={cn(TAB_BAR, 'mb-3')}>
           {([['notice', '공고'], ['result', '낙찰결과']] as [Tab, string][]).map(([id, label]) => (
             <button
               key={id}
               onClick={() => { setTab(id); setOpened(null) }}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-                id === tab
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
-              }`}
+              className={tabClass(id === tab)}
             >
               {label}
             </button>

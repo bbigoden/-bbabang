@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { SELECT_BOX } from '@/components/ui/controls'
+import { SELECT_BOX, TAB_BAR, tabClass } from '@/components/ui/controls'
+import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -1370,16 +1371,12 @@ export default function CollectPage() {
         <PageHeader title="매물수집" />
 
         {/* 곳을 가른다. 올라오는 매물의 성격이 달라 한 목록에 섞으면 둘 다 못 훑는다. */}
-        <div className="mb-3 flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
+        <div className={cn(TAB_BAR, 'mb-3')}>
           {(Object.keys(SOURCES) as SourceId[]).map(id => (
             <button
               key={id}
               onClick={() => switchSource(id)}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-                id === source
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
-              }`}
+              className={tabClass(id === source)}
             >
               {SOURCES[id].label}
             </button>

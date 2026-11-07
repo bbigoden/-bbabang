@@ -196,7 +196,7 @@ function MemoBox({ memo, editable, onSave }: {
     return (
       <div className="py-2 border-b border-gray-50 dark:border-gray-800/60 last:border-b-0">
         {head}
-        <p className="px-4 pt-0.5 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{memo?.memo || <span className="text-gray-300">—</span>}</p>
+        <p className="px-4 pt-0.5 text-base sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{memo?.memo || <span className="text-gray-300">—</span>}</p>
       </div>
     )
   }
@@ -208,7 +208,7 @@ function MemoBox({ memo, editable, onSave }: {
         onFocus={() => { focusedRef.current = true }}
         onBlur={() => void save()}
         placeholder="광고현황 입력..."
-        className="w-full px-4 pt-0.5 pb-2 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[36px]" />
+        className="w-full px-4 pt-0.5 pb-2 text-base sm:text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[36px]" />
     </div>
   )
 }

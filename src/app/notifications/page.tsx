@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { TAB_BAR, tabClass } from '@/components/ui/controls'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
@@ -10,7 +11,7 @@ import { Bell, Check, CheckCheck, Trash2, X } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { NOTIFICATION_ICON } from '@/lib/notification-icons'
 import { EmptyState } from '@/components/empty-state'
-import { PageHeader } from '@/components/layout/page-header'
+import { PageHeader, SECONDARY_BTN } from '@/components/layout/page-header'
 import { Spinner } from '@/components/ui/spinner'
 
 const PAGE_SIZE = 30
@@ -129,7 +130,7 @@ export default function NotificationsPage() {
 
   const unreadCount = items.filter(n => !n.is_read).length
   const readCount = items.length - unreadCount
-  const actionBtn = 'inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3.5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors'
+  const actionBtn = SECONDARY_BTN
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -156,7 +157,7 @@ export default function NotificationsPage() {
           )}
         />
 
-        <div className="mb-4 flex gap-2">
+        <div className={TAB_BAR}>
           {([
             { key: 'all', label: '전체' },
             { key: 'unread', label: '안 읽음' },
@@ -164,11 +165,7 @@ export default function NotificationsPage() {
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key)}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
-                filter === tab.key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-              }`}
+              className={tabClass(filter === tab.key)}
             >
               {tab.label}
             </button>

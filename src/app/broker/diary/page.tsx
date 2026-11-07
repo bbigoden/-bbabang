@@ -608,14 +608,14 @@ function DiarySection({ def, num, content, onSave, onRename, onDelete, readOnly 
         )}
       </div>
       {readOnly
-        ? <div className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap min-h-[60px]">{content || <span className="text-gray-300">—</span>}</div>
+        ? <div className="px-4 py-3 text-base sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap min-h-[60px]">{content || <span className="text-gray-300">—</span>}</div>
         : <textarea ref={taRef} value={draft}
             onChange={e => { setDraft(e.target.value); autoSize() }}
             onFocus={() => { focusedRef.current = true }}
             onBlur={handleBlur}
             placeholder={`${def.title} 입력...`}
             rows={1}
-            className="w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
+            className="w-full px-4 py-3 text-base sm:text-sm text-gray-700 dark:text-gray-300 placeholder-gray-300 resize-none outline-none overflow-hidden focus:ring-2 focus:ring-blue-400/20 focus:ring-inset min-h-[44px]" />
       }
     </div>
   )
@@ -1504,9 +1504,10 @@ export default function BrokerDiaryPage() {
       <div className="px-4 py-6 space-y-4">
 
         {/* 날짜 헤더 — 제목과 조작칸이 한 줄에 다 들어가면 양 끝으로, 모자라면 조작칸이 통째로 아랫줄로 */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        {/* 제목은 다른 화면처럼 이름만(날짜는 오른쪽 날짜칸에 있다) — 제목 윗선을 조작칸 윗선에 맞춘다(11-07 사장님) */}
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div className="flex items-center gap-3 flex-wrap min-w-0">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{formatDateHeader(diaryDate)} 업무일지</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">업무일지</h1>
             {viewingExEmployee && (
               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
                 퇴사자 일지 · 읽기 전용
@@ -1536,7 +1537,7 @@ export default function BrokerDiaryPage() {
                     else { setViewingBrokerId(v); setViewingExEmployee(false) }
                   }}
                   aria-label="업무일지 작성자 선택"
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  className="absolute inset-0 h-full w-full cursor-pointer text-base opacity-0"
                 >
                   <option value="">내 일지</option>
                   {employees.length > 0 && (

@@ -54,7 +54,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 | 검색칸 | `SearchBox` (`components/ui/controls`) | 42px |
 | 드롭다운 | `SELECT_BOX` (`components/ui/controls`) | 42px |
 | 같은 줄의 다른 칸(날짜·불러오기 등) | `CONTROL_H` | 42px |
-| 위쪽 탭 | 묶음 전체 38px | 38px |
+| 제목 줄 보조 버튼(흰 바탕 테두리)·아이콘 버튼 | `SECONDARY_BTN` · `ICON_BTN` (`components/layout/page-header`) | 36px |
+| 위쪽 탭 — 밑줄형 하나 | `TAB_BAR` · `tabClass(on)` · `TAB_COUNT` (`components/ui/controls`) | 38px |
+| 폰에서 글자 입력칸 | `text-base sm:text-sm` — 16px 보다 작으면 아이폰이 화면을 확대한다 | |
 
 예외(일부러 다른 모양): 메신저(카톡식 ＋·둥근 검색), 자료실 검색(드라이브식 둥근 칸).
 

@@ -19,6 +19,10 @@ interface PageHeaderProps {
 
 /** 제목 줄 오른쪽 주 버튼(매물 등록·고객 등록·미팅 등록…) */
 export const PRIMARY_BTN = 'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50'
+/** 제목 줄 오른쪽 보조 버튼(흰 바탕 테두리) — 주 버튼과 같은 36px(11-07). 테두리 1px 씩이라 위아래 여백을 1px 줄인다 */
+export const SECONDARY_BTN = 'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200 bg-white px-3 py-[7px] text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800'
+/** 제목 줄 오른쪽 아이콘만 있는 버튼(새로 고침 등) — 36px 정사각 */
+export const ICON_BTN = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800'
 
 export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
   return (

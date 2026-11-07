@@ -46,3 +46,16 @@ export function SearchBox({ value, onChange, placeholder = '검색', label, clas
     </div>
   )
 }
+
+/**
+ * 위쪽 탭 — 밑줄형 하나로(11-07 사장님 "탭도 맞춰"). 밑줄형·알약형·상자형 세 가지가 섞여 있었다.
+ * 묶음 높이 38px. 넘치면 탭 줄만 옆으로 민다. 쓰는 곳: <div className={TAB_BAR}> <button className={tabClass(on)}>
+ */
+export const TAB_BAR = 'mb-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800'
+export const tabClass = (on: boolean) => cn(
+  '-mb-px inline-flex flex-shrink-0 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold transition-colors',
+  on ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+    : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-500 dark:hover:text-gray-200',
+)
+/** 탭 옆 건수 */
+export const TAB_COUNT = 'rounded-full bg-gray-100 px-1.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300'

@@ -10,6 +10,9 @@
  */
 
 import { useEscape } from '@/lib/use-escape'
+import { PRIMARY_BTN, SECONDARY_BTN } from '@/components/layout/page-header'
+import { cn } from '@/lib/utils'
+import { TAB_BAR, tabClass, TAB_COUNT } from '@/components/ui/controls'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -439,27 +442,27 @@ export default function EventsPage() {
         <div className="mb-4 flex flex-wrap items-start gap-2">
           <h1 className="mr-auto text-2xl font-bold text-gray-900 dark:text-white">예약관리</h1>
           <button onClick={() => setLinkOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+            className={SECONDARY_BTN}>
             <Link2 className="h-4 w-4" />예약 링크
           </button>
           <button onClick={() => { setFbOpen({ eventId: null }); setFbText('') }}
-            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 dark:bg-gray-900">
+            className={cn(SECONDARY_BTN, 'border-amber-300 text-amber-700 hover:bg-amber-50')}>
             <MessageSquareWarning className="h-4 w-4" />불편 신고
           </button>
           <button onClick={() => setForm({ ...emptyForm(), date: tab === 'calendar' ? selDay : todayKST() })}
-            className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            className={PRIMARY_BTN}>
             <Plus className="h-4 w-4" />새 예약
           </button>
         </div>
 
-        <div className="mb-4 flex overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900">
+        <div className={TAB_BAR}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex flex-1 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-sm font-semibold transition-colors ${tab === t.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
+              className={tabClass(tab === t.id)}>
               {t.id === 'stats' && <BarChart3 className="h-4 w-4" />}
               {t.id === 'calendar' && <CalendarDays className="h-4 w-4" />}
               {t.label}
-              {!!t.count && <span className={`rounded-full px-1.5 text-xs ${tab === t.id ? 'bg-white/20' : t.id === 'pending' ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-800'}`}>{t.count}</span>}
+              {!!t.count && <span className={t.id === 'pending' ? 'rounded-full bg-red-500 px-1.5 text-xs font-medium text-white' : TAB_COUNT}>{t.count}</span>}
             </button>
           ))}
         </div>

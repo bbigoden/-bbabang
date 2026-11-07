@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { canManageOffice, isDirector } from '@/lib/office-role'
+import { TAB_BAR, tabClass } from '@/components/ui/controls'
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fetchAllPaged } from '@/lib/fetch-all-paged'
@@ -14,7 +15,7 @@ import {
   Download, Trash2, Upload, X, Search, LayoutGrid, List, ChevronRight, MoreVertical, Pencil, Copy,
   StickyNote, ArrowUpDown, ArrowLeft, ArrowRight, Star, Clock, HardDrive, FolderInput, Link2, Eye, Check, FileArchive,
 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import { useToast } from '@/components/toast'
 import { PageHeader, PRIMARY_BTN } from '@/components/layout/page-header'
 import { purgeResourceKeys, RESOURCE_TRASH_DAYS } from '@/lib/resource-trash'
@@ -1215,13 +1216,11 @@ export default function BrokerResourcesPage() {
         />
 
         {/* 탭: 내 자료실 / 최근 / 별표 — 휴지통은 메뉴의 휴지통(대표만) '자료실' 탭 */}
-        <div className="mb-4 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" role="tablist">
+        <div className={TAB_BAR} role="tablist">
           {tabs.map(t => (
             <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => go(t.id)}
               {...(t.id === 'drive' ? dropProps(null) : {})}
-              className={`-mb-px inline-flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm sm:py-2 font-semibold ${tab === t.id
-                ? 'border-blue-600 text-blue-700 dark:text-blue-300'
-                : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'} ${t.id === 'drive' && dropTarget === 'root' ? 'bg-blue-50 dark:bg-blue-950' : ''}`}>
+              className={cn(tabClass(tab === t.id), t.id === 'drive' && dropTarget === 'root' && 'bg-blue-50 dark:bg-blue-950')}>
               <t.icon className="h-4 w-4" />
               {t.label}
             </button>
@@ -1254,7 +1253,7 @@ export default function BrokerResourcesPage() {
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="자료실 전체에서 검색"
-                className="w-full rounded-full border border-transparent bg-gray-100 py-2.5 pl-10 pr-9 text-sm focus:border-blue-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-800 dark:focus:bg-gray-900"
+                className="w-full rounded-full border border-transparent bg-gray-100 py-2.5 pl-10 pr-9 text-base sm:text-sm focus:border-blue-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-gray-800 dark:focus:bg-gray-900"
               />
               {query && (
                 <button onClick={() => setQuery('')} aria-label="검색어 지우기"

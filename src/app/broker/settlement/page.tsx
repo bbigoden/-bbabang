@@ -668,7 +668,7 @@ export default function SettlementPage() {
                 value={filterAssigneeId}
                 onChange={e => setFilterAssigneeId(e.target.value)}
                 aria-label="정산 직원 필터"
-                className={`h-[42px] rounded-xl border px-3 text-sm font-semibold cursor-pointer ${filterAssigneeId
+                className={`h-[42px] rounded-xl border px-3 text-base sm:text-sm font-semibold cursor-pointer ${filterAssigneeId
                   ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                   : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}
               >

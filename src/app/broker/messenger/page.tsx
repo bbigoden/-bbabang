@@ -345,7 +345,7 @@ export default function BrokerMessengerPage() {
                 <label className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 dark:bg-gray-800">
                   <Search className="h-4 w-4 text-gray-400" />
                   <input value={query} onChange={e => setQuery(e.target.value)} placeholder={tab === 'friends' ? '이름 검색' : '채팅방 이름 검색'}
-                    className="flex-1 bg-transparent text-sm outline-none dark:text-gray-100" />
+                    className="flex-1 bg-transparent text-base sm:text-sm outline-none dark:text-gray-100" />
                   {query && <button onClick={() => setQuery('')} aria-label="검색어 지우기"><X className="h-4 w-4 text-gray-400" /></button>}
                 </label>
               </div>

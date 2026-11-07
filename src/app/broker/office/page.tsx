@@ -17,7 +17,7 @@ import {
   Users, AlertTriangle, RotateCcw, CheckCircle2, Circle, Trash2,
   RefreshCw,
 } from 'lucide-react'
-import { PageHeader } from '@/components/layout/page-header'
+import { PageHeader, ICON_BTN } from '@/components/layout/page-header'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/toast'
@@ -642,7 +642,7 @@ export default function OfficePage() {
             </>}
             actions={
               <button onClick={() => void load()} aria-label="지금 새로 보기"
-                className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
+                className={ICON_BTN}>
                 <RefreshCw className="h-4 w-4" />
               </button>
             } />
