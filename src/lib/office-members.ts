@@ -24,10 +24,11 @@ export function getOfficeMembers(officeId: string): Promise<OfficeMember[]> {
     const { data, error } = await createClient().from('broker_profiles')
       .select('id, is_approved, profiles:profiles_visible(name)')
       .or(`id.eq.${officeId},parent_broker_id.eq.${officeId}`)
+      // 사람 순서는 어디서나 가입일시(11-07 사장님) — 대표가 가장 먼저 가입해 맨 앞에 온다
+      .order('created_at', { ascending: true })
     if (error) throw error
     return ((data ?? []) as unknown as { id: string; is_approved: boolean | null; profiles: { name: string | null } | null }[])
       .map(r => ({ id: r.id, name: r.profiles?.name ?? null, isOwner: r.id === officeId, approved: r.id === officeId || r.is_approved === true }))
-      .sort((a, b) => Number(b.isOwner) - Number(a.isOwner))
   })()
   value.catch(() => cache.delete(officeId))
   cache.set(officeId, { at: Date.now(), value })

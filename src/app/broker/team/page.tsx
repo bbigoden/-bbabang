@@ -66,6 +66,7 @@ export default function BrokerTeamPage() {
         .from('broker_profiles')
         .select('id, user_id, is_approved, permissions, profiles:profiles_visible(name, email)')
         .eq('parent_broker_id', b.id)
+        .order('created_at', { ascending: true })  // 가입일시 순(11-07 사장님)
 
       const list = (emps ?? []) as unknown as Employee[]
       setApproved(list.filter(e => e.is_approved))

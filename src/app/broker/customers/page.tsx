@@ -170,7 +170,9 @@ export default function BrokerCustomersPage() {
     setUser(u)
     setProfile(prof); setBroker(b)
     const owner = b.is_owner !== false
-    setIsOwner(owner)
+    // 보는 범위·담당자 목록은 대표 권한(대표·이사) — 이사도 대표와 같게(11-07 사장님). DB(my_visible_broker_ids)도 이사에게 사무소 전체를 준다
+    const manager = canManageOffice(b)
+    setIsOwner(manager)
 
     // ── 권한 체크 (직원만) ──────────────────────────────
     if (!owner) {
@@ -179,13 +181,13 @@ export default function BrokerCustomersPage() {
 
     // ── 팀원 이름 목록 구성 ────────────────────────────
     const myName = prof?.name
-    if (owner) {
+    const office = owner ? b.id : (b.parent_broker_id ?? b.id)
+    if (manager) {
       // 직원 이름은 고객 조회와 함께 보낸다 — 기다렸다가 고객을 부르면 폰 3G 에서 왕복 하나(약 2초)가 더 쌓였다(10-30)
-      // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members) — 매물·일지에서 넘어오면 다시 묻지 않는다
-      void getOfficeMembers(b.id)
+      // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members) — 매물·일지에서 넘어오면 다시 묻지 않는다. 대표가 맨 앞
+      void getOfficeMembers(office)
         .then(ms => {
-          const empNames = ms.filter(m => !m.isOwner && m.approved).map(m => m.name).filter(Boolean)
-          setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
+          setTeamMembers(ms.filter(m => m.approved).map(m => m.name).filter(Boolean) as string[])
         }, () => setTeamMembers(myName ? [myName] : []))
     } else {
       setTeamMembers(myName ? [myName] : [])
@@ -195,14 +197,12 @@ export default function BrokerCustomersPage() {
     // 룰: 대표=사무소 전체. 직원=사무소 전체 중 본인 작성(broker_id) 또는 본인 담당(assignee=본인이름).
     // (대표가 추가하고 직원을 담당자로 배정한 행도 직원에게 보여야 함 — 업무일지와 일치)
     // 스코프는 office_broker_id 단일 컬럼 — 직원 목록 조립 왕복이 없다.
-    const office = owner ? b.id : (b.parent_broker_id ?? b.id)
-
     // 중복 연락처 경고용 — 직원도 사무소 전체를 대상으로 검사해야 함 (남의 담당 고객과 겹쳐도 알림)
     officeIdRef.current = office
 
     // 직원 시점: 본인 작성(broker_id) 또는 본인이 담당자에 포함된 행만 노출.
     // 공동담당("오혜진, 권세현")도 콤마 분리 후 매칭해야 각 직원에게 잡힘.
-    const visibleRows = (rows: any[]) => owner
+    const visibleRows = (rows: any[]) => manager
       ? rows
       : rows.filter((c: any) => {
           if (c.broker_id === b.id) return true
@@ -220,7 +220,7 @@ export default function BrokerCustomersPage() {
     const namePat = myName?.trim() ? `*${myName.replace(/[^\p{L}\p{N}]+/gu, '*')}*`.replace(/\*+/g, '*') : ''
     const custQuery = (from: number, to: number) => {
       let q = supabase.from('broker_customers').select(CUST_LIST_COLS).eq('office_broker_id', office)
-      if (!owner) q = namePat ? q.or(`broker_id.eq.${b.id},assignee.ilike.${namePat}`) : q.eq('broker_id', b.id)
+      if (!manager) q = namePat ? q.or(`broker_id.eq.${b.id},assignee.ilike.${namePat}`) : q.eq('broker_id', b.id)
       return q.order('received_date', { ascending: false }).order('created_at', { ascending: false })
         .order('id', { ascending: false })  // 동률 시 페이지 경계 안정화 (중복/누락 방지)
         .range(from, to)
@@ -228,7 +228,7 @@ export default function BrokerCustomersPage() {
 
     // 이 탭에서 한 번 받은 목록이 있으면 바로 그리고 뒤에서 통째로 새로 받는다 — 들어올 때마다 900명(약 100KB)을
     // 처음부터 받아 폰 3G 에서 9초 걸렸다(10-30 폰 속도 조사). 새로 받은 것으로 한 번에 바꾼다.
-    const cacheKey = `${office}|${b.id}|${owner ? 'o' : 's'}`
+    const cacheKey = `${office}|${b.id}|${manager ? 'o' : 's'}`
     if (custCache?.key === cacheKey) {
       setCustomers(custCache.rows)
       setLoading(false)
@@ -252,7 +252,7 @@ export default function BrokerCustomersPage() {
   // 다 받은 목록(고친 것 포함)을 탭 안에 기억해 둔다 — 다시 들어올 때 바로 그린다
   useEffect(() => {
     if (!allLoaded || !broker) return
-    const office = isOwner ? broker.id : (broker.parent_broker_id ?? broker.id)
+    const office = broker.is_owner !== false ? broker.id : (broker.parent_broker_id ?? broker.id)
     custCache = { key: `${office}|${broker.id}|${isOwner ? 'o' : 's'}`, rows: customers }
   }, [customers, allLoaded, broker, isOwner])
 
@@ -485,7 +485,10 @@ export default function BrokerCustomersPage() {
     })
     return counts
   }, [customers])
-  const assignees = ['전체', ...Object.keys(assigneeCounts).sort()]
+  // 재직자는 가입일시 순(teamMembers), 그 뒤에 퇴사자 등 나머지 이름을 가나다순(11-07 사장님)
+  const assignees = ['전체',
+    ...teamMembers.filter(n => assigneeCounts[n]),
+    ...Object.keys(assigneeCounts).filter(n => !teamMembers.includes(n)).sort((a, b) => a.localeCompare(b, 'ko'))]
 
   const [statsOpen, setStatsOpen] = useState(false)
   const deferredSearch = useDeferredValue(search)

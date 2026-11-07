@@ -86,6 +86,7 @@ export default function BrokerMessengerPage() {
       .from('broker_profiles')
       .select('id, is_owner, is_approved, profiles:user_id(name)')
       .or(`id.eq.${office},parent_broker_id.eq.${office}`)
+      .order('created_at', { ascending: true })  // 사람 순서는 가입일시(11-07 사장님)
     const list = ((rows ?? []) as { id: string; is_owner: boolean | null; is_approved: boolean | null; profiles: { name: string | null } | { name: string | null }[] | null }[])
       .filter(m => m.is_owner || m.is_approved)
     const { data: prof } = await supabase.from('office_chat_profiles').select('broker_id, status_message, avatar_path')
@@ -94,7 +95,7 @@ export default function BrokerMessengerPage() {
     setMembers(list.map(m => {
       const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
       return { id: m.id, name: p?.name ?? '직원', status: pmap.get(m.id)?.status_message ?? null, avatarPath: pmap.get(m.id)?.avatar_path ?? null }
-    }).sort((a, b) => a.name.localeCompare(b.name, 'ko')))
+    }))
   }, [office, supabase])
 
   const loadThreads = useCallback(async () => {

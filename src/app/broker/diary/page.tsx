@@ -776,7 +776,8 @@ export default function BrokerDiaryPage() {
       if (emps) {
         const empList = emps.filter(e => e.approved && e.id !== b.id).map(e => ({ id: e.id, name: e.name ?? '직원' }))
         setEmployees(empList)
-        setTeamMembers([prof?.name, ...empList.map(e => e.name)].filter(Boolean) as string[])
+        // 가입일시 순(11-07) — 나를 앞으로 빼지 않는다
+        setTeamMembers(emps.filter(e => e.approved).map(e => e.name).filter(Boolean) as string[])
       } else {
         setTeamMembers(prof?.name ? [prof.name] : [])
       }

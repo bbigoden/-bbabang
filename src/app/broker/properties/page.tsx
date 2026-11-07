@@ -1571,10 +1571,17 @@ function BrokerPropertiesContent() {
         setOwnerName(myName ?? '')  // 대표 본인 → 내 이름이 곧 대표 이름
         // 사무소 사람 목록은 화면끼리 같이 쓴다(office-members) — 고객·일지에서 넘어오면 다시 묻지 않는다
         const emps = await getOfficeMembers(b.id).catch(() => [])
-        const empNames = emps.filter(e => !e.isOwner && e.approved).map(e => e.name).filter(Boolean)
-        setTeamMembers([myName, ...empNames].filter(Boolean) as string[])
+        // 가입일시 순(11-07) — 대표가 가장 먼저 가입해 맨 앞
+        setTeamMembers(emps.filter(e => e.approved).map(e => e.name).filter(Boolean) as string[])
       } else {
         setTeamMembers(myName ? [myName] : [])
+        // 이사는 담당자 고르는 칸도 대표와 같게 — 사무소 사람 전부(11-07 사장님)
+        if (canManageOffice(b) && b.parent_broker_id) {
+          void getOfficeMembers(b.parent_broker_id).then(ms => {
+            const names = ms.filter(m => m.approved).map(m => m.name).filter(Boolean) as string[]
+            if (names.length) setTeamMembers(names)
+          }, () => {})
+        }
         // 직원 → 대표(parent_broker_id) 이름 조회. 담당자에 대표 이름이 잡힌 매물의 메모를 열람하기 위함.
         if (b.parent_broker_id) {
           const { data: ownerBroker } = await supabase

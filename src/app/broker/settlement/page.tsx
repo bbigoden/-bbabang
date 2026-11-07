@@ -285,7 +285,8 @@ export default function SettlementPage() {
       supabase
         .from('broker_profiles')
         .select('id, user_id, is_owner, parent_broker_id, default_settlement_rate, withhold_exempt, is_approved, profiles:user_id(name)')
-        .or(`id.eq.${office},parent_broker_id.eq.${office}`),
+        .or(`id.eq.${office},parent_broker_id.eq.${office}`)
+        .order('created_at', { ascending: true }),  // 사람 순서는 가입일시(11-07 사장님)
       manager
         ? supabase.from('office_settlement_settings').select('monthly_expense, partner_split').eq('office_broker_id', office).maybeSingle()
         : Promise.resolve({ data: null }),
