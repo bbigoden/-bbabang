@@ -1578,7 +1578,7 @@ export default function BrokerDiaryPage() {
         {/* Section 1: 고객정보 */}
         <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50">
-            <span className="text-sm font-bold text-gray-800 dark:text-gray-100">1. 고객정보({viewingName})</span>
+            <span className="text-sm font-bold text-gray-800 dark:text-gray-100">1. 고객정보</span>
             <span className="text-xs text-gray-500">{diaryCustomers.length}명</span>
           </div>
           {effectiveCanEdit && dayUnlinked.length > 0 && (
