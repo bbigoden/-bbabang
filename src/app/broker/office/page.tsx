@@ -163,6 +163,27 @@ const alive = (at: string | null | undefined, now: number) =>
 
 const when = (at: string) => (ymdKST(at) === todayKST() ? hmKST(at) : `${ymdKST(at).slice(5)} ${hmKST(at)}`)
 
+/**
+ * 처음 열 때 사무실 묶음 조회를 그림보다 먼저 내보낸다. useEffect 에서 보내면 큰 사무실 그림을
+ * 다 그린 뒤라 폰에서 0.77초에야 나갔다(11-07 프로필 — 조회 0.55초를 그만큼 늦게 기다렸다).
+ * 화면을 처음 그릴 때 보내 두고, 첫 loadOnce 가 그것을 받아 쓴다. 5초 넘게 묵었으면 버리고 새로 묻는다.
+ */
+type SnapResult = { data: unknown; error: { message?: string } | null }
+let 미리받기: { key: string; at: number; p: PromiseLike<SnapResult> } | null = null
+const snapshotKey = (officeId: string, isOwner: boolean) => `${officeId}|${isOwner}`
+function prefetchSnapshot(supabase: ReturnType<typeof createClient>, officeId: string, isOwner: boolean) {
+  const key = snapshotKey(officeId, isOwner)
+  if (미리받기?.key === key && Date.now() - 미리받기.at < 5000) return
+  // rpc 는 then 을 불러야 나간다 — 지금 내보낸다
+  미리받기 = { key, at: Date.now(), p: supabase.rpc('office_room_snapshot', { p_office: officeId, p_owner: isOwner }).then(r => r as SnapResult) }
+}
+function takeSnapshot(supabase: ReturnType<typeof createClient>, officeId: string, isOwner: boolean): PromiseLike<SnapResult> {
+  const m = 미리받기
+  미리받기 = null
+  if (m && m.key === snapshotKey(officeId, isOwner) && Date.now() - m.at < 5000) return m.p
+  return supabase.rpc('office_room_snapshot', { p_office: officeId, p_owner: isOwner }).then(r => r as SnapResult)
+}
+
 export default function OfficePage() {
   const auth = useAuth()
   const { broker, loading } = auth
@@ -171,6 +192,8 @@ export default function OfficePage() {
 
   const isOwner = canManageOffice(broker)   // 대표·이사
   const officeId = broker?.parent_broker_id ?? broker?.id ?? null
+  // 그림을 그리기 전에 묶음 조회부터 내보낸다(위 prefetchSnapshot). 처음 한 번만.
+  useState(() => { if (officeId) prefetchSnapshot(supabase, officeId, isOwner) })
 
   const [now, setNow] = useState(() => Date.now())
   const [agents, setAgents] = useState<Agents | null>(null)
@@ -215,7 +238,7 @@ export default function OfficePage() {
     // 사무실 화면에 필요한 15가지를 한 번에(office_room_snapshot). 따로 물을 땐 폰이 화면을 그리느라
     // 요청을 하나씩 늦게 내보내 2~3초 걸렸다(2026-11-05). 조건·권한(RLS)·한국 날짜는 함수 안에서 같다.
     // 받은 것을 예전 조회 결과 모양({ data })으로 맞춰 아래 처리는 그대로 둔다.
-    const { data: snap, error: snapErr } = await supabase.rpc('office_room_snapshot', { p_office: officeId, p_owner: isOwner })
+    const { data: snap, error: snapErr } = await takeSnapshot(supabase, officeId, isOwner)
     if (snapErr || !snap) return // 다음 새로 보기(20초)에서 다시 — 그동안 보이던 숫자는 그대로
     type Snap = {
       members: unknown[]; todayProps: { broker_id: string }[]; sessions: unknown[] | null; diaries: unknown[]
