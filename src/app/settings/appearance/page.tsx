@@ -68,12 +68,6 @@ export default function SettingsAppearancePage() {
         </div>
         <p className="mt-3 text-[11px] text-gray-500">설정은 이 기기에만 저장돼요</p>
       </div>
-
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
-        <p className="text-xs text-blue-700 dark:text-blue-300">
-          💡 변경 사항은 즉시 적용됩니다. 다크 모드와 글꼴 크기는 모든 페이지에 반영돼요.
-        </p>
-      </div>
     </div>
   )
 }
