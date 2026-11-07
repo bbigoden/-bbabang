@@ -15,6 +15,8 @@ export interface SubItemDef {
   icon: React.ComponentType<{ className?: string }>
   /** 대표 권한(대표·이사)만 — 사무소·직원(11-07 사장님: 이사는 모두 대표와 같게) */
   managerOnly?: boolean
+  /** 대표 본인만 — 사무소 정보(11-07 사장님: 이사에게서 사무소 정보는 뺀다) */
+  ownerOnly?: boolean
   /** 사무소(broker_profiles)가 있어야 열리는 화면 — 등록 전엔 잠김 안내(officeLockedLabel) */
   needsOffice?: boolean
 }
@@ -41,6 +43,13 @@ export interface ItemDef {
 export function canUseEvents(broker: Parameters<typeof bidOf>[0]): boolean {
   if (!broker || broker.permissions?.events !== true) return false
   return broker.is_owner !== false || broker.is_approved === true
+}
+
+/** 설정 아래 칸 중 이 계정에 보일 것 — 사이드바·모바일 드로어가 같이 쓴다 */
+export function showSubItem(s: SubItemDef, broker: Parameters<typeof bidOf>[0]): boolean {
+  if (s.managerOnly && !canManageOffice(broker)) return false
+  if (s.ownerOnly && !(broker && broker.is_owner !== false)) return false
+  return true
 }
 
 /** 이 사무소에 보일 메뉴인가 — 사이드바·모바일 드로어가 같이 쓴다 */
@@ -74,7 +83,7 @@ export const BROKER_ITEMS: ItemDef[] = [
     id: 'settings', label: '설정', icon: Settings,
     children: [
       { href: '/settings/account',       label: '내 계정', icon: User },
-      { href: '/settings/office',        label: '사무소', icon: Building2, managerOnly: true, needsOffice: true },
+      { href: '/settings/office',        label: '사무소', icon: Building2, ownerOnly: true, needsOffice: true },
       { href: '/broker/team',            label: '직원', icon: UserCog, managerOnly: true, needsOffice: true },
       { href: '/settings/appearance',    label: '화면',   icon: Palette },
       { href: '/settings/notifications', label: '알림 설정', icon: Bell },  // 메뉴 아래 '알림'(받은 알림 목록)과 이름이 같아 헷갈렸다(11-06 점검)

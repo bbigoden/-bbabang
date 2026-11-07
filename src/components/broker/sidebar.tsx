@@ -7,10 +7,9 @@ import {
   ChevronDown, PanelLeftClose, PanelLeftOpen, LogOut, Bell, Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { canManageOffice } from '@/lib/office-role'
 import { useAuthOptional, signOutAndLeave } from '@/lib/auth-context'
 import { useNotificationsCtx } from '@/lib/notifications-context'
-import { BROKER_ITEMS as ITEMS, showItem, type ItemDef } from './menu-items'
+import { BROKER_ITEMS as ITEMS, showItem, showSubItem, type ItemDef } from './menu-items'
 import { useOfficeChatUnread } from '@/lib/use-office-chat-unread'
 
 const COLLAPSED_KEY = 'busojang_broker_sidebar_collapsed'
@@ -49,7 +48,6 @@ export function BrokerSidebar() {
   if (loading) return null
   if (profile?.role !== 'broker') return null
 
-  const manager = canManageOffice(broker)
   const items = ITEMS.filter(i => showItem(i, broker))
   // 사무소 등록 전엔 사무소 메뉴에 자물쇠를 단다 — 눌러야 잠김 안내가 뜨는 것보다 먼저 보이는 게 낫다.
   // 메뉴는 숨기지 않는다(무엇이 있는지는 보여야 등록할 이유가 된다).
@@ -123,7 +121,7 @@ export function BrokerSidebar() {
             // 아코디언(children) — 접힘 모드에선 자식 메뉴 펼치지 않음
             if (item.children) {
               const expanded = !collapsed && isExpanded(item)
-              const subItems = item.children.filter(s => !s.managerOnly || manager)
+              const subItems = item.children.filter(s => showSubItem(s, broker))
               return (
                 <li key={item.id}>
                   <button

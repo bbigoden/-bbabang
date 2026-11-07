@@ -212,7 +212,7 @@ export default function BrokerTeamPage() {
             <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">직원 ({approved.length}명)</h2>
           </div>
           {approved.length > 0 && (
-            <p className="text-xs text-gray-500 mb-3">이사는 대표와 같은 권한으로 사무소 전체를 보고 고치며, 직원 승인·등급·사무소 정보도 바꿀 수 있어요.</p>
+            <p className="text-xs text-gray-500 mb-3">이사는 대표와 같은 권한으로 사무소 전체를 보고 고치며, 직원 승인·등급도 바꿀 수 있어요.</p>
           )}
           {approved.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">

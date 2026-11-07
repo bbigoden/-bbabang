@@ -14,7 +14,7 @@ import {
 import { cn } from '@/lib/utils'
 import { canManageOffice } from '@/lib/office-role'
 import { isStandaloneApp } from '@/lib/pwa-install'
-import { BROKER_ITEMS, showItem, type ItemDef } from '@/components/broker/menu-items'
+import { BROKER_ITEMS, showItem, showSubItem, type ItemDef } from '@/components/broker/menu-items'
 import { ADMIN_ITEMS } from '@/components/admin/menu-items'
 
 // 풀스크린이거나 자체 하단 UI가 있는 페이지는 BottomNav 숨김
@@ -111,7 +111,6 @@ export function BottomNav() {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  const manager = canManageOffice(broker)
   const drawerItems: ItemDef[] = role === 'admin'
     ? ADMIN_ITEMS as ItemDef[]
     : BROKER_ITEMS.filter(i => showItem(i, broker))
@@ -219,7 +218,7 @@ export function BottomNav() {
                   const Icon = item.icon
                   if (item.children) {
                     const expanded = openIds.has(item.id)
-                    const subItems = item.children.filter(s => !s.managerOnly || manager)
+                    const subItems = item.children.filter(s => showSubItem(s, broker))
                     return (
                       <li key={item.id}>
                         <button

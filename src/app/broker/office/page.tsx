@@ -37,8 +37,6 @@ const SEAT_HREF: Record<string, string> = {
   bank: '/broker/properties', collect: '/broker/naver', bid: '/broker/bid',
 }
 
-/** 영업부 책상 순서 — 왼쪽부터 */
-const SALES_ORDER = ['박혜성', '이예리', '문지혜', '김미선', '김불당']
 /** 홍보부에 앉는 직원(이름으로 — 계정이 생기기 전부터 자리를 정해 둔다). 나머지 직원은 영업부 */
 const PROMO_STAFF = ['이현영']
 /** 계정이 아직 없지만 자리를 내 둔 사람 */
@@ -540,7 +538,7 @@ export default function OfficePage() {
   const userOf = Object.fromEntries(members.map(m => [m.id, m.user_id]))
   const inDept = (d: string) => people.filter(p => deptOf(p.key) === d)
     .map(p => (d === 'director' ? { ...p, role: '이사' } : p))
-  // 영업부 앉는 순서(2026-10-29 사장님). 계정이 아직 없는 사람은 '가입 전' 자리로 먼저 앉혀 두고,
+  // 영업부는 가입일시 순으로 왼쪽부터 앉는다(11-07 사장님, members 가 이미 가입일시 순). 계정이 아직 없는 사람은 '가입 전' 자리로 먼저 앉혀 두고,
   // 같은 이름으로 가입·승인되면 그 자리에 진짜 계정이 앉는다
   const 가입전 = (name: string, tint: number): Seat => ({
     key: `pending-${name}`, kind: 'person', tint, mon: NAME_MON[name], pets: NAME_PETS[name], name, role: '직원', state: 'idle', say: '가입 전',
@@ -553,8 +551,6 @@ export default function OfficePage() {
     return list
   }
   const 영업부 = 자리채움([...inDept('sales')], 'sales')
-  const 순번 = (n: string) => { const i = SALES_ORDER.indexOf(n); return i < 0 ? SALES_ORDER.length : i }
-  영업부.sort((a, b) => 순번(a.name) - 순번(b.name))
 
   const layout: OfficeLayout = {
     clock: hmKST(now),
