@@ -116,7 +116,7 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
       {canManage && members && (
         <div className="mb-5">
           <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="담당자"
-            className="h-[42px] w-full sm:w-60" />
+            className="w-full sm:w-60" />
         </div>
       )}
 

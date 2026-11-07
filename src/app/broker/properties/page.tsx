@@ -1,6 +1,7 @@
 'use client'
 
 import { useEscape } from '@/lib/use-escape'
+import { SearchBox } from '@/components/ui/controls'
 import { useEffect, useState, useMemo, useRef, useCallback, Suspense, memo } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -43,7 +44,6 @@ import { findDuplicateProperty } from '@/lib/dup-check'
 import { useToast } from '@/components/toast'
 import { ALL_ROOM_TYPES, PROPERTY_CATEGORIES } from '@/lib/property-types'
 import { Spinner } from '@/components/ui/spinner'
-import { SearchClear } from '@/components/ui/search-clear'
 import { PropertyTextHistoryButton } from '@/components/sheet/property-text-history'
 import { PropertyViewSheet } from '@/components/broker/property-view-sheet'
 import { LocationCardSheet } from '@/components/broker/location-card-sheet'
@@ -2455,14 +2455,7 @@ function BrokerPropertiesContent() {
 
         {/* 검색 + 필터 + 목록/지도 */}
         <div className="mb-2 flex gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-            <input type="text" placeholder="검색" aria-label="매물 전체 검색" value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-            {searchQuery && <SearchClear onClick={() => setSearchQuery('')} />}
-          </div>
+          <SearchBox value={searchQuery} onChange={setSearchQuery} label="매물 전체 검색" className="flex-1" />
           <button
             onClick={() => setShowFilter(v => !v)}
             className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 sm:px-3.5 py-2.5 text-sm font-medium transition-colors ${activeFilterCount > 0 ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-950'}`}

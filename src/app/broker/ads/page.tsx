@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { SearchBox, SELECT_BOX } from '@/components/ui/controls'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -10,12 +11,11 @@ import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
 import { useToast } from '@/components/toast'
 import {
-  Search, CircleCheck, TriangleAlert, Download, ArrowUp, ArrowDown, X,
+  CircleCheck, TriangleAlert, Download, ArrowUp, ArrowDown, X,
 } from 'lucide-react'
 import { Pagination, usePageSize } from '@/components/sheet/pagination'
 import { parseBankPeriod } from '@/lib/bank-period'
 import { todayKST, ymdKST, hmKST } from '@/lib/date-kst'
-import { SearchClear } from '@/components/ui/search-clear'
 import { Chip } from '@/components/ui/chip'
 import { AgentStatus, AGENT_OFF_HINT } from '@/components/broker/agent-status'
 import { pollWhileVisible } from '@/lib/poll-visible'
@@ -1933,18 +1933,7 @@ export default function AdsPage() {
             ))}
           </div>
 
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-            <input
-              type="text"
-              aria-label="광고 매물 검색"
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="번호·주소·담당자·매물 #번호"
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2.5 pl-9 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            />
-            {q && <SearchClear onClick={() => setQ('')} />}
-          </div>
+          <SearchBox value={q} onChange={setQ} placeholder="번호·주소·담당자·매물 #번호" label="광고 매물 검색" className="flex-1 min-w-[200px]" />
 
           {/* 사무소가 셋이서 나눠 맡고 있어, 내 것만 보고 올리는 일이 잦다. */}
           {managers.length > 0 && (
@@ -1952,7 +1941,7 @@ export default function AdsPage() {
               aria-label="담당자"
               value={manager}
               onChange={e => setManager(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-800 dark:bg-gray-900"
+              className={SELECT_BOX}
             >
               <option value="">담당자 전체</option>
               {managers.map(n => <option key={n} value={n}>{`${n} (${managerCounts[n] ?? 0})`}</option>)}

@@ -44,6 +44,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+# 목록 화면 조작칸은 공용 틀로 — 높이를 손으로 적지 말 것
+
+화면마다 높이를 따로 적어 검색칸 36·38·42, 드롭다운 32~44, 등록 버튼 32~44 로 들쭉날쭉했다(11-07 사장님 "비율이 다른 곳 전부").
+
+| 무엇 | 쓸 것 | 높이 |
+|---|---|---|
+| 제목 줄 + 오른쪽 등록 버튼 | `PageHeader` · `PRIMARY_BTN` (`components/layout/page-header`) | 버튼 36px |
+| 검색칸 | `SearchBox` (`components/ui/controls`) | 42px |
+| 드롭다운 | `SELECT_BOX` (`components/ui/controls`) | 42px |
+| 같은 줄의 다른 칸(날짜·불러오기 등) | `CONTROL_H` | 42px |
+| 위쪽 탭 | 묶음 전체 38px | 38px |
+
+예외(일부러 다른 모양): 메신저(카톡식 ＋·둥근 검색), 자료실 검색(드라이브식 둥근 칸).
+
 # 폰 속도 — 화면을 고치면 `npm run perf:phone`
 
 사장님은 폰(PWA)으로 쓴다. PC 에서 빠르다고 폰에서 빠른 게 아니다. 2026-11-05 사무실·업무일지가 폰에서

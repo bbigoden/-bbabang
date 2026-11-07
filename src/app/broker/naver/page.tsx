@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { SELECT_BOX } from '@/components/ui/controls'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -1739,9 +1740,7 @@ export default function CollectPage() {
               <select
                 value={sort}
                 onChange={e => { setSort(e.target.value as SortKey); setPage(1) }}
-                className="h-[42px] rounded-xl border border-gray-200 bg-white px-2 text-sm
-                           text-gray-700 focus:border-blue-500 focus:outline-none
-                           dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
+                className={SELECT_BOX}
               >
                 {/* 지번은 네이버에서만 받는다. 당근은 동까지만 준다. */}
                 {Object.entries(SORTS).filter(([, key]) => !key.startsWith('jibun') || source === 'naver').map(([name, key]) => (

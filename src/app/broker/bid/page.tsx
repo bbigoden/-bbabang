@@ -1,6 +1,7 @@
 'use client'
 
 import { bidOf } from '@/lib/office-role'
+import { SearchBox } from '@/components/ui/controls'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -8,7 +9,6 @@ import { fetchAllPaged } from '@/lib/fetch-all-paged'
 import { fetchAllParallel } from '@/lib/fetch-all-parallel'
 import { Header } from '@/components/layout/header'
 import { PageHeader } from '@/components/layout/page-header'
-import { SearchClear } from '@/components/ui/search-clear'
 import { Chip } from '@/components/ui/chip'
 import { useToast } from '@/components/toast'
 import { Download, ChevronDown, ExternalLink } from 'lucide-react'
@@ -611,17 +611,8 @@ export default function BidPage() {
             </div>
           </>}
           <div className="relative ml-auto flex items-center gap-2">
-            <div className="relative">
-              <input
-                value={q}
-                onChange={e => setQ(e.target.value)}
-                placeholder={tab === 'notice' ? '공고명·발주기관·공고번호' : '공고명·발주기관·낙찰업체·공고번호'}
-                className="h-[42px] w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-base sm:text-sm
-                           text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none
-                           dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-              />
-              {q && <SearchClear onClick={() => setQ('')} />}
-            </div>
+            <SearchBox value={q} onChange={setQ} className="w-48"
+              placeholder={tab === 'notice' ? '공고명·발주기관·공고번호' : '공고명·발주기관·낙찰업체·공고번호'} />
             <button
               onClick={() => void collect()}
               disabled={collecting}

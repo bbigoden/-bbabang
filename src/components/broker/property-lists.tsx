@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { SELECT_BOX } from '@/components/ui/controls'
 import Link from 'next/link'
 import { CalendarClock, Check, ChevronRight, ClipboardList, Plus, Search, User, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -170,7 +171,7 @@ export function SheetHead({ title, sub, onClose }: { title: string; sub?: string
  * 재직자 드롭다운 — 가입일시 순. allLabel 을 주면 맨 앞에 '전체'.
  * 칩으로 늘어놓았다가 드롭다운으로 바꿨다(11-06 사장님 — 사람이 늘면 칩이 줄을 넘는다).
  */
-export function MemberSelect({ members, selfId, value, onChange, allLabel, label = '재직자', className = 'w-full py-2.5' }: {
+export function MemberSelect({ members, selfId, value, onChange, allLabel, label = '재직자', className = 'w-full' }: {
   members: { id: string; name: string }[]; selfId: string; value: string; onChange: (id: string) => void
   allLabel?: string
   label?: string
@@ -180,7 +181,7 @@ export function MemberSelect({ members, selfId, value, onChange, allLabel, label
   // 가입일시 순 그대로(11-07 사장님) — '나'를 앞으로 빼지 않고 이름 옆에만 표시
   return (
     <select value={value} onChange={e => onChange(e.target.value)} aria-label={label}
-      className={`rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-gray-800 dark:bg-gray-950 ${className}`}>
+      className={`${SELECT_BOX} ${className}`}>
       {allLabel !== undefined && <option value="">{allLabel}</option>}
       {members.map(m => <option key={m.id} value={m.id}>{m.id === selfId ? `${m.name} (나)` : m.name}</option>)}
     </select>
