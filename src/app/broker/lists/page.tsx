@@ -240,6 +240,8 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
     void saveOrder(next)
   }
   const remove = async (it: Item) => {
+    // 바로 빠지던 것(11-07 사장님) — 한 번 묻는다
+    if (!confirm(`${it.p?.seq_no ? `#${it.p.seq_no} ` : ''}매물을 이 미팅에서 뺄까요?`)) return
     const { data, error } = await supabase.from('property_list_items').delete().eq('list_id', id).eq('property_id', it.property_id).select('list_id')
     if (error || !data?.length) { toast.error('뺄 권한이 없어요'); return }
     setItems(xs => xs?.filter(x => x.property_id !== it.property_id) ?? xs)
@@ -417,7 +419,7 @@ function ListDetail({ id, officeId, selfId, canManage }: { id: string; officeId:
         <ListFormSheet officeId={officeId} selfId={selfId} canManage={canManage} members={members} initial={list}
           onClose={() => setEditing(false)} onSaved={l => { setEditing(false); setList(l) }} />
       )}
-      {viewing?.p && <PropertyViewSheet p={{ ...viewing.p, images: viewing.p.images ?? [] }} memoVisible={memoOk(viewing.p)} onClose={() => setViewing(null)} />}
+      {viewing?.p && <PropertyViewSheet p={{ ...viewing.p, images: viewing.p.images ?? [] }} memoVisible={memoOk(viewing.p)} editHint={false} onClose={() => setViewing(null)} />}
       {lightbox && (
         <ImageLightbox images={lightbox.images} index={lightbox.index} onClose={() => setLightbox(null)}
           onNext={() => setLightbox(lb => lb && lb.index < lb.images.length - 1 ? { ...lb, index: lb.index + 1 } : lb)}
