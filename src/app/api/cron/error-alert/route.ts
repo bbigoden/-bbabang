@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient, type SupabaseClient } from '@supabase/supabase-js'
 import { sendPushToUser } from '@/lib/push-server'
+import { isDevErrorUrl, errorLineKo } from '@/lib/error-ko'
 
 /**
  * 미확인 에러 자동 알림 — 웹 푸시로 보낸다.
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - LOOKBACK_DAYS * DAY_MS).toISOString()
   const { data: unalerted, count: totalCount, error } = await supa
     .from('error_logs')
-    .select('id, message, source, user_id', { count: 'exact' })
+    .select('id, message, source, user_id, url', { count: 'exact' })
     .is('alerted_at', null)
     .eq('status', 'open')  // 관리자가 이미 처리(무시·해결)한 건 다시 알리지 않는다
     .gte('created_at', since)
@@ -73,12 +74,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, errors: 0, sent: 0, reason: 'no_new_errors', purged })
   }
 
+  // 시험 화면(localhost)에서 난 건 알리지 않고 '알린 것'으로만 표시한다 — 코드 고치는 도중 잠깐 나는 헛알림이었다(11-07).
+  const devIds = unalerted.filter(e => isDevErrorUrl(e.url)).map(e => e.id)
+  const real = unalerted.filter(e => !isDevErrorUrl(e.url))
+  if (real.length === 0) {
+    const marked = await markAlerted(supa, devIds)
+    return NextResponse.json({ ok: !marked.error, errors: 0, dev: devIds.length, sent: 0, reason: 'dev_only', purged, ...marked })
+  }
+
   // 같은 message 끼리 묶는다 — 한 버그가 수십 번 찍혀도 한 줄로 보이게
   // error_logs 는 비로그인 화면도 쓸 수 있어 message 를 누구나 지어 넣을 수 있다. 그 글이 사장님
   // 폰 잠금화면에 그대로 뜨지 않게, 로그인한 사용자 화면에서 난 오류만 문구를 보이고 나머지는
   // 종류(source)만 적는다.
   const groups = new Map<string, { n: number; source: string | null; fromUser: boolean }>()
-  for (const e of unalerted) {
+  for (const e of real) {
     const key = (e.message ?? '').replace(/\s+/g, ' ').trim().slice(0, 200) || '(메시지 없음)'
     const g = groups.get(key) ?? { n: 0, source: e.source ?? null, fromUser: false }
     g.n += 1
@@ -89,9 +98,9 @@ export async function GET(req: NextRequest) {
 
   // 이번에 표시할 건 받아온 행까지. 넘친 건(FETCH_LIMIT 초과) 다음 실행에 다시 세므로 '+' 만 붙인다.
   const remaining = Math.max(0, (totalCount ?? unalerted.length) - unalerted.length)
-  const title = `부소장 에러 ${unalerted.length}${remaining > 0 ? '+' : ''}건(${groups.size}종)`
+  const title = `부소장 에러 ${real.length}${remaining > 0 ? '+' : ''}건(${groups.size}종)`
   const lines = ranked.slice(0, TOP_GROUPS).map(([msg, g]) =>
-    `${g.n}회 · ${g.fromUser ? clip(msg, 60) : (g.source ?? '오류')}`)
+    `${g.n}회 · ${g.fromUser ? clip(errorLineKo(msg), 80) : (g.source ?? '오류')}`)
   if (ranked.length > TOP_GROUPS) lines.push(`외 ${ranked.length - TOP_GROUPS}종`)
   const payload = { title, body: lines.join('\n').slice(0, 200), url: '/admin/errors', tag: 'error-alert' }
 
@@ -101,7 +110,7 @@ export async function GET(req: NextRequest) {
     console.error('[cron/error-alert] 받는 사람 없음', configError)
     return NextResponse.json({
       ok: false, reason: 'no_recipients', configError,
-      errors: unalerted.length, remaining, groups: groups.size, purged,
+      errors: real.length, remaining, groups: groups.size, purged,
     }, { status: 500 })
   }
 
@@ -124,37 +133,40 @@ export async function GET(req: NextRequest) {
     console.error('[cron/error-alert] 푸시 0건', reason, deliveries)
     return NextResponse.json({
       ok: false, reason, configError,
-      errors: unalerted.length, remaining, groups: groups.size,
+      errors: real.length, remaining, groups: groups.size,
       recipients: userIds.length, sent, failed, deliveries, purged,
     }, { status: 500 })
   }
 
-  // 5) 알린 행 표시. alerted_at IS NULL 조건을 다시 걸어 동시 실행이 있어도 시각을 덮어쓰지 않는다.
+  // 5) 알린 행 표시(시험 화면 것 포함).
+  const { alerted, error: markError } = await markAlerted(supa, unalerted.map(e => e.id))
+
+  return NextResponse.json({
+    ok: !markError, configError, markError,
+    errors: real.length, dev: devIds.length, remaining, groups: groups.size,
+    recipients: userIds.length, sent, failed, deliveries,
+    alerted, purged,
+  }, { status: markError ? 500 : 200 })
+}
+
+/** alerted_at 을 찍는다. alerted_at IS NULL 조건을 다시 걸어 동시 실행이 있어도 시각을 덮어쓰지 않는다. */
+async function markAlerted(supa: SupabaseClient, ids: string[]): Promise<{ alerted: number; error?: string }> {
   const alertedAt = new Date().toISOString()
-  const ids = unalerted.map(e => e.id)
   let alerted = 0
-  let markError: string | undefined
   for (let i = 0; i < ids.length; i += MARK_CHUNK) {
-    const { count, error: mErr } = await supa
+    const { count, error } = await supa
       .from('error_logs')
       .update({ alerted_at: alertedAt }, { count: 'exact' })
       .in('id', ids.slice(i, i + MARK_CHUNK))
       .is('alerted_at', null)
-    if (mErr) {
+    if (error) {
       // 표시가 안 되면 다음 실행에 같은 에러가 한 번 더 온다 — 놓치는 것보단 낫다
-      console.error('[cron/error-alert] mark failed', mErr)
-      markError = mErr.message
-      break
+      console.error('[cron/error-alert] mark failed', error)
+      return { alerted, error: error.message }
     }
     alerted += count ?? 0
   }
-
-  return NextResponse.json({
-    ok: !markError, configError, markError,
-    errors: unalerted.length, remaining, groups: groups.size,
-    recipients: userIds.length, sent, failed, deliveries,
-    alerted, purged,
-  }, { status: markError ? 500 : 200 })
+  return { alerted }
 }
 
 /**
