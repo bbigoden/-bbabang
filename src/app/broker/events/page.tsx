@@ -127,8 +127,9 @@ export default function EventsPage() {
   const isOwner = !!b && b.is_owner !== false
   const officeId = b ? (isOwner ? b.id : b.parent_broker_id ?? null) : null
   const allowed = canUseEvents(b)
-  // 직원은 대표 일정을 보기만 한다(DB 권한 office_event_can_manage). 버튼을 보여 주면 눌렀을 때 영어 오류가 났다(11-07)
-  const canManage = (e: { owner_broker_id: string | null }) => isOwner || (!!b && e.owner_broker_id === b.id)
+  // 예약관리 쓰는 직원은 본인 것 + 대표 것을 대표와 똑같이 고친다(DB office_event_can_manage, 11-07).
+  // 그 밖(다른 직원 담당)은 버튼을 숨긴다 — 보이면 눌렀을 때 영어 오류가 났다
+  const canManage = (e: { owner_broker_id: string | null }) => isOwner || (!!b && (e.owner_broker_id === b.id || e.owner_broker_id === officeId))
 
   const [events, setEvents] = useState<Ev[]>([])
   const [feedback, setFeedback] = useState<Feedback[]>([])
