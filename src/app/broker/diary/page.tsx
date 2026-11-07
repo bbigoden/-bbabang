@@ -10,6 +10,7 @@ import { getOfficeMembers } from '@/lib/office-members'
 import { canManageOffice } from '@/lib/office-role'
 import { Header } from '@/components/layout/header'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, X, Download, ArrowUp, ArrowDown } from 'lucide-react'
 import { SearchClear } from '@/components/ui/search-clear'
 import { cn } from '@/lib/utils'
@@ -368,6 +369,12 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  // 구분이 빈 고객은 일지에 넣지 않고 고객목록에서 먼저 채우게 한다(11-07 사장님)
+  const [needCategory, setNeedCategory] = useState<Customer | null>(null)
+  const pick = (c: Customer) => {
+    if (!(c.category ?? '').trim()) { setNeedCategory(c); return }
+    onAddExisting(c)
+  }
 
   // 입력이 멎고 250ms 뒤 서버 검색 (전건 프리로드 대체)
   // 담당자 필터는 서버에서 ilike로 넓게 잡고, 아래에서 콤마 분리 정확 매칭으로 정제한다.
@@ -429,6 +436,14 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
           )}
         </div>
 
+        {needCategory && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2.5 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-500/10 dark:text-amber-300">
+            <span className="flex-1 min-w-0">고객목록에서 구분을 선택하고 등록해주세요</span>
+            <Link href={`/broker/customers?focus=${needCategory.id}`}
+              className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">고객목록 이동</Link>
+          </div>
+        )}
+
         {/* 테이블 */}
         <div className="flex-1 overflow-auto">
           {filtered.length === 0 ? (
@@ -451,7 +466,7 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
               </thead>
               <tbody>
                 {filtered.map(c => (
-                  <tr key={c.id} onClick={() => onAddExisting(c)}
+                  <tr key={c.id} onClick={() => pick(c)}
                     className="border-b border-gray-50 cursor-pointer hover:bg-blue-50/60 transition-colors">
                     <td className="px-3 py-2 text-gray-800 dark:text-gray-100 max-w-md truncate">{c.request || c.client_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.received_date ?? <span className="text-gray-300">—</span>}</td>
