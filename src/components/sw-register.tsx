@@ -57,6 +57,23 @@ export function ServiceWorkerRegister() {
     return () => navigator.serviceWorker.removeEventListener('message', onMessage)
   }, [router])
 
+  // 앱을 열거나 다시 꺼내면 폰 알림창에 떠 있는 부소장 알림을 걷는다(11-07 사장님).
+  // 알림을 누르지 않고 앱으로 직접 들어와 확인해도 알림창에 그대로 남아 있었다 — 누를 때만 닫았다.
+  // 안 읽은 표시는 앱 안 알림 목록·메시지 숫자가 따로 지키므로 알림창 것만 닫는다.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
+    const clear = () => {
+      if (document.visibilityState !== 'visible') return
+      navigator.serviceWorker.getRegistration()
+        .then(r => r?.getNotifications?.())
+        .then(ns => ns?.forEach(n => n.close()))
+        .catch(() => {})
+    }
+    clear()
+    document.addEventListener('visibilitychange', clear)
+    return () => document.removeEventListener('visibilitychange', clear)
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     // 설치창 이벤트는 첫 화면에 바로 오므로 늦게 붙는 설치 안내 대신 여기서 잡아 둔다
