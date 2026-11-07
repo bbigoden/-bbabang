@@ -1952,7 +1952,7 @@ export default function AdsPage() {
               aria-label="담당자"
               value={manager}
               onChange={e => setManager(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-gray-800 dark:bg-gray-900"
             >
               <option value="">담당자 전체</option>
               {managers.map(n => <option key={n} value={n}>{`${n} (${managerCounts[n] ?? 0})`}</option>)}
@@ -1966,7 +1966,7 @@ export default function AdsPage() {
             title={agentOnline
               ? '뱅크 매물을 새로 받고, 담당자와 카페 글이 실제로 남아 있는지까지 맞춥니다'
               : AGENT_OFF_HINT}
-            className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
             <Download className={`h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
             {syncing ? (syncProgress ?? '가져오는 중…') : '가져오기'}

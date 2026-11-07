@@ -616,7 +616,7 @@ export default function BidPage() {
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 placeholder={tab === 'notice' ? '공고명·발주기관·공고번호' : '공고명·발주기관·낙찰업체·공고번호'}
-                className="h-9 w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-base sm:text-sm
+                className="h-[42px] w-48 rounded-xl border border-gray-200 bg-white pl-3 pr-8 text-base sm:text-sm
                            text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none
                            dark:border-gray-800 dark:bg-gray-950 dark:text-white"
               />
@@ -627,7 +627,7 @@ export default function BidPage() {
               disabled={collecting}
               title="나라장터에서 지금 받아옵니다 (최대 1분)"
               className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
-                         px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
+                         px-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700
                          disabled:opacity-60"
             >
               <Download className={`h-4 w-4 ${collecting ? 'animate-pulse' : ''}`} aria-hidden />

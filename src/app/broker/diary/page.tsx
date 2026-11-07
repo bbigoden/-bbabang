@@ -1513,7 +1513,7 @@ export default function BrokerDiaryPage() {
               </span>
             )}
           </div>
-          {/* 조작칸은 한 묶음 — 선택·불러오기·날짜를 모두 같은 높이(h-9)로 한 줄에 둔다. 선택이 제목 밑에 따로 있으면
+          {/* 조작칸은 한 묶음 — 선택·불러오기·날짜를 모두 같은 높이(42px — 검색·드롭다운 공통, 11-07)로 한 줄에 둔다. 선택이 제목 밑에 따로 있으면
               오른쪽 묶음이 두 줄 사이 가운데에 떠서 어긋나 보였다(11-06). 좁으면 묶음 단위로만 줄을 바꾼다 —
               '< 날짜 >' 는 떼지 않는다(> 만 다음 줄로 떨어졌던 일, 11-05). */}
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -1521,7 +1521,7 @@ export default function BrokerDiaryPage() {
             {isOwner && (employees.length > 0 || exEmployees.length > 0) && (
               // 선택칸은 가장 긴 항목('퇴사자 일지 보기…') 폭으로 잡혀 넓었다 — 고른 이름만 글자로 보이고
               // 투명한 선택칸을 그 위에 겹친다. 폭·글씨가 옆 [불러오기] 와 같아진다(11-06)
-              <label className="relative flex h-9 items-center gap-1 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 sm:px-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors cursor-pointer whitespace-nowrap">
+              <label className="relative flex h-[42px] items-center gap-1 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 sm:px-3 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors cursor-pointer whitespace-nowrap">
                 {viewingBrokerId
                   ? (employees.find(e => e.id === viewingBrokerId)?.name ?? exEmployees.find(e => e.id === viewingBrokerId)?.name ?? '직원')
                   : '내 일지'}
@@ -1561,17 +1561,17 @@ export default function BrokerDiaryPage() {
             {effectiveCanEdit && (
               // 폰에선 아이콘만 — 글자까지 넣으면 '< 날짜 >' 가 아랫줄로 떨어져 머리가 세 줄이 됐다(11-06)
               <button onClick={openImport} aria-label="불러오기" title="불러오기"
-                className="flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
+                className="flex items-center justify-center gap-1.5 h-[42px] w-[42px] sm:w-auto sm:px-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
                 <Download className="h-4 w-4 sm:h-3.5 sm:w-3.5" /><span className="hidden sm:inline">불러오기</span>
               </button>
             )}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              <button onClick={() => changeDate(-1)} aria-label="이전 날짜" className="flex items-center justify-center h-9 w-8 sm:w-9 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
-              <div className="flex h-9 items-center rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 sm:px-3 hover:border-blue-300 transition-colors">
+              <button onClick={() => changeDate(-1)} aria-label="이전 날짜" className="flex items-center justify-center h-[42px] w-8 sm:w-[42px] rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronLeft className="h-4 w-4" /></button>
+              <div className="flex h-[42px] items-center rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2.5 sm:px-3 hover:border-blue-300 transition-colors">
                 <DateCell value={diaryDate} onSave={v => { if (v) setDiaryDate(v) }}
                   triggerClassName="min-h-0 rounded-none px-0 py-0 text-sm font-medium text-gray-500 dark:text-gray-500 tabular-nums hover:bg-transparent hover:text-blue-600" />
               </div>
-              <button onClick={() => changeDate(1)} aria-label="다음 날짜" className="flex items-center justify-center h-9 w-8 sm:w-9 rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => changeDate(1)} aria-label="다음 날짜" className="flex items-center justify-center h-[42px] w-8 sm:w-[42px] rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors"><ChevronRight className="h-4 w-4" /></button>
             </div>
           </div>
         </div>

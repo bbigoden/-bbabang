@@ -630,7 +630,7 @@ export default function SettlementPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => { setAllMode(false); moveMonth(-1) }} disabled={allMode} aria-label="이전 달"
-              className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
+              className="flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronLeft className="h-4 w-4" />
             </button>
             {allMode ? (
@@ -641,21 +641,21 @@ export default function SettlementPage() {
                 value={month}
                 onChange={e => { if (e.target.value) setMonth(e.target.value) }}
                 aria-label="정산 기준 월 선택"
-                className="cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-base font-bold text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
+                className="h-[42px] cursor-pointer rounded-xl border border-gray-200 bg-white px-3 text-base font-bold text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
               />
             )}
             <button onClick={() => { setAllMode(false); moveMonth(1) }} disabled={allMode} aria-label="다음 달"
-              className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
+              className="flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 dark:border-gray-800 dark:bg-gray-900">
               <ChevronRight className="h-4 w-4" />
             </button>
             <button onClick={() => { setAllMode(false); setMonth(thisRecordMonth()) }}
-              className={`ml-1 rounded-lg border px-3 py-1.5 text-xs font-semibold ${!allMode && month === thisRecordMonth()
+              className={`ml-1 h-[42px] rounded-xl border px-3 text-sm font-semibold ${!allMode && month === thisRecordMonth()
                 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}>
               이번 달
             </button>
             <button onClick={() => setAllMode(true)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${allMode
+              className={`h-[42px] rounded-xl border px-3 text-sm font-semibold ${allMode
                 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}>
               전체
@@ -668,7 +668,7 @@ export default function SettlementPage() {
                 value={filterAssigneeId}
                 onChange={e => setFilterAssigneeId(e.target.value)}
                 aria-label="정산 직원 필터"
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer ${filterAssigneeId
+                className={`h-[42px] rounded-xl border px-3 text-sm font-semibold cursor-pointer ${filterAssigneeId
                   ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                   : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300'}`}
               >
@@ -689,11 +689,11 @@ export default function SettlementPage() {
                 )}
               </select>
             )}
-            <button onClick={() => downloadCsv('employee')} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+            <button onClick={() => downloadCsv('employee')} className="flex h-[42px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
               <Download className="h-3.5 w-3.5" /> 직원CSV
             </button>
             {isOwner && (
-              <button onClick={() => downloadCsv('office')} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+              <button onClick={() => downloadCsv('office')} className="flex h-[42px] items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                 <Download className="h-3.5 w-3.5" /> 사무소CSV
               </button>
             )}

@@ -1490,8 +1490,8 @@ export default function CollectPage() {
                 title={agentOnline
                   ? `${src.label}에서 새 매물을 받아옵니다 (${src.takes})`
                   : AGENT_OFF_HINT}
-                className="ml-auto flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
-                           px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700
+                className="ml-auto flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600
+                           px-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700
                            disabled:opacity-60"
               >
                 <Download className={`h-4 w-4 ${jobs[source] ? 'animate-pulse' : ''}`} aria-hidden />
@@ -1739,7 +1739,7 @@ export default function CollectPage() {
               <select
                 value={sort}
                 onChange={e => { setSort(e.target.value as SortKey); setPage(1) }}
-                className="h-8 rounded-xl border border-gray-200 bg-white px-2 text-sm
+                className="h-[42px] rounded-xl border border-gray-200 bg-white px-2 text-sm
                            text-gray-700 focus:border-blue-500 focus:outline-none
                            dark:border-gray-800 dark:bg-gray-950 dark:text-gray-300"
               >
