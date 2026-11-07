@@ -455,7 +455,7 @@ export default function EventsPage() {
         <div className="mb-4 flex overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-800 dark:bg-gray-900">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex flex-1 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 py-2 text-sm font-semibold transition-colors ${tab === t.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
+              className={`flex flex-1 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-sm font-semibold transition-colors ${tab === t.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
               {t.id === 'stats' && <BarChart3 className="h-4 w-4" />}
               {t.id === 'calendar' && <CalendarDays className="h-4 w-4" />}
               {t.label}

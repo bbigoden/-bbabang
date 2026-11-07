@@ -1924,7 +1924,7 @@ export default function AdsPage() {
                 // 안 풀면 탭을 눌러도 목록이 그대로라 고장 난 것처럼 보인다.
                 onClick={() => { setTab(key as typeof tab); if (좁혀보기 === '계약') set좁혀보기('') }}
                 title={hint}
-                className={`whitespace-nowrap px-3 py-1.5 text-sm first:rounded-l-lg last:rounded-r-lg ${
+                className={`whitespace-nowrap px-3 py-2 text-sm first:rounded-l-lg last:rounded-r-lg ${
                   tab === key
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
