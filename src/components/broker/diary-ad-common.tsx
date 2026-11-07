@@ -98,9 +98,7 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
     <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
       <div className="flex items-center gap-1.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50">
         <span className="text-sm font-bold text-gray-500 flex-shrink-0">{num}.</span>
-        <span className="text-sm font-bold text-gray-800">{title}</span>
-        <a href="/broker/office" className="ml-auto text-xs text-gray-400 hover:text-blue-500">현황판 ›</a>
-      </div>
+        <span className="text-sm font-bold text-gray-800">{title}</span>      </div>
 
       <div className="px-4 pt-3">
         {lines.length > 0 ? (
