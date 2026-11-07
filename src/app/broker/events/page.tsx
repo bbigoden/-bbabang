@@ -208,21 +208,22 @@ export default function EventsPage() {
     return { pending, upcoming, past }
   }, [events, today])
 
-  // ── 단골 — 같은 번호의 예약을 시간순으로(취소 빼고) ──
+  // ── 단골 — 같은 번호로 실제 다녀간(완료) 예약만 센다 ──
+  // 예전엔 취소만 뺐더니, 같은 날 신청 두 건(둘 다 확인 필요)에 '단골 2번째 · 지난번 오늘'이 붙었다(11-07 점검)
   const history = useMemo(() => {
     const m: Record<string, Ev[]> = {}
     for (const e of events) {
       const k = phoneKey(e.customer_phone)
-      if (k.length < 9 || e.status === 'canceled') continue
+      if (k.length < 9 || e.status !== 'done') continue
       ;(m[k] ??= []).push(e)
     }
     for (const k in m) m[k].sort((a, c) => (a.starts_at ?? a.created_at).localeCompare(c.starts_at ?? c.created_at))
     return m
   }, [events])
   const regular = (e: Ev): { nth: number; last: Ev } | null => {
-    const h = history[phoneKey(e.customer_phone)]
-    const i = h ? h.findIndex(x => x.id === e.id) : -1
-    return i > 0 ? { nth: i + 1, last: h[i - 1] } : null
+    const at = e.starts_at ?? e.created_at
+    const prior = (history[phoneKey(e.customer_phone)] ?? []).filter(x => x.id !== e.id && (x.starts_at ?? x.created_at) < at)
+    return prior.length ? { nth: prior.length + 1, last: prior[prior.length - 1] } : null
   }
 
   // ── 달력 ── 날짜는 전부 한국 기준 문자열로 센다(AGENTS.md)
