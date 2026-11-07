@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { transferBrokerData } from '@/lib/leave-office'
 import { OfficeCodeCard } from '@/components/office-code-card'
 import { useToast } from '@/components/toast'
+import { canManageOffice } from '@/lib/office-role'
 
 interface Employee {
   id: string
@@ -43,6 +44,7 @@ export default function BrokerTeamPage() {
   const [pending, setPending] = useState<Employee[]>([])
   const [loading, setLoading] = useState(true)
   const [isOwner, setIsOwner] = useState(false)
+  const [officeId, setOfficeId] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -58,14 +60,17 @@ export default function BrokerTeamPage() {
     setUser(u)
     setBroker(b)
 
-    const owner = b.is_owner !== false
-    setIsOwner(owner)
+    // 직원 관리는 대표 권한(대표·이사) — 이사도 대표와 같게(11-07 사장님, DB director_manage_team_20261107)
+    const manager = canManageOffice(b)
+    setIsOwner(manager)
+    const office = b.is_owner !== false ? b.id : (b.parent_broker_id ?? null)
+    setOfficeId(office)
 
-    if (owner) {
+    if (manager && office) {
       const { data: emps } = await supabase
         .from('broker_profiles')
         .select('id, user_id, is_approved, permissions, profiles:profiles_visible(name, email)')
-        .eq('parent_broker_id', b.id)
+        .eq('parent_broker_id', office)
         .order('created_at', { ascending: true })  // 가입일시 순(11-07 사장님)
 
       const list = (emps ?? []) as unknown as Employee[]
@@ -120,9 +125,9 @@ export default function BrokerTeamPage() {
 
   const removeEmployee = async (empId: string) => {
     if (!confirm('이 직원을 사무소에서 제거할까요?\n직원이 입력한 고객·매물·업무일지·채팅·제안·리뷰 등 모든 영업 기록은 사무소(대표)에 귀속됩니다.')) return
-    if (!broker) return
+    if (!broker || !officeId) return
 
-    const { error: transferErr } = await transferBrokerData(supabase, empId, broker.id)
+    const { error: transferErr } = await transferBrokerData(supabase, empId, officeId)
     if (transferErr) {
       console.error('[team] data transfer failed', transferErr)
       toast.error(`데이터 이전 실패로 제거를 중단했어요: ${transferErr.message}`)
@@ -149,8 +154,8 @@ export default function BrokerTeamPage() {
       <Header user={user} role="broker" />
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <Shield className="mx-auto h-12 w-12 text-gray-200 mb-4" />
-        <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">직원 관리는 대표 계정에서만 가능해요</h2>
-        <p className="text-sm text-gray-500">대표 중개사 계정으로 로그인 후 이용해주세요.</p>
+        <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">직원 관리는 대표·이사 계정에서만 가능해요</h2>
+        <p className="text-sm text-gray-500">대표나 이사 계정으로 로그인 후 이용해주세요.</p>
       </div>
     </div>
   )
@@ -207,7 +212,7 @@ export default function BrokerTeamPage() {
             <h2 className="text-sm font-bold text-gray-700 dark:text-gray-300">직원 ({approved.length}명)</h2>
           </div>
           {approved.length > 0 && (
-            <p className="text-xs text-gray-500 mb-3">이사는 대표와 같은 권한으로 사무소 전체를 보고 고쳐요. 직원 승인·등급·사무소 정보만 대표가 해요.</p>
+            <p className="text-xs text-gray-500 mb-3">이사는 대표와 같은 권한으로 사무소 전체를 보고 고치며, 직원 승인·등급·사무소 정보도 바꿀 수 있어요.</p>
           )}
           {approved.length === 0 ? (
             <div className="rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
@@ -227,6 +232,8 @@ export default function BrokerTeamPage() {
                       <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">{emp.profiles?.name ?? '—'}</div>
                       <div className="text-xs text-gray-500">{emp.profiles?.email}</div>
                     </div>
+                    {/* 이사 본인 줄은 등급·내보내기를 숨긴다 — 스스로 내려오거나 나가는 사고 방지(DB도 자기 내보내기를 막는다) */}
+                    {emp.id !== broker?.id && <>
                     <select aria-label={`${emp.profiles?.name ?? '직원'} 등급`} value={gradeOf(emp)}
                       onChange={e => setGrade(emp, e.target.value as Grade)} disabled={gradingId === emp.id}
                       className="flex-shrink-0 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 disabled:opacity-50">
@@ -236,6 +243,7 @@ export default function BrokerTeamPage() {
                       className={cn('flex h-7 w-7 items-center justify-center rounded-lg text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors')}>
                       <X className="h-3.5 w-3.5" />
                     </button>
+                    </>}
                   </div>
                 </div>
               ))}

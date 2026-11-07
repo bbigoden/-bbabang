@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Building2, AlertCircle, CheckCircle, ShieldCheck } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
+import { isDirector } from '@/lib/office-role'
 import {
   normalizeOfficeForm, validateOfficeForm, officeSaveError, verificationState, verificationCopy,
   type OfficeFormErrors,
@@ -57,9 +58,17 @@ export default function SettingsOfficePage() {
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth/login'); return }
-      const { data: b } = await supabase.from('broker_profiles').select('id, user_id, office_name, address, license_number, office_reg_number, business_reg_number, is_owner, is_verified, verification_info').eq('user_id', user.id).single()
-      if (!b) { setForbidden('중개사 프로필이 없어요. 중개사 등록을 먼저 진행해주세요.'); setLoading(false); return }
-      if (b.is_owner === false) { setForbidden('소속 직원은 사무소 정보를 수정할 수 없어요. 사장님께 문의해주세요.'); setLoading(false); return }
+      const COLS = 'id, user_id, office_name, address, license_number, office_reg_number, business_reg_number, is_owner, is_verified, verification_info'
+      const { data: me } = await supabase.from('broker_profiles').select(`${COLS}, parent_broker_id, is_approved, permissions`).eq('user_id', user.id).single()
+      if (!me) { setForbidden('중개사 프로필이 없어요. 중개사 등록을 먼저 진행해주세요.'); setLoading(false); return }
+      // 이사는 대표 사무소 정보를 대표와 똑같이 고친다(11-07 사장님). DB 수정 규칙도 이사에게 대표 행을 연다
+      let b: Broker | null = me as Broker
+      if (me.is_owner === false) {
+        if (!isDirector(me) || !me.parent_broker_id) { setForbidden('소속 직원은 사무소 정보를 수정할 수 없어요. 사장님께 문의해주세요.'); setLoading(false); return }
+        const { data: office } = await supabase.from('broker_profiles').select(COLS).eq('id', me.parent_broker_id).single()
+        b = office as Broker | null
+        if (!b) { setForbidden('사무소 정보를 불러오지 못했어요.'); setLoading(false); return }
+      }
       setBroker(b)
       setForm({
         office_name: b.office_name ?? '',

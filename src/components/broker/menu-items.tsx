@@ -13,7 +13,8 @@ export interface SubItemDef {
   href: string
   label: string
   icon: React.ComponentType<{ className?: string }>
-  ownerOnly?: boolean
+  /** 대표 권한(대표·이사)만 — 사무소·직원(11-07 사장님: 이사는 모두 대표와 같게) */
+  managerOnly?: boolean
   /** 사무소(broker_profiles)가 있어야 열리는 화면 — 등록 전엔 잠김 안내(officeLockedLabel) */
   needsOffice?: boolean
 }
@@ -23,7 +24,6 @@ export interface ItemDef {
   href?: string  // children 있으면 생략 가능
   label: string
   icon: React.ComponentType<{ className?: string }>
-  ownerOnly?: boolean
   /** 대표 권한(대표·이사)만 — 휴지통(11-06 사장님: "휴지통은 대표만") */
   managerOnly?: boolean
   needsOffice?: boolean
@@ -45,8 +45,6 @@ export function canUseEvents(broker: Parameters<typeof bidOf>[0]): boolean {
 
 /** 이 사무소에 보일 메뉴인가 — 사이드바·모바일 드로어가 같이 쓴다 */
 export function showItem(i: ItemDef, broker: Parameters<typeof bidOf>[0]): boolean {
-  const isOwner = broker?.is_owner !== false
-  if (i.ownerOnly && !isOwner) return false
   if (i.managerOnly && !canManageOffice(broker)) return false
   // 입찰은 대표 + 이사(대표가 입찰을 켰을 때)
   if (i.bidOnly && !bidOf(broker).enabled) return false
@@ -76,8 +74,8 @@ export const BROKER_ITEMS: ItemDef[] = [
     id: 'settings', label: '설정', icon: Settings,
     children: [
       { href: '/settings/account',       label: '내 계정', icon: User },
-      { href: '/settings/office',        label: '사무소', icon: Building2, ownerOnly: true, needsOffice: true },
-      { href: '/broker/team',            label: '직원', icon: UserCog, ownerOnly: true, needsOffice: true },
+      { href: '/settings/office',        label: '사무소', icon: Building2, managerOnly: true, needsOffice: true },
+      { href: '/broker/team',            label: '직원', icon: UserCog, managerOnly: true, needsOffice: true },
       { href: '/settings/appearance',    label: '화면',   icon: Palette },
       { href: '/settings/notifications', label: '알림 설정', icon: Bell },  // 메뉴 아래 '알림'(받은 알림 목록)과 이름이 같아 헷갈렸다(11-06 점검)
     ],

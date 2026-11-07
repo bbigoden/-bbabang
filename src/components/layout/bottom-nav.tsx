@@ -111,7 +111,7 @@ export function BottomNav() {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  const isOwner = broker?.is_owner !== false
+  const manager = canManageOffice(broker)
   const drawerItems: ItemDef[] = role === 'admin'
     ? ADMIN_ITEMS as ItemDef[]
     : BROKER_ITEMS.filter(i => showItem(i, broker))
@@ -219,7 +219,7 @@ export function BottomNav() {
                   const Icon = item.icon
                   if (item.children) {
                     const expanded = openIds.has(item.id)
-                    const subItems = item.children.filter(s => !s.ownerOnly || isOwner)
+                    const subItems = item.children.filter(s => !s.managerOnly || manager)
                     return (
                       <li key={item.id}>
                         <button
