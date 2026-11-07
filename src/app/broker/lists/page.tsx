@@ -110,7 +110,7 @@ function ListIndex({ officeId, selfId, canManage }: { officeId: string; selfId: 
       <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">미팅준비</h1>
       <div className="mb-5 flex items-center gap-2">
         {canManage && members && (
-          <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="전체 재직자"
+          <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="담당자"
             className="h-11 min-w-0 flex-1 sm:w-60 sm:flex-none" />
         )}
         <button type="button" onClick={() => setMaking(true)}

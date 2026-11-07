@@ -845,7 +845,7 @@ export default function BrokerCustomersPage() {
             className="shrink-0 max-w-[34%] sm:max-w-none rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
             {months.map(m => {
               const label = m === '전체'
-                ? '월별 전체'
+                ? '월별'
                 : (() => { const [y, mo] = m.split('-'); return `${y.slice(2)}년 ${parseInt(mo)}월 (${monthCounts[m]})` })()
               return <option key={m} value={m}>{label}</option>
             })}
@@ -856,7 +856,7 @@ export default function BrokerCustomersPage() {
               className="shrink-0 max-w-[34%] sm:max-w-none rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-2 sm:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20">
               {assignees.map(a => (
                 <option key={a} value={a}>
-                  {a === '전체' ? '담당자 전체' : `${a} (${assigneeCounts[a]})`}
+                  {a === '전체' ? '담당자' : `${a} (${assigneeCounts[a]})`}
                 </option>
               ))}
             </select>

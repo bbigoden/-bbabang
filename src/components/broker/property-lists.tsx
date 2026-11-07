@@ -363,31 +363,33 @@ export function ListPickerSheet({ officeId, selfId, canManage, activeId, onPick,
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officeId])
-  const shown = (lists ?? []).filter(l => l.created_by === who && l.status === 'ready')
+  // who='' 은 재직자 전체 — 미팅준비 화면처럼(11-07 사장님). 퇴직자 미팅은 뺀다
+  const shown = (lists ?? []).filter(l => l.status === 'ready' && (who ? l.created_by === who : names[l.created_by] !== undefined))
+  const mine = !who || who === selfId
 
   if (making && members) {
     return <ListFormSheet officeId={officeId} selfId={selfId} canManage={canManage} members={members}
-      defaultOwner={canManage ? who : selfId} onClose={() => setMaking(false)} onSaved={l => { setMaking(false); onPick(l) }} />
+      defaultOwner={canManage ? (who || selfId) : selfId} onClose={() => setMaking(false)} onSaved={l => { setMaking(false); onPick(l) }} />
   }
   return (
     <Sheet label="담을 미팅 고르기" onClose={onClose}>
       <SheetHead title="담을 미팅 고르기" sub="고르면 매물목록 [담기] 한 번으로 바로 들어갑니다" onClose={onClose} />
       <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-        {members && <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} label="누구 미팅에 담을지" />}
+        {members && <MemberSelect members={members} selfId={selfId} value={who} onChange={setWho} allLabel="담당자" label="누구 미팅에 담을지" />}
       </div>
       <div className="min-h-[30vh] flex-1 divide-y divide-gray-50 overflow-y-auto dark:divide-gray-800">
         {lists == null || members == null ? <p className="py-10 text-center text-sm text-gray-500">불러오는 중…</p>
           : shown.length === 0 ? (
             <p className="px-6 py-10 text-center text-sm text-gray-500">
-              {who === selfId ? '준비 중인 내 미팅이 없어요' : `${names[who] ?? ''}님의 준비 중인 미팅이 없어요`}
+              {!who ? '준비 중인 미팅이 없어요' : who === selfId ? '준비 중인 내 미팅이 없어요' : `${names[who] ?? ''}님의 준비 중인 미팅이 없어요`}
             </p>
-          ) : shown.map(l => <ListLine key={l.id} l={l} active={l.id === activeId} onClick={() => onPick(l)} />)}
+          ) : shown.map(l => <ListLine key={l.id} l={l} ownerName={who ? undefined : names[l.created_by]} active={l.id === activeId} onClick={() => onPick(l)} />)}
       </div>
-      {(who === selfId || canManage) && (
+      {(mine || canManage) && (
         <div className="border-t border-gray-100 p-3 dark:border-gray-800">
           <button type="button" onClick={() => setMaking(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-            <Plus className="h-4 w-4" />{who === selfId ? '새 미팅' : `${names[who] ?? ''}님 새 미팅`}
+            <Plus className="h-4 w-4" />{mine ? '새 미팅' : `${names[who] ?? ''}님 새 미팅`}
           </button>
         </div>
       )}
