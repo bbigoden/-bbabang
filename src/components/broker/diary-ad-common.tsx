@@ -17,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { fetchOfficeBoard, DIRECTOR_ID, type OfficeBoard } from '@/lib/office-board'
-import { todayKST, hmKST } from '@/lib/date-kst'
+import { todayKST } from '@/lib/date-kst'
 import { cn, isMissingTable } from '@/lib/utils'
 
 const n = (v: number) => v.toLocaleString()
@@ -34,7 +34,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
 }) {
   const supabase = createClient()
   const [board, setBoard] = useState<OfficeBoard | null>(null)
-  const [boardAt, setBoardAt] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [memos, setMemos] = useState<Memo[]>([])
   const [missing, setMissing] = useState(false)
@@ -45,19 +44,18 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
   useEffect(() => {
     if (!officeId) return
     let gone = false
-    setLoaded(false); setBoard(null); setBoardAt(null); setMemos([])
+    setLoaded(false); setBoard(null); setMemos([])
     void (async () => {
       // 오늘이면 지금 숫자를 처음부터 같이 센다 — 메모·공통칸을 받은 뒤에 세기 시작하면 폰에서 한 박자
       // (0.3초쯤) 늦게 떴다(2026-11-05). 명단은 현황판이 직접 묻는다
       const freshP = isToday ? fetchOfficeBoard(supabase, officeId) : null
       const [common, ms] = await Promise.all([
-        supabase.from('office_diary_common').select('ad_board, ad_board_at').eq('office_id', officeId).eq('date', date).maybeSingle(),
+        supabase.from('office_diary_common').select('ad_board').eq('office_id', officeId).eq('date', date).maybeSingle(),
         supabase.from('office_diary_ad_memos').select('author_id, memo, updated_at').eq('office_id', officeId).eq('date', date),
       ])
       if (gone) return
-      const c = common.data as { ad_board: OfficeBoard | null; ad_board_at: string | null } | null
+      const c = common.data as { ad_board: OfficeBoard | null } | null
       setBoard(c?.ad_board ?? null)
-      setBoardAt(c?.ad_board_at ?? null)
       setMissing(isMissingTable(ms.error))
       const list = (ms.data as Memo[] | null) ?? []
       setMemos(list)
@@ -143,11 +141,6 @@ export function DiaryAdCommon({ num, title, officeId, date, myBrokerId, viewedBr
           </table>
         ) : (
           <p className="text-xs text-gray-400">{!loaded || isToday ? '숫자 세는 중...' : '이 날짜엔 남겨 둔 현황판 숫자가 없어요'}</p>
-        )}
-        {board && (
-          <p className="mt-1 text-[11px] text-gray-400">
-            {isToday ? `${board.at} 기준` : boardAt ? `그날 ${hmKST(boardAt)} 기준` : ''}
-          </p>
         )}
       </div>
 

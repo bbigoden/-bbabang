@@ -1488,12 +1488,16 @@ const Background = memo(function Background({ guests, decor, night }: { guests: 
           ))}
           <rect x={0} y={TOP} width={2} height={H - TOP} fill="#6b7280" />
           {DOORS.map((d, i) => <rect key={i} x={d.x} y={d.y} width={d.w} height={d.h} fill="#cbb79a" />)}
-          {ROOMS.filter(r => r.key !== 'status').map(r => (
-            <g key={`l-${r.key}`}>
-              <rect x={r.x + 4} y={r.y + 3} width={textW(r.label, 4.6) + 5} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
-              <text x={r.x + 6.5} y={r.y + 8.8} fontSize={4.6} fontWeight={800} fill={r.color}>{r.label}</text>
-            </g>
-          ))}
+          {/* 방 이름판 — 글자를 판 가운데에 둔다. 왼쪽 맞춤이던 때는 어림 폭이 실제보다 넓어 오른쪽만 비었다(11-07 '좌측으로 쏠림') */}
+          {ROOMS.filter(r => r.key !== 'status').map(r => {
+            const pw = textW(r.label, 4.6) + 3
+            return (
+              <g key={`l-${r.key}`}>
+                <rect x={r.x + 4} y={r.y + 3} width={pw} height={7.5} fill="#fff7e6" stroke={r.color} strokeWidth={0.6} />
+                <text x={r.x + 4 + pw / 2} y={r.y + 8.8} fontSize={4.6} fontWeight={800} textAnchor="middle" fill={r.color}>{r.label}</text>
+              </g>
+            )
+          })}
     </>
   )
 })
