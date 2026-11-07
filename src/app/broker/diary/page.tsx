@@ -355,12 +355,12 @@ function PropertyPicker({ officeId, selectedIds, memoScope, onConfirm, onClose }
 }
 
 // ── CustomerPicker ────────────────────────────────────
-function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerBrokerId, onAddExisting, onCreateNew, onClose }: {
+function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerBrokerId, onAddExisting, onClose }: {
   officeId: string | null; linkedIds: Set<string>
   ownerName: string  // 일지 주인 이름 — 담당자 매칭 + 표시용
   ownerBrokerId: string | null  // 일지 주인 broker_id — 그 사람 소유 고객만 필터
   onAddExisting: (c: Customer) => void
-  onCreateNew: () => void; onClose: () => void
+  onClose: () => void
 }) {
   const supabase = createClient()
   const toast = useToast()
@@ -409,10 +409,7 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
       <div className="w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl bg-white dark:bg-gray-900 shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
-          <div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">고객 등록</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{ownerName} 담당 고객 중 일지에 추가할 행을 클릭하세요</p>
-          </div>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">고객 등록</h3>
           <button onClick={onClose} aria-label="닫기" className="text-gray-500 hover:text-gray-600 dark:text-gray-500 transition-colors"><X className="h-5 w-5" /></button>
         </div>
 
@@ -450,40 +447,23 @@ function CustomerPicker({ officeId, linkedIds, ownerName, ownerBrokerId: _ownerB
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">담당자</th>
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">구분</th>
                   <th className="px-3 py-2.5 text-left whitespace-nowrap">유입</th>
-                  <th className="px-3 py-2.5" style={{ width: 64 }}><span className="sr-only">액션</span></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(c => (
                   <tr key={c.id} onClick={() => onAddExisting(c)}
-                    className="group border-b border-gray-50 cursor-pointer hover:bg-blue-50/60 transition-colors">
+                    className="border-b border-gray-50 cursor-pointer hover:bg-blue-50/60 transition-colors">
                     <td className="px-3 py-2 text-gray-800 dark:text-gray-100 max-w-md truncate">{c.request || c.client_name || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.received_date ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.contact ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.assignee ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.category || <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.source ?? <span className="text-gray-300">—</span>}</td>
-                    <td className="px-3 py-2 text-right">
-                      <span className="text-xs font-semibold text-gray-300 group-hover:text-blue-600 transition-colors">추가</span>
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-        </div>
-
-        {/* 푸터 */}
-        <div className="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex items-center gap-3 flex-shrink-0 bg-gray-50/50">
-          <button onClick={onCreateNew}
-            className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 px-3 py-2 text-sm font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 transition-colors">
-            <Plus className="h-4 w-4" />새 고객 만들기
-          </button>
-          <div className="flex-1" />
-          <button onClick={onClose}
-            className="rounded-xl border border-gray-200 dark:border-gray-800 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 dark:bg-gray-800 transition-colors">
-            닫기
-          </button>
         </div>
       </div>
     </div>
@@ -958,31 +938,6 @@ export default function BrokerDiaryPage() {
       setTimeout(() => setAddingId(null), 3000)
     }
     setShowPicker(false)
-  }
-
-  // 고객 피커: 새 고객 만들기 (구분/진행상황 빈 값으로 생성, 위로 쌓이게)
-  const createAndAddCustomer = async () => {
-    if (!broker) return
-    setShowPicker(false)
-    const targetBrokerId = viewingBrokerId ?? broker.id  // 직원 일지 보는 중이면 그 직원 소유로 생성
-    const { data: newCust, error: ce } = await supabase.from('broker_customers').insert({
-      broker_id: targetBrokerId, client_name: '', request: '', contact: null,
-      received_date: null, assignee: viewingName || null, source: null,  // 담당자도 보고 있는 대상
-      category: '', status: '',
-    }).select().single()
-    if (ce || !newCust) return
-    const orders = diaryCustomers.map(d => d.sort_order)
-    const nextOrder = direction === 'up'
-      ? (orders.length > 0 ? Math.min(...orders) - 1 : 0)
-      : (orders.length > 0 ? Math.max(...orders) + 1 : 0)
-    const { data: link } = await supabase.from('broker_diary_customers').insert({ broker_id: targetBrokerId, diary_date: diaryDate, customer_id: newCust.id, sort_order: nextOrder }).select('id').single()
-    if (link) {
-      setDiaryCustomers(prev => direction === 'up'
-        ? [{ link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }, ...prev]
-        : [...prev, { link_id: link.id, sort_order: nextOrder, proposed_property_ids: [], ...newCust as Customer }])
-      setAddingId(newCust.id)
-      setTimeout(() => setAddingId(null), 3000)
-    }
   }
 
   // 고객 행 삭제 (diary_customers 링크만 제거)
@@ -1688,7 +1643,7 @@ export default function BrokerDiaryPage() {
       {/* 고객 피커 */}
       {showPicker && (
         <CustomerPicker officeId={pickerOfficeId} linkedIds={linkedIds} ownerName={viewingName} ownerBrokerId={viewingBrokerId ?? broker?.id ?? null}
-          onAddExisting={addExistingCustomer} onCreateNew={createAndAddCustomer} onClose={() => setShowPicker(false)} />
+          onAddExisting={addExistingCustomer} onClose={() => setShowPicker(false)} />
       )}
 
       {/* 제안 매물 피커 */}
