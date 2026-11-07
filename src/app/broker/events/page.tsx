@@ -127,6 +127,8 @@ export default function EventsPage() {
   const isOwner = !!b && b.is_owner !== false
   const officeId = b ? (isOwner ? b.id : b.parent_broker_id ?? null) : null
   const allowed = canUseEvents(b)
+  // 직원은 대표 일정을 보기만 한다(DB 권한 office_event_can_manage). 버튼을 보여 주면 눌렀을 때 영어 오류가 났다(11-07)
+  const canManage = (e: { owner_broker_id: string | null }) => isOwner || (!!b && e.owner_broker_id === b.id)
 
   const [events, setEvents] = useState<Ev[]>([])
   const [feedback, setFeedback] = useState<Feedback[]>([])
@@ -279,9 +281,10 @@ export default function EventsPage() {
       if (v === null) return
       patch.paid_amount = v.trim() ? Number(v.replace(/[^\d]/g, '')) : null
     }
+    if (!canManage(e)) { toast.error('다른 사람 담당 예약이라 바꿀 수 없어요'); return }
     if (status === 'canceled' && !confirm('이 예약을 취소로 바꿀까요?')) return
-    const { data, error } = await supabase.from('office_events').update(patch).eq('id', e.id).select('*').single()
-    if (error) { toast.error(`바꾸기 실패: ${error.message}`); return }
+    const { data, error } = await supabase.from('office_events').update(patch).eq('id', e.id).select('*').maybeSingle()
+    if (error || !data) { toast.error(error ? `바꾸기 실패: ${error.message}` : '바꿀 권한이 없어요'); return }
     setEvents(prev => prev.map(x => (x.id === e.id ? (data as Ev) : x)))
     if (status === 'confirmed') copy(data as Ev)
   }
@@ -291,8 +294,8 @@ export default function EventsPage() {
     const v = prompt('받은 예약금(원)을 적어 주세요. 지우면 안 받은 것으로 돌아가요.', e.paid_amount != null ? String(e.paid_amount) : '')
     if (v === null) return
     const paid_amount = v.trim() ? Number(v.replace(/[^\d]/g, '')) : null
-    const { data, error } = await supabase.from('office_events').update({ paid_amount }).eq('id', e.id).select('*').single()
-    if (error) { toast.error(`저장 실패: ${error.message}`); return }
+    const { data, error } = await supabase.from('office_events').update({ paid_amount }).eq('id', e.id).select('*').maybeSingle()
+    if (error || !data) { toast.error(error ? `저장 실패: ${error.message}` : '바꿀 권한이 없어요'); return }
     setEvents(prev => prev.map(x => (x.id === e.id ? (data as Ev) : x)))
   }
 
@@ -385,14 +388,15 @@ export default function EventsPage() {
                           </details>
                         )}
                       </div>
-                      <button onClick={() => openEdit(e)} aria-label="고치기" className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><Pencil className="h-4 w-4" /></button>
+                      {canManage(e) && <button onClick={() => openEdit(e)} aria-label="고치기" className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><Pencil className="h-4 w-4" /></button>}
                     </div>
                     <div className="mt-2 flex flex-wrap justify-end gap-2">
-                      {e.status === 'pending' && <>
+                      {!canManage(e) && <span className="mr-auto self-center text-xs text-gray-400">{names[e.owner_broker_id ?? ''] ?? '다른 사람'} 담당 — 보기만</span>}
+                      {canManage(e) && e.status === 'pending' && <>
                         <Btn onClick={() => setStatus(e, 'canceled')} tone="gray"><X className="h-3.5 w-3.5" />취소</Btn>
                         <Btn onClick={() => setStatus(e, 'confirmed')} tone="blue"><Check className="h-3.5 w-3.5" />확정</Btn>
                       </>}
-                      {e.status === 'confirmed' && <>
+                      {canManage(e) && e.status === 'confirmed' && <>
                         <Btn onClick={() => markDeposit(e)} tone="gray">{e.paid_amount != null ? '예약금 고치기' : '예약금 받음'}</Btn>
                         <Btn onClick={() => copy(e)} tone="gray">{copied === e.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}안내 문구</Btn>
                         <Btn onClick={() => setStatus(e, 'canceled')} tone="gray">취소</Btn>
